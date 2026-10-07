@@ -22,6 +22,17 @@ fn run() -> Result<()> {
     }
     let config = Config::from_env()?;
     let mut store = PgStore::connect(config)?;
+    if matches!(mode.as_str(), "run" | "once") {
+        // The database must declare its stored vote sign, and it must be the
+        // sign this build is built for (P-078; docs/vote-convention-upgrade.md).
+        // Refused before any lease is taken; every snapshot checks again.
+        let version = polis_coordinator::vote_convention::require(
+            &mut store.client,
+            "coordinator",
+            store.config.storage_agree_value,
+        )?;
+        tracing::info!(version, agree = store.config.storage_agree_value, "vote convention");
+    }
     match mode.as_str() {
         "migrate" => store.migrate(),
         "once" => {

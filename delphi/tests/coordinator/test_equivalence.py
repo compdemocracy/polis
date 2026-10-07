@@ -7,7 +7,7 @@ import sys
 import threading
 from pathlib import Path
 import pytest
-from coordinator.conftest import ROOT, ARTIFACTS, FOLD, MAPPING, seed, connect, rows, assert_coherent, fold_semantic
+from coordinator.conftest import ROOT, ARTIFACTS, FOLD, MAPPING, seed, connect, rows, assert_coherent, fold_semantic, declare_convention, reverse_votes
 from tests.vote_fixtures import AGREE, DISAGREE, PASS, convention, seed_vote
 from polismath.utils.vote_convention import flipped
 from polismath.replay.crosslang import canonicalize_blob
@@ -44,12 +44,16 @@ def test_polarity_through_actual_database_ingress(db,launch,fixture):
     else:seed_vw(db,slug=fixture)
     launch(db).done()
     a=canonical(rows(db))
-    c=connect(db)
-    with c.cursor() as cur:cur.execute("UPDATE votes SET vote=-vote")
-    c.close()
+    # The same votes stored at +1, and the row declaring it (the env alone never
+    # overrides the row: a build for the other sign refuses this database).
+    reverse_votes(db);declare_convention(db,1)
     launch(db,env="positive",extra={"STORAGE_AGREE_VALUE":"1"}).done()
     b=canonical(rows(db,env="positive"))
-    launch(db,env="negative").done()
+    _,refusal=launch(db,env="negative").done(1)
+    assert "#mismatch" in refusal
+    # The control: the opposite votes under the same declaration must differ.
+    reverse_votes(db)
+    launch(db,env="negative",extra={"STORAGE_AGREE_VALUE":"1"}).done()
     negative=canonical(rows(db,env="negative"))
     delta=diff(a,b)
     (ARTIFACTS/f"polarity-{fixture}.json").write_text(json.dumps({"fixture":fixture,"a":hash_blob(a),"b":hash_blob(b),"negative":hash_blob(negative),"deltas":delta},indent=2))
@@ -155,9 +159,13 @@ def test_polarity_rebuild_schedule_with_revotes(db,launch):
     variants=[]
     for step in range(3):
         if step:events.append((0,0,(PASS,DISAGREE)[step-1],2000+step))
-        write(convention(),events);launch(db).done();a=canonical(rows(db))
-        write(flipped(convention()),events);launch(db,env='positive',extra={'STORAGE_AGREE_VALUE':str(flipped(convention()))}).done();b=canonical(rows(db,env='positive'))
-        launch(db,env='negative').done();n=canonical(rows(db,env='negative'))
+        declare_convention(db,convention());write(convention(),events);launch(db).done();a=canonical(rows(db))
+        # The same votes stored at the other sign, with the row declaring it.
+        declare_convention(db,flipped(convention()));write(flipped(convention()),events)
+        launch(db,env='positive',extra={'STORAGE_AGREE_VALUE':str(flipped(convention()))}).done();b=canonical(rows(db,env='positive'))
+        # The control: the opposite votes under the same declaration.
+        write(convention(),events)
+        launch(db,env='negative',extra={'STORAGE_AGREE_VALUE':str(flipped(convention()))}).done();n=canonical(rows(db,env='negative'))
         assert hash_blob(a)==hash_blob(b)
         assert hash_blob(a)!=hash_blob(n)
         variants.append(dict(step=step,positive=hash_blob(a),paired=hash_blob(b),negative=hash_blob(n)))
@@ -190,12 +198,12 @@ def test_semantic_tie_key_is_a_declared_contract_term(db,launch):
     assert census['tied_groups']==1 and census['tied_rows']==2
     assert census['key']==['tid','pid','created_ms']
     assert census['resolved_by']==['semantic_vote','weight_x_32767']
-    c=connect(db)
-    with c.cursor() as cur:cur.execute('UPDATE votes SET vote=-vote WHERE zid=1')
-    c.close()
+    reverse_votes(db,'zid=1');declare_convention(db,1)
     launch(db,env='positive',extra={'STORAGE_AGREE_VALUE':'1'}).done()
     b=canonical(rows(db,env='positive'))
-    launch(db,env='negative').done()
+    # The control: the opposite votes under the same declaration.
+    reverse_votes(db,'zid=1')
+    launch(db,env='negative',extra={'STORAGE_AGREE_VALUE':'1'}).done()
     negative=canonical(rows(db,env='negative'))
     mirrored=rows(db,env='positive')['math_ticks']['input_checkpoint']['ordering']
     assert mirrored['storage_agree_value']==1

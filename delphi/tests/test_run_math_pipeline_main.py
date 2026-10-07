@@ -14,6 +14,11 @@ import pytest
 import polismath.conversation.conversation as conversation_module
 import polismath.database.dynamodb as dynamodb_module
 import polismath.run_math_pipeline as rmp
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE, flipped
+
+
+#: The declaration a database made for this build carries: (version, agree, contract).
+DECLARED_TODAY = (0, STORAGE_AGREE_VALUE, 1)
 
 
 class FakeCursor:
@@ -23,13 +28,13 @@ class FakeCursor:
         self._result = None
 
     def execute(self, sql, params=None):
-        if "to_regprocedure" in sql:
-            # Without convention_row: a database before P-078 PR-A.
+        if "to_regclass" in sql or "to_regprocedure" in sql:
+            # Without convention_row: an undeclared database (table, no row).
             self.description = [("present",)]
-            self._result = [(self.convention_row is not None,)]
+            self._result = [(True,)]
         elif "FROM public.vote_convention_current()" in sql:
-            self.description = [("version",), ("agree_value",)]
-            self._result = [self.convention_row]
+            self.description = [("version",), ("agree_value",), ("contract_version",)]
+            self._result = [] if self.convention_row is None else [self.convention_row]
         elif "COUNT(*)" in sql:
             self._result = [(len(self.rows),)]
         else:
@@ -114,7 +119,7 @@ class FakeDynamoDBClient:
 def run_main(monkeypatch):
     """Run main() over generated vote rows ``(created, tid, pid, raw_vote)``."""
 
-    def _run(rows, *, export_result=True, convention_row=None):
+    def _run(rows, *, export_result=True, convention_row=DECLARED_TODAY):
         RecordingConversation.instances.clear()
         RecordingConversation.export_result = export_result
         monkeypatch.setattr(rmp, "connect_to_db", lambda: FakeConn(rows, convention_row))
@@ -128,6 +133,8 @@ def run_main(monkeypatch):
             rmp.main()
         except SystemExit as e:
             exit_code = e.code
+        if not RecordingConversation.instances:
+            return exit_code, None  # refused before the engine was built
         (conv,) = RecordingConversation.instances
         return exit_code, conv.fed_votes
 
@@ -145,3 +152,16 @@ def test_failed_export_exits_with_the_export_failed_code(run_main):
     assert exit_code != 0
     # The math was still computed over the same input.
     assert len(fed) == 1
+
+
+def test_an_undeclared_database_is_refused_before_any_vote_is_read(run_main, capsys):
+    """P-078: the math stage refuses a database that records no sign."""
+    exit_code, fed = run_main([(1000, 1, 1, 0)], convention_row=None)
+    assert exit_code == 1 and fed is None
+    assert "make vote-convention-declare AGREE=" in capsys.readouterr().err
+
+
+def test_a_database_declared_for_the_other_sign_is_refused(run_main, capsys):
+    exit_code, fed = run_main([(1000, 1, 1, 0)], convention_row=(1, flipped(STORAGE_AGREE_VALUE), 1))
+    assert exit_code == 1 and fed is None
+    assert "every vote inverted" in capsys.readouterr().err

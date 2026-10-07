@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 
 import pytest
-from coordinator.conftest import ROOT, assert_coherent, connect, rows, seed
+from coordinator.conftest import ROOT, assert_coherent, connect, reverse_votes, rows, seed
 from coordinator.test_equivalence import python_checkpoint
 from coordinator._node_gate import require_node
 from tests.vote_fixtures import DISAGREE, seed_vote
@@ -56,9 +56,12 @@ def rust_and_python_publish(db, launch):
     evidence once "and a different one does not" is also true (Rev7)."""
     launch(db).done()
     python_checkpoint(db)
-    # Same source, opposite declared agree convention: a genuinely different
-    # generation for the same zid, in its own namespace.
-    launch(db, env="positive", extra={"STORAGE_AGREE_VALUE": "1"}).done()
+    # The same conversation with every vote reversed: a genuinely different
+    # generation for the same zid, in its own namespace. (The declared row is
+    # unchanged; a build for the other sign would refuse this database.)
+    reverse_votes(db)
+    launch(db, env="positive").done()
+    reverse_votes(db)
     a, b = rows(db, env="rustproto"), rows(db, env="python")
     assert a["math_main"] is not None and b["math_main"] is not None
     assert a["math_main"]["math_tick"] == b["math_main"]["math_tick"]
@@ -104,15 +107,15 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
 
     # Rev7: two namespaces agreeing does not prove namespace isolation unless a
     # deliberately different third namespace is served differently. Publish the
-    # same conversation under the opposite agree convention, which produces a
-    # genuinely different generation, and require the reader to tell them apart.
+    # same conversation with every vote reversed, which produces a genuinely
+    # different generation, and require the reader to tell them apart.
     both = node_read(db, envs=("rustproto", "positive", "reader"))
     foreign = both["positive"]
     assert foreign["present"], foreign
     assert foreign["asJSON_sha256"] != served["rustproto"]["asJSON_sha256"]
     assert foreign["gzip_sha256"] != served["rustproto"]["gzip_sha256"]
     assert foreign["keys_projection_sha256"] != served["rustproto"]["keys_projection_sha256"]
-    # The mirrored convention keeps the same clustering, so bidToPid is
+    # Reversed votes keep the same clustering, so bidToPid is
     # legitimately identical; recording that rather than asserting a difference
     # that does not exist.
     assert foreign["mapping_sha256"] == served["rustproto"]["mapping_sha256"]

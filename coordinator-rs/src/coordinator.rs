@@ -18,6 +18,10 @@ impl PgStore {
             .isolation_level(IsolationLevel::RepeatableRead)
             .read_only(true)
             .start()?;
+        // The database's declared vote sign, read in the same snapshot as the
+        // votes it governs. This build normalizes raw votes with its configured
+        // sign; a database declaring none, or the other one, refuses the snapshot.
+        crate::vote_convention::require(&mut tx, "coordinator", self.config.storage_agree_value)?;
         // Keyless votes: content order is deterministic, exact duplicate rows remain
         // separate events. No ctid or invented primary key, no timestamp cutoff.
         // The order is the declared `polis-order/1` normalization, and the agree

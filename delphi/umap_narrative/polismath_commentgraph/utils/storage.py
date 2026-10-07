@@ -292,6 +292,17 @@ class PostgresClient:
 
         return self.query(sql, {"zid": zid})
 
+    def require_declared_convention(self, component: str = "Delphi job"):
+        """The startup check (P-078): the database must declare its stored vote
+        sign, and it must be the sign this build is built for. Raises
+        ``VoteConventionRefusal`` with the operator message; the stage that
+        calls it exits non-zero and reads no vote."""
+        from polismath.utils.vote_convention_boot import require_declared_convention
+
+        if not self._initialized:
+            self.initialize()
+        return require_declared_convention(lambda sql: self.query(sql), component)
+
     def get_votes_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
         Get all votes in a conversation.

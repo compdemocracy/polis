@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 import time
 from datetime import datetime
 
@@ -13,7 +14,8 @@ import numpy as np
 import pandas as pd
 
 from .utils.converter import DataConverter
-from .utils.storage import DynamoDBStorage, PostgresClient
+from .utils.storage import DynamoDBStorage, PostgresClient, PostgresConfig
+from polismath.utils.vote_convention_boot import VoteConventionRefusal
 
 # Configure logging
 logging.basicConfig(
@@ -161,20 +163,25 @@ def test_postgres(args):
     Args:
         args: Command-line arguments containing connection info
     """
-    # Initialize the PostgreSQL client
-    pg_config = {
-        "host": args.pg_host,
-        "port": args.pg_port,
-        "database": args.pg_database,
-        "user": args.pg_user,
-        "password": args.pg_password,
-    }
+    # Initialize the PostgreSQL client (a PostgresConfig, as PostgresClient
+    # requires; a plain dict has no get_uri and the command failed before it
+    # reached the database). Unset arguments fall back to the DATABASE_* variables.
+    pg_config = PostgresConfig(
+        host=args.pg_host,
+        port=args.pg_port,
+        database=args.pg_database,
+        user=args.pg_user,
+        password=args.pg_password,
+    )
 
     pg_client = PostgresClient(pg_config)
 
     try:
         # Try to initialize the connection
         pg_client.initialize()
+        # The database must declare its stored vote sign (P-078).
+        declared = pg_client.require_declared_convention("commentgraph CLI")
+        logger.info(f"Vote convention declared: version {declared.version}, agree stored as {declared.agree_value}")
 
         # Test a simple query
         if args.zid:
@@ -244,6 +251,12 @@ def test_postgres(args):
 
             return {"success": True, "query_result": result}
 
+    except VoteConventionRefusal as e:
+        # The database declares no sign, or not this build's: the operator
+        # message, on stderr and in the log, and a failure the caller exits on.
+        print(e.message, file=sys.stderr, flush=True)
+        logger.error(e.message)
+        return {"success": False, "error": e.message, "code": e.code}
     except Exception as e:
         logger.error(f"PostgreSQL test failed: {str(e)}")
         import traceback
@@ -665,7 +678,11 @@ def main():
     if args.command == "test-evoc":
         test_evoc(args)
     elif args.command == "test-postgres":
-        test_postgres(args)
+        # The result object carries the verdict; the process exit code must too
+        # (an undeclared database is a refusal, not a normal completion).
+        result = test_postgres(args)
+        if not result.get("success"):
+            sys.exit(1)
     elif args.command == "lambda-local":
         lambda_local(args)
     else:

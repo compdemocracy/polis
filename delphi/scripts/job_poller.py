@@ -1457,6 +1457,17 @@ def main():
     # start; on other platforms it falls back to fail-closed confirmation.
     ensure_process_exit_fence()
 
+    # The database must declare its stored vote sign, and it must be the sign
+    # this build is built for (P-078; docs/vote-convention-upgrade.md). The
+    # poller and the jobs it would spawn read votes; it refuses to start otherwise.
+    from polismath.utils.vote_convention_boot import (
+        VoteConventionRefusal, refuse_and_exit, require_declared_convention)
+    try:
+        declared = require_declared_convention(PostgresClient().query, "Delphi job poller")
+    except VoteConventionRefusal as exc:
+        refuse_and_exit(exc, logger)
+    logger.info("vote convention: version %s, agree stored as %s", declared.version, declared.agree_value)
+
     try:
         processor = JobProcessor(endpoint_url=args.endpoint_url, region=args.region)
         threads = []

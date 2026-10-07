@@ -177,6 +177,93 @@ row! {
 }
 
 row! {
+    DelphiCurrentRow, "delphi_current", "server/postgres/migrations/000023_create_delphi_foundation.sql:265";
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:266"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:266"),
+    scope: String => ("scope", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:267"),
+    job_id: Option<PgUuid> => ("job_id", "uuid", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:268"),
+    requested_generation: i64 => ("requested_generation", "int8", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:268"),
+    published_generation: i64 => ("published_generation", "int8", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:269"),
+}
+
+row! {
+    DelphiFoundationInstallRow, "delphi_foundation_install", "server/postgres/migrations/000023_create_delphi_foundation.sql:819";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
+}
+
+row! {
+    DelphiJobAliasesRow, "delphi_job_aliases", "server/postgres/migrations/000023_create_delphi_foundation.sql:249";
+    public_id: String => ("public_id", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:250"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:251"),
+    source: String => ("source", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:252"),
+}
+
+row! {
+    DelphiJobGuardsRow, "delphi_job_guards", "server/postgres/migrations/000023_create_delphi_foundation.sql:275";
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:276"),
+    scope_key: String => ("scope_key", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:276"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:276"),
+    root_job_id: PgUuid => ("root_job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:277"),
+    request_sha256: String => ("request_sha256", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:277"),
+}
+
+row! {
+    DelphiJobInputsRow, "delphi_job_inputs", "server/postgres/migrations/000023_create_delphi_foundation.sql:255";
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:256"),
+    consumer_job_id: PgUuid => ("consumer_job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:256"),
+    input_role: String => ("input_role", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:257"),
+    ordinal: i32 => ("ordinal", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:257"),
+    producer_job_id: PgUuid => ("producer_job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:258"),
+    producer_output_digest: Vec<u8> => ("producer_output_digest", "bytea", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:258"),
+}
+
+row! {
+    DelphiJobsRow, "delphi_jobs", "server/postgres/migrations/000023_create_delphi_foundation.sql:221";
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:222"),
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:222"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:223"),
+    report_id: Option<String> => ("report_id", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:223"),
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:224"),
+    parent_job_id: Option<PgUuid> => ("parent_job_id", "uuid", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:226"),
+    run_id: Option<PgUuid> => ("run_id", "uuid", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:226"),
+    origin: String => ("origin", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:227"),
+    replayable: bool => ("replayable", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:228"),
+    reuse_eligible: bool => ("reuse_eligible", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:228"),
+    status: String => ("status", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:229"),
+    inputs_digest: Option<Vec<u8>> => ("inputs_digest", "bytea", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:230"),
+    math_env: Option<String> => ("math_env", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:230"),
+    math_tick: Option<i64> => ("math_tick", "int8", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:230"),
+    math_caching_tick: Option<i64> => ("math_caching_tick", "int8", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:231"),
+    math_snapshot_key: Option<Vec<u8>> => ("math_snapshot_key", "bytea", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:231"),
+    config_effective: PgJson => ("config_effective", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:232"),
+    code_version: Option<String> => ("code_version", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:233"),
+    model_versions: PgJson => ("model_versions", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:233"),
+    cost: PgJson => ("cost", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:234"),
+    output_manifest_digest: Option<Vec<u8>> => ("output_manifest_digest", "bytea", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:235"),
+    pinned: bool => ("pinned", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:236"),
+    label: Option<String> => ("label", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:236"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:237"),
+    completed_at: Option<PgTimestamp> => ("completed_at", "timestamptz", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:237"),
+    error: Option<String> => ("error", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:237"),
+}
+
+row! {
+    DelphiProviderRequestsRow, "delphi_provider_requests", "server/postgres/migrations/000023_create_delphi_foundation.sql:280";
+    request_id: PgUuid => ("request_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    attempt_id: PgUuid => ("attempt_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    provider: String => ("provider", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:282"),
+    provider_batch_id: Option<String> => ("provider_batch_id", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:282"),
+    state: String => ("state", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:283"),
+    request_digest: Vec<u8> => ("request_digest", "bytea", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:284"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:285"),
+    updated_at: PgTimestamp => ("updated_at", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:285"),
+}
+
+row! {
     DemographicDataRow, "demographic_data", "server/postgres/migrations/000000_initial.sql:949";
     uid: Option<i32> => ("uid", "int4", true, "server/postgres/migrations/000000_initial.sql:950"),
     fb_gender: Option<i32> => ("fb_gender", "int4", true, "server/postgres/migrations/000000_initial.sql:951"),
@@ -620,6 +707,20 @@ row! {
     outcome: String => ("outcome", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:302"),
     error_code: Option<String> => ("error_code", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:303"),
     output_sha256: Option<String> => ("output_sha256", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:303"),
+    process_exit_confirmed_at: Option<PgTimestamp> => ("process_exit_confirmed_at", "timestamptz", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:217"),
+}
+
+row! {
+    PolisQueueBreakersRow, "polis_queue_breakers", "server/postgres/migrations/000026_create_polis_queue_retention.sql:245";
+    env: String => ("env", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"),
+    product_key: String => ("product_key", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"),
+    code_image_digest: String => ("code_image_digest", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:247"),
+    consecutive_dead: i32 => ("consecutive_dead", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:248"),
+    last_dead_job_id: Option<PgUuid> => ("last_dead_job_id", "uuid", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"),
+    opened_at: Option<PgTimestamp> => ("opened_at", "timestamptz", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"),
+    probe_job_id: Option<PgUuid> => ("probe_job_id", "uuid", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"),
+    updated_at: PgTimestamp => ("updated_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:250"),
 }
 
 row! {
@@ -643,6 +744,7 @@ row! {
     added_grants: PgJson => ("added_grants", "jsonb", false, "server/postgres/migrations/000019_create_polis_queue.sql:336"),
     applied_at: PgTimestamp => ("applied_at", "timestamptz", false, "server/postgres/migrations/000019_create_polis_queue.sql:337"),
     catalog_fingerprint: String => ("catalog_fingerprint", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:338"),
+    contract_version: String => ("contract_version", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:205"),
 }
 
 row! {
@@ -670,6 +772,24 @@ row! {
     first_parked_at: Option<PgTimestamp> => ("first_parked_at", "timestamptz", true, "server/postgres/migrations/000019_create_polis_queue.sql:291"),
     last_error_code: Option<String> => ("last_error_code", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:292"),
     output_sha256: Option<String> => ("output_sha256", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:292"),
+    worker_class: String => ("worker_class", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:213"),
+}
+
+row! {
+    PolisQueueLargeClassInstallRow, "polis_queue_large_class_install", "server/postgres/migrations/000024_create_polis_queue_large_class.sql:368";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+}
+
+row! {
+    PolisQueueLogsRow, "polis_queue_logs", "server/postgres/migrations/000023_create_delphi_foundation.sql:292";
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
+    attempt_id: PgUuid => ("attempt_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
+    seq: i64 => ("seq", "int8", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
+    ts: PgTimestamp => ("ts", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:294"),
+    stream: String => ("stream", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:295"),
+    line: String => ("line", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:296"),
 }
 
 row! {
@@ -682,6 +802,25 @@ row! {
     run_id: PgUuid => ("run_id", "uuid", false, "server/postgres/migrations/000019_create_polis_queue.sql:310"),
     job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000019_create_polis_queue.sql:310"),
     created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000019_create_polis_queue.sql:310"),
+    binding_expires_at: Option<PgTimestamp> => ("binding_expires_at", "timestamptz", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:219"),
+}
+
+row! {
+    PolisQueueRetentionInstallRow, "polis_queue_retention_install", "server/postgres/migrations/000026_create_polis_queue_retention.sql:739";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"),
+    rows_purged: i64 => ("rows_purged", "int8", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:741"),
+}
+
+row! {
+    PolisQueueRetentionPolicyRow, "polis_queue_retention_policy", "server/postgres/migrations/000026_create_polis_queue_retention.sql:462";
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:463"),
+    keep_days: i32 => ("keep_days", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:464"),
+    keep_last: i32 => ("keep_last", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:465"),
+    action: String => ("action", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:466"),
+    updated_at: PgTimestamp => ("updated_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:467"),
+    updated_by: String => ("updated_by", "name", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:468"),
 }
 
 row! {
@@ -701,6 +840,27 @@ row! {
     state: String => ("state", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:260"),
     output_sha256: Option<String> => ("output_sha256", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:261"),
     created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000019_create_polis_queue.sql:261"),
+}
+
+row! {
+    PolisQueueSweepsRow, "polis_queue_sweeps", "server/postgres/migrations/000026_create_polis_queue_retention.sql:221";
+    env: String => ("env", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:222"),
+    sweep_id: PgUuid => ("sweep_id", "uuid", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:222"),
+    started_at: PgTimestamp => ("started_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:223"),
+    finished_at: Option<PgTimestamp> => ("finished_at", "timestamptz", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:223"),
+    pages: i32 => ("pages", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:224"),
+    stopped_by: Option<String> => ("stopped_by", "text", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:225"),
+    counts: PgJson => ("counts", "jsonb", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:226"),
+}
+
+row! {
+    PolisQueueTombstonesRow, "polis_queue_tombstones", "server/postgres/migrations/000026_create_polis_queue_retention.sql:481";
+    env: String => ("env", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:482"),
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:483"),
+    r#ref: String => ("ref", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:484"),
+    policy_kind: String => ("policy_kind", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:485"),
+    sweep_id: PgUuid => ("sweep_id", "uuid", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:486"),
+    tombstoned_at: PgTimestamp => ("tombstoned_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:487"),
 }
 
 row! {
@@ -742,6 +902,15 @@ row! {
     label_group_8: Option<String> => ("label_group_8", "varchar", true, "server/postgres/migrations/000000_initial.sql:618"),
     label_group_9: Option<String> => ("label_group_9", "varchar", true, "server/postgres/migrations/000000_initial.sql:619"),
     mod_level: i16 => ("mod_level", "int2", false, "server/postgres/migrations/000014_alter_reports_modlevel.sql:2"),
+}
+
+row! {
+    SchemaMigrationsRow, "schema_migrations", "server/postgres/migrations/000025_vote_convention.sql:276";
+    name: String => ("name", "text", false, "server/postgres/migrations/000025_vote_convention.sql:277"),
+    applied_at: PgTimestamp => ("applied_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:278"),
+    applied_by: String => ("applied_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:279"),
+    checksum: String => ("checksum", "text", false, "server/postgres/migrations/000025_vote_convention.sql:284"),
+    note: String => ("note", "text", false, "server/postgres/migrations/000025_vote_convention.sql:285"),
 }
 
 row! {
@@ -879,6 +1048,31 @@ row! {
 }
 
 row! {
+    VoteConventionRow, "vote_convention", "server/postgres/migrations/000025_vote_convention.sql:144";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000025_vote_convention.sql:145"),
+    version: i32 => ("version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:146"),
+    agree_value: i16 => ("agree_value", "int2", false, "server/postgres/migrations/000025_vote_convention.sql:147"),
+    changed_at: PgTimestamp => ("changed_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:148"),
+    changed_by: String => ("changed_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:149"),
+    reason: String => ("reason", "text", false, "server/postgres/migrations/000025_vote_convention.sql:150"),
+    contract_version: i32 => ("contract_version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:151"),
+    operation: String => ("operation", "text", false, "server/postgres/migrations/000025_vote_convention.sql:155"),
+    operation_checksum: Option<String> => ("operation_checksum", "text", true, "server/postgres/migrations/000025_vote_convention.sql:156"),
+}
+
+row! {
+    VoteConventionHistoryRow, "vote_convention_history", "server/postgres/migrations/000025_vote_convention.sql:162";
+    version: i32 => ("version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:163"),
+    agree_value: i16 => ("agree_value", "int2", false, "server/postgres/migrations/000025_vote_convention.sql:164"),
+    changed_at: PgTimestamp => ("changed_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:165"),
+    changed_by: String => ("changed_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:166"),
+    reason: String => ("reason", "text", false, "server/postgres/migrations/000025_vote_convention.sql:167"),
+    contract_version: i32 => ("contract_version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:168"),
+    operation: String => ("operation", "text", false, "server/postgres/migrations/000025_vote_convention.sql:169"),
+    operation_checksum: Option<String> => ("operation_checksum", "text", true, "server/postgres/migrations/000025_vote_convention.sql:170"),
+}
+
+row! {
     VotesRow, "votes", "server/postgres/migrations/000000_initial.sql:737";
     zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000000_initial.sql:738"),
     pid: i32 => ("pid", "int4", false, "server/postgres/migrations/000000_initial.sql:739"),
@@ -1012,6 +1206,48 @@ pub const TABLES: &[Table] = &[
         columns: CrowdModRow::COLUMNS,
         roundtrip: roundtrip::<CrowdModRow>,
         decode: decode::<CrowdModRow>,
+    },
+    Table {
+        name: "delphi_current",
+        columns: DelphiCurrentRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiCurrentRow>,
+        decode: decode::<DelphiCurrentRow>,
+    },
+    Table {
+        name: "delphi_foundation_install",
+        columns: DelphiFoundationInstallRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiFoundationInstallRow>,
+        decode: decode::<DelphiFoundationInstallRow>,
+    },
+    Table {
+        name: "delphi_job_aliases",
+        columns: DelphiJobAliasesRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobAliasesRow>,
+        decode: decode::<DelphiJobAliasesRow>,
+    },
+    Table {
+        name: "delphi_job_guards",
+        columns: DelphiJobGuardsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobGuardsRow>,
+        decode: decode::<DelphiJobGuardsRow>,
+    },
+    Table {
+        name: "delphi_job_inputs",
+        columns: DelphiJobInputsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobInputsRow>,
+        decode: decode::<DelphiJobInputsRow>,
+    },
+    Table {
+        name: "delphi_jobs",
+        columns: DelphiJobsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobsRow>,
+        decode: decode::<DelphiJobsRow>,
+    },
+    Table {
+        name: "delphi_provider_requests",
+        columns: DelphiProviderRequestsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiProviderRequestsRow>,
+        decode: decode::<DelphiProviderRequestsRow>,
     },
     Table {
         name: "demographic_data",
@@ -1290,6 +1526,12 @@ pub const TABLES: &[Table] = &[
         decode: decode::<PolisQueueAttemptsRow>,
     },
     Table {
+        name: "polis_queue_breakers",
+        columns: PolisQueueBreakersRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueBreakersRow>,
+        decode: decode::<PolisQueueBreakersRow>,
+    },
+    Table {
         name: "polis_queue_heads",
         columns: PolisQueueHeadsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueHeadsRow>,
@@ -1308,16 +1550,52 @@ pub const TABLES: &[Table] = &[
         decode: decode::<PolisQueueJobsRow>,
     },
     Table {
+        name: "polis_queue_large_class_install",
+        columns: PolisQueueLargeClassInstallRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueLargeClassInstallRow>,
+        decode: decode::<PolisQueueLargeClassInstallRow>,
+    },
+    Table {
+        name: "polis_queue_logs",
+        columns: PolisQueueLogsRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueLogsRow>,
+        decode: decode::<PolisQueueLogsRow>,
+    },
+    Table {
         name: "polis_queue_requests",
         columns: PolisQueueRequestsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueRequestsRow>,
         decode: decode::<PolisQueueRequestsRow>,
     },
     Table {
+        name: "polis_queue_retention_install",
+        columns: PolisQueueRetentionInstallRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueRetentionInstallRow>,
+        decode: decode::<PolisQueueRetentionInstallRow>,
+    },
+    Table {
+        name: "polis_queue_retention_policy",
+        columns: PolisQueueRetentionPolicyRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueRetentionPolicyRow>,
+        decode: decode::<PolisQueueRetentionPolicyRow>,
+    },
+    Table {
         name: "polis_queue_runs",
         columns: PolisQueueRunsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueRunsRow>,
         decode: decode::<PolisQueueRunsRow>,
+    },
+    Table {
+        name: "polis_queue_sweeps",
+        columns: PolisQueueSweepsRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueSweepsRow>,
+        decode: decode::<PolisQueueSweepsRow>,
+    },
+    Table {
+        name: "polis_queue_tombstones",
+        columns: PolisQueueTombstonesRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueTombstonesRow>,
+        decode: decode::<PolisQueueTombstonesRow>,
     },
     Table {
         name: "pwreset_tokens",
@@ -1336,6 +1614,12 @@ pub const TABLES: &[Table] = &[
         columns: ReportsRow::COLUMNS,
         roundtrip: roundtrip::<ReportsRow>,
         decode: decode::<ReportsRow>,
+    },
+    Table {
+        name: "schema_migrations",
+        columns: SchemaMigrationsRow::COLUMNS,
+        roundtrip: roundtrip::<SchemaMigrationsRow>,
+        decode: decode::<SchemaMigrationsRow>,
     },
     Table {
         name: "site_domain_whitelist",
@@ -1408,6 +1692,18 @@ pub const TABLES: &[Table] = &[
         columns: UsersRow::COLUMNS,
         roundtrip: roundtrip::<UsersRow>,
         decode: decode::<UsersRow>,
+    },
+    Table {
+        name: "vote_convention",
+        columns: VoteConventionRow::COLUMNS,
+        roundtrip: roundtrip::<VoteConventionRow>,
+        decode: decode::<VoteConventionRow>,
+    },
+    Table {
+        name: "vote_convention_history",
+        columns: VoteConventionHistoryRow::COLUMNS,
+        roundtrip: roundtrip::<VoteConventionHistoryRow>,
+        decode: decode::<VoteConventionHistoryRow>,
     },
     Table {
         name: "votes",

@@ -236,6 +236,27 @@ vote-convention-gate: ## P-078: load the vote fixtures at both storage signs and
 vote-sign-lint: ## P-078: fail on a new vote-sign literal outside the chokepoint modules
 	python3 ci/vote_convention/sign_lint.py
 
+# The stored vote sign: the database must declare it (migration 000025). A
+# database that already held votes when the migration ran is undeclared until
+# its operator runs the declare target once (docs/vote-convention-upgrade.md).
+# With POSTGRES_DOCKER=true it runs inside the compose postgres container;
+# otherwise it needs DATABASE_URL in the environment file.
+define vote_convention_tool
+	@if [ "${POSTGRES_DOCKER}" = "true" ]; then \
+		PSQL="docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} exec -T postgres psql -U $(call parse_env_value,POSTGRES_USER) -d $(call parse_env_value,POSTGRES_DB)" \
+			server/bin/vote-convention-declare.sh $(1); \
+	else \
+		DATABASE_URL="$(call parse_env_value,DATABASE_URL)" server/bin/vote-convention-declare.sh $(1); \
+	fi
+endef
+
+vote-convention-status: echo_vars ## Show whether the database declares its stored vote sign (GUARD_NEEDED / DECLARE_NEEDED / GUARDED)
+	$(call vote_convention_tool,--status)
+
+vote-convention-declare: echo_vars ## Declare the stored vote sign of a database that already holds votes: AGREE=-1 (the original convention) or AGREE=+1; optional REASON="..."
+	@test -n "$(AGREE)" || { echo 'usage: make vote-convention-declare AGREE=-1   (or AGREE=+1; optional REASON="...")'; exit 2; }
+	$(call vote_convention_tool,"$(AGREE)" "$(REASON)")
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -273,7 +294,7 @@ rbs: start-rebuild
 	rm-ALL rm-containers rm-images rm-volumes \
 	start-FULL-REBUILD start-prodclone start-rebuild start-recreate \
 	test-recovery test-recovery-up test-recovery-down test-recovery-races \
-	vote-convention-gate vote-sign-lint
+	vote-convention-gate vote-sign-lint vote-convention-status vote-convention-declare
 
 
 help: ## Show this help message

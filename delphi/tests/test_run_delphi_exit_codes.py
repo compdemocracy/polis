@@ -25,6 +25,7 @@ RUN_DELPHI = DELPHI_ROOT / "run_delphi.py"
 
 # stage name -> path of its stub script inside the fixture app directory
 STAGES = {
+    "convention": "polismath/check_vote_convention.py",
     "reset": "umap_narrative/reset_conversation.py",
     "math": "polismath/run_math_pipeline.py",
     "umap": "umap_narrative/run_pipeline.py",
@@ -89,7 +90,7 @@ def run_delphi(app_dir):
     )
 
 
-ALL_STAGES = ["reset", "math", "umap", "extremity", "priority", "visualization"]
+ALL_STAGES = ["convention", "reset", "math", "umap", "extremity", "priority", "visualization"]
 
 
 def test_all_stages_succeed_exits_zero(app_dir):
@@ -104,7 +105,7 @@ def test_umap_failure_exits_non_zero_and_still_runs_later_stages(app_dir, monkey
     assert result.returncode != 0, result.stdout
     # What runs is unchanged: extremity and priority still run, and the
     # visualisations are still skipped after a UMAP failure.
-    assert ran_stages(app_dir) == ["reset", "math", "umap", "extremity", "priority"]
+    assert ran_stages(app_dir) == ["convention", "reset", "math", "umap", "extremity", "priority"]
     assert "UMAP narrative pipeline (exit code 1)" in result.stdout
 
 
@@ -129,7 +130,17 @@ def test_math_failure_still_aborts_before_umap(app_dir, monkeypatch):
     monkeypatch.setenv("STUB_EXIT_MATH", "1")
     result = run_delphi(app_dir)
     assert result.returncode == 1
-    assert ran_stages(app_dir) == ["reset", "math"]
+    assert ran_stages(app_dir) == ["convention", "reset", "math"]
+
+
+def test_undeclared_convention_refuses_before_the_reset(app_dir, monkeypatch):
+    """P-078: the vote convention check is the first stage. When it refuses,
+    the reset never runs, so the conversation's previous results are intact."""
+    monkeypatch.setenv("STUB_EXIT_CONVENTION", "1")
+    result = run_delphi(app_dir)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert ran_stages(app_dir) == ["convention"]
+    assert "Nothing has been reset or changed" in result.stdout
 
 
 # --- the poller: a non-zero run_delphi.py exit marks the job FAILED ---------
