@@ -1,3 +1,21 @@
+# ---- Stage 0: polis-jobs, the queue worker daemon (queue-rs) ----
+# Built from the named build context `queue-rs` (the repository's queue-rs/
+# directory): compose passes it as additional_contexts; a plain build passes
+#   docker build --build-context queue-rs=queue-rs delphi
+# Built on Debian 12 so the binary also runs on an older cached
+# python:3.12-slim (Debian 12); glibc is forward compatible to Debian 13.
+# The toolchain matches queue-rs/rust-toolchain.toml (1.98.1).
+FROM docker.io/library/rust:1.98.1-slim-bookworm AS polis-jobs
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY --from=queue-rs . .
+RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
+    cargo build --release --locked --bin polis-jobs \
+ && cp target/release/polis-jobs /polis-jobs \
+ && /polis-jobs --version
+
 # ---- Stage 1: Builder ----
   FROM python:3.12-slim AS builder
 
@@ -89,6 +107,12 @@ WORKDIR /app
 # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+
+# The queue worker daemon. polis-jobs.service on a worker box runs this image
+# with the command `polis-jobs` (cdk/launchTemplates.ts); every other service
+# keeps the CMD below and never starts it. It exits 0 at once unless
+# POLIS_JOBS_ENABLED=1.
+COPY --from=polis-jobs /polis-jobs /usr/local/bin/polis-jobs
 
 # Copy source code from builder stage (already built into the package)
 COPY --from=builder /app/polismath/ ./polismath/

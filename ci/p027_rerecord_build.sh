@@ -13,7 +13,7 @@ docker build -t p027-file-server --build-arg NODE_ENV=production \
   --build-arg AUTH_ISSUER=https://localhost:3000/ --build-arg AUTH_NAMESPACE=https://pol.is/ \
   --build-arg EMBED_SERVICE_HOSTNAME=localhost --build-arg GIT_HASH=characterization \
   -f file-server/Dockerfile .
-docker build --target final --build-arg USE_CPU_TORCH=true -t p011-delphi-test:latest delphi
+docker build --target final --build-arg USE_CPU_TORCH=true --build-context queue-rs=queue-rs -t p011-delphi-test:latest delphi
 docker pull amazon/dynamodb-local:latest
 docker image inspect p027-server p027-postgres p027-oidc-simulator p027-file-server \
   p011-delphi-test:latest amazon/dynamodb-local:latest --format '{{.Id}} {{.Size}}'
