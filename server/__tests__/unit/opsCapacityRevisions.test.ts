@@ -12,8 +12,9 @@ import {
   parseReadiness,
 } from "../../src/ops/readinessLine";
 
-// One small-class capacity line per revision, a line from before revisioning
-// and a forward revision (delphi/tests/poller/test_capacity_revisions.py,
+// One small-class capacity line per revision, the two shapes logged before
+// revisioning (no rev: production's nine counts, and revision 2's twelve) and
+// a forward revision (delphi/tests/poller/test_capacity_revisions.py,
 // which checks this revision's line against the real emitter). A rolling
 // deploy logs old and new revisions at once, and the log keeps older ones:
 // this parser must read all of them.
@@ -24,20 +25,30 @@ const FIXTURE = path.join(
 const LINES = fs.readFileSync(FIXTURE, "utf8").trim().split("\n");
 const HEAD = ["schema", "class", "role", "label"];
 const bodies = () => LINES.map((l) => JSON.parse(l));
-const countsOf = (rev: number) => {
-  const b = bodies().find((x) => (x.rev ?? 1) === rev && x.role === "primary");
+const countsIn = (b: Record<string, unknown>) => {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(b)) if (!HEAD.includes(k)) out[k] = v;
   return out;
 };
+const revOf = (b: Record<string, unknown>) =>
+  decodeCounts(countsIn(b), b.role !== "primary").rev;
+const countsOf = (rev: number) =>
+  countsIn(bodies().find((x) => revOf(x) === rev && x.role === "primary"));
 
 describe("capacity line revisions", () => {
   test("the fixture spans pre-revision, this revision and a newer one", () => {
-    const revs = bodies().map((b) => b.rev);
-    expect(revs[0]).toBeUndefined();
+    const revs = bodies().map(revOf);
+    expect(
+      bodies()
+        .slice(0, 2)
+        .map((b) => b.rev)
+    ).toEqual([undefined, undefined]);
+    expect(revs.slice(0, 2)).toEqual([1, 2]);
     expect(revs).toContain(CAPACITY_REV);
-    expect(Math.max(...revs.filter(Boolean))).toBeGreaterThan(CAPACITY_REV);
-    expect(keysThrough(CAPACITY_REV)).toEqual([...COUNT_KEYS]);
+    expect(Math.max(...revs)).toBeGreaterThan(CAPACITY_REV);
+    expect([...keysThrough(CAPACITY_REV)].sort()).toEqual(
+      [...COUNT_KEYS].sort()
+    );
   });
 
   test.each(LINES)(
@@ -45,7 +56,7 @@ describe("capacity line revisions", () => {
     (line) => {
       const raw = JSON.parse(line);
       const body = parseCapacity(line)!;
-      expect(body.rev).toBe(raw.rev ?? 1);
+      expect(body.rev).toBe(revOf(raw));
       expect(Object.keys(body).sort()).toEqual(
         [...HEAD, "rev", ...COUNT_KEYS].sort()
       );
@@ -68,7 +79,7 @@ describe("capacity line revisions", () => {
         (l) =>
           l.startsWith("math_poller readiness/1") && l.includes('"capacity":{')
       )!;
-    for (const rev of [1, CAPACITY_REV, CAPACITY_REV + 1]) {
+    for (const rev of [1, 2, CAPACITY_REV, CAPACITY_REV + 1]) {
       const counts =
         rev > CAPACITY_REV
           ? { ...countsOf(CAPACITY_REV), rev, future_count: 2 }
@@ -77,6 +88,7 @@ describe("capacity line revisions", () => {
       const line = m[1] + JSON.stringify(counts) + m[3];
       const r = parseReadiness(line)!;
       expect(r.capacity.rev).toBe(rev);
+      if (rev <= 2) expect(counts).not.toHaveProperty("rev");
       expect(Object.keys(r.capacity).sort()).toEqual(
         ["rev", ...COUNT_KEYS].sort()
       );
@@ -95,9 +107,16 @@ describe("capacity line revisions", () => {
       delete c[keysThrough(rev).slice(-1)[0]];
       expect(() => decodeCounts(c)).toThrow(LineShapeError);
     }
-    const legacy = { ...bodies()[0] };
-    delete legacy.large_parked;
-    expect(() => parseCapacity(JSON.stringify(legacy))).toThrow(LineShapeError);
+    for (const b of bodies().slice(0, 2)) {
+      const legacy = { ...b };
+      delete legacy.large_demand;
+      expect(() => parseCapacity(JSON.stringify(legacy))).toThrow(
+        LineShapeError
+      );
+    }
+    const edge = { ...bodies()[1] };
+    delete edge.large_parked;
+    expect(() => parseCapacity(JSON.stringify(edge))).toThrow(LineShapeError);
   });
 
   test("a newer revision keeps every key this parser knows; its own keys are counts, dropped", () => {

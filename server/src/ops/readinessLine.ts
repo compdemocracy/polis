@@ -101,16 +101,30 @@ export const COUNT_KEYS = [
 ] as const;
 /**
  * capacity.py CAPACITY_REV_KEYS: the capacity line's revision (`rev`, a minor
- * version under the same schema string) and the keys each revision ADDED. A
- * line or readiness `capacity` object without `rev` predates revisioning and
- * is revision 1. decodeCounts reads revisions 1..CAPACITY_REV + REV_FORWARD,
+ * version under the same schema string) and the keys each revision ADDED.
+ * Revision 1 is production's nine counts; revision 2 added large_leased,
+ * large_poisoned and large_parked. A line or readiness `capacity` object
+ * without `rev` predates revisioning: revision 1 or 2, told apart by its keys
+ * (UNREVISIONED). decodeCounts reads revisions 1..CAPACITY_REV + REV_FORWARD,
  * so a rolling deploy (old and new pollers logging at once) and retained log
  * history keep parsing on either side.
  */
 export const CAPACITY_REV_KEYS: Record<number, readonly string[]> = {
-  1: COUNT_KEYS.slice(0, 12),
-  2: COUNT_KEYS.slice(12, 14), // queue_full, queue_unreachable (P-084)
+  1: [
+    "routing",
+    "large_demand",
+    "pending_promotion",
+    "exceeds_largest",
+    "fits_small",
+    "oldest_unresolved_age_ms",
+    "refusals_total",
+    "routed_total",
+    "promoted_total",
+  ],
+  2: ["large_leased", "large_poisoned", "large_parked"],
+  3: ["queue_full", "queue_unreachable"], // P-084 (admission)
 };
+export const UNREVISIONED = [1, 2] as const;
 export const CAPACITY_REV = Math.max(
   ...Object.keys(CAPACITY_REV_KEYS).map(Number)
 );
@@ -335,7 +349,13 @@ export function decodeCounts(counts: unknown, nullable = false): Json {
     fail("object");
   }
   const c = counts as Json;
-  const rev = "rev" in c ? c.rev : 1;
+  const keys = Object.keys(c).sort().join(",");
+  const rev =
+    "rev" in c
+      ? c.rev
+      : UNREVISIONED.find(
+          (r) => [...keysThrough(r)].sort().join(",") === keys
+        ) ?? UNREVISIONED[UNREVISIONED.length - 1];
   if (
     typeof rev !== "number" ||
     !Number.isSafeInteger(rev) ||
