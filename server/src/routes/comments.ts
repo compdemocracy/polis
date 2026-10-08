@@ -7,7 +7,7 @@ import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
 import { getConversationInfo } from "../conversation";
-import { getNextComment } from "../nextComment";
+import { getNextComment, checkInitialComment } from "../nextComment";
 import { getPidPromise, getUserInfoForUid2 } from "../user";
 import { getZinvite } from "../utils/zinvite";
 import { isModerator, polisTypes } from "../utils/common";
@@ -61,6 +61,7 @@ import { parsePagination, createPaginationMeta } from "../utils/pagination";
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
+  initial_tid?: number;
   zid?: number;
   xid?: string;
   uid?: number;
@@ -728,6 +729,21 @@ async function handle_GET_nextComment(
   const pid = req.p.pid ?? req.p.not_voted_by_pid;
 
   try {
+    if (req.p.initial_tid !== undefined) {
+      const initial = await checkInitialComment(
+        req.p.zid!,
+        pid ?? -1,
+        req.p.initial_tid,
+        req.p.lang
+      );
+      if (!req.timedout)
+        res.status(200).json({
+          ...initial.comment,
+          currentPid: pid,
+          initialStatus: initial.status,
+        });
+      return;
+    }
     const next = await getNextComment(
       req.p.zid,
       pid,

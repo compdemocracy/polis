@@ -188,3 +188,13 @@ describe('comments API', () => {
     })
   })
 })
+
+test('initial check carries tid zero and still uses detected language', async () => {
+  mockedLang.uiLanguage.mockReturnValue('fr')
+  await fetchNextComment('synthetic', undefined, 0)
+  expect(mockedPolisNet.polisGet).toHaveBeenCalledWith('/nextComment', {
+    conversation_id: 'synthetic',
+    initial_tid: '0',
+    lang: 'fr'
+  })
+})
