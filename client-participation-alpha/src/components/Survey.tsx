@@ -27,7 +27,7 @@ const submitVoteAndGetNextCommentAPI = async (
     agid: 1,
     conversation_id,
     high_priority,
-    pid: decodedToken?.pid ?? -1,
+    pid: decodedToken?.pid ?? ANONYMOUS_PID,
     tid: vote.tid,
     vote: vote.vote
   })
@@ -42,6 +42,9 @@ const submitVoteAndGetNextCommentAPI = async (
 
   return resp
 }
+
+// Server sentinel for an absent conversation identity.
+const ANONYMOUS_PID = -1
 
 // A conversation change must not briefly render the previous conversation's text,
 // or let one of its pending requests own this survey's state.

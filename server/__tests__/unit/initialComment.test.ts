@@ -1,3 +1,6 @@
+// Server sentinel for an absent conversation identity.
+const ANONYMOUS_PID = -1;
+
 const mockComments = jest.fn();
 const mockMath = jest.fn();
 const mockQuery = jest.fn();
@@ -92,7 +95,7 @@ test("removed/muted/moderated candidate is unavailable, never a silent replaceme
   });
 });
 test("anonymous validation never reads another participants votes", async () => {
-  expect(await checkInitialComment(7, -1, 0)).toMatchObject({
+  expect(await checkInitialComment(7, ANONYMOUS_PID, 0)).toMatchObject({
     status: "eligible",
   });
   expect(mockQuery).not.toHaveBeenCalled();
