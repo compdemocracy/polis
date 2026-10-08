@@ -13,7 +13,6 @@ import { getZinvite } from "../utils/zinvite";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
-import analyzeComment from "../utils/moderation";
 import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
@@ -340,7 +339,7 @@ function moderateCommentQuery(
   });
 }
 
-// Perform content moderation checks (Pro feature - toxicity analysis and profanity filtering)
+// Perform local profanity filtering for the Pro comment path.
 // Note: Seed and moderator comments bypass this function entirely
 async function moderateComment(
   txt: string,
@@ -348,35 +347,14 @@ async function moderateComment(
 ): Promise<CommentModerationResult> {
   let active = true;
   const classifications: string[] = [];
-  let mod = 0;
+  const mod = 0;
 
-  // Run moderation checks in parallel
-  const [polisModResponse, bad] = await Promise.all([
-    analyzeComment(txt, conversation.topic),
-    Promise.resolve(hasBadWords(txt)),
-  ]);
+  const bad = hasBadWords(txt);
 
   if (bad && conversation.profanity_filter) {
     active = false;
     classifications.push("bad");
     logger.info("active=false because (bad && conv.profanity_filter)");
-  }
-
-  const commentToxicityThreshold = 100;
-
-  const toxicityScore = Number(polisModResponse);
-
-  if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
-    logger.debug(
-      `Polismod toxicity Score for comment "${txt}": ${toxicityScore}`
-    );
-
-    if (toxicityScore >= commentToxicityThreshold) {
-      active = false;
-      mod = -1;
-      classifications.push("bad");
-      logger.info("active=false because (Toxicity)");
-    }
   }
 
   return { active, mod, classifications };

@@ -1,17 +1,10 @@
 // Drive the real comment handler and the real moderation module for a
 // participant comment in a conversation whose owner has moderation enabled.
-// Stubbed at the boundary: the Gemini client, the HTTP client the moderation
-// module used for IP geolocation, global fetch, the identity provider, the
+// Stubbed at the boundary: the HTTP client, global fetch, identity provider, the
 // database and the translation provider. Nothing leaves the process.
-const mockGenerateContent = jest.fn();
 const mockHttpGet = jest.fn();
 const mockQuery = jest.fn();
 
-jest.mock("@google/genai", () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: { generateContent: mockGenerateContent },
-  })),
-}));
 jest.mock("request-promise", () => ({
   __esModule: true,
   default: { get: mockHttpGet },
@@ -37,7 +30,6 @@ jest.mock("auth0", () => ({
 jest.mock("../../src/config", () => ({
   __esModule: true,
   default: {
-    geminiApiKey: "public-fixture-key",
     shouldUseTranslationAPI: false,
   },
 }));
@@ -82,15 +74,13 @@ jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));
 jest.mock("../../src/nextComment", () => ({}));
 
-const { moderationReady } = require("../../src/utils/moderation");
 const { handle_POST_comments } = require("../../src/routes/comments");
 
-const NEUTRAL_DEFAULT = "US or Europe (EU)";
 const COMMENTER_IP = "203.0.113.7"; // documentation range (RFC 5737)
 const fetchSpy = jest.fn();
 const realFetch = (global as any).fetch;
 
-async function postComment(headers: Record<string, string>) {
+async function postComment(headers: Record<string, string>, txt = "A public-fixture comment") {
   const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
   await handle_POST_comments(
     {
@@ -98,7 +88,7 @@ async function postComment(headers: Record<string, string>) {
         zid: 7,
         uid: 11,
         pid: 5,
-        txt: "A public-fixture comment",
+        txt,
         is_seed: false,
       },
       headers,
@@ -110,31 +100,12 @@ async function postComment(headers: Record<string, string>) {
   return res;
 }
 
-function sentPrompt(): string {
-  expect(mockGenerateContent).toHaveBeenCalledTimes(1);
-  return mockGenerateContent.mock.calls[0][0].contents[0].parts[0].text;
-}
-
-function geographicalContext(prompt: string): string | undefined {
-  // The rubric's examples quote their values; the filled-in input does not.
-  const values = [
-    ...prompt.matchAll(
-      /<geographical_context>([^"<][^<]*)<\/geographical_context>/g
-    ),
-  ].map((m) => m[1]);
-  expect(values).toHaveLength(1);
-  return values[0];
-}
-
 function geolocationRequests(): unknown[] {
   return [...mockHttpGet.mock.calls, ...fetchSpy.mock.calls].filter((args) =>
     /ip-api\.com/.test(JSON.stringify(args))
   );
 }
 
-beforeAll(async () => {
-  await moderationReady;
-});
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -150,9 +121,6 @@ beforeEach(() => {
       country: "Fixture Country",
     })
   );
-  mockGenerateContent.mockResolvedValue({
-    text: JSON.stringify({ output: { final_score: "5" } }),
-  });
   mockQuery.mockImplementation(async (sql: string) => {
     if (/INSERT INTO COMMENTS/.test(sql))
       return [{ tid: 3, created: 10000000000000 }];
@@ -167,25 +135,32 @@ afterEach(() => {
 });
 
 describe("comment moderation location context", () => {
-  test("a comment sent through a proxy with the commenter's IP makes no geolocation request and uses the neutral default", async () => {
+  test("a comment sent through a proxy with the commenter's IP makes no geolocation request and performs no model call", async () => {
     const res = await postComment({ "x-forwarded-for": COMMENTER_IP });
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ tid: 3 }));
     expect(geolocationRequests()).toEqual([]);
     expect(mockHttpGet).not.toHaveBeenCalled();
-    const prompt = sentPrompt();
-    expect(geographicalContext(prompt)).toBe(NEUTRAL_DEFAULT);
-    expect(prompt).not.toContain(COMMENTER_IP);
-    expect(prompt).not.toContain("Fixture City");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  test("a comment with only a socket address makes no geolocation request and uses the neutral default", async () => {
+  test("a comment with only a socket address makes no geolocation request and performs no model call", async () => {
     const res = await postComment({});
 
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ tid: 3 }));
     expect(geolocationRequests()).toEqual([]);
     expect(mockHttpGet).not.toHaveBeenCalled();
-    expect(geographicalContext(sentPrompt())).toBe(NEUTRAL_DEFAULT);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
+});
+
+
+test("local profanity filtering still deactivates comments without a provider", async () => {
+  await postComment({}, "shit");
+  const insert = mockQuery.mock.calls.find(([sql]) => /INSERT INTO COMMENTS/.test(sql));
+  expect(insert).toBeDefined();
+  expect(insert![1][4]).toBe(false);
+  expect(fetchSpy).not.toHaveBeenCalled();
+  expect(mockHttpGet).not.toHaveBeenCalled();
 });

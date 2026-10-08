@@ -3,21 +3,13 @@ import { failJson } from "../utils/fail";
 import { getZidForRid } from "../utils/zinvite";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { countTokens } from "@anthropic-ai/tokenizer";
-import {
-  GenerateContentRequest,
-  GoogleGenerativeAI,
-} from "@google/generative-ai";
-import OpenAI from "openai";
 import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "../report";
-import { getTopicsFromRID } from "../report_experimental/topics-example";
 import DynamoStorageService, { StorageError } from "../utils/storage";
 import { AwsCredentialsConfigurationError } from "../utils/dynamoClient";
-import { PathLike } from "node:fs";
 import config from "../config";
 import logger from "../utils/logger";
 
@@ -118,10 +110,6 @@ const anthropic = config.anthropicApiKey
     })
   : null;
 
-const genAI = config.geminiApiKey
-  ? new GoogleGenerativeAI(config.geminiApiKey)
-  : null;
-
 const getCommentsAsXML = async (
   id: number,
   filter?: (v: {
@@ -183,142 +171,43 @@ const getModelResponse = async (
   model: string,
   system_lore: string,
   prompt_xml: string,
-  modelVersion?: string,
-  isTopic?: boolean
+  modelVersion?: string
 ) => {
   try {
-    if (isTopic && countTokens(prompt_xml) > 30000) {
-      return `{
-        "id": "polis_narrative_error_message",
-        "title": "Too many comments",
-        "paragraphs": [
-          {
-            "id": "polis_narrative_error_message",
-            "title": "Too many comments",
-            "sentences": [
-              {
-                "clauses": [
-                  {
-                    "text": "There are currently too many comments in this conversation for our AI to generate a topic response",
-                    "citations": []
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }`;
+    if (model !== "claude") {
+      throw new Error("polis_err_narrative_generation_retired");
     }
-    const gemeniModel = genAI?.getGenerativeModel({
-      // model: "gemini-1.5-pro-002",
-      model: modelVersion || "gemini-2.0-pro-exp-02-05",
-      generationConfig: {
-        // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
-        responseMimeType: "application/json",
-        maxOutputTokens: 50000, // high for reliability for now.
-      },
-    });
-    const gemeniModelprompt: GenerateContentRequest = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `
-                  ${prompt_xml}
-  
-                  You MUST respond with a JSON object that follows this EXACT structure:
-  
-                  \`\`\`json
-                  {
-                    "key1": "string value",
-                    "key2": [
-                      {
-                        "nestedKey1": 123,
-                        "nestedKey2": "another string"
-                      }
-                    ],
-                    "key3": true
-                  }
-                  \`\`\`
-  
-                  Make sure the JSON is VALID, as defined at https://www.json.org/json-en.html. DO NOT begin with an array '[' - begin with an object '{' - All keys MUST be enclosed in double quotes. NO trailing comma's should be included after the last element in a block (not valid json). Do NOT include any additional text outside of the JSON object.  Do not provide explanations, only the JSON.
-
-                  The following is an example of an INVALID response:
-                  \`\`\`json
-                  {
-                  "key1": "string value",
-                  "array": [1,2,3], // <-- THIS IS INVALID BECAUSE OF A TRAILING COMMA. NO TRAILING COMMAS ARE PERMITTED IN THE RESPONSE .VALID JSON ONLY
-                  }
-                `,
-            },
-          ],
-          role: "user",
-        },
-      ],
-      systemInstruction: system_lore,
-    };
-    const openai = config.openaiApiKey
-      ? new OpenAI({
-          apiKey: config.openaiApiKey,
-        })
-      : null;
-
-    switch (model) {
-      case "gemini": {
-        if (!gemeniModel) {
-          throw new Error("polis_err_gemini_api_key_not_set");
-        }
-        const respGem = await gemeniModel.generateContent(gemeniModelprompt);
-        const result = await respGem.response.text();
-        return result;
+    {
+      if (!anthropic) {
+        throw new Error("polis_err_anthropic_api_key_not_set");
       }
-      case "claude": {
-        if (!anthropic) {
-          throw new Error("polis_err_anthropic_api_key_not_set");
-        }
-        const responseClaude = await anthropic.messages.create({
-          model: modelVersion || "claude-sonnet-5",
-          // max_tokens is a hard cap on thinking + response text combined
-          // (adaptive thinking is on by default on Sonnet 5 / Opus 4.8+), so
-          // this needs real headroom beyond the visible JSON text length.
-          max_tokens: 8000,
-          output_config: { effort: "medium" },
-          system: system_lore,
-          messages: [
-            {
-              role: "user",
-              content: [{ type: "text", text: prompt_xml }],
-            },
-          ],
-        });
-        if (responseClaude.stop_reason === "max_tokens") {
-          logger.warn(
-            "Anthropic narrative report response was truncated by max_tokens; output may be incomplete/invalid JSON."
-          );
-        }
-        const textBlock = responseClaude.content.find((b) => b.type === "text");
-        const rawText = textBlock?.type === "text" ? textBlock.text : "";
-        // Strip markdown code fences if present
-        return rawText
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```$/, "")
-          .trim();
+      const responseClaude = await anthropic.messages.create({
+        model: modelVersion || "claude-sonnet-5",
+        // max_tokens is a hard cap on thinking + response text combined
+        // (adaptive thinking is on by default on Sonnet 5 / Opus 4.8+), so
+        // this needs real headroom beyond the visible JSON text length.
+        max_tokens: 8000,
+        output_config: { effort: "medium" },
+        system: system_lore,
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: prompt_xml }],
+          },
+        ],
+      });
+      if (responseClaude.stop_reason === "max_tokens") {
+        logger.warn(
+          "Anthropic narrative report response was truncated by max_tokens; output may be incomplete/invalid JSON."
+        );
       }
-      case "openai": {
-        if (!openai) {
-          throw new Error("polis_err_openai_api_key_not_set");
-        }
-        const responseOpenAI = await openai.chat.completions.create({
-          model: modelVersion || "gpt-4o",
-          messages: [
-            { role: "system", content: system_lore },
-            { role: "user", content: prompt_xml },
-          ],
-        });
-        return responseOpenAI.choices[0].message.content;
-      }
-      default:
-        return "";
+      const textBlock = responseClaude.content.find((b) => b.type === "text");
+      const rawText = textBlock?.type === "text" ? textBlock.text : "";
+      // Strip markdown code fences if present
+      return rawText
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "")
+        .trim();
     }
   } catch (error) {
     logger.error("ERROR IN GETMODELRESPONSE", error);
@@ -433,6 +322,10 @@ export async function handle_GET_groupInformedConsensus(
       logger.warn("Failed to query cached consensus:", cachedResult.error);
     }
 
+    if (model !== "claude") {
+      writeRetiredSection(res, section.name, model);
+      return;
+    }
     const fileContents = await fs.readFile(section.templatePath, "utf8");
     const json = await convertXML(fileContents);
     json.polisAnalysisPrompt.children[
@@ -546,6 +439,10 @@ export async function handle_GET_uncertainty(
           }) + `|||`
         );
       } else {
+        if (model !== "claude") {
+          writeRetiredSection(res, section.name, model);
+          return;
+        }
         const structured_comments = await getCommentsAsXML(zid);
         const fileContents = await fs.readFile(section.templatePath, "utf8");
         const json = await convertXML(fileContents);
@@ -662,6 +559,10 @@ export async function handle_GET_groups(
           }) + `|||`
         );
       } else {
+        if (model !== "claude") {
+          writeRetiredSection(res, section.name, model);
+          return;
+        }
         const structured_comments = await getCommentsAsXML(zid);
         const fileContents = await fs.readFile(section.templatePath, "utf8");
         const json = await convertXML(fileContents);
@@ -718,170 +619,86 @@ export async function handle_GET_groups(
   );
 }
 
+function writeRetiredSection(res: Response, section: string, model: string) {
+  res.write(
+    JSON.stringify({
+      [section]: {
+        error:
+          "Generation is no longer available for this section. Stored reports remain readable.",
+        model,
+      },
+    }) + "|||"
+  );
+  (res as any).flush();
+}
+
 export async function handle_GET_topics(
   rid: string,
   storage: DynamoStorageService | undefined,
   res: Response<any, Record<string, any>>,
   model: string,
-  system_lore: string,
-  zid: number,
-  modelVersion?: string
+  zid?: number
 ) {
-  let topics;
-
   if (!storage) {
-    logger.error("Storage service not available");
+    res.write(
+      JSON.stringify({
+        topics: { error: "Storage service not available", model },
+      }) + "|||"
+    );
+    return;
+  }
+  const cachedTopics = await storage.queryItemsByRidSectionModel(
+    `${rid}#topics`
+  );
+  if (!cachedTopics.success) {
     res.write(
       JSON.stringify({
         topics: {
-          error: "Storage service not available",
+          error: handleStorageError(cachedTopics.error!, "query stored topics"),
           model,
         },
-      }) + `|||`
+      }) + "|||"
     );
-    res.end();
     return;
   }
-
-  const cachedTopicsResult = await storage.queryItemsByRidSectionModel(
-    `${rid}#topics`
-  );
-
-  if (!cachedTopicsResult.success) {
-    logger.warn("Failed to query cached topics:", cachedTopicsResult.error);
-    // Continue with fresh topic generation
-    topics = await getTopicsFromRID(zid);
-  } else {
-    const cachedTopics = cachedTopicsResult.data;
-    if (cachedTopics?.length) {
-      topics = cachedTopics[0].report_data;
-    } else {
-      topics = await getTopicsFromRID(zid);
-      const reportItemTopics = {
-        rid_section_model: `${rid}#topics`,
-        model,
-        report_id: rid,
-        timestamp: new Date().toISOString(),
-        report_data: topics,
-      };
-
-      const putResult = await storage.putItem(reportItemTopics);
-      if (!putResult.success) {
-        logger.warn("Failed to cache topics:", putResult.error);
-        // Continue execution - caching failure shouldn't stop the response
-      }
-    }
+  const topics = cachedTopics.data?.[0]?.report_data;
+  if (!Array.isArray(topics)) {
+    writeRetiredSection(res, "topics", model);
+    return;
   }
-
-  const sections = topics.map(
-    (topic: { name: string; citations: number[] }) => ({
-      name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
-      templatePath: "src/report_experimental/subtaskPrompts/topics.xml",
-      filter: (v: { comment_id: number }) => {
-        // Check if the comment_id is in the citations array for this topic
-        return topic.citations.includes(v.comment_id);
-      },
-    })
-  );
-
-  await Promise.all(
-    sections.map(
-      async (
-        section: { name: any; templatePath: PathLike | fs.FileHandle },
-        i: number
-      ) => {
-        const cachedResult = await storage.queryItemsByRidSectionModel(
-          `${rid}#${section.name}#${model}`
-        );
-
-        // @ts-expect-error function args ignore temp
-        const structured_comments = await getCommentsAsXML(zid, section.filter);
-
-        // send cached response first if available
-        if (
-          cachedResult.success &&
-          Array.isArray(cachedResult.data) &&
-          cachedResult.data?.length
-        ) {
-          res.write(
-            JSON.stringify({
-              [section.name]: {
-                modelResponse: cachedResult.data[0].report_data,
-                model,
-                errors:
-                  structured_comments?.trim().length === 0
-                    ? "NO_CONTENT_AFTER_FILTER"
-                    : undefined,
-              },
-            }) + `|||`
-          );
-        } else {
-          await new Promise<void>((resolve) => {
-            setTimeout(async () => {
-              const fileContents = await fs.readFile(
-                section.templatePath,
-                "utf8"
-              );
-              const json = await convertXML(fileContents);
-              json.polisAnalysisPrompt.children[
-                json.polisAnalysisPrompt.children.length - 1
-              ].data.content = { structured_comments };
-
-              const prompt_xml = js2xmlparser.parse(
-                "polis-comments-and-group-demographics",
-                json
-              );
-
-              const resp = await getModelResponse(
-                model,
-                system_lore,
-                prompt_xml,
-                modelVersion,
-                true
-              );
-
-              const reportItem = {
-                rid_section_model: `${rid}#${section.name}#${model}`,
-                timestamp: new Date().toISOString(),
-                report_id: rid,
-                model,
-                report_data: resp,
-                errors:
-                  structured_comments?.trim().length === 0
-                    ? "NO_CONTENT_AFTER_FILTER"
-                    : undefined,
-              };
-
-              const putResult = await storage.putItem(reportItem);
-              if (!putResult.success) {
-                logger.warn("Failed to cache topic report:", putResult.error);
-                // Continue execution - caching failure shouldn't stop the response
-              }
-
-              res.write(
-                JSON.stringify({
-                  [section.name]: {
-                    modelResponse: resp,
-                    model,
-                    errors:
-                      structured_comments?.trim().length === 0
-                        ? "NO_CONTENT_AFTER_FILTER"
-                        : undefined,
-                  },
-                }) + `|||`
-              );
-              // @ts-expect-error flush - calling due to use of compression
-              res.flush();
-              resolve();
-            }, (model === "gemini" ? 500 : 250) * i);
-          });
-        }
-        logger.debug(`topic over: ${section.name}`);
-      }
-    )
-  );
-  logger.debug("all promises completed");
-  res.end();
+  await Promise.all(topics.map(async (topic) => {
+    const section = `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`;
+    const cached = await storage.queryItemsByRidSectionModel(
+      `${rid}#${section}#${model}`
+    );
+    const structured_comments = await getCommentsAsXML(zid, (v) => topic.citations.includes(v.comment_id));
+    if (!cached.success) {
+      res.write(
+        JSON.stringify({
+          [section]: {
+            error: handleStorageError(
+              cached.error!,
+              "query stored topic narrative"
+            ),
+            model,
+          },
+        }) + "|||"
+      );
+    } else if (cached.data?.length) {
+      res.write(
+        JSON.stringify({
+          [section]: {
+            modelResponse: cached.data[0].report_data,
+            model,
+            errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+          },
+        }) + "|||"
+      );
+    } else {
+      writeRetiredSection(res, section, model);
+    }
+  }));
+  (res as any).flush();
 }
 
 export async function handle_GET_reportNarrative(
@@ -889,6 +706,9 @@ export async function handle_GET_reportNarrative(
   res: Response
 ) {
   let storage: DynamoStorageService;
+  const modelParam = req.query.model || "claude";
+  const modelVersionParam = req.query.modelVersion;
+  const storedOnly = modelParam !== "claude";
 
   // Initialize storage with improved error handling. Construction is inside the
   // try because it resolves AWS credentials and throws a named configuration
@@ -899,7 +719,7 @@ export async function handle_GET_reportNarrative(
     }
     storage = new DynamoStorageService(
       "report_narrative_store",
-      req.query.noCache === "true"
+      !storedOnly && req.query.noCache === "true"
     );
     const initResult = await storage.initTable();
     if (!initResult.success) {
@@ -940,8 +760,11 @@ export async function handle_GET_reportNarrative(
     return;
   }
 
-  const modelParam = req.query.model || "openai";
-  const modelVersionParam = req.query.modelVersion;
+  // Retired names are accepted only as keys for historical stored outputs.
+  if (!["claude", "openai", "gemini"].includes(modelParam as string)) {
+    failJson(res, 400, "polis_err_narrative_model_unsupported");
+    return;
+  }
 
   res.writeHead(200, {
     "Content-Type": "text/plain; charset=utf-8",
@@ -975,27 +798,41 @@ export async function handle_GET_reportNarrative(
   // Express response has no flush method, but compression middleware adds it
   (res as any).flush();
   try {
-    const cacheResult = await storage.getAllByReportID(rid);
-    if (
-      cacheResult.success &&
-      Array.isArray(cacheResult.data) &&
-      cacheResult.data?.length
-    ) {
-      const cachedResponse = cacheResult.data;
-      if (!isFreshData(cachedResponse[0].timestamp)) {
-        res.write(`POLIS-PING: pruning cache`);
-        const deleteResult = await storage.deleteAllByReportID(rid);
-        if (deleteResult.success) {
-          res.write(
-            `POLIS-PING: cache pruned (${deleteResult.deletedCount} items)`
+    // Refresh only the three active sections. Never prune historical providers
+    // or the topic index/outputs: their generators have been removed.
+    if (!storedOnly) {
+      const cacheResult = await storage.getAllByReportID(rid);
+      const activeKeys = new Set([
+        `${rid}#group_informed_consensus#claude`,
+        `${rid}#uncertainty_narrative#claude`,
+        `${rid}#participant_groups#claude`,
+      ]);
+      const activeRows =
+        cacheResult.success && Array.isArray(cacheResult.data)
+          ? cacheResult.data.filter((item) =>
+              activeKeys.has(item.rid_section_model)
+            )
+          : [];
+      if (activeRows.length && !isFreshData(activeRows[0].timestamp)) {
+        res.write("POLIS-PING: pruning cache");
+        let deletedCount = 0;
+        for (const item of activeRows) {
+          const result = await storage.deleteReportItem(
+            item.rid_section_model,
+            item.timestamp
           );
-        } else {
-          logger.warn("Failed to prune cache:", deleteResult.error);
-          res.write(`POLIS-PING: cache prune failed, continuing`);
+          if (result.success) deletedCount++;
+          else
+            logger.warn("Failed to prune active report section:", result.error);
         }
+        res.write(`POLIS-PING: cache pruned (${deletedCount} items)`);
       }
     }
-
+    // noCache can regenerate active sections, but cannot bypass stored topics.
+    const topicStorage =
+      req.query.noCache === "true" && !storedOnly
+        ? new DynamoStorageService("report_narrative_store", false)
+        : storage;
     const promises = [
       handle_GET_groupInformedConsensus(
         rid,
@@ -1024,17 +861,10 @@ export async function handle_GET_reportNarrative(
         zid,
         modelVersionParam as string
       ),
-      handle_GET_topics(
-        rid,
-        storage,
-        res,
-        modelParam as string,
-        system_lore,
-        zid,
-        modelVersionParam as string
-      ),
+      handle_GET_topics(rid, topicStorage, res, modelParam as string, zid),
     ];
     await Promise.all(promises);
+    res.end();
   } catch (err) {
     // @ts-expect-error flush - calling due to use of compression
     res.flush();

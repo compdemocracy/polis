@@ -59,7 +59,7 @@ const Overview = ({ conversation, ptptCount, ptptCountTotal, math, computedStats
           <strong>Generating a Polis Narrative Report</strong>
         </p>
         <p style={globals.paragraph}>
-          You can currently choose between Gemini and Claude, with many more options coming soon.
+          New narrative reports are generated with Claude. Older report links display stored outputs. Topic sections are available only when already stored.
           You can use the same link to access the report throughout the conversation. A new
           intermediary report is recomputed every hour, and a final report will be generated once
           the conversation is closed. To keep a record of intermediary reports, please save them as

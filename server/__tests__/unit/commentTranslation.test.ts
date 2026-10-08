@@ -50,7 +50,6 @@ jest.mock("../../src/routes/votes", () => ({ votesPost: mockVote }));
 jest.mock("../../src/server-helpers", () => ({
   safeTimestampToMillis: (n: number) => n,
 }));
-jest.mock("../../src/utils/moderation", () => ({}));
 jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));
 jest.mock("../../src/nextComment", () => ({}));

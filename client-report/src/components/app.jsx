@@ -80,7 +80,7 @@ const App = (props) => {
   const [participants, setParticipants] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [colorBlindMode, setColorBlindMode] = useState(false);
-  const [model, setModel] = useState("openai");
+  const model = "claude";
   const [isNarrativeReport, setIsNarrativeReport] = useState(
     window.location.pathname.split("/")[1] === "narrativeReport"
   );
@@ -129,7 +129,7 @@ const App = (props) => {
   const [searchParamsModel, setSearchParamModel] = useState(
     window.location.search.includes("model=")
       ? window.location.search.split("model=")[1]?.split("&")[0]
-      : "openai"
+      : "claude"
   );
   const [searchParamsCache, setSearchParamCache] = useState(
     window.location.search.includes("noCache=")
@@ -961,11 +961,6 @@ const App = (props) => {
 
         {isNarrativeReport ? (
           <>
-            {searchParamsModel === null && (
-              <button onClick={() => setModel((m) => (m === "claude" ? "gemini" : "claude"))}>
-                Toggle Model
-              </button>
-            )}
             <h4>Current Model: {searchParamsModel || model}</h4>
             {parsedNarrativeConsensus ? (
               <ConsensusNarrative

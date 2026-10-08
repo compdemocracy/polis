@@ -104,10 +104,8 @@ Conversation participants may opt to use third party data collector and processo
 - We use Google Vertex AI for machine learning workloads, including model training and inference. Information about how Google handles data within Vertex AI can be found at: <https://cloud.google.com/vertex-ai/docs/general/privacy>
 - We use Jigsaw Perspective API for comment moderation. This service analyzes the content of comments to detect potentially toxic or inappropriate language. Information about how Perspective API handles data can be found at: <https://www.perspectiveapi.com/>
 - We pass all Site web requests through a Cloudflare caching proxy. No personal information is cached at this level. Information about how Cloudflare uses your data can be found at: <https://www.cloudflare.com/privacypolicy/>
-- We use OpenAI, Anthropic, and Gemini large language models (LLMs) to analyze and contextualize data as part of the output of a Polis report. Information about how these services handle data can be found at:
-  - OpenAI: <https://openai.com/enterprise-privacy>
+- We use Anthropic large language models (LLMs) to analyze and contextualize data as part of the output of a Polis report. Information about how these services handle data can be found at:
   - Anthropic: <https://www.anthropic.com/privacy>
-  - Google Gemini: <https://policies.google.com/privacy>
 - We use GitHub for storing and managing source code repositories. Information about how GitHub handles data can be found at: <https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement>
 - We use Docker to manage containers, including specific images from the public repository. Our containers are not public, but we rely on publicly available images. Information about how Docker handles data can be found at: <https://www.docker.com/legal/privacy>
 - We use NPM packages from the NPM public registry to facilitate various tasks within our client-facing application. Information about how NPM handles data can be found at: <https://www.npmjs.com/policies/privacy>
