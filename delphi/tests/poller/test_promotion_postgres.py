@@ -1,4 +1,4 @@
-"""Bundle promotion and the large-class loop against a real Postgres (P-073 PR3).
+"""Bundle promotion and the large-class loop against a real Postgres (P-073 PR3/r2).
 
 Same database resolution as the other poller integration tests
 (``require_polis_postgres``). Generated fixtures only: every conversation is
@@ -10,13 +10,16 @@ Covered: ``PostgresClient.promote_bundle`` (copy, tick, caching_tick, every
 refusal rolling back the target tick, the FOR SHARE fence in both directions,
 never an older input over a newer one, the equal-vote moderation/restage
 case, invalid and incomplete staged bundles); ``math_fingerprints``; and the
-whole loop in one process with two services and a file manifest: routing on
-first touch, the manifest, the large worker staging under its own label,
-promotion, a warm update, the restage nonce, the skew guard, a small-poller
-restart with no compute for routed conversations, the backfill skipping them,
-and a re-size after a binding change handing a conversation back.
+whole loop: routing on first touch and the job it asks the queue for (a
+recording fake of the contract; the real contract is in
+test_capacity_queue_postgres.py), the queue child (``math_poller.py --job``,
+a subprocess) staging under its own label, promotion, a warm update, the
+restage nonce, a small-poller restart with no compute for routed
+conversations, the backfill skipping them, and a re-size after a binding
+change handing a conversation back.
 """
 
+import json
 import os
 import threading
 import time
@@ -25,7 +28,9 @@ import uuid
 import psycopg2
 import pytest
 
+from polismath.database.postgres import Fingerprint
 from tests.conftest import require_polis_postgres
+from tests.poller.test_capacity_queue_postgres import COMMIT
 from tests.poller.test_backfill_postgres import (
     _TABLES,
     coherent,
@@ -36,6 +41,15 @@ from tests.poller.test_backfill_postgres import (
 from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def _source_commit(monkeypatch):
+    """The poller's own source commit: the admission config carries it and
+    the child refuses any other (or none)."""
+    from polismath.poller.readiness import COMMIT_ENV
+
+    monkeypatch.setenv(COMMIT_ENV, COMMIT)
 
 MB = 1024 * 1024
 
@@ -398,7 +412,7 @@ class TestPromoteBundle:
 
 
 # --------------------------------------------------------------------------- #
-# The whole loop: small poller + large worker + manifest, in one process
+# The whole loop: small poller + queue + the child, on one database
 # --------------------------------------------------------------------------- #
 VOTES_LARGE = 40   # rows; the model below makes this need 40 MiB
 VOTES_SMALL = 4
@@ -423,50 +437,51 @@ def vote_rows(db, zid):
     return q(db, "SELECT count(*) FROM votes WHERE zid=%s", (zid,))[0][0]
 
 
-def small_service(url, small, large, manifest_path, *, zids, limit_mb=40, restage=None,
-                  state_path=None, promote=True):
+def small_service(url, small, large, *, zids, limit_mb=40, restage=None, state_path=None,
+                  promote=True, queue=None):
     """Small compute capacity = limit - base: every conversation above 0.9 of
-    it is routed."""
+    it is routed. ``queue``: the recording fake of the queue contract."""
     from polismath.poller.admission import MemoryAdmission
     from polismath.poller.capacity import CapacityRouter, CapacitySettings
     from polismath.poller.service import MathPollerService, PollerConfig
+    from tests.poller.test_capacity_queue import FakeQueue
 
     pg = client(url, small)
     adm = MemoryAdmission(limit_mb * MB, model(), headroom=0.0)
     settings = CapacitySettings(routing=True, promote=promote, staged_label=large,
-                                manifest_uri=f"file://{manifest_path}", restage=restage,
-                                state_path=state_path)
+                                restage=restage, state_path=state_path)
     # A static allowlist: other modules' recent votes share this database.
     cfg = PollerConfig(database_url=url, math_env=small, poll_from_days_ago=1,
                        worker_pool_size=2, reconcile_interval_ms=600000,
                        memory_limit_mb=limit_mb, allowlist=list(zids))
     svc = MathPollerService(pg, cfg, admission=adm, capacity=CapacityRouter(adm, settings),
                             run_id="0123456789ab")
+    svc.capacity_queue = queue if queue is not None else FakeQueue()
+    svc.capacity_loop._queue = svc.capacity_queue
+    # The source commit the admission config carries and the child checks.
+    svc.capacity_loop._source_commit = COMMIT
     return svc, pg
 
 
-def large_service(url, small, large, manifest_path, *, zids, commit=None):
-    from polismath.poller.admission import MemoryAdmission
-    from polismath.poller.capacity import CapacityRouter, CapacitySettings
-    from polismath.poller.capacity_manifest import open_store
-    from polismath.poller.large_class import LargeClassDriver
-    from polismath.poller.service import MathPollerService, PollerConfig
+def stage_with_the_child(url, queue, small, large, zid, tmp_path):
+    """Run the queue child for the active job of ``zid`` as the daemon would:
+    the frame carries the typed config the small poller enqueued. Marks the
+    job finalized afterwards with the receipt the manifest gives (the staged
+    bundle's tick and newest vote), as the daemon's pq_finalize does."""
+    from tests.poller.test_capacity_queue_postgres import daemon_env, run_child
 
-    pg = client(url, large)
-    adm = MemoryAdmission(4096 * MB, model(), headroom=0.0)
-    settings = CapacitySettings(capacity_class="large", staged_label=large, promote_into=small,
-                                manifest_uri=f"file://{manifest_path}")
-    cfg = PollerConfig(database_url=url, math_env=large, poll_from_days_ago=1,
-                       worker_pool_size=2, reconcile_interval_ms=600000, memory_limit_mb=4096,
-                       allowlist=list(zids))
-    svc = MathPollerService(pg, cfg, admission=adm, capacity=CapacityRouter(adm, settings))
-    svc.exclusive_live = True
-    svc.set_dynamic_allowlist(frozenset())
-    driver = LargeClassDriver(svc, settings, open_store(f"file://{manifest_path}"),
-                              source_commit=commit, interval_s=60)
-    svc.large_driver = driver
-    svc._ensure_runtime()
-    return svc, pg, driver
+    (job_id,) = [j for j, job in queue.jobs.items()
+                 if job["scope"] == f"math:{small}:{zid}" and job["state"] == "queued"]
+    config = queue.jobs[job_id]["config"]
+    (tmp_path / job_id).mkdir(exist_ok=True)
+    daemon, manifest = daemon_env(tmp_path / job_id, zid=zid, label=large, env="test",
+                                  config=config)
+    result = run_child(url, large, daemon)
+    assert result.returncode == 0, result.stderr[-3000:]
+    m = json.loads(manifest.read_text())
+    assert m["job_id"] == daemon["DELPHI_JOB_ID"]
+    queue.finish(job_id, Fingerprint(m["inputs"]["math_tick"], m["inputs"]["vote_hwm"], 0))
+    return job_id
 
 
 def drain(svc):
@@ -481,158 +496,85 @@ def cycle(svc):
 
 
 def counts(svc):
-    return svc.capacity.counts()
+    """The counts as the readiness tick publishes them (the queue's depth read
+    included)."""
+    return svc.readiness_snapshot()["capacity"]
 
 
 class TestTheLoop:
-    def test_route_stage_promote_update_restage(self, pg_url, db, labels, tmp_path):
-        from polismath.poller.capacity_manifest import FileManifestStore, parse
-
+    def test_route_enqueue_stage_promote_update_restage(self, pg_url, db, labels, tmp_path):
         small, large = labels
         big, little = fresh_zids(2)
         seed_recent(db, big, voters=8, comments=8)          # ~40 vote rows
         seed_recent(db, little, voters=2, comments=3)
         assert vote_rows(db, big) > 36 > vote_rows(db, little)
-        manifest = tmp_path / "manifest.json"
-        s_svc, s_pg = small_service(pg_url, small, large, manifest, zids=[big, little])
-        l_svc, l_pg, driver = large_service(pg_url, small, large, manifest, zids=[big, little])
+        s_svc, s_pg = small_service(pg_url, small, large, zids=[big, little])
+        queue = s_svc.capacity_queue
         try:
-            # 1. The small poller computes the small one, routes the big one.
+            # 1. The small poller computes the small one, routes the big one
+            #    and asks the queue for one math_rebuild job.
             cycle(s_svc)
             assert coherent(db, little, small) and fp(s_pg, big, small) is None
             assert big not in s_svc.cached_zids()
             c = counts(s_svc)
-            assert c["large_demand"] == 1 and c["routed_total"] >= 1
-            m = parse(FileManifestStore(str(manifest)).read()[0])
-            assert [e.zid for e in m.entries] == [big] and m.staged_label == large
-            assert m.writer.label == small
+            assert c["routed_total"] >= 1 and c["large_demand"] == 1 and c["large_leased"] == 0
+            assert [call[0] for call in queue.calls] == [big] * len(queue.calls)
+            (job_id,) = queue.jobs
+            assert queue.jobs[job_id]["scope"] == f"math:{small}:{big}"
+            assert queue.jobs[job_id]["config"]["target_label"] == small
+            assert s_svc.capacity.record(big).job_id == job_id
 
-            # 2. The large worker stages it under its own label only.
-            driver.tick()
-            assert driver.counts()["allowlisted"] == 1 and driver.counts()["refusal"] is None
-            l_svc.poll_once()
-            drain(l_svc)
-            assert coherent(db, big, large) and fp(l_pg, little, large) is None
+            # 2. The child stages it under its own label only.
+            stage_with_the_child(pg_url, queue, small, large, big, tmp_path)
+            assert coherent(db, big, large) and fp(s_pg, little, large) is None
             assert fp(s_pg, big, small) is None                  # the small label untouched
 
-            # 3. The small poller promotes it; demand clears.
+            # 3. The small poller promotes it; demand clears (the queue's
+            #    count once the job finished, the records' pending state).
             cycle(s_svc)
             assert rows(db, big, small) == rows(db, big, large)
             assert valid(db, big, small) is True
             c = counts(s_svc)
             assert (c["large_demand"], c["pending_promotion"], c["promoted_total"]) == (0, 0, 1)
             assert c["oldest_unresolved_age_ms"] is None
-            driver.tick()
-            assert driver.counts()["busy"] == 0 and driver.counts()["queued"] == 0
+            asked = len(queue.calls)
 
-            # 4. A new vote: the small poller does not compute it, demand
-            # returns; the large worker updates warm; promotion follows.
+            # 4. A new vote: the small poller does not compute it; the staged
+            #    bundle is behind the input, so a new job is asked for; the
+            #    child stages the newer bundle; promotion follows.
             now = int(time.time() * 1000)
             q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 1, %s, %s)",
               (big, seed_vote(AGREE), now))
             cycle(s_svc)
-            assert counts(s_svc)["large_demand"] == 1 and big not in s_svc.cached_zids()
-            l_svc.poll_once()
-            drain(l_svc)
-            assert fp(l_pg, big, large).lvt == now
+            assert big not in s_svc.cached_zids() and len(queue.calls) > asked
+            assert len(queue.jobs) == 2 and counts(s_svc)["large_demand"] == 1
+            stage_with_the_child(pg_url, queue, small, large, big, tmp_path)
+            assert fp(s_pg, big, large).lvt == now
             cycle(s_svc)
             assert fp(s_pg, big, small).lvt == now
             assert counts(s_svc)["large_demand"] == 0 and counts(s_svc)["promoted_total"] == 2
+            asked = len(queue.calls)
 
-            # 5. The restage nonce: a fresh large build of the same votes and
-            # a promotion with an equal newest vote and a later write.
+            # 5. The restage nonce: a fresh build of the same votes and a
+            #    promotion with an equal newest vote and a later write.
             before = fp(s_pg, big, small)
             s_svc.capacity.settings = s_svc.capacity.settings.__class__(
                 **{**s_svc.capacity.settings.__dict__, "restage": "ab" * 8})
             s_svc.capacity_loop.settings = s_svc.capacity.settings
-            cycle(s_svc)                                       # marks and writes manifest
-            assert counts(s_svc)["large_demand"] == 1
-            assert parse(FileManifestStore(str(manifest)).read()[0]).restage == "ab" * 8
-            driver.tick()                                      # restage: rebuild even if cached
-            drain(l_svc)
+            cycle(s_svc)                                       # marks and asks for a job
+            assert len(queue.jobs) == 3 and len(queue.calls) > asked
+            assert s_svc.capacity.restage_applied == "ab" * 8
+            stage_with_the_child(pg_url, queue, small, large, big, tmp_path)
             cycle(s_svc)
             after = fp(s_pg, big, small)
             assert after.lvt == before.lvt and after.modified > before.modified
             assert counts(s_svc)["large_demand"] == 0
+            asked = len(queue.calls)
             cycle(s_svc)                                       # the same nonce never re-applies
-            assert counts(s_svc)["large_demand"] == 0
+            assert counts(s_svc)["large_demand"] == 0 and len(queue.calls) == asked
         finally:
             s_svc.stop()
-            l_svc.stop()
             s_pg.shutdown()
-            l_pg.shutdown()
-
-    def test_a_refusal_while_cached_restages_from_full_history(self, pg_url, db, labels,
-                                                                tmp_path):
-        """Review F1: while the large worker refuses, its loops drop the cached
-        conversation's votes. After the refusal clears, the next stage must be
-        a full rebuild carrying every vote, never a warm update missing the
-        dropped ones."""
-        small, large = labels
-        (big,) = fresh_zids(1)
-        seed_recent(db, big, voters=8, comments=8)
-        manifest = tmp_path / "manifest.json"
-        s_svc, s_pg = small_service(pg_url, small, large, manifest, zids=[big])
-        l_svc, l_pg, driver = large_service(pg_url, small, large, manifest, zids=[big])
-        try:
-            cycle(s_svc)
-            driver.tick()
-            l_svc.poll_once()
-            drain(l_svc)
-            assert big in l_svc.cached_zids() and coherent(db, big, large)
-            driver._source_commit = "b" * 40                   # a refusal (skew) begins
-            driver.tick()
-            assert driver.counts()["refusal"] == "skew" and l_svc.cached_zids() == set()
-            now = int(time.time() * 1000)
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 7, 1, %s, %s)",
-              (big, seed_vote(AGREE), now))
-            l_svc.poll_once()                                  # dropped by the empty allowlist
-            drain(l_svc)
-            assert fp(l_pg, big, large).lvt < now
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 6, 2, %s, %s)",
-              (big, seed_vote(DISAGREE), now + 1))
-            cycle(s_svc)
-            driver._source_commit = None                       # the refusal clears
-            driver.tick()
-            drain(l_svc)
-            l_svc.poll_once()
-            drain(l_svc)
-            staged = fp(l_pg, big, large)
-            assert staged.lvt == now + 1
-            conv = l_svc._convs[big]
-            cells = int(conv.raw_rating_mat.notna().sum().sum())
-            expected = q(db, "SELECT count(*) FROM (SELECT DISTINCT pid, tid FROM votes "
-                             "WHERE zid = %s) v", (big,))[0][0]
-            assert cells == expected                           # both new votes, every old one
-            cycle(s_svc)
-            assert rows(db, big, small) == rows(db, big, large)
-        finally:
-            s_svc.stop()
-            l_svc.stop()
-            s_pg.shutdown()
-            l_pg.shutdown()
-
-    def test_skew_guard_and_label_check(self, pg_url, db, labels, tmp_path):
-        small, large = labels
-        (big,) = fresh_zids(1)
-        seed_recent(db, big, voters=8, comments=8)
-        manifest = tmp_path / "manifest.json"
-        s_svc, s_pg = small_service(pg_url, small, large, manifest, zids=[big])
-        l_svc, l_pg, driver = large_service(pg_url, small, large, manifest, zids=[big],
-                                            commit="b" * 40)
-        try:
-            cycle(s_svc)
-            driver.tick()
-            assert driver.counts() == {"busy": 0, "queued": 0, "skew": 1, "allowlisted": 0,
-                                       "unfit": 0, "refusal": "skew"}
-            l_svc.poll_once()
-            drain(l_svc)
-            assert fp(l_pg, big, large) is None               # nothing computed
-        finally:
-            s_svc.stop()
-            l_svc.stop()
-            s_pg.shutdown()
-            l_pg.shutdown()
 
     def test_restart_backfill_skip_and_resize(self, pg_url, db, labels, tmp_path):
         from polismath.poller.service import _BackfillHost
@@ -640,40 +582,57 @@ class TestTheLoop:
         small, large = labels
         (big,) = fresh_zids(1)
         seed_recent(db, big, voters=8, comments=8)
-        manifest = tmp_path / "manifest.json"
         dumps = tmp_path / "dumps"
-        s_svc, s_pg = small_service(pg_url, small, large, manifest, zids=[big])
+        state = str(tmp_path / "capacity.json")
+        s_svc, s_pg = small_service(pg_url, small, large, zids=[big], state_path=state)
         s_svc.config.dump_dir = str(dumps)
+        queue = s_svc.capacity_queue
         try:
             cycle(s_svc)
             assert s_svc.capacity.is_routed(big)
+            (job_id,) = queue.jobs
         finally:
             s_svc.stop()
             s_pg.shutdown()
-        # A restart with no state file: the manifest restores the record and
-        # nothing is computed, dumped or parked for it.
-        s2, pg2 = small_service(pg_url, small, large, manifest, zids=[big])
+        # A restart with the state file: the record (and its job) is back,
+        # nothing is computed, dumped or parked for it, and the queue is
+        # asked again for the same scope, which finds the active job.
+        s2, pg2 = small_service(pg_url, small, large, zids=[big], state_path=state, queue=queue)
         s2.config.dump_dir = str(dumps)
         try:
+            assert s2.capacity.record(big).job_id == job_id
             cycle(s2)
             assert s2.capacity.is_routed(big) and big not in s2.cached_zids()
             assert fp(pg2, big, small) is None and not s2._parked
             assert not dumps.exists() or not os.listdir(dumps)
             assert _BackfillHost(s2).accepts(big) is False
+            assert set(queue.jobs) == {job_id}
         finally:
             s2.stop()
             pg2.shutdown()
+        # A restart without the state file: the next cold touch sizes and
+        # routes it again; the queue finds the same active job.
+        s2b, pg2b = small_service(pg_url, small, large, zids=[big], queue=queue)
+        s2b.config.dump_dir = str(dumps)
+        try:
+            cycle(s2b)
+            assert s2b.capacity.is_routed(big) and fp(pg2b, big, small) is None
+            assert set(queue.jobs) == {job_id} and s2b.capacity.record(big).job_id == job_id
+        finally:
+            s2b.stop()
+            pg2b.shutdown()
         # The box is resized: the binding changes, the routed conversation is
         # re-sized without new input, fits, and the small poller computes it.
-        s3, pg3 = small_service(pg_url, small, large, manifest, zids=[big], limit_mb=4096)
+        s3, pg3 = small_service(pg_url, small, large, zids=[big], state_path=state, limit_mb=4096,
+                                queue=queue)
         try:
-            cycle(s3)                         # restore + re-size + REBUILD submitted
+            cycle(s3)                         # re-size + REBUILD submitted
             drain(s3)
             assert not s3.capacity.is_routed(big)
             assert coherent(db, big, small)
-            cycle(s3)                         # the manifest drops it
-            from polismath.poller.capacity_manifest import FileManifestStore, parse
-            assert parse(FileManifestStore(str(manifest)).read()[0]).entries == ()
+            asked = len(queue.calls)
+            cycle(s3)
+            assert len(queue.calls) == asked  # no longer routed: the queue is not asked
         finally:
             s3.stop()
             pg3.shutdown()

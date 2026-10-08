@@ -80,8 +80,26 @@ pub fn parse(dsn: &str, kind: &TransportKind) -> Result<PgConfig> {
 
 impl Connector {
     pub fn new(cfg: &Config) -> Result<Self> {
-        let mut config = parse(&cfg.dsn, &cfg.transport)?;
-        if let Some(path) = &cfg.password_file {
+        Self::from_parts(
+            &cfg.dsn,
+            &cfg.transport,
+            cfg.password_file.as_deref(),
+            "polis-jobs/1",
+        )
+    }
+
+    /// The same transport rules for another binary in this workspace (the
+    /// `polis-api` route server), which has its own configuration names and
+    /// reports itself under its own `application_name`.
+    pub fn from_parts(
+        dsn: &str,
+        transport: &TransportKind,
+        password_file: Option<&std::path::Path>,
+        application_name: &str,
+    ) -> Result<Self> {
+        let mut config = parse(dsn, transport)?;
+        config.application_name(application_name);
+        if let Some(path) = password_file {
             ensure!(
                 config.get_password().is_none(),
                 refuse("password in both DSN and POLIS_JOBS_PASSWORD_FILE")
@@ -94,7 +112,7 @@ impl Connector {
             );
             config.password(bytes);
         }
-        match &cfg.transport {
+        match transport {
             TransportKind::Tls { ca_file, .. } => {
                 let pem =
                     std::fs::read_to_string(ca_file).map_err(|_| refuse("unreadable CA file"))?;

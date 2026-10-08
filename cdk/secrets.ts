@@ -14,9 +14,10 @@ export default (
   asgDelphiLarge: cdk.aws_autoscaling.AutoScalingGroup,
   asgOllama: cdk.aws_autoscaling.AutoScalingGroup | undefined,
   fileSystem: cdk.aws_efs.FileSystem | undefined,
-  // P-073: the delphi-large box's own role reads the env document and the DB
-  // secret in after_install.sh (and nothing else here).
-  delphiLargeRole?: cdk.aws_iam.IRole
+  // Queue worker classes (cdk/workerClasses.ts): each class role reads the env
+  // document and the DB secret in after_install.sh (and nothing else here);
+  // every worker group besides asgDelphiLarge gets the same dependencies.
+  workers?: { roles: cdk.aws_iam.IRole[]; extraGroups: cdk.aws_autoscaling.AutoScalingGroup[] }
 ) => {
   const webAppEnvVarsSecret = new secretsmanager.Secret(self, 'WebAppEnvVarsSecret', {
     secretName: 'polis-web-app-env-vars',
@@ -34,9 +35,9 @@ export default (
   webAppEnvVarsSecret.grantRead(instanceRole);
   clientAdminEnvVarsSecret.grantRead(instanceRole);
   clientReportEnvVarsSecret.grantRead(instanceRole);
-  if (delphiLargeRole) {
-    webAppEnvVarsSecret.grantRead(delphiLargeRole);
-    db.secret!.grantRead(delphiLargeRole);
+  for (const role of workers?.roles ?? []) {
+    webAppEnvVarsSecret.grantRead(role);
+    db.secret!.grantRead(role);
   }
 
   // Dependencies (Add ASGs to loops/lists)
@@ -45,7 +46,7 @@ export default (
   const addSecretDependency = (asg: autoscaling.IAutoScalingGroup) => asg.node.addDependency(webAppEnvVarsSecret);
 
   // Apply common dependencies to all ASGs
-  [asgWeb, asgMathWorker, asgDelphiSmall, asgDelphiLarge].forEach(asg => {
+  [asgWeb, asgMathWorker, asgDelphiSmall, asgDelphiLarge, ...(workers?.extraGroups ?? [])].forEach(asg => {
     addLogDependency(asg);
     addSecretDependency(asg);
     addDbDependency(asg);

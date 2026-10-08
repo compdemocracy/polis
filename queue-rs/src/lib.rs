@@ -59,12 +59,14 @@ fn signature(name: &str) -> Result<&'static [&'static str]> {
 }
 
 /// Typed argument lists of the `polis-queue/2` RPCs the `polis-jobs` daemon
-/// calls (migration 000023). Overloads are resolved by these exact casts, so
-/// the six-argument claim, the eight-argument fail/park, the six-argument
-/// release and the four-argument reaper can never fall back to a `/1` form.
+/// calls (migration 000023), plus the one `polis-queue/3` read (000024,
+/// `pq_class_depth`). Overloads are resolved by these exact casts, so the
+/// six-argument claim, the eight-argument fail/park, the six-argument release
+/// and the four-argument reaper can never fall back to a `/1` form.
 pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
     Ok(match name {
         "pq_claim" => &["text", "smallint", "uuid", "uuid", "integer", "text"],
+        "pq_class_depth" => &["text", "text"],
         "pq_heartbeat" => &["text", "uuid", "uuid", "uuid", "bigint", "integer"],
         "pq_end_attempt" => &[
             "text", "uuid", "uuid", "uuid", "bigint", "text", "text", "boolean",

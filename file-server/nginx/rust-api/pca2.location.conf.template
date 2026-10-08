@@ -1,0 +1,29 @@
+# GET and HEAD /api/v3/math/pca2 without a body go to polis-api
+# (RUST_API_ROUTES contains pca2); any other request on this path goes
+# straight to Node (418 here is only an internal hand-over, never sent).
+#
+# Node also answers when polis-api gives no response: no such host, refused,
+# slower than the timeouts below before sending its status line, or its own
+# 502 (database unreachable, or a request it does not model). This fallback
+# covers failures BEFORE polis-api starts its response. Once its status line
+# and headers have gone to the client (buffering is off), nginx cannot switch
+# to Node: a response cut short after that reaches the client as a truncated
+# reply (shorter than its Content-Length, or a chunked body without its end),
+# which an HTTP client reports as a failed request. polis-api's own 500
+# answers are passed through as Node would send them.
+location = /api/v3/math/pca2 {
+    error_page 418 = @polis_node_api;
+    if ($polis_api_plain = 0) {
+        return 418;
+    }
+    proxy_pass http://$polis_api_target;
+    proxy_intercept_errors on;
+    error_page 502 503 504 = @polis_node_api;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_connect_timeout 2s;
+    proxy_send_timeout 5s;
+    proxy_read_timeout 5s;
+    proxy_buffering off;
+    proxy_request_buffering off;
+}

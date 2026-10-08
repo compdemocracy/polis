@@ -126,9 +126,9 @@ def test_delphi_box_stops_delphi_but_not_math_python(fake_docker):
 
 
 def test_large_box_stops_nothing(fake_docker):
-    # The large memory class box (service type delphi-large) runs only
-    # polis-math-python-large-1, which no anchored filter names; AfterInstall
-    # removes it before starting the new revision.
+    # A container no anchored filter names (here the former large poller's
+    # name, which no compose file defines any more) is left alone: the
+    # large box's queue worker is not this hook's to stop.
     result, stops = fake_docker("polis-math-python-large-1")
     assert result.returncode == 0, result.stderr
     assert stops == []

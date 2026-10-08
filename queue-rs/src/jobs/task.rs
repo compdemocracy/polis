@@ -11,7 +11,7 @@ use super::{
     outcome::{self, Action, Exit},
     readiness::{Counters, InFlight, Transition},
     rpc::{Rpc, db_message},
-    shutdown,
+    scope, shutdown,
     transport::Connector,
 };
 use crate::Completion;
@@ -20,7 +20,7 @@ use std::{
     collections::BTreeMap,
     io::Write,
     path::Path,
-    sync::{Arc, Mutex, mpsc},
+    sync::{Arc, Mutex, OnceLock, mpsc},
     time::{Duration, Instant},
 };
 use uuid::Uuid;
@@ -42,6 +42,14 @@ pub struct Ctx {
     pub counters: Counters,
     pub pending: Mutex<Vec<Pending>>,
     pub in_flight: Mutex<BTreeMap<String, InFlight>>,
+    /// The installed contract, set once the start-up check accepted it.
+    pub contract: OnceLock<String>,
+}
+
+impl Ctx {
+    pub fn contract(&self) -> &str {
+        self.contract.get().map_or("unknown", String::as_str)
+    }
 }
 
 pub fn identity(c: &Claim) -> Vec<Value> {
@@ -323,6 +331,7 @@ pub fn refuse_without_child(ctx: &Ctx, rpc: &mut Rpc, c: &Claim, permanent: bool
         .and_then(|r| r["state"].as_str().map(str::to_owned))
         .unwrap_or_else(|| "unrecorded".into());
     transition(ctx, c, "none", &to, Some(code.to_owned())).emit();
+    scope::after_terminal(rpc, &ctx.counters, &ctx.owner, &c.env, &c.job_id, &to);
 }
 
 pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
@@ -336,6 +345,11 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
         Ok(a) => a,
         Err(_) => return refuse_without_child(&ctx, &mut rpc, &claim, true, "frame_invalid"),
     };
+    // A rebuild's admission must carry the typed math config whole; the
+    // child checks every key of it, so a frame without them never spawns one.
+    if claim.stage == "math_rebuild" && child::MathConfig::from_admission(&admission).is_err() {
+        return refuse_without_child(&ctx, &mut rpc, &claim, true, "math_config_invalid");
+    }
     // Phase: the narrative checker is the same job reclaimed after a park.
     let mut phase = if claim.stage == "delphi_narrative" {
         "submit".to_owned()
@@ -385,7 +399,14 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
     let manifest_path = dir.join("output-manifest.json");
     let frame_path = dir.join("frame.json");
     let batch = recheck.as_ref().map(|(_, b)| b.as_str());
-    let frame = child::frame(&claim, &admission, &phase, batch);
+    let frame = match child::frame(&claim, &admission, &phase, batch) {
+        Ok(f) => f,
+        Err(_) => {
+            refuse_without_child(&ctx, &mut rpc, &claim, true, "math_config_invalid");
+            let _ = ctx.journal.remove(&claim.attempt_id);
+            return;
+        }
+    };
     let prepared =
         std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&frame_path, frame.to_string()));
     let command = child::command_args(&cfg.app_path, &claim, &admission, &phase);
@@ -837,6 +858,16 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
                 p.to = "poison".into();
                 p.emit();
             }
+            // The attempt's exit is proven and recorded: a terminal job frees
+            // its scope (the SQL re-checks every condition).
+            scope::after_terminal(
+                &mut rpc,
+                &ctx.counters,
+                &ctx.owner,
+                &claim.env,
+                &claim.job_id,
+                &state,
+            );
         }
         Err(e) => {
             // The exit is proven here but not recorded: retry from the main loop.

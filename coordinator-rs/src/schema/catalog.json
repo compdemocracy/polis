@@ -9769,7 +9769,7 @@
     },
     {
       "path": "server/postgres/migrations/000019_create_polis_queue.sql",
-      "sha256": "240d445ecc88c0ddb3b24ba2d62a8ad00316fe4381dadb566d2c5d1f48c2c1bc"
+      "sha256": "fedfbcf9fc594c3e53193cacb76dfd35558d81a449d507fcacb3198f5e39beae"
     },
     {
       "path": "server/postgres/migrations/000021_create_polis_coordinator.sql",

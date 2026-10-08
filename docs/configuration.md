@@ -215,26 +215,26 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
 
-### Large Memory Class (math-python-large)
+### Large Memory Class
 
-Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (neither poller service has an `env_file`), so a value set in `.env` or the deployment env document reaches a container only through these lines.
+Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (`math-python` has no `env_file`), so a value set in `.env` or the deployment env document reaches the container only through these lines.
 
-| Service | Role | Label (`math_env`) and lock | Memory limit |
-|---|---|---|---|
-| `math-python` | small poller, the single writer of the served label; routes, writes the manifest, promotes | `MATH_PYTHON_ENV` (`python`) | `DELPHI_POLLER_CONTAINER_MEMORY` (16g) |
-| `math-python-large` (profile `math-python-large`) | large worker (`math-large`): computes only manifest conversations, writes only its own label | `python-large` (a literal, not a setting) | `MATH_LARGE_CONTAINER_MEMORY` (52g) |
+There is no resident large worker. With routing on, a conversation the small poller's estimator says would not fit becomes one `math_rebuild` job of worker class `large` on the Postgres job queue (`polis-queue`, migrations 000019 and 000023 plus the `polis-queue/3` functions), inserted by `math-python` through the queue's SQL functions. The large box runs the `polis-jobs` daemon as a worker of class `large`; for each job it runs `scripts/math_poller.py --job` as a child, which computes exactly that conversation (a cold full-history rebuild under its own memory budget) and publishes it under the literal label `python-large`; `math-python` promotes the staged bundle into its own label.
 
-- **`MATH_CAPACITY_ROUTING`** (`math-python`, default `0`) `1` sizes each cold touch before computing it and hands a conversation above `MATH_CAPACITY_ROUTE_FRACTION` (0.9; `MATH_CAPACITY_KEEP_FRACTION` 0.7 once routed) of the small compute capacity to the large class. A routed conversation is not computed by the small poller at all, so do not set it without a running large worker. `MATH_CAPACITY_RESIZE_S` (3600) bounds re-sizing; `MATH_CAPACITY_STATE_PATH` (unset) keeps the records across restarts.
+| Service | Role | Label (`math_env`) and lock |
+|---|---|---|
+| `math-python` | small poller, the single writer of the served label; routes, enqueues, promotes | `MATH_PYTHON_ENV` (`python`) |
+| the queue child (`math_poller.py --job`, under the daemon on the large box) | computes one conversation per job, writes only the staged label | `python-large` (its `MATH_ENV`, bound to the job's frame) |
+
+- **`MATH_CAPACITY_ROUTING`** (`math-python`, default `0`) `1` sizes each cold touch before computing it and hands a conversation above `MATH_CAPACITY_ROUTE_FRACTION` (0.9; `MATH_CAPACITY_KEEP_FRACTION` 0.7 once routed) of the small compute capacity to the large class. A routed conversation is not computed by the small poller at all, so do not set it without the queue and a large box. `MATH_CAPACITY_RESIZE_S` (3600) bounds re-sizing; `MATH_CAPACITY_STATE_PATH` (unset) keeps the records across restarts.
+- **`MATH_CAPACITY_QUEUE_DSN`**, **`MATH_CAPACITY_QUEUE_ENV`** (`math-python`, unset) the queue: a libpq DSN for a login that is a member of `polis_queue_executor` (the poller's publication path keeps `DATABASE_URL`; the queue login has no table access and is checked on every call), and the queue env namespace. Unset: routed conversations are not enqueued (logged at start). With them set, the capacity line's `large_demand` (queued + waiting jobs of class `large`) and `large_leased` (running) are the queue's counts (`pq_class_depth`, migration 000024); without them `large_demand` is the records' count and `large_leased` is null. `large_poisoned` counts routed conversations the queue refused as poisoned (their last three rebuild jobs died under this source commit); they are parked until a new deploy or a ruling. A staged bundle is promoted only on the receipt of the job that produced it (succeeded, finalized, its manifest naming the staged bundle), so without the queue nothing is promoted.
 - **`MATH_CAPACITY_PROMOTE`** (`math-python`, default `0`; needs routing) promotes staged `python-large` bundles into `python`.
-- **`MATH_CAPACITY_RESTAGE`** (`math-python`, unset) a 16-64 hex nonce that marks every routed conversation for one rebuild; remove it after use.
-- **`MATH_CAPACITY_MANIFEST_URI`** (both, unset) `s3://<bucket>/<key>` (the client reads `AWS_REGION` and `AWS_S3_ENDPOINT` and signs as the instance role: neither poller receives the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair the env document holds for Delphi) or `file:///<path>`. The large worker refuses to start without it.
-- **`MATH_CAPACITY_LARGE_BUDGET_MB`** (both, unset) the large class's budget; the large worker refuses to start if it exceeds 0.85 of its own memory limit.
-- The large worker's label and lock are the literal `python-large` in both services (the label the small poller promotes from), so no env document can point it at a served label; the worker also refuses to start under `prod` or `python`.
-- **`MATH_LARGE_CONTAINER_MEMORY`**, **`MATH_LARGE_WORKER_POOL_SIZE`** (2), **`MATH_LARGE_CONV_CACHE_CAP`** (10), **`MATH_LARGE_CONV_CACHE_MB`** (unset) the large worker's own limit, pool and cache; the small poller's values do not move them.
+- **`MATH_CAPACITY_RESTAGE`** (`math-python`, unset) a 16-64 hex nonce that marks every routed conversation for one fresh job and promotion; remove it after use.
+- **`MATH_CAPACITY_LARGE_BUDGET_MB`** (both, unset) the large class's budget; the queue child refuses a job (exit 2) when it exceeds 0.85 of its own memory limit.
+- The staged label is the literal `python-large` on both sides, so no env document can point the hand-off at a served label; the child also refuses to run under `prod` or `python`, under the job's target label, or with the small poller's routing, promotion, restage or backfill settings in its environment.
+- `MATH_CAPACITY_CLASS` is pinned to `small` on `math-python`; `large` refuses to start (the large class is a child, not a poller).
 
-The large worker pins what it must never take from a shared env document: `MATH_CAPACITY_CLASS=large`, routing, promotion, the nonce, the state path, `MATH_BACKFILL=0`, no sharding and no served-label override. `math-python` pins `MATH_CAPACITY_CLASS=small`.
-
-Deploy hooks: a box whose `/etc/app-info/service_type.txt` says `delphi-large` starts only `math-python-large` ([after_install.sh](../scripts/after_install.sh)), with the same readiness identity lines as the Delphi box; `application_stop.sh` stops it. A `delphi` box is unchanged (`delphi` and `math-python`).
+Deploy hooks: a box whose `/etc/app-info/service_type.txt` says `delphi-large` writes the readiness identity lines and starts no compose service here; its worker is the `polis-jobs` daemon of class `large`, whose service definition lands with the daemon. A `delphi` box is unchanged (`delphi` and `math-python`).
 
 ### Datadog Tracing (Delphi)
 

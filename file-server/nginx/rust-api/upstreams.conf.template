@@ -1,0 +1,26 @@
+# Rendered only when RUST_API_ROUTES names a known route (see
+# docker-entrypoint.sh); otherwise this file is empty and nginx routes every
+# path to Node exactly as before.
+
+# polis-api is looked up per request through Docker's DNS, not once at start,
+# so nginx starts and keeps serving when the polis-api container is absent,
+# restarting or gone; those requests go to Node (@polis_node_api).
+resolver ${RUST_API_RESOLVER} valid=5s ipv6=off;
+resolver_timeout 2s;
+
+# Only GET and HEAD requests without a body go to polis-api; every other
+# method, and any request carrying a body (Content-Length or
+# Transfer-Encoding), is answered by Node before any of it is read, so the
+# request body handling and the non-GET paths stay Node's own.
+map "$request_method:$http_content_length:$http_transfer_encoding" $polis_api_plain {
+    default 0;
+    "GET::" 1;
+    "HEAD::" 1;
+}
+
+# Which paths polis-api serves. The entrypoint writes one line per route
+# named in RUST_API_ROUTES.
+map $uri $polis_api_target {
+    default "";
+${RUST_API_MAP_ENTRIES}
+}
