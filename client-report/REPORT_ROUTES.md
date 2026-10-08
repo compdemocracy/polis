@@ -13,6 +13,14 @@ This document provides a comprehensive overview of all available report routes i
 - Consensus and divisive statements
 - Metadata and demographics
 
+### 2. `/narrativeReport/{report_id}`
+**Component:** NarrativeOverview  
+**Description:** A narrative-style report presenting the conversation analysis in a more readable, story-like format.  
+**Features:**
+- Narrative summaries of group perspectives
+- Key themes and insights
+- Contextual analysis of the conversation
+
 ### 3. `/commentsReport/{report_id}`
 **Component:** CommentsReport  
 **Description:** Detailed view of all comments in the conversation with voting patterns and analysis.  
@@ -75,12 +83,22 @@ This document provides a comprehensive overview of all available report routes i
 - Collective statement generation
 - Layer distribution analysis
 
+### 12. `/topicMapNarrativeReport/{report_id}`
+**Component:** TopicMapNarrativeReport  
+**Description:** Combined view showing topic mapping with narrative reports.  
+**Features:**
+- Overview statistics
+- Topic visualization integration
+- Narrative topic reports
+- Raw data export
+
 ## Usage Examples
 
 ```
 http://localhost:5010/report/2arcefpshi
 http://localhost:5010/commentsReport/2arcefpshi
 http://localhost:5010/topicStats/2arcefpshi
+http://localhost:5010/narrativeReport/2arcefpshi
 ```
 
 ## Route Detection

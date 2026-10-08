@@ -60,6 +60,10 @@ jest.mock("../../src/server-helpers", () => ({
   updateLastInteractionTimeForConversation: jest.fn(),
   updateVoteCount: jest.fn(),
 }));
+jest.mock("../../src/utils/moderation", () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
 jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));
 jest.mock("../../src/nextComment", () => ({}));

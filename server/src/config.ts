@@ -111,6 +111,7 @@ export default {
   ddEnv: process.env.DD_ENV as string,
   dynamoDbEndpoint: process.env.DYNAMODB_ENDPOINT || null,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null,
+  geminiApiKey: process.env.GEMINI_API_KEY || null,
   jwksUri: process.env.JWKS_URI || null,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
   logToFile: isTrue(process.env.SERVER_LOG_TO_FILE),
@@ -120,9 +121,14 @@ export default {
     "polis_treevite_pepper",
   mailgunApiKey: process.env.MAILGUN_API_KEY || null,
   mailgunDomain: process.env.MAILGUN_DOMAIN || null,
+  maxReportCacheDuration: parseInt(
+    process.env.MAX_REPORT_CACHE_DURATION || "3600000",
+    10
+  ),
   mathEnv: process.env.MATH_ENV as string,
   nodeEnv: process.env.NODE_ENV as string,
   isTesting: isTrue(process.env.TESTING),
+  openaiApiKey: process.env.OPENAI_API_KEY || null,
   // Protected operations pages (/api/v3/ops/*, /ops in the admin console).
   // Off unless OPS_ENABLED=true; see docs/configuration.md.
   opsEnabled: isTrue(process.env.OPS_ENABLED),

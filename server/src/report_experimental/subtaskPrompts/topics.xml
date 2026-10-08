@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<polisAnalysisPrompt version="1.0">
+    <metadata>
+        <title>Guide to Analyzing and Reporting A SINGLE TOPIC in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports comparing and describing the opinion
+            dynamics of the topic and output valid JSON</purpose>
+    </metadata>
+
+    <criticalInstructions>
+        <instruction>
+            Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
+            TEXT.
+        </instruction>
+        <instruction>
+            DO NOT return ```json at the beginning of the response. This is not markdown. Do not end
+            the response with ```, your response MUST begin with { and end with }
+        </instruction>
+    </criticalInstructions>
+
+    <definitions>
+        <term name="differences_between_groups">
+            <description>Notable difference in views between groups on a single statement or related
+                set of statements within the topic</description>
+            <threshold>30</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="consensus">
+            <description>High level of agreement across all groups on a single statement or related
+                set of statements within the topic</description>
+            <threshold>at least 60% in each group</threshold>
+            <unit>percent</unit>
+        </term>
+    </definitions>
+
+    <analysisProcess>
+        <dataProcessing>
+            <step order="1">
+                <name>Analyze Each Group's Positions</name>
+                <calculations>
+                    <calculation>group_positions</calculation>
+                    <calculation>per_group_vote_patterns</calculation>
+                    <pattern>group_distinctive_views</pattern>
+                </calculations>
+            </step>
+            <step order="2">
+                <name>Compare Group Positions</name>
+                <calculations>
+                    <calculation>between_group_differences</calculation>
+                    <calculation>shared_positions</calculation>
+                </calculations>
+            </step>
+            <step order="3">
+                <name>Identify Patterns</name>
+                <patterns>
+                    <pattern>key_divergence_global</pattern>
+                </patterns>
+            </step>
+        </dataProcessing>
+
+        <reportingStructure>
+            <paragraph type="topic_overview_and_consensus">
+                <elements>
+                    <element>overview_topic_divisions</element>
+                    <element>major_divisions_between_groups</element>
+                    <element>differences_between_groups</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        In your overview, you must describe the statements on the topic, not the
+                        groups.
+                    </instruction>
+                    <instruction>
+                        You must describe the narrative which emerges from the division, not just a
+                        grabbag of
+                        topics. What are the key themes, values, and ideas that emerge from the
+                        division? What is the narrative that emerges from the division?
+                    </instruction>
+                    <instruction>
+                        If any group group is split, or disagrees, say the votes on statements on
+                        the topic
+                        was split
+                        or divided. Consensus means greater than 60% agreement per group across all
+                        groups.
+                    </instruction>
+                    <instruction>
+                        DO NOT put any percentages in the text. DO NOT put any comment numbers in
+                        the text.
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    The topic [topic_name] revealed several key patterns in the conversation.
+                    Participants
+                    expressed [strong/moderate/mixed] views on [specific_aspect], with
+                    [description_of_pattern]
+                    emerging as a central theme. The discourse around [topic_name] highlighted
+                    [key_value_or_concern], particularly in relation to [related_subtopic].
+
+                    Within this topic, [specific_subtopic] generated [significant/notable/minimal]
+                    discussion,
+                    with participants [agreeing/disagreeing/divided] on [specific_position]. This
+                    connected to
+                    broader themes of [overarching_theme], especially regarding [specific_aspect].
+                    [Additional_context_if_relevant].
+
+                    The conversation revealed [X] distinct perspectives on [topic_name], ranging
+                    from
+                    [perspective_1] to [perspective_2]. These viewpoints often intersected with
+                    [related_topic_or_theme], particularly when discussing [specific_aspect].
+                    Notable areas
+                    of [consensus/division] included [specific_examples], which highlighted
+                    [pattern_or_insight].
+
+                    [If consensus exists] Common ground emerged around [consensus_point], with
+                    participants
+                    across groups expressing support for [specific_position]. This alignment was
+                    particularly
+                    evident in discussions of [specific_aspect], where
+                    [description_of_consensus_pattern].
+
+                    [If division exists] Key divisions centered on [point_of_contention], with
+                    varying
+                    perspectives on [specific_aspect]. These differences reflected broader
+                    [values/priorities/concerns] within the conversation, particularly regarding
+                    [specific_element].
+                </format>
+                <paragraphInstructions>
+                    <instruction>
+                        This format should provide a comprehensive overview of the topic, including:
+                        - Core themes and patterns
+                        - Specific areas of consensus and division
+                        - Connection to broader conversation themes
+                        - Multiple supporting citations for each claim
+                        - Clear narrative progression
+                        - Balance between specific details and broader patterns
+                    </instruction>
+                    <instruction>
+                        Each major point should be supported by multiple citations, with clear
+                        connections
+                        between related statements and themes.
+                    </instruction>
+                </paragraphInstructions>
+                <length>4-6 sentences per paragraph, with multiple paragraphs as needed to cover the
+                    topic
+                    comprehensively</length>
+            </paragraph>
+            <paragraph type="topic_by_groups">
+                <elements>
+                    <element>voting_patterns</element>
+                    <element>core_beliefs</element>
+                    <element>key_positions</element>
+                    <element>group_relationships</element>
+                    <element>value_priorities</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        There will be a variable number of groups. You must analyze how each group
+                        relates to the topic, including both direct comparisons and broader
+                        patterns.
+                    </instruction>
+                    <instruction>
+                        Focus on the substantive differences in how groups understand and approach
+                        the topic, not just agreement levels.
+                    </instruction>
+                    <instruction>
+                        Identify and explain any notable alignments or coalitions between groups
+                        on specific aspects of the topic.
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    On [topic_name], clear differences emerged between the groups' approaches and
+                    underlying values. Group [A] demonstrated [strong/moderate/mixed]
+                    [agreement/disagreement] with [specific_aspect], reflecting their emphasis on
+                    [value_or_priority]. In contrast, Group [B] approached the topic through the
+                    lens
+                    of [different_value_or_priority], leading to [strong/moderate/mixed]
+                    [agreement/disagreement] with these statements.
+
+                    Group [C]'s perspective aligned more closely with [Group A/B] on
+                    [specific_aspect],
+                    particularly regarding [detailed_position]. However, they diverged notably on
+                    [different_aspect], where their [agreement/disagreement] reflected distinct
+                    [values/priorities/concerns].
+
+                    [If more than three groups] The remaining groups showed varying degrees of
+                    alignment, with Groups [D] and [E] finding common ground on [shared_aspect]
+                    while diverging on [point_of_contention]. This pattern highlighted how
+                    [broader_theme_or_insight] shaped group positions on [topic_name].
+
+                </format>
+                <paragraphInstructions>
+                    <instruction>
+                        Each paragraph should:
+                        - Analyze group positions through their underlying values and priorities
+                        - Identify both expected and unexpected alignments
+                        - Connect specific positions to broader themes
+                        - Support all claims with multiple citations
+                        - Maintain focus on the specific topic while acknowledging broader patterns
+                    </instruction>
+                </paragraphInstructions>
+                <length>3-5 paragraphs, depending on number of groups and complexity of positions</length>
+            </paragraph>
+        </reportingStructure>
+
+        <citationRules>
+            <template>
+                commentId
+            </template>
+            <rules>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+            </rules>
+        </citationRules>
+
+        <validationRequirements>
+            <dataQuality>
+                <requirement>minimum_votes_per_cited_statement&gt;25</requirement>
+            </dataQuality>
+
+            <reportingCompleteness>
+                <requirement>all_groups_represented&gt;true</requirement>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
+            </reportingCompleteness>
+        </validationRequirements>
+
+        <specialCases>
+            <case type="extreme_divergence">
+                <threshold>40</threshold>
+                <handling>
+                    <action>highlight_difference</action>
+                    <action>provide_context</action>
+                    <action>check_related_statements</action>
+                </handling>
+            </case>
+        </specialCases>
+
+        <languageGuidelines>
+            <topicTerms>
+                <term>topic</term>
+                <term>subtopic</term>
+                <term>across</term>
+                <term>between</term>
+                <term>within</term>
+                <term>among</term>
+                <term>around</term>
+                <term>concerning</term>
+                <term>regarding</term>
+            </topicTerms>
+
+            <styleRules>
+                <rule>avoid_repetitive_structures</rule>
+                <rule>connect_ideas_clearly</rule>
+                <rule>maintain_neutral_tone</rule>
+            </styleRules>
+        </languageGuidelines>
+
+        <qualityChecklist>
+            <check>claims_supported_by_data</check>
+            <check>citation_rules_followed</check>
+            <check>groups_fairly_represented</check>
+            <check>patterns_properly_identified</check>
+            <check>special_cases_noted</check>
+            <check>context_provided</check>
+            <check>citations_properly_formatted</check>
+            <check>language_varied_and_clear</check>
+        </qualityChecklist>
+    </analysisProcess>
+
+    <validationRules>
+        <rule>All high/low must be actual values from data</rule>
+        <rule>Each claim requires at least one citation</rule>
+        <rule>Citations must use provided format</rule>
+        <rule>Groups must be referenced by actual group names from data, such as Group A, Group B,
+            etc.</rule>
+        <rule>no percentages from comment data inserted in the text</rule>
+    </validationRules>
+
+    <responseFormat>
+        <condensedJSONSchema>
+            {
+            "id": "topic_overview_and_consensus",
+            "title": "Overview of Topic and Consensus",
+            "paragraphs": [
+            {
+            "id": "string", // e.g. "groups_overview"
+            "title": "string",
+            "sentences": [
+            {
+            "clauses": [
+            {
+            "text": "string",
+            "citations": [
+            123
+            ]
+            }
+            ]
+            }
+            ]
+            }
+            ]
+            }
+        </condensedJSONSchema>
+        <typescriptTypesReference>
+            type Citation = {
+            commentId: number;
+            };
+
+            type Clause = {
+            text: string;
+            citations: Citation[];
+            };
+
+            type Sentence = {
+            clauses: Clause[];
+            };
+
+            type Paragraph = {
+            id: string; // e.g. "topic_overview_and_consensus"
+            title: string;
+            sentences: Sentence[];
+            };
+
+            type Subtask = {
+            id: string;
+            title: string;
+            paragraphs: Paragraph[];
+            };
+        </typescriptTypesReference>
+    </responseFormat>
+    <example>
+        {
+        "id": "topic_overview_and_consensus",
+        "title": "Overview of Topic and Consensus",
+        "paragraphs": [
+        {
+        "id": "topic_overview",
+        "title": "Overview of Topic and Consensus",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [12, 15, 23]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [25, 31]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [45, 48]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "topic_by_groups",
+        "title": "Differences on [topic]",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [52, 54]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [61, 63]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [71, 73]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [75, 78]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [82, 85, 87]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "topic_subtopic_analysis",
+        "title": "Subtopic Analysis",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [91, 93]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [95, 97]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [101, 103, 105]
+        }
+        ]
+        }
+        ]
+        }
+        ]
+        }
+    </example>
+    <data>
+        INSERT_DATA_HERE
+    </data>
+</polisAnalysisPrompt>

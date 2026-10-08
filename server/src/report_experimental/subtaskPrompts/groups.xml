@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<polisAnalysisPrompt version="1.0">
+    <metadata>
+        <title>Guide to Analyzing and Reporting All Groups in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports comparing and describing all groups'
+            views and output valid JSON</purpose>
+    </metadata>
+
+    <criticalInstructions>
+        <instruction>
+            Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
+            TEXT.
+        </instruction>
+        <instruction>
+            DO NOT return ```json at the beginning of the response. This is not markdown. Do not end
+            the response with ```, your response MUST begin with { and end with }
+        </instruction>
+    </criticalInstructions>
+
+    <definitions>
+        <term name="differences_between_groups">
+            <description>Notable difference in views between groups on a single statement or related
+                set of statements</description>
+            <threshold>30</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="strong_agreement">
+            <description>High level of agreement within a group on a statement</description>
+            <threshold>70</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="consensus">
+            <description>High level of agreement across all groups on a single statement or related
+                set of statements within the topic</description>
+            <threshold>at least 60% in each group</threshold>
+            <unit>percent</unit>
+        </term>
+    </definitions>
+
+    <analysisProcess>
+        <dataProcessing>
+            <step order="1">
+                <name>Analyze Each Group's Positions</name>
+                <calculations>
+                    <calculation>group_positions</calculation>
+                    <calculation>per_group_vote_patterns</calculation>
+                    <pattern>group_distinctive_views</pattern>
+                </calculations>
+            </step>
+            <step order="2">
+                <name>Compare Group Positions</name>
+                <calculations>
+                    <calculation>between_group_differences</calculation>
+                    <calculation>shared_positions</calculation>
+                </calculations>
+            </step>
+            <step order="3">
+                <name>Identify Patterns</name>
+                <patterns>
+                    <pattern>key_divergence_global</pattern>
+                </patterns>
+            </step>
+        </dataProcessing>
+
+        <reportingStructure>
+            <paragraph type="groups_overview_conversations_divisions">
+                <elements>
+                    <element>overview_conversation_divisions</element>
+                    <element>major_divisions_between_groups</element>
+                    <element>each_group_perspective</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        In your overview, you must describe the "conversation" as a whole, not the
+                        groups.
+                    </instruction>
+                    <instruction>
+                        You must describe the narrative which emerges from the division, not just a
+                        grabbag of
+                        topics. What are the key themes, values, and ideas that emerge from the
+                        division? What is the narrative that emerges from the division?
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    The conversation revealed [X] distinct groups which differed most notably on
+                    [concise_but_in_depth_narrative_of_the_divisions] [narrative] [key_themes].
+                    Differences between between Group [Q] and Group [Y] emerged on
+                    [specific_issue], where Group [A] showed [high/low] [agreement/disagreement]
+                    while Group [B]
+                    expressed [high/low] [opposite_position]. Group [A] consistently prioritizing
+                    [value_1] while Group [B] emphasized
+                    [value_2]. Group [C] [value_1]
+                </format>
+                <length>4-5 sentences</length>
+            </paragraph>
+            <paragraph type="groups_each_perspective">
+                <elements>
+                    <element>voting_patterns</element>
+                    <element>core_beliefs</element>
+                    <element>key_positions</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        There will be a variable number of groups. You must describe every group's
+                        perspective.
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    Group [A] was characterized by [core_belief_pattern],
+                    consistently [agreeing/disagreeing] with statements about [key_theme].
+                    Their perspective appeared to prioritize [value_system],
+                    as evidenced by their strong [agreement/disagreement] on [specific_positions].
+                    Group [B]'s perspective centered on [core_belief],
+                    demonstrated by their [strong/moderate] [agreement/disagreement] ([high/low])
+                    with [specific_position].
+                    This aligned with their broader pattern of [voting_pattern_description],
+                    particularly on statements about [related_topic] ([high/low]
+                    [agreement/disagreement]).
+                </format>
+            </paragraph>
+            <paragraph type="groups_comparisons">
+                <elements>
+                    <element>key_differences</element>
+                    <element>voting_patterns</element>
+                    <element>distinctive_positions</element>
+                </elements>
+                <format>
+                    [optional_if_more_than_two_groups] group [C] and group [D] were more
+                    aligned on [topic] and group [B] and group [C] were more aligned on [topic].
+                </format>
+                <length>4-5 sentences</length>
+            </paragraph>
+        </reportingStructure>
+
+        <citationRules>
+            <template>
+                commentId
+            </template>
+            <rules>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+            </rules>
+        </citationRules>
+
+        <validationRequirements>
+            <dataQuality>
+                <requirement>minimum_votes_per_cited_statement&gt;25</requirement>
+            </dataQuality>
+
+            <reportingCompleteness>
+                <requirement>all_groups_represented&gt;true</requirement>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
+            </reportingCompleteness>
+        </validationRequirements>
+
+        <specialCases>
+            <case type="extreme_divergence">
+                <threshold>40</threshold>
+                <handling>
+                    <action>highlight_difference</action>
+                    <action>provide_context</action>
+                    <action>check_related_statements</action>
+                </handling>
+            </case>
+        </specialCases>
+
+        <languageGuidelines>
+            <divisionsTerms>
+                <term>were divided</term>
+                <term>differed</term>
+                <term>split</term>
+                <term>diverged</term>
+            </divisionsTerms>
+
+            <styleRules>
+                <rule>avoid_repetitive_structures</rule>
+                <rule>connect_ideas_clearly</rule>
+                <rule>maintain_neutral_tone</rule>
+            </styleRules>
+        </languageGuidelines>
+
+        <qualityChecklist>
+            <check>claims_supported_by_data</check>
+            <check>citation_rules_followed</check>
+            <check>groups_fairly_represented</check>
+            <check>patterns_properly_identified</check>
+            <check>special_cases_noted</check>
+            <check>context_provided</check>
+            <check>citations_properly_formatted</check>
+            <check>language_varied_and_clear</check>
+        </qualityChecklist>
+    </analysisProcess>
+
+    <validationRules>
+        <rule>All high/low must be actual values from data</rule>
+        <rule>Each claim requires at least one citation</rule>
+        <rule>Citations must use provided format</rule>
+        <rule>Groups must be referenced by actual group names from data, such as Group A, Group B,
+            etc.</rule>
+        <rule>no percentages from comment data inserted in the text</rule>
+    </validationRules>
+
+    <responseFormat>
+        <condensedJSONSchema>
+            {
+            "id": "groups_overview_conversations_divisions",
+            "title": "Overview of Conversation Divisions",
+            "paragraphs": [
+            {
+            "id": "string", // e.g. "groups_overview"
+            "title": "string",
+            "sentences": [
+            {
+            "clauses": [
+            {
+            "text": "string",
+            "citations": [
+            123
+            ]
+            }
+            ]
+            }
+            ]
+            }
+            ]
+            }
+        </condensedJSONSchema>
+        <typescriptTypesReference>
+            type Citation = {
+            commentId: number;
+            };
+
+            type Clause = {
+            text: string;
+            citations: Citation[];
+            };
+
+            type Sentence = {
+            clauses: Clause[];
+            };
+
+            type Paragraph = {
+            id: string; // e.g. "groups_overview_conversations_divisions"
+            title: string;
+            sentences: Sentence[];
+            };
+
+            type Subtask = {
+            id: string;
+            title: string;
+            paragraphs: Paragraph[];
+            };
+        </typescriptTypesReference>
+    </responseFormat>
+    <example>
+        {
+        "id": "groups_overview_analysis",
+        "title": "Group Analysis and Positions",
+        "paragraphs": [
+        {
+        "id": "groups_overview_conversations_divisions",
+        "title": "Overview of Groups and Major Divisions",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "The conversation revealed [X] distinct groups with clear ideological differences
+        in their approach to [global_conversation_narrative], such as [narrative]",
+        "citations": [12, 15, 23]
+        },
+        {
+        "text": "These groups differed most notably on the role of [global_conversation_narrative],
+        where
+        [narrative], with stark
+        divisions between [narrative] [key themes]",
+        "citations": [25, 31]
+        },
+        {
+        "text": "Groups diverged on [global_conversation_narrative], where [narrative] [key
+        themes]",
+        "citations": [45, 48]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "groups_each_perspective",
+        "title": "Group Descriptions",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Group A was characterized by strong support for [position_narrative], consistently
+        agreeing with statements about [aspect_of_perspective]",
+        "citations": [52, 54]
+        },
+        {
+        "text": "Their perspective prioritized [position_narrative], showing [high/low] agreement
+        on [aspect_of_perspective]",
+        "citations": [61, 63]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Group B's perspective centered on [position_narrative], demonstrated by their
+        strong
+        agreement ([high/low] agreement) with [position_narrative]",
+        "citations": [71, 73]
+        },
+        {
+        "text": "This aligned with their broader pattern of opposing [position_narrative],
+        particularly on statements about [aspect_of_perspective] ([high/low] disagreement)",
+        "citations": [75, 78]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Group C showed a more nuanced position, supporting [position_narrative]
+        ([high/low] agreement) while favoring [position_narrative] for [narrative]",
+        "citations": [82, 85, 87]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "groups_comparisons_alignment",
+        "title": "Group Comparisons and Alignment",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Group A and Group B differed on [aspect_of_perspective], where Group A showed
+        [high/low] support while Group B expressed [high/low] opposition",
+        "citations": [91, 93]
+        },
+        {
+        "text": "Group A consistently prioritized [position_narrative] while Group B emphasized
+        [position_narrative]",
+        "citations": [95, 97]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Contrasting with groups B and C found common ground on [group_alignment_narrative],
+        while Groups A and C aligned more closely on [group_alignment_narrative]",
+        "citations": [101, 103, 105]
+        }
+        ]
+        }
+        ]
+        }
+        ]
+        }
+    </example>
+    <data>
+        INSERT_DATA_HERE
+    </data>
+</polisAnalysisPrompt>

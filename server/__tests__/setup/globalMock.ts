@@ -37,4 +37,26 @@ jest.mock("fs/promises", () => ({
 }));
 
 //@ts-expect-error mock
+const mockGenerateContent = jest.fn().mockResolvedValue({
+  text: JSON.stringify({
+    output: {
+      base_score: "0.9",
+      substance_level: "High",
+      multiplier: "1.2",
+      final_score: "1.08",
+      decision: "APPROVE",
+    },
+  }),
+});
 
+jest.mock("@google/genai", () => {
+  return {
+    GoogleGenAI: jest.fn().mockImplementation(() => {
+      return {
+        models: {
+          generateContent: mockGenerateContent,
+        },
+      };
+    }),
+  };
+});

@@ -1,0 +1,85 @@
+name: Generate Sensemaker report
+
+on: workflow_dispatch
+
+jobs:
+  generate-summary:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: "tevko/sensemaking-tools"
+          path: sensemaking-tools
+
+      - uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          cache-dependency-path: sensemaking-tools/package-lock.json
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: sensemaking-tools
+
+      - name: Get CSV
+        uses: valitydev/action-download-file@v1
+        with:
+          url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comment-groups.csv
+          target-path: sensemaking-tools/data/
+
+      - name: Modify CSV headers
+        run: |
+          ls -l data/
+          file="data/comment-groups.csv"
+          new_header="comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count"
+          sed -i "1s/.*/$new_header/" "$file"
+        working-directory: sensemaking-tools
+
+      - name: List Files
+        run: ls -l sensemaking-tools/
+      
+      - name: Generate Summary Output
+        run: |
+          npx ts-node runner-cli/runner.ts --outputFile "summary" \
+          --vertexProject "jigsaw-vertex-integration" \
+          --inputFile "data/comment-groups.csv"
+        # run: |
+        #   echo "<html>test</html>" > summary.html
+        working-directory: sensemaking-tools
+
+      - name: Upload HTML as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sensemaking-summary-html
+          path: sensemaking-tools/summary.html
+
+  use_html:
+    needs: generate-summary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download HTML Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: sensemaking-summary-html
+          path: downloaded-html
+      # - name: Checkout
+      #   uses: actions/checkout@v3
+      - name: debug
+        run: |
+          ls -al
+          ls -al downloaded-html
+      - name: Deploy to gist
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
+          file_path: downloaded-html/summary.html
+          file_type: html

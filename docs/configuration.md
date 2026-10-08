@@ -201,6 +201,8 @@ Every database read runs in a `READ ONLY` transaction with a 3 s statement timeo
   [shared DynamoDB builder](../server/src/utils/dynamoClient.ts#L52); they do not
   establish identical credential behavior for every Python or AWS client.
 - **`ANTHROPIC_API_KEY`** For using Anthropic as a generative AI model.
+- **`GEMINI_API_KEY`** For using Gemini as a generative AI model.
+- **`OPENAI_API_KEY`** For using OpenAI as a generative AI model.
 
 ### Delphi LLM Selection
 

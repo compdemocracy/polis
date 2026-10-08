@@ -73,6 +73,7 @@ import {
   handle_GET_topics_feed,
 } from "./src/routes/api/v3/feeds";
 import { handle_GET_reportExport } from "./src/routes/export";
+import { handle_GET_reportNarrative } from "./src/routes/reportNarrative";
 import {
   handle_POST_auth_deregister_jwt,
   handle_POST_joinWithInvite,
@@ -1606,6 +1607,14 @@ export const appReady = helpersInitialized.then(
       handle_GET_reports
     );
 
+    app.get(
+      "/api/v3/reportNarrative",
+      hybridAuth(assignToP),
+      moveToBody,
+      need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
+      handle_GET_reportNarrative
+    );
+
     app.post(
       "/api/v3/mathUpdate",
       moveToBody,
@@ -2088,6 +2097,10 @@ export const appReady = helpersInitialized.then(
     app.get(/^\/company$/, fetchIndexForAdminPage);
 
     app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
+    app.get(
+      /^\/narrativeReport\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
+      fetchIndexForReportPage
+    );
     app.get(/^\/stats\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
     // Report route for LLM-generated group topics
     app.get(
@@ -2124,6 +2137,12 @@ export const appReady = helpersInitialized.then(
     // Export Report route for data export interface
     app.get(
       /^\/exportReport\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
+      function (req, res, next) {
+        return fetchIndexForReportPage(req, res, next);
+      }
+    );
+    app.get(
+      /^\/topicMapNarrativeReport\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
       function (req, res, next) {
         return fetchIndexForReportPage(req, res, next);
       }

@@ -5,6 +5,7 @@ import { emptyMath } from "../testFixtures/emptyMath";
 import Majority from "./lists/majorityStrict";
 import Groups from "./lists/participantGroups";
 import Graph from "./participantsGraph/participantsGraph";
+import TopicMap from "./topicMapNarrativeReport";
 import AllScatter from "./topicStats/visualizations/AllCommentsScatterplot";
 import TopicScatter from "./topicStats/visualizations/TopicOverviewScatterplot";
 import { canGenerateCollectiveStatement } from "../util/consensusThreshold";
@@ -60,6 +61,10 @@ test.each([false, true])("participant graph renders with empty clusters, legacy=
   expect(screen.getByRole("button", { name: "Axes" })).toBeInTheDocument();
   expect(container.innerHTML).not.toMatch(/NaN|Infinity/);
 });
+test.each([false, true])("topic map narrative renders zero groups, legacy=%s", (legacy) => {
+  render(<TopicMap {...props} math={emptyMath(legacy)} globals={{}} computeVoteTotal={() => 0} />);
+  expect(screen.getByText("Opinion Groups").nextSibling).toHaveTextContent("0");
+});
 test.each([AllScatter, TopicScatter])("empty consensus hides scatterplot section", (Component) => {
   const { container } = render(
     <Component {...props} math={emptyMath()} topics={{}} statsData={{}} />
@@ -89,6 +94,7 @@ import Beeswarm from "./topicStats/visualizations/TopicBeeswarm";
 import Layer from "./topicStats/LayerDistributionModal";
 import AllComments from "./lists/allCommentsModeratedIn";
 import TopicPage from "./topicPage/TopicPage";
+import NarrativeOverview from "./narrativeOverview";
 import net from "../util/net";
 jest.mock("../util/net", () => ({ polisGet: jest.fn() }));
 test.each([false, true])("empty beeswarm reports no data, legacy=%s", (legacy) => {
@@ -145,4 +151,16 @@ test("topic page reports empty visualization for explicit empty consensus", asyn
     expect(screen.getAllByText("No data available for visualization").length).toBeGreaterThan(0)
   );
   expect(screen.queryByTestId("scatter")).not.toBeInTheDocument();
+});
+test("narrative overview accepts omitted empty fields", () => {
+  const { container } = render(
+    <NarrativeOverview
+      {...props}
+      math={emptyMath(true)}
+      computedStats={{ votesPerVoterAvg: 0, commentsPerCommenterAvg: 0 }}
+      computeVoteTotal={() => 0}
+      globals={{}}
+    />
+  );
+  expect(container.innerHTML).not.toMatch(/NaN|Infinity/);
 });
