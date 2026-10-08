@@ -346,23 +346,6 @@ describe('Reports - Functionality & Features', () => {
       cy.url().should('include', '/report/')
     })
 
-    it('should load Narrative Report variant', () => {
-      // Intercept the report data API calls
-      cy.intercept('GET', '/api/v3/reports*').as('getReport')
-
-      const variantUrl = '/narrativeReport/' + reportId
-      cy.visit(variantUrl, { failOnStatusCode: false })
-
-      // Wait for the report to load
-      cy.wait('@getReport')
-
-      // Should load without error
-      cy.get('body').should('exist')
-
-      // URL should remain on the report type
-      cy.url().should('include', '/narrativeReport/')
-    })
-
     it('should load Statistics variant', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')

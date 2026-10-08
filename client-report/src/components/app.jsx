@@ -4,30 +4,23 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "react-oidc-context";
 
 import * as globals from "./globals.js";
-import URLs from "../util/url.js";
 import DataUtils from "../util/dataUtils.js";
 import Heading from "./framework/heading.jsx";
 import Footer from "./framework/Footer.jsx";
 import Overview from "./overview.jsx";
-import NarrativeOverview from "./narrativeOverview.jsx";
 import MajorityStrict from "./lists/majorityStrict.jsx";
 import Uncertainty from "./lists/uncertainty.jsx";
-import UncertaintyNarrative from "./lists/uncertaintyNarrative.jsx";
-import GroupsNarrative from "./lists/groupsNarrative.jsx";
 import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn.jsx";
 import ParticipantGroups from "./lists/participantGroups.jsx";
 import ParticipantsGraph from "./participantsGraph/participantsGraph.jsx";
 import Beeswarm from "./beeswarm/beeswarm.jsx";
 import Controls from "./controls/controls.jsx";
 import net from "../util/net.js";
-import ConsensusNarrative from "./lists/consensusNarrative.jsx";
 import RawDataExport from "./RawDataExport.jsx";
-import TopicNarrative from "./lists/topicNarrative.jsx";
 import CommentsReport from "./commentsReport/CommentsReport.jsx";
 import TopicReport from "./topicReport/TopicReport.jsx";
 import ExportReport from "./exportReport/ExportReport.jsx";
 import TopicsVizReport from "./topicsVizReport/TopicsVizReport.jsx";
-import TopicMapNarrativeReport from "./topicMapNarrativeReport.jsx";
 import TopicStats from "./topicStats/TopicStats.jsx";
 import TopicPage from "./topicPage/TopicPage.jsx";
 import CollectiveStatementsReport from "./collectiveStatementsReport/CollectiveStatementsReport.jsx";
@@ -35,7 +28,7 @@ import { enrichMathWithNormalizedConsensus } from "../util/normalizeConsensus.js
 
 const pathname = window.location.pathname; // "/report/2arcefpshi" or "/commentsReport/2arcefpshi" or "/topicReport/2arcefpshi" or "/topicsVizReport/2arcefpshi" or "/exportReport/2arcefpshi" or "/topicStats/2arcefpshi"
 const pathParts = pathname.split("/");
-const route_type = pathParts[1]; // "report", "narrativeReport", "commentsReport", "topicReport", "topicsVizReport", "exportReport", or "topicStats"
+const route_type = pathParts[1]; // "report", "commentsReport", "topicReport", "topicsVizReport", "exportReport", or "topicStats"
 
 const report_id = pathParts[2];
 
@@ -80,10 +73,6 @@ const App = (props) => {
   const [participants, setParticipants] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [colorBlindMode, setColorBlindMode] = useState(false);
-  const model = "claude";
-  const [isNarrativeReport, setIsNarrativeReport] = useState(
-    window.location.pathname.split("/")[1] === "narrativeReport"
-  );
   const [isStatsOnly, setIsStatsOnly] = useState(
     window.location.pathname.split("/")[1] === "stats"
   );
@@ -101,7 +90,6 @@ const App = (props) => {
     disagree: globals.brandColors.disagree,
     pass: globals.brandColors.pass,
   });
-  const [narrative, setNarrative] = useState(null);
   const [errorText, setErrorText] = useState(null);
   const [extremity, setExtremity] = useState(null);
   const [uncertainty, setUncertainty] = useState(null);
@@ -118,25 +106,6 @@ const App = (props) => {
   const [computedStats, setComputedStats] = useState(null);
   const [nothingToShow, setNothingToShow] = useState(true);
   const [hasError, setError] = useState(false);
-  const [parsedNarrativeUncertainty, setParsedNarrativeUncertainty] = useState(null);
-  const [parsedNarrativeConsensus, setParsedNarrativeConsensus] = useState(null);
-  const [parsedNarrativeGroups, setParsedNarrativeGroups] = useState(null);
-  const [searchParamsSection, setSearchParamsSection] = useState(
-    window.location.search.includes("section=")
-      ? window.location.search.split("section=")[1]?.split("&")[0]
-      : null
-  );
-  const [searchParamsModel, setSearchParamModel] = useState(
-    window.location.search.includes("model=")
-      ? window.location.search.split("model=")[1]?.split("&")[0]
-      : "claude"
-  );
-  const [searchParamsCache, setSearchParamCache] = useState(
-    window.location.search.includes("noCache=")
-      ? window.location.search.split("noCache=")[1]?.split("&")[0]
-      : "false"
-  );
-
   let corMatRetries;
 
   // Effect to get auth token when authentication state changes
@@ -160,15 +129,6 @@ const App = (props) => {
   }, [auth.isAuthenticated, auth.isLoading, auth.user]);
 
   useEffect(() => {
-    if (
-      window.location.pathname.split("/")[1] === "narrativeReport" &&
-      isNarrativeReport !== true
-    ) {
-      setIsNarrativeReport(true);
-    } else if (isNarrativeReport && window.location.pathname.split("/")[1] !== "narrativeReport") {
-      setIsNarrativeReport(false);
-    }
-
     // Handle comments report route
     // Add debug logs
     const pathParts = window.location.pathname.split("/");
@@ -186,39 +146,7 @@ const App = (props) => {
       console.log("SETTING isCommentsReport to FALSE");
       setIsCommentsReport(false);
     }
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
-    if (urlParams.get("section")) setSearchParamsSection(urlParams.get("section"));
-    if (urlParams.get("model")) setSearchParamModel(urlParams.get("model"));
-    if (urlParams.get("noCache")) setSearchParamCache(urlParams.get("noCache"));
   }, [window.location?.pathname, window.location?.search]);
-
-  useEffect(() => {
-    if (narrative?.group_informed_consensus) {
-      setParsedNarrativeConsensus(narrative.group_informed_consensus);
-    }
-    if (narrative?.uncertainty) {
-      setParsedNarrativeUncertainty(narrative.uncertainty);
-    }
-    if (narrative?.groups) {
-      setParsedNarrativeGroups(narrative.groups);
-    }
-  }, [
-    narrative?.uncertainty,
-    narrative?.group_informed_consensus,
-    narrative?.groups,
-    JSON.stringify(narrative),
-  ]);
-
-  useEffect(() => {
-    if (narrative) {
-      console.log("Current narrative state:", {
-        timestamp: new Date().toISOString(),
-        sections: Object.keys(narrative),
-        fullNarrative: narrative,
-      });
-    }
-  }, [narrative]);
 
   const getMath = async (conversation_id, authToken = null) => {
     return net
@@ -253,71 +181,6 @@ const App = (props) => {
     return net.polisGet("/api/v3/conversations", {
       conversation_id: conversation_id,
     }, authToken);
-  };
-
-  const getNarrative = async (report_id, authToken = null) => {
-    const urlPrefix = URLs.urlPrefix;
-    try {
-      const response = await fetch(
-        `${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${
-          searchParamsSection ? `&section=${searchParamsSection}` : ``
-        }${searchParamsModel ? `&model=${searchParamsModel}` : ``}${
-          searchParamsCache ? `&noCache=${searchParamsCache}` : ``
-        }`,
-        {
-          credentials: "include",
-          method: "get",
-          headers: {
-            Accept: "application/json, text/plain, */*",
-            "Content-Type": "application/json",
-            ...(authToken && {"Authorization": `Bearer ${authToken}`})
-          },
-        }
-      );
-
-      if (!response.ok && response.status !== 304) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-
-          if (done) break;
-
-          const decodedChunk = decoder.decode(value, { stream: true });
-
-          if (!decodedChunk.includes("POLIS-PING:")) {
-            decodedChunk
-              .split(`|||`)
-              .filter(Boolean)
-              .forEach((j) => {
-                try {
-                  const chunk = JSON.parse(j);
-                  setNarrative((prevNarrative) => {
-                    const nextNarrative = { ...prevNarrative, ...chunk };
-                    return nextNarrative;
-                  });
-                } catch (error) {
-                  console.warn("Error parsing narrative chunk:", error);
-                }
-              });
-          }
-        }
-      } catch (streamError) {
-        console.warn("Stream was interrupted:", streamError);
-        // Optionally retry or handle the interruption
-        // You could set a flag in state to show a "Connection interrupted" message
-      } finally {
-        reader.releaseLock();
-      }
-    } catch (error) {
-      console.error("Failed to fetch narrative:", error);
-      // Handle the error appropriately - maybe set an error state
-    }
   };
 
   const getReport = (report_id, authToken = null) => {
@@ -402,10 +265,6 @@ const App = (props) => {
       return getConversation(report.conversation_id, authToken);
     });
 
-    const narrativePromise = reportPromise.then((report) => {
-      if (isNarrativeReport) getNarrative(report.report_id, authToken);
-    });
-
     Promise.all([
       reportPromise,
       mathPromise,
@@ -413,7 +272,6 @@ const App = (props) => {
       participantsOfInterestPromise,
       matrixPromise,
       conversationPromise,
-      narrativePromise,
     ])
       .then((a) => {
         let [
@@ -423,7 +281,6 @@ const App = (props) => {
           _participants,
           correlationHClust,
           _conversation,
-          narrative,
         ] = a;
 
         assertExists(mathResult, "base-clusters");
@@ -780,7 +637,6 @@ const App = (props) => {
   console.log("RENDER DECISION:", {
     route_type,
     shouldShowCommentsReport: route_type === "commentsReport",
-    shouldShowNarrativeReport: route_type === "narrativeReport",
     shouldShowTopicReport: route_type === "topicReport",
     shouldShowExportReport: route_type === "exportReport",
   });
@@ -837,37 +693,6 @@ const App = (props) => {
         report_id={report_id}
       />
     );
-  }
-
-  // Directly render NarrativeReport if the URL starts with /narrativeReport
-  if (route_type === "narrativeReport") {
-    console.log("RENDERING: NarrativeReport");
-    return (
-      <NarrativeOverview
-        conversation={conversation}
-        ptptCount={ptptCount}
-        ptptCountTotal={ptptCountTotal}
-        math={math}
-        computedStats={computedStats}
-      />
-    );
-  }
-
-  if (route_type === "topicMapNarrativeReport") {
-    console.log("RENDERING: TopicMapNarrativeReport");
-    return (
-      <TopicMapNarrativeReport
-        conversation={conversation}
-        report_id={report_id}
-        ptptCountTotal={ptptCountTotal}
-        math={math}
-        computeVoteTotal={computeVoteTotal}
-        globals={globals}
-        comments={comments}
-        formatTid={formatTid}
-        voteColors={voteColors}
-      />
-    )
   }
 
   if (route_type === "topicStats") {
@@ -959,75 +784,6 @@ const App = (props) => {
 
         <RawDataExport conversation={conversation} report_id={report_id} />
 
-        {isNarrativeReport ? (
-          <>
-            <h4>Current Model: {searchParamsModel || model}</h4>
-            {parsedNarrativeConsensus ? (
-              <ConsensusNarrative
-                math={math}
-                comments={comments}
-                conversation={conversation}
-                ptptCount={ptptCount}
-                formatTid={formatTid}
-                voteColors={voteColors}
-                narrative={parsedNarrativeConsensus}
-                model={model}
-                searchParamsModel={searchParamsModel}
-              />
-            ) : (
-              "...Loading Consensus \n"
-            )}
-            {parsedNarrativeGroups ? (
-              <GroupsNarrative
-                math={math}
-                comments={comments}
-                conversation={conversation}
-                ptptCount={ptptCount}
-                formatTid={formatTid}
-                voteColors={voteColors}
-                narrative={parsedNarrativeGroups}
-                model={model}
-              />
-            ) : (
-              "...Loading Groups \n"
-            )}
-            {parsedNarrativeUncertainty ? (
-              <UncertaintyNarrative
-                math={math}
-                comments={comments}
-                uncertainty={uncertainty}
-                conversation={conversation}
-                ptptCount={ptptCount}
-                formatTid={formatTid}
-                voteColors={voteColors}
-                narrative={parsedNarrativeUncertainty}
-                model={model}
-                searchParamsModel={searchParamsModel}
-              />
-            ) : (
-              "...Loading Uncertainty \n"
-            )}
-            {Object.keys(narrative || {})
-              .filter((key) => key.startsWith("topic_"))
-              .map((topicKey) => {
-                const topicName = topicKey.replace("topic_", "").replace(/_/g, " ");
-                return (
-                  <TopicNarrative
-                    key={topicKey}
-                    math={math}
-                    comments={comments}
-                    conversation={conversation}
-                    ptptCount={ptptCount}
-                    formatTid={formatTid}
-                    voteColors={voteColors}
-                    narrative={narrative[topicKey]}
-                    model={model}
-                    topicName={topicName}
-                  />
-                );
-              })}
-          </>
-        ) : (
           <>
             <Beeswarm
               conversation={conversation}
@@ -1069,7 +825,6 @@ const App = (props) => {
               ptptCount={ptptCount}
               formatTid={formatTid}
               voteColors={voteColors}
-              narrative={narrative}
             />
             <ParticipantsGraph
               comments={comments}
@@ -1094,7 +849,6 @@ const App = (props) => {
               voteColors={voteColors}
             />
           </>
-        )}
         <Footer />
       </div>
     </div>

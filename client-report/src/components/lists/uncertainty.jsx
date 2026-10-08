@@ -4,7 +4,6 @@ import React from "react";
 import CommentList from "./commentList.jsx";
 import * as globals from "../globals.js";
 // import style from "../../util/style";
-import Narrative from "../narrative/index.jsx";
 
 const Uncertainty = ({
   conversation,
@@ -14,7 +13,6 @@ const Uncertainty = ({
   formatTid,
   math,
   voteColors,
-  narrative,
 }) => {
   if (!conversation) {
     return <div>Loading Uncertainty...</div>;

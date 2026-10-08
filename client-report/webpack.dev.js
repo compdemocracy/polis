@@ -46,7 +46,6 @@ module.exports = {
         { from: /^\/report\/.*$/, to: '/index_report.html' },
         { from: /^\/commentsReport\/.*$/, to: '/index_report.html' },
         { from: /^\/topicReport\/.*$/, to: '/index_report.html' },
-        { from: /^\/narrativeReport\/.*$/, to: '/index_report.html' },
         { from: /^\/topicsVizReport\/.*$/, to: '/index_report.html' },
         { from: /^\/exportReport\/.*$/, to: '/index_report.html' },
         { from: /^\/topicPrioritize\/.*$/, to: '/index_report.html' },

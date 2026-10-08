@@ -29,7 +29,7 @@ export type AppDef = { id: string; label: string; pages: string[] };
 
 // server/app.ts: conversation views (/^\/[0-9][0-9A-Za-z]+/, /explore, /share,
 // /summary, /ot, /demo), admin dash routes (/m, /integrate, /account, ...),
-// and the report routes (/report, /narrativeReport, /stats, ...).
+// and the report routes (/report, /stats, ...).
 export const APPS: readonly AppDef[] = [
   {
     id: "participation",
@@ -63,7 +63,6 @@ export const APPS: readonly AppDef[] = [
     label: "Report",
     pages: [
       "/report/*",
-      "/narrativeReport/*",
       "/stats/*",
       "/commentsReport/*",
       "/topicReport/*",

@@ -251,27 +251,6 @@ describe('Reports - Authentication & Access Control', () => {
       })
     })
 
-    it('should allow access to narrativeReport without authentication', () => {
-      // Ensure logged out
-      cy.logout()
-
-      // Visit different report type URL
-      const typeUrl = '/narrativeReport/' + reportId
-      cy.visit(typeUrl, { failOnStatusCode: false })
-
-      // Should not redirect to login
-      cy.url().should('include', '/narrativeReport/')
-
-      // Should load some content (not error page)
-      cy.get('body').then(($body) => {
-        // Wait for report content to appear instead of arbitrary wait
-        cy.contains('Narrative Report', { timeout: 10000 }).should('exist')
-
-        // Should not show server errors
-        expect($body.text()).to.not.include('Cannot GET')
-      })
-    })
-
     it('should allow access to stats without authentication', () => {
       // Ensure logged out
       cy.logout()
@@ -377,50 +356,6 @@ describe('Reports - Authentication & Access Control', () => {
 
         // Should not show server errors
         expect($body.text()).to.not.include('Cannot GET')
-      })
-    })
-
-    it('should allow access to topicMapNarrativeReport without authentication', () => {
-      // Ensure logged out
-      cy.logout()
-
-      // Visit different report type URL
-      const typeUrl = '/topicMapNarrativeReport/' + reportId
-      cy.visit(typeUrl, { failOnStatusCode: false })
-
-      // Should not redirect to login
-      cy.url().should('include', '/topicMapNarrativeReport/')
-
-      // Should load some content (not error page)
-      cy.get('body').then(($body) => {
-        // cy.get('body').should('be.visible')
-
-        // Wait for report content to appear instead of arbitrary wait
-        cy.contains('Report', { timeout: 10000 }).should('exist')
-        cy.contains('Overview', { timeout: 10000 }).should('exist')
-
-        // Should not show server errors
-        expect($body.text()).to.not.include('Cannot GET')
-        // May still show 404 since the infra required to build
-        // this report is not present in tests
-      })
-    })
-  })
-
-  describe('Report API Access', () => {
-    it('should require authentication for report API endpoints', () => {
-      // Logout to test anonymous access
-      cy.logout()
-
-      // Try to create report without auth
-      cy.request({
-        method: 'POST',
-        url: '/api/v3/reports',
-        body: { conversation_id: conversationId },
-        failOnStatusCode: false,
-      }).then((response) => {
-        // Should be unauthorized
-        expect(response.status).to.be.oneOf([401, 403])
       })
     })
 

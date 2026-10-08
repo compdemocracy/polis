@@ -78,7 +78,6 @@
     "googleapis": "^142.0.0",
     "html-entities": "^2.6.0",
     "http-proxy": "~1.18.1",
-    "js2xmlparser": "^5.0.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0",
     "lru-cache": "~3.2.0",
@@ -98,7 +97,6 @@
     "request-promise": "~4.2.6",
     "response-time": "~2.3.3",
     "simple-oauth2": "~0.8.0",
-    "simple-xml-to-json": "^1.2.3",
     "socks-proxy-agent": "^8.0.5",
     "source-map-support": "~0.5.21",
     "sql": "~0.78.0",
@@ -107,8 +105,7 @@
     "underscore": "~1.13.7",
     "uuid": "^11.1.0",
     "valid-url": "~1.0.9",
-    "winston": "~3.17.0",
-    "xmlbuilder2": "^3.1.1"
+    "winston": "~3.17.0"
   },
   "devDependencies": {
     "@types/async": "~3.2.24",

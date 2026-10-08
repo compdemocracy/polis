@@ -120,10 +120,6 @@ export default {
     "polis_treevite_pepper",
   mailgunApiKey: process.env.MAILGUN_API_KEY || null,
   mailgunDomain: process.env.MAILGUN_DOMAIN || null,
-  maxReportCacheDuration: parseInt(
-    process.env.MAX_REPORT_CACHE_DURATION || "3600000",
-    10
-  ),
   mathEnv: process.env.MATH_ENV as string,
   nodeEnv: process.env.NODE_ENV as string,
   isTesting: isTrue(process.env.TESTING),
