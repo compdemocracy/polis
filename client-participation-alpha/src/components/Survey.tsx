@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchNextComment } from '../api/comments'
 import { submitVote, type Vote } from '../api/votes'
 import { getConversationToken } from '../lib/auth'
@@ -27,7 +27,7 @@ const submitVoteAndGetNextCommentAPI = async (
     agid: 1,
     conversation_id,
     high_priority,
-    pid: decodedToken?.pid || -1,
+    pid: decodedToken?.pid ?? -1,
     tid: vote.tid,
     vote: vote.vote
   })
@@ -43,7 +43,13 @@ const submitVoteAndGetNextCommentAPI = async (
   return resp
 }
 
-export default function Survey({
+// A conversation change must not briefly render the previous conversation's text,
+// or let one of its pending requests own this survey's state.
+export default function Survey(props: SurveyProps) {
+  return <ParticipantSurvey key={props.conversation_id} {...props} />
+}
+
+function ParticipantSurvey({
   initialStatement,
   s,
   conversation_id,
@@ -56,60 +62,67 @@ export default function Survey({
   const [voteError, setVoteError] = useState<string | null>(null)
   const [inviteGate, setInviteGate] = useState<boolean>(requiresInviteCode)
 
-  // On hydration, fetch a participant-personalized next comment.
-  // This replaces the SSR-provided generic comment if needed.
-  useEffect(() => {
-    let cancelled = false
-    const loadPersonalizedFirst = async () => {
-      try {
-        getConversationToken(conversation_id)
-        const resp = await fetchNextComment(conversation_id)
+  const [firstLoad, setFirstLoad] = useState<'loading' | 'checking' | 'ready' | 'error'>(
+    initialStatement ? 'checking' : 'loading'
+  )
+  const displayed = useRef<StatementData | undefined>(initialStatement)
+  const firstRequest = useRef(0)
+  const voting = useRef(false)
+  const mounted = useRef(false)
 
-        if (!cancelled) {
-          if (resp && typeof resp.tid !== 'undefined') {
-            const mapped: StatementData = {
-              tid: resp.tid,
-              txt: resp.txt,
-              remaining: resp.remaining,
-              lang: resp.lang,
-              translations: resp.translations
-            }
-            setStatement((prev) => {
-              if (!prev || mapped.tid !== prev.tid) {
-                return mapped
-              }
-              return prev
-            })
-          } else {
-            // No personalized next comment available; hide the SSR fallback.
-            setStatement(undefined)
+  const checking = useRef(true)
+  const acceptedVote = useRef(false)
+  const checkedToken = useRef<string | undefined>(undefined)
+
+  // Check the exact SSR tid; do not make a second draw while it is eligible.
+  // Auth may reveal an existing vote. Only that explicit response permits a
+  // pre-vote replacement. Late checks never own a vote's acknowledgement.
+  useEffect(() => {
+    mounted.current = true
+    let cancelled = false
+    const checkFirst = async () => {
+      const token = getConversationToken(conversation_id)?.token
+      if (voting.current || acceptedVote.current) return
+      if (requiresInviteCode && !token) return
+      if (!checking.current && checkedToken.current === token) return
+      const request = ++firstRequest.current
+      if (token) document.documentElement.setAttribute('data-polis-returning', '')
+      checking.current = true
+      setFirstLoad(displayed.current ? 'checking' : 'loading')
+      try {
+        const current = displayed.current
+        const resp = await fetchNextComment(conversation_id, undefined, current?.tid)
+        if (cancelled || request !== firstRequest.current) return
+        const next = resp && typeof resp.tid !== 'undefined' ? resp : undefined
+        if (current && resp.initialStatus !== 'voted') {
+          if (resp.initialStatus !== 'eligible' || next?.tid !== current.tid) {
+            setFirstLoad('error')
+            return
           }
+          // Preserve text and translation bytes even when the server has edits.
+        } else {
+          displayed.current = next
+          setStatement(next)
         }
+        checkedToken.current = getConversationToken(conversation_id)?.token
+        checking.current = false
+        setFirstLoad('ready')
       } catch (e) {
-        // Non-fatal; keep SSR statement
-        console.warn('Personalized first comment fetch failed', e)
+        if (cancelled || request !== firstRequest.current) return
+        console.warn('Initial comment eligibility check failed', e)
+        setFirstLoad('error')
       }
     }
-    // Initial fetch (SSR may have random, we try to personalize even before auth if possible)
-    loadPersonalizedFirst()
-
-    // Also re-fetch after login/invite acceptance to personalize post-auth
-    const onInviteAccepted = () => {
-      loadPersonalizedFirst()
-    }
-    const onLoginSuccess = () => {
-      loadPersonalizedFirst()
-    }
-    window.addEventListener('invite-code-submitted', onInviteAccepted)
-    window.addEventListener('login-code-submitted', onLoginSuccess)
-
+    void checkFirst()
+    window.addEventListener('invite-code-submitted', checkFirst)
+    window.addEventListener('login-code-submitted', checkFirst)
     return () => {
+      mounted.current = false
       cancelled = true
-      window.removeEventListener('invite-code-submitted', onInviteAccepted)
-      window.removeEventListener('login-code-submitted', onLoginSuccess)
+      window.removeEventListener('invite-code-submitted', checkFirst)
+      window.removeEventListener('login-code-submitted', checkFirst)
     }
-    // Run once on mount for this conversation
-  }, [conversation_id])
+  }, [conversation_id, requiresInviteCode])
 
   // On mount, determine whether to show the invite/login gate based on JWT presence
   useEffect(() => {
@@ -131,6 +144,10 @@ export default function Survey({
   }, [conversation_id, requiresInviteCode])
 
   const handleVote = async (voteType: Vote, tid: number | string) => {
+    if (checking.current || voting.current || !displayed.current || displayed.current.tid !== tid)
+      return
+    voting.current = true
+    ++firstRequest.current // A pending startup/auth response cannot undo this vote.
     setIsFetchingNext(true)
     setVoteError(null)
 
@@ -142,14 +159,15 @@ export default function Survey({
         importanceEnabled ? isStatementImportant : false
       )
 
+      if (!mounted.current) return
       setVoteError(null)
-      if (result?.nextComment) {
-        setStatement(result.nextComment)
-      } else {
-        setStatement(undefined)
-      }
+      acceptedVote.current = true
+      displayed.current = result?.nextComment
+      setStatement(result?.nextComment)
+      setFirstLoad('ready')
       setIsStatmentImportant(false)
     } catch (err: unknown) {
+      if (!mounted.current) return
       console.error('Vote submission failed:', err)
       let errorMessage = s.voteFailedGeneric
 
@@ -169,7 +187,10 @@ export default function Survey({
 
       setVoteError(errorMessage)
     } finally {
-      setIsFetchingNext(false)
+      if (mounted.current) {
+        voting.current = false
+        setIsFetchingNext(false)
+      }
     }
   }
 
@@ -177,13 +198,17 @@ export default function Survey({
     return <InviteCodeSubmissionForm s={s as Translations} conversation_id={conversation_id} />
   }
 
+  if (firstLoad === 'loading') return <p role="status">{s.loading}</p>
+  if (firstLoad === 'error')
+    return <p role="alert">{s.couldNotLoadConversation.replace('{{error}}', s.error)}</p>
+
   return (
-    <>
+    <div data-initial-statement={firstLoad === 'checking' ? conversation_id : undefined}>
       {statement ? (
         <Statement
           statement={statement}
           onVote={handleVote}
-          isVoting={isFetchingNext}
+          isVoting={isFetchingNext || firstLoad !== 'ready'}
           s={s as Translations}
           isStatementImportant={isStatementImportant}
           setIsStatmentImportant={setIsStatmentImportant}
@@ -193,6 +218,6 @@ export default function Survey({
       ) : (
         <EmailSubscribeForm s={s as Translations} conversation_id={conversation_id} />
       )}
-    </>
+    </div>
   )
 }

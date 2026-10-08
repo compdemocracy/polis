@@ -109,6 +109,41 @@ async function getNextPrioritizedComment(
   return selectedRow;
 }
 
+// A preferred tid is never trusted for visibility or vote eligibility. A newer
+// math generation must not displace an eligible statement already being read.
+export async function checkInitialComment(
+  zid: number,
+  pid: number,
+  tid: number,
+  lang?: string
+) {
+  const voted =
+    pid >= 0
+      ? ((await pg.queryP(
+          "select 1 from votes_latest_unique where zid = ($1) and pid = ($2) and tid = ($3) limit 1;",
+          [zid, pid, tid]
+        )) as unknown[])
+      : [];
+  if (voted.length) {
+    return {
+      status: "voted" as const,
+      comment: await getNextComment(zid, pid, [], lang),
+    };
+  }
+  const rows = await getComments({ zid, tids: [tid], not_voted_by_pid: pid });
+  const row = rows.find((row) => row.tid === tid);
+  if (!row) return { status: "unavailable" as const, comment: null };
+  const counts = await getNumberOfCommentsRemaining(zid, pid);
+  if (!counts?.length) throw new Error("polis_err_initial_comment_counts");
+  const comment = {
+    ...row,
+    remaining: Number(counts[0].remaining),
+    total: Number(counts[0].total),
+  } as GetCommentsParams;
+  await ensureTranslations(zid, comment, lang);
+  return { status: "eligible" as const, comment };
+}
+
 function selectProbabilistically(
   comments: CommentRow[],
   priorities: Record<string | number, number>

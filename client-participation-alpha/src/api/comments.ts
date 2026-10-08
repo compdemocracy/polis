@@ -23,11 +23,14 @@ export async function fetchComments(
 
 export async function fetchNextComment(
   conversationId: string,
-  lang?: string
-): Promise<NextCommentResponse> {
+  lang?: string,
+  initialTid?: number | string
+): Promise<NextCommentResponse & { initialStatus?: 'eligible' | 'voted' | 'unavailable' }> {
   const params: Record<string, string> = {
     conversation_id: conversationId
   }
+
+  if (initialTid !== undefined) params.initial_tid = String(initialTid)
 
   // Auto-detect language only if not provided (undefined)
   const detectedLang = lang !== undefined ? lang : uiLanguage()

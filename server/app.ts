@@ -904,6 +904,7 @@ export const appReady = helpersInitialized.then(
       ),
       resolve_pidThing("not_voted_by_pid", assignToP, "get:nextComment"),
       want("without", getArrayOfInt, assignToP),
+      want("initial_tid", getIntInRange(0, 2147483647), assignToP),
       // preferred language of nextComment
       want("lang", getStringLimitLength(1, 10), assignToP),
       ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
