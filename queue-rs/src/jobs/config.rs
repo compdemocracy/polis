@@ -2,9 +2,60 @@
 //! An invalid combination refuses to start with one line and exit code 2.
 use std::{collections::BTreeSet, path::PathBuf, time::Duration};
 
-pub const DEFAULT_STAGES: &str = "delphi_full_pipeline,delphi_narrative";
-/// The stages `polis-queue/2` admits (000023 `polis_queue_jobs_stage_check`).
+/// The stages of class `delphi`, which `polis-queue/2` admits (000023
+/// `polis_queue_jobs_stage_check`).
 pub const KNOWN_STAGES: [&str; 2] = ["delphi_full_pipeline", "delphi_narrative"];
+/// The stages of class `large`, which `polis-queue/3` admits (000024).
+pub const LARGE_STAGES: [&str; 1] = ["math_rebuild"];
+
+/// The worker class the daemon claims as (`POLIS_JOBS_WORKER_CLASS`). Each
+/// class has its own closed stage list and the contracts it may run on:
+/// `delphi` runs on `/2` or `/3` (its stages and RPCs are the same under
+/// both), `large` exists only from `/3`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkerClass {
+    Delphi,
+    Large,
+}
+
+impl WorkerClass {
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "delphi" => Some(Self::Delphi),
+            "large" => Some(Self::Large),
+            _ => None,
+        }
+    }
+
+    /// The value `pq_claim` and `pq_reap` take.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Delphi => "delphi",
+            Self::Large => "large",
+        }
+    }
+
+    /// The stages a worker of this class may admit.
+    pub fn stages(self) -> &'static [&'static str] {
+        match self {
+            Self::Delphi => &KNOWN_STAGES,
+            Self::Large => &LARGE_STAGES,
+        }
+    }
+
+    /// The installed contracts (`polis_queue_install.contract_version`) a
+    /// worker of this class may start on.
+    pub fn contracts(self) -> &'static [&'static str] {
+        match self {
+            Self::Delphi => &["polis-queue/2", "polis-queue/3"],
+            Self::Large => &["polis-queue/3"],
+        }
+    }
+
+    pub fn admits_contract(self, installed: &str) -> bool {
+        self.contracts().contains(&installed)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TransportKind {
@@ -35,7 +86,7 @@ pub struct Config {
     pub env: String,
     pub transport: TransportKind,
     pub password_file: Option<PathBuf>,
-    pub worker_class: String,
+    pub worker_class: WorkerClass,
     pub stages: BTreeSet<String>,
     pub lease_seconds: u32,
     pub heartbeat_seconds: u32,
@@ -139,20 +190,26 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         _ => return err("POLIS_JOBS_TRANSPORT must be tls, local or loopback"),
     };
     let worker_class = get("POLIS_JOBS_WORKER_CLASS").unwrap_or_else(|| "delphi".into());
-    if worker_class != "delphi" {
-        return err("POLIS_JOBS_WORKER_CLASS must be delphi (the only /2 worker class)");
-    }
+    let Some(worker_class) = WorkerClass::parse(&worker_class) else {
+        return err("POLIS_JOBS_WORKER_CLASS must be delphi or large");
+    };
     let stages: BTreeSet<String> = get("POLIS_JOBS_STAGES")
-        .unwrap_or_else(|| DEFAULT_STAGES.into())
+        .unwrap_or_else(|| worker_class.stages().join(","))
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_owned)
         .collect();
-    if stages.is_empty() || stages.iter().any(|s| !KNOWN_STAGES.contains(&s.as_str())) {
-        return err(
-            "POLIS_JOBS_STAGES must be a non-empty subset of delphi_full_pipeline,delphi_narrative",
-        );
+    if stages.is_empty()
+        || stages
+            .iter()
+            .any(|s| !worker_class.stages().contains(&s.as_str()))
+    {
+        return err(format!(
+            "POLIS_JOBS_STAGES must be a non-empty subset of {} (the stages of class {})",
+            worker_class.stages().join(","),
+            worker_class.name()
+        ));
     }
     let lease = number(&get, "POLIS_JOBS_LEASE_SECONDS", 120, 10, 900)?;
     let heartbeat = number(&get, "POLIS_JOBS_HEARTBEAT_SECONDS", 30, 1, 900)?;
@@ -334,7 +391,7 @@ mod tests {
         assert_eq!(c.log_batch_lines, 50);
         assert_eq!(c.log_batch_interval, Duration::from_secs(2));
         assert_eq!(c.concurrency, 1);
-        assert_eq!(c.worker_class, "delphi");
+        assert_eq!(c.worker_class, WorkerClass::Delphi);
         assert_eq!(c.app_path, PathBuf::from("/app"));
         assert_eq!(c.python, "python");
         assert_eq!(c.readiness, Duration::from_secs(60));
@@ -395,9 +452,52 @@ mod tests {
         let mut pairs = BASE.to_vec();
         pairs.push(("POLIS_JOBS_STAGES", "delphi_full_pipeline,embed"));
         assert!(with(&pairs).is_err());
+        for class in ["noop", "", "Large", "delphi,large"] {
+            let mut pairs = BASE.to_vec();
+            pairs.push(("POLIS_JOBS_WORKER_CLASS", class));
+            assert!(with(&pairs).is_err(), "{class:?}");
+        }
+    }
+
+    #[test]
+    fn class_large_admits_only_the_rebuild_stage() {
         let mut pairs = BASE.to_vec();
-        pairs.push(("POLIS_JOBS_WORKER_CLASS", "noop"));
+        pairs.push(("POLIS_JOBS_WORKER_CLASS", "large"));
+        let c = ready(&pairs);
+        assert_eq!(c.worker_class, WorkerClass::Large);
+        assert_eq!(c.worker_class.name(), "large");
+        assert_eq!(
+            c.stages.iter().map(String::as_str).collect::<Vec<_>>(),
+            vec!["math_rebuild"]
+        );
+        // A class never admits another class's stage, in either direction.
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_WORKER_CLASS", "large"));
+        pairs.push(("POLIS_JOBS_STAGES", "delphi_full_pipeline"));
+        assert_eq!(
+            with(&pairs).err().map(|e| e.0),
+            Some("POLIS_JOBS_STAGES must be a non-empty subset of math_rebuild (the stages of class large)".into())
+        );
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_STAGES", "math_rebuild"));
+        assert!(with(&pairs).is_err(), "class delphi with the rebuild stage");
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_WORKER_CLASS", "large"));
+        pairs.push(("POLIS_JOBS_STAGES", "math_rebuild,delphi_narrative"));
         assert!(with(&pairs).is_err());
+    }
+
+    #[test]
+    fn the_large_class_needs_the_third_contract_and_delphi_runs_on_either() {
+        assert!(WorkerClass::Large.admits_contract("polis-queue/3"));
+        assert!(!WorkerClass::Large.admits_contract("polis-queue/2"));
+        assert!(WorkerClass::Delphi.admits_contract("polis-queue/2"));
+        assert!(WorkerClass::Delphi.admits_contract("polis-queue/3"));
+        for class in [WorkerClass::Delphi, WorkerClass::Large] {
+            assert!(!class.admits_contract("polis-queue/1"));
+            assert!(!class.admits_contract(""));
+            assert_eq!(WorkerClass::parse(class.name()), Some(class));
+        }
     }
 
     #[test]

@@ -24,6 +24,19 @@ This code defines the infrastructure for running the Pol.is application on AWS u
 *   **Container Registry:**  Docker images for the web server and math worker are stored in Amazon Elastic Container Registry (ECR).
 * **SSM Parameters:** Used to store database connection details like host, port, and the secret ARN, as well as the application's Docker image tag.
 
+## The database-backup function's package
+
+`lambda/lambda.ts` packages the weekly database-backup function (`lambda/handler/dbBackuplambda.py`, Python 3.12 on x86_64) on the machine running `cdk synth`, `cdk diff` or `cdk deploy`, without Docker: pip installs the wheel pinned by version and sha256 in `lambda/handler/requirements.txt` for the Lambda's platform (`--platform manylinux2014_x86_64 --python-version 3.12 --abi cp312`), and the handler source is copied beside it. Nothing is vendored into the repository. What a synth needs is `python3` with pip on PATH (any Python version; set `CDK_PYTHON` to use another interpreter) and either network access or a pip cache that already holds the wheel; a container runtime is never consulted, and a failed pip run fails the synth with its own message. The same package can be produced by hand, for inspection:
+
+```
+python3 -m pip install --no-compile --require-hashes --only-binary=:all: \
+  --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --abi cp312 \
+  --target /tmp/db-backup-package -r lambda/handler/requirements.txt
+cp lambda/handler/* /tmp/db-backup-package/
+```
+
+The asset key is hashed from the handler directory and the bundling options, so moving the pin in `requirements.txt` (the file says how to find a wheel's hash) is what makes the next deploy upload a new package. `npm test` covers the function's shape with bundling skipped and, in `test/dbBackupLambda.test.ts`, runs pip once for real.
+
 ## Deployment Process
 
 The deployment process is orchestrated via GitHub Actions:

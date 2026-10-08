@@ -77,9 +77,11 @@ jobs:
           npm ci --prefix server --no-audit --no-fund
           python -m pip install --quiet boto3==1.34.70 botocore==1.34.162 s3transfer==0.10.4
 
-      - name: The harness's own rules (expected differences, refusal of foreign stores)
+      - name: The harness's own rules (expected differences, refusal of foreign stores, the schema pin against the real migrations)
         working-directory: server
-        run: node --test characterization/collective-statement/expected.test.cjs characterization/collective-statement/safety.test.cjs
+        env:
+          CSREC_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5481/postgres
+        run: node --test characterization/collective-statement/expected.test.cjs characterization/collective-statement/safety.test.cjs characterization/collective-statement/schema.test.cjs
 
       - name: Replay every recorded case against the current routes
         working-directory: server

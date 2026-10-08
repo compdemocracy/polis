@@ -1,0 +1,19 @@
+name: Job provenance
+on:
+  pull_request:
+    paths: ['client-report/src/data/provenance.js', 'client-participation-alpha/src/lib/provenance.ts', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-provenance.yml']
+  push:
+    branches: [edge]
+    paths: ['client-report/src/data/provenance.js', 'client-participation-alpha/src/lib/provenance.ts', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-provenance.yml']
+permissions:
+  contents: read
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json}
+      - run: npm ci --no-audit --no-fund
+        working-directory: server
+      - run: sh server/characterization/jobviews/check-provenance.sh

@@ -1,0 +1,73 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "metrics": {
+    "append_dimensions": {
+      "AutoScalingGroupName": "${aws:AutoScalingGroupName}",
+      "ImageId": "${aws:ImageId}",
+      "InstanceId": "${aws:InstanceId}",
+      "InstanceType": "${aws:InstanceType}"
+    },
+    "metrics_collected": {
+      "nvidia_gpu": {
+        "measurement": [
+          {
+            "name": "utilization_gpu",
+            "unit": "Percent"
+          },
+          {
+            "name": "utilization_memory",
+            "unit": "Percent"
+          },
+          {
+            "name": "memory_total",
+            "unit": "Megabytes"
+          },
+          {
+            "name": "memory_used",
+            "unit": "Megabytes"
+          },
+          {
+            "name": "memory_free",
+            "unit": "Megabytes"
+          },
+          {
+            "name": "power_draw",
+            "unit": "Watts"
+          },
+          {
+            "name": "temperature_gpu",
+            "unit": "Count"
+          }
+        ],
+        "metrics_collection_interval": 60,
+        "nvidia_smi_path": "/usr/bin/nvidia-smi",
+        "metrics_aggregation_interval": 60,
+        "namespace": "OllamaMetrics"
+      },
+      "disk": {
+        "measurement": [
+          "used_percent",
+          "free"
+        ],
+        "metrics_collection_interval": 60,
+        "resources": [
+          "/"
+        ]
+      },
+      "mem": {
+        "measurement": [
+          "mem_used_percent"
+        ],
+        "metrics_collection_interval": 60
+      }
+    },
+    "aggregation_dimensions": [
+      [
+        "AutoScalingGroupName"
+      ]
+    ]
+  }
+}

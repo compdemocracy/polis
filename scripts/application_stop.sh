@@ -59,10 +59,15 @@ if [ -d "$DEPLOY_DIR" ]; then
     /usr/local/bin/docker-compose stop delphi || echo "Warning: Failed to stop delphi service, might already be stopped."
 
   elif [ "$SERVICE_TYPE" == "delphi-large" ]; then
-    # The large memory class box (P-073) runs only math-python-large
-    # (AfterInstall starts nothing else there).
-    echo "Stopping math-python-large service..."
-    /usr/local/bin/docker-compose stop math-python-large || echo "Warning: Failed to stop math-python-large service, might already be stopped."
+    # A queue worker box runs no compose service: its worker is the polis-jobs
+    # daemon (polis-jobs.service). Nothing is stopped here: stopping drains the
+    # running job for up to 900 s, longer than this hook may take, so
+    # AfterInstall restarts the unit instead (queued; the drain runs in systemd).
+    echo "Service type 'delphi-large': no compose service to stop (polis-jobs.service is restarted by AfterInstall)"
+
+  elif [ "$SERVICE_TYPE" == "delphi-worker" ]; then
+    # The same for a Delphi queue worker box.
+    echo "Service type 'delphi-worker': no compose service to stop (polis-jobs.service is restarted by AfterInstall)"
 
   else
     echo "Warning: Unknown service type '$SERVICE_TYPE' found in $SERVICE_TYPE_FILE. No specific services stopped."

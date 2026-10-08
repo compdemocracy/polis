@@ -1,19 +1,24 @@
 name: queue-rs
 
-# Build, lint and test the queue-rs crate (the polis-queue/1 adapter and the
-# polis-jobs daemon). The integration tests run against a throwaway
-# PostgreSQL 17 service container with the repository's migration chain and
-# the draft 000023 vendored under queue-rs/tests/fixtures.
+# Build, lint and test the queue-rs workspace: the polis-queue/1 adapter and
+# the polis-jobs daemon (job `queue-rs`), and the polis-api route server with
+# its nginx routing switch (job `polis-api`). The integration tests run against a throwaway
+# PostgreSQL 17 service container with the repository's migration chain,
+# 000023 (the Delphi job table) included.
 on:
   pull_request:
     paths:
       - 'queue-rs/**'
+      - 'file-server/nginx/**'
+      - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
       - '.github/workflows/queue-rs-ci.yml'
   push:
     branches: [edge, stable]
     paths:
       - 'queue-rs/**'
+      - 'file-server/nginx/**'
+      - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
       - '.github/workflows/queue-rs-ci.yml'
   workflow_dispatch:
@@ -62,3 +67,46 @@ jobs:
           POLIS_JOBS_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/queue_acceptance
           POLIS_JOBS_TEST_PYTHON: python3
         run: cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
+
+  polis-api:
+    name: polis-api build, clippy, tests, image and nginx routing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: polis_api_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d polis_api_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    defaults:
+      run:
+        working-directory: queue-rs
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Toolchain (pinned by queue-rs/rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - name: Format
+        run: cargo fmt -p polis-api --check
+      - name: Clippy
+        run: |
+          cargo clippy --locked -p polis-api --all-targets -- -D warnings
+          cargo clippy --locked -p polis-api --all-targets --features db-tests -- -D warnings
+      - name: Unit tests and the three queries against PostgreSQL 17
+        env:
+          POLIS_API_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
+        run: cargo test --locked -p polis-api --features db-tests
+      - name: Release build
+        run: cargo build --locked --release -p polis-api
+      - name: Docker image
+        run: docker build -t polis-api:ci -f polis-api/Dockerfile .
+      - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
+        working-directory: .
+        run: queue-rs/polis-api/conformance/nginx-routing.sh

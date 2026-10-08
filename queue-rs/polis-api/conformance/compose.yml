@@ -1,0 +1,30 @@
+# Adds polis-api to the sealed characterization stack, next to the Node server
+# and on the same Postgres, for the byte-for-byte replay. Used only together
+# with server/characterization/compose.yml (see run.sh); paths below are
+# relative to that first file's directory.
+services:
+  polis-api:
+    image: ${X54_POLIS_API_IMAGE:-x54pca2-polis-api:conformance}
+    networks: [sealed]
+    environment:
+      # The Node server service's own values (characterization/compose.yml).
+      MATH_ENV: p027
+      DEV_MODE: "true"
+      NODE_ENV: production
+      DOMAIN_OVERRIDE: localhost
+      DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_DB_TRANSPORT: docker-internal
+      POLIS_API_DB_PLAIN_HOSTS: postgres
+      POLIS_API_LISTEN: 0.0.0.0:5100
+      # The harness freezes Node's Date.now() at this instant (clock.cjs).
+      POLIS_API_FIXTURE_CLOCK: "1700000000000"
+    depends_on:
+      postgres: { condition: service_healthy }
+  driver:
+    volumes:
+      - ../../queue-rs/polis-api/conformance:/conformance:ro
+  math-seed:
+    environment:
+      # seed-pca2.py imports delphi/tests/vote_fixtures before pca2_votes has
+      # put that directory on sys.path; the path is given up front here.
+      PYTHONPATH: /repo/delphi/tests

@@ -1,3 +1,9 @@
+[workspace]
+# The root package (the polis-queue/1 adapter and the polis-jobs daemon) and the
+# polis-api route server share one lockfile, one toolchain and one CI job.
+members = [".", "polis-api"]
+resolver = "3"
+
 [package]
 name = "polis-queue-adapter"
 version = "0.1.0"

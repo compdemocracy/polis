@@ -121,6 +121,20 @@ const created = {
 };
 /** Real conversations.zid used by every protocol check. */
 let zid = 0;
+/**
+ * True when the test database already carries migration 000023 (polis-queue/2,
+ * the Delphi job table) on top of 000019. 000019 then refuses to replay: its
+ * own catalog fingerprint sees the /2 shape as drift, and nothing it would
+ * CREATE OR REPLACE silently reverts to /1. The scratch database never has
+ * 000023, so the fresh-apply and replay checks there are unchanged.
+ */
+let foundationInstalled = false;
+/**
+ * True when the test database also carries migration 000024 (polis-queue/3,
+ * the large worker class) on top of 000023: the install row then reads /3,
+ * one more pq_ function (pq_class_depth) exists and is granted.
+ */
+let largeClassInstalled = false;
 /** Public-fixture parent zid inside the scratch database. */
 const SCRATCH_ZID = 1;
 
@@ -130,6 +144,11 @@ async function runMigration(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query(MIGRATION_SQL);
+  } catch (err) {
+    // The file opens its own transaction; when it raises, that transaction is
+    // still open on this session and would poison every later borrower.
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw err;
   } finally {
     client.release();
   }
@@ -640,7 +659,19 @@ beforeAll(async () => {
   pgQuery = await import("../../src/db/pg-query");
 
   mainPool = new Pool({ connectionString: BASE_DATABASE_URL, max: 12 });
-  await runMigration(mainPool);
+  foundationInstalled = await sql(
+    mainPool,
+    "SELECT to_regclass('public.delphi_foundation_install') IS NOT NULL"
+  );
+  largeClassInstalled = await sql(
+    mainPool,
+    "SELECT to_regclass('public.polis_queue_large_class_install') IS NOT NULL"
+  );
+  if (foundationInstalled) {
+    await expect(runMigration(mainPool)).rejects.toThrow(/queue catalog drift/);
+  } else {
+    await runMigration(mainPool);
+  }
   zid = await sql(
     mainPool,
     "INSERT INTO conversations (topic, description) VALUES ($1, NULL) RETURNING zid",
@@ -793,8 +824,20 @@ describeProvisioned(
       ).toBe(21);
     }, 60000);
 
-    it("replays for a superuser against the real conversations schema", async () => {
+    it("replays for a superuser against the real conversations schema, or refuses once 000023 is in place", async () => {
       requireProvisioning();
+      if (foundationInstalled) {
+        await expect(runMigration(mainPool)).rejects.toThrow(
+          /queue catalog drift/
+        );
+        expect(
+          await sql(
+            mainPool,
+            "SELECT contract_version FROM public.polis_queue_install"
+          )
+        ).toBe(largeClassInstalled ? "polis-queue/3" : "polis-queue/2");
+        return;
+      }
       await runMigration(mainPool);
       expect(
         await sql(mainPool, "SELECT to_regclass('public.polis_queue_runs')")
@@ -818,7 +861,13 @@ describeProvisioned(
             "SELECT rolsuper FROM pg_roles WHERE rolname = current_user"
           )
         ).toBe(false);
-        await runMigration(pool);
+        if (foundationInstalled) {
+          await expect(runMigration(pool)).rejects.toThrow(
+            /queue catalog drift/
+          );
+        } else {
+          await runMigration(pool);
+        }
       } finally {
         await pool.end();
       }
@@ -1279,10 +1328,12 @@ describe("P-024 queue substrate protocol", () => {
     );
     expect((await finalize(mainPool, j)).outcome).toBe("invalid_output");
     expect(
-      (await finalize(mainPool, j, "public-fixture-output", "3".repeat(64))).outcome
+      (await finalize(mainPool, j, "public-fixture-output", "3".repeat(64)))
+        .outcome
     ).toBe("succeeded");
     expect(
-      (await finalize(mainPool, j, "public-fixture-output", "3".repeat(64))).outcome
+      (await finalize(mainPool, j, "public-fixture-output", "3".repeat(64)))
+        .outcome
     ).toBe("already_succeeded");
   }, 60000);
 
@@ -1573,15 +1624,34 @@ describe("P-024 queue substrate protocol", () => {
   it("39. pins search_path and UTC on every function, updates no conversation, and withholds CREATE grant option", async () => {
     const functions = await rows(
       mainPool,
-      "SELECT proname, proconfig, prosrc FROM pg_proc " +
+      "SELECT oid::regprocedure::text AS signature, proname, proconfig, prosrc FROM pg_proc " +
         "WHERE pronamespace = 'public'::regnamespace AND proname LIKE 'pq\\_%'"
     );
-    expect(functions).toHaveLength(21);
+    // 000023 (polis-queue/2) adds seven pq_ overloads beside the /1 twenty-one.
+    // Six of them pin search_path but not the time zone: none reads a clock
+    // for a reply, and the daemon never compares their timestamps. 000024
+    // (polis-queue/3) adds pq_class_depth, which pins both.
+    const utcUnpinnedUnderFoundation = [
+      "pq_attempt_logs(text,uuid,bigint,integer)",
+      "pq_claim(text,smallint,uuid,uuid,integer,text)",
+      "pq_fail(text,uuid,uuid,uuid,bigint,boolean,text,boolean)",
+      "pq_park(text,uuid,uuid,uuid,bigint,text,boolean,timestamp with time zone)",
+      "pq_reap(text,uuid,integer,text)",
+      "pq_release(text,uuid,uuid,uuid,bigint,boolean)",
+    ];
+    expect(functions).toHaveLength(
+      largeClassInstalled ? 29 : foundationInstalled ? 28 : 21
+    );
+    const utcUnpinned: string[] = [];
     for (const fn of functions) {
       expect(fn.proconfig).toContain("search_path=pg_catalog, pg_temp");
-      expect(fn.proconfig).toContain("TimeZone=UTC");
+      if (!fn.proconfig.includes("TimeZone=UTC"))
+        utcUnpinned.push(fn.signature);
       expect(fn.prosrc).not.toMatch(/UPDATE\s+(?:public\.)?conversations\b/i);
     }
+    expect(utcUnpinned.sort()).toEqual(
+      foundationInstalled ? utcUnpinnedUnderFoundation : []
+    );
     expect(
       await sql(
         mainPool,
@@ -1590,31 +1660,40 @@ describe("P-024 queue substrate protocol", () => {
     ).toBe(false);
   }, 30000);
 
-  it("40. grants EXECUTE to the executor on exactly the twelve RPCs", async () => {
+  it("40. grants EXECUTE to the executor on exactly the twelve RPCs (plus the three /2 names once 000023 is in place, plus pq_class_depth once 000024 is)", async () => {
     const acl = await rows(
       mainPool,
       "SELECT p.proname, has_function_privilege('polis_queue_executor', p.oid, 'EXECUTE') AS granted " +
         "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace " +
         "WHERE n.nspname = 'public' AND p.proname LIKE 'pq\\_%'"
     );
-    const granted = acl
-      .filter((row) => row.granted)
-      .map((row) => row.proname)
-      .sort();
-    expect(granted).toEqual([
-      "pq_cancel",
-      "pq_claim",
-      "pq_due",
-      "pq_enqueue",
-      "pq_fail",
-      "pq_finalize",
-      "pq_head_status",
-      "pq_heartbeat",
-      "pq_job_status",
-      "pq_park",
-      "pq_reap_one",
-      "pq_release",
-    ]);
+    // By name: under /2 several names carry two granted overloads.
+    const granted = [
+      ...new Set(acl.filter((row) => row.granted).map((row) => row.proname)),
+    ].sort();
+    expect(granted).toEqual(
+      [
+        "pq_cancel",
+        "pq_claim",
+        "pq_due",
+        "pq_enqueue",
+        "pq_fail",
+        "pq_finalize",
+        "pq_head_status",
+        "pq_heartbeat",
+        "pq_job_status",
+        "pq_park",
+        "pq_reap_one",
+        "pq_release",
+        // 000023 grants pq_attempt_logs, the nine-argument pq_end_attempt and
+        // the four-argument pq_reap; their /1 overloads stay ungranted.
+        ...(foundationInstalled
+          ? ["pq_attempt_logs", "pq_end_attempt", "pq_reap"]
+          : []),
+        // 000024 grants the class depth read.
+        ...(largeClassInstalled ? ["pq_class_depth"] : []),
+      ].sort()
+    );
     expect(acl.length).toBeGreaterThan(granted.length);
   }, 30000);
 

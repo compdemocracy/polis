@@ -1,0 +1,40 @@
+[package]
+name = "polis-api"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Rust process that serves GET /api/v3/math/pca2 byte-for-byte like the Node server"
+
+[features]
+default = []
+# Conformance builds only: lets POLIS_API_FIXTURE_CLOCK pin "now" the way the
+# characterization harness pins Node's Date.now(). A release build without this
+# feature has no way to fake the clock.
+fixture-clock = []
+# Tests of the three queries against a real Postgres. With the feature on, a
+# missing POLIS_API_TEST_DATABASE_URL fails the run.
+db-tests = []
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+httparse = "1"
+md5 = "0.7"
+polis-queue-adapter = { path = ".." }
+postgres = "0.19"
+ryu-js = "1"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[build-dependencies]
+cc = "1"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

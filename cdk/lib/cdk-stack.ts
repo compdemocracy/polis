@@ -40,9 +40,9 @@ import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
 import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import createMathPollerAlarms, { mathPollerAlarmsEnabled } from '../mathPollerAlarms';
-import createLargeClass, {
-  createLargeClassRole, grantManifestReadWrite, largeClassEnabled, largeClassSettings,
-} from '../largeClass';
+import createWorkerClasses, {
+  createWorkerRoles, largeClassEnabled, mathLargeRow, workerClassesSettings,
+} from '../workerClasses';
 import createOpsDashboardsAccess, { opsDashboardsEnabled } from '../opsDashboards';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
@@ -145,11 +145,14 @@ export class CdkStack extends cdk.Stack {
 
     const { instanceRole, codeDeployRole, dbBackupLambdaRole } = createRoles(this);
 
-    // --- P-073 large memory class for the Python math poller. Off unless
-    // synthesized with `-c enableLargeClass=true` (see cdk/largeClass.ts).
-    const enableLargeClass = largeClassEnabled(this);
-    const largeClass = enableLargeClass ? largeClassSettings(this) : undefined;
-    const delphiLargeRole = largeClass ? createLargeClassRole(this, largeClass, logGroup) : undefined;
+    // --- Queue worker classes (one Auto Scaling group per class of the
+    // Postgres job queue; the math-large row is the P-073 large memory class).
+    // Off unless synthesized with `-c enableLargeClass=true` (see
+    // cdk/workerClasses.ts). Each class has its own instance role; the shared
+    // InstanceRole is untouched.
+    const workerClasses = largeClassEnabled(this) ? workerClassesSettings(this) : undefined;
+    const workerRoles = workerClasses ? createWorkerRoles(this, workerClasses, logGroup) : undefined;
+    const workerRoleList = workerRoles ? Object.values(workerRoles) : [];
 
     // ALB Security Group
     const lbSecurityGroup = new ec2.SecurityGroup(this, 'LBSecurityGroup', {
@@ -217,7 +220,8 @@ export class CdkStack extends cdk.Stack {
       mathWorkerLaunchTemplate,
       delphiSmallLaunchTemplate,
       delphiLargeLaunchTemplate,
-      ollamaLaunchTemplate
+      ollamaLaunchTemplate,
+      workerLaunchTemplates
     } = configureLaunchTemplates(this,
       logGroup,
       ollamaNamespace,
@@ -244,9 +248,7 @@ export class CdkStack extends cdk.Stack {
       ollamaKeyPair,
       ollamaSecurityGroup,
       enableOllama,
-      largeClass && delphiLargeRole
-        ? { instanceType: largeClass.instanceType, role: delphiLargeRole }
-        : undefined
+      workerClasses && workerRoles ? { settings: workerClasses, roles: workerRoles } : undefined
     );
 
     // Auto Scaling Groups and alarms
@@ -256,6 +258,7 @@ export class CdkStack extends cdk.Stack {
       asgMathWorker,
       asgDelphiSmall,
       asgDelphiLarge,
+      workerGroups,
       commonAsgProps
     } = createAutoScalingAndAlarms(
       this,
@@ -271,8 +274,13 @@ export class CdkStack extends cdk.Stack {
       ollamaNamespace,
       alarmTopic,
       enableOllama,
-      enableLargeClass
+      workerClasses ? { settings: workerClasses, launchTemplates: workerLaunchTemplates } : undefined
     );
+    // The worker groups besides asgDelphiLarge (which the stack already wires).
+    const extraWorkerGroups = workerClasses
+      ? Object.entries(workerGroups).filter(([name]) => name !== mathLargeRow(workerClasses).name).map(([, g]) => g)
+      : [];
+    const workerWiring = workerClasses ? { roles: workerRoleList, extraGroups: extraWorkerGroups } : undefined;
 
     // --- DEPLOY STUFF
     const {
@@ -287,7 +295,7 @@ export class CdkStack extends cdk.Stack {
       asgDelphiSmall,
       asgDelphiLarge,
       codeDeployRole,
-      delphiLargeRole
+      workerWiring
     );
 
     // --- Ollama Network Load Balancer + service-URL secret (only when enabled)
@@ -339,6 +347,9 @@ export class CdkStack extends cdk.Stack {
     db.connections.allowFrom(asgMathWorker, ec2.Port.tcp(5432), 'Allow database access from math ASG');
     db.connections.allowFrom(asgDelphiSmall, ec2.Port.tcp(5432), 'Allow database access from Delphi small ASG');
     db.connections.allowFrom(asgDelphiLarge, ec2.Port.tcp(5432), 'Allow database access from Delphi large ASG');
+    for (const group of extraWorkerGroups) {
+      db.connections.allowFrom(group, ec2.Port.tcp(5432), 'Allow database access from a queue worker group');
+    }
 
     // S3 for DB backups
     const dbBackupBucket = new s3.Bucket(this, 'DBBackupBucket', {
@@ -433,12 +444,12 @@ export class CdkStack extends cdk.Stack {
       createMathPollerAlarms(this, { logGroup, alarmTopic });
     }
 
-    // --- P-073 large memory class: capacity-line metric filters, exact-capacity
-    // step scaling of AsgDelphiLarge (0..1), DemandUnmet and LongRunning on the
-    // application alarm topic, and the small poller's manifest grant. No Lambda.
-    if (largeClass) {
-      createLargeClass(this, { asg: asgDelphiLarge, logGroup, alarmTopic, settings: largeClass });
-      grantManifestReadWrite(instanceRole, largeClass);
+    // --- Queue worker classes: capacity-line metric filters, exact-capacity
+    // step scaling of each class's group, the P-086 alarm table on the
+    // application alarm topic. Demand is read from the queue's counts on the
+    // small poller's capacity line; no manifest, no Lambda.
+    if (workerClasses) {
+      createWorkerClasses(this, { groups: workerGroups, logGroup, alarmTopic, settings: workerClasses });
     }
 
     // --- Ops dashboards (P-074 PR3). Off unless synthesized with
@@ -466,7 +477,7 @@ export class CdkStack extends cdk.Stack {
       asgDelphiLarge,
       asgOllama,
       fileSystem,
-      delphiLargeRole
+      workerWiring
     );
 
     // add ECS Fargate service for BYOPD import worker

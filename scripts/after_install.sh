@@ -85,7 +85,14 @@ echo "DEBUG: Service type read from /etc/app-info/service_type.txt: [$SERVICE_FR
 # Original Docker cleanup/start logic
 echo "Stopping and removing existing Docker containers..."
 sudo /usr/local/bin/docker-compose down || true
-sudo docker rm -f $(docker ps -aq) || true
+if [ "$SERVICE_FROM_FILE" == "delphi-large" ] || [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
+  # A queue worker box keeps its polis-jobs container (started by the unit
+  # polis-jobs.service, not by compose): removing it would kill a job
+  # mid-attempt. worker_daemon below restarts the unit, which drains it.
+  sudo docker rm -f $(docker ps -aq | grep -vxF -e "$(docker ps -aq --filter 'name=^/?polis-jobs$')") || true
+else
+  sudo docker rm -f $(docker ps -aq) || true
+fi
 echo "Docker containers stopped and removed."
 
 yes | sudo docker system prune -a --filter "until=72h"
@@ -99,11 +106,12 @@ if [ -f "/etc/app-info/log_group_name.txt" ]; then
   printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
 fi
 
-# Readiness identity (P-072), for every box that runs a math poller (the
-# Delphi box's math-python, the large box's math-python-large): the poller
-# logs the source commit and a digest of this instance's id in its readiness
-# lines, so the operator's readiness record names the holder, and the large
-# worker's version-skew guard compares the commit with the small poller's.
+# Readiness identity (P-072), for every box that runs the math poller or its
+# queue child (the Delphi box's math-python; the large box's math_rebuild
+# jobs, P-073 r2): the poller logs the source commit and a digest of this
+# instance's id in its readiness lines, so the operator's readiness record
+# names the holder, and the queue child's version-skew guard compares the
+# commit with the one the small poller put on the job.
 # Never fatal here: a missing commit makes the collector refuse to build a
 # record, and a missing instance id makes the poller itself refuse to start
 # (exit 2; the heartbeat alarm then fires) rather than name the holder by
@@ -120,6 +128,31 @@ poller_identity() {
     echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
   fi
   printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
+}
+
+# A queue worker box (service types delphi-large and delphi-worker, written by
+# the worker launch templates, cdk/workerClasses.ts) runs ONE thing: the
+# polis-jobs daemon of its class, as the systemd unit polis-jobs.service that
+# its user data installed (cdk/launchTemplates.ts). The deploy builds the
+# image that unit runs (the Delphi image, which carries the daemon) and
+# restarts that unit only; it starts no compose service. The restart is queued
+# (--no-block): the unit's stop drains the running job (docker stop -t 900),
+# which can outlast this hook, and then starts the new image. Refuses, failing
+# the deploy, when the box's class or unit is not what the service type says.
+worker_daemon() {
+  local want_class="$1" have_class=""
+  if [ -f /etc/app-info/worker_class.txt ]; then have_class=$(cat /etc/app-info/worker_class.txt); fi
+  if [ "$have_class" != "$want_class" ]; then
+    echo "Error: service type '$SERVICE_FROM_FILE' runs worker class '$want_class', but /etc/app-info/worker_class.txt says '$have_class'"
+    exit 1
+  fi
+  if [ ! -f /etc/systemd/system/polis-jobs.service ]; then
+    echo "Error: service type '$SERVICE_FROM_FILE' runs the polis-jobs daemon, but /etc/systemd/system/polis-jobs.service is missing (the worker launch template installs it)"
+    exit 1
+  fi
+  echo "Building the Delphi image (it carries polis-jobs) and restarting polis-jobs.service for worker class '$want_class'"
+  sudo /usr/local/bin/docker-compose build delphi
+  sudo systemctl restart --no-block polis-jobs.service
 }
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
@@ -255,18 +288,22 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   poller_identity
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
-  # The large memory class box (P-073; role `math-large`). It starts ONLY the
-  # large worker: no Delphi job poller (the report role stays on the Delphi
-  # box) and no small poller (`math-python` is the single writer of the
-  # `python` label and runs on the Delphi box). math-python-large writes only
-  # its own label (`python-large`) under its own lock; the small poller
-  # promotes what it stages. Everything is off until the env document sets
-  # MATH_CAPACITY_MANIFEST_URI: without it the worker refuses to start
-  # (exit 2) and computes nothing. Its memory limit is
-  # MATH_LARGE_CONTAINER_MEMORY (compose default 52g, for a 64 GiB box).
-  echo "Starting docker-compose up for 'math-python-large' (large memory class, P-073)"
+  # The large memory class box (P-073 r2). Its worker is the polis-jobs
+  # daemon run as worker class `large`, which starts `math_poller.py --job`
+  # for one conversation at a time; it starts no compose service. The
+  # readiness identity is written for it (the child's version-skew guard reads
+  # MATH_POLLER_SOURCE_COMMIT). No Delphi job poller and no small poller run
+  # here: `math-python` is the single writer of the `python` label and runs on
+  # the Delphi box.
+  echo "Service type 'delphi-large': no compose service to start (the large class runs as queue jobs under the polis-jobs daemon)"
   poller_identity
-  sudo /usr/local/bin/docker-compose up -d math-python-large --build --force-recreate
+  worker_daemon large
+elif [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
+  # A Delphi queue worker box: the polis-jobs daemon run as worker class
+  # `delphi` (the Delphi stages). It starts no compose service: no Delphi job
+  # poller and no math poller run here.
+  echo "Service type 'delphi-worker': no compose service to start (the Delphi stages run as queue jobs under the polis-jobs daemon)"
+  worker_daemon delphi
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate
