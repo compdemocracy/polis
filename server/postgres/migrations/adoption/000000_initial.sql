@@ -1,3 +1,5 @@
+-- Named legacy variants are documented in docs/migration-legacy-contract.md.
+-- Contributor agreement tables are outside this release adoption boundary.
 -- Catalog postconditions only; this file never replays migration DDL.
 SELECT NOT EXISTS (SELECT 1 FROM (VALUES
  ('users','uid','integer'),
@@ -58,7 +60,6 @@ SELECT NOT EXISTS (SELECT 1 FROM (VALUES
  ('conversations','style_btn','character varying(500)'),
  ('conversations','socialbtn_type','integer'),
  ('conversations','subscribe_type','integer'),
- ('conversations','branding_type','integer'),
  ('conversations','bgcolor','character varying(20)'),
  ('conversations','help_bgcolor','character varying(20)'),
  ('conversations','help_color','character varying(20)'),
@@ -251,12 +252,11 @@ SELECT NOT EXISTS (SELECT 1 FROM (VALUES
  ('worker_tasks','math_env','character varying(999)'),
  ('worker_tasks','attempts','smallint'),
  ('worker_tasks','task_data','jsonb'),
- ('worker_tasks','task_type','character varying(99)'),
+ ('worker_tasks','task_type','text'),
  ('worker_tasks','task_bucket','bigint'),
  ('worker_tasks','finished_time','bigint'),
  ('math_ticks','zid','integer'),
  ('math_ticks','math_tick','bigint'),
- ('math_ticks','caching_tick','bigint'),
  ('math_ticks','math_env','character varying(999)'),
  ('math_ticks','modified','bigint'),
  ('math_main','zid','integer'),
@@ -324,13 +324,6 @@ SELECT NOT EXISTS (SELECT 1 FROM (VALUES
  ('event_ptpt_no_more_comments','pid','integer'),
  ('event_ptpt_no_more_comments','votes_placed','smallint'),
  ('event_ptpt_no_more_comments','created','bigint'),
- ('contributer_agreement_signatures','uid','integer'),
- ('contributer_agreement_signatures','name','character varying(746)'),
- ('contributer_agreement_signatures','company_name','character varying(746)'),
- ('contributer_agreement_signatures','github_id','character varying(256)'),
- ('contributer_agreement_signatures','email','character varying(256)'),
- ('contributer_agreement_signatures','agreement_version','integer'),
- ('contributer_agreement_signatures','created','bigint'),
  ('stars','zid','integer'),
  ('stars','pid','integer'),
  ('stars','tid','integer'),
@@ -356,7 +349,9 @@ SELECT NOT EXISTS (SELECT 1 FROM (VALUES
  ('demographic_data','ms_response','character varying(9999)'),
  ('demographic_data','gender_guess','integer'),
  ('demographic_data','birth_year_guess','integer')) AS expected(t,c,typ) WHERE NOT pg_temp.col(t,c,typ))
- AND NOT EXISTS (SELECT 1 FROM unnest(ARRAY['users','site_domain_whitelist','metrics','auth_tokens','jianiuevyew','apikeysndvweifu','courses','conversations','participant_metadata_questions','participant_metadata_answers','contexts','inviters','upvotes','oinvites','einvites','email_validations','zinvites','beta','participants','participants_extended','participant_locations','xids','xid_whitelist','notification_tasks','participant_metadata_choices','twitter_users','facebook_users','social_settings','facebook_friends','suzinvites','comments','comment_translations','conversation_translations','reports','report_comment_selections','worker_tasks','math_ticks','math_main','math_profile','math_ptptstats','math_cache','math_bidtopid','math_exportstatus','math_report_correlationmatrix','votes','votes_latest_unique','crowd_mod','event_ptpt_no_more_comments','contributer_agreement_signatures','stars','trashes','permanentcookiezidjoins','page_ids','demographic_data']) t WHERE to_regclass('public.'||t) IS NULL)
- AND (pg_temp.col('pwreset_tokens','token','character varying(250)') OR pg_temp.col('password_reset_tokens','pwresettoken','character varying(250)'))
+ AND NOT EXISTS (SELECT 1 FROM unnest(ARRAY['users','site_domain_whitelist','metrics','auth_tokens','jianiuevyew','apikeysndvweifu','courses','conversations','participant_metadata_questions','participant_metadata_answers','contexts','inviters','upvotes','oinvites','einvites','email_validations','zinvites','beta','participants','participants_extended','participant_locations','xids','xid_whitelist','notification_tasks','participant_metadata_choices','twitter_users','facebook_users','social_settings','facebook_friends','suzinvites','comments','comment_translations','conversation_translations','reports','report_comment_selections','worker_tasks','math_ticks','math_main','math_profile','math_ptptstats','math_cache','math_bidtopid','math_exportstatus','math_report_correlationmatrix','votes','votes_latest_unique','crowd_mod','event_ptpt_no_more_comments','stars','trashes','permanentcookiezidjoins','page_ids','demographic_data']) t WHERE to_regclass('public.'||t) IS NULL)
+ AND (pg_temp.col('pwreset_tokens','token','character varying(100)') OR pg_temp.col('password_reset_tokens','pwresettoken','character varying(100)'))
+ AND (pg_temp.absent_column('conversations','branding_type') OR pg_temp.col('conversations','branding_type','integer'))
+ AND (pg_temp.absent_column('math_ticks','caching_tick') OR pg_temp.col('math_ticks','caching_tick','bigint'))
  AND to_regprocedure('public.now_as_millis()') IS NOT NULL
  AND pg_temp.con('votes_latest_unique','UNIQUE (zid, pid, tid)');

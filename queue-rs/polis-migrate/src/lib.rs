@@ -1,5 +1,6 @@
 //! One migration history, one connection and one database advisory lock.
 //! SQL files remain immutable; only their optional outer BEGIN/COMMIT is removed.
+mod indexes;
 mod sql;
 use anyhow::{Context, Result, bail, ensure};
 use postgres::{
@@ -13,6 +14,7 @@ pub struct Migration {
     pub name: String,
     pub checksum: String,
     pub body: String,
+    pub retired: bool,
 }
 // Fixed database-wide key, shared by apply/reconcile. A different DB has its own lock.
 pub const LOCK: i64 = 0x506f6c69734d6967;
@@ -28,12 +30,12 @@ const HISTORY: &str = "CREATE TABLE public.migrations (
 pub fn load(dir: &Path) -> Result<Vec<Migration>> {
     let mut files = BTreeMap::new();
     let mut versions = std::collections::BTreeSet::new();
-    // This is a release-wide hold, never a per-host skip or an applied row.
-    let held = fs::read_to_string(dir.join("held.txt")).context("read release held.txt")?;
-    let held: Vec<_> = held
-        .lines()
-        .filter(|s| !s.is_empty() && !s.starts_with('#'))
-        .collect();
+    let selected = manifest(dir, "release.txt")?;
+    let held = manifest(dir, "held.txt")?;
+    ensure!(
+        selected.is_disjoint(&held),
+        "release and held manifests overlap"
+    );
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let name = entry
@@ -64,21 +66,28 @@ pub fn load(dir: &Path) -> Result<Vec<Migration>> {
         files.insert(
             name.clone(),
             Migration {
-                name,
+                name: name.clone(),
                 checksum: format!("{:x}", Sha256::digest(source.as_bytes())),
                 body: sql::body(&source)?,
+                retired: matches!(&name[..6], "000004" | "000005" | "000007"),
             },
         );
     }
-    for name in &held {
+    for name in selected.iter().chain(&held) {
         ensure!(
-            files.contains_key(*name),
-            "held migration is missing: {name}"
+            files.contains_key(name),
+            "manifest migration is missing: {name}"
+        );
+    }
+    for name in files.keys() {
+        ensure!(
+            selected.contains(name) || held.contains(name),
+            "migration absent from release/held manifest: {name}"
         );
     }
     let migrations: Vec<_> = files
         .into_values()
-        .filter(|m| !held.contains(&m.name.as_str()))
+        .filter(|m| selected.contains(&m.name))
         .collect();
     ensure!(
         migrations
@@ -87,6 +96,85 @@ pub fn load(dir: &Path) -> Result<Vec<Migration>> {
         "missing initial migration"
     );
     Ok(migrations)
+}
+
+fn manifest(dir: &Path, file: &str) -> Result<std::collections::BTreeSet<String>> {
+    let text = fs::read_to_string(dir.join(file)).with_context(|| format!("read {file}"))?;
+    let mut names = std::collections::BTreeSet::new();
+    for name in text
+        .lines()
+        .filter(|s| !s.is_empty() && !s.starts_with('#'))
+    {
+        ensure!(
+            name.len() > 11
+                && name.as_bytes()[..6].iter().all(u8::is_ascii_digit)
+                && name.as_bytes()[6] == b'_'
+                && name.ends_with(".sql")
+                && name.as_bytes()[7..name.len() - 4]
+                    .iter()
+                    .all(|b| b.is_ascii_alphanumeric() || *b == b'_'),
+            "invalid migration in {file}: {name}"
+        );
+        ensure!(
+            names.insert(name.to_owned()),
+            "duplicate migration in {file}: {name}"
+        );
+    }
+    Ok(names)
+}
+
+// Retired historical DDL is never executable, even on a fresh installation.
+// Check catalog absence directly; no temporary functions or user-data reads.
+fn retired_absent(client: &mut impl GenericClient, m: &Migration) -> Result<bool> {
+    let (tables, columns): (&[&str], &[(&str, &str)]) = match &m.name[..6] {
+        "000004" => (&["waitinglist"], &[]),
+        "000005" => (
+            &[
+                "slack_oauth_access_tokens",
+                "slack_users",
+                "slack_user_invites",
+                "slack_bot_events",
+                "stripe_accounts",
+                "stripe_subscriptions",
+                "coupons_for_free_upgrades",
+                "lti_users",
+                "lti_context_memberships",
+                "canvas_assignment_callback_info",
+                "canvas_assignment_conversation_info",
+                "lti_oauthv1_credentials",
+            ],
+            &[
+                ("conversations", "is_slack"),
+                ("conversations", "lti_users_only"),
+                ("users", "plan"),
+            ],
+        ),
+        "000007" => (
+            &["geolocation_cache"],
+            &[
+                ("participants_extended", "country_code_iso"),
+                ("participants_extended", "encrypted_maxmind_response_city"),
+                ("participants_extended", "ip_address"),
+                ("participants_extended", "latitude"),
+                ("participants_extended", "location"),
+                ("participants_extended", "longitude"),
+                ("participants_extended", "x_forwarded_for"),
+            ],
+        ),
+        _ => bail!("not a retired migration: {}", m.name),
+    };
+    for table in tables {
+        if exists(client, &format!("public.{table}"))? {
+            return Ok(false);
+        }
+    }
+    for (table, column) in columns {
+        let present: bool = client.query_one("SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('public.' || $1) AND attname=$2 AND attnum>0 AND NOT attisdropped)", &[table, column])?.get(0);
+        if present {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 pub fn connect(dsn: &str) -> Result<Client> {
@@ -135,7 +223,7 @@ fn setup(client: &mut Client) -> Result<()> {
         .query_one("SELECT current_setting('server_version_num')::integer", &[])?
         .get(0);
     ensure!(version >= 170000, "PostgreSQL 17 or newer is required");
-    client.batch_execute("SET search_path=pg_catalog,public; SET statement_timeout='5min'; SET lock_timeout='5s'; SET idle_in_transaction_session_timeout='30s'; SET transaction_timeout='5min';")?;
+    client.batch_execute("SET standard_conforming_strings=on; SET search_path=pg_catalog,public; SET statement_timeout='5min'; SET lock_timeout='5s'; SET idle_in_transaction_session_timeout='30s'; SET transaction_timeout='5min';")?;
     Ok(())
 }
 fn exists(client: &mut impl GenericClient, name: &str) -> Result<bool> {
@@ -200,11 +288,25 @@ pub fn check(client: &mut Client, migrations: &[Migration]) -> Result<()> {
 }
 fn lock(client: &mut Client) -> Result<()> {
     setup(client)?;
-    // The same session retains this lock over all per-file commits. No polling.
+    // A blocking SELECT pg_advisory_lock retains a snapshot while waiting.
+    // CREATE INDEX CONCURRENTLY in the holder can wait for that same snapshot,
+    // deadlocking two runners. Each try returns before the bounded client wait,
+    // so no server statement/snapshot is held by the waiting runner.
     println!("waiting for migration lock");
-    client.batch_execute("SET lock_timeout='5min'")?;
-    client.query_one("SELECT pg_advisory_lock($1)", &[&LOCK])?;
-    client.batch_execute("SET lock_timeout='5s'")?;
+    let deadline = std::time::Instant::now() + Duration::from_secs(300);
+    loop {
+        let acquired: bool = client
+            .query_one("SELECT pg_try_advisory_lock($1)", &[&LOCK])?
+            .get(0);
+        if acquired {
+            break;
+        }
+        ensure!(
+            std::time::Instant::now() < deadline,
+            "timed out waiting for migration lock; another runner is still active"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
     println!("migration lock acquired");
     Ok(())
 }
@@ -219,6 +321,23 @@ fn record(
 }
 pub fn apply(client: &mut Client, migrations: &[Migration]) -> Result<usize> {
     lock(client)?;
+    // Validate history and every pending retirement before CREATE HISTORY or
+    // unrelated forward DDL. A refusal leaves the database unchanged.
+    let prior = if exists(client, "public.migrations")? {
+        history(client, migrations)?
+    } else {
+        BTreeMap::new()
+    };
+    for m in migrations
+        .iter()
+        .filter(|m| m.retired && !prior.contains_key(&m.name))
+    {
+        ensure!(
+            retired_absent(client, m)?,
+            "retired migration {} still has removed objects; no changes made; explicit operator review required",
+            m.name
+        );
+    }
     // A no-history populated DB is never treated as a fresh install. Check ALL
     // public relations, not only conversations, before allowing 000000.
     if !exists(client, "public.migrations")? {
@@ -239,22 +358,44 @@ pub fn apply(client: &mut Client, migrations: &[Migration]) -> Result<usize> {
                 "refusing initial migration on an existing schema; reconcile first"
             );
         }
+        if m.name == "000022_add_poll_timestamp_indexes.sql" {
+            // Source-bound special execution; never silently reinterpret a new
+            // version of this SQL. The original body below still checks both
+            // definitions before its history row commits.
+            ensure!(
+                m.checksum == "14efc95b14787b52d70680ea06cfef020cd2224e82495258fd8eb324501b7b3e",
+                "000022 source changed; review the concurrent execution contract"
+            );
+            indexes::prepare(client)?;
+        }
         let mut tx = client.transaction()?;
-        tx.batch_execute("SET LOCAL search_path=public,pg_catalog; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='5min'; SET LOCAL transaction_timeout='5min';")?;
-        tx.batch_execute(&m.body)
-            .with_context(|| format!("migration {} failed (transaction not committed)", m.name))?;
-        // Legacy queue files SET LOCAL ROLE/search_path. Bookkeeping belongs to
-        // the login that owns this transaction, not the queue role.
-        tx.batch_execute("RESET ROLE; SET LOCAL search_path=pg_catalog,public")?;
-        record(&mut tx, m, "APPLIED", &[])?;
+        tx.batch_execute("SET LOCAL standard_conforming_strings=on; SET LOCAL search_path=public,pg_catalog; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='5min'; SET LOCAL transaction_timeout='5min';")?;
+        let status = if m.retired {
+            ensure!(
+                retired_absent(&mut tx, m)?,
+                "retired migration {} has retained objects; refusing adoption",
+                m.name
+            );
+            "ADOPTED"
+        } else {
+            tx.batch_execute(&m.body).with_context(|| {
+                format!("migration {} failed (transaction not committed)", m.name)
+            })?;
+            // Restore the login's context after queue scripts SET LOCAL ROLE.
+            tx.batch_execute("RESET ROLE; SET LOCAL search_path=pg_catalog,public")?;
+            "APPLIED"
+        };
+        record(&mut tx, m, status, &[])?;
         tx.commit().with_context(|| {
             format!(
                 "commit outcome unknown for {}; reconnect and check history before retrying",
                 m.name
             )
         })?;
-        println!("APPLIED {}", m.name);
-        count += 1;
+        println!("{status} {}", m.name);
+        if status == "APPLIED" {
+            count += 1;
+        }
     }
     client.query_one("SELECT pg_advisory_unlock($1)", &[&LOCK])?;
     println!("applied {count} migration(s)");

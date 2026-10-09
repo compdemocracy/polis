@@ -39,3 +39,12 @@ service replacement. The API refuses startup with pending or mismatched history.
 Existing databases require one-time catalog-checked adoption. See
 [upgrading](docs/upgrading.md) for the first CodeDeploy hook transition and the
 release-wide coordinator hold. PostgreSQL 17+ is required.
+
+The explicit release manifest admits the supported legacy schema then applies
+M19/M23/M24; M20/M21/M25/M26 stay outside the forward path. Deprecated M4/M5/M7
+are observation-only, never automatic destructive steps. Exact legacy type
+alternatives, a catalog-only first-deploy report, per-deployment upgrade notes
+and a source-to-release map are documented in
+[migration upgrade notes](docs/migration-upgrade-notes.md). Historical SQL
+checksums remain unchanged; no semantic version is invented for unversioned
+historical releases.

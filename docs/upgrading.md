@@ -9,6 +9,15 @@ API startup. Migrations 000019/23/24 now apply during deployment; the coordinato
 000021 remains explicitly held in this release. This installs schema only, not
 queue producers or workers. PostgreSQL 17+ is required.
 
+Read the [per-deployment upgrade paths and read-only report](migration-upgrade-notes.md)
+before the first transition. One explicit release manifest selects the files;
+M20/M21/M25/M26 are outside this forward release. Historical M4/M5/M7 never
+execute automatically: absence of their removal targets permits ADOPTED receipts,
+while retained targets stop for review without deletion. The
+[named legacy contract](migration-legacy-contract.md) preserves supported live
+variants, and the [release map](migration-release-map.md) distinguishes shipped
+source from actual execution and unassigned semantic versions.
+
 CodeDeploy executes `ApplicationStop` from the **previous successful revision**.
 Consequently the first rollout from the older hooks can still stop services
 before the new migration hook runs. Complete one-time reconciliation before that

@@ -58,8 +58,8 @@ The bound is not evidence of application. Every selected file must pass its
 catalog postconditions in `server/postgres/migrations/adoption/`: enduring
 initial tables/columns, renamed columns, unique and foreign-key constraints,
 new columns/types/defaults, removed objects, the vote-update rule, and valid
-index definitions. Known legacy `json` columns are accepted where the fresh
-initial schema uses `jsonb`. The missing queue migration 000019 is a recognized
+index definitions. The exact [legacy variants](migration-legacy-contract.md) include six named
+math `json` payloads and bounded type/column alternatives; unrelated types are refused. The missing queue migration 000019 is a recognized
 hole **only when no queue/foundation tables or functions exist and no old
 history row claims it**. The example adopts 000000–000018 and 000022 as ADOPTED;
 `apply` then installs only 000019, 000023 and 000024. No vote data is inspected
@@ -88,7 +88,8 @@ the actual migrations (including role administration for the queue).
 
 A database advisory lock serializes runners on the same connection across
 per-file commits. A second runner waits up to five minutes, then reads the
-committed history. Each file and its APPLIED row commit in one transaction.
+committed history. Each ordinary file and its APPLIED row commit in one transaction. The two
+000022 index builds are the explicit autocommit exception described below.
 An optional historical outer BEGIN/COMMIT pair is removed; any other top-level
 transaction control is rejected. Dollar-quoted function bodies stay intact.
 SQL errors abort the file. Earlier successfully committed files stay applied.
@@ -101,25 +102,54 @@ run `check`/`apply`: committed history is authoritative. Do not infer rollback
 from a transport error. Restore changed historical files instead of editing
 history to bypass checksum failures.
 
-000022 retains its special populated-table behavior: when an index is missing
-on a large table, application stops with its SQL error. Build the two documented
-indexes using `CREATE INDEX CONCURRENTLY` in autocommit, then rerun `apply`;
-its exact validity/definition checks run before the history row commits.
-Concurrent index operations cannot run inside a migration transaction.
+For the exact released 000022 source, `apply` preflights both index identities,
+then builds each missing watermark index with `CREATE INDEX CONCURRENTLY` in
+autocommit, while retaining the same migration advisory lock. This is the normal
+path on fresh and large populated databases. Valid existing indexes are checked
+and preserved without rebuilding. The original SQL then rechecks both exact
+index definitions in the transaction that records APPLIED. Its raw SQL checksum
+is unchanged; changing that source requires review of this execution contract.
+
+An interruption can leave a valid first index, or an invalid index from a failed
+concurrent build, without a migration history row. Rerunning `apply` reuses valid
+indexes and builds only missing ones. It refuses invalid or conflicting objects
+before building either index. Inspect an invalid index first; if it is the exact
+interrupted watermark index, explicitly drop that index with `DROP INDEX
+CONCURRENTLY public.<the_named_index>` in autocommit, then rerun `apply`. The
+runner never drops a preexisting index automatically. A differently defined
+same-name object requires a reviewed resolution, not that drop instruction.
+If history recording fails after both builds, both valid indexes remain; retry
+records their checked state without rebuilding. Concurrent builds have the
+same bounded statement/lock timeouts; a timeout is not a success receipt.
 
 ## Release contents and new migrations
 
-Top-level `NNNNNN_name.sql` files are discovered in numeric filename order;
-archives, adoption checks and down scripts are not applied. Numbers must be
-unique, but a reserved gap such as 000020 is valid. New files should contain
-ordinary transactional SQL without their own transaction control.
+`server/postgres/migrations/release.txt` explicitly selects every required file.
+The Rust runner and Node startup gate use the same manifest; Docker initialization
+uses that runner. A new top-level numbered SQL file must be selected or held,
+otherwise startup/apply refuses it. Missing files, duplicate numbers or entries,
+symlinks, and release/hold overlap refuse. Adding a file cannot silently extend
+the release. Numbered source checksums remain unchanged.
 
-`held.txt` is a **release-wide** disposition of the dormant 000021 coordinator,
-not a per-installation skip list. It is not required by this API release, runs
-nowhere through this runner and receives no fake history row. Releasing it
-requires removing the hold in a reviewed schema change. Pending vote-convention
-work must use this history table and keep explicit convention declaration;
-merging a migration never authorizes guessing or flipping stored vote signs.
+This release contains M0–M19 plus M22/M23/M24. M4/M5/M7 are deprecated
+observation-only entries. They never execute through `apply`: their named
+removed objects must already be absent, then an ADOPTED receipt is recorded.
+Any retained target stops before apply mutates schema/history; arrange a separate
+reviewed upgrade for that deployment. Existing valid APPLIED receipts are kept.
+Fresh bootstrap already omits their targets and gets three ADOPTED receipts;
+it executes 20 files. No historical execution date is invented.
+
+M20 (draft journal), M21 (held coordinator), M25 (vote convention) and M26
+(retention) are excluded from the forward path. M21 stays in `held.txt`; the
+other files are not shipped by this branch. An added unclassified copy refuses.
+The selected legacy upgrade adopts M0–M18/M22 and applies **M19 → M23 → M24**.
+A deployment missing M22 instead builds its indexes concurrently between M19
+and M23. Archives, down scripts and unflip files never enter this manifest.
+
+Read [the release map](migration-release-map.md) for historical source/release
+provenance and [upgrade notes](migration-upgrade-notes.md) for each supported
+deployment shape. Semantic versions that were never assigned remain explicitly
+unassigned; source shipment does not establish database execution.
 
 Merging a required migration means it runs at the next deployment. Review its
 compatibility with the still-running previous application, locking, privileges,
@@ -141,3 +171,13 @@ Set a unique `COMPOSE_PROJECT_NAME` and `POLIS_RECOVERY_PG_PORT` for a shared
 local machine. `POLIS_TEST_ENV_FILE` chooses a test env file (default `test.env`);
 optional Compose arguments such as `-f local-ports.yml` support isolated test
 stacks. Use the same options when starting and removing your stack.
+
+
+## Deployment reconciliation records
+
+Use [the reconciliation record](migration-reconciliation.md) for each deployment.
+A catalog match is an observation, not proof that a historical file ran. A failed
+predicate must lead to a reviewed forward repair or a documented compatible
+variant, never to manually inserting a migration row. Unknown historical variants remain review cases; this document does not authorize
+a deployment that fails reconciliation. Run the [read-only first-deploy report](migration-upgrade-notes.md)
+before the first transition; it does not replace application-health verification.

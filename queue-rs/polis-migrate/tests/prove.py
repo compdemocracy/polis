@@ -38,10 +38,40 @@ class Proof(unittest.TestCase):
             if int(p.name[:6])<=18 or p.name.startswith('000022_'): sql(db,p.read_text())
         sql(db,"INSERT INTO users(hname) VALUES('generated migration sentinel');")
         return db
+    def test_15_treevite_checks_required_for_adoption(self):
+        db=self.legacy('treevite_contract')
+        constraints=sql(db,"SELECT conrelid::regclass::text || '|' || conname || '|' || pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid IN ('treevite_waves'::regclass,'treevite_invites'::regclass) AND contype='c' ORDER BY conname").splitlines()
+        self.assertEqual(len(constraints),7)
+        for row in constraints:
+            table,name,definition=row.split('|',2)
+            with self.subTest(constraint=name):
+                sql(db,f'ALTER TABLE {table} DROP CONSTRAINT {name}')
+                refused=runner(db,'reconcile','--through','000022',ok=False)
+                self.assertIn('000013_create_treevite.sql',refused.stderr)
+                self.assertEqual(sql(db,"SELECT to_regclass('public.migrations') IS NULL"),'t')
+                sql(db,f'ALTER TABLE {table} ADD CONSTRAINT {name} {definition}')
+        runner(db,'reconcile','--through','000022')
+        self.assertEqual(sql(db,"SELECT status FROM migrations WHERE name='000013_create_treevite.sql'"),'ADOPTED')
+
+    def test_16_json_equivalence_is_only_for_legacy_math(self):
+        db=self.legacy('json_contract')
+        helpers=(MIG/'adoption/helpers.sql').read_text()
+        sql(db,'CREATE TABLE public.unrelated_json(data json)')
+        result=sql(db,helpers+"SELECT pg_temp.col('unrelated_json','data','jsonb')")
+        self.assertEqual(result.splitlines()[-1],'f')
+        for table in ['math_main','math_profile','math_ptptstats','math_cache',
+                      'math_bidtopid','math_exportstatus']:
+            sql(db,f'ALTER TABLE {table} ALTER COLUMN data TYPE json USING data::json')
+        sql(db,'ALTER TABLE math_report_correlationmatrix ALTER COLUMN data TYPE json USING data::json')
+        self.assertIn('000000',runner(db,'reconcile','--through','000022',ok=False).stderr)
+        self.assertEqual(sql(db,"SELECT to_regclass('public.migrations') IS NULL"),'t')
+        sql(db,'ALTER TABLE math_report_correlationmatrix ALTER COLUMN data TYPE jsonb USING data::jsonb')
+        runner(db,'reconcile','--through','000022')
+
     def test_01_fresh(self):
         db=self.new('fresh')
-        self.assertIn('applied 23 migration(s)',runner(db,'apply').stdout)
-        self.assertEqual(sql(db,"SELECT count(*) FROM migrations WHERE status='APPLIED'"),'23')
+        self.assertIn('applied 20 migration(s)',runner(db,'apply').stdout)
+        self.assertEqual(sql(db,"SELECT count(*) FROM migrations WHERE status='APPLIED'"),'20')
         runner(db,'check');gate(db,True)
         self.assertEqual(sql(db,"SELECT to_regclass('public.polis_coordinator_install') IS NULL"),'t')
     def test_02_reconcile_then_pending(self):
@@ -87,16 +117,17 @@ class Proof(unittest.TestCase):
         deadline=time.monotonic()+20
         try:
             while time.monotonic()<deadline:
-                waiting=sql(db,"SELECT count(*) FROM pg_stat_activity WHERE application_name='polis-migrate' AND wait_event='advisory'")
+                waiting=sql(db,"SELECT count(*) FROM pg_stat_activity WHERE application_name='polis-migrate' AND query LIKE 'SELECT pg_try_advisory_lock%'")
                 if waiting=='2': break
                 time.sleep(.05)
             self.assertEqual(waiting,'2')
+            self.assertEqual(sql(db,"SELECT to_regclass('public.migrations') IS NULL"),'t')
         finally:
             holder.stdin.write('SELECT pg_advisory_unlock_all();\n\\q\n');holder.stdin.flush();holder.communicate(timeout=10)
         outputs=[]
         for p in [a,b]:
             out,err=p.communicate(timeout=350);self.assertEqual(p.returncode,0,err); outputs.append(out)
-        self.assertEqual(sorted('applied 23 migration(s)' in o for o in outputs),[False,True])
+        self.assertEqual(sorted('applied 20 migration(s)' in o for o in outputs),[False,True])
         self.assertEqual(sorted('applied 0 migration(s)' in o for o in outputs),[False,True])
         self.assertEqual(sql(db,'SELECT count(*) FROM migrations'),'23')
     def test_06_bad_catalog_adopts_nothing(self):
@@ -131,6 +162,7 @@ class Proof(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'migrations';shutil.copytree(MIG,d)
             f=d/'000999_generated_failure.sql'
+            with (d/'release.txt').open('a') as manifest: manifest.write(f.name+'\n')
             f.write_text('BEGIN; CREATE TABLE public.must_rollback (id integer); SELECT 1/0; COMMIT;')
             p=runner(db,'apply',dir=d,ok=False)
             self.assertIn('000999',p.stderr)
@@ -143,6 +175,7 @@ class Proof(unittest.TestCase):
         db=self.new('escape')
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'migrations';shutil.copytree(MIG,d)
+            with (d/'release.txt').open('a') as manifest: manifest.write('000999_escape.sql\n')
             (d/'000999_escape.sql').write_text('BEGIN; CREATE TABLE leaked(id integer); COMMIT; SELECT 1/0;')
             self.assertIn('BEGIN without final COMMIT',runner(db,'apply',dir=d,ok=False).stderr)
             self.assertEqual(sql(db,"SELECT to_regclass('public.migrations') IS NULL AND to_regclass('public.leaked') IS NULL"),'t')
@@ -168,5 +201,34 @@ class Proof(unittest.TestCase):
         sql(db,'DROP TABLE migrations; ALTER TABLE polis_queue_jobs ADD COLUMN unexpected integer')
         self.assertIn('queue /3 catalog postconditions fail',runner(db,'reconcile','--through','000024',ok=False).stderr)
         self.assertEqual(sql(db,"SELECT to_regclass('public.migrations') IS NULL"),'t')
+
+    def test_17_retained_old_xid_unique_preserved(self):
+        for ordinal,definition in enumerate([
+            'ALTER TABLE xids ADD CONSTRAINT generated_old_unique UNIQUE(owner,uid)',
+            'CREATE UNIQUE INDEX generated_old_unique ON xids(uid,owner)',
+        ]):
+            db=self.legacy('xid_extra_unique_'+str(ordinal))
+            sql(db,definition)
+            before=sql(db,"SELECT oid,pg_get_indexdef(oid) FROM pg_class WHERE oid='generated_old_unique'::regclass")
+            runner(db,'reconcile','--through','000022')
+            self.assertEqual(before,sql(db,"SELECT oid,pg_get_indexdef(oid) FROM pg_class WHERE oid='generated_old_unique'::regclass"))
+            self.assertEqual(sql(db,"SELECT status FROM migrations WHERE name='000002_add_xid_constraint.sql'"),'ADOPTED')
+        db=self.legacy('xid_bad_unique')
+        for definition in [
+            'CREATE UNIQUE INDEX generated_old_unique ON xids(owner,uid) WHERE uid IS NOT NULL',
+            'ALTER TABLE xids ADD CONSTRAINT generated_old_unique UNIQUE(owner,uid) DEFERRABLE INITIALLY DEFERRED',
+        ]:
+            sql(db,definition)
+            before=sql(db,"SELECT oid,pg_get_indexdef(oid) FROM pg_class WHERE oid='generated_old_unique'::regclass")
+            p=runner(db,'reconcile','--through','000022',ok=False)
+            self.assertIn('000002',p.stderr)
+            self.assertEqual(sql(db,"SELECT to_regclass('public.migrations') IS NULL"),'t')
+            self.assertEqual(before,sql(db,"SELECT oid,pg_get_indexdef(oid) FROM pg_class WHERE oid='generated_old_unique'::regclass"))
+            if definition.startswith('ALTER'):
+                sql(db,'ALTER TABLE xids DROP CONSTRAINT generated_old_unique')
+            else:
+                sql(db,'DROP INDEX generated_old_unique')
+        sql(db,'CREATE INDEX generated_owner_uid_lookup ON xids(owner,uid)')
+        runner(db,'reconcile','--through','000022')
 
 if __name__=='__main__': unittest.main(verbosity=2)
