@@ -159,6 +159,22 @@ steps are retired; no separate staging ceremony is required.
 
 ## CI and local test stacks
 
+The migration-runner CI fresh-image step and the mm2/mm5 proof use exactly:
+
+```sh
+COMPOSE_PROJECT_NAME=polis-migrate-test-my-owned-run \
+POLIS_RECOVERY_PG_PORT=55851 \
+bash queue-rs/polis-migrate/tests/fresh-image.sh
+```
+
+Choose a unique project and unused port on each shared machine. This entrypoint
+builds `server/Dockerfile-db`, initializes a fresh database, checks exact receipt
+names/checksums/statuses against `release.txt` and the M4/M5/M7 retirement policy,
+then restarts and checks that the complete history is unchanged. Both the ready
+count and expected receipt set derive from the selection. It removes only its
+project volumes/containers and project-specific image tag, including on failure.
+It does not replay production rows or prove a production deployment.
+
 After building `docker-compose.test.yml`, run `bash ci/test-migrations.sh`
 before starting application services. It waits for Postgres initialization,
 then runs `apply` and `check` using the binary and SQL packaged in that image.

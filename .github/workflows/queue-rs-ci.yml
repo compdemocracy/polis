@@ -153,11 +153,7 @@ jobs:
           docker compose -f queue-rs/polis-migrate/tests/compose.yml up -d --wait
           python3 queue-rs/polis-migrate/tests/prove.py
       - name: Prove the fresh database image and restart
-        run: |
-          docker compose -f queue-rs/polis-migrate/tests/compose.yml down -v
-          docker build --build-context queue-rs=queue-rs -t polis-migrate-db:test -f server/Dockerfile-db server
-          docker compose -f queue-rs/polis-migrate/tests/compose.yml -f queue-rs/polis-migrate/tests/image.yml up -d --wait
-          python3 queue-rs/polis-migrate/tests/image-proof.py
+        run: bash queue-rs/polis-migrate/tests/fresh-image.sh
       - name: Remove only the owned test project
         if: always()
         run: docker compose -f queue-rs/polis-migrate/tests/compose.yml down -v

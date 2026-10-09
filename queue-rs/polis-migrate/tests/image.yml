@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: polis-migrate-db:test
+    image: ${POLIS_MIGRATE_TEST_IMAGE:?run fresh-image.sh with an owned project}
     healthcheck:
       # The initdb temporary server accepts socket connections before the runner
       # has finished. TCP readiness waits for the final server after initialization.
