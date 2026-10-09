@@ -1,5 +1,25 @@
 # Upgrade Guide
 
+## Migration runner transition
+
+Use [the migration runner](migrations.md) before replacing services. Existing
+databases need one catalog-checked `reconcile` before their first runner deploy;
+new databases initialize through the runner. Missing or changed history prevents
+API startup. Migrations 000019/23/24 now apply during deployment; the coordinator
+000021 remains explicitly held in this release. This installs schema only, not
+queue producers or workers. PostgreSQL 17+ is required.
+
+CodeDeploy executes `ApplicationStop` from the **previous successful revision**.
+Consequently the first rollout from the older hooks can still stop services
+before the new migration hook runs. Complete one-time reconciliation before that
+rollout and plan for that transition interruption; do not claim failure leaves
+the old service up on the first transition. Subsequent releases defer shutdown
+until migration success. A rollback to old hook code reinstates its old stopping
+behavior. A failed migration does not trigger automatic down migrations.
+
+The sitting kit and image staging/unstaging are superseded by this ordinary
+apply/check path. Keep backup and migration-specific recovery procedures.
+
 ## Configuration Changes (Q1 2023)
 
 `polis.config.template.js` and `polis.config.js` files are removed and no longer used.

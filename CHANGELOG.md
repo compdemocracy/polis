@@ -31,3 +31,11 @@ Changes which have been merged to `edge` but are not yet versioned on `stable` c
 * ...
 
 
+
+## Migration runner
+
+Deployments now apply pending numbered migrations through `polis-migrate` before
+service replacement. The API refuses startup with pending or mismatched history.
+Existing databases require one-time catalog-checked adoption. See
+[upgrading](docs/upgrading.md) for the first CodeDeploy hook transition and the
+release-wide coordinator hold. PostgreSQL 17+ is required.

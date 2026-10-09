@@ -1,0 +1,15 @@
+-- Catalog postconditions only; this file never replays migration DDL.
+SELECT pg_temp.col('topic_agenda_selections','zid','integer',true)
+ AND pg_temp.col('topic_agenda_selections','pid','integer',true)
+ AND pg_temp.col('topic_agenda_selections','archetypal_selections','jsonb',true,'''[]''::jsonb')
+ AND pg_temp.col('topic_agenda_selections','delphi_job_id','text')
+ AND pg_temp.col('topic_agenda_selections','total_selections','integer',true,'0')
+ AND pg_temp.col('topic_agenda_selections','created_at','timestamp with time zone',false,'CURRENT_TIMESTAMP')
+ AND pg_temp.col('topic_agenda_selections','updated_at','timestamp with time zone',false,'CURRENT_TIMESTAMP')
+ AND pg_temp.con('topic_agenda_selections','PRIMARY KEY (zid, pid)')
+ AND pg_temp.con('topic_agenda_selections','FOREIGN KEY (zid) REFERENCES conversations(zid) ON DELETE CASCADE')
+ AND pg_temp.con('topic_agenda_selections','FOREIGN KEY (zid, pid) REFERENCES participants(zid, pid) ON DELETE CASCADE')
+ AND pg_temp.idx('idx_topic_agenda_selections_zid','CREATE INDEX idx_topic_agenda_selections_zid ON public.topic_agenda_selections USING btree (zid)')
+ AND pg_temp.idx('idx_topic_agenda_selections_pid','CREATE INDEX idx_topic_agenda_selections_pid ON public.topic_agenda_selections USING btree (pid)')
+ AND pg_temp.idx('idx_topic_agenda_selections_delphi_job_id','CREATE INDEX idx_topic_agenda_selections_delphi_job_id ON public.topic_agenda_selections USING btree (delphi_job_id)')
+ AND pg_temp.idx('idx_topic_agenda_selections_created_at','CREATE INDEX idx_topic_agenda_selections_created_at ON public.topic_agenda_selections USING btree (created_at)');

@@ -160,6 +160,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile-db
+      additional_contexts:
+        queue-rs: ./queue-rs
       labels:
         polis_tag: test
     environment:
