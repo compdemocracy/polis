@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-properties -- Bootstrap must read its environment before config.ts and application modules load. */
 // Read-only startup gate. Uses the same raw SQL hashes and release-wide hold
 // as polis-migrate; no application modules or background loops load before it.
 const fs = require("node:fs");
@@ -47,5 +48,5 @@ async function checkMigrations() {
   } finally { await db.end(); }
 }
 module.exports = { checkMigrations };
-if (require.main === module) checkMigrations().then(() => console.log("migration check ready"))
-  .catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (require.main === module) checkMigrations().then(() => process.stdout.write("migration check ready\n"))
+  .catch((error) => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });

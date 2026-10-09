@@ -126,3 +126,18 @@ compatibility with the still-running previous application, locking, privileges,
 data effects and reversal/restore plan at merge time. Update these public
 upgrade records in that change. The manual sitting and client stage/unstage
 steps are retired; no separate staging ceremony is required.
+
+## CI and local test stacks
+
+After building `docker-compose.test.yml`, run `bash ci/test-migrations.sh`
+before starting application services. It waits for Postgres initialization,
+then runs `apply` and `check` using the binary and SQL packaged in that image.
+It works on fresh and existing test volumes; it never creates history by hand
+or bypasses the API startup check. Cypress, server integration and Delphi CI
+all use this entrypoint. Server integration also runs the Node startup check
+before loading its in-process test app.
+
+Set a unique `COMPOSE_PROJECT_NAME` and `POLIS_RECOVERY_PG_PORT` for a shared
+local machine. `POLIS_TEST_ENV_FILE` chooses a test env file (default `test.env`);
+optional Compose arguments such as `-f local-ports.yml` support isolated test
+stacks. Use the same options when starting and removing your stack.

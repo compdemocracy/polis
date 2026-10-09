@@ -1,4 +1,4 @@
-"""scripts/after_install.sh selects one branch per service type, and a queue
+"""scripts/after_install.sh migrates before replacing any service, and a queue
 worker box (delphi-large, delphi-worker) starts only its polis-jobs.service.
 
 Runs the real deploy hook (and the stop hook) with every external command
@@ -75,6 +75,7 @@ FAKES = {
         '  *) echo \'{"username":"u","password":"p","dbname":"d"}\';;\n'
         'esac\n'),
     "docker": RECORD + (
+        'if [ "$1" = "$FAKE_MIGRATION_FAILURE" ]; then exit 17; fi\n'
         'if [ "$1" = ps ]; then\n'
         '  filter=""\n'
         '  while [ $# -gt 0 ]; do [ "$1" = --filter ] && filter="${2#name=}"; shift; done\n'
@@ -124,8 +125,9 @@ def _run(tmp_path, script_path, rules, root, env):
     return proc, log
 
 
-def _deploy(tmp_path, service_type, **kw):
+def _deploy(tmp_path, service_type, migration_failure="", **kw):
     root, env = _box(tmp_path, service_type, **kw)
+    env["FAKE_MIGRATION_FAILURE"] = migration_failure
     rules = [("/usr/local/bin/docker-compose", "docker-compose", 4),
              ("/etc/app-info/", f"{root}/etc/app-info/", 2),
              ("/etc/systemd/system/", f"{root}/etc/systemd/system/", 0),
@@ -206,17 +208,44 @@ def test_a_worker_box_that_does_not_match_fails_the_deploy(tmp_path, service_typ
     assert _calls(log, "systemctl") == []
 
 
-@pytest.mark.parametrize("service_type,stops", [("delphi", ["stop delphi"]),
-                                                ("delphi-large", []), ("delphi-worker", [])])
-def test_the_stop_hook_stops_no_worker_service(tmp_path, service_type, stops):
+@pytest.mark.parametrize("service_type", ["server", "delphi", "math", "delphi-large", "delphi-worker", "unknown"])
+def test_the_stop_hook_leaves_every_service_running(tmp_path, service_type):
     root, env = _box(tmp_path, service_type)
-    (root / "opt/polis/polis").mkdir(parents=True)
-    # command -v needs the compose path to exist; point it at the fake.
-    rules = [("/usr/local/bin/docker-compose", str(tmp_path / "bin/docker-compose"), 2),
-             ("/etc/app-info/", f"{root}/etc/app-info/", 1),
-             ("/opt/polis/polis", f"{root}/opt/polis/polis", 1)]
-    proc, log = _run(tmp_path, STOP_PATH, rules, root, env)
+    # No path rewrite: the revised hook has no external calls or absolute paths.
+    proc, log = _run(tmp_path, STOP_PATH, [], root, env)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert [c for c in _calls(log, "docker-compose") if c.startswith("stop")] == stops
+    assert log == []
+    assert "AfterInstall" in proc.stdout
+
+
+@pytest.mark.parametrize("service_type,worker_class", [
+    ("server", None), ("delphi", None), ("math", None), ("ollama", None),
+    ("delphi-large", "large"), ("delphi-worker", "delphi"),
+])
+def test_migration_succeeds_before_any_service_replacement(tmp_path, service_type, worker_class):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    build = "docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile ."
+    apply = "docker run --rm --network host --env-file .env polis-migrate:deploy apply"
+    assert log.count(build) == log.count(apply) == 1
+    assert log.index(build) < log.index(apply)
+    replacements = [i for i, call in enumerate(log) if call.startswith((
+        "docker-compose down", "docker rm ", "docker system prune",
+        "docker-compose up", "systemctl restart"))]
+    assert replacements
+    assert log.index(apply) < min(replacements)
+
+
+@pytest.mark.parametrize("failure", ["build", "run"])
+@pytest.mark.parametrize("service_type,worker_class", [
+    ("server", None), ("delphi", None), ("math", None), ("ollama", None),
+    ("delphi-large", "large"), ("delphi-worker", "delphi"),
+])
+def test_migration_failure_preserves_every_running_service(tmp_path, service_type, worker_class, failure):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
+                        migration_failure=failure)
+    assert proc.returncode == 17, proc.stdout + proc.stderr
+    assert _calls(log, "docker-compose") == []
     assert _calls(log, "systemctl") == []
-    assert "Unknown service type" not in proc.stdout + proc.stderr
+    docker = _calls(log, "docker")
+    assert [call.split()[0] for call in docker] == (["build"] if failure == "build" else ["build", "run"])

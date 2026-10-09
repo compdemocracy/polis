@@ -19,7 +19,7 @@ async function startServer(port?: number) {
 }
 
 startServer().catch((error) => {
-  console.error("Server startup refused:", error.message);
+  process.stderr.write(`Server startup refused: ${error.message}\n`);
   process.exit(1);
 });
 export { startServer };
