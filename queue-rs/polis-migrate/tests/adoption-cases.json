@@ -8,7 +8,7 @@
   {
     "name": "default_added_participants_extended_permanent_cookie",
     "migration": 3,
-    "mutation": "ALTER TABLE participants_extended ALTER COLUMN permanent_cookie SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE participants_extended ALTER COLUMN permanent_cookie SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -20,7 +20,7 @@
   {
     "name": "default_added_participants_extended_origin",
     "migration": 3,
-    "mutation": "ALTER TABLE participants_extended ALTER COLUMN origin SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE participants_extended ALTER COLUMN origin SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -74,7 +74,7 @@
   {
     "name": "default_added_oidc_user_mappings_oidc_sub",
     "migration": 10,
-    "mutation": "ALTER TABLE oidc_user_mappings ALTER COLUMN oidc_sub SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE oidc_user_mappings ALTER COLUMN oidc_sub SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -128,7 +128,7 @@
   {
     "name": "default_added_topic_agenda_selections_delphi_job_id",
     "migration": 12,
-    "mutation": "ALTER TABLE topic_agenda_selections ALTER COLUMN delphi_job_id SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE topic_agenda_selections ALTER COLUMN delphi_job_id SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -380,7 +380,7 @@
   {
     "name": "default_added_treevite_login_codes_login_code_hash",
     "migration": 13,
-    "mutation": "ALTER TABLE treevite_login_codes ALTER COLUMN login_code_hash SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE treevite_login_codes ALTER COLUMN login_code_hash SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -446,19 +446,19 @@
   {
     "name": "default_added_treevite_invites_invite_code",
     "migration": 13,
-    "mutation": "ALTER TABLE treevite_invites ALTER COLUMN invite_code SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE treevite_invites ALTER COLUMN invite_code SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
     "name": "default_added_treevite_login_codes_login_code_fingerprint",
     "migration": 13,
-    "mutation": "ALTER TABLE treevite_login_codes ALTER COLUMN login_code_fingerprint SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE treevite_login_codes ALTER COLUMN login_code_fingerprint SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
     "name": "default_added_treevite_login_codes_login_code_lookup",
     "migration": 13,
-    "mutation": "ALTER TABLE treevite_login_codes ALTER COLUMN login_code_lookup SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE treevite_login_codes ALTER COLUMN login_code_lookup SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -566,7 +566,7 @@
   {
     "name": "default_added_byod_import_jobs_s3_key",
     "migration": 17,
-    "mutation": "ALTER TABLE byod_import_jobs ALTER COLUMN s3_key SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE byod_import_jobs ALTER COLUMN s3_key SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -596,7 +596,7 @@
   {
     "name": "default_added_byod_import_jobs_error_message",
     "migration": 17,
-    "mutation": "ALTER TABLE byod_import_jobs ALTER COLUMN error_message SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE byod_import_jobs ALTER COLUMN error_message SET DEFAULT 'constructed';",
     "expected": "f"
   },
   {
@@ -1088,7 +1088,7 @@
   {
     "name": "m11_preserved_default",
     "migration": 11,
-    "mutation": "ALTER TABLE suzinvites ALTER COLUMN xid SET DEFAULT 'synthetic';",
+    "mutation": "ALTER TABLE suzinvites ALTER COLUMN xid SET DEFAULT 'constructed';",
     "expected": "t"
   },
   {
@@ -1100,7 +1100,7 @@
   {
     "name": "m3_generated_column",
     "migration": 3,
-    "mutation": "ALTER TABLE participants_extended DROP COLUMN origin; ALTER TABLE participants_extended ADD COLUMN origin varchar(9999) GENERATED ALWAYS AS ('synthetic'::varchar(9999)) STORED;",
+    "mutation": "ALTER TABLE participants_extended DROP COLUMN origin; ALTER TABLE participants_extended ADD COLUMN origin varchar(9999) GENERATED ALWAYS AS ('constructed'::varchar(9999)) STORED;",
     "expected": "f"
   },
   {

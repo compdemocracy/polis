@@ -15,7 +15,7 @@ class Adoption(unittest.TestCase):
         for path in sorted(MIG.glob('*.sql')):
             if int(path.name[:6]) <= 18 or path.name.startswith('000022_'):
                 sql(cls.db,path.read_text())
-        sql(cls.db,"INSERT INTO users(hname) VALUES('synthetic adoption sentinel')")
+        sql(cls.db,"INSERT INTO users(hname) VALUES('constructed adoption sentinel')")
 
     def test_01_catalog_controls(self):
         cases=json.loads(pathlib.Path(__file__).with_name('adoption-cases.json').read_text())
@@ -29,7 +29,7 @@ class Adoption(unittest.TestCase):
                 self.assertEqual(values,[case['expected']])
 
     def test_02_conflicts_leave_no_history(self):
-        cases=[(3,"ALTER TABLE participants_extended ALTER COLUMN origin SET DEFAULT 'synthetic';"),
+        cases=[(3,"ALTER TABLE participants_extended ALTER COLUMN origin SET DEFAULT 'constructed';"),
                (13,'ALTER TABLE treevite_invites DISABLE TRIGGER ALL;'),
                (17,'ALTER TABLE byod_import_jobs ALTER COLUMN id DROP DEFAULT;')]
         for n,mutation in cases:
@@ -46,6 +46,6 @@ class Adoption(unittest.TestCase):
         sql('postgres',f'CREATE DATABASE {db} TEMPLATE {self.db}')
         runner(db,'reconcile','--through','000022')
         self.assertEqual(sql(db,"SELECT count(*) FROM migrations WHERE status='ADOPTED'"),'20')
-        self.assertEqual(sql(db,'SELECT hname FROM users'),'synthetic adoption sentinel')
+        self.assertEqual(sql(db,'SELECT hname FROM users'),'constructed adoption sentinel')
 
 if __name__=='__main__': unittest.main(verbosity=2)
