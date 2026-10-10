@@ -1,16 +1,21 @@
 import {randomUUID} from "crypto";
-import pg from "../../src/db/pg-query";
-import {admitDelphiJob} from "../../src/routes/delphi/jobGuard";
-import {resultClient,sendPostgresResult} from "../../src/utils/delphiResults";
 import {PutCommand,DeleteCommand,GetCommand} from "@aws-sdk/lib-dynamodb";
 
 const campaign = process.env.DELPHI_WRITER_PROOF === "1" ? describe : describe.skip;
 campaign("Postgres writer real SQL boundary with Dynamo stopped",()=>{
-  beforeAll(()=>{
+  let pg: typeof import("../../src/db/pg-query").default;
+  let admitDelphiJob: typeof import("../../src/routes/delphi/jobGuard").admitDelphiJob;
+  let resultClient: typeof import("../../src/utils/delphiResults").resultClient;
+  let sendPostgresResult: typeof import("../../src/utils/delphiResults").sendPostgresResult;
+  beforeAll(async()=>{
+    // A skipped real-DB campaign must not construct a pool at collection time.
     process.env.DELPHI_RESULT_BACKEND="postgres";
     process.env.DELPHI_RESULT_ENV="writer-node-proof";
     process.env.DELPHI_RESULT_SCOPE="delphi";
     process.env.DELPHI_WRITER_CODE_SHA="d6f9ed6093e46b3c07db98f3c644bbbd9c4e87cd";
+    pg = (await import("../../src/db/pg-query")).default;
+    ({admitDelphiJob} = await import("../../src/routes/delphi/jobGuard"));
+    ({resultClient,sendPostgresResult} = await import("../../src/utils/delphiResults"));
   });
   test("synchronous adapters put and delete with no legacy client construction",async()=>{
     const factory=jest.fn(()=>{throw new Error("Dynamo constructed");});

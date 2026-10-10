@@ -1675,7 +1675,7 @@ async function admitPostgresWriter(request: AdmissionRequest): Promise<Admission
   const {scope, jobItem} = request;
   const env = Config.delphiResultEnv;
   const resultScope = Config.delphiResultScope;
-  const code = process.env.DELPHI_WRITER_CODE_SHA;
+  const code = Config.delphiWriterCodeSha;
   if (!env || !resultScope || !code || !/^[0-9a-f]{40,64}$/.test(code)) {
     throw new JobAdmissionUnavailableError("Postgres writer env, scope and code pin are required");
   }

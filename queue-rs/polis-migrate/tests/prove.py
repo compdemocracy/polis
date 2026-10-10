@@ -83,32 +83,34 @@ class Proof(unittest.TestCase):
 
     def test_23_modern_v3_upgrades_to_v5_preserving_receipts(self):
         db=self.new('modern_v3')
+        upgrades=[s for s in SELECTED if s[:6] >= '000027']
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'m';shutil.copytree(MIG,d)
-            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if not x.startswith(('000027_', '000028_', '000029_')))+'\n')
-            for number in ('000027', '000028', '000029'):
-                next(d.glob(number+'_*.sql')).unlink()
+            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if x not in upgrades)+'\n')
+            for name in upgrades:
+                (d/name).unlink()
             runner(db,'deploy',dir=d)
         before=sql(db,'SELECT row_to_json(m) FROM migrations m ORDER BY name')
         gate(db,False)
         output=runner(db,'deploy').stdout
-        self.assertIn('applied 3 migration(s)',output)
+        self.assertEqual([x.split()[1] for x in output.splitlines() if x.startswith('APPLIED ')], upgrades)
         self.assertEqual(before,sql(db,"SELECT row_to_json(m) FROM migrations m WHERE name < '000027' ORDER BY name"))
         self.assertEqual(sql(db,'SELECT contract_version FROM polis_queue_install'),'polis-queue/5')
         gate(db,True)
 
     def test_25_release_b_upgrades_results_preserving_receipts(self):
         db=self.new('release_b')
+        upgrades=[s for s in SELECTED if s[:6] >= '000028']
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'m';shutil.copytree(MIG,d)
-            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if not x.startswith(('000028_', '000029_')))+'\n')
-            for number in ('000028', '000029'):
-                next(d.glob(number+'_*.sql')).unlink()
+            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if x not in upgrades)+'\n')
+            for name in upgrades:
+                (d/name).unlink()
             runner(db,'deploy',dir=d)
         before=sql(db,'SELECT row_to_json(m) FROM migrations m ORDER BY name')
         gate(db,False)
         output=runner(db,'deploy').stdout
-        self.assertEqual([x.split()[1][:6] for x in output.splitlines() if x.startswith('APPLIED ')], ['000028','000029'])
+        self.assertEqual([x.split()[1] for x in output.splitlines() if x.startswith('APPLIED ')], upgrades)
         self.assertEqual(before,sql(db,"SELECT row_to_json(m) FROM migrations m WHERE name < '000028' ORDER BY name"))
         gate(db,True)
         self.assertIn('applied 0 migration(s)',runner(db,'deploy').stdout)

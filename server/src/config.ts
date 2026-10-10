@@ -35,6 +35,7 @@ export default {
   get delphiResultBackend(): string | undefined { return process.env.DELPHI_RESULT_BACKEND; },
   get delphiResultEnv(): string | undefined { return process.env.DELPHI_RESULT_ENV; },
   get delphiResultScope(): string | undefined { return process.env.DELPHI_RESULT_SCOPE; },
+  get delphiWriterCodeSha(): string | undefined { return process.env.DELPHI_WRITER_CODE_SHA; },
   domainOverride,
   isDevMode: devMode,
   reachableErrorHandler,
