@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const underscore = require('underscore');
 const server = path.resolve(__dirname, '../..');
-const realFiles = new Set(['nextComment.ts','comment.ts','conversation.ts','db/sql.ts','utils/pca.ts','utils/commentClusters.ts','votes/convention.ts','utils/zinvite.ts','utils/delphiResults.ts','utils/delphiResultSnapshot.ts','utils/delphiStorageCodec.ts']);
+const realFiles = new Set(['nextComment.ts','comment.ts','conversation.ts','db/sql.ts','utils/pca.ts','utils/commentClusters.ts','votes/convention.ts','utils/zinvite.ts','utils/delphiResults.ts','utils/delphiResultWriter.ts','utils/delphiResultSnapshot.ts','utils/delphiStorageCodec.ts']);
 
 exports.runtime = function runtime(client, fixture, mutate = null) {
   let now = 1700000000000;
