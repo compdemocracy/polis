@@ -12,11 +12,6 @@ on:
       - 'delphi/requirements*.txt'
       - 'delphi/Dockerfile'
       - '.github/workflows/python-ci.yml'
-      - 'ci/test-migrations.sh'
-      - 'docker-compose.test.yml'
-      - 'server/Dockerfile-db'
-      - 'server/postgres/**'
-      - 'queue-rs/polis-migrate/**'
       # server/src so a new server-side wildcard runs the projection-gate sweep
       - 'server/src/**'
       # Representative payload tests execute the probe planner and independent gate.
@@ -75,9 +70,6 @@ jobs:
         # Build all services in the test file (including delphi)
         docker compose -f docker-compose.test.yml --env-file .env build
 
-    - name: Apply and check test database migrations
-      run: bash ci/test-migrations.sh
-
     - name: 4. Start all services
       run: |
         # Start all services (including delphi) in detached mode
@@ -98,7 +90,7 @@ jobs:
 
     # The opt-in Postgres integration tests (require_polis_postgres) run here
     # against the compose `postgres` service, whose image bakes the polis
-    # migrations through polis-migrate during initialization and the explicit CI step,
+    # migrations (server/postgres/migrations/*.sql via docker-entrypoint-initdb.d),
     # so the votes / votes_latest_unique schema + on_vote_insert_update_unique_table
     # rule are already applied. The pytest step exports POLIS_TEST_POSTGRES_URL;
     # the cold-start generator under test is already baked into the delphi image

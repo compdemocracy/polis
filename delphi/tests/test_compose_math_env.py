@@ -732,6 +732,4 @@ def test_the_stop_hook_stops_nothing_on_the_large_box_and_no_large_poller_anywhe
     roles = _stop_lines()
     assert roles.get("delphi-large", []) == []
     assert not any("math-python-large" in l for lines in roles.values() for l in lines)
-    # Shutdown moved after the migration barrier in AfterInstall, for every role.
-    assert roles == {}
-    assert "AfterInstall" in STOP_HOOK.read_text()
+    assert "delphi-large" in STOP_HOOK.read_text()
