@@ -80,12 +80,17 @@ const ROOT_KEYS: [&str; 12] = [
     "recheck_after",
     "duration_ms",
 ];
-const INPUT_KEYS: [&str; 5] = [
+const INPUT_KEYS: [&str; 8] = [
     "math_env",
     "math_tick",
     "math_caching_tick",
     "comment_set_sha256",
     "vote_hwm",
+    // A math rebuild's receipt binding (staged bundle's modified time, the
+    // label it is staged for, the commit it was admitted at); null elsewhere.
+    "math_modified_ms",
+    "target_label",
+    "source_commit",
 ];
 const MODEL_KEYS: [&str; 3] = ["embed", "topic", "narrative"];
 const COST_KEYS: [&str; 3] = ["llm_tokens_in", "llm_tokens_out", "provider_batches"];
@@ -172,10 +177,20 @@ pub fn validate(
     let inputs = m["inputs"].as_object().ok_or(Invalid::Field("inputs"))?;
     closed(inputs, &INPUT_KEYS, "inputs")?;
     nullable_str(&inputs["math_env"], "inputs.math_env")?;
+    nullable_str(&inputs["target_label"], "inputs.target_label")?;
+    match &inputs["source_commit"] {
+        Value::Null => {}
+        Value::String(c)
+            if c.len() == 40
+                && c.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) => {}
+        _ => return Err(Invalid::Field("inputs.source_commit")),
+    }
     for (key, name) in [
         ("math_tick", "inputs.math_tick"),
         ("math_caching_tick", "inputs.math_caching_tick"),
         ("vote_hwm", "inputs.vote_hwm"),
+        ("math_modified_ms", "inputs.math_modified_ms"),
     ] {
         nullable_int(&inputs[key], name)?;
     }
@@ -295,7 +310,9 @@ pub(crate) fn fixture(job: &str, attempt: &str, stage: &str, outcome: &str) -> V
         "phase": if stage == "delphi_narrative" { "submit" } else { "run" },
         "outcome": outcome,
         "inputs": {"math_env": "dev", "math_tick": 7, "math_caching_tick": 7,
-                    "comment_set_sha256": "0".repeat(64), "vote_hwm": 12},
+                    "comment_set_sha256": "0".repeat(64), "vote_hwm": 12,
+                    "math_modified_ms": 1_700_000_000_000_i64, "target_label": "python",
+                    "source_commit": "a".repeat(40)},
         "outputs": [{"store": "dynamodb", "family": "Delphi_UMAPGraph", "table": "Delphi_UMAPGraph",
                      "key_prefix": {"conversation_id": "1"}, "rows": 3}],
         "models": {"embed": "fixture-embed", "topic": null, "narrative": null},
@@ -421,6 +438,23 @@ mod tests {
                 m["inputs"]["comment_set_sha256"] = "ABC".into()
             }),
             ("extra inputs key", |m| m["inputs"]["extra"] = 1.into()),
+            ("short source commit", |m| {
+                m["inputs"]["source_commit"] = "abc123".into()
+            }),
+            ("upper-case source commit", |m| {
+                m["inputs"]["source_commit"] = "A".repeat(40).into()
+            }),
+            ("numeric target label", |m| {
+                m["inputs"]["target_label"] = 7.into()
+            }),
+            ("float modified", |m| {
+                m["inputs"]["math_modified_ms"] = 1.5.into()
+            }),
+            ("missing modified", |m| {
+                m["inputs"]
+                    .as_object_mut()
+                    .map(|o| o.remove("math_modified_ms"));
+            }),
             ("model not a string", |m| m["models"]["embed"] = 1.into()),
             ("missing cost key", |m| {
                 m["cost"].as_object_mut().map(|o| o.remove("llm_tokens_in"));
@@ -462,6 +496,9 @@ mod tests {
             "math_caching_tick",
             "comment_set_sha256",
             "vote_hwm",
+            "math_modified_ms",
+            "target_label",
+            "source_commit",
         ] {
             m["inputs"][k] = Value::Null;
         }
