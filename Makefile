@@ -177,7 +177,8 @@ refresh-devdb: ## Force dev DB mode (migrations), drop postgres_data volume, and
 # P-022 §C — poller recovery matrix (R01-R12) on a REAL Postgres
 # ---------------------------------------------------------------------------- #
 # Reuses docker-compose.test.yml's postgres service (built from
-# server/Dockerfile-db, which runs polis-migrate during fresh initialization) with docker-compose.recovery.yml overriding the
+# server/Dockerfile-db, which bakes server/postgres/migrations/*.sql into
+# docker-entrypoint-initdb.d) with docker-compose.recovery.yml overriding the
 # host port and making the data directory a tmpfs, so every `up` re-runs initdb
 # with the real migrations and nothing survives teardown.
 #
