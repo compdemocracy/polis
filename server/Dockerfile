@@ -18,7 +18,14 @@ ARG NODE_ENV
 WORKDIR /app
 
 # Install Python and necessary tools (including pip)
-RUN apk add --no-cache python3 py3-pip
+RUN apk add --no-cache python3 py3-pip ca-certificates
+
+# Verified startup migration checks use the same public RDS CA pin as the
+# runner image. Deployments with another private CA can override this env.
+RUN mkdir -p /etc/polis \
+ && wget -O /etc/polis/rds-ca.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+ && echo 'fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c  /etc/polis/rds-ca.pem' | sha256sum -c -
+ENV NODE_EXTRA_CA_CERTS=/etc/polis/rds-ca.pem
 
 # This package is needed at runtime
 RUN apk add libpq-dev

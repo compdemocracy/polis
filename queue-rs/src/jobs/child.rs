@@ -233,6 +233,14 @@ pub struct Claim {
 /// The job frame (`schemas/job-frame-v1.json`). A rebuild's `config` is the
 /// typed math config, carried whole; the Delphi stages keep their four keys.
 pub fn frame(claim: &Claim, adm: &Admission, phase: &str, batch_id: Option<&str>) -> Result<Value> {
+    if claim.stage.starts_with("graph_") {
+        return Ok(
+            json!({"schema":"polis-job-stage-frame/1", "env":claim.env, "zid":adm.zid,
+            "job_id":claim.job_id,"run_id":claim.run_id,"attempt_id":claim.attempt_id,
+            "lease_epoch":claim.lease_epoch,"stage":claim.stage,"input":adm.inputs,
+            "input_sha256":adm.config["input_sha256"],"input_json":adm.config["input_wire"]}),
+        );
+    }
     let config = if claim.stage == "math_rebuild" {
         MathConfig::from_admission(adm)?.to_json()
     } else {
@@ -331,6 +339,9 @@ pub fn command_args(
             app.join("umap_narrative/803_check_batch_status.py"),
             vec![format!("--job-id={}", claim.job_id)],
         ),
+        ("graph_embed" | "graph_cluster" | "graph_narrative", "run") => {
+            (app.join("scripts/job_graph_stage.py"), vec![])
+        }
         ("math_rebuild", "run") => (app.join("scripts/math_poller.py"), vec!["--job".to_owned()]),
         (stage, phase) => bail!("no command for stage {stage} phase {phase}"),
     })

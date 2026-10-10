@@ -87,6 +87,12 @@ case "$SERVICE_FROM_FILE" in
   *) echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"; exit 1 ;;
 esac
 
+# Apply the release schema before stopping/replacing any healthy service.
+# All roles use the same database lock; a second box waits, then applies nothing.
+# Build the client with this checkout. No manual image staging or local Rust needed.
+sudo docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile .
+sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
+
 # Validate configuration before replacing any running container. Compose replaces
 # only this Compose project below; never remove unrelated containers or prune here.
 sudo /usr/local/bin/docker-compose config --quiet

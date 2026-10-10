@@ -82,9 +82,12 @@ services:
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
     restart: unless-stopped
     depends_on:
-      - oidc-simulator
-      - postgres
-      - dynamodb-init
+      oidc-simulator:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      dynamodb-init:
+        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -112,7 +115,8 @@ services:
     networks:
       - polis-test
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -160,6 +164,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile-db
+      additional_contexts:
+        queue-rs: ./queue-rs
       labels:
         polis_tag: test
     environment:
@@ -167,7 +173,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=${POSTGRES_USER}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # The init server is socket-only; TCP refuses until migrations finish.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -175,7 +182,7 @@ services:
     networks:
       - polis-test
     ports:
-      - 5432:5432
+      - "${POLIS_RECOVERY_PG_PORT:-5432}:5432"
     restart: unless-stopped
     # PostgreSQL configuration for development/testing
     command: >
@@ -262,8 +269,10 @@ services:
     networks:
       - "polis-test"
     depends_on:
-      - postgres
-      - dynamodb-init
+      postgres:
+        condition: service_healthy
+      dynamodb-init:
+        condition: service_completed_successfully
     command: tail -f /dev/null
     restart: unless-stopped
 
