@@ -7,6 +7,7 @@ to store and retrieve Polis conversation mathematical analysis data.
 """
 
 import boto3
+from polismath.delphi_storage.resource import result_resource
 import time
 import os
 import logging
@@ -67,7 +68,7 @@ class DynamoDBClient:
             kwargs['aws_access_key_id'] = self.aws_access_key_id
             kwargs['aws_secret_access_key'] = self.aws_secret_access_key
             
-        self.dynamodb = boto3.resource('dynamodb', **kwargs)
+        self.dynamodb = result_resource('dynamodb', **kwargs)
         
         # Create tables if they don't exist
         self._ensure_tables_exist()

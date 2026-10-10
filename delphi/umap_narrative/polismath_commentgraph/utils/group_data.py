@@ -7,6 +7,7 @@ from PostgreSQL for report generation.
 import json
 import logging
 import boto3
+from polismath.delphi_storage.resource import result_resource
 import os
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
@@ -48,7 +49,7 @@ class GroupDataProcessor:
 
             # Set up DynamoDB client WITHOUT explicit credentials.
             # Boto3 will use its default credential provider chain (env vars -> IAM role).
-            self.dynamodb = boto3.resource(
+            self.dynamodb = result_resource(
                 'dynamodb',
                 endpoint_url=endpoint_url,
                 region_name=region

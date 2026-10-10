@@ -339,7 +339,7 @@ pub fn command_args(
             app.join("umap_narrative/803_check_batch_status.py"),
             vec![format!("--job-id={}", claim.job_id)],
         ),
-        ("graph_embed" | "graph_cluster" | "graph_narrative", "run") => {
+        ("graph_embed" | "graph_cluster" | "graph_topics" | "graph_narrative", "run") => {
             (app.join("scripts/job_graph_stage.py"), vec![])
         }
         ("math_rebuild", "run") => (app.join("scripts/math_poller.py"), vec!["--job".to_owned()]),
@@ -350,6 +350,57 @@ pub fn command_args(
 pub struct Spawned {
     pub child: Child,
     pub pgid: i32,
+}
+
+const GRAPH_ENVIRONMENT: &[&str] = &[
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "LANG",
+    "LC_ALL",
+    "TZ",
+    "PYTHONPATH",
+    "PYTHONUNBUFFERED",
+    "PYTHONDONTWRITEBYTECODE",
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMBA_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+    "TOKENIZERS_PARALLELISM",
+    "HF_HOME",
+    "HF_HUB_OFFLINE",
+    "TRANSFORMERS_OFFLINE",
+    "XDG_CACHE_HOME",
+    "NUMBA_CACHE_DIR",
+    "DELPHI_EMBED_MODEL_PATH",
+    // Existing process-boundary proof fixture paths; neither carries credentials.
+    "GRAPH_PROOF_ROOT",
+    "GRAPH_STAGE_SOURCE",
+];
+
+fn child_environment(
+    command: &mut Command,
+    stage: &str,
+    inherited: impl IntoIterator<Item = (std::ffi::OsString, std::ffi::OsString)>,
+) {
+    if stage.starts_with("graph_") {
+        command.env_clear();
+        for (key, value) in inherited {
+            if key
+                .to_str()
+                .is_some_and(|key| GRAPH_ENVIRONMENT.contains(&key))
+            {
+                command.env(key, value);
+            }
+        }
+    }
+    command
+        .env_remove("QUEUE_DATABASE_URL")
+        .env_remove("POLIS_JOBS_PASSWORD_FILE");
 }
 
 /// Spawn in a new session (pgid = pid). Queue credentials never reach the child.
@@ -367,12 +418,11 @@ pub fn spawn(
     batch_id: Option<&str>,
 ) -> Result<Spawned> {
     let mut command = Command::new(python);
+    child_environment(&mut command, &claim.stage, std::env::vars_os());
     command
         .arg(script)
         .args(args)
         .current_dir(app)
-        .env_remove("QUEUE_DATABASE_URL")
-        .env_remove("POLIS_JOBS_PASSWORD_FILE")
         .env("DELPHI_JOB_ID", &claim.job_id)
         .env("DELPHI_RUN_ID", &claim.run_id)
         .env("DELPHI_ATTEMPT_ID", &claim.attempt_id)
@@ -512,6 +562,77 @@ pub fn kill_and_reap(
 mod tests {
     use super::*;
 
+    #[test]
+    fn graph_children_receive_only_model_and_runtime_environment() -> Result<()> {
+        let inherited: Vec<(std::ffi::OsString, std::ffi::OsString)> = [
+            "DATABASE_URL",
+            "DELPHI_RESULT_DATABASE_URL",
+            "MATH_CAPACITY_QUEUE_DSN",
+            "QUEUE_DATABASE_URL",
+            "PGHOST",
+            "PGPORT",
+            "PGDATABASE",
+            "PGUSER",
+            "PGPASSWORD",
+            "PGPASSFILE",
+            "PGSERVICE",
+            "PGSERVICEFILE",
+            "POSTGRES_PASSWORD",
+            "DB_PASSWORD",
+            "POLIS_JOBS_PASSWORD_FILE",
+            "UNRECOGNIZED_DATABASE_DSN",
+            "DELPHI_EMBED_MODEL_PATH",
+            "OMP_NUM_THREADS",
+            "PATH",
+        ]
+        .into_iter()
+        .map(|key| (key.into(), format!("generated-{key}").into()))
+        .collect();
+        let mut command = Command::new("/usr/bin/env");
+        command.envs(inherited.clone());
+        child_environment(&mut command, "graph_embed", inherited);
+        let output = command.output()?;
+        assert!(output.status.success());
+        let lines = String::from_utf8(output.stdout)?;
+        let keys: Vec<&str> = lines
+            .lines()
+            .filter_map(|line| line.split_once('=').map(|(key, _)| key))
+            .collect();
+        assert_eq!(keys.len(), 3);
+        assert!(
+            keys.iter().all(|key| {
+                ["DELPHI_EMBED_MODEL_PATH", "OMP_NUM_THREADS", "PATH"].contains(key)
+            })
+        );
+        Ok(())
+    }
+    #[test]
+    fn math_environment_keeps_its_database_access() {
+        let mut command = Command::new("python");
+        command
+            .env("DATABASE_URL", "generated-main")
+            .env("MATH_CAPACITY_QUEUE_DSN", "generated-capacity")
+            .env("QUEUE_DATABASE_URL", "generated-queue")
+            .env("POLIS_JOBS_PASSWORD_FILE", "generated-file");
+        child_environment(&mut command, "math_rebuild", std::iter::empty());
+        let actual: std::collections::BTreeMap<_, _> = command.get_envs().collect();
+        assert_eq!(
+            actual.get(std::ffi::OsStr::new("DATABASE_URL")),
+            Some(&Some(std::ffi::OsStr::new("generated-main")))
+        );
+        assert_eq!(
+            actual.get(std::ffi::OsStr::new("MATH_CAPACITY_QUEUE_DSN")),
+            Some(&Some(std::ffi::OsStr::new("generated-capacity")))
+        );
+        assert_eq!(
+            actual.get(std::ffi::OsStr::new("QUEUE_DATABASE_URL")),
+            Some(&None)
+        );
+        assert_eq!(
+            actual.get(std::ffi::OsStr::new("POLIS_JOBS_PASSWORD_FILE")),
+            Some(&None)
+        );
+    }
     #[test]
     fn base64url_round_trip() {
         for input in [

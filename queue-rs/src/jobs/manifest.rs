@@ -49,6 +49,43 @@ impl std::fmt::Display for Invalid {
     }
 }
 
+/// Open a bounded regular child output without following links or waiting on FIFOs.
+pub(super) fn read_regular_file(
+    path: &std::path::Path,
+    maximum: usize,
+) -> Result<Vec<u8>, Invalid> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                Invalid::Missing
+            } else {
+                Invalid::Field("file_open")
+            }
+        })?;
+    let metadata = file
+        .metadata()
+        .map_err(|_| Invalid::Field("file_metadata"))?;
+    if !metadata.is_file() {
+        return Err(Invalid::Field("file_type"));
+    }
+    if metadata.len() > maximum as u64 {
+        return Err(Invalid::TooLarge);
+    }
+    let mut bytes = Vec::new();
+    file.take(maximum as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Invalid::Field("file_read"))?;
+    if bytes.len() > maximum {
+        return Err(Invalid::TooLarge);
+    }
+    Ok(bytes)
+}
+
 fn is_timestamp(s: &str) -> bool {
     // RFC 3339 date-time with an explicit offset, e.g. 2026-10-03T12:00:00Z.
     let b = s.as_bytes();
@@ -319,6 +356,23 @@ mod tests {
         validate(Some(&bytes), J, A, "delphi_full_pipeline")
     }
 
+    #[test]
+    fn manifest_file_reader_enforces_the_limit_before_validation() -> anyhow::Result<()> {
+        let path = std::env::temp_dir().join(format!("polis-manifest-{}", uuid::Uuid::new_v4()));
+        assert_eq!(read_regular_file(&path, MAX_BYTES), Err(Invalid::Missing));
+        let file = std::fs::File::create(&path)?;
+        file.set_len(MAX_BYTES as u64)?;
+        assert_eq!(
+            read_regular_file(&path, MAX_BYTES)
+                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .len(),
+            MAX_BYTES
+        );
+        file.set_len(MAX_BYTES as u64 + 1)?;
+        assert_eq!(read_regular_file(&path, MAX_BYTES), Err(Invalid::TooLarge));
+        std::fs::remove_file(path)?;
+        Ok(())
+    }
     #[test]
     fn valid_manifest_keeps_exact_bytes_and_hash() {
         let bytes = b"{\"schema\": \"polis-jobs.output-manifest/1\" }";

@@ -11,6 +11,7 @@ Usage:
 """
 
 import os, sys, json, boto3, logging, argparse, asyncio
+from polismath.delphi_storage.resource import result_resource
 from typing import Dict, Optional
 from datetime import datetime, timedelta, timezone
 from botocore.exceptions import ClientError
@@ -46,7 +47,7 @@ class BatchStatusChecker:
         raw_endpoint = os.environ.get('DYNAMODB_ENDPOINT')
         endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
         
-        self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url, region_name=os.environ.get('AWS_REGION', 'us-east-1'))
+        self.dynamodb = result_resource('dynamodb', endpoint_url=endpoint_url, region_name=os.environ.get('AWS_REGION', 'us-east-1'))
         self.job_table = self.dynamodb.Table('Delphi_JobQueue')
         self.report_table = self.dynamodb.Table('Delphi_NarrativeReports')
         # Provider token usage summed over the stored results, only when the

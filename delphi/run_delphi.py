@@ -263,6 +263,7 @@ def main():
         # First, determine available layers from DynamoDB
         try:
             import boto3
+            from polismath.delphi_storage.resource import result_resource
             from boto3.dynamodb.conditions import Key
             
             raw_endpoint = os.environ.get('DYNAMODB_ENDPOINT')
@@ -270,13 +271,13 @@ def main():
             
             # Using dummy credentials for local, IAM role for AWS
             if endpoint_url:
-                dynamodb = boto3.resource('dynamodb', 
+                dynamodb = result_resource('dynamodb', 
                                          endpoint_url=endpoint_url, 
                                          region_name='us-east-1',
                                          aws_access_key_id='dummy',
                                          aws_secret_access_key='dummy')
             else:
-                dynamodb = boto3.resource('dynamodb', region_name=args.region)
+                dynamodb = result_resource('dynamodb', region_name=args.region)
 
 
             table = dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
