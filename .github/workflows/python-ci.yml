@@ -11,6 +11,11 @@ on:
       - 'delphi/**/*.py'
       - 'delphi/requirements*.txt'
       - 'delphi/Dockerfile'
+      - 'scripts/*install.sh'
+      - 'scripts/application_stop.sh'
+      - 'scripts/validate_service.sh'
+      - 'scripts/test-deploy-hooks.sh'
+      - 'docker-compose*.yml'
       - '.github/workflows/python-ci.yml'
       # server/src so a new server-side wildcard runs the projection-gate sweep
       - 'server/src/**'
@@ -105,13 +110,8 @@ jobs:
         echo "Copying script to be tested into container..."
         docker compose -f docker-compose.test.yml cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
         docker compose -f docker-compose.test.yml cp delphi/umap_narrative delphi:/app/umap_narrative
-        echo "Copying the compose files into container..."
-        # tests/test_compose_math_env.py asserts that every stack's delphi service
-        # receives the MATH_ENV its math service writes under. /app/tests has no
-        # checkout above it, so put the two files it parses beside it; without
-        # them the test skips instead of guarding the report pipeline's math_env.
-        docker compose -f docker-compose.test.yml cp docker-compose.yml delphi:/app/docker-compose.yml
-        docker compose -f docker-compose.test.yml cp docker-compose.test.yml delphi:/app/docker-compose.test.yml
+        # The same container-layout preparation and hook tests run on mm5.
+        bash scripts/test-deploy-hooks.sh
 
         # Wire a checkout-shaped root so delphi/tests/scripts collects AND RUNS the
         # pure-Python inventory sweep + the DB-free gate unit tests (the conftest
@@ -127,9 +127,6 @@ jobs:
         # its first item (observed: only server/src copied).
         # Recordings tests also load the packer and its digest helper from ci/.
         # battery_coverage.py is already included in the declared delphi/scripts.
-        # test_compose_math_env.py reads the deploy hook's per-role compose lines.
-        # test_before_install_hook.py runs scripts/before_install.sh against a fake docker.
-        # test_compose_math_env.py also reads the stop hook's per-role stop lines.
         # Representative payload tests import the box planner/gate and their
         # helpers from this same checkout root; keep their relative paths intact.
         # Light-shadow triage tests also import the compare/triage modules.
@@ -141,8 +138,7 @@ jobs:
           ci/private_cert/image_admission.py ci/probe_box/receipt.py \
           ci/probe_box/contracts.py ci/probe_box/light_shadow.py ci/probe_box/light_shadow_queries.py \
           ci/private_cert/images/light_shadow_compare.py ci/private_cert/images/light_shadow_triage.py \
-          ci/private_cert/images/recipe.py \
-          scripts/after_install.sh scripts/before_install.sh scripts/application_stop.sh; do
+          ci/private_cert/images/recipe.py; do
           docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
           docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
             || { echo "failed to copy scan input: $rel"; exit 1; }

@@ -1,4 +1,4 @@
-"""scripts/after_install.sh selects one branch per service type, and a queue
+"""scripts/after_install.sh migrates before replacing any service, and a queue
 worker box (delphi-large, delphi-worker) starts only its polis-jobs.service.
 
 Runs the real deploy hook (and the stop hook) with every external command
@@ -75,6 +75,7 @@ FAKES = {
         '  *) echo \'{"username":"u","password":"p","dbname":"d"}\';;\n'
         'esac\n'),
     "docker": RECORD + (
+        'if [ "$1" = "$FAKE_MIGRATION_FAILURE" ]; then exit 17; fi\n'
         'if [ "$1" = ps ]; then\n'
         '  filter=""\n'
         '  while [ $# -gt 0 ]; do [ "$1" = --filter ] && filter="${2#name=}"; shift; done\n'
@@ -124,9 +125,10 @@ def _run(tmp_path, script_path, rules, root, env):
     return proc, log
 
 
-def _deploy(tmp_path, service_type, **kw):
+def _deploy(tmp_path, service_type, migration_failure="", **kw):
     root, env = _box(tmp_path, service_type, **kw)
-    rules = [("/usr/local/bin/docker-compose", "docker-compose", 4),
+    env["FAKE_MIGRATION_FAILURE"] = migration_failure
+    rules = [("/usr/local/bin/docker-compose", "docker-compose", 3),
              ("/etc/app-info/", f"{root}/etc/app-info/", 2),
              ("/etc/systemd/system/", f"{root}/etc/systemd/system/", 0),
              ("/opt/polis", f"{root}/opt/polis", 2)]
@@ -145,10 +147,10 @@ def _removed(log):
 
 ALL_IDS = {i for i, _ in CONTAINERS}
 UNCHANGED = {
-    "server": ["up -d server nginx-proxy client-participation-alpha --build --force-recreate"],
-    "delphi": ["up -d delphi math-python --build --force-recreate"],
+    "server": ["up -d server nginx-proxy client-participation-alpha --no-build --force-recreate"],
+    "delphi": ["up -d delphi math-python --no-build --force-recreate"],
     "math": [],
-    "ollama": ["up -d --build --force-recreate"],  # unknown type: the start-everything catch-all
+
 }
 
 
@@ -158,9 +160,12 @@ def test_the_other_service_types_behave_as_before(tmp_path, service_type):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     compose = _calls(log, "docker-compose")
     assert [c for c in compose if c.startswith("up")] == UNCHANGED[service_type]
-    assert not [c for c in compose if c.startswith("build")]
+    builds = [c for c in compose if c.startswith("build")]
+    assert builds == {"server": ["build server nginx-proxy client-participation-alpha"], "delphi": ["build delphi math-python"], "math": []}[service_type]
+    if builds:
+        assert compose.index(builds[0]) < compose.index("down") < compose.index(UNCHANGED[service_type][0])
     assert _calls(log, "systemctl") == []
-    assert _removed(log) == ALL_IDS
+    assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
 
 
 @pytest.mark.parametrize("service_type,worker_class", [("delphi-large", "large"),
@@ -176,7 +181,7 @@ def test_a_worker_box_restarts_only_its_daemon_unit(tmp_path, service_type, work
     assert log.index("docker-compose build delphi") < log.index(
         "systemctl restart --no-block polis-jobs.service")
     # The cleanup spares the running daemon; the restart drains it.
-    assert _removed(log) == ALL_IDS - {JOBS_ID}
+    assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
     assert f"worker class '{worker_class}'" in proc.stdout
 
 
@@ -206,17 +211,18 @@ def test_a_worker_box_that_does_not_match_fails_the_deploy(tmp_path, service_typ
     assert _calls(log, "systemctl") == []
 
 
-@pytest.mark.parametrize("service_type,stops", [("delphi", ["stop delphi"]),
-                                                ("delphi-large", []), ("delphi-worker", [])])
-def test_the_stop_hook_stops_no_worker_service(tmp_path, service_type, stops):
+@pytest.mark.parametrize("service_type", ["server", "delphi", "math", "delphi-large", "delphi-worker", "unknown"])
+def test_the_stop_hook_leaves_every_service_running(tmp_path, service_type):
     root, env = _box(tmp_path, service_type)
-    (root / "opt/polis/polis").mkdir(parents=True)
-    # command -v needs the compose path to exist; point it at the fake.
-    rules = [("/usr/local/bin/docker-compose", str(tmp_path / "bin/docker-compose"), 2),
-             ("/etc/app-info/", f"{root}/etc/app-info/", 1),
-             ("/opt/polis/polis", f"{root}/opt/polis/polis", 1)]
-    proc, log = _run(tmp_path, STOP_PATH, rules, root, env)
+    # No path rewrite: the revised hook has no external calls or absolute paths.
+    proc, log = _run(tmp_path, STOP_PATH, [], root, env)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert [c for c in _calls(log, "docker-compose") if c.startswith("stop")] == stops
-    assert _calls(log, "systemctl") == []
-    assert "Unknown service type" not in proc.stdout + proc.stderr
+    assert log == []
+    assert "AfterInstall" in proc.stdout
+
+
+def test_unknown_role_refuses_before_migration_or_replacement(tmp_path):
+    proc, log = _deploy(tmp_path, "unknown")
+    assert proc.returncode != 0
+    assert not _calls(log, "docker")
+    assert not _calls(log, "docker-compose")

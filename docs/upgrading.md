@@ -1,5 +1,17 @@
 # Upgrade Guide
 
+## Safe deployment hooks (release A)
+
+This release changes deployment hooks only; it does not introduce the migration
+runner or an API migration startup check. Install it successfully on every box
+before enabling the runner in release B. CodeDeploy uses the PREVIOUS successful
+revision's ApplicationStop, so this first transition can still interrupt service.
+New hooks defer replacement until AfterInstall and validate the server's HTTP and
+database routes. A failure in ValidateService fails the deployment; it does not
+automatically restore containers or undo schema changes. Delphi/worker validation
+checks process/container liveness, not real-time math correctness.
+
+
 ## Configuration Changes (Q1 2023)
 
 `polis.config.template.js` and `polis.config.js` files are removed and no longer used.
