@@ -1,0 +1,25 @@
+# Selected stable runner release. Unknown numbered files fail closed.
+# M4/M5/M7 are retirement receipts only; their DDL never executes.
+000000_initial.sql
+000001_update_pwreset_table.sql
+000002_add_xid_constraint.sql
+000003_add_origin_permanent_cookie_columns.sql
+000004_drop_waitinglist_table.sql
+000005_drop_slack_stripe_canvas.sql
+000006_update_votes_rule.sql
+000007_drop_geolocation_fields.sql
+000008_add_comment_priority.sql
+000009_add_uuid_to_zinvites.sql
+000010_create_oidc_user_mappings.sql
+000011_alter_suzinvites_xid_to_text.sql
+000012_create_topic_agenda_selections.sql
+000013_create_treevite.sql
+000014_alter_reports_modlevel.sql
+000015_add_xid_requirements.sql
+000016_add_orig_id.sql
+000017_create_byod_job_table.sql
+000018_add_topics_enabled.sql
+000019_create_polis_queue.sql
+000022_add_poll_timestamp_indexes.sql
+000023_create_delphi_foundation.sql
+000024_create_polis_queue_large_class.sql

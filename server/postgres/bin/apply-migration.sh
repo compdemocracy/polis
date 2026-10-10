@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #
+# HISTORICAL REHEARSAL HELPER ONLY. Deployments must use polis-migrate apply
+# (docs/migrations.md). This script does not record applied migration history.
+#
 # apply-migration.sh: the checked apply wrapper for the queue migrations
 # 000019 (polis-queue/1), 000023 (polis-queue/2, the Delphi job table) and
 # 000024 (polis-queue/3, the large worker class).

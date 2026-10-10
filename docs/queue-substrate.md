@@ -44,19 +44,11 @@ executor role holds **no** direct read or write on any queue table.
 
 ## Applying the migration
 
-A **fresh** container applies it automatically: the postgres image copies
-`server/postgres/migrations/*.sql` into `/docker-entrypoint-initdb.d`, so
-`make start` on a new volume comes up with the schema present and the flag off.
-
-An **existing** database needs the file applied by hand, through the checked
-wrapper, which feeds it to psql exactly as [docs/migrations.md](migrations.md)
-describes. Apply this file alone; never replay the migrations directory as an
-upgrade mechanism.
-
-```sh
-server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the database host> 000019 -- \
-  docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
-```
+Both fresh databases and upgrades use [`polis-migrate apply`](migrations.md).
+Fresh Docker volumes run it during initialization; deployments run it before
+service replacement. Existing pre-runner databases reconcile once first.
+Successful files are recorded and skipped on later deploys. Queue activation
+remains controlled by the existing flags; applying schema does not enable it.
 
 ### What the apply locks, and the window it needs
 
@@ -71,16 +63,16 @@ open transaction that already wrote a `conversations` row; when the timeout
 fires the transaction aborts and nothing is applied. The changed queue tables
 and the new objects are `ACCESS EXCLUSIVE` for the same span. So "additive and
 empty" is not "cannot block users": **apply in an idle or controlled writer
-window** (producers paused, no open writer on `conversations`), and apply
-000019 and 000023 as two separate steps, each with its own window.
+window** (producers paused, no open writer on `conversations`), and account for both
+000019 and 000023 in the deployment window; the runner gives each its own transaction.
 
 ### The wrapper: preflight and budgets
 
-`server/postgres/bin/apply-migration.sh` is the one way to apply 000019 or
-000023 to an existing database. It takes the migration number and, after `--`,
-the psql command to run (the SQL goes on its stdin, so `docker exec -i … psql`
-and a plain `psql` both work). It refuses, sending nothing, unless every
-preflight check passes, and prints each one:
+The former `server/postgres/bin/apply-migration.sh` is retained for historical
+rehearsal/reversal tests. It is **not** the deployment entry point and does not
+update the migration history. Its former first-install checks are recorded below
+for reference. The runner now owns transactional application, bounded waits,
+checksums and history; use the [migration guide](migrations.md).
 
 | check | what it requires |
 |---|---|
@@ -391,18 +383,10 @@ Two of those tables deserve plain words:
 
 Schema ruling S1 (2026-10-05) approved it as direction: one datastore and typed
 contracts, flag off, DynamoDB running every job family until each is moved one
-at a time. **Applying it to production is a separate, explicit step by the
-owner**, 000019 first (it has never been applied there), then 000023, each
-through the wrapper and in its own idle or controlled writer window, because
-each holds `ShareRowExclusiveLock` on `conversations` until it commits
-([what the apply locks](#what-the-apply-locks-and-the-window-it-needs); the
-wrapper's preflight and budgets are
-[described above](#the-wrapper-preflight-and-budgets)):
-
-```sh
-server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the database host> 000023 -- \
-  docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
-```
+at a time. **Required migrations now apply during deployment**, in numeric order through
+`polis-migrate apply`; review and authorize their schema effects at merge time.
+Both 000019 and 000023 still hold `ShareRowExclusiveLock` on conversations, bounded
+by the runner's lock and transaction limits. See [migration operations](migrations.md).
 
 The applier must be able to `SET ROLE polis_queue_owner`; the file creates no
 role. It refuses, changing nothing, when 000019 is absent, when any
