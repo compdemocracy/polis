@@ -371,9 +371,11 @@ def _nullable(value, kind, what):
 
 def validate_manifest(m: Any) -> None:
     """The output-manifest/1 shape: closed key sets, typed values."""
-    if not isinstance(m, dict) or set(m) != set(MANIFEST_KEYS):
+    writer = isinstance(m, dict) and m.get("schema") == "polis-jobs.output-manifest/2"
+    expected_keys = set(MANIFEST_KEYS) | ({"family_spool"} if "family_spool" in m else {"results"}) if writer else set(MANIFEST_KEYS)
+    if not isinstance(m, dict) or set(m) != expected_keys:
         raise ManifestError(f"manifest keys must be exactly {sorted(MANIFEST_KEYS)}")
-    if m["schema"] != MANIFEST_SCHEMA:
+    if m["schema"] != MANIFEST_SCHEMA and not writer:
         raise ManifestError("wrong manifest schema")
     for key in ("job_id", "attempt_id"):
         if not _is_uuid(m[key]):
@@ -406,7 +408,7 @@ def validate_manifest(m: Any) -> None:
         expected = {"store", "family", "table", "rows", "key_prefix" if has_prefix else "keys"}
         if set(out) != expected:
             raise ManifestError(f"{where} keys must be exactly {sorted(expected)}")
-        if out["store"] != "dynamodb":
+        if out["store"] != ("postgres" if writer else "dynamodb"):
             raise ManifestError(f"{where}.store must be 'dynamodb' in output-manifest/1")
         if out["family"] not in DYNAMODB_FAMILIES:
             raise ManifestError(f"{where}.family {out['family']!r} is not a codec family")
@@ -461,6 +463,12 @@ def encode_manifest(manifest: Dict[str, Any]) -> bytes:
 
 def write_manifest(ctx: JobContext, manifest: Dict[str, Any]) -> str:
     """Write the manifest atomically at DELPHI_OUTPUT_MANIFEST; return the sha256 of its bytes."""
+    if os.environ.get("DELPHI_RESULT_BACKEND") == "postgres":
+        from polismath.delphi_storage.writer import WriterResource
+        resource = WriterResource()
+        manifest = dict(manifest, schema="polis-jobs.output-manifest/2",
+                        outputs=[dict(o, store="postgres") for o in manifest["outputs"]],
+                        family_spool=resource.spool() if manifest["outcome"] == "succeeded" else {})
     data = encode_manifest(manifest)
     if os.path.lexists(ctx.manifest_path):
         raise ManifestError("the manifest already exists")

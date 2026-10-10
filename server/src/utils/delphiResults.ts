@@ -1,4 +1,5 @@
 import Config from "../config";
+import { mutatePostgresResult } from "./delphiResultWriter";
 /** Published Delphi results. Backend choice is explicit and never falls back. */
 import { resultQuery } from "./delphiResultSnapshot";
 import { FAMILIES, decodeFamily, canonicalNumber } from "./delphiStorageCodec";
@@ -110,6 +111,7 @@ export async function sendPostgresResult(command: any): Promise<any> {
     await resultQuery("SELECT 1 FROM public.delphi_result_current_rows LIMIT 0");
     return {Table:{TableName:family,TableStatus:"ACTIVE"}};
   }
+  if (["PutCommand","DeleteCommand","DeleteItemCommand"].includes(operation)) return mutatePostgresResult(command);
   if (!["QueryCommand","ScanCommand","GetCommand"].includes(operation)) {
     throw new Error("Published Delphi results are immutable; submit a new run");
   }

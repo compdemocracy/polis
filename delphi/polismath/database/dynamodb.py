@@ -50,10 +50,10 @@ class DynamoDBClient:
     def initialize(self) -> None:
         """Initialize DynamoDB connection and create tables if needed."""
         # Set up environment variables for credentials if not provided and not already set
-        if not self.aws_access_key_id and not os.environ.get('AWS_ACCESS_KEY_ID'):
+        if os.environ.get('DELPHI_RESULT_BACKEND') != 'postgres' and not self.aws_access_key_id and not os.environ.get('AWS_ACCESS_KEY_ID'):
             os.environ['AWS_ACCESS_KEY_ID'] = 'dummy'
         
-        if not self.aws_secret_access_key and not os.environ.get('AWS_SECRET_ACCESS_KEY'):
+        if os.environ.get('DELPHI_RESULT_BACKEND') != 'postgres' and not self.aws_secret_access_key and not os.environ.get('AWS_SECRET_ACCESS_KEY'):
             os.environ['AWS_SECRET_ACCESS_KEY'] = 'dummy'
         
         # Create DynamoDB client

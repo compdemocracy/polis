@@ -181,8 +181,19 @@ pub fn validate(
     let text = std::str::from_utf8(bytes).map_err(|_| Invalid::NotUtf8)?;
     let m: Value = serde_json::from_str(text).map_err(|_| Invalid::NotJson)?;
     let root = m.as_object().ok_or(Invalid::Field("root"))?;
-    closed(root, &ROOT_KEYS, "root")?;
-    if m["schema"] != SCHEMA {
+    let writer = m["schema"] == "polis-jobs.output-manifest/2";
+    if writer {
+        let mut keys = ROOT_KEYS.to_vec();
+        keys.push(if root.contains_key("family_spool") {
+            "family_spool"
+        } else {
+            "results"
+        });
+        closed(root, &keys, "root")?;
+    } else {
+        closed(root, &ROOT_KEYS, "root")?;
+    }
+    if m["schema"] != SCHEMA && !writer {
         return Err(Invalid::Field("schema"));
     }
     if m["job_id"] != job_id {
@@ -239,7 +250,7 @@ pub fn validate(
             }
             _ => return Err(Invalid::Field("outputs")),
         };
-        let ok = o["store"] == "dynamodb"
+        let ok = o["store"] == if writer { "postgres" } else { "dynamodb" }
             && o["family"].as_str().is_some_and(|t| !t.is_empty())
             && o["table"].as_str().is_some_and(|t| !t.is_empty())
             && o["rows"].as_u64().is_some()
@@ -394,7 +405,7 @@ mod tests {
             Some(Invalid::Missing)
         );
         let mut v = fixture(J, A, "delphi_full_pipeline", "succeeded");
-        v["schema"] = "polis-jobs.output-manifest/2".into();
+        v["schema"] = "polis-jobs.output-manifest/99".into();
         assert_eq!(check(&v).err(), Some(Invalid::Field("schema")));
         let big = vec![b' '; MAX_BYTES + 1];
         assert_eq!(

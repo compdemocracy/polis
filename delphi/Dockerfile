@@ -137,6 +137,7 @@ RUN install -d /opt/polis-unflip && \
 # logs a failed-send error and traceback for every flush, which buried the
 # poller's own output; tracing is therefore off unless explicitly enabled.
 CMD ["bash", "-c", "\
+  if [ \"${DELPHI_RESULT_BACKEND}\" = \"postgres\" ]; then export POLIS_JOBS_ENABLED=1; exec polis-jobs; fi; \
   echo 'Ensuring DynamoDB tables are set up (runs in all environments)...'; \
   python create_dynamodb_tables.py --region ${AWS_REGION} && \
   echo 'DynamoDB table setup script finished.'; \

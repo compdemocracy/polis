@@ -116,24 +116,31 @@ def main():
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
     # validate_arg = "--validate" if args.validate else ""
 
-    # --- Reset all data before processing ---
-    print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
-    reset_command = [
-        "python",
-        "umap_narrative/reset_conversation.py",
-        f"--zid={zid}",
-    ]
-    # If a report ID is provided, pass it to the reset script for full cleanup
-    if rid:
-        reset_command.append(f"--rid={rid}")
-        print(f"{YELLOW}Using report ID {rid} for full narrative report cleanup.{NC}")
+    if os.environ.get("DELPHI_RESULT_BACKEND") == "postgres":
+        if job is None:
+            raise RuntimeError("Postgres pipelines must be admitted through polis-jobs")
+        from polismath.delphi_storage.writer import WriterResource
+        # Clear only this attempt's private working copy; previous publications survive.
+        WriterResource().reset()
+    else:
+        # --- Reset all data before processing ---
+        print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
+        reset_command = [
+            "python",
+            "umap_narrative/reset_conversation.py",
+            f"--zid={zid}",
+        ]
+        # If a report ID is provided, pass it to the reset script for full cleanup
+        if rid:
+            reset_command.append(f"--rid={rid}")
+            print(f"{YELLOW}Using report ID {rid} for full narrative report cleanup.{NC}")
     
-    reset_process = subprocess.run(reset_command)
-    if reset_process.returncode != 0:
-        print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
-        # Under the daemon the exit-code set is closed (0/1/2/4/5/6): any other failure is 1.
-        sys.exit(1 if job is not None else reset_process.returncode)
-    print(f"{GREEN}Data reset complete.{NC}")
+        reset_process = subprocess.run(reset_command)
+        if reset_process.returncode != 0:
+            print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
+            # Under the daemon the exit-code set is closed (0/1/2/4/5/6): any other failure is 1.
+            sys.exit(1 if job is not None else reset_process.returncode)
+        print(f"{GREEN}Data reset complete.{NC}")
 
     print(f"{GREEN}Processing conversation {zid}...{NC}")
 

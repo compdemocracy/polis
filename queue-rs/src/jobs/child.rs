@@ -241,7 +241,7 @@ pub fn frame(claim: &Claim, adm: &Admission, phase: &str, batch_id: Option<&str>
             "input_sha256":adm.config["input_sha256"],"input_json":adm.config["input_wire"]}),
         );
     }
-    let config = if claim.stage == "math_rebuild" {
+    let mut config = if claim.stage == "math_rebuild" {
         MathConfig::from_admission(adm)?.to_json()
     } else {
         json!({
@@ -251,6 +251,10 @@ pub fn frame(claim: &Claim, adm: &Admission, phase: &str, batch_id: Option<&str>
             "batch_size": adm.config.get("batch_size").cloned().unwrap_or(Value::Null),
         })
     };
+    if adm.config["result_backend"] == "postgres" {
+        config["result_backend"] = json!("postgres");
+        config["result_scope"] = adm.config["result_scope"].clone();
+    }
     Ok(json!({
         "schema": FRAME_SCHEMA, "env": claim.env, "zid": adm.zid, "report_id": adm.report_id,
         "job_id": claim.job_id, "run_id": claim.run_id, "attempt_id": claim.attempt_id,
@@ -438,6 +442,15 @@ pub fn spawn(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    if adm.config["result_backend"] == "postgres" {
+        command
+            .env("DELPHI_RESULT_BACKEND", "postgres")
+            .env("DELPHI_RESULT_ENV", &claim.env)
+            .env(
+                "DELPHI_RESULT_SCOPE",
+                adm.config["result_scope"].as_str().unwrap_or_default(),
+            );
+    }
     if let Some(batch) = batch_id {
         command.env("DELPHI_PROVIDER_BATCH_ID", batch);
     }

@@ -21,6 +21,9 @@ def result_resource(service_name='dynamodb', **kwargs):
     if service_name != 'dynamodb' or backend == 'dynamodb':
         import boto3
         return boto3.resource(service_name, **kwargs)
+    if os.environ.get('DELPHI_OUTPUT_MANIFEST'):
+        from .writer import WriterResource
+        return WriterResource()
     return PostgresResource()
 
 

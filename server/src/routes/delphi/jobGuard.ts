@@ -1349,6 +1349,9 @@ export async function admitDelphiJob(
   request: AdmissionRequest,
   store: JobAdmissionStore = dynamoJobAdmissionStore
 ): Promise<AdmissionResult> {
+  if (postgresResults() && store === dynamoJobAdmissionStore) {
+    return admitPostgresWriter(request);
+  }
   const { scope } = request;
   const scopeKey = scopeGuardKey(scope);
   const configHash = configFingerprint(scope.jobConfig);
@@ -1665,4 +1668,44 @@ export async function admitDelphiJob(
   throw new JobAdmissionUnavailableError(
     `Delphi job admission did not settle for scope ${logScope(scopeKey)}`
   );
+}
+
+/** Queue and guard admission remain one SQL transaction under the same switch. */
+async function admitPostgresWriter(request: AdmissionRequest): Promise<AdmissionResult> {
+  const {scope, jobItem} = request;
+  const env = Config.delphiResultEnv;
+  const resultScope = Config.delphiResultScope;
+  const code = process.env.DELPHI_WRITER_CODE_SHA;
+  if (!env || !resultScope || !code || !/^[0-9a-f]{40,64}$/.test(code)) {
+    throw new JobAdmissionUnavailableError("Postgres writer env, scope and code pin are required");
+  }
+  const stages: Record<string,string> = {FULL_PIPELINE:"delphi_full_pipeline",CREATE_NARRATIVE_BATCH:"delphi_narrative"};
+  const stage = stages[scope.jobType];
+  if (!stage) throw new JobAdmissionUnavailableError("Checker attempts belong to their existing queued narrative job");
+  const zid = Number(scope.conversationId);
+  if (!Number.isSafeInteger(zid) || zid < 1) throw new JobAdmissionUnavailableError("Invalid conversation");
+  const rawConfig = typeof scope.jobConfig === "string" ? JSON.parse(scope.jobConfig) : scope.jobConfig || {};
+  const nested = rawConfig.stages?.[0]?.config || {};
+  const config = {...rawConfig,...nested,include_moderation:true,
+    batch_size:nested.max_batch_size ?? rawConfig.max_batch_size ?? 20};
+  // Keep the existing moderation pin from job_poller.pipeline_moderation_flags.
+  const payload = canonicalise({jobType:scope.jobType,zid,report:scope.reportId || null,config:rawConfig});
+  const sha = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  const key = request.idempotencyKey || String(jobItem.job_id);
+  try {
+    const rows = await pg.queryP<{value:any}>(`SELECT public.pd_writer_admit(
+      $1::text,$2::integer,$3::text,$4::text,$5::text,$6::text,$7::uuid,$8::uuid,
+      $9::text,$10::text,$11::jsonb,$12::text) AS value`,
+      [env,zid,resultScope,"server-delphi",key,sha,randomUUID(),randomUUID(),stage,
+        scope.reportId || null,JSON.stringify(config),code]);
+    const value = rows[0]?.value;
+    if (value?.outcome === "conflict") return {outcome:"idempotency_conflict",jobId:value.job_id};
+    if (!["enqueued","existing"].includes(value?.outcome)) throw new Error("Admission unavailable");
+    const status: Record<string,string> = {succeeded:"COMPLETED",dead:"FAILED",cancelled:"CANCELLED",running:"PROCESSING",queued:"PENDING",parked:"AWAITING_RECHECK"};
+    if (value.outcome === "enqueued") return {outcome:"created",jobId:value.job_id,jobStatus:"PENDING",workLive:true};
+    return {outcome:"deduplicated",jobId:value.job_id,jobStatus:status[value.state] || value.state,
+      workLive:!["succeeded","dead","cancelled"].includes(value.state)};
+  } catch (error) {
+    throw new JobAdmissionUnavailableError("Postgres writer admission failed; no Dynamo fallback");
+  }
 }

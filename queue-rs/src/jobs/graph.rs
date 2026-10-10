@@ -324,3 +324,47 @@ mod tests {
         assert!(validate(Some(m.to_string().as_bytes()), "j", "a", "graph_embed").is_err());
     }
 }
+
+/// The legacy provider lifecycle uses the same bounded, fenced family spool.
+pub fn stage_writer_results(
+    rpc: &mut super::rpc::Rpc,
+    claim: &super::child::Claim,
+    directory: &std::path::Path,
+    manifest: Manifest,
+) -> Result<Manifest> {
+    let mut document: Value = serde_json::from_str(&manifest.text)?;
+    ensure!(
+        document["schema"] == "polis-jobs.output-manifest/2",
+        "writer_manifest_schema"
+    );
+    let files = document["family_spool"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("writer_spool_shape"))?;
+    ensure!(!files.is_empty() && files.len() <= 18, "writer_spool_count");
+    let mut total = 0_u64;
+    for (family, value) in files {
+        let wire = read_family_spool(directory, family, value, &mut total)?;
+        let mut args = super::task::identity(claim);
+        args.extend([json!(family), json!(wire)]);
+        let reply = rpc.committed("pd_result_put_family", &args)?;
+        ensure!(reply["sha256"] == value["sha256"], "writer_stage_receipt");
+    }
+    let results = rpc.committed("pd_result_seal", &super::task::identity(claim))?;
+    ensure!(
+        results["schema"] == "delphi-result-batch/1" && results["batch_id"] == claim.attempt_id,
+        "writer_batch_receipt"
+    );
+    document
+        .as_object_mut()
+        .ok_or_else(|| anyhow::anyhow!("writer_manifest"))?
+        .remove("family_spool");
+    document["results"] = results;
+    let bytes = serde_json::to_vec(&document)?;
+    let result =
+        super::manifest::validate(Some(&bytes), &claim.job_id, &claim.attempt_id, &claim.stage)
+            .map_err(|_| anyhow::anyhow!("writer_manifest_invalid"))?;
+    let temporary = directory.join("output-manifest.sealed.tmp");
+    std::fs::write(&temporary, &bytes)?;
+    std::fs::rename(temporary, directory.join("output-manifest.json"))?;
+    Ok(result)
+}

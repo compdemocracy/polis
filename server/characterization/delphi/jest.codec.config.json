@@ -16,6 +16,7 @@
     "**/__tests__/unit/delphiResultSnapshot.test.ts",
     "**/__tests__/unit/delphi-postgres-liveness.test.ts",
     "**/__tests__/unit/delphi-job-guard.test.ts",
-    "**/__tests__/unit/delphi-postgres-read-routes.test.ts"
+    "**/__tests__/unit/delphi-postgres-read-routes.test.ts",
+    "**/__tests__/unit/delphi-postgres-writers.test.ts"
   ]
 }
