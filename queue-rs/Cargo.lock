@@ -569,6 +569,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "polis-migrate"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "native-tls",
+ "postgres",
+ "postgres-native-tls",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "polis-queue-adapter"
 version = "0.1.0"
 dependencies = [

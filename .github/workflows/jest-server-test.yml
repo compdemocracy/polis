@@ -97,6 +97,9 @@ jobs:
         docker compose -f docker-compose.test.yml --env-file test.env build \
           postgres file-server ses-local oidc-simulator dynamodb
 
+    - name: Apply and check test database migrations
+      run: bash ci/test-migrations.sh
+
     - name: Start services
       run: |
         # Start only required services in detached mode (exclude server + math-python)
@@ -143,6 +146,13 @@ jobs:
         # Fix with `npm run contract:generate` in server/ and commit the result.
         cd server
         npm run contract:check
+
+    - name: Check API migration readiness
+      working-directory: server
+      env:
+        DATABASE_URL: postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test
+        DATABASE_SSL: "false"
+      run: node src/db/migrations.cjs
 
     - name: Run server integration tests
       run: |

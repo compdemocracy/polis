@@ -94,6 +94,9 @@ fn ensure_templates() {
             .filter(|p| {
                 p.extension().is_some_and(|e| e == "sql")
                     && p.file_name().unwrap().to_string_lossy().as_bytes()[0].is_ascii_digit()
+                    && p.file_name().unwrap().to_string_lossy()[..6]
+                        .parse::<u32>()
+                        .is_ok_and(|n| n <= 24)
             })
             .collect();
         chain.sort();

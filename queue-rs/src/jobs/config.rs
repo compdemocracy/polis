@@ -6,6 +6,7 @@ use std::{collections::BTreeSet, path::PathBuf, time::Duration};
 /// `polis_queue_jobs_stage_check`).
 pub const KNOWN_STAGES: [&str; 2] = ["delphi_full_pipeline", "delphi_narrative"];
 /// The stages of class `large`, which `polis-queue/3` admits (000024).
+pub const GRAPH_STAGES: [&str; 3] = ["graph_embed", "graph_cluster", "graph_narrative"];
 pub const LARGE_STAGES: [&str; 1] = ["math_rebuild"];
 
 /// The worker class the daemon claims as (`POLIS_JOBS_WORKER_CLASS`). Each
@@ -47,8 +48,8 @@ impl WorkerClass {
     /// worker of this class may start on.
     pub fn contracts(self) -> &'static [&'static str] {
         match self {
-            Self::Delphi => &["polis-queue/2", "polis-queue/3"],
-            Self::Large => &["polis-queue/3"],
+            Self::Delphi => &["polis-queue/2", "polis-queue/3", "polis-queue/5"],
+            Self::Large => &["polis-queue/3", "polis-queue/5"],
         }
     }
 
@@ -201,15 +202,22 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         .map(str::to_owned)
         .collect();
     if stages.is_empty()
-        || stages
-            .iter()
-            .any(|s| !worker_class.stages().contains(&s.as_str()))
+        || stages.iter().any(|s| {
+            !worker_class.stages().contains(&s.as_str())
+                && !(GRAPH_STAGES.contains(&s.as_str())
+                    && (worker_class == WorkerClass::Delphi || s == "graph_cluster"))
+        })
     {
         return err(format!(
             "POLIS_JOBS_STAGES must be a non-empty subset of {} (the stages of class {})",
             worker_class.stages().join(","),
             worker_class.name()
         ));
+    }
+    if stages.iter().any(|s| s.starts_with("graph_"))
+        && stages.iter().any(|s| !s.starts_with("graph_"))
+    {
+        return err("graph and legacy stages require separate workers");
     }
     let lease = number(&get, "POLIS_JOBS_LEASE_SECONDS", 120, 10, 900)?;
     let heartbeat = number(&get, "POLIS_JOBS_HEARTBEAT_SECONDS", 30, 1, 900)?;

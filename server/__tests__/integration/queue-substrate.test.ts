@@ -827,6 +827,11 @@ describeProvisioned(
     it("replays for a superuser against the real conversations schema, or refuses once 000023 is in place", async () => {
       requireProvisioning();
       if (foundationInstalled) {
+        // A newer additive contract must remain untouched by an old replay.
+        const installedBeforeReplay = await sql(
+          mainPool,
+          "SELECT contract_version FROM public.polis_queue_install"
+        );
         await expect(runMigration(mainPool)).rejects.toThrow(
           /queue catalog drift/
         );
@@ -835,7 +840,7 @@ describeProvisioned(
             mainPool,
             "SELECT contract_version FROM public.polis_queue_install"
           )
-        ).toBe(largeClassInstalled ? "polis-queue/3" : "polis-queue/2");
+        ).toBe(installedBeforeReplay);
         return;
       }
       await runMigration(mainPool);

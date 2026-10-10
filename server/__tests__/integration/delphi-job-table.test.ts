@@ -1,6 +1,8 @@
 /**
  * The Delphi job table: migration 000023, contract polis-queue/2, and the
  * large worker class on top of it: migration 000024, contract polis-queue/3.
+ * Migration 000027 adds graph stages under the install contract polis-queue/5;
+ * existing RPC wire versions and worker classes remain unchanged.
  *
  * The migrations reach the test database the way every migration does: the
  * postgres image applies server/postgres/migrations/*.sql once at initdb. So
@@ -66,13 +68,13 @@ async function one<T>(text: string, values?: unknown[]): Promise<T> {
   return Object.values(result.rows[0] ?? {})[0] as T;
 }
 
-describe("the Delphi job table (000023) under the large class (000024)", () => {
-  it("records contract polis-queue/3 in the queue's install row", async () => {
+describe("the Delphi job table (000023) with large class (000024) and graph stages (000027)", () => {
+  it("records contract polis-queue/5 in the queue's install row", async () => {
     expect(
       await one<string>(
         "SELECT contract_version FROM public.polis_queue_install",
       ),
-    ).toBe("polis-queue/3");
+    ).toBe("polis-queue/5");
   });
 
   it.each(JOB_TABLES)(
@@ -101,14 +103,14 @@ describe("the Delphi job table (000023) under the large class (000024)", () => {
     },
   );
 
-  it("admits exactly the daemon's two stages and the rebuild beside noop, and holds no job of any", async () => {
+  it("admits exactly noop, both daemon stages, rebuild and the three graph stages, and holds no job of any", async () => {
     expect(
       await one<string>(
         "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
           "WHERE conrelid = 'public.polis_queue_jobs'::regclass AND conname = 'polis_queue_jobs_stage_check'",
       ),
     ).toBe(
-      "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text])))",
+      "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text, 'graph_embed'::text, 'graph_cluster'::text, 'graph_narrative'::text])))",
     );
     expect(
       await one<number>(
@@ -117,7 +119,7 @@ describe("the Delphi job table (000023) under the large class (000024)", () => {
     ).toBe(0);
   });
 
-  it("admits exactly the classes noop, delphi and large, and binds the rebuild stage to the large class", async () => {
+  it("admits exactly noop, delphi and large, with large required for rebuild and optional for graph clustering", async () => {
     expect(
       await one<string>(
         "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
@@ -132,7 +134,7 @@ describe("the Delphi job table (000023) under the large class (000024)", () => {
           "WHERE conrelid = 'public.polis_queue_jobs'::regclass AND conname = 'pq_stage_large'",
       ),
     ).toBe(
-      "CHECK (((stage = 'math_rebuild'::text) = (worker_class = 'large'::text)))",
+      "CHECK ((((stage = 'math_rebuild'::text) AND (worker_class = 'large'::text)) OR ((stage = 'graph_cluster'::text) AND (worker_class = ANY (ARRAY['delphi'::text, 'large'::text]))) OR ((stage <> ALL (ARRAY['math_rebuild'::text, 'graph_cluster'::text])) AND (worker_class <> 'large'::text))))",
     );
   });
 
