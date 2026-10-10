@@ -3,6 +3,10 @@
 import json, os, pathlib, shutil, subprocess, tempfile, time, unittest
 ROOT=pathlib.Path(__file__).resolve().parents[3]
 MIG=ROOT/'server/postgres/migrations'
+SELECTED=[s for s in (MIG/'release.txt').read_text().splitlines() if s and not s.startswith('#')]
+RETIRED={'000004','000005','000007'}
+APPLIED=[s for s in SELECTED if s[:6] not in RETIRED]
+PENDING=[s[:6] for s in SELECTED if int(s[:6])>18 and not s.startswith('000022_')]
 BIN=ROOT/'queue-rs/target/debug/polis-migrate'
 COMPOSE=['docker','compose','-f',str(pathlib.Path(__file__).with_name('compose.yml'))]
 assert os.environ.get('COMPOSE_PROJECT_NAME','').startswith('polis-migrate-test-')
@@ -42,7 +46,7 @@ class Proof(unittest.TestCase):
         db=self.legacy('deploy_legacy')
         first=runner(db,'deploy')
         self.assertIn('adopted 20 migration(s)',first.stdout)
-        self.assertEqual([x.split()[1][:6] for x in first.stdout.splitlines() if x.startswith('APPLIED ')],['000019','000023','000024','000027'])
+        self.assertEqual([x.split()[1][:6] for x in first.stdout.splitlines() if x.startswith('APPLIED ')],PENDING)
         before=sql(db,'SELECT row_to_json(m) FROM migrations m ORDER BY name')
         self.assertIn('applied 0 migration(s)',runner(db,'deploy').stdout)
         self.assertEqual(before,sql(db,'SELECT row_to_json(m) FROM migrations m ORDER BY name'))
@@ -62,7 +66,7 @@ class Proof(unittest.TestCase):
             out,err=p.communicate(timeout=350)
             self.assertEqual(p.returncode,0,out+err);outputs.append(out)
         self.assertEqual(sum('adopted 20 migration(s)' in x for x in outputs),1)
-        self.assertEqual(sum('applied 4 migration(s)' in x for x in outputs),1)
+        self.assertEqual(sum(f'applied {len(PENDING)} migration(s)' in x for x in outputs),1)
         runner(db,'check')
 
     def test_21_deploy_legacy_ledger_preserves_timestamps(self):
@@ -81,16 +85,33 @@ class Proof(unittest.TestCase):
         db=self.new('modern_v3')
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'m';shutil.copytree(MIG,d)
-            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if not x.startswith('000027_'))+'\n')
-            next(d.glob('000027_*.sql')).unlink()
+            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if not x.startswith(('000027_', '000028_', '000029_')))+'\n')
+            for number in ('000027', '000028', '000029'):
+                next(d.glob(number+'_*.sql')).unlink()
             runner(db,'deploy',dir=d)
         before=sql(db,'SELECT row_to_json(m) FROM migrations m ORDER BY name')
         gate(db,False)
         output=runner(db,'deploy').stdout
-        self.assertIn('applied 1 migration(s)',output)
-        self.assertEqual(before,sql(db,"SELECT row_to_json(m) FROM migrations m WHERE name NOT LIKE '000027_%' ORDER BY name"))
+        self.assertIn('applied 3 migration(s)',output)
+        self.assertEqual(before,sql(db,"SELECT row_to_json(m) FROM migrations m WHERE name < '000027' ORDER BY name"))
         self.assertEqual(sql(db,'SELECT contract_version FROM polis_queue_install'),'polis-queue/5')
         gate(db,True)
+
+    def test_25_release_b_upgrades_results_preserving_receipts(self):
+        db=self.new('release_b')
+        with tempfile.TemporaryDirectory() as tmp:
+            d=pathlib.Path(tmp)/'m';shutil.copytree(MIG,d)
+            f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if not x.startswith(('000028_', '000029_')))+'\n')
+            for number in ('000028', '000029'):
+                next(d.glob(number+'_*.sql')).unlink()
+            runner(db,'deploy',dir=d)
+        before=sql(db,'SELECT row_to_json(m) FROM migrations m ORDER BY name')
+        gate(db,False)
+        output=runner(db,'deploy').stdout
+        self.assertEqual([x.split()[1][:6] for x in output.splitlines() if x.startswith('APPLIED ')], ['000028','000029'])
+        self.assertEqual(before,sql(db,"SELECT row_to_json(m) FROM migrations m WHERE name < '000028' ORDER BY name"))
+        gate(db,True)
+        self.assertIn('applied 0 migration(s)',runner(db,'deploy').stdout)
 
     def test_24_unledgered_graph_is_not_readopted(self):
         db=self.new('unledgered_v5');runner(db,'deploy')
@@ -130,8 +151,8 @@ class Proof(unittest.TestCase):
 
     def test_01_fresh(self):
         db=self.new('fresh')
-        self.assertIn('applied 21 migration(s)',runner(db,'apply').stdout)
-        self.assertEqual(sql(db,"SELECT count(*) FROM migrations WHERE status='APPLIED'"),'21')
+        self.assertIn(f'applied {len(APPLIED)} migration(s)',runner(db,'apply').stdout)
+        self.assertEqual(sql(db,"SELECT count(*) FROM migrations WHERE status='APPLIED'"),str(len(APPLIED)))
         runner(db,'check');gate(db,True)
         self.assertEqual(sql(db,"SELECT to_regclass('public.polis_coordinator_install') IS NULL"),'t')
     def test_02_reconcile_then_pending(self):
@@ -142,7 +163,7 @@ class Proof(unittest.TestCase):
         self.assertEqual(sql(db,"SELECT count(*) FROM migrations WHERE status='ADOPTED'"),'20')
         gate(db,False)
         p=runner(db,'apply')
-        self.assertEqual([s.split()[1][:6] for s in p.stdout.splitlines() if s.startswith('APPLIED ')],['000019','000023','000024','000027'])
+        self.assertEqual([s.split()[1][:6] for s in p.stdout.splitlines() if s.startswith('APPLIED ')],PENDING)
         runner(db,'check');gate(db,True)
         self.assertEqual(sql(db,"SELECT hname FROM users"),'generated migration sentinel')
     def test_03_noop(self):
@@ -187,9 +208,9 @@ class Proof(unittest.TestCase):
         outputs=[]
         for p in [a,b]:
             out,err=p.communicate(timeout=350);self.assertEqual(p.returncode,0,err); outputs.append(out)
-        self.assertEqual(sorted('applied 21 migration(s)' in o for o in outputs),[False,True])
+        self.assertEqual(sorted(f'applied {len(APPLIED)} migration(s)' in o for o in outputs),[False,True])
         self.assertEqual(sorted('applied 0 migration(s)' in o for o in outputs),[False,True])
-        self.assertEqual(sql(db,'SELECT count(*) FROM migrations'),'24')
+        self.assertEqual(sql(db,'SELECT count(*) FROM migrations'),str(len(SELECTED)))
     def test_06_bad_catalog_adopts_nothing(self):
         db=self.legacy('badcatalog')
         sql(db,'ALTER TABLE conversations DROP COLUMN topics_enabled')

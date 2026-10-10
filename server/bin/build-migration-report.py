@@ -81,7 +81,8 @@ def build():
     selected = manifest(MIG/'release.txt')
     held = manifest(MIG/'held.txt')
     pending = {'000019_create_polis_queue.sql', '000023_create_delphi_foundation.sql',
-               '000024_create_polis_queue_large_class.sql', '000027_create_sealed_job_graphs.sql'}
+               '000024_create_polis_queue_large_class.sql', '000027_create_sealed_job_graphs.sql', '000028_create_delphi_results.sql',
+               '000029_extend_delphi_graph_stages.sql'}
     assert selected == {p.name for p in files} | pending, 'report scope differs from release selection'
     assert held == {'000021_create_polis_coordinator.sql'}, 'review changed hold policy'
     numbered = sorted(MIG.glob('*.sql'))
@@ -149,7 +150,9 @@ WITH checks AS (
         ELSE 'WOULD_APPLY' END
  FROM (VALUES ('000019_create_polis_queue.sql'),('000023_create_delphi_foundation.sql'),
               ('000024_create_polis_queue_large_class.sql'),
-              ('000027_create_sealed_job_graphs.sql')) p(migration) CROSS JOIN readiness
+              ('000027_create_sealed_job_graphs.sql'),
+              ('000028_create_delphi_results.sql'),
+              ('000029_extend_delphi_graph_stages.sql')) p(migration) CROSS JOIN readiness
  UNION ALL
  SELECT migration, NULL::boolean, 'OUTSIDE_RELEASE'
  FROM (VALUES ('000020'),('000021'),('000025'),('000026')) p(migration)

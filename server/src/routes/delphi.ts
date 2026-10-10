@@ -1,3 +1,4 @@
+import { resultClient } from "../utils/delphiResults";
 import { Request, Response } from "express";
 import logger from "../utils/logger";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -28,13 +29,12 @@ if (Config.dynamoDbEndpoint) {
   };
 }
 
-const client = new DynamoDBClient(dynamoDBConfig);
-const docClient = DynamoDBDocumentClient.from(client, {
+const docClient = resultClient(() => DynamoDBDocumentClient.from(new DynamoDBClient(dynamoDBConfig), {
   marshallOptions: {
     convertEmptyValues: true,
     removeUndefinedValues: true,
   },
-});
+}));
 
 /**
  * Handler for Delphi API route that retrieves LLM topic names from DynamoDB

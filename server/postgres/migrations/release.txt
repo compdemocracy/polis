@@ -24,3 +24,5 @@
 000023_create_delphi_foundation.sql
 000024_create_polis_queue_large_class.sql
 000027_create_sealed_job_graphs.sql
+000028_create_delphi_results.sql
+000029_extend_delphi_graph_stages.sql
