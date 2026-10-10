@@ -9,6 +9,7 @@ import {
   submitVote,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
+import pg from "../../src/db/pg-query";
 
 interface ConversationStats {
   voteTimes: number[];
@@ -85,8 +86,14 @@ describe("Conversation Stats API", () => {
   });
 
   test("GET /api/v3/conversationStats - should accept until parameter", async () => {
-    // Get current time in milliseconds
-    const currentTimeMs = Date.now();
+    // Use the same clock as the stored timestamps. A Docker VM can be ahead
+    // of the host, so Date.now() immediately after the vote may exclude it.
+    // The route uses a strict < cutoff; advance past the current DB millisecond.
+    const rows = (await pg.queryP_readOnly(
+      "SELECT now_as_millis() AS now",
+      []
+    )) as Array<{ now: string }>;
+    const currentTimeMs = Number(rows[0].now) + 1;
 
     const response: Response = await agent.get(
       `/api/v3/conversationStats?conversation_id=${conversationId}&until=${currentTimeMs}`

@@ -9,6 +9,17 @@ on:
   pull_request:
     paths:
       - 'queue-rs/**'
+      - 'delphi/scripts/job_graph_*.py'
+      - 'delphi/tests/job_graph/**'
+      - 'docs/job-graphs.md'
+      - 'server/__tests__/integration/queue-substrate.test.ts'
+      - 'server/jest.job-graphs.config.ts'
+      - 'server/package*.json'
+      - 'server/index.ts'
+      - 'server/src/db/migrations.cjs'
+      - 'server/Dockerfile-db'
+      - 'server/postgres/init-migrations.sh'
+      - 'scripts/after_install.sh'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -17,6 +28,17 @@ on:
     branches: [edge, stable]
     paths:
       - 'queue-rs/**'
+      - 'delphi/scripts/job_graph_*.py'
+      - 'delphi/tests/job_graph/**'
+      - 'docs/job-graphs.md'
+      - 'server/__tests__/integration/queue-substrate.test.ts'
+      - 'server/jest.job-graphs.config.ts'
+      - 'server/package*.json'
+      - 'server/index.ts'
+      - 'server/src/db/migrations.cjs'
+      - 'server/Dockerfile-db'
+      - 'server/postgres/init-migrations.sh'
+      - 'scripts/after_install.sh'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -110,3 +132,73 @@ jobs:
       - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh
+
+  polis-migrate:
+    name: migration runner and startup refusal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: polis-migrate-test-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      POLIS_RECOVERY_PG_PORT: '55850'
+      RECOVERY_PG_PORT: '55850'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Build and lint the runner
+        working-directory: queue-rs
+        run: |
+          cargo fmt -p polis-migrate --check
+          cargo clippy --locked -p polis-migrate --all-targets -- -D warnings
+          cargo test --locked -p polis-migrate
+          cargo build --locked -p polis-migrate
+      - name: Compile the API entrypoint
+        working-directory: server
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Isolated real PostgreSQL proofs
+        run: |
+          docker compose -f queue-rs/polis-migrate/tests/compose.yml up -d --wait
+          python3 server/bin/build-migration-report.py --check
+          python3 queue-rs/polis-migrate/tests/prove.py
+          python3 queue-rs/polis-migrate/tests/indexes.py
+          python3 queue-rs/polis-migrate/tests/adoption.py
+          python3 queue-rs/polis-migrate/tests/selection.py
+          python3 queue-rs/polis-migrate/tests/lexer.py
+      - name: Prove the fresh database image and restart
+        run: bash queue-rs/polis-migrate/tests/fresh-image.sh
+      - name: Remove only the owned test project
+        if: always()
+        run: docker compose -f queue-rs/polis-migrate/tests/compose.yml down -v
+
+  job-graphs:
+    name: Per-step job graph core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: polis-graph-test-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      POLIS_RECOVERY_PG_PORT: '55467'
+      RECOVERY_PG_PORT: '55467'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install Node adapter test dependencies
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+      - name: Prove saved work, retries and complete publication
+        run: bash delphi/tests/job_graph/run.sh
+      - name: Retain generated proof receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-graph-proof
+          path: graph-proof/
+          retention-days: 7

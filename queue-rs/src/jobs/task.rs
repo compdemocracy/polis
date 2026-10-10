@@ -338,10 +338,16 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
     let cfg = ctx.cfg.clone();
     let mut rpc = Rpc::new(ctx.connector.clone(), &claim.env);
     let started = Instant::now();
-    let admission = match child::decode_admission(
-        reply["input"]["uri"].as_str().unwrap_or_default(),
-        reply["input"]["sha256"].as_str().unwrap_or_default(),
-    ) {
+    let graph = claim.stage.starts_with("graph_");
+    let admission_result = if graph {
+        super::graph::admission(&reply)
+    } else {
+        child::decode_admission(
+            reply["input"]["uri"].as_str().unwrap_or_default(),
+            reply["input"]["sha256"].as_str().unwrap_or_default(),
+        )
+    };
+    let admission = match admission_result {
         Ok(a) => a,
         Err(_) => return refuse_without_child(&ctx, &mut rpc, &claim, true, "frame_invalid"),
     };
@@ -612,7 +618,12 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
         },
     };
     let manifest_bytes = std::fs::read(&manifest_path).ok();
-    let manifest: Result<Manifest, manifest::Invalid> = manifest::validate(
+    let validate = if graph {
+        super::graph::validate
+    } else {
+        manifest::validate
+    };
+    let manifest: Result<Manifest, manifest::Invalid> = validate(
         manifest_bytes.as_deref(),
         &claim.job_id,
         &claim.attempt_id,
@@ -735,7 +746,11 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
                     (true, Ok(_)) => {
                         let fin = terminal(
                             &mut rpc,
-                            "pq_finalize",
+                            if graph {
+                                "pd_graph_finalize"
+                            } else {
+                                "pq_finalize"
+                            },
                             &with(id.clone(), &[json!(manifest_uri), json!(m.sha256)]),
                         );
                         match fin {

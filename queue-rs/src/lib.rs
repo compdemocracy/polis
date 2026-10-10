@@ -65,6 +65,11 @@ fn signature(name: &str) -> Result<&'static [&'static str]> {
 /// and the four-argument reaper can never fall back to a `/1` form.
 pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
     Ok(match name {
+        "pd_graph_claim" => &[
+            "text", "smallint", "uuid", "uuid", "integer", "text", "text",
+        ],
+        "pd_graph_finalize" => &["text", "uuid", "uuid", "uuid", "bigint", "text", "text"],
+        "pd_graph_reconcile" => &["text"],
         "pq_claim" => &["text", "smallint", "uuid", "uuid", "integer", "text"],
         "pq_class_depth" => &["text", "text"],
         "pq_heartbeat" => &["text", "uuid", "uuid", "uuid", "bigint", "integer"],
