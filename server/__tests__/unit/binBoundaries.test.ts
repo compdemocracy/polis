@@ -13,10 +13,9 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
 const publicEnvUrl = "postgresql://public:public-fixture@public.invalid/public";
-// The shell entrypoint delegates policy and SQL execution to polis-migrate.
-// Its boundary keeps the DSN in the environment and preserves runner failures;
-// real SQL/history/startup refusal is covered in polis-migrate/tests/prove.py.
-function migrationFixture() {
+const publicArgUrl = "postgresql://public:other-fixture@other.invalid/public";
+
+function migrationFixture(files: Record<string, string> = {}) {
   const script = path.join(scratch, "server/bin/run-migrations.sh");
   const migrations = path.join(scratch, "server/postgres/migrations");
   const fakeBin = path.join(scratch, "fake-bin");
@@ -24,84 +23,129 @@ function migrationFixture() {
   fs.mkdirSync(path.dirname(script), { recursive: true });
   fs.mkdirSync(migrations, { recursive: true });
   fs.mkdirSync(fakeBin);
+  // Byte-identical script relocated so it can see only public SQL fixtures.
   fs.copyFileSync(path.join(serverRoot, "bin/run-migrations.sh"), script);
-  const fakeRunner = path.join(fakeBin, "polis-migrate");
-  fs.writeFileSync(fakeRunner, `#!${process.execPath}
+  for (const [name, contents] of Object.entries(files)) {
+    const file = path.join(migrations, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, contents);
+  }
+  const fakePsql = path.join(fakeBin, "psql");
+  fs.writeFileSync(
+    fakePsql,
+    `#!${process.execPath}
 const fs = require('fs');
+const path = require('path');
+const [dsn, flag, file, extra] = process.argv.slice(2);
+const allowed = ${JSON.stringify([publicEnvUrl, publicArgUrl])};
+if (!allowed.includes(dsn) || flag !== '-f' || extra || !file ||
+    path.dirname(file) !== process.env.PUBLIC_MIGRATIONS) {
+  throw new Error('not an admitted public invocation');
+}
+const contents = fs.readFileSync(file, 'utf8');
+if (!contents.startsWith('-- public fixture')) throw new Error('not public fixture SQL');
 fs.appendFileSync(process.env.PUBLIC_TRACE, JSON.stringify({
-  args: process.argv.slice(2), dsn: process.env.DATABASE_URL
+  dsn, file: path.basename(file), password: process.env.PGPASSWORD, contents
 }) + '\\n');
-process.exit(Number(process.env.PUBLIC_EXIT));
-`);
-  fs.chmodSync(fakeRunner, 0o700);
+process.exit(path.basename(file) === process.env.PUBLIC_FAIL ? 17 : 0);
+`
+  );
+  fs.chmodSync(fakePsql, 0o700);
   return {
-    migrations,
-    fakeRunner,
-    run(options: { args?: string[]; code?: number; binary?: string; envUrl?: string } = {}) {
-      const result = spawnSync("/bin/bash", [script, ...(options.args || [])], {
+    run(args: string[] = [], envUrl?: string, fail = "") {
+      const result = spawnSync("/bin/bash", [script, ...args], {
         cwd: scratch,
         encoding: "utf8",
         timeout: 5000,
         env: {
           PATH: `${fakeBin}:/usr/bin:/bin`,
+          PUBLIC_MIGRATIONS: migrations,
           PUBLIC_TRACE: trace,
-          PUBLIC_EXIT: String(options.code || 0),
-          DATABASE_URL: options.envUrl ?? publicEnvUrl,
-          ...(options.binary ? { POLIS_MIGRATE_BIN: options.binary } : {}),
+          PUBLIC_FAIL: fail,
+          ...(envUrl === undefined ? {} : { DATABASE_URL: envUrl }),
         },
       });
       if (result.error) throw result.error;
       const calls = fs.existsSync(trace)
-        ? fs.readFileSync(trace, "utf8").trim().split("\n").map((line) => JSON.parse(line))
+        ? fs
+            .readFileSync(trace, "utf8")
+            .trim()
+            .split("\n")
+            .filter(Boolean)
+            .map((line) => JSON.parse(line))
         : [];
       return { ...result, calls };
     },
   };
 }
 
-test("migration wrapper delegates once with the checkout's absolute source directory", () => {
-  const fixture = migrationFixture();
-  const result = fixture.run();
-  expect(result.status).toBe(0);
-  expect(result.calls).toEqual([{ args: ["apply", "--dir", fixture.migrations], dsn: publicEnvUrl }]);
-});
+const publicSql = "-- public fixture\nSELECT 'public value';\n";
 
-test("migration wrapper keeps the DSN out of argv and output", () => {
-  const result = migrationFixture().run();
-  expect(result.status).toBe(0);
-  expect(result.calls).toHaveLength(1);
-  expect(result.calls[0].args.join(" ")).not.toContain(publicEnvUrl);
-  expect(result.stdout + result.stderr).not.toContain(publicEnvUrl);
-});
-
-test("migration wrapper supports an explicitly installed binary path containing spaces", () => {
-  const fixture = migrationFixture();
-  const binary = path.join(scratch, "installed runner");
-  fs.copyFileSync(fixture.fakeRunner, binary);
-  const result = fixture.run({ binary });
-  expect(result.status).toBe(0);
-  expect(result.calls).toHaveLength(1);
-});
-
-test("migration wrapper preserves argument boundaries for runner validation", () => {
-  const fixture = migrationFixture();
-  const result = fixture.run({ args: ["--unknown-option", "value with spaces"], code: 2 });
-  expect(result.status).toBe(2);
-  expect(result.calls[0].args).toEqual(["apply", "--dir", fixture.migrations, "--unknown-option", "value with spaces"]);
-});
-
-test("migration wrapper propagates runner failure without a success message or retry", () => {
-  const result = migrationFixture().run({ code: 17 });
-  expect(result.status).toBe(17);
-  expect(result.calls).toHaveLength(1);
-  expect(result.stdout).toBe("");
-});
-
-test("missing runner refuses without falling back to untracked SQL", () => {
-  const result = migrationFixture().run({ binary: path.join(scratch, "absent") });
-  expect(result.status).not.toBe(0); // Bash 3/macOS: 1; Bash 5/Linux: 127.
+test("migration runner requires a URL before invoking any psql process", () => {
+  const result = migrationFixture({ "001.sql": publicSql }).run();
+  expect(result.status).toBe(1);
+  expect(result.stdout).toContain("DATABASE_URL is not set");
+  expect(result.stdout).not.toContain("All migrations completed successfully");
   expect(result.calls).toEqual([]);
-  expect(result.stdout).toBe("");
+});
+
+test("migration runner sorts top-level SQL and ignores nested SQL and other extensions", () => {
+  const result = migrationFixture({
+    "010-last.sql": publicSql,
+    "002-first.sql": publicSql,
+    "nested/001-ignored.sql": publicSql,
+    "003-ignored.txt": "not SQL",
+  }).run([], publicEnvUrl);
+  expect(result.status).toBe(0);
+  expect(result.calls.map((call) => call.file)).toEqual([
+    "002-first.sql",
+    "010-last.sql",
+  ]);
+  for (const call of result.calls) {
+    expect(call.dsn).toBe(publicEnvUrl);
+    expect(call.password).toBe("public-fixture");
+    expect(call.contents).toBe(publicSql);
+  }
+  expect(result.stdout).toContain("All migrations completed successfully!");
+});
+
+test("explicit migration URL overrides the environment and binds matching password", () => {
+  const result = migrationFixture({ "001.sql": publicSql }).run(
+    [publicArgUrl],
+    publicEnvUrl
+  );
+  expect(result.status).toBe(0);
+  expect(result.calls).toHaveLength(1);
+  expect(result.calls[0].dsn).toBe(publicArgUrl);
+  expect(result.calls[0].password).toBe("other-fixture");
+});
+
+test("empty explicit URL preserves the environment URL", () => {
+  const result = migrationFixture({ "001.sql": publicSql }).run(
+    [""],
+    publicEnvUrl
+  );
+  expect(result.status).toBe(0);
+  expect(result.calls[0].dsn).toBe(publicEnvUrl);
+});
+
+test("psql failure stops later migrations and cannot print completion", () => {
+  const result = migrationFixture({
+    "001.sql": publicSql,
+    "002.sql": publicSql,
+    "003.sql": publicSql,
+  }).run([], publicEnvUrl, "002.sql");
+  expect(result.status).toBe(17);
+  expect(result.calls.map((call) => call.file)).toEqual(["001.sql", "002.sql"]);
+  expect(result.stdout).not.toContain("Applying migration: 003.sql");
+  expect(result.stdout).not.toContain("All migrations completed successfully");
+});
+
+test("empty migration directory completes without inventing a database call", () => {
+  const result = migrationFixture().run([], publicEnvUrl);
+  expect(result.status).toBe(0);
+  expect(result.calls).toEqual([]);
+  expect(result.stdout).toContain("All migrations completed successfully!");
 });
 
 function resetBoundary(databaseUrl: unknown) {

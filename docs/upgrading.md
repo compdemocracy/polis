@@ -1,33 +1,16 @@
 # Upgrade Guide
 
-## Migration runner transition
+## Safe deployment hooks (release A)
 
-Use [the migration runner](migrations.md) before replacing services. Existing
-databases need one catalog-checked `reconcile` before their first runner deploy;
-new databases initialize through the runner. Missing or changed history prevents
-API startup. Migrations 000019/23/24 now apply during deployment; the coordinator
-000021 remains explicitly held in this release. This installs schema only, not
-queue producers or workers. PostgreSQL 17+ is required.
+This release changes deployment hooks only; it does not introduce the migration
+runner or an API migration startup check. Install it successfully on every box
+before enabling the runner in release B. CodeDeploy uses the PREVIOUS successful
+revision's ApplicationStop, so this first transition can still interrupt service.
+New hooks defer replacement until AfterInstall and validate the server's HTTP and
+database routes. A failure in ValidateService fails the deployment; it does not
+automatically restore containers or undo schema changes. Delphi/worker validation
+checks process/container liveness, not real-time math correctness.
 
-Read the [per-deployment upgrade paths and read-only report](migration-upgrade-notes.md)
-before the first transition. One explicit release manifest selects the files;
-M20/M21/M25/M26 are outside this forward release. Historical M4/M5/M7 never
-execute automatically: absence of their removal targets permits ADOPTED receipts,
-while retained targets stop for review without deletion. The
-[named legacy contract](migration-legacy-contract.md) preserves supported live
-variants, and the [release map](migration-release-map.md) distinguishes shipped
-source from actual execution and unassigned semantic versions.
-
-CodeDeploy executes `ApplicationStop` from the **previous successful revision**.
-Consequently the first rollout from the older hooks can still stop services
-before the new migration hook runs. Complete one-time reconciliation before that
-rollout and plan for that transition interruption; do not claim failure leaves
-the old service up on the first transition. Subsequent releases defer shutdown
-until migration success. A rollback to old hook code reinstates its old stopping
-behavior. A failed migration does not trigger automatic down migrations.
-
-The sitting kit and image staging/unstaging are superseded by this ordinary
-apply/check path. Keep backup and migration-specific recovery procedures.
 
 ## Configuration Changes (Q1 2023)
 

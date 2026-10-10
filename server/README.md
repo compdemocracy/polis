@@ -52,18 +52,35 @@ root folder of the polis project. To run everything but the API server in this f
 `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up math postgres file-server ses-local`. In this case
 the polis-dev database should be accessible at the default DATABASE_URL seen in server/example.env.
 
-3\. Set `DATABASE_URL` in the environment and run the migration runner from the
-repository root. A fresh Compose database does this during initialization.
+3\. Connect to the new database then run the migrations in its shell. You can skip this step if you built the
+database with docker compose.
 
-```sh
-cargo build --locked --release --manifest-path queue-rs/Cargo.toml -p polis-migrate
-queue-rs/target/release/polis-migrate apply
-queue-rs/target/release/polis-migrate check
+```psql
+\connect polis
+\i postgres/migrations/000000_initial.sql
+\i postgres/migrations/000001_update_pwreset_table.sql
+\i postgres/migrations/000002_add_xid_constraint.sql
+\i postgres/migrations/000003_add_origin_permanent_cookie_columns.sql
+\i postgres/migrations/000004_drop_waitinglist_table.sql
+\i postgres/migrations/000005_drop_slack_stripe_canvas.sql
+\i postgres/migrations/000006_update_votes_rule.sql
+\i postgres/migrations/000007_drop_geolocation_fields.sql
+\i postgres/migrations/000008_add_comment_priority.sql
+\i postgres/migrations/000009_add_uuid_to_zinvites.sql
 ```
 
-Existing databases need catalog-checked reconciliation once. See
-[database migrations](../docs/migrations.md) for the commands and release holds.
-Do not replay the initial SQL or pass credentials as command-line arguments.
+You can also separately run `psql -d polis -f postgres/migrations/000000_initial.sql` and
+`psql -d polis -f postgres/migrations/000001_update_pwreset_table.sql` etc. from the shell.
+
+Alternatively, you can use the provided migration script to run all migrations in sequence:
+
+```sh
+# Using DATABASE_URL from environment
+./bin/run-migrations.sh
+
+# Or providing the URL as argument
+./bin/run-migrations.sh "postgres://username:password@localhost:5432/polis"
+```
 
 4\. Update database connection settings in `.env`. Replace the username, password, and database_name in the DATABASE_URL
 

@@ -1,25 +1,30 @@
-/** Check the release's migrations before importing the app or starting work. */
-import "dotenv/config";
-import { checkMigrations } from "./src/db/migrations.cjs";
+/**
+ * Server entry point
+ * This file is responsible for starting the server after the app is configured
+ */
+import app from "./app";
+import Config from "./src/config";
+import { startNotificationLoop } from "./src/routes/notify";
+import logger from "./src/utils/logger";
 
-async function startServer(port?: number) {
-  await checkMigrations();
-  const { default: Config } = await import("./src/config");
-  if (Config.nodeEnv === "production") {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require("dd-trace").init();
-  }
-  const { default: app } = await import("./app");
-  const { startNotificationLoop } = await import("./src/routes/notify");
-  const { default: logger } = await import("./src/utils/logger");
-  startNotificationLoop();
-  const server = app.listen(port ?? Config.serverPort);
-  logger.info(`Server started on port ${port ?? Config.serverPort}`);
+if (Config.nodeEnv === "production") {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-var-requires
+  const tracer = require("dd-trace").init();
+}
+
+/**
+ * Start the server on the configured port or a provided port
+ * @param {number} [port=Config.serverPort] - The port to listen on
+ * @returns {Object} The server instance
+ */
+function startServer(port = Config.serverPort) {
+  const server = app.listen(port);
+  logger.info(`Server started on port ${port}`);
   return server;
 }
 
-startServer().catch((error) => {
-  process.stderr.write(`Server startup refused: ${error.message}\n`);
-  process.exit(1);
-});
+startNotificationLoop();
+startServer();
+
 export { startServer };
+export default app;
