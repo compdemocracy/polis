@@ -56,11 +56,11 @@ class ImageProofTests(unittest.TestCase):
             names = ["000000_initial.sql", "000004_drop_waitinglist_table.sql",
                      "000030_future.sql"]
             for name in names:
-                (directory / name).write_text("-- synthetic SQL source\n")
+                (directory / name).write_text("-- constructed SQL source\n")
             for selected in (names[:2], names, names[:1]):
                 with self.subTest(selected=selected):
                     (directory / "release.txt").write_text(
-                        "# synthetic release selection\n\n" + "\n".join(selected) + "\n")
+                        "# constructed release selection\n\n" + "\n".join(selected) + "\n")
                     expected = proof.expected_receipts(directory)
                     self.assertEqual(set(expected), set(selected))
                     self.assertEqual(len(expected), len(selected))
