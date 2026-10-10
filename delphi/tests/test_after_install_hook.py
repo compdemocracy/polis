@@ -221,8 +221,34 @@ def test_the_stop_hook_leaves_every_service_running(tmp_path, service_type):
     assert "AfterInstall" in proc.stdout
 
 
-def test_unknown_role_refuses_before_migration_or_replacement(tmp_path):
-    proc, log = _deploy(tmp_path, "unknown")
-    assert proc.returncode != 0
-    assert not _calls(log, "docker")
-    assert not _calls(log, "docker-compose")
+@pytest.mark.parametrize("service_type,worker_class", [
+    ("server", None), ("delphi", None), ("math", None),
+    ("delphi-large", "large"), ("delphi-worker", "delphi"),
+])
+def test_migration_succeeds_before_any_service_replacement(tmp_path, service_type, worker_class):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    build = "docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile ."
+    apply = "docker run --rm --network host --env-file .env polis-migrate:deploy deploy"
+    assert log.count(build) == log.count(apply) == 1
+    assert log.index(build) < log.index(apply)
+    replacements = [i for i, call in enumerate(log) if call.startswith((
+        "docker-compose down", "docker rm ", "docker system prune",
+        "docker-compose up", "systemctl restart"))]
+    assert replacements or service_type == "math"
+    assert not replacements or log.index(apply) < min(replacements)
+
+
+@pytest.mark.parametrize("failure", ["build", "run"])
+@pytest.mark.parametrize("service_type,worker_class", [
+    ("server", None), ("delphi", None), ("math", None),
+    ("delphi-large", "large"), ("delphi-worker", "delphi"),
+])
+def test_migration_failure_preserves_every_running_service(tmp_path, service_type, worker_class, failure):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
+                        migration_failure=failure)
+    assert proc.returncode == 17, proc.stdout + proc.stderr
+    assert _calls(log, "docker-compose") == []
+    assert _calls(log, "systemctl") == []
+    docker = _calls(log, "docker")
+    assert [call.split()[0] for call in docker] == (["build"] if failure == "build" else ["build", "run"])

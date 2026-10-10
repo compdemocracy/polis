@@ -62,7 +62,14 @@ fn claim_one(
             json!(cfg.lease_seconds),
             json!(cfg.worker_class.name()),
         ];
-        let reply = match rpc.call("pq_claim", &args)? {
+        let graph = cfg.stages.iter().any(|s| s.starts_with("graph_"));
+        let mut args = args.to_vec();
+        if graph {
+            args.push(json!(
+                cfg.stages.iter().cloned().collect::<Vec<_>>().join(",")
+            ));
+        }
+        let reply = match rpc.call(if graph { "pd_graph_claim" } else { "pq_claim" }, &args)? {
             Completion::Committed(r) => r,
             Completion::Unknown(r) => {
                 // Never reissue an uncertain claim: renew the exact token.
@@ -329,6 +336,10 @@ pub fn run(cfg: Config) -> i32 {
             }
         }
     }
+    if cfg.stages.iter().any(|s| s.starts_with("graph_")) && ctx.contract() != "polis-queue/5" {
+        line("graph stages require polis-queue/5");
+        return EXIT_CONTRACT;
+    }
     recover(&ctx, &mut rpc);
     let mut listener: Option<postgres::Client> = rpc.listener().ok();
     let mut jobs: Vec<JoinHandle<()>> = vec![];
@@ -387,6 +398,11 @@ pub fn run(cfg: Config) -> i32 {
         if Instant::now() >= next_reap {
             next_reap = Instant::now() + cfg.reap_interval;
             retry_pending(&ctx, &mut rpc);
+            if ctx.contract() == "polis-queue/5"
+                && let Err(e) = rpc.committed("pd_graph_reconcile", &[json!(cfg.env)])
+            {
+                line(&format!("graph release reconciliation failed: {e}"));
+            }
             if let Err(e) = reaper.tick(&mut rpc, cfg.worker_class.name(), &owner, &ctx.counters) {
                 db_failures += 1;
                 line(&format!("reap failed: {e}"));
