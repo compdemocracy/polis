@@ -4,12 +4,27 @@ import subprocess
 from pathlib import Path
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+def _validate_service_path():
+    # The container flattens delphi/tests to /app/tests. Use the same explicit
+    # checkout root as the other hook tests; never silently skip a missing hook.
+    override = os.environ.get("POLIS_CHECKOUT_DIR")
+    candidates = [Path(override)] if override else Path(__file__).resolve().parents
+    for root in candidates:
+        path = root / "scripts/validate_service.sh"
+        if path.is_file():
+            return path
+    raise FileNotFoundError(
+        "scripts/validate_service.sh not found; run scripts/test-deploy-hooks.sh "
+        "or set POLIS_CHECKOUT_DIR to the checkout root"
+    )
+
+
+VALIDATE_SERVICE_PATH = _validate_service_path()
 
 def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0):
     bin_dir=tmp_path/'bin';bin_dir.mkdir()
     (tmp_path/'service_type.txt').write_text(role)
-    source=(ROOT/'scripts/validate_service.sh').read_text()
+    source=VALIDATE_SERVICE_PATH.read_text()
     source=source.replace('/opt/polis/polis',str(tmp_path)).replace('/etc/app-info/service_type.txt',str(tmp_path/'service_type.txt')).replace('/usr/local/bin/docker-compose','docker-compose')
     script=tmp_path/'validate.sh';script.write_text(source)
     fakes={

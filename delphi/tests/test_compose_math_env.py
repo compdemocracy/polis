@@ -16,7 +16,8 @@ Runs without a docker daemon: the compose files are parsed as YAML and their
 ``docker compose config`` would print. The checkout is located by walking up
 from this file (``POLIS_CHECKOUT_DIR`` overrides), because the CI job copies
 ``delphi/tests`` into the delphi image at ``/app/tests``, where the repo root is
-not an ancestor — ``python-ci.yml`` copies the two compose files in beside it.
+not an ancestor. ``scripts/test-deploy-hooks.sh`` copies the compose files,
+hooks and Dockerfile into the explicit checkout root in both CI and mm5.
 """
 
 import os
@@ -279,7 +280,13 @@ def test_delphi_role_starts_delphi_and_the_shadow_poller():
     assert len(roles.get("delphi", [])) == 1, "the delphi role must have exactly one compose up line"
     (line,) = roles["delphi"]
     assert _services_named(line) == {"delphi", "math-python"}
-    assert {"-d", "--build", "--force-recreate"} <= set(line)
+    assert {"-d", "--no-build", "--force-recreate"} <= set(line)
+    assert "--build" not in line
+    # Release A builds while the old services still serve, then replaces them.
+    body = _role_bodies()["delphi"]
+    build = "sudo /usr/local/bin/docker-compose build delphi math-python"
+    down = "sudo /usr/local/bin/docker-compose down"
+    assert body.index(build) < body.index(down) < body.index(" ".join(line))
 
 
 @requires_after_install
@@ -474,9 +481,10 @@ def test_delphi_llm_selection_defaults_when_unset():
 # Datadog agent listening the tracer only logs failed sends, so the default is
 # off; the ddtrace package stays installed so tracing can be switched back on.
 
-DOCKERFILE = Path(__file__).resolve().parent.parent / "Dockerfile"
+DOCKERFILE = (CHECKOUT / "delphi/Dockerfile" if CHECKOUT is not None
+              else Path(__file__).resolve().parent.parent / "Dockerfile")
 requires_dockerfile = pytest.mark.skipif(
-    not DOCKERFILE.is_file(), reason=f"{DOCKERFILE} not found (CI copies only tests/)"
+    not DOCKERFILE.is_file(), reason=f"{DOCKERFILE} not found"
 )
 
 
@@ -640,7 +648,6 @@ def test_there_is_no_large_poller_service_and_no_manifest():
 
 APPLICATION_STOP = Path("scripts") / "application_stop.sh"
 _ROLE_BLOCK = re.compile(r'^(?:if|elif) \[ "\$SERVICE_FROM_FILE" == "(?P<role>[a-z-]+)" \]; then$')
-_STOP_BRANCH = re.compile(r'^  (?:if|elif) \[ "\$SERVICE_TYPE" == "(?P<role>[a-z-]+)" \]; then$')
 
 
 def _role_bodies() -> dict:
@@ -710,26 +717,11 @@ STOP_HOOK = _find_stop_hook()
 requires_stop_hook = pytest.mark.skipif(STOP_HOOK is None, reason=f"{APPLICATION_STOP} not found")
 
 
-def _stop_lines() -> dict:
-    roles, current = {}, None
-    for line in STOP_HOOK.read_text().splitlines():
-        match = _STOP_BRANCH.match(line)
-        if match:
-            current = match["role"]
-            roles[current] = []
-            continue
-        if line.startswith(("  else", "  fi", "else", "fi")):
-            current = None
-            continue
-        code = line.split("#", 1)[0].split()
-        if current and code[:1] and code[0].endswith("docker-compose") and "stop" in code:
-            roles[current].append(code)
-    return roles
-
-
 @requires_stop_hook
-def test_the_stop_hook_stops_nothing_on_the_large_box_and_no_large_poller_anywhere():
-    roles = _stop_lines()
-    assert roles.get("delphi-large", []) == []
-    assert not any("math-python-large" in l for lines in roles.values() for l in lines)
-    assert "delphi-large" in STOP_HOOK.read_text()
+def test_the_stop_hook_defers_shutdown_for_every_role():
+    # ApplicationStop is now role-independent; the behavioral hook suite also
+    # executes it for every role and rejects any external command invocation.
+    text = STOP_HOOK.read_text()
+    code = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+    assert not re.search(r"\b(?:docker(?:-compose)?|systemctl)\b", code)
+    assert "AfterInstall" in text

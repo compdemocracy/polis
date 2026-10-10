@@ -162,6 +162,8 @@ def test_the_other_service_types_behave_as_before(tmp_path, service_type):
     assert [c for c in compose if c.startswith("up")] == UNCHANGED[service_type]
     builds = [c for c in compose if c.startswith("build")]
     assert builds == {"server": ["build server nginx-proxy client-participation-alpha"], "delphi": ["build delphi math-python"], "math": []}[service_type]
+    if builds:
+        assert compose.index(builds[0]) < compose.index("down") < compose.index(UNCHANGED[service_type][0])
     assert _calls(log, "systemctl") == []
     assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
 
