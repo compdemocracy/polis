@@ -82,22 +82,13 @@ printf "\nDATABASE_URL=%s\n" "$DATABASE_URL" | sudo tee -a .env > /dev/null
 SERVICE_FROM_FILE=$(cat /etc/app-info/service_type.txt)
 echo "DEBUG: Service type read from /etc/app-info/service_type.txt: [$SERVICE_FROM_FILE]"
 
-# Original Docker cleanup/start logic
-echo "Stopping and removing existing Docker containers..."
-sudo /usr/local/bin/docker-compose down || true
-if [ "$SERVICE_FROM_FILE" == "delphi-large" ] || [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
-  # A queue worker box keeps its polis-jobs container (started by the unit
-  # polis-jobs.service, not by compose): removing it would kill a job
-  # mid-attempt. worker_daemon below restarts the unit, which drains it.
-  sudo docker rm -f $(docker ps -aq | grep -vxF -e "$(docker ps -aq --filter 'name=^/?polis-jobs$')") || true
-else
-  sudo docker rm -f $(docker ps -aq) || true
-fi
-echo "Docker containers stopped and removed."
+case "$SERVICE_FROM_FILE" in
+  server|delphi|math|delphi-large|delphi-worker) ;;
+  *) echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"; exit 1 ;;
+esac
 
-yes | sudo docker system prune -a --filter "until=72h"
-echo "Docker cache cleared"
-
+# Validate configuration before replacing any running container. Compose replaces
+# only this Compose project below; never remove unrelated containers or prune here.
 sudo /usr/local/bin/docker-compose config --quiet
 
 if [ -f "/etc/app-info/log_group_name.txt" ]; then
@@ -152,18 +143,22 @@ worker_daemon() {
   fi
   echo "Building the Delphi image (it carries polis-jobs) and restarting polis-jobs.service for worker class '$want_class'"
   sudo /usr/local/bin/docker-compose build delphi
+  sudo /usr/local/bin/docker-compose down
   sudo systemctl restart --no-block polis-jobs.service
 }
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
-  sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
+  sudo /usr/local/bin/docker-compose build server nginx-proxy client-participation-alpha
+  sudo /usr/local/bin/docker-compose down
+  sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   # The Clojure math engine is retired; the Python engine (math-python) runs on
   # the Delphi role. A box still tagged `math` (the math-worker ASG until it is
   # scaled to zero) starts nothing. This branch must stay until no such box is
   # left: without it the box would fall through to the catch-all below and
   # start every service, including a second Delphi job poller.
+  sudo /usr/local/bin/docker-compose down
   echo "Service type 'math' is retired (the Clojure engine was removed); starting no services on this box"
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' and 'math-python' (math engine) services"
@@ -268,7 +263,7 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # ASG max of 1 for the Delphi small group is a later belt-and-braces CDK
   # change, not needed for correctness.
   # Durable stop: remove `math-python` from this line and redeploy (the hook
-  # removes every container before starting the named ones).
+  # removes this Compose project's containers before starting the named ones).
   # Removing only the holder's container is a FAILOVER, not a stop: a waiting
   # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
   #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
@@ -286,7 +281,9 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #   5. Make it durable (remove `math-python` here and redeploy) before
   #      resuming deploys or ASG launches.
   poller_identity
-  sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
+  sudo /usr/local/bin/docker-compose build delphi math-python
+  sudo /usr/local/bin/docker-compose down
+  sudo /usr/local/bin/docker-compose up -d delphi math-python --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`
@@ -305,6 +302,6 @@ elif [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
   echo "Service type 'delphi-worker': no compose service to start (the Delphi stages run as queue jobs under the polis-jobs daemon)"
   worker_daemon delphi
 else
-  echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
-  sudo /usr/local/bin/docker-compose up -d --build --force-recreate
+  echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"
+  exit 1
 fi
