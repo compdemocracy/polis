@@ -1,0 +1,8 @@
+**
+!queue-rs/
+!queue-rs/**
+queue-rs/target/
+!server/
+!server/postgres/
+!server/postgres/migrations/
+!server/postgres/migrations/**
