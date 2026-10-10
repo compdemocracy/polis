@@ -82,12 +82,6 @@ printf "\nDATABASE_URL=%s\n" "$DATABASE_URL" | sudo tee -a .env > /dev/null
 SERVICE_FROM_FILE=$(cat /etc/app-info/service_type.txt)
 echo "DEBUG: Service type read from /etc/app-info/service_type.txt: [$SERVICE_FROM_FILE]"
 
-# Apply the release schema before stopping/replacing any healthy service.
-# All roles use the same database lock; a second box waits, then applies nothing.
-# Build the client with this checkout. No manual image staging or local Rust needed.
-sudo docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile .
-sudo docker run --rm --network host --env-file .env polis-migrate:deploy apply
-
 # Original Docker cleanup/start logic
 echo "Stopping and removing existing Docker containers..."
 sudo /usr/local/bin/docker-compose down || true

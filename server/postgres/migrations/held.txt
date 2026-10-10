@@ -1,3 +1,0 @@
-# Release-wide hold: the coordinator is dormant and not an API requirement.
-# Moving this file into the required chain needs an explicit schema release.
-000021_create_polis_coordinator.sql

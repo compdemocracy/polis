@@ -1,12 +1,11 @@
-# Build with --build-context queue-rs=queue-rs (Compose supplies it).
-# New volumes use the same runner/history as every later deploy.
-FROM docker.io/library/rust:1.98.1-alpine AS migrate-build
-RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
-WORKDIR /src
-COPY --from=queue-rs . .
-RUN cargo build --release --locked -p polis-migrate
+# Example Usage:
+# docker build -t polis-db:local -f Dockerfile-db .
+# docker network create polis-net
+# docker run --rm --name polis-db --network polis-net -p 5432:5432 \
+# -e POSTGRES_DB=polis-dev -e POSTGRES_PASSWORD=postgres polis-db:local
+
 FROM postgres:17-alpine
-RUN apk add --no-cache libssl3 ca-certificates
-COPY --from=migrate-build /src/target/release/polis-migrate /usr/local/bin/polis-migrate
-COPY ./postgres/migrations /migrations
-COPY ./postgres/init-migrations.sh /docker-entrypoint-initdb.d/00-migrations.sh
+# Used when no existing database on postgres volume, including first initialization.
+# See: docs/deployment.md#database-migrations
+# See: https://github.com/docker-library/docs/blob/master/postgres/README.md#initialization-scripts
+COPY ./postgres/migrations/*.sql /docker-entrypoint-initdb.d/
