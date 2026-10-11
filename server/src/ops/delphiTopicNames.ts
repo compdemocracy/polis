@@ -12,6 +12,7 @@
 // instance role. The instance role already has dynamodb:Query on Delphi_*.
 
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { resultClient } from "../utils/delphiResults";
 import { makeDynamoClient } from "../utils/dynamoClient";
 
 export const TOPIC_NAMES_TABLE = "Delphi_CommentClustersLLMTopicNames";
@@ -92,7 +93,7 @@ export function makeDelphiTopicNameReader(): TopicNameReader {
     const out: TopicNames = new Map();
     if (zids.length === 0) return out;
     try {
-      doc = doc || DynamoDBDocumentClient.from(makeDynamoClient());
+      doc = doc || resultClient(() => DynamoDBDocumentClient.from(makeDynamoClient()));
     } catch {
       for (const zid of zids) out.set(zid, null);
       return out;

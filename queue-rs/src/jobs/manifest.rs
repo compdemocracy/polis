@@ -49,6 +49,43 @@ impl std::fmt::Display for Invalid {
     }
 }
 
+/// Open a bounded regular child output without following links or waiting on FIFOs.
+pub(super) fn read_regular_file(
+    path: &std::path::Path,
+    maximum: usize,
+) -> Result<Vec<u8>, Invalid> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                Invalid::Missing
+            } else {
+                Invalid::Field("file_open")
+            }
+        })?;
+    let metadata = file
+        .metadata()
+        .map_err(|_| Invalid::Field("file_metadata"))?;
+    if !metadata.is_file() {
+        return Err(Invalid::Field("file_type"));
+    }
+    if metadata.len() > maximum as u64 {
+        return Err(Invalid::TooLarge);
+    }
+    let mut bytes = Vec::new();
+    file.take(maximum as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Invalid::Field("file_read"))?;
+    if bytes.len() > maximum {
+        return Err(Invalid::TooLarge);
+    }
+    Ok(bytes)
+}
+
 fn is_timestamp(s: &str) -> bool {
     // RFC 3339 date-time with an explicit offset, e.g. 2026-10-03T12:00:00Z.
     let b = s.as_bytes();
@@ -144,8 +181,19 @@ pub fn validate(
     let text = std::str::from_utf8(bytes).map_err(|_| Invalid::NotUtf8)?;
     let m: Value = serde_json::from_str(text).map_err(|_| Invalid::NotJson)?;
     let root = m.as_object().ok_or(Invalid::Field("root"))?;
-    closed(root, &ROOT_KEYS, "root")?;
-    if m["schema"] != SCHEMA {
+    let writer = m["schema"] == "polis-jobs.output-manifest/2";
+    if writer {
+        let mut keys = ROOT_KEYS.to_vec();
+        keys.push(if root.contains_key("family_spool") {
+            "family_spool"
+        } else {
+            "results"
+        });
+        closed(root, &keys, "root")?;
+    } else {
+        closed(root, &ROOT_KEYS, "root")?;
+    }
+    if m["schema"] != SCHEMA && !writer {
         return Err(Invalid::Field("schema"));
     }
     if m["job_id"] != job_id {
@@ -202,7 +250,7 @@ pub fn validate(
             }
             _ => return Err(Invalid::Field("outputs")),
         };
-        let ok = o["store"] == "dynamodb"
+        let ok = o["store"] == if writer { "postgres" } else { "dynamodb" }
             && o["family"].as_str().is_some_and(|t| !t.is_empty())
             && o["table"].as_str().is_some_and(|t| !t.is_empty())
             && o["rows"].as_u64().is_some()
@@ -320,6 +368,23 @@ mod tests {
     }
 
     #[test]
+    fn manifest_file_reader_enforces_the_limit_before_validation() -> anyhow::Result<()> {
+        let path = std::env::temp_dir().join(format!("polis-manifest-{}", uuid::Uuid::new_v4()));
+        assert_eq!(read_regular_file(&path, MAX_BYTES), Err(Invalid::Missing));
+        let file = std::fs::File::create(&path)?;
+        file.set_len(MAX_BYTES as u64)?;
+        assert_eq!(
+            read_regular_file(&path, MAX_BYTES)
+                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .len(),
+            MAX_BYTES
+        );
+        file.set_len(MAX_BYTES as u64 + 1)?;
+        assert_eq!(read_regular_file(&path, MAX_BYTES), Err(Invalid::TooLarge));
+        std::fs::remove_file(path)?;
+        Ok(())
+    }
+    #[test]
     fn valid_manifest_keeps_exact_bytes_and_hash() {
         let bytes = b"{\"schema\": \"polis-jobs.output-manifest/1\" }";
         // Not valid (fields missing), but hashing is over the exact bytes:
@@ -340,7 +405,7 @@ mod tests {
             Some(Invalid::Missing)
         );
         let mut v = fixture(J, A, "delphi_full_pipeline", "succeeded");
-        v["schema"] = "polis-jobs.output-manifest/2".into();
+        v["schema"] = "polis-jobs.output-manifest/99".into();
         assert_eq!(check(&v).err(), Some(Invalid::Field("schema")));
         let big = vec![b' '; MAX_BYTES + 1];
         assert_eq!(
