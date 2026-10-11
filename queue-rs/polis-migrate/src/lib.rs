@@ -1,8 +1,10 @@
 //! One migration history, one connection and one database advisory lock.
 //! SQL files remain immutable; only their optional outer BEGIN/COMMIT is removed.
+pub mod compat;
 mod indexes;
 mod sql;
 use anyhow::{Context, Result, bail, ensure};
+use compat::Compat;
 use postgres::{
     Client, GenericClient,
     config::{Host, SslMode},
@@ -15,6 +17,13 @@ pub struct Migration {
     pub checksum: String,
     pub body: String,
     pub retired: bool,
+    /// This release's forward-compatibility declaration (compat.txt), if any.
+    pub compat: Option<Compat>,
+}
+/// A release: the migrations it applies, and the held ones it knows but never applies.
+pub struct Release {
+    pub migrations: Vec<Migration>,
+    pub held: Vec<Migration>,
 }
 // Fixed database-wide key, shared by apply/reconcile. A different DB has its own lock.
 pub const LOCK: i64 = 0x506f6c69734d6967;
@@ -23,11 +32,12 @@ const HISTORY: &str = "CREATE TABLE public.migrations (
  status text NOT NULL CHECK(status IN ('APPLIED','ADOPTED')),
  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  recorded_by text NOT NULL DEFAULT session_user,
- legacy_completed_at bigint[] NOT NULL DEFAULT '{}');
+ legacy_completed_at bigint[] NOT NULL DEFAULT '{}',
+ compat text CHECK(compat IN ('additive','breaking')));
  REVOKE ALL ON public.migrations FROM PUBLIC;
  GRANT SELECT ON public.migrations TO PUBLIC;";
 
-pub fn load(dir: &Path) -> Result<Vec<Migration>> {
+pub fn load(dir: &Path) -> Result<Release> {
     let mut files = BTreeMap::new();
     let mut versions = std::collections::BTreeSet::new();
     let selected = manifest(dir, "release.txt")?;
@@ -70,6 +80,7 @@ pub fn load(dir: &Path) -> Result<Vec<Migration>> {
                 checksum: format!("{:x}", Sha256::digest(source.as_bytes())),
                 body: sql::body(&source)?,
                 retired: matches!(&name[..6], "000004" | "000005" | "000007"),
+                compat: None,
             },
         );
     }
@@ -85,17 +96,31 @@ pub fn load(dir: &Path) -> Result<Vec<Migration>> {
             "migration absent from release/held manifest: {name}"
         );
     }
-    let migrations: Vec<_> = files
-        .into_values()
-        .filter(|m| selected.contains(&m.name))
-        .collect();
+    let known: std::collections::BTreeSet<String> = selected.union(&held).cloned().collect();
+    let declared = match fs::read_to_string(dir.join("compat.txt")) {
+        Ok(text) => compat::ledger(&text, &known)?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
+        Err(e) => return Err(e).context("read compat.txt"),
+    };
+    let (mut migrations, mut held_migrations) = (Vec::new(), Vec::new());
+    for mut m in files.into_values() {
+        m.compat = declared.get(&m.name).copied();
+        if selected.contains(&m.name) {
+            migrations.push(m);
+        } else {
+            held_migrations.push(m);
+        }
+    }
     ensure!(
         migrations
             .first()
             .is_some_and(|m| m.name == "000000_initial.sql"),
         "missing initial migration"
     );
-    Ok(migrations)
+    Ok(Release {
+        migrations,
+        held: held_migrations,
+    })
 }
 
 fn manifest(dir: &Path, file: &str) -> Result<std::collections::BTreeSet<String>> {
@@ -106,13 +131,7 @@ fn manifest(dir: &Path, file: &str) -> Result<std::collections::BTreeSet<String>
         .filter(|s| !s.is_empty() && !s.starts_with('#'))
     {
         ensure!(
-            name.len() > 11
-                && name.as_bytes()[..6].iter().all(u8::is_ascii_digit)
-                && name.as_bytes()[6] == b'_'
-                && name.ends_with(".sql")
-                && name.as_bytes()[7..name.len() - 4]
-                    .iter()
-                    .all(|b| b.is_ascii_alphanumeric() || *b == b'_'),
+            compat::valid_name(name),
             "invalid migration in {file}: {name}"
         );
         ensure!(
@@ -231,47 +250,54 @@ fn exists(client: &mut impl GenericClient, name: &str) -> Result<bool> {
         .query_one("SELECT to_regclass($1) IS NOT NULL", &[&name])?
         .get(0))
 }
-fn history(
-    client: &mut impl GenericClient,
-    migrations: &[Migration],
-) -> Result<BTreeMap<String, String>> {
+fn history(client: &mut impl GenericClient, release: &Release) -> Result<compat::History> {
     ensure!(
         exists(client, "public.migrations")?,
         "migration history missing; run polis-migrate apply for a fresh database, or reconcile for an existing database (docs/migrations.md)"
     );
+    // to_jsonb reads the declaration column when present: a history table made
+    // by an earlier runner has none, and every row then counts as undeclared.
     let rows = client
         .query(
-            "SELECT name, checksum, status FROM public.migrations ORDER BY name",
+            "SELECT name, checksum, status, to_jsonb(m)->>'compat' FROM public.migrations m ORDER BY name",
             &[],
         )
         .context("unreconciled legacy history; run polis-migrate reconcile")?;
-    let mut result = BTreeMap::new();
-    for row in rows {
-        let name: String = row.get(0);
-        let checksum: String = row.get(1);
-        let status: String = row.get(2);
-        ensure!(
-            matches!(status.as_str(), "APPLIED" | "ADOPTED"),
-            "unverified history: {name}"
-        );
-        let m = migrations.iter().find(|m| m.name == name).ok_or_else(|| {
-            anyhow::anyhow!("history names migration absent from this release: {name}")
-        })?;
-        ensure!(
-            checksum == m.checksum,
-            "migration checksum mismatch: {name}; restore the released source; do not replay it"
-        );
-        ensure!(
-            result.insert(name.clone(), checksum).is_none(),
-            "duplicate history: {name}"
+    let rows: Vec<compat::Row> = rows
+        .iter()
+        .map(|r| compat::Row {
+            name: r.get(0),
+            checksum: r.get(1),
+            status: r.get(2),
+            compat: r.get(3),
+        })
+        .collect();
+    compat::classify(&rows, &known(release))
+}
+fn pairs(ms: &[Migration]) -> Vec<(&str, &str)> {
+    ms.iter()
+        .map(|m| (m.name.as_str(), m.checksum.as_str()))
+        .collect()
+}
+fn known(release: &Release) -> compat::Known<'_> {
+    compat::Known {
+        selected: pairs(&release.migrations),
+        held: pairs(&release.held),
+    }
+}
+fn report_tolerated(phase: &str, history: &compat::History) {
+    for name in &history.tolerated {
+        println!(
+            "{phase}: tolerating {name}: applied by a release that declared it additive; this release does not list it"
         );
     }
-    Ok(result)
 }
-pub fn check(client: &mut Client, migrations: &[Migration]) -> Result<()> {
+pub fn check(client: &mut Client, release: &Release) -> Result<()> {
+    let migrations = &release.migrations;
     setup(client)?;
     let mut tx = client.build_transaction().read_only(true).start()?;
-    let applied = history(&mut tx, migrations)?;
+    let found = history(&mut tx, release)?;
+    let applied = &found.applied;
     let pending: Vec<_> = migrations
         .iter()
         .filter(|m| !applied.contains_key(&m.name))
@@ -283,7 +309,17 @@ pub fn check(client: &mut Client, migrations: &[Migration]) -> Result<()> {
         pending.join(", ")
     );
     tx.commit()?;
-    println!("migration check: {} ready", migrations.len());
+    report_tolerated("migration check", &found);
+    if found.tolerated.is_empty() {
+        println!("migration check: {} ready", migrations.len());
+    } else {
+        println!(
+            "migration check: {} ready; {} newer additive migration(s) tolerated: {}",
+            migrations.len(),
+            found.tolerated.len(),
+            found.tolerated.join(", ")
+        );
+    }
     Ok(())
 }
 fn lock(client: &mut Client) -> Result<()> {
@@ -316,21 +352,73 @@ fn record(
     status: &str,
     legacy: &[i64],
 ) -> Result<()> {
-    client.execute("INSERT INTO public.migrations(name,checksum,status,legacy_completed_at) VALUES($1,$2,$3,$4)", &[&m.name,&m.checksum,&status,&legacy])?;
+    let declared = m.compat.map(Compat::as_str);
+    client.execute("INSERT INTO public.migrations(name,checksum,status,legacy_completed_at,compat) VALUES($1,$2,$3,$4,$5)", &[&m.name,&m.checksum,&status,&legacy,&declared])?;
     Ok(())
 }
-pub fn apply(client: &mut Client, migrations: &[Migration]) -> Result<usize> {
+/// Add the declaration column to a history table made by an earlier runner.
+/// Checked first, so a table that has it takes no ACCESS EXCLUSIVE lock.
+fn ensure_compat_column(client: &mut impl GenericClient) -> Result<()> {
+    let present: bool = client.query_one("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='migrations' AND column_name='compat')", &[])?.get(0);
+    if !present {
+        client.batch_execute("ALTER TABLE public.migrations ADD COLUMN compat text CHECK(compat IN ('additive','breaking'))")?;
+        println!("history: added the forward-compatibility declaration column");
+    }
+    Ok(())
+}
+/// Record this release's declarations for migrations already applied: fill a
+/// missing one; tighten additive to breaking; never loosen.
+fn sync_declarations(client: &mut impl GenericClient, release: &Release) -> Result<()> {
+    let found = history(client, release)?;
+    let declared: BTreeMap<String, Compat> = release
+        .migrations
+        .iter()
+        .filter_map(|m| m.compat.map(|c| (m.name.clone(), c)))
+        .collect();
+    let (writes, kept) = compat::sync(&found, &declared);
+    for (name, value) in &writes {
+        client.execute(
+            "UPDATE public.migrations SET compat=$2 WHERE name=$1",
+            &[name, &value.as_str()],
+        )?;
+        println!("declared {name} {}", value.as_str());
+    }
+    for name in kept {
+        println!(
+            "declaration kept: {name} stays breaking in history; this release says additive, and declarations are never loosened"
+        );
+    }
+    Ok(())
+}
+pub fn apply(client: &mut Client, release: &Release) -> Result<usize> {
     lock(client)?;
-    let count = apply_locked(client, migrations)?;
+    let count = apply_locked(client, release)?;
     client.query_one("SELECT pg_advisory_unlock($1)", &[&LOCK])?;
     Ok(count)
 }
 
-fn apply_locked(client: &mut Client, migrations: &[Migration]) -> Result<usize> {
+fn apply_locked(client: &mut Client, release: &Release) -> Result<usize> {
+    let migrations = &release.migrations;
     // Validate history and every pending retirement before CREATE HISTORY or
     // unrelated forward DDL. A refusal leaves the database unchanged.
     let prior = if exists(client, "public.migrations")? {
-        history(client, migrations)?
+        let found = history(client, release)?;
+        report_tolerated("apply", &found);
+        // A newer release's additive migrations may sit beside this release's
+        // complete chain (a rollback, or an old box mid-rollout). Never apply
+        // this release's own pending SQL after them: that order was never tested.
+        let pending: Vec<_> = migrations
+            .iter()
+            .filter(|m| !found.applied.contains_key(&m.name))
+            .map(|m| m.name.as_str())
+            .collect();
+        ensure!(
+            found.tolerated.is_empty() || pending.is_empty(),
+            "this release has pending migrations ({}) but the database already has newer ones from a later release ({}); no changes made",
+            pending.join(", "),
+            found.tolerated.join(", ")
+        );
+        found.applied
     } else {
         BTreeMap::new()
     };
@@ -354,7 +442,9 @@ fn apply_locked(client: &mut Client, migrations: &[Migration]) -> Result<usize> 
         );
         client.batch_execute(HISTORY)?;
     }
-    let applied = history(client, migrations)?;
+    ensure_compat_column(client)?;
+    sync_declarations(client, release)?;
+    let applied = history(client, release)?.applied;
     let mut count = 0;
     for m in migrations.iter().filter(|m| !applied.contains_key(&m.name)) {
         if m.name.starts_with("000000_") {
@@ -473,10 +563,11 @@ fn queue_version(tx: &mut impl GenericClient, migrations: &[Migration]) -> Resul
 /// Existing queues use their catalog verifiers, never install-row presence alone.
 pub fn reconcile(
     client: &mut Client,
-    migrations: &[Migration],
+    release: &Release,
     dir: &Path,
     through: &str,
 ) -> Result<usize> {
+    let migrations = &release.migrations;
     ensure!(
         through.len() == 6 && through.bytes().all(|b| b.is_ascii_digit()),
         "--through requires six digits"
@@ -486,21 +577,22 @@ pub fn reconcile(
         "unknown --through version"
     );
     lock(client)?;
-    let count = reconcile_locked(client, migrations, dir, through)?;
+    let count = reconcile_locked(client, release, dir, through)?;
     client.query_one("SELECT pg_advisory_unlock($1)", &[&LOCK])?;
     Ok(count)
 }
 
 fn reconcile_locked(
     client: &mut Client,
-    migrations: &[Migration],
+    release: &Release,
     dir: &Path,
     through: &str,
 ) -> Result<usize> {
+    let migrations = &release.migrations;
     let mut tx = client.transaction()?;
     let modern = tx.query_one("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='migrations' AND column_name='checksum')", &[])?.get::<_,bool>(0);
     if modern {
-        history(&mut tx, migrations)?;
+        history(&mut tx, release)?;
         bail!("history is already reconciled; use apply/check");
     }
     ensure!(
@@ -595,7 +687,8 @@ fn reconcile_locked(
 /// Release deployment: classify history while holding the same lock as apply.
 /// The 000022 bound is this release's reviewed legacy contract, not a guess
 /// from a failed apply. Later/partial/unknown schemas must still pass reconcile.
-pub fn deploy(client: &mut Client, migrations: &[Migration], dir: &Path) -> Result<()> {
+pub fn deploy(client: &mut Client, release: &Release, dir: &Path) -> Result<()> {
+    let migrations = &release.migrations;
     lock(client)?;
     let modern: bool = client.query_one("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='migrations' AND column_name='checksum')", &[])?.get(0);
     let populated: bool = client.query_one("SELECT EXISTS(SELECT 1 FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind IN ('r','p','v','m','S','f')) OR EXISTS(SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace) OR EXISTS(SELECT 1 FROM pg_type WHERE typnamespace='public'::regnamespace AND typtype IN ('e','d'))", &[])?.get(0);
@@ -608,10 +701,10 @@ pub fn deploy(client: &mut Client, migrations: &[Migration], dir: &Path) -> Resu
             migrations.iter().any(|m| m.name.starts_with("000022_")),
             "deploy requires the reviewed 000022 adoption bound"
         );
-        reconcile_locked(client, migrations, dir, "000022")?;
+        reconcile_locked(client, release, dir, "000022")?;
     }
-    apply_locked(client, migrations)?;
-    check(client, migrations)?;
+    apply_locked(client, release)?;
+    check(client, release)?;
     client.query_one("SELECT pg_advisory_unlock($1)", &[&LOCK])?;
     Ok(())
 }

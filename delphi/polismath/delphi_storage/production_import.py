@@ -215,7 +215,7 @@ def _classify(family, item, conversations, reports):
 
 
 def census(client, database, conversations, reports, allowed_missing=(), *, validate_schema=True,
-           pacer=None, resume=False):
+           pacer=None, resume=False, skipped=()):
     """Read every page of every known family; keep all rows, including unmapped.
 
     The read-only report uses Scan alone and validates row keys with the codec.
@@ -224,6 +224,9 @@ def census(client, database, conversations, reports, allowed_missing=(), *, vali
     throttle backoff). Rows and the next ExclusiveStartKey commit together per
     page in `database`, so with `resume=True` an interrupted or paused census
     continues from its last committed page instead of starting over.
+    A family in `skipped` is never read at all (not even one Scan) and is
+    reported under `skipped`; use it for a source table that is deliberately
+    excluded from the import, such as one outside this role's read permission.
     """
     pacer = pacer or scan_pacing.ScanPacer()
     db = _open_census(database, conversations, reports, resume)
@@ -233,6 +236,14 @@ def census(client, database, conversations, reports, allowed_missing=(), *, vali
         missing = []
         for family, definition in sorted(codec.FAMILIES.items()):
             state, start = progress.get(family, ('scanning', None))
+            if family in skipped:
+                if state not in ('scanning', 'skipped') or start is not None:
+                    raise ValueError('skipped family was already scanned')
+                db.execute('INSERT OR REPLACE INTO scan_progress VALUES(?,?,NULL)', (family, 'skipped'))
+                db.commit()
+                continue
+            if state == 'skipped':
+                raise ValueError('previously skipped family must stay skipped on resume')
             if state == 'missing':
                 if family not in allowed_missing:
                     raise ValueError('unapproved missing source table')
@@ -313,8 +324,10 @@ def census(client, database, conversations, reports, allowed_missing=(), *, vali
             inventory[family] = h.hexdigest()
     finally:
         db.close()
-    return dict(counts=counts, inventory=inventory, missing=missing,
-                source_sha256=sha(legacy.json_bytes(dict(inventory=inventory, missing=missing))))
+    skipped = sorted(skipped)
+    return dict(counts=counts, inventory=inventory, missing=missing, skipped=skipped,
+                source_sha256=sha(legacy.json_bytes(dict(inventory=inventory, missing=missing,
+                                                          skipped=skipped))))
 
 
 def materialize(database, root, summary):

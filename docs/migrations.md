@@ -159,6 +159,68 @@ data effects and reversal/restore plan at merge time. Update these public
 upgrade records in that change. The manual sitting and client stage/unstage
 steps are retired; no separate staging ceremony is required.
 
+## Forward compatibility
+
+A release may run beside migrations it does not list: after a rollback to an
+earlier release, or on a box still on the previous release while a rolling
+deployment of a migration release reaches the other boxes. Whether that is safe
+is declared once, per migration, in `server/postgres/migrations/compat.txt`:
+
+```text
+<migration file> <additive|breaking>
+```
+
+One line per migration, one space, `#` comments, numbers in order. `additive`
+means a release that does not list the migration still runs correctly once it
+is applied; `breaking` means it does not. Every name must be in `release.txt`
+or `held.txt`. A new migration adds its own line beside its `release.txt` line,
+with its evidence in the pull request; every later release keeps every line.
+
+An earlier release cannot read a later release's files, so the declaration
+travels in the database. `polis-migrate apply`/`deploy` records it in the
+nullable `compat` column of `public.migrations` when it applies a migration,
+and fills it for already-applied migrations of its own release on every deploy.
+A history table made by an earlier runner gains the column on the first deploy
+of a release with this rule (one `ALTER TABLE`, under the migration lock, only
+when the column is missing). Recorded declarations only tighten: `additive` can
+become `breaking`, never the reverse; a release that says `additive` for a row
+recorded `breaking` logs `declaration kept`.
+
+Both the runner (`check`, `apply`, `deploy`) and the API startup gate apply one
+rule to a history row the release does not select:
+
+- same file as a held migration: the checksum must still match;
+- same number as one of this release's migrations under another name: refuse;
+- recorded `additive`: tolerated and logged
+  (`tolerating <name>: applied by a release that declared it additive`);
+- recorded `breaking`, or no declaration (an earlier runner, or a line missing
+  from `compat.txt`): refuse (`history names migration absent from this release`).
+
+This release's own migrations are still required, and checksum-verified, as
+before. `apply` never runs this release's pending SQL after a tolerated newer
+migration; that order is refused before any change. The rule only helps
+releases that contain it: a release built before it refuses every newer row.
+
+Declarations for 000019–000030 (the older code is the release just before each
+migration, as recorded in `release.txt` history):
+
+| Migration | Declared | Evidence |
+|---|---|---|
+| 000000–000018 | breaking | Predate the runner; no release without them is deployed. Not evaluated, so fail closed. |
+| 000019 queue | additive | Only new queue tables, roles, functions and grants; the code before it has no queue. |
+| 000021 coordinator (held) | additive | Only new `polis_coordinator_*` objects with policies on its own tables; never applied by this release. |
+| 000022 poll indexes | additive | Two btree indexes. |
+| 000023 Delphi foundation | additive | Replaced queue functions and CHECKs only widen; the noop `/1` path and existing grants are unchanged; new columns are nullable or defaulted. |
+| 000024 large class | breaking | Rewrites `polis_queue_install.contract_version` to `polis-queue/3` and narrows its CHECK; the earlier `polis-jobs` daemon starts only on `polis-queue/2` and exits. |
+| 000027 job graphs | breaking | Rewrites the installed contract to `polis-queue/5`; the earlier daemon admits only `/2` and `/3` and exits. |
+| 000028 Delphi results | additive | New result tables and functions; its trigger on `delphi_artifacts` acts only on payload keys the earlier release never writes. |
+| 000029 graph stages | additive | Stage and kind CHECKs are strict supersets of 000027's; `pd_graph_admit` keeps its signature and only accepts more. |
+| 000030 Delphi writers | additive | New writer tables and functions; `pd_finalize` keeps its signature and its earlier path unless a writer run exists, which only the new admission creates. |
+
+So a rollback to a release with this rule that lists 000027 starts beside
+000028–000030; a rollback past 000027 (or 000024) refuses, as it must: the
+earlier queue daemon would exit on the newer contract.
+
 ## CI and local test stacks
 
 The migration-runner CI fresh-image step and the mm2/mm5 proof use exactly:

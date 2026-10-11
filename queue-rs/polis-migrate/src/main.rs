@@ -36,19 +36,19 @@ fn run() -> Result<()> {
     if (command == "reconcile") != through.is_some() {
         bail!("only reconcile requires --through NNNNNN");
     }
-    let migrations = polis_migrate::load(&dir)?;
+    let release = polis_migrate::load(&dir)?;
     let dsn = env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?;
     let mut client = polis_migrate::connect(&dsn)?;
     match command.as_str() {
-        "deploy" => polis_migrate::deploy(&mut client, &migrations, &dir)?,
+        "deploy" => polis_migrate::deploy(&mut client, &release, &dir)?,
         "apply" => {
-            polis_migrate::apply(&mut client, &migrations)?;
+            polis_migrate::apply(&mut client, &release)?;
         }
-        "check" => polis_migrate::check(&mut client, &migrations)?,
+        "check" => polis_migrate::check(&mut client, &release)?,
         "reconcile" => {
             polis_migrate::reconcile(
                 &mut client,
-                &migrations,
+                &release,
                 &dir,
                 through.as_deref().unwrap_or(""),
             )?;

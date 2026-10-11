@@ -66,7 +66,8 @@ FAKES = {
     "docker-compose": RECORD,
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     "jq": RECORD + 'echo value\n',
-    "git": RECORD + 'case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;; esac\n',
+    "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
+                     '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
         'case "$*" in\n'
         '  *ollama*) exit 255;;\n'
@@ -125,9 +126,17 @@ def _run(tmp_path, script_path, rules, root, env):
     return proc, log
 
 
-def _deploy(tmp_path, service_type, migration_failure="", **kw):
+REVISION = "89abcdef0123456789abcdef0123456789abcdef"
+
+
+def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
+            not_on_branch=False, **kw):
     root, env = _box(tmp_path, service_type, **kw)
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
+    env["FAKE_NOT_ON_BRANCH"] = "1" if not_on_branch else ""
+    # The deploy workflow writes the bundle's commit next to the hook.
+    if revision is not None:
+        (tmp_path / "deploy-revision.txt").write_text(revision + "\n")
     rules = [("/usr/local/bin/docker-compose", "docker-compose", 3),
              ("/etc/app-info/", f"{root}/etc/app-info/", 2),
              ("/etc/systemd/system/", f"{root}/etc/systemd/system/", 0),
@@ -252,3 +261,29 @@ def test_migration_failure_preserves_every_running_service(tmp_path, service_typ
     assert _calls(log, "systemctl") == []
     docker = _calls(log, "docker")
     assert [call.split()[0] for call in docker] == (["build"] if failure == "build" else ["build", "run"])
+
+
+def test_the_checkout_is_the_bundle_commit_not_the_branch_head(tmp_path):
+    proc, log = _deploy(tmp_path, "server")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    git = _calls(log, "git")
+    assert f"reset --hard {REVISION}" in git
+    assert not [c for c in git if c.startswith(("pull", "reset --hard origin/"))]
+    assert git.index(f"merge-base --is-ancestor {REVISION} origin/stable") < git.index(f"reset --hard {REVISION}")
+    # Checked out before the runner is built, so the migrations are this commit's.
+    assert log.index(f"git reset --hard {REVISION}") < log.index(
+        "docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile .")
+
+
+@pytest.mark.parametrize("revision,not_on_branch,reason", [
+    (None, False, "names no source commit"),
+    ("stable", False, "names no source commit"),
+    ("0123", False, "names no source commit"),
+    (REVISION, True, "is not on origin/stable"),
+])
+def test_a_bundle_without_an_on_branch_commit_deploys_nothing(tmp_path, revision, not_on_branch, reason):
+    proc, log = _deploy(tmp_path, "server", revision=revision, not_on_branch=not_on_branch)
+    assert proc.returncode != 0
+    assert reason in proc.stdout
+    assert not [c for c in _calls(log, "git") if c.startswith("reset")]
+    assert _calls(log, "docker") == [] and _calls(log, "docker-compose") == []
