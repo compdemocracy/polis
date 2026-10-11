@@ -12,12 +12,14 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
 import time
+import uuid
 
-from . import codec, legacy_import as legacy
+from . import codec, legacy_import as legacy, scan_pacing
 
 SNAPSHOTS = Path('/import/snapshots')
 FAMILY_LIMIT = 64 * 1024 * 1024
@@ -102,75 +104,215 @@ def bind(item, conversations, reports):
     return next(iter(candidates)) if len(candidates) == 1 else None
 
 
-def census(client, database, conversations, reports, allowed_missing=(), *, validate_schema=True):
+PROGRESS_SCHEMA = (
+    'CREATE TABLE rows(family TEXT, k BLOB, zid INTEGER, disposition TEXT, wire BLOB, PRIMARY KEY(family,k))',
+    'CREATE TABLE census_meta(name TEXT PRIMARY KEY, value TEXT NOT NULL)',
+    # One row per family: scanning (with the next ExclusiveStartKey), done or missing.
+    'CREATE TABLE scan_progress(family TEXT PRIMARY KEY, state TEXT NOT NULL, start TEXT)',
+    'CREATE TABLE scan_tokens(family TEXT, token TEXT, PRIMARY KEY(family,token))',
+)
+
+
+ATTEMPT_COMPLETE = 'complete'
+
+
+def pacing_arguments(parser):
+    """Shared CLI bounds for every census Scan (no DescribeTable discovery)."""
+    parser.add_argument('--max-read-units-per-second', type=float,
+                        default=scan_pacing.DEFAULT_MAX_READ_UNITS_PER_SECOND,
+                        help='ceiling on consumed read units per second across all tables')
+    parser.add_argument('--scan-page-limit', type=int, default=scan_pacing.DEFAULT_PAGE_LIMIT)
+    parser.add_argument('--max-throttle-retries', type=int,
+                        default=scan_pacing.DEFAULT_MAX_THROTTLE_RETRIES,
+                        help='consecutive throttled attempts per page before pausing for --resume')
+    parser.add_argument('--resume', action='store_true',
+                        help='continue the single incomplete attempt from its scan checkpoints')
+
+
+def pacer_from(args):
+    return scan_pacing.ScanPacer(args.max_read_units_per_second, page_limit=args.scan_page_limit,
+                                 max_throttle_retries=args.max_throttle_retries)
+
+
+def attempt_directory(scratch, prefix, resume):
+    """A new private attempt, or the one incomplete attempt to continue."""
+    if not resume:
+        attempt = scratch / (prefix + uuid.uuid4().hex)
+        attempt.mkdir(mode=0o700)
+        return attempt
+    candidates = [p for p in scratch.iterdir()
+                  if re.fullmatch(re.escape(prefix) + '[0-9a-f]{32}', p.name)
+                  and not p.is_symlink() and p.is_dir() and not (p / ATTEMPT_COMPLETE).exists()]
+    if len(candidates) != 1:
+        raise ValueError('exactly one incomplete attempt required to resume')
+    attempt = candidates[0]
+    # Only the census databases carry progress; later outputs are rebuilt from them.
+    for derived in ('snapshot', 'report.jsonl'):
+        path = attempt / derived
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
+    return attempt
+
+
+def finish_attempt(attempt):
+    write_private(attempt / ATTEMPT_COMPLETE, b'')
+
+
+def _start_key(raw):
+    """Decode a checkpointed LastEvaluatedKey; source keys are only S/N."""
+    value = json.loads(raw)
+    if (not isinstance(value, dict) or not value or not all(
+            isinstance(k, str) and isinstance(v, dict) and len(v) == 1 and
+            next(iter(v)) in ('S', 'N') and isinstance(next(iter(v.values())), str)
+            for k, v in value.items())):
+        raise ValueError('invalid scan checkpoint')
+    return value
+
+
+def _open_census(database, conversations, reports, resume):
+    """New census database, or an existing checkpoint bound to the same mapping."""
+    binding = sha(legacy.json_bytes(dict(conversations=conversations,
+                                         reports=sorted(reports.items()))))
+    existing = Path(database).exists()
+    if existing and not resume:
+        raise ValueError('census database already exists')
+    db = sqlite3.connect(database)
+    if not existing:
+        for statement in PROGRESS_SCHEMA:
+            db.execute(statement)
+        db.execute("INSERT INTO census_meta VALUES('binding',?)", (binding,))
+        db.commit()
+        return db
+    try:
+        row = db.execute("SELECT value FROM census_meta WHERE name='binding'").fetchone()
+    except sqlite3.DatabaseError:
+        db.close()
+        raise ValueError('census checkpoint unreadable') from None
+    if row is None:
+        db.close()
+        raise ValueError('census checkpoint unreadable')
+    if row[0] != binding:
+        # Conversations may be created while a paused census waits. Rows keep
+        # their exact source bytes, so re-derive every binding under the new
+        # mapping rather than mixing two mappings in one census.
+        updates = []
+        for family, key, wire in db.execute('SELECT family,k,wire FROM rows'):
+            item = {k: codec._decode_av(v) for k, v in json.loads(wire).items()}
+            updates.append((*_classify(family, item, conversations, reports), family, key))
+        db.executemany('UPDATE rows SET zid=?,disposition=? WHERE family=? AND k=?', updates)
+        db.execute("UPDATE census_meta SET value=? WHERE name='binding'", (binding,))
+        db.commit()
+    return db
+
+
+def _classify(family, item, conversations, reports):
+    zid = bind(item, conversations, reports)
+    disposition = ('archived' if family in legacy.CONTROL_FAMILIES else
+                   'quarantined' if zid is None or legacy.has_nul(item) else 'imported')
+    return zid, disposition
+
+
+def census(client, database, conversations, reports, allowed_missing=(), *, validate_schema=True,
+           pacer=None, resume=False):
     """Read every page of every known family; keep all rows, including unmapped.
 
     The read-only report uses Scan alone and validates row keys with the codec.
     Import/apply callers retain the table-schema preflight by default.
+    Every Scan goes through `pacer` (eventually consistent, limited, metered,
+    throttle backoff). Rows and the next ExclusiveStartKey commit together per
+    page in `database`, so with `resume=True` an interrupted or paused census
+    continues from its last committed page instead of starting over.
     """
-    db = sqlite3.connect(database)
-    db.execute('CREATE TABLE rows(family TEXT, k BLOB, zid INTEGER, disposition TEXT, wire BLOB, PRIMARY KEY(family,k))')
-    counts, missing = {}, []
-    for family, definition in sorted(codec.FAMILIES.items()):
-        counts[family] = dict(source=0, imported=0, archived=0, quarantined=0)
-        if validate_schema:
-            try:
-                description = client.describe_table(TableName=family)['Table']
-            except client.exceptions.ResourceNotFoundException:
+    pacer = pacer or scan_pacing.ScanPacer()
+    db = _open_census(database, conversations, reports, resume)
+    try:
+        progress = {family: (state, start) for family, state, start in
+                    db.execute('SELECT family,state,start FROM scan_progress')}
+        missing = []
+        for family, definition in sorted(codec.FAMILIES.items()):
+            state, start = progress.get(family, ('scanning', None))
+            if state == 'missing':
                 if family not in allowed_missing:
-                    raise ValueError('unapproved missing source table') from None
+                    raise ValueError('unapproved missing source table')
                 missing.append(family)
                 continue
-            keys = description['KeySchema']
-            types = {a['AttributeName']: a['AttributeType'] for a in description['AttributeDefinitions']}
-            actual = [(k['AttributeName'], types[k['AttributeName']]) for k in
-                      sorted(keys, key=lambda k: k['KeyType'] != 'HASH')]
-            if actual != definition['key']:
-                raise ValueError('source key schema mismatch')
-        start, seen = None, set()
-        while True:
-            args = dict(TableName=family, ConsistentRead=True, Limit=100)
-            if start:
-                args['ExclusiveStartKey'] = start
-            try:
-                response = client.scan(**args)
-            except client.exceptions.ResourceNotFoundException:
-                if validate_schema:
-                    raise  # Preserve the checked importer's failure after its preflight.
-                # A table lost mid-scan must never become a successful partial census.
-                if start or counts[family]['source']:
-                    raise ValueError('source table disappeared during scan') from None
-                if family not in allowed_missing:
-                    raise ValueError('unapproved missing source table') from None
-                missing.append(family)
-                break
-            for item in response.get('Items', []):
-                wire = codec.encode_item(family, item).encode('utf-8')
-                key = codec.dumps([json.loads(wire)[name] for name, _ in definition['key']]).encode('utf-8')
-                zid = bind(item, conversations, reports)
-                disposition = ('archived' if family in legacy.CONTROL_FAMILIES else
-                               'quarantined' if zid is None or legacy.has_nul(item) else 'imported')
+            if state == 'done':
+                continue
+            start = _start_key(start) if start else None
+            if validate_schema:
                 try:
-                    db.execute('INSERT INTO rows VALUES(?,?,?,?,?)', (family, key, zid, disposition, wire))
-                except sqlite3.IntegrityError:
-                    raise ValueError('duplicate source key during scan') from None
-                counts[family]['source'] += 1
-                counts[family][disposition] += 1
-            start = response.get('LastEvaluatedKey')
-            if not start:
-                break
-            token = sha(legacy.json_bytes({k: str(v) for k, v in sorted(start.items())}))
-            if token in seen:
-                raise ValueError('repeated source continuation')
-            seen.add(token)
-        db.commit()
-    inventory = {}
-    for family in sorted(codec.FAMILIES):
-        h = hashlib.sha256((codec.header(family) + '\n').encode())
-        for (wire,) in db.execute('SELECT wire FROM rows WHERE family=? ORDER BY k', (family,)):
-            h.update(wire + b'\n')
-        inventory[family] = h.hexdigest()
-    db.close()
+                    description = client.describe_table(TableName=family)['Table']
+                except client.exceptions.ResourceNotFoundException:
+                    if family not in allowed_missing:
+                        raise ValueError('unapproved missing source table') from None
+                    db.execute('INSERT OR REPLACE INTO scan_progress VALUES(?,?,NULL)', (family, 'missing'))
+                    db.commit()
+                    missing.append(family)
+                    continue
+                keys = description['KeySchema']
+                types = {a['AttributeName']: a['AttributeType'] for a in description['AttributeDefinitions']}
+                actual = [(k['AttributeName'], types[k['AttributeName']]) for k in
+                          sorted(keys, key=lambda k: k['KeyType'] != 'HASH')]
+                if actual != definition['key']:
+                    raise ValueError('source key schema mismatch')
+            while True:
+                args = dict(TableName=family)
+                if start:
+                    args['ExclusiveStartKey'] = start
+                try:
+                    response = pacer.scan(client, **args)
+                except client.exceptions.ResourceNotFoundException:
+                    if validate_schema:
+                        raise  # Preserve the checked importer's failure after its preflight.
+                    # A table lost mid-scan must never become a successful partial census.
+                    stored = db.execute('SELECT COUNT(*) FROM rows WHERE family=?', (family,)).fetchone()[0]
+                    if start or stored:
+                        raise ValueError('source table disappeared during scan') from None
+                    if family not in allowed_missing:
+                        raise ValueError('unapproved missing source table') from None
+                    db.execute('INSERT OR REPLACE INTO scan_progress VALUES(?,?,NULL)', (family, 'missing'))
+                    db.commit()
+                    missing.append(family)
+                    break
+                for item in response.get('Items', []):
+                    wire = codec.encode_item(family, item).encode('utf-8')
+                    key = codec.dumps([json.loads(wire)[name] for name, _ in definition['key']]).encode('utf-8')
+                    zid, disposition = _classify(family, item, conversations, reports)
+                    try:
+                        db.execute('INSERT INTO rows VALUES(?,?,?,?,?)', (family, key, zid, disposition, wire))
+                    except sqlite3.IntegrityError:
+                        raise ValueError('duplicate source key during scan') from None
+                start = response.get('LastEvaluatedKey')
+                if start:
+                    token = sha(legacy.json_bytes({k: str(v) for k, v in sorted(start.items())}))
+                    try:
+                        db.execute('INSERT INTO scan_tokens VALUES(?,?)', (family, token))
+                    except sqlite3.IntegrityError:
+                        raise ValueError('repeated source continuation') from None
+                    checkpoint = ('scanning', json.dumps(start, sort_keys=True))
+                else:
+                    checkpoint = ('done', None)
+                # The page's rows and its continuation commit atomically.
+                db.execute('INSERT OR REPLACE INTO scan_progress VALUES(?,?,?)', (family, *checkpoint))
+                db.commit()
+                if not start:
+                    break
+        counts = {family: dict(source=0, imported=0, archived=0, quarantined=0)
+                  for family in codec.FAMILIES}
+        for family, disposition, count in db.execute(
+                'SELECT family,disposition,COUNT(*) FROM rows GROUP BY family,disposition'):
+            counts[family]['source'] += count
+            counts[family][disposition] += count
+        inventory = {}
+        for family in sorted(codec.FAMILIES):
+            h = hashlib.sha256((codec.header(family) + '\n').encode())
+            for (wire,) in db.execute('SELECT wire FROM rows WHERE family=? ORDER BY k', (family,)):
+                h.update(wire + b'\n')
+            inventory[family] = h.hexdigest()
+    finally:
+        db.close()
     return dict(counts=counts, inventory=inventory, missing=missing,
                 source_sha256=sha(legacy.json_bytes(dict(inventory=inventory, missing=missing))))
 

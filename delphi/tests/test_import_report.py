@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from polismath.delphi_storage import import_report as report
 from polismath.delphi_storage import production_import as imp
-from test_production_import import Source, row, FAMILY
+from test_production_import import Source, row, FAMILY, no_pacing_sleep  # noqa: F401 (autouse)
 
 
 def load(name, path):
@@ -125,7 +125,7 @@ def test_scan_only_census_matches_checked_importer(tmp_path):
     actual = imp.census(source, tmp_path/'scan', {'1': 1}, {}, validate_schema=False)
     assert actual == expected
     assert len(source.calls) == len(imp.codec.FAMILIES) + 2
-    assert all(call['ConsistentRead'] is True for call in source.calls)
+    assert all(call['ConsistentRead'] is False for call in source.calls)
     assert any('ExclusiveStartKey' in call for call in source.calls)
 
 
