@@ -50,7 +50,7 @@ fn client(config: &profiles::Config, site: &str, timeout: u64, required: bool) -
     if required && token.is_none() {
         return Err(Error::new(
             "auth_required",
-            "No token configured for this site.",
+            "Not signed in.",
             "Run polis auth login.",
             3,
         ));
@@ -211,7 +211,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 }
                 let storage = if m.get_flag("with-token") {
                     profiles::store_file(site, url, &token)?;
-                    "owner-only file (0600)"
+                    profiles::STORAGE_FILE
                 } else {
                     profiles::store(site, url, &token)?
                 };
@@ -225,7 +225,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     false,
                 )?;
                 Ok(
-                    json!({"state":"authenticated","origin":url,"storage":"existing site-bound credential"}),
+                    json!({"state":"authenticated","origin":url,"storage":"existing saved credential"}),
                 )
             }
         }
@@ -233,7 +233,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             let token = oauth::access_token(config, site, timeout)?.ok_or_else(|| {
                 Error::new(
                     "auth_required",
-                    "No token configured for this site.",
+                    "Not signed in.",
                     "Run polis auth login.",
                     3,
                 )
@@ -255,7 +255,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "auth logout" => {
             profiles::logout(site, config.url(site)?)?;
             Ok(
-                json!({"state":"logged_out","keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":std::env::var_os(profiles::token_env(site)).is_some(),"note":"Access and refresh credentials erased; a tombstone suppresses older Keychain values. Keychain deletion may be deferred in headless mode. Unset the profile token variable separately if present."}),
+                json!({"state":"logged_out","keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Access and refresh credentials erased; a tombstone suppresses older Keychain values. Keychain deletion may be deferred in headless mode. Unset {} separately if present.", profiles::token_env(site))}),
             )
         }
         "conversation list" => {

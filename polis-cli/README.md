@@ -82,14 +82,24 @@ The CLI does not retry an API mutation after a 401 or decode JWTs for authorizat
 Credential reads refuse symlinks, nonregular/multiply linked files, other owners,
 group/world permissions and mismatched bindings. Keep the credential directory
 out of repositories and shared backups. Profiles contain configuration only.
-OAuth sessions always use this file backend; manual `--token-stdin` can use macOS
-Keychain with the file fallback. `--with-token` explicitly uses the file backend;
+On macOS an interactive sign-in (browser, device or `--token-stdin`) saves the
+credential record in the login Keychain; the credential file then holds only a
+secret-free pointer, the lock and logout tombstones. The owner-only file holds the
+record itself only as a fallback: when the Keychain cannot be written, under
+`--no-interactive`, on other platforms, and for an older file sign-in until the next
+interactive sign-in moves it. A refresh rotation stays in the backend that holds the
+session, falling back to the file if the Keychain write fails. `login` reports the
+backend used in `storage`. `--with-token` explicitly uses the file backend;
 `--token-stdin --no-store` validates without persistence. Manual access tokens have
 no issuer refresh credential or tracked lifetime.
 
-`--no-interactive` suppresses browser and Keychain UI; device login still needs
+`--no-interactive` never shows browser or Keychain dialogs; it still reads and
+rotates a Keychain sign-in when macOS needs no unlock or access approval, and
+otherwise fails with `credential_store_unavailable`. Device login still needs
 approval in another browser. `--no-browser` prints the PKCE URL for opening on the
-same machine. `POLIS_TOKEN_<UPPERCASE_PROFILE>` overrides saved access tokens;
+same machine. `POLIS_TOKEN` overrides saved access tokens for pol.is (the older
+`POLIS_TOKEN_PROD` still works; `POLIS_TOKEN` wins if both are set), and
+`POLIS_TOKEN_<UPPERCASE_PROFILE>` does so for developer profiles;
 unset it separately after logout. Logout clears local access/refresh credentials
 and leaves a token-free tombstone suppressing older Keychain entries; Keychain
 deletion is best effort. It does **not** revoke the issuer grant or end the provider

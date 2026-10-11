@@ -84,49 +84,235 @@ impl Config {
         Ok(url)
     }
 }
-pub fn token_env(site: &str) -> String {
+/// The shipped default profile (pol.is). Its token variable carries no profile suffix.
+fn default_profile() -> String {
+    let defaults: serde_json::Value =
+        serde_json::from_str(DEFAULTS).expect("shipped profile defaults are valid");
+    defaults["default"]
+        .as_str()
+        .expect("shipped default profile")
+        .to_owned()
+}
+fn profile_token_env(site: &str) -> String {
     format!("POLIS_TOKEN_{}", site.to_ascii_uppercase())
 }
-fn entry(site: &str, url: &str) -> Result<keyring::Entry> {
-    if !keychain_allowed() {
-        return Err(Error::new("credential_store_disabled", "Keychain access is disabled by --no-interactive.", "Use the profile-specific token environment variable; omit --no-interactive for Keychain changes.", 3));
+/// The token override variable to show users: `POLIS_TOKEN` for the shipped pol.is
+/// profile, `POLIS_TOKEN_<PROFILE>` for developer profiles.
+pub fn token_env(site: &str) -> String {
+    if site == default_profile() {
+        "POLIS_TOKEN".into()
+    } else {
+        profile_token_env(site)
     }
-    keyring::Entry::new("org.pol.is.cli", &format!("{site}@{url}")).map_err(|_| store_error())
 }
+/// Variables read in order. The pol.is profile still accepts its older
+/// profile-suffixed name, so existing overrides keep working.
+fn token_envs(site: &str) -> Vec<String> {
+    if site == default_profile() {
+        vec!["POLIS_TOKEN".into(), profile_token_env(site)]
+    } else {
+        vec![profile_token_env(site)]
+    }
+}
+pub fn token_override_present(site: &str) -> bool {
+    token_envs(site)
+        .iter()
+        .any(|name| std::env::var_os(name).is_some())
+}
+fn token_override(site: &str) -> Result<Option<String>> {
+    for name in token_envs(site) {
+        match std::env::var(&name) {
+            Ok(t) => {
+                validate_token(&t)?;
+                return Ok(Some(t));
+            }
+            Err(std::env::VarError::NotUnicode(_)) => {
+                return Err(Error::input(
+                    "Token environment variable is not valid text.",
+                ))
+            }
+            Err(std::env::VarError::NotPresent) => {}
+        }
+    }
+    Ok(None)
+}
+/// Child processes (browser launchers) never inherit bearer overrides.
+pub fn strip_token_env(command: &mut std::process::Command) {
+    for (key, _) in std::env::vars_os() {
+        let key = key.to_string_lossy();
+        if key == "POLIS_TOKEN" || key.starts_with("POLIS_TOKEN_") {
+            command.env_remove(key.as_ref());
+        }
+    }
+}
+macro_rules! token_env_help {
+    () => {
+        "POLIS_TOKEN (POLIS_TOKEN_<PROFILE> for developer profiles)"
+    };
+}
+pub const STORAGE_KEYCHAIN: &str = "macOS Keychain";
+pub const STORAGE_FILE: &str = "owner-only file (0600)";
+
+// Credential backends. On macOS an interactive sign-in stores the credential record
+// in the login Keychain and leaves a secret-free pointer in the credential file. The
+// file then still carries the lock, the binding and logout tombstones, so a pointer
+// or tombstone decides which backend is current and stale Keychain items stay
+// suppressed. The owner-only file holds the record itself when the Keychain is not
+// available, under --no-interactive, with --with-token, and on other platforms.
+const DEFAULT_KEYCHAIN_SERVICE: &str = "org.pol.is.cli";
+fn keychain_service() -> Result<String> {
+    match std::env::var("POLIS_KEYCHAIN_SERVICE") {
+        Ok(v) if !v.is_empty() && v.len() <= 128 && !v.chars().any(char::is_control) => Ok(v),
+        Ok(_) | Err(std::env::VarError::NotUnicode(_)) => Err(Error::input(
+            "POLIS_KEYCHAIN_SERVICE must be 1–128 printable characters.",
+        )),
+        Err(std::env::VarError::NotPresent) => Ok(DEFAULT_KEYCHAIN_SERVICE.into()),
+    }
+}
+fn keychain_supported() -> bool {
+    cfg!(target_os = "macos")
+}
+
+#[cfg(target_os = "macos")]
+mod no_ui {
+    #[link(name = "Security", kind = "framework")]
+    extern "C" {
+        fn SecKeychainSetUserInteractionAllowed(state: u8) -> i32;
+    }
+    /// While held, Keychain calls fail instead of showing an unlock or access dialog.
+    pub struct Guard;
+    pub fn guard() -> Option<Guard> {
+        // SAFETY: a process-wide flag with no pointer arguments.
+        (unsafe { SecKeychainSetUserInteractionAllowed(0) } == 0).then_some(Guard)
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            // SAFETY: as above; restores the default.
+            unsafe {
+                SecKeychainSetUserInteractionAllowed(1);
+            }
+        }
+    }
+}
+#[cfg(not(target_os = "macos"))]
+mod no_ui {
+    pub struct Guard;
+    pub fn guard() -> Option<Guard> {
+        None
+    }
+}
+
 fn store_error() -> Error {
-    Error::new(
-        "credential_store_unavailable",
-        "Cannot access macOS Keychain.",
-        "Unlock your Keychain or use the profile-specific POLIS_TOKEN_<SITE> environment variable.",
-        3,
-    )
+    if keychain_allowed() {
+        Error::new(
+            "credential_store_unavailable",
+            "Cannot access the macOS Keychain.",
+            concat!(
+                "Unlock your login Keychain and allow polis access, or use ",
+                token_env_help!(),
+                "."
+            ),
+            3,
+        )
+    } else {
+        Error::new(
+            "credential_store_unavailable",
+            "The saved sign-in is in the macOS Keychain, which needs an unlock or access approval; --no-interactive does not show that dialog.",
+            concat!("Run polis auth status once in a terminal and allow access, or use ", token_env_help!(), "."),
+            3,
+        )
+    }
+}
+/// Runs one Keychain call; under --no-interactive it fails rather than prompting.
+fn with_keychain<T>(
+    site: &str,
+    url: &str,
+    f: impl FnOnce(&keyring::Entry) -> keyring::Result<T>,
+) -> Result<keyring::Result<T>> {
+    if !keychain_supported() {
+        return Err(store_error());
+    }
+    let _guard = if keychain_allowed() {
+        None
+    } else {
+        Some(no_ui::guard().ok_or_else(store_error)?)
+    };
+    let entry = keyring::Entry::new(&keychain_service()?, &format!("{site}@{url}"))
+        .map_err(|_| store_error())?;
+    Ok(f(&entry))
+}
+fn keychain_get(site: &str, url: &str) -> Result<Option<String>> {
+    match with_keychain(site, url, |e| e.get_password())? {
+        Ok(v) => Ok(Some(v)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(_) => Err(store_error()),
+    }
+}
+fn keychain_set(site: &str, url: &str, value: &str) -> Result<()> {
+    with_keychain(site, url, |e| e.set_password(value))?.map_err(|_| store_error())
+}
+fn keychain_delete(site: &str, url: &str) {
+    let _ = with_keychain(site, url, |e| e.delete_credential());
+}
+/// The current credential record: file record, Keychain record named by a pointer,
+/// tombstone (token and session both None), or None when nothing was ever saved.
+fn load(site: &str, url: &str) -> Result<Option<SavedToken>> {
+    let Some(file) = file_read(site, url)? else {
+        return Ok(None);
+    };
+    if !file.keychain {
+        return Ok(Some(file));
+    }
+    // A pointer whose Keychain item was removed reads as signed out.
+    let Some(raw) = keychain_get(site, url)? else {
+        return Ok(Some(SavedToken::tombstone(site, url)));
+    };
+    let record: SavedToken = serde_json::from_str(&raw).map_err(|_| store_error())?;
+    if record.site != site || record.origin != url || record.keychain {
+        return Err(store_error());
+    }
+    if let Some(t) = &record.token {
+        validate_token(t)?;
+    }
+    Ok(Some(record))
+}
+/// Caller holds credential_lock. Writes the record to the Keychain when preferred and
+/// available, otherwise to the owner-only file; returns the backend used.
+fn persist(site: &str, url: &str, record: &SavedToken, keychain: bool) -> Result<&'static str> {
+    // Validate any existing target before replacement; never follow a link.
+    let previous = file_read(site, url)?;
+    if keychain && keychain_supported() {
+        let value = serde_json::to_string(record).unwrap();
+        if keychain_set(site, url, &value).is_ok() {
+            write_record(site, url, &SavedToken::pointer(site, url))?;
+            return Ok(STORAGE_KEYCHAIN);
+        }
+    }
+    write_record(site, url, record)?;
+    // The file record now wins over any older Keychain item. Remove the copy this
+    // record replaces (best effort, never prompting under --no-interactive).
+    if previous.is_some_and(|p| p.keychain) {
+        keychain_delete(site, url);
+    }
+    Ok(STORAGE_FILE)
 }
 pub fn token(site: &str, url: &str) -> Result<Option<String>> {
-    match std::env::var(token_env(site)) {
-        Ok(t) => {
-            validate_token(&t)?;
-            return Ok(Some(t));
-        }
-        Err(std::env::VarError::NotUnicode(_)) => {
-            return Err(Error::input(
-                "Token environment variable is not valid text.",
-            ))
-        }
-        Err(_) => {}
+    if let Some(t) = token_override(site)? {
+        return Ok(Some(t));
     }
-    if let Some(saved) = file_read(site, url)? {
+    if let Some(saved) = load(site, url)? {
         return Ok(saved.token);
     }
-    if !keychain_allowed() {
+    // Manual tokens saved by older versions live in the Keychain without a pointer.
+    if !keychain_allowed() || !keychain_supported() {
         return Ok(None);
     }
-    match entry(site, url)?.get_password() {
-        Ok(t) => {
+    match keychain_get(site, url)? {
+        Some(t) if !t.starts_with('{') => {
             validate_token(&t)?;
             Ok(Some(t))
         }
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(_) => Err(store_error()),
+        _ => Ok(None),
     }
 }
 pub fn validate_token(token: &str) -> Result<()> {
@@ -142,18 +328,17 @@ pub fn validate_token(token: &str) -> Result<()> {
     Ok(())
 }
 
+/// Saves a manual access token: the Keychain for an interactive run on macOS,
+/// otherwise the owner-only file.
 pub fn store(site: &str, url: &str, token: &str) -> Result<&'static str> {
     let _lock = credential_lock(site, url)?;
     validate_token(token)?;
-    // Existing file credentials stay in that backend; avoid reviving stale Keychain entries.
-    if file_read(site, url)?.is_none()
-        && keychain_allowed()
-        && entry(site, url)?.set_password(token).is_ok()
-    {
-        return Ok("macOS Keychain");
-    }
-    file_write(site, url, Some(token.to_owned()))?;
-    Ok("owner-only file (0600)")
+    persist(
+        site,
+        url,
+        &SavedToken::record(site, url, token, None),
+        keychain_allowed(),
+    )
 }
 pub fn logout(site: &str, url: &str) -> Result<()> {
     let _lock = credential_lock(site, url)?;
@@ -161,9 +346,10 @@ pub fn logout(site: &str, url: &str) -> Result<()> {
 }
 pub fn clear_session(site: &str, url: &str) -> Result<()> {
     // A tombstone suppresses any older Keychain value, even in a headless session.
-    file_write(site, url, None)?;
-    if keychain_allowed() {
-        let _ = entry(site, url)?.delete_credential();
+    let previous = file_read(site, url)?;
+    write_record(site, url, &SavedToken::tombstone(site, url))?;
+    if keychain_supported() && (keychain_allowed() || previous.is_some_and(|p| p.keychain)) {
+        keychain_delete(site, url);
     }
     Ok(())
 }
@@ -175,6 +361,35 @@ struct SavedToken {
     token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     session: Option<Session>,
+    /// A secret-free pointer: the record itself is in the macOS Keychain.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    keychain: bool,
+}
+impl SavedToken {
+    fn record(site: &str, url: &str, token: &str, session: Option<Session>) -> Self {
+        Self {
+            site: site.into(),
+            origin: url.into(),
+            token: Some(token.into()),
+            session,
+            keychain: false,
+        }
+    }
+    fn tombstone(site: &str, url: &str) -> Self {
+        Self {
+            site: site.into(),
+            origin: url.into(),
+            token: None,
+            session: None,
+            keychain: false,
+        }
+    }
+    fn pointer(site: &str, url: &str) -> Self {
+        Self {
+            keychain: true,
+            ..Self::tombstone(site, url)
+        }
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Session {
@@ -186,7 +401,7 @@ pub struct Session {
 }
 fn file_error() -> Error {
     Error::new("credential_file_unsafe", "Cannot safely access the credential file.",
-        "Use an owner-only credentials directory (0700) and regular token files (0600); no symlinks. POLIS_TOKEN_<SITE> can override storage.", 3)
+        concat!("Use an owner-only credentials directory (0700) and regular token files (0600); no symlinks. ", token_env_help!(), " can override storage."), 3)
 }
 fn credential_path(site: &str, url: &str) -> Result<PathBuf> {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt};
@@ -239,7 +454,10 @@ fn file_read(site: &str, url: &str) -> Result<Option<SavedToken>> {
         return Err(file_error());
     }
     let value: SavedToken = serde_json::from_slice(&bytes).map_err(|_| file_error())?;
-    if value.site != site || value.origin != url {
+    if value.site != site
+        || value.origin != url
+        || (value.keychain && (value.token.is_some() || value.session.is_some()))
+    {
         return Err(file_error());
     }
     if let Some(t) = &value.token {
@@ -247,20 +465,14 @@ fn file_read(site: &str, url: &str) -> Result<Option<SavedToken>> {
     }
     Ok(Some(value))
 }
-fn file_write(site: &str, url: &str, token: Option<String>) -> Result<()> {
+/// Atomically replaces the credential file. Callers validate the existing target
+/// with file_read first; the temporary file never follows a link.
+fn write_record(site: &str, url: &str, value: &SavedToken) -> Result<()> {
     use std::io::Write;
-    // Validate any existing target before atomic replacement; never follow a link.
-    file_read(site, url)?;
     let path = credential_path(site, url)?;
     let mut temp =
         tempfile::NamedTempFile::new_in(path.parent().unwrap()).map_err(|_| file_error())?;
-    let value = SavedToken {
-        site: site.into(),
-        origin: url.into(),
-        token,
-        session: None,
-    };
-    let bytes = serde_json::to_vec(&value).unwrap();
+    let bytes = serde_json::to_vec(value).unwrap();
     if bytes.len() > 100_000 {
         return Err(file_error());
     }
@@ -326,10 +538,17 @@ impl Config {
         Ok(a)
     }
 }
+/// `--with-token`: always the owner-only file.
 pub fn store_file(site: &str, url: &str, token: &str) -> Result<()> {
     let _lock = credential_lock(site, url)?;
     validate_token(token)?;
-    file_write(site, url, Some(token.into()))
+    persist(
+        site,
+        url,
+        &SavedToken::record(site, url, token, None),
+        false,
+    )
+    .map(|_| ())
 }
 
 // File locks serialize refresh rotation with logout/login, across CLI processes.
@@ -360,7 +579,7 @@ pub fn credential_lock(site: &str, url: &str) -> Result<std::fs::File> {
     if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
         return Err(Error::new(
             "credential_busy",
-            "Another command is updating this site's credentials.",
+            "Another polis command is updating the saved credentials.",
             "Wait for it to finish, then rerun this command.",
             3,
         ));
@@ -368,7 +587,7 @@ pub fn credential_lock(site: &str, url: &str) -> Result<std::fs::File> {
     Ok(file)
 }
 pub fn session(site: &str, url: &str) -> Result<Option<(String, Session)>> {
-    let Some(saved) = file_read(site, url)? else {
+    let Some(saved) = load(site, url)? else {
         return Ok(None);
     };
     match (saved.token, saved.session) {
@@ -382,29 +601,30 @@ pub fn session(site: &str, url: &str) -> Result<Option<(String, Session)>> {
         _ => Ok(None),
     }
 }
-// Caller holds credential_lock through read, exchange and replacement.
-pub fn store_session(site: &str, url: &str, token: &str, session: Session) -> Result<()> {
-    use std::io::Write;
+/// Caller holds credential_lock through read, exchange and replacement. A new sign-in
+/// goes to the Keychain when interactive on macOS; a refresh rotation stays in the
+/// backend that holds the current record, falling back to the file if the Keychain
+/// cannot be written (the issuer may already have consumed the old refresh token).
+pub fn store_session(
+    site: &str,
+    url: &str,
+    token: &str,
+    session: Session,
+    rotation: bool,
+) -> Result<&'static str> {
     validate_token(token)?;
     if let Some(refresh) = &session.refresh_token {
         validate_token(refresh)?;
     }
-    file_read(site, url)?;
-    let path = credential_path(site, url)?;
-    let mut temp =
-        tempfile::NamedTempFile::new_in(path.parent().unwrap()).map_err(|_| file_error())?;
-    let value = SavedToken {
-        site: site.into(),
-        origin: url.into(),
-        token: Some(token.into()),
-        session: Some(session),
+    let keychain = if rotation {
+        file_read(site, url)?.is_some_and(|p| p.keychain)
+    } else {
+        keychain_allowed()
     };
-    let bytes = serde_json::to_vec(&value).unwrap();
-    if bytes.len() > 100_000 {
-        return Err(file_error());
-    }
-    temp.write_all(&bytes).map_err(|_| file_error())?;
-    temp.as_file().sync_all().map_err(|_| file_error())?;
-    temp.persist(&path).map_err(|_| file_error())?;
-    Ok(())
+    persist(
+        site,
+        url,
+        &SavedToken::record(site, url, token, Some(session)),
+        keychain,
+    )
 }

@@ -270,7 +270,9 @@ pub fn login(config: &Config, site: &str, timeout: u64, no_browser: bool) -> Res
     // stderr keeps stdout a single stable JSON result for agents. No password/token/code is printed.
     eprintln!("Open this URL on this machine to sign in:\n{authorize}");
     if !no_browser {
-        let _ = std::process::Command::new("/usr/bin/open")
+        let mut open = std::process::Command::new("/usr/bin/open");
+        profiles::strip_token_env(&mut open);
+        let _ = open
             .arg(authorize.as_str())
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
@@ -377,16 +379,16 @@ fn finish_login(
     .request("GET", "/api/v3/users", &[], None, false)?;
     let refresh_available = session.refresh_token.is_some();
     let _lock = profiles::credential_lock(site, origin)?;
-    profiles::store_session(site, origin, &token, session)?;
+    let storage = profiles::store_session(site, origin, &token, session, false)?;
     Ok(
-        json!({"state":"authenticated","origin":origin,"flow":flow,"storage":"owner-only file (0600)",
+        json!({"state":"authenticated","origin":origin,"flow":flow,"storage":storage,
         "expires_in":response["expires_in"],"verified_by":"GET /api/v3/users","refresh_available":refresh_available}),
     )
 }
 pub fn access_token(config: &Config, site: &str, timeout: u64) -> Result<Option<String>> {
     let origin = config.url(site)?;
     // Explicit bearer overrides never read/refresh/erase a stored session.
-    if std::env::var_os(profiles::token_env(site)).is_some() {
+    if profiles::token_override_present(site) {
         return profiles::token(site, origin);
     }
     let _lock = profiles::credential_lock(site, origin)?;
@@ -438,7 +440,7 @@ pub fn access_token(config: &Config, site: &str, timeout: u64) -> Result<Option<
     }
     let (token, session) = tokens(&response, &auth, Some(refresh))?;
     // Persist rotation before any API request, which might fail after the issuer consumed the old token.
-    profiles::store_session(site, origin, &token, session)?;
+    profiles::store_session(site, origin, &token, session, true)?;
     Ok(Some(token))
 }
 pub fn device_login(config: &Config, site: &str, timeout: u64) -> Result<Value> {

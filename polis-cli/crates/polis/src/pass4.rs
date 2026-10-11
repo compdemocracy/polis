@@ -111,11 +111,7 @@ fn open_browser(url: &str) -> Result<()> {
         "xdg-open"
     };
     let mut launcher = std::process::Command::new(program);
-    for (key, _) in std::env::vars() {
-        if key.starts_with("POLIS_TOKEN_") {
-            launcher.env_remove(key);
-        }
-    }
+    crate::profiles::strip_token_env(&mut launcher);
     let mut child = launcher
         .arg(url)
         .stdin(std::process::Stdio::null())
