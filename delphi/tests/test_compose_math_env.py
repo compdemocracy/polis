@@ -86,7 +86,11 @@ def _environment(compose_file: str, service: str, env: dict | None = None) -> di
     if isinstance(entries, dict):
         pairs = [(key, value or "") for key, value in entries.items()]
     else:
-        pairs = [(entry.partition("=")[0], entry.partition("=")[2]) for entry in entries]
+        pairs = [
+            (entry.partition("=")[0], entry.partition("=")[2]) if "=" in entry
+            else (entry, (env or {})[entry])
+            for entry in entries if "=" in entry or entry in (env or {})
+        ]
     return {key: _interpolate(value, env or {}) for key, value in pairs}
 
 
@@ -725,3 +729,14 @@ def test_the_stop_hook_defers_shutdown_for_every_role():
     code = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
     assert not re.search(r"\b(?:docker(?:-compose)?|systemctl)\b", code)
     assert "AfterInstall" in text
+
+
+@requires_checkout
+@pytest.mark.parametrize("env", [{}, {"AWS_ACCESS_KEY_ID": "", "AWS_SECRET_ACCESS_KEY": ""},
+                                 {"AWS_ACCESS_KEY_ID": "generated-id", "AWS_SECRET_ACCESS_KEY": "generated-secret"}])
+def test_delphi_aws_keys_are_only_passed_through(env):
+    resolved = _environment("docker-compose.yml", "delphi", env)
+    assert {key: resolved[key] for key in env} == env
+    if not env:
+        assert "AWS_ACCESS_KEY_ID" not in resolved
+        assert "AWS_SECRET_ACCESS_KEY" not in resolved

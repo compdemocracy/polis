@@ -16,12 +16,8 @@ const dynamoDBConfig: any = {
 // If dynamoDbEndpoint is set, we're running locally
 if (Config.dynamoDbEndpoint) {
   dynamoDBConfig.endpoint = Config.dynamoDbEndpoint;
-  // Use dummy credentials for local DynamoDB
-  dynamoDBConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
-} else if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
+}
+if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
   dynamoDBConfig.credentials = {
     accessKeyId: Config.AWS_ACCESS_KEY_ID,
     secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
@@ -94,10 +90,9 @@ export async function handle_GET_delphi_visualizations(
     const s3Config: any = {
       region: Config.AWS_REGION || "us-east-1",
       endpoint: Config.AWS_S3_ENDPOINT,
-      credentials: {
-        accessKeyId: Config.AWS_ACCESS_KEY_ID || "minioadmin",
-        secretAccessKey: Config.AWS_SECRET_ACCESS_KEY || "minioadmin",
-      },
+      ...(Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY
+        ? { credentials: { accessKeyId: Config.AWS_ACCESS_KEY_ID, secretAccessKey: Config.AWS_SECRET_ACCESS_KEY } }
+        : {}),
       forcePathStyle: true, // Required for MinIO
     };
 
