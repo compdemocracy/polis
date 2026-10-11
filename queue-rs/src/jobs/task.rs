@@ -405,7 +405,7 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
     let manifest_path = dir.join("output-manifest.json");
     let frame_path = dir.join("frame.json");
     let batch = recheck.as_ref().map(|(_, b)| b.as_str());
-    let frame = match child::frame(&claim, &admission, &phase, batch) {
+    let mut frame = match child::frame(&claim, &admission, &phase, batch) {
         Ok(f) => f,
         Err(_) => {
             refuse_without_child(&ctx, &mut rpc, &claim, true, "math_config_invalid");
@@ -413,6 +413,22 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             return;
         }
     };
+    if graph && super::graph::hydrate(&mut rpc, &mut frame).is_err() {
+        refuse_without_child(&ctx, &mut rpc, &claim, false, "result_hydration_failed");
+        let _ = ctx.journal.remove(&claim.attempt_id);
+        return;
+    }
+    let result_writer = admission.config["result_backend"] == "postgres";
+    if result_writer {
+        match rpc.committed("pd_writer_base", &[json!(claim.env), json!(claim.job_id)]) {
+            Ok(base) if base["schema"] == "delphi-writer-base/1" => frame["writer_base"] = base,
+            _ => {
+                refuse_without_child(&ctx, &mut rpc, &claim, false, "writer_base_unavailable");
+                let _ = ctx.journal.remove(&claim.attempt_id);
+                return;
+            }
+        }
+    }
     let prepared =
         std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&frame_path, frame.to_string()));
     let command = child::command_args(&cfg.app_path, &claim, &admission, &phase);
@@ -617,18 +633,26 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             None => Exit::Code(255),
         },
     };
-    let manifest_bytes = std::fs::read(&manifest_path).ok();
+    let manifest_bytes = manifest::read_regular_file(&manifest_path, manifest::MAX_BYTES);
     let validate = if graph {
         super::graph::validate
     } else {
         manifest::validate
     };
-    let manifest: Result<Manifest, manifest::Invalid> = validate(
-        manifest_bytes.as_deref(),
-        &claim.job_id,
-        &claim.attempt_id,
-        &claim.stage,
-    );
+    let mut manifest: Result<Manifest, manifest::Invalid> = manifest_bytes
+        .and_then(|bytes| validate(Some(&bytes), &claim.job_id, &claim.attempt_id, &claim.stage));
+    if graph && outcome::decide(&exit, &manifest) == Action::Finalize {
+        manifest = manifest.and_then(|value| {
+            super::graph::stage_results(&mut rpc, &claim, &dir, value)
+                .map_err(|_| manifest::Invalid::Field("result_staging_failed"))
+        });
+    }
+    if result_writer && outcome::decide(&exit, &manifest) == Action::Finalize {
+        manifest = manifest.and_then(|value| {
+            super::graph::stage_writer_results(&mut rpc, &claim, &dir, value)
+                .map_err(|_| manifest::Invalid::Field("writer_result_staging_failed"))
+        });
+    }
     let mut action = outcome::decide(&exit, &manifest);
     let id = identity(&claim);
     // Provider bookkeeping while still the owner (or as the late submitter).

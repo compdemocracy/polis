@@ -14,15 +14,44 @@ import sys
 def run(frame):
     if frame['schema'] != 'polis-job-stage-frame/1':
         raise ValueError('unsupported frame')
-    inp = frame['input']
-    if hashlib.sha256(frame['input_json'].encode()).hexdigest() != frame['input_sha256'] or json.loads(frame['input_json']) != inp:
+    if hashlib.sha256(frame['input_json'].encode()).hexdigest() != frame['input_sha256']:
         raise ValueError('resolved input digest mismatch')
+    # Execute the exact digest-bound SQL wire. The redundant Rust JSON value may
+    # reserialize floating-point summary metrics differently; it is never input.
+    inp = json.loads(frame['input_json'])
+    frame = {**frame, 'input': inp}
     declared = inp['declared']
     if inp['schema'] != 'polis-job-input/1' or declared['mode'] != 'full':
         raise ValueError('unsupported execution mode')
     if declared['code'] != hashlib.sha256(Path(__file__).read_bytes()).hexdigest() or declared['runtime'] != 'python-'+sys.version.split()[0]:
         raise ValueError('worker code/runtime differs from declared provenance')
     stage = frame['stage']
+    if declared['model'] == 'legacy-dynamo-export/1':
+        from polismath.delphi_storage.legacy_import import execute_import
+        output = execute_import(frame)
+        payload = json.dumps(output, sort_keys=True, separators=(',', ':'), allow_nan=False)
+        if len(payload.encode()) > 524288:
+            raise ValueError('stage artifact exceeds 512 KiB')
+        return dict(schema='polis-job-artifact-manifest/1',job_id=frame['job_id'],run_id=frame['run_id'],attempt_id=frame['attempt_id'],stage=stage,
+                    input_sha256=frame['input_sha256'],outcome='succeeded',output=dict(role='result',schema=stage+'/1',payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest()))
+    if declared['model'] in {'sentence-transformers/all-MiniLM-L6-v2', 'delphi-umap-evoc/1', 'delphi-tfidf-keywords/1', 'local-narrative-fixture/1'}:
+        from delphi_graph_stages import execute, code_digest
+        if declared['config'].get('adapter_sha256') != code_digest():
+            raise ValueError('numerical adapter provenance mismatch')
+        output = execute(frame)
+        if os.environ.get('DELPHI_OUTPUT_MANIFEST'):
+            files = output.pop('family_files')
+            directory = Path(os.environ['DELPHI_OUTPUT_MANIFEST']).parent
+            output['family_spool'] = {}
+            for family, wire in files.items():
+                filename = family + '.jsonl'
+                (directory / filename).write_text(wire, encoding='utf-8')
+                output['family_spool'][family] = dict(file=filename, sha256=hashlib.sha256(wire.encode()).hexdigest())
+        payload = json.dumps(output, sort_keys=True, separators=(',', ':'), allow_nan=False)
+        if len(payload.encode()) > 524288:
+            raise ValueError('stage artifact exceeds 512 KiB')
+        return dict(schema='polis-job-artifact-manifest/1',job_id=frame['job_id'],run_id=frame['run_id'],attempt_id=frame['attempt_id'],stage=stage,
+                    input_sha256=frame['input_sha256'],outcome='succeeded',output=dict(role='result',schema=stage+'/1',payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest()))
     for artifact in inp['artifacts'].values():
         if hashlib.sha256(artifact['payload'].encode()).hexdigest() != artifact['sha256']:
             raise ValueError('artifact content mismatch')

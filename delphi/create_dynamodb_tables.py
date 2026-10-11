@@ -530,6 +530,8 @@ def _create_tables(dynamodb, tables, existing_tables):
 def create_tables(endpoint_url=None, region_name='us-east-1', 
                  delete_existing=False, evoc_only=False, polismath_only=False,
                  aws_profile=None):
+    if os.environ.get('DELPHI_RESULT_BACKEND') == 'postgres':
+        return []
     # Use the environment variable if endpoint_url is not provided
     if endpoint_url is None:
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
@@ -601,6 +603,9 @@ def create_tables(endpoint_url=None, region_name='us-east-1',
     return created_tables
 
 def main():
+    if os.environ.get('DELPHI_RESULT_BACKEND') == 'postgres':
+        print('Postgres result schema is managed by migrations; no Dynamo bootstrap')
+        return
     # Parse arguments
     parser = argparse.ArgumentParser(description='Create DynamoDB tables for Delphi system')
     parser.add_argument('--endpoint-url', type=str, default=None,

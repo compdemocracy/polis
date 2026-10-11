@@ -34,7 +34,7 @@ class SelectionProof(unittest.TestCase):
             for n in ['000004','000005','000007']:
                 next(d.glob(n+'*.sql')).write_text('SELECT 1/0;')
             output=p.runner(db,'apply',dir=d).stdout
-            self.assertIn('applied 21 migration(s)',output)
+            self.assertIn(f'applied {len(p.APPLIED)} migration(s)',output)
             self.assertEqual(p.sql(db,"SELECT count(*) FROM migrations WHERE status='ADOPTED'"),'3')
             p.runner(db,'check',dir=d);p.gate(db,True,dir=d)
 

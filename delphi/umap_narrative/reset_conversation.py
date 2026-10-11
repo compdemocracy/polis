@@ -36,6 +36,9 @@ def get_boto_resource(service_name: str):
     else:
         logger.info(f"AWS environment detected for {service_name}. Using IAM role credentials.")
         
+    if os.environ.get('DELPHI_RESULT_BACKEND') == 'postgres':
+        from polismath.delphi_storage.resource import result_resource
+        return result_resource(service_name, **resource_args)
     return boto3.resource(service_name, **resource_args)
 
 

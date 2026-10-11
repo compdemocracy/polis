@@ -1,3 +1,4 @@
+import { resultClient, postgresResults } from "./delphiResults";
 import pg from "../db/pg-query";
 import logger from "./logger";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -89,13 +90,12 @@ function createDynamoDBClient(): DynamoDBDocumentClient {
     };
   }
 
-  const client = new DynamoDBClient(dynamoDBConfig);
-  return DynamoDBDocumentClient.from(client, {
+  return resultClient(() => DynamoDBDocumentClient.from(new DynamoDBClient(dynamoDBConfig), {
     marshallOptions: {
       convertEmptyValues: true,
       removeUndefinedValues: true,
     },
-  });
+  }));
 }
 
 /**
@@ -115,6 +115,8 @@ export async function getClusterAssignments(
   zid: number,
   useCache = false
 ): Promise<Map<number, ClusterAssignment>> {
+  // A request snapshot must not reuse assignments from an older publication.
+  if (postgresResults()) useCache = false;
   // Check cache if enabled
   if (useCache) {
     const cached = clusterAssignmentsCache.get(zid);

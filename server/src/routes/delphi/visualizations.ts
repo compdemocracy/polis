@@ -1,3 +1,4 @@
+import { resultClient, postgresResults } from "../../utils/delphiResults";
 import { Request, Response } from "express";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
@@ -27,13 +28,12 @@ if (Config.dynamoDbEndpoint) {
   };
 }
 
-const client = new DynamoDBClient(dynamoDBConfig);
-const docClient = DynamoDBDocumentClient.from(client, {
+const docClient = resultClient(() => DynamoDBDocumentClient.from(new DynamoDBClient(dynamoDBConfig), {
   marshallOptions: {
     convertEmptyValues: true,
     removeUndefinedValues: true,
   },
-});
+}));
 
 /**
  * Handler for Delphi API route that retrieves visualization information
@@ -81,6 +81,14 @@ export async function handle_GET_delphi_visualizations(
     logger.info(
       `Fetching visualizations for report_id: ${report_id}, conversation_id: ${conversation_id}`
     );
+
+    // Queue graph results have no S3 static visualization artifact contract.
+    // Return actual job metadata without issuing a cloud listing.
+    if (postgresResults()) {
+      const metadata=await fetchJobMetadata(conversation_id);
+      return res.json({status:"success",report_id,visualizations:[],
+        jobs:Object.values(metadata).filter((job:any)=>!jobId || job.jobId===jobId)});
+    }
 
     // Configure S3 client
     const s3Config: any = {
@@ -372,7 +380,8 @@ function processJobItems(
       // Additive: lets a reloaded client tell "finished" from "terminal row,
       // work still outstanding underneath" without a second request. A false
       // here only ever comes from the authoritative sweep.
-      workLive: livenessComplete ? liveByJobId.get(job_id) !== false : true,
+      ...(item.archived === true ? {archived:true} : {}),
+      workLive: item.archived === true ? false : livenessComplete ? liveByJobId.get(job_id) !== false : true,
       // Set when this server withdrew the job after losing a race: it names the
       // job that actually carries the work. The client follows it rather than
       // dropping the id it was acknowledged with.

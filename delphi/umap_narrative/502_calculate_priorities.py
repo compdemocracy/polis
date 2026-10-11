@@ -10,6 +10,7 @@ and computes final priority values using the group-based extremity data.
 
 import argparse
 import boto3
+from polismath.delphi_storage.resource import result_resource
 import json
 import logging
 import os
@@ -51,7 +52,7 @@ class PriorityCalculator:
             boto3_kwargs['endpoint_url'] = endpoint_url
 
         # Initialize DynamoDB connection using the prepared arguments
-        self.dynamodb = boto3.resource('dynamodb', **boto3_kwargs)
+        self.dynamodb = result_resource('dynamodb', **boto3_kwargs)
 
         # Get table references
         self.comment_routing_table = self.dynamodb.Table('Delphi_CommentRouting')
