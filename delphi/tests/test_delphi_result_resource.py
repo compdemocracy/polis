@@ -35,24 +35,35 @@ class ResultResourceTest(unittest.TestCase):
         self.assertIn('item->%s = %s::jsonb',sql)
         self.assertIn('conversation_id',binds)
 
-    def test_pagination_and_generation_change(self):
+    def test_cursor_is_only_the_key_position(self):
         first=self.table.query(Limit=1)
+        self.assertEqual(first['LastEvaluatedKey'],{'conversation_id':'1','comment_id':0})
         self.assertEqual(self.table.query(Limit=1,ExclusiveStartKey=first['LastEvaluatedKey'])['Items'][0]['comment_id'],1)
-        self.connection.cur.rows=[(zid,'scope',2,row) for zid,_,_,row in self.rows]
-        with self.assertRaisesRegex(ValueError,'generation changed'):
-            self.table.query(ExclusiveStartKey=first['LastEvaluatedKey'])
+
+    def test_publication_between_pages_reads_the_new_rows(self):
+        first=self.table.query(Limit=1)
+        self.connection.cur.rows=[(1,'scope',2,item_from_python(dict(conversation_id='1',comment_id=i,value=Decimal('0.5')))) for i in range(3)]
+        later=self.table.query(ExclusiveStartKey=first['LastEvaluatedKey'])
+        self.assertEqual([(i['comment_id'],i['value']) for i in later['Items']],[(1,Decimal('0.5')),(2,Decimal('0.5'))])
+
+    def test_vanished_cursor_item_continues_after_its_key(self):
+        first=self.table.query(Limit=2)
+        self.connection.cur.rows=[row for row in self.rows if row[3]['comment_id']['N']!='1']
+        self.assertEqual([i['comment_id'] for i in self.table.query(ExclusiveStartKey=first['LastEvaluatedKey'])['Items']],[2])
+        backward=self.table.query(ScanIndexForward=False,ExclusiveStartKey={'conversation_id':'1','comment_id':1})
+        self.assertEqual([i['comment_id'] for i in backward['Items']],[0])
 
     def test_ambiguous_scopes_refused(self):
         self.connection.cur.rows.append((1,'other',1,item_from_python(dict(conversation_id='1',comment_id=0,value=Decimal('1')))))
         with self.assertRaisesRegex(ValueError,'ambiguous'):
             self.table.query()
 
-    def test_cross_conversation_cursor_tracks_each_generation(self):
+    def test_publication_for_another_conversation_between_scan_pages(self):
         self.connection.cur.rows += [(2,'scope',1,item_from_python(dict(conversation_id='2',comment_id=0)))]
         first=self.table.scan(Limit=1)
         self.connection.cur.rows=[(zid,scope,2 if zid==1 else generation,item) for zid,scope,generation,item in self.connection.cur.rows]
-        with self.assertRaisesRegex(ValueError,'generation changed'):
-            self.table.scan(ExclusiveStartKey=first['LastEvaluatedKey'])
+        rest=self.table.scan(ExclusiveStartKey=first['LastEvaluatedKey'])
+        self.assertEqual([(i['conversation_id'],i['comment_id']) for i in rest['Items']],[('1',1),('1',2),('2',0)])
 
     def test_legacy_metadata_retains_nul_and_exact_numbers_without_activation(self):
         connection=Connection([({'job_id':'current','status':'COMPLETED'},)])
@@ -80,6 +91,17 @@ class ResultResourceTest(unittest.TestCase):
               ({'job_id':'a-newer','created_at':'2026-01-01T00:00:00Z'},)]
         table=PostgresResource(Connection(rows)).Table('Delphi_JobQueue')
         self.assertEqual(table.query(IndexName='ConversationIndex',ScanIndexForward=False,Limit=1)['Items'][0]['job_id'],'a-newer')
+
+    def test_index_cursor_carries_index_key_and_continues_by_position(self):
+        rows=[({'job_id':j,'conversation_id':'1','created_at':t},) for j,t in
+              [('c','2025-01-01T00:00:00Z'),('a','2025-02-01T00:00:00Z'),('b','2025-03-01T00:00:00Z')]]
+        connection=Connection(rows)
+        table=PostgresResource(connection).Table('Delphi_JobQueue')
+        read=dict(IndexName='ConversationIndex',KeyConditionExpression='conversation_id = :c',ExpressionAttributeValues={':c':'1'},Limit=1)
+        first=table.query(**read)
+        self.assertEqual(first['LastEvaluatedKey'],{'job_id':'c','conversation_id':'1','created_at':'2025-01-01T00:00:00Z'})
+        connection.cur.rows=rows[1:]
+        self.assertEqual([i['job_id'] for i in table.query(**{**read,'Limit':5},ExclusiveStartKey=first['LastEvaluatedKey'])['Items']],['a','b'])
 
     def test_job_get_reads_bound_attempt_logs(self):
         connection=Connection([({'job_id':'generated-job'},)])
