@@ -53,6 +53,7 @@ printf "PASS migration image source binding: %s files\n" "$count"
 ' | tee "$proof/migration-binding.log"
 docker run --rm --network none -v "$repo/scripts:/checkout/scripts:ro" -e POLIS_CHECKOUT_DIR=/checkout --entrypoint python "$image" -m pytest --noconftest -o addopts= -q \
  tests/test_production_import.py tests/test_import_report.py tests/test_delphi_legacy_import.py tests/test_delphi_storage_codec.py | tee "$proof/unit.log"
+python3 scripts/test-import-launcher-mounts.py --image "$image" | tee "$proof/launcher-mounts.log"
 owned+=("$pg")
 docker run -d --name "$pg" -p "127.0.0.1:$POLIS_RECOVERY_PG_PORT:5432" \
  -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=importproof "$pgimage" > "$proof/postgres-start.log"

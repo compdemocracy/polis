@@ -6,6 +6,7 @@ on:
       - 'queue-rs/**'
       - 'server/postgres/**'
       - 'scripts/test-production-import.sh'
+      - 'scripts/test-import-launcher-mounts.py'
       - 'scripts/run-import-dry-run.py'
       - '.github/workflows/production-import.yml'
   workflow_dispatch:
@@ -39,3 +40,4 @@ jobs:
             .import-proof/${{ env.COMPOSE_PROJECT_NAME }}/unit.log
             .import-proof/${{ env.COMPOSE_PROJECT_NAME }}/integration.log
             .import-proof/${{ env.COMPOSE_PROJECT_NAME }}/source-binding.log
+            .import-proof/${{ env.COMPOSE_PROJECT_NAME }}/launcher-mounts.log
