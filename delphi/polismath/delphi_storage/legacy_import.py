@@ -233,6 +233,9 @@ def execute_import(frame):
             or config.get("importer_sha256") != code_digest()
             or config.get("codec_sha256") != codec_digest()):
         raise ValueError("legacy import provenance mismatch")
+    if "snapshot_ref" in config:
+        from .production_import import execute
+        return execute(frame)
     output = import_output(config["family_files"], frame["zid"], config["report_ids"])
     if config["source_sha256"] != output["source_sha256"]:
         raise ValueError("legacy import source digest mismatch")
