@@ -156,10 +156,10 @@ class PostgresTable:
             else:
                 cursor.execute('SELECT zid,scope_key,generation,item FROM public.delphi_result_current_rows WHERE '+' AND '.join(where)+' ORDER BY zid,scope_key,item_key::text',binds)
                 records=cursor.fetchall()
-        generations={dumps([str(zid),scope]):str(generation) for zid,scope,generation,_ in records}
+        # A cursor is a key position, never a publication: like a DynamoDB
+        # ExclusiveStartKey, a later page reads what is served when it runs and
+        # continues after that position, even if a publication landed in between.
         start=params.get('ExclusiveStartKey')
-        if start and start.get('_polis_pg_generations')!=generations:
-            raise ValueError('result generation changed; restart pagination')
         items=[];seen={}
         for zid,scope,generation,tagged in records:
             # decode_family validates sort order; one-row decoding retains every AV type.
@@ -172,17 +172,26 @@ class PostgresTable:
             seen[key]=item;items.append(item)
         keys=[key for key,_ in FAMILIES[self.name]['key']]
         index_order={'ConversationIndex':'created_at','StatusCreatedIndex':'created_at','ReportIdTimestampIndex':'timestamp','zid-created_at-index':'created_at'}
+        index_hash={'ConversationIndex':'conversation_id','StatusCreatedIndex':'status','ReportIdTimestampIndex':'report_id','zid-created_at-index':'zid'}
         index=params.get('IndexName')
         if index and index not in index_order:raise ValueError('unsupported result index')
         ordering=([index_order[index]] if index else [])+keys
         if index:items=[item for item in items if item.get(index_order[index]) is not None]
-        items.sort(key=lambda item:tuple(item[key] for key in ordering))
-        if params.get('ScanIndexForward') is False:items.reverse()
+        position=lambda item:tuple(item[key] for key in ordering)
+        items.sort(key=position)
+        descending=params.get('ScanIndexForward') is False
+        if descending:items.reverse()
         if start:
-            startkey={k:v for k,v in start.items() if k!='_polis_pg_generations'}
-            position=next((i for i,item in enumerate(items) if all(item.get(k)==v for k,v in startkey.items())),None)
-            if position is None:raise ValueError('stale result cursor')
-            items=items[position+1:]
+            if all(k in start for k in ordering):
+                mark=tuple(start[k] for k in ordering)
+            else:
+                # A cursor without the index key can only be placed by its item.
+                found=next((item for item in items if all(item.get(k)==start.get(k) for k in keys)),None)
+                if found is None:raise ValueError('result cursor lacks the index key')
+                mark=position(found)
+            # Continue after the cursor's position whether or not its item is
+            # still served, as a DynamoDB Query or Scan does.
+            items=[item for item in items if (position(item)<mark if descending else position(item)>mark)]
         limit=params.get('Limit',1000)
         if not isinstance(limit,int) or limit<1:raise ValueError('invalid result limit')
         page=items[:limit]
@@ -190,7 +199,9 @@ class PostgresTable:
         filtered=[item for item in page if all(item.get(k)==v if op=='=' else isinstance(item.get(k),str) and item[k].startswith(v) for op,k,v in filters)]
         result={'Items':filtered,'Count':len(filtered),'ScannedCount':len(page)}
         if len(items)>limit:
-            result['LastEvaluatedKey']={**{key:page[-1][key] for key in keys},'_polis_pg_generations':generations}
+            # An index page's LastEvaluatedKey carries the index key and the table key.
+            names=keys+([index_hash[index],index_order[index]] if index else [])
+            result['LastEvaluatedKey']={key:page[-1][key] for key in names if key in page[-1]}
         if params.get('ProjectionExpression'):
             projected=[params.get('ExpressionAttributeNames',{}).get(k.strip(),k.strip()) for k in params['ProjectionExpression'].split(',')]
             result['Items']=[{k:v for k,v in item.items() if k in projected} for item in filtered]
