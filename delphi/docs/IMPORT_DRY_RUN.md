@@ -15,8 +15,8 @@ identity. Both the per-conversation totals and grand totals conserve every sourc
 row. Only the description is shortened; source records and result counts are exact.
 The report escapes user text as JSON, including newlines and terminal controls.
 
-This command has **no apply option**. It invokes only consistent paginated Scan
-and read-only PostgreSQL SELECTs; it never calls DescribeTable. Known family key
+This command has **no apply option**. It invokes only paginated Scan and
+read-only PostgreSQL SELECTs; it never calls DescribeTable. Known family key
 names/types are checked on every returned row by the codec. Empty tables have no
 row keys to check; the report does not certify the live table schema. PostgreSQL sessions start with
 `default_transaction_read_only=on` even when using an existing broad application
@@ -98,6 +98,30 @@ apply while writers are running. The reviewed importer bounds (64 MiB/family,
 256 MiB/conversation) also run before printing a successful report; oversized
 sources refuse without truncation. `stderr.log` contains a sanitized failure class.
 There is no automatic retry of a refused report.
+
+## Read pacing, throttling and resume
+
+Most source tables are provisioned at 5 read capacity units, and the box role
+cannot call DescribeTable, so capacity is never discovered: the read rate is a
+configured ceiling. Every census Scan (report and importer) is eventually
+consistent, asks for `--scan-page-limit` items (default 25), and requests
+`ReturnConsumedCapacity=TOTAL`; the next request waits until the units already
+consumed fit `--max-read-units-per-second` (default 2, shared across all tables
+and both passes). Throttling (`ProvisionedThroughputExceededException`,
+`ThrottlingException`, `RequestLimitExceeded`) backs off exponentially with
+jitter (0.5 s doubling to 30 s) for `--max-throttle-retries` consecutive attempts
+(default 8), then the run **pauses** with exit code 3 instead of failing.
+
+Each page's rows and the table's next `ExclusiveStartKey` commit together in the
+attempt's census database under the output directory's `scratch/`. Rerun the same
+launcher command with `--resume` and the same `--output` to continue: finished
+tables are not read again and the interrupted table continues from its last
+committed page. Resume refuses unless the image ID and source path match
+`runtime.json`. Rows read before new conversations appeared are re-bound under the
+current mapping, and both passes must still match before a report is written.
+Eventually consistent pages make the two-pass comparison an observation of a
+quiet source, as before; a write between passes still refuses. `stderr.log`
+also carries one aggregate pacing line (pages, consumed units, throttles, wait).
 
 ## Local proof and retained importer
 

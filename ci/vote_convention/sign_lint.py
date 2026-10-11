@@ -55,6 +55,7 @@ CHOKEPOINTS: Dict[str, str] = {
     "server/__tests__/unit/exportVoteSignBytes.test.ts": "byte-pins the export sign (PR-B)",
     "e2e/cypress/support/voteWire.js": "the e2e wire helper, expectVoteBody (chokepoint 11, PR-D)",
     "client-report/src/util/voteCounts.js": "client-report helper (chokepoint 9, PR-D)",
+    "queue-rs/polis-contracts/src/votes.rs": "the Rust contracts crate's vote convention, shared by the CLI",
     "ci/vote_convention/provision.py": "the gate's fixture loader: it writes raw values at the convention under test",
     # The fixture writers' helpers and the oracle adapter (PR-G): every test, seed
     # and tool that writes a vote row takes the stored number from one of these.
