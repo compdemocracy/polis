@@ -37,17 +37,48 @@ stub() { # container alias port status body
 stub "$p-node" server 5000 200 node
 stub "$p-alpha" client-participation-alpha 4321 200 alpha
 get() { docker exec "$p-proxy" wget -qO- "http://127.0.0.1$1" 2>/dev/null || echo "(no answer)"; }
-# A raw HTTP/1.0 exchange through the proxy; prints the X-Upstream that answered.
-upstream_of() { # method path [extra header lines] [body]
-  printf '%s %s HTTP/1.0\r\nHost: localhost\r\n%s\r\n%s' "$1" "$2" "${3:-}" "${4:-}" \
-    | docker exec -i "$p-proxy" nc -w 5 127.0.0.1 80 \
-    | tr -d '\r' | sed -n 's/^X-Upstream: //p'
+# BusyBox nc can exit on stdin EOF before the HTTP response arrives (nginx
+# logs 499). Use a bounded TCP client on an ephemeral loopback-only proxy port.
+expect_upstream() { # expected upstream method path [extra header lines] [body]
+  local want=$1 response got
+  shift
+  response=$(python3 - "$p-proxy" "$@" <<'PYTHON'
+import socket
+import subprocess
+import sys
+
+proxy, method, path, *rest = sys.argv[1:]
+headers, body = (rest + ["", ""])[:2]
+request = f"{method} {path} HTTP/1.0\r\nHost: localhost\r\n{headers}\r\n{body}".encode()
+address = subprocess.check_output(["docker", "port", proxy, "80/tcp"], text=True).strip()
+host, port = address.rsplit(":", 1)
+assert host == "127.0.0.1", f"test proxy must bind loopback only: {address}"
+with socket.create_connection((host, int(port)), timeout=5) as client:
+    client.sendall(request)
+    while True:
+        chunk = client.recv(65536)
+        if not chunk:
+            break
+        sys.stdout.buffer.write(chunk)
+        sys.stdout.buffer.flush()
+
+PYTHON
+  ) || { printf '%s\n' "$response" >&2; fail "raw HTTP transport failed: $1 $2"; }
+
+  got=$(printf '%s\n' "$response" | tr -d '\r' | sed -n 's/^X-Upstream: //p')
+  if [[ $got != "$want" ]]; then
+    printf 'Raw response for %s %s (expected X-Upstream: %s):\n%s\n' "$1" "$2" "$want" "$response" >&2
+    docker logs "$p-proxy" >&2 2>&1 || true
+    docker logs "$p-node" >&2 2>&1 || true
+    fail "$1 $2 answered X-Upstream='$got', expected '$want'"
+  fi
 }
+
 start() { # routes [docker run args...]
   local routes=${1:-}
   shift || true
   docker rm -f "$p-proxy" >/dev/null 2>&1 || true
-  docker run -d --name "$p-proxy" --network "$net" -e RUST_API_ROUTES="$routes" "$@" "$image" >/dev/null
+  docker run -d --name "$p-proxy" --network "$net" -p 127.0.0.1::80 -e RUST_API_ROUTES="$routes" "$@" "$image" >/dev/null
   for _ in $(seq 20); do
     docker exec "$p-proxy" wget -qO- http://127.0.0.1/ >/dev/null 2>&1 && return 0
     sleep 0.5
@@ -111,12 +142,12 @@ expect '/api/v3/math/pca2?conversation_id=x' rust "route named twice"
 [[ $(included | grep -c 'location = /api/v3/math/pca2') == 1 ]] || fail "route named twice: rendered more than once"
 echo "ok 7 route named twice: rendered once, nginx serves, pca2 -> polis-api"
 
-[[ $(upstream_of GET /api/v3/math/pca2) == polis-api ]] || fail "plain GET should reach polis-api"
-[[ $(upstream_of HEAD /api/v3/math/pca2) == polis-api ]] || fail "HEAD should reach polis-api"
-[[ $(upstream_of OPTIONS /api/v3/math/pca2) == server ]] || fail "OPTIONS should go to node"
-[[ $(upstream_of POST /api/v3/math/pca2 $'Content-Length: 2\r\n' '{}') == server ]] || fail "POST should go to node"
-[[ $(upstream_of GET /api/v3/math/pca2 $'Content-Type: application/json\r\nContent-Encoding: gzip\r\nContent-Length: 2\r\n' '{}') == server ]] \
-  || fail "GET with a body should go to node"
+expect_upstream polis-api GET /api/v3/math/pca2
+expect_upstream polis-api HEAD /api/v3/math/pca2
+expect_upstream server OPTIONS /api/v3/math/pca2
+expect_upstream server POST /api/v3/math/pca2 $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/math/pca2 $'Content-Type: application/json\r\nContent-Encoding: gzip\r\nContent-Length: 2\r\n' '{}'
+
 echo "ok 8 only GET/HEAD without a body reach polis-api; OPTIONS, POST, GET with a body -> node"
 
 for bad in "RUST_API_UPSTREAM=bad host;" "RUST_API_RESOLVER=bad resolver" "RUST_API_RESOLVER=1.2.3.4; }"; do

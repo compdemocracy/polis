@@ -257,6 +257,19 @@ function connectReadOnly() {
   return readPool.connect();
 }
 
+// Result requests hold a repeatable-read snapshot while other route work may
+// borrow the primary pool. A separate bounded pool prevents pool starvation.
+let resultSnapshotPool: Pool | undefined;
+function connectResultSnapshot() {
+  if (!resultSnapshotPool) {
+    resultSnapshotPool = new Pool({
+      ...pgConnection, max: 2, connectionTimeoutMillis: 30000,
+    } as unknown as PoolConfig);
+    resultSnapshotPool.on("error", error => logger.error("pg_result_snapshot_pool", error));
+  }
+  return resultSnapshotPool.connect();
+}
+
 // Session policy applied immediately after BEGIN, from
 // cost-reduction/04-plans/P-024-queue-substrate.md. These are declared initial
 // bounds for the queue substrate, not a general-purpose transaction profile;
@@ -372,5 +385,6 @@ export default {
   stream_queryP_readOnly,
   connect,
   connectReadOnly,
+  connectResultSnapshot,
   withTransaction,
 };

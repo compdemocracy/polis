@@ -129,6 +129,18 @@ services:
       polis_tag: ${TAG:-dev}
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      - DELPHI_RESULT_BACKEND=${DELPHI_RESULT_BACKEND:-dynamodb}
+      - DELPHI_RESULT_ENV=${DELPHI_RESULT_ENV:-}
+      - DELPHI_RESULT_SCOPE=${DELPHI_RESULT_SCOPE:-}
+      - QUEUE_DATABASE_URL=${QUEUE_DATABASE_URL:-}
+      - QUEUE_ENV=${DELPHI_RESULT_ENV:-}
+      - POLIS_JOBS_TRANSPORT=${POLIS_JOBS_TRANSPORT:-tls}
+      - POLIS_JOBS_CA_FILE=${POLIS_JOBS_CA_FILE:-}
+      - POLIS_JOBS_HOST_ALLOWLIST=${POLIS_JOBS_HOST_ALLOWLIST:-}
+      - POLIS_JOBS_WORKER_CLASS=delphi
+      - POLIS_JOBS_STAGES=delphi_full_pipeline,delphi_narrative
+      - POLIS_JOBS_JOURNAL_DIR=/app/data/queue-journal
+      - POLIS_JOBS_WORK_DIR=/app/data/queue-work
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
       # The report pipeline reads math_main/math_ptptstats scoped by math_env, so
@@ -183,6 +195,8 @@ services:
       # `true`. Off by default: with no Datadog agent listening, the tracer only
       # logs failed sends. Set it (with an agent) to turn tracing back on.
       - DD_TRACE_ENABLED=${DD_TRACE_ENABLED:-false}
+    volumes:
+      - delphi-queue-state:/app/data
     networks:
       - "polis-net"
     extra_hosts:
@@ -613,6 +627,8 @@ networks:
   polis-net:
 
 volumes:
+  delphi-queue-state:
+
   math-backfill-state:
     labels:
       polis_tag: ${TAG:-dev}

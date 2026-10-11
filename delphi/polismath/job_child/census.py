@@ -172,11 +172,11 @@ def default_pg_query() -> PgQuery:
 
 def default_dynamodb(region: Optional[str] = None):
     """The DynamoDB resource configured the way run_delphi.py's layer discovery does it."""
-    import boto3
+    from polismath.delphi_storage.resource import result_resource
 
     raw = os.environ.get("DYNAMODB_ENDPOINT")
     endpoint = raw if raw and raw.strip() else None
     if endpoint:
-        return boto3.resource("dynamodb", endpoint_url=endpoint, region_name="us-east-1",
+        return result_resource("dynamodb", endpoint_url=endpoint, region_name="us-east-1",
                               aws_access_key_id="dummy", aws_secret_access_key="dummy")
-    return boto3.resource("dynamodb", region_name=region or os.environ.get("AWS_REGION", "us-east-1"))
+    return result_resource("dynamodb", region_name=region or os.environ.get("AWS_REGION", "us-east-1"))

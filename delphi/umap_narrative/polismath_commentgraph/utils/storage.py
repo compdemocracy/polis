@@ -3,6 +3,7 @@ Storage utilities for the Polis comment graph microservice.
 """
 
 import boto3
+from polismath.delphi_storage.resource import result_resource
 import os
 import json
 import logging
@@ -447,7 +448,7 @@ class DynamoDBStorage:
             kwargs['aws_secret_access_key'] = aws_secret_access_key
         
         # Create the DynamoDB resource
-        self.dynamodb = boto3.resource('dynamodb', **kwargs)
+        self.dynamodb = result_resource('dynamodb', **kwargs)
         
         # Define table names
         self.table_names = {

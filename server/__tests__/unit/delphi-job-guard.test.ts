@@ -1,3 +1,4 @@
+jest.mock("../../src/db/pg-query", () => ({__esModule:true,default:{queryP:jest.fn()}}));
 /**
  * P-003 S3 — failure and resolution paths of the Delphi active-work guard.
  *

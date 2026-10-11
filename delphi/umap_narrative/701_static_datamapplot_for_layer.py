@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import json
 import boto3
+from polismath.delphi_storage.resource import result_resource
 from boto3.dynamodb.conditions import Key
 import logging
 import sys
@@ -37,7 +38,7 @@ except ImportError:
         def __init__(self, endpoint_url=None):
             self.endpoint_url = endpoint_url or os.environ.get("DYNAMODB_ENDPOINT", "http://dynamodb-local:8000")
             self.region = os.environ.get("AWS_REGION", "us-east-1")
-            self.dynamodb = boto3.resource('dynamodb', endpoint_url=self.endpoint_url, region_name=self.region)
+            self.dynamodb = result_resource('dynamodb', endpoint_url=self.endpoint_url, region_name=self.region)
             
             # Define table names using the new Delphi_ naming scheme
             self.table_names = {

@@ -235,6 +235,32 @@ class Daemon:
 
 
 class TestTheContract:
+    def test_operator_cli_sizes_and_admits_once(self, queue_db, db, env, labels,
+                                               monkeypatch, capsys):
+        from scripts import enqueue_math_rebuild as cli
+
+        small, large = labels
+        (zid,) = fresh_zids(1)
+        seed_conversation(db, zid, participants=3, comments=3)
+        monkeypatch.setenv("DATABASE_URL", queue_db[0])
+        monkeypatch.setenv("MATH_CAPACITY_QUEUE_DSN", queue_db[1])
+        monkeypatch.setenv("MATH_CAPACITY_QUEUE_ENV", env)
+        args = ["--zid", str(zid), "--staged-label", large,
+                "--target-label", small, "--source-commit", COMMIT]
+        assert cli.main(args + ["--dry-run"]) == 0
+        dry = json.loads(capsys.readouterr().out)
+        assert dry["outcome"] == "dry_run" and jobs(db, env) == 0
+        assert dry["sizes"] == {"votes": 6, "voters": 3, "comments": 3}
+        assert cli.main(args) == 0
+        first = json.loads(capsys.readouterr().out)
+        assert first["outcome"] == "enqueued"
+        assert first["config"] == dry["config"]
+        assert cli.main(args) == 0
+        second = json.loads(capsys.readouterr().out)
+        assert second["outcome"] == "existing"
+        assert second["job_id"] == first["job_id"] and jobs(db, env) == 1
+        assert job_row(db, env, first["job_id"])[1:3] == ("math_rebuild", "large")
+
     def test_enqueue_as_the_executor_login_and_the_row_it_makes(self, queue_db, db, env, labels):
         small, large = labels
         (zid,) = fresh_zids(1)

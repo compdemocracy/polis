@@ -1,6 +1,22 @@
 {
   "rootDir": "../../",
-  "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": "./tsconfig.json" }] },
+  "transform": {
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "tsconfig": "./tsconfig.json"
+      }
+    ]
+  },
   "testEnvironment": "node",
-  "testMatch": ["**/__tests__/unit/delphiStorageCodec.test.ts"]
+  "testMatch": [
+    "**/__tests__/unit/delphiStorageCodec.test.ts",
+    "**/__tests__/unit/delphiStoragePagination.test.ts",
+    "**/__tests__/unit/delphiResults.test.ts",
+    "**/__tests__/unit/delphiResultSnapshot.test.ts",
+    "**/__tests__/unit/delphi-postgres-liveness.test.ts",
+    "**/__tests__/unit/delphi-job-guard.test.ts",
+    "**/__tests__/unit/delphi-postgres-read-routes.test.ts",
+    "**/__tests__/unit/delphi-postgres-writers.test.ts"
+  ]
 }

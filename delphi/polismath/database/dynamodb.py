@@ -7,6 +7,7 @@ to store and retrieve Polis conversation mathematical analysis data.
 """
 
 import boto3
+from polismath.delphi_storage.resource import result_resource
 import time
 import os
 import logging
@@ -49,10 +50,10 @@ class DynamoDBClient:
     def initialize(self) -> None:
         """Initialize DynamoDB connection and create tables if needed."""
         # Set up environment variables for credentials if not provided and not already set
-        if not self.aws_access_key_id and not os.environ.get('AWS_ACCESS_KEY_ID'):
+        if os.environ.get('DELPHI_RESULT_BACKEND') != 'postgres' and not self.aws_access_key_id and not os.environ.get('AWS_ACCESS_KEY_ID'):
             os.environ['AWS_ACCESS_KEY_ID'] = 'dummy'
         
-        if not self.aws_secret_access_key and not os.environ.get('AWS_SECRET_ACCESS_KEY'):
+        if os.environ.get('DELPHI_RESULT_BACKEND') != 'postgres' and not self.aws_secret_access_key and not os.environ.get('AWS_SECRET_ACCESS_KEY'):
             os.environ['AWS_SECRET_ACCESS_KEY'] = 'dummy'
         
         # Create DynamoDB client
@@ -67,7 +68,7 @@ class DynamoDBClient:
             kwargs['aws_access_key_id'] = self.aws_access_key_id
             kwargs['aws_secret_access_key'] = self.aws_secret_access_key
             
-        self.dynamodb = boto3.resource('dynamodb', **kwargs)
+        self.dynamodb = result_resource('dynamodb', **kwargs)
         
         # Create tables if they don't exist
         self._ensure_tables_exist()

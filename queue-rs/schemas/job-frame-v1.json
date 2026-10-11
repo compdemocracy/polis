@@ -97,6 +97,14 @@
                 "integer",
                 "null"
               ]
+            },
+            "result_backend": {
+              "const": "postgres"
+            },
+            "result_scope": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           }
         },
@@ -180,6 +188,10 @@
           ]
         }
       }
+    },
+    "writer_base": {
+      "type": "object",
+      "description": "Immutable base for a Postgres writer, hydrated by the credential-holding daemon."
     }
   }
 }

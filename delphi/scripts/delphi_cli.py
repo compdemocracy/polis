@@ -9,6 +9,7 @@ This tool provides a simple way to interact with the Delphi job system.
 import argparse
 import sys
 import boto3
+from polismath.delphi_storage.resource import result_resource
 import json
 import uuid
 import os
@@ -61,7 +62,7 @@ def setup_dynamodb(endpoint_url=None, region='us-east-1'):
             os.environ.setdefault('AWS_ACCESS_KEY_ID', 'fakeMyKeyId')
             os.environ.setdefault('AWS_SECRET_ACCESS_KEY', 'fakeSecretAccessKey')
     
-    return boto3.resource('dynamodb', endpoint_url=endpoint_url, region_name=region)
+    return result_resource('dynamodb', endpoint_url=endpoint_url, region_name=region)
 
 def submit_job(dynamodb, zid, job_type='FULL_PIPELINE', priority=50, 
                max_votes=None, batch_size=None, # For FULL_PIPELINE/PCA

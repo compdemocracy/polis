@@ -1,3 +1,5 @@
+import { resultClient, postgresResults } from "../../utils/delphiResults";
+import { resultQuery } from "../../utils/delphiResultSnapshot";
 import _ from "underscore";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
@@ -30,13 +32,12 @@ if (Config.dynamoDbEndpoint) {
   };
 }
 
-const dynamoClient = new DynamoDBClient(dynamoDBConfig);
-const docClient = DynamoDBDocumentClient.from(dynamoClient, {
+const docClient = resultClient(() => DynamoDBDocumentClient.from(new DynamoDBClient(dynamoDBConfig), {
   marshallOptions: {
     convertEmptyValues: true,
     removeUndefinedValues: true,
   },
-});
+}));
 
 // Bound the work one participant save can trigger. Without a cap the query is
 // bounded only by the conversation's partition size; with COALESCE in place,
@@ -47,8 +48,17 @@ const JOB_QUERY_PAGE_SIZE = 25;
 /**
  * Get the newest completed Delphi job ID for a conversation.
  */
-async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
+export async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
   try {
+    if (postgresResults()) {
+      const env=Config.delphiResultEnv;
+      if (!env) throw new Error("DELPHI_RESULT_ENV is required for Postgres results");
+      const scope=Config.delphiResultScope;
+      const rows=await resultQuery<{job_id:string}>(`SELECT job_id FROM public.delphi_result_publications
+        WHERE env=$1 AND zid=$2 ${scope ? "AND scope_key=$3" : ""}`,scope ? [env,Number(zid),scope] : [env,Number(zid)]);
+      if (rows.length>1) throw new Error("Ambiguous published job; configure DELPHI_RESULT_SCOPE");
+      return rows[0]?.job_id || null;
+    }
     // Query the ConversationIndex GSI to find completed jobs for this conversation
     const queryParams: QueryCommandInput = {
       TableName: "Delphi_JobQueue",
@@ -83,7 +93,7 @@ async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
 
     return null;
   } catch (error: any) {
-    logger.error("Error getting current Delphi job ID from DynamoDB", error);
+    logger.error("Error getting current published Delphi job ID", error);
     // Degrade instead of failing the request: a null here cannot erase an
     // existing attribution (the writes below COALESCE it), while throwing
     // would 500 the handler and drop the participant's selections entirely.

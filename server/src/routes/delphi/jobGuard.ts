@@ -1,3 +1,4 @@
+import Config from "../../config";
 /**
  * Server-side active-work deduplication for Delphi job submission (P-003 S3).
  *
@@ -46,6 +47,8 @@ import { createHash, randomUUID } from "crypto";
 import { DynamoDB, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import logger from "../../utils/logger";
+import pg from "../../db/pg-query";
+import { postgresResults } from "../../utils/delphiResults";
 import {
   AwsCredentialsConfigurationError,
   buildDynamoClientConfig,
@@ -968,6 +971,9 @@ export async function assessConversationLiveness(
   /** Rows as the first sweep read them, for callers needing more than liveness. */
   rowsByJobId: Map<string, any>;
 }> {
+  if (postgresResults()) {
+    return assessPostgresConversationLiveness(conversationId);
+  }
   const liveByJobId = new Map<string, boolean>();
   let rowsByJobId = new Map<string, any>();
 
@@ -1045,6 +1051,58 @@ export async function assessConversationLiveness(
     }
   }
   return { complete: true, liveByJobId, rowsByJobId };
+}
+
+/** One primary-database snapshot covers graph peers, descendants, provider work
+ * and process-exit receipts. Archived metadata never becomes executable work. */
+async function assessPostgresConversationLiveness(conversationId: string) {
+  const liveByJobId = new Map<string, boolean>();
+  const rowsByJobId = new Map<string, any>();
+  const env = Config.delphiResultEnv;
+  if (!env) throw new Error("DELPHI_RESULT_ENV is required for Postgres results");
+  const scope = Config.delphiResultScope || null;
+  try {
+    const rows = await pg.queryP<any>(`
+      WITH RECURSIVE selected AS (
+        SELECT j.*, n.graph_id FROM public.delphi_jobs j
+        LEFT JOIN public.delphi_graph_nodes n USING (env,job_id)
+        LEFT JOIN public.delphi_graphs g ON g.env=n.env AND g.graph_id=n.graph_id
+        WHERE j.env=$1 AND j.zid::text=$2 AND ($3::text IS NULL OR g.scope_key=$3)
+      ), related(root_id,job_id) AS (
+        SELECT s.job_id,s.job_id FROM selected s
+        UNION
+        SELECT r.root_id,c.job_id FROM related r
+        JOIN public.delphi_jobs c ON c.env=$1 AND c.parent_job_id=r.job_id
+      ), work AS (
+        SELECT root_id,job_id FROM related
+        UNION
+        SELECT s.job_id,n.job_id FROM selected s
+        JOIN public.delphi_graph_nodes n ON n.env=s.env AND n.graph_id=s.graph_id
+      )
+      SELECT v.*, EXISTS (
+        SELECT 1 FROM work w
+        JOIN public.delphi_jobs j ON j.env=$1 AND j.job_id=w.job_id
+        LEFT JOIN public.polis_queue_jobs q ON q.env=j.env AND q.job_id=j.job_id
+        WHERE w.root_id=s.job_id AND (
+          COALESCE(q.state,j.status) NOT IN ('succeeded','dead','cancelled')
+          OR EXISTS (SELECT 1 FROM public.polis_queue_attempts a
+            WHERE a.env=j.env AND a.job_id=j.job_id AND a.process_exit_confirmed_at IS NULL)
+          OR EXISTS (SELECT 1 FROM public.delphi_provider_requests p
+            WHERE p.env=j.env AND p.job_id=j.job_id
+              AND p.state IN ('intent','submission_unknown','submitted'))
+        )
+      ) AS work_live
+      FROM selected s JOIN public.delphi_result_jobs v ON v.env=s.env AND v.job_id=s.job_id::text
+      ORDER BY v.job_id`, [env, conversationId, scope]) as any[];
+    for (const row of rows) {
+      liveByJobId.set(row.job_id, row.work_live !== false);
+      rowsByJobId.set(row.job_id, row);
+    }
+    return { complete: true, liveByJobId, rowsByJobId };
+  } catch (error: any) {
+    logger.warn(`Postgres Delphi liveness unavailable: ${error?.message || error}`);
+    return { complete: false, liveByJobId, rowsByJobId };
+  }
 }
 
 /**
@@ -1291,6 +1349,9 @@ export async function admitDelphiJob(
   request: AdmissionRequest,
   store: JobAdmissionStore = dynamoJobAdmissionStore
 ): Promise<AdmissionResult> {
+  if (postgresResults() && store === dynamoJobAdmissionStore) {
+    return admitPostgresWriter(request);
+  }
   const { scope } = request;
   const scopeKey = scopeGuardKey(scope);
   const configHash = configFingerprint(scope.jobConfig);
@@ -1607,4 +1668,44 @@ export async function admitDelphiJob(
   throw new JobAdmissionUnavailableError(
     `Delphi job admission did not settle for scope ${logScope(scopeKey)}`
   );
+}
+
+/** Queue and guard admission remain one SQL transaction under the same switch. */
+async function admitPostgresWriter(request: AdmissionRequest): Promise<AdmissionResult> {
+  const {scope, jobItem} = request;
+  const env = Config.delphiResultEnv;
+  const resultScope = Config.delphiResultScope;
+  const code = Config.delphiWriterCodeSha;
+  if (!env || !resultScope || !code || !/^[0-9a-f]{40,64}$/.test(code)) {
+    throw new JobAdmissionUnavailableError("Postgres writer env, scope and code pin are required");
+  }
+  const stages: Record<string,string> = {FULL_PIPELINE:"delphi_full_pipeline",CREATE_NARRATIVE_BATCH:"delphi_narrative"};
+  const stage = stages[scope.jobType];
+  if (!stage) throw new JobAdmissionUnavailableError("Checker attempts belong to their existing queued narrative job");
+  const zid = Number(scope.conversationId);
+  if (!Number.isSafeInteger(zid) || zid < 1) throw new JobAdmissionUnavailableError("Invalid conversation");
+  const rawConfig = typeof scope.jobConfig === "string" ? JSON.parse(scope.jobConfig) : scope.jobConfig || {};
+  const nested = rawConfig.stages?.[0]?.config || {};
+  const config = {...rawConfig,...nested,include_moderation:true,
+    batch_size:nested.max_batch_size ?? rawConfig.max_batch_size ?? 20};
+  // Keep the existing moderation pin from job_poller.pipeline_moderation_flags.
+  const payload = canonicalise({jobType:scope.jobType,zid,report:scope.reportId || null,config:rawConfig});
+  const sha = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  const key = request.idempotencyKey || String(jobItem.job_id);
+  try {
+    const rows = await pg.queryP<{value:any}>(`SELECT public.pd_writer_admit(
+      $1::text,$2::integer,$3::text,$4::text,$5::text,$6::text,$7::uuid,$8::uuid,
+      $9::text,$10::text,$11::jsonb,$12::text) AS value`,
+      [env,zid,resultScope,"server-delphi",key,sha,randomUUID(),randomUUID(),stage,
+        scope.reportId || null,JSON.stringify(config),code]);
+    const value = rows[0]?.value;
+    if (value?.outcome === "conflict") return {outcome:"idempotency_conflict",jobId:value.job_id};
+    if (!["enqueued","existing"].includes(value?.outcome)) throw new Error("Admission unavailable");
+    const status: Record<string,string> = {succeeded:"COMPLETED",dead:"FAILED",cancelled:"CANCELLED",running:"PROCESSING",queued:"PENDING",parked:"AWAITING_RECHECK"};
+    if (value.outcome === "enqueued") return {outcome:"created",jobId:value.job_id,jobStatus:"PENDING",workLive:true};
+    return {outcome:"deduplicated",jobId:value.job_id,jobStatus:status[value.state] || value.state,
+      workLive:!["succeeded","dead","cancelled"].includes(value.state)};
+  } catch (error) {
+    throw new JobAdmissionUnavailableError("Postgres writer admission failed; no Dynamo fallback");
+  }
 }

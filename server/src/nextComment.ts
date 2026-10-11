@@ -1,5 +1,6 @@
 import _ from "underscore";
 import LruCache from "lru-cache";
+import { resultClient } from "./utils/delphiResults";
 import { DynamoDBClient, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
@@ -38,13 +39,12 @@ if (Config.dynamoDbEndpoint) {
   };
 }
 
-const dynamoClient = new DynamoDBClient(dynamoDBConfig);
-const dynamoDocClient = DynamoDBDocumentClient.from(dynamoClient, {
+const dynamoDocClient = resultClient(() => DynamoDBDocumentClient.from(new DynamoDBClient(dynamoDBConfig), {
   marshallOptions: {
     convertEmptyValues: true,
     removeUndefinedValues: true,
   },
-});
+}));
 const DELPHI_TOPIC_NAMES_TABLE = "Delphi_CommentClustersLLMTopicNames";
 
 // This very much follows the outline of the random selection above, but factors out the probabilistic logic

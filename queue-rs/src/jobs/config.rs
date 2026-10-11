@@ -6,7 +6,12 @@ use std::{collections::BTreeSet, path::PathBuf, time::Duration};
 /// `polis_queue_jobs_stage_check`).
 pub const KNOWN_STAGES: [&str; 2] = ["delphi_full_pipeline", "delphi_narrative"];
 /// The stages of class `large`, which `polis-queue/3` admits (000024).
-pub const GRAPH_STAGES: [&str; 3] = ["graph_embed", "graph_cluster", "graph_narrative"];
+pub const GRAPH_STAGES: [&str; 4] = [
+    "graph_embed",
+    "graph_cluster",
+    "graph_topics",
+    "graph_narrative",
+];
 pub const LARGE_STAGES: [&str; 1] = ["math_rebuild"];
 
 /// The worker class the daemon claims as (`POLIS_JOBS_WORKER_CLASS`). Each

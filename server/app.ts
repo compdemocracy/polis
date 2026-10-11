@@ -14,6 +14,7 @@ import morgan from "morgan";
 import timeout from "connect-timeout";
 
 import server from "./src/server";
+import { delphiResultSnapshot } from "./src/utils/delphiResultSnapshot";
 import Config from "./src/config";
 import { makeFileFetcher } from "./src/utils/file-fetcher";
 import logger from "./src/utils/logger";
@@ -325,6 +326,7 @@ export const appReady = helpersInitialized.then(
     ////////////////////////////////////////////
 
     app.use(middleware_responseTime_start);
+    app.use(delphiResultSnapshot);
 
     app.use(redirectIfNotHttps);
     app.use(express.bodyParser({ limit: "50mb" }));
