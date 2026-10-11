@@ -276,13 +276,11 @@ def main():
             raw_endpoint = os.environ.get('DYNAMODB_ENDPOINT')
             endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
             
-            # Using dummy credentials for local, IAM role for AWS
+            # Credentials come from the SDK default chain in every environment.
             if endpoint_url:
                 dynamodb = result_resource('dynamodb', 
                                          endpoint_url=endpoint_url, 
-                                         region_name='us-east-1',
-                                         aws_access_key_id='dummy',
-                                         aws_secret_access_key='dummy')
+                                         region_name='us-east-1')
             else:
                 dynamodb = result_resource('dynamodb', region_name=args.region)
 

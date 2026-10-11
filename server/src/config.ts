@@ -105,9 +105,9 @@ export default {
     process.env.AUTH_CLIENT_SECRET || process.env.AUTH0_CLIENT_SECRET || null,
   authIssuer: process.env.AUTH_ISSUER || null,
   authNamespace: process.env.AUTH_NAMESPACE || null,
-  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || ("local" as string),
+  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
   awsRegion: process.env.AWS_REGION || ("local" as string),
-  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ("local" as string),
+  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   backfillCommentLangDetection: isTrue(
     process.env.BACKFILL_COMMENT_LANG_DETECTION
   ),

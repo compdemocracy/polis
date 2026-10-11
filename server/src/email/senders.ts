@@ -15,19 +15,23 @@ import Config from "../config";
 import logger from "../utils/logger";
 
 const sesClient = new SESv2Client({
-  region: Config.awsRegion,
+  region: Config.AWS_REGION || "us-east-1",
   endpoint: Config.SESEndpoint,
-  credentials: {
-    accessKeyId: Config.awsAccessKeyId || "test",
-    secretAccessKey: Config.awsSecretAccessKey || "test",
-  },
+  ...(Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY
+    ? {
+        credentials: {
+          accessKeyId: Config.AWS_ACCESS_KEY_ID,
+          secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
+        },
+      }
+    : {}),
 });
 
 async function sendTextEmail(
   sender: string,
   recipient: string,
   subject: string,
-  text: string
+  text: string,
 ): Promise<SendEmailCommandOutput> {
   const params = {
     Destination: {
@@ -62,10 +66,10 @@ async function sendMultipleTextEmails(
   sender: string,
   recipientArray: string[] = [],
   subject: string,
-  text: string
+  text: string,
 ): Promise<PromiseSettledResult<SendEmailCommandOutput | void>[]> {
   const emailPromises = recipientArray.map((email) =>
-    sendTextEmail(sender, email, subject, text)
+    sendTextEmail(sender, email, subject, text),
   );
 
   const results = await Promise.allSettled(emailPromises);
@@ -123,7 +127,7 @@ async function emailTeam(subject: string, body: string): Promise<void> {
       Config.polisFromAddress,
       adminEmails,
       subject,
-      body
+      body,
     );
   }
 }

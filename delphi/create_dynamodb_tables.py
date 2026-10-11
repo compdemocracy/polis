@@ -548,13 +548,6 @@ def create_tables(endpoint_url=None, region_name='us-east-1',
         polismath_only: If True, create only Polis math tables
         aws_profile: AWS profile to use (optional)
     """
-    # Set up environment variables for credentials if not already set (for local development)
-    if not os.environ.get('AWS_ACCESS_KEY_ID') and endpoint_url and ('localhost' in endpoint_url or 'host.docker.internal' in endpoint_url or 'polis-dynamodb-local' in endpoint_url):
-        os.environ['AWS_ACCESS_KEY_ID'] = 'fakeMyKeyId'
-    
-    if not os.environ.get('AWS_SECRET_ACCESS_KEY') and endpoint_url and ('localhost' in endpoint_url or 'host.docker.internal' in endpoint_url or 'polis-dynamodb-local' in endpoint_url):
-        os.environ['AWS_SECRET_ACCESS_KEY'] = 'fakeSecretAccessKey'
-    
     # Create DynamoDB session and resource
     session_args = {'region_name': region_name}
     if aws_profile:

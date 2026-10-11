@@ -56,12 +56,6 @@ def setup_dynamodb(endpoint_url=None, region='us-east-1'):
     if endpoint_url == "":
         endpoint_url = None
             
-    if endpoint_url:
-        local_patterns = ['localhost', 'host.docker.internal', 'dynamodb:']
-        if any(pattern in endpoint_url for pattern in local_patterns):
-            os.environ.setdefault('AWS_ACCESS_KEY_ID', 'fakeMyKeyId')
-            os.environ.setdefault('AWS_SECRET_ACCESS_KEY', 'fakeSecretAccessKey')
-    
     return result_resource('dynamodb', endpoint_url=endpoint_url, region_name=region)
 
 def submit_job(dynamodb, zid, job_type='FULL_PIPELINE', priority=50, 

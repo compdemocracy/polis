@@ -28,11 +28,8 @@ if (Config.dynamoDbEndpoint) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - endpoint is allowed on the client config at runtime
   dynamoDBConfig.endpoint = Config.dynamoDbEndpoint;
-  dynamoDBConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
-} else if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
+}
+if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
   dynamoDBConfig.credentials = {
     accessKeyId: Config.AWS_ACCESS_KEY_ID,
     secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,

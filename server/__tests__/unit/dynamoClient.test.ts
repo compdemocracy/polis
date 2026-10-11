@@ -11,8 +11,6 @@ import {
   buildDynamoClientConfig,
   CONFIG_PLACEHOLDER,
   DEFAULT_REGION,
-  LOCAL_ENDPOINT_ACCESS_KEY_ID,
-  LOCAL_ENDPOINT_SECRET_ACCESS_KEY,
   makeDynamoClient,
   PLACEHOLDER_CREDENTIALS_ERROR_CODE,
 } from "../../src/utils/dynamoClient";
@@ -40,44 +38,19 @@ const PLACEHOLDER_ENV = {
 };
 
 describe("buildDynamoClientConfig credential precedence", () => {
-  describe("branch 1: explicit endpoint (DynamoDB Local)", () => {
-    it("uses the endpoint with public-fixture credentials", () => {
-      const config = buildDynamoClientConfig(
-        {
-          endpoint: "http://host.docker.internal:8000",
-          region: "us-east-1",
-          accessKeyId: "REAL_LOOKING_ID",
-          secretAccessKey: "REAL_LOOKING_SECRET",
-        },
-        EMPTY_ENV
-      );
-
-      expect(config.endpoint).toBe("http://host.docker.internal:8000");
-      expect(config.credentials).toEqual({
-        accessKeyId: LOCAL_ENDPOINT_ACCESS_KEY_ID,
-        secretAccessKey: LOCAL_ENDPOINT_SECRET_ACCESS_KEY,
-      });
-      // Configured credentials must not be forwarded to the local endpoint.
-      expect(JSON.stringify(config)).not.toContain("REAL_LOOKING_SECRET");
+  describe("explicit endpoint", () => {
+    it("preserves the configured pair", () => {
+      const config = buildDynamoClientConfig({
+        endpoint: "http://127.0.0.1:8000", region: "us-east-1",
+        accessKeyId: "GENERATED_ID", secretAccessKey: "GENERATED_SECRET",
+      }, EMPTY_ENV);
+      expect(config.endpoint).toBe("http://127.0.0.1:8000");
+      expect(config.credentials).toEqual({accessKeyId: "GENERATED_ID", secretAccessKey: "GENERATED_SECRET"});
     });
-
-    it("takes precedence over configured credentials and placeholders alike", () => {
-      const config = buildDynamoClientConfig(
-        {
-          endpoint: "http://dynamodb:8000",
-          region: CONFIG_PLACEHOLDER,
-          accessKeyId: CONFIG_PLACEHOLDER,
-          secretAccessKey: CONFIG_PLACEHOLDER,
-        },
-        PLACEHOLDER_ENV
-      );
-
-      expect(config.endpoint).toBe("http://dynamodb:8000");
-      expect(config.region).toBe(DEFAULT_REGION);
-      expect(config.credentials).toEqual({
-        accessKeyId: LOCAL_ENDPOINT_ACCESS_KEY_ID,
-        secretAccessKey: LOCAL_ENDPOINT_SECRET_ACCESS_KEY,
-      });
+    it("uses the default chain when keys are absent", () => {
+      const config = buildDynamoClientConfig({endpoint: "http://127.0.0.1:8000"}, EMPTY_ENV);
+      expect(config.endpoint).toBe("http://127.0.0.1:8000");
+      expect(config.credentials).toBeUndefined();
     });
   });
 
@@ -251,16 +224,10 @@ describe("buildDynamoClientConfig credential precedence", () => {
       expect(DynamoDBClientMock.mock.calls[0][0].credentials).toBeUndefined();
     });
 
-    it("does not throw in local-endpoint mode, which never reads the environment provider", () => {
-      const config = buildDynamoClientConfig(
-        { endpoint: "http://dynamodb:8000" },
-        PLACEHOLDER_ENV
-      );
-
-      expect(config.credentials).toEqual({
-        accessKeyId: LOCAL_ENDPOINT_ACCESS_KEY_ID,
-        secretAccessKey: LOCAL_ENDPOINT_SECRET_ACCESS_KEY,
-      });
+    it("still rejects a placeholder with an endpoint", () => {
+      expect(() => buildDynamoClientConfig(
+        {endpoint: "http://127.0.0.1:8000"}, PLACEHOLDER_ENV
+      )).toThrow(AwsCredentialsConfigurationError);
     });
 
     it("does not throw when a real pair is configured explicitly", () => {

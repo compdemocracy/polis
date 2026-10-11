@@ -18,10 +18,12 @@ const config: S3ClientConfig = {
 };
 
 if (customEndpoint) {
-  config.credentials = {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID,
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
-  };
+  if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
+    config.credentials = {
+      accessKeyId: Config.AWS_ACCESS_KEY_ID,
+      secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
+    };
+  }
   config.endpoint = customEndpoint;
   config.forcePathStyle = true;
 }

@@ -69,8 +69,8 @@ class NarrativeReportService:
             'dynamodb',
             endpoint_url=os.environ.get('DYNAMODB_ENDPOINT'),
             region_name=os.environ.get('AWS_DEFAULT_REGION', 'us-west-2'),
-            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID', 'fakeMyKeyId'),
-            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY', 'fakeSecretAccessKey')
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID') or None,
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY') or None
         )
 
         # Get the table
@@ -308,8 +308,8 @@ class BatchReportGenerator:
                 'dynamodb',
                 endpoint_url=os.environ.get('DYNAMODB_ENDPOINT', 'http://host.docker.internal:8000'),
                 region_name=os.environ.get('AWS_REGION', 'us-west-2'),
-                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID', 'fakeMyKeyId'),
-                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY', 'fakeSecretAccessKey')
+                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID') or None,
+                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY') or None
             )
             
             # Connect to comment clusters table

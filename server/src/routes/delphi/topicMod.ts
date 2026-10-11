@@ -20,11 +20,8 @@ const dynamoDBConfig: DynamoDBClientConfig = {
 
 if (Config.dynamoDbEndpoint) {
   dynamoDBConfig.endpoint = Config.dynamoDbEndpoint;
-  dynamoDBConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
-} else {
+}
+{
   if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
     dynamoDBConfig.credentials = {
       accessKeyId: Config.AWS_ACCESS_KEY_ID,
