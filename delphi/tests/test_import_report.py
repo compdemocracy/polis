@@ -156,6 +156,31 @@ def test_scan_only_errors_are_not_missing(tmp_path, code):
     assert exc.value.response['Error']['Code'] == code
 
 
+def test_skipped_family_is_never_read(tmp_path):
+    """An explicitly skipped source table is never scanned, even when the role is denied on it."""
+    from botocore.exceptions import ClientError
+    rows = {'Delphi_JobQueue': [{'job_id': {'S': 'generated'}}]}
+    source = ScanOnlySource(rows)
+    original = source.scan
+    def scan(**kwargs):
+        if kwargs['TableName'] == FAMILY:
+            raise ClientError({'Error': {'Code': 'AccessDeniedException'}}, 'Scan')
+        return original(**kwargs)
+    source.scan = scan
+    with pytest.raises(ClientError):
+        imp.census(source, tmp_path/'refused', {}, {}, validate_schema=False)
+    summary = imp.census(source, tmp_path/'skipped', {}, {}, validate_schema=False, skipped=[FAMILY])
+    assert summary['skipped'] == [FAMILY] and summary['missing'] == []
+    assert summary['counts'][FAMILY]['source'] == 0
+    assert all(call['TableName'] != FAMILY for call in source.calls)
+    # The skip is part of the census identity, so a run with and without it never compares equal.
+    plain = imp.census(ScanOnlySource(rows), tmp_path/'plain', {}, {}, validate_schema=False)
+    assert plain['source_sha256'] != summary['source_sha256']
+    # Resuming the same census must keep the skip; dropping it is refused.
+    with pytest.raises(ValueError, match='previously skipped'):
+        imp.census(source, tmp_path/'skipped', {}, {}, validate_schema=False, resume=True)
+
+
 @pytest.mark.parametrize('empty_first_page', [False, True])
 def test_scan_only_disappearance_during_pagination_refuses(tmp_path, empty_first_page):
     source = ScanOnlySource({FAMILY: [row(), row(cid=2)]})

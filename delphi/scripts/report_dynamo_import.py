@@ -26,6 +26,8 @@ def main(argv=None):
     parser.add_argument('--region', required=True)
     parser.add_argument('--local-endpoint', help='tests only: explicit loopback DynamoDB Local')
     parser.add_argument('--allow-missing', action='append', choices=sorted(imp.codec.FAMILIES), default=[])
+    parser.add_argument('--skip-family', action='append', choices=sorted(imp.codec.FAMILIES), default=[],
+                        help='never read this source table; report it as skipped')
     imp.pacing_arguments(parser)
     args = parser.parse_args(argv)
     os.umask(0o077)
@@ -53,9 +55,11 @@ def main(argv=None):
                 conversations, reports = imp.mapping(conn)
             # Each pass resumes from its own per-table checkpoint inside the attempt.
             first = imp.census(source, attempt/'first.sqlite', conversations, reports,
-                               args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume)
+                               args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume,
+                               skipped=args.skip_family)
             second = imp.census(source, attempt/'second.sqlite', conversations, reports,
-                                args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume)
+                                args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume,
+                               skipped=args.skip_family)
             if first != second:
                 raise ValueError('source changed between census passes')
             with closing(sqlite3.connect(attempt/'first.sqlite')) as db:
