@@ -17,7 +17,7 @@ DATABASE_NAMES = {"DATABASE_URL", "DATABASE_HOST", "DATABASE_PORT", "DATABASE_NA
     "PGSSLCERT", "PGSSLKEY", "PGSSLCRL"}
 
 
-def command(container, image, scratch, source, region, environment, missing, extra=()):
+def command(container, image, scratch, source, region, environment, missing, extra=(), skipped=()):
     # Keep reviewed source separate from inherited mounts such as /app/data.
     # Docker must not create their mountpoints inside the read-only source bind.
     result = ["docker", "run", "--rm", "--network", "host", "--read-only",
@@ -40,6 +40,8 @@ def command(container, image, scratch, source, region, environment, missing, ext
     result.extend([image, "scripts/report_dynamo_import.py", "--region", region])
     for family in missing:
         result.extend(["--allow-missing", family])
+    for family in skipped:
+        result.extend(["--skip-family", family])
     # Scan pacing/resume flags only; validated again by the report itself.
     result.extend(extra)
     return result
@@ -63,6 +65,8 @@ def main(argv=None):
     parser.add_argument('--output', required=True, type=Path, help='new absolute private directory on this box')
     parser.add_argument('--region', default='us-east-1')
     parser.add_argument('--allow-missing', action='append', default=[])
+    parser.add_argument('--skip-family', action='append', default=[],
+                        help='never read this source table (e.g. a legacy table outside the role\'s permission)')
     parser.add_argument('--max-read-units-per-second', type=float,
                         help='report default: 2 read units/s, safe for 5-unit tables')
     parser.add_argument('--scan-page-limit', type=int)
@@ -105,7 +109,7 @@ def main(argv=None):
             report_mode, error_mode = 'xb', 'xb'
         with (args.output/'report.jsonl').open(report_mode) as report, (args.output/'stderr.log').open(error_mode) as errors:
             result = subprocess.run(command(args.container,image,scratch,root/'delphi',args.region,environment,
-                                            args.allow_missing,report_extra(args)),
+                                            args.allow_missing,report_extra(args),skipped=args.skip_family),
                 env={**os.environ, **environment},stdout=report,stderr=errors)
         if result.returncode == 3:
             print('import report paused by DynamoDB throttling; checkpoint kept. Rerun the same command '

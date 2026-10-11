@@ -87,6 +87,7 @@ class Proof(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'m';shutil.copytree(MIG,d)
             f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if x not in upgrades)+'\n')
+            c=d/'compat.txt';c.write_text('\n'.join(x for x in c.read_text().splitlines() if x.split(' ')[0] not in upgrades)+'\n')
             for name in upgrades:
                 (d/name).unlink()
             runner(db,'deploy',dir=d)
@@ -104,6 +105,7 @@ class Proof(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             d=pathlib.Path(tmp)/'m';shutil.copytree(MIG,d)
             f=d/'release.txt';f.write_text('\n'.join(x for x in f.read_text().splitlines() if x not in upgrades)+'\n')
+            c=d/'compat.txt';c.write_text('\n'.join(x for x in c.read_text().splitlines() if x.split(' ')[0] not in upgrades)+'\n')
             for name in upgrades:
                 (d/name).unlink()
             runner(db,'deploy',dir=d)
