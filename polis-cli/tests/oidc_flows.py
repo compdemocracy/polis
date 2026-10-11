@@ -138,7 +138,7 @@ class Simulator:
 
 class Flows(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix='polis-auth0-1364-')
+        self.tmp = tempfile.TemporaryDirectory(prefix='polis-auth0-')
         self.directory = Path(self.tmp.name)
         self.sim = Simulator()
         self.env = {k: v for k, v in os.environ.items() if not k.startswith('POLIS_')}

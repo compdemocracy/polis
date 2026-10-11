@@ -27,7 +27,7 @@ DEFAULTS = json.loads((Path(__file__).resolve().parents[1] / 'defaults.json').re
 
 class CleanMachine(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix='polis-clean-1367-')
+        self.tmp = tempfile.TemporaryDirectory(prefix='polis-clean-')
         self.home = Path(self.tmp.name)
         # No POLIS_* variable, config override, proxy or inherited auth environment.
         self.env = {'HOME': str(self.home), 'PATH': '/usr/bin:/bin', 'LANG': 'C'}
