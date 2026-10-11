@@ -42,8 +42,10 @@ def main(argv=None):
             source = imp.source_client(args.region, args.local_endpoint)
             with closing(import_report.connect_existing()) as conn:
                 conversations, reports = imp.mapping(conn)
-            first = imp.census(source, attempt/'first.sqlite', conversations, reports, args.allow_missing)
-            second = imp.census(source, attempt/'second.sqlite', conversations, reports, args.allow_missing)
+            first = imp.census(source, attempt/'first.sqlite', conversations, reports,
+                               args.allow_missing, validate_schema=False)
+            second = imp.census(source, attempt/'second.sqlite', conversations, reports,
+                                args.allow_missing, validate_schema=False)
             if first != second:
                 raise ValueError('source changed between census passes')
             with closing(sqlite3.connect(attempt/'first.sqlite')) as db:

@@ -1,10 +1,14 @@
 """Real DynamoDB Local -> real daemon -> unpublished Postgres results; constructed only."""
-from contextlib import closing
+from contextlib import closing, contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+from threading import Thread
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 import psycopg2
 sys.path.insert(0,'/app')
@@ -35,6 +39,46 @@ def cli(*args,ok=True):
     value=json.loads(result.stdout)
     assert not any(k in result.stdout for k in ('r9001','r9002','postgresql://','graph_id','job_id'))
     return value
+
+
+@contextmanager
+def scan_only_endpoint():
+    """Local permission emulation: forward only Scan to real DynamoDB Local."""
+    calls = []
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            target = self.headers.get('X-Amz-Target', '')
+            payload = self.rfile.read(int(self.headers['Content-Length']))
+            calls.append((target, json.loads(payload)))
+            if target != 'DynamoDB_20120810.Scan':
+                status, body = 400, b'{"__type":"AccessDeniedException","message":"Scan only"}'
+            else:
+                request = Request('http://127.0.0.1:8000/', data=payload,
+                    headers={k: v for k, v in self.headers.items()
+                             if k.lower() not in {'host', 'content-length', 'connection'}})
+                try:
+                    with urlopen(request, timeout=30) as response:
+                        status, body = response.status, response.read()
+                except HTTPError as error:
+                    status, body = error.code, error.read()
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/x-amz-json-1.0')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f'http://127.0.0.1:{server.server_port}', calls
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 def main():
@@ -81,8 +125,25 @@ def main():
     before_report=fingerprint()
     os.environ['DATABASE_URL']=os.environ['IMPORT_SOURCE_DATABASE_URL']
     os.environ['DATABASE_SSL_MODE']='disable'
-    result=subprocess.run([sys.executable,'scripts/report_dynamo_import.py','--region','us-east-1',
-        '--local-endpoint','http://127.0.0.1:8000'],capture_output=True,text=True)
+    with scan_only_endpoint() as (endpoint, calls):
+        from botocore.exceptions import ClientError
+        restricted = legacy.local_client(endpoint)
+        try:
+            restricted.describe_table(TableName='Delphi_CommentEmbeddings')
+        except ClientError as error:
+            assert error.response['Error']['Code'] == 'AccessDeniedException'
+        else:
+            raise AssertionError('DescribeTable unexpectedly allowed')
+        assert len(calls) == 1 and calls[0][0] == 'DynamoDB_20120810.DescribeTable'
+        calls.clear()
+        result=subprocess.run([sys.executable,'scripts/report_dynamo_import.py','--region','us-east-1',
+            '--local-endpoint',endpoint],capture_output=True,text=True)
+        assert result.returncode == 0, result.stderr
+        assert calls and all(target == 'DynamoDB_20120810.Scan' for target, _ in calls)
+        assert all(args['ConsistentRead'] is True for _, args in calls)
+        assert {args['TableName'] for _, args in calls} == set(codec.FAMILIES)
+        assert sum('ExclusiveStartKey' in args for _, args in calls) >= 2
+        print(f'PASS Scan-only report: DescribeTable denied; {len(calls)} consistent Scan requests across two passes; all 20 families and pagination; no other DynamoDB operations')
     assert result.returncode==0,result.stderr
     rows=[json.loads(line) for line in result.stdout.splitlines()]
     report_path=Path('/import/generated-report.jsonl');report_path.write_text(result.stdout)
