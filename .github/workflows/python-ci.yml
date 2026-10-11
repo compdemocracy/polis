@@ -15,6 +15,7 @@ on:
       - 'scripts/application_stop.sh'
       - 'scripts/validate_service.sh'
       - 'scripts/test-deploy-hooks.sh'
+      - 'scripts/run-import-dry-run.py'
       - 'docker-compose*.yml'
       - '.github/workflows/python-ci.yml'
       - 'ci/test-migrations.sh'
@@ -142,7 +143,7 @@ jobs:
           ci/private_cert/image_admission.py ci/probe_box/receipt.py \
           ci/probe_box/contracts.py ci/probe_box/light_shadow.py ci/probe_box/light_shadow_queries.py \
           ci/private_cert/images/light_shadow_compare.py ci/private_cert/images/light_shadow_triage.py \
-          ci/private_cert/images/recipe.py; do
+          ci/private_cert/images/recipe.py scripts/run-import-dry-run.py; do
           docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
           docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
             || { echo "failed to copy scan input: $rel"; exit 1; }
