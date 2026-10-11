@@ -1,0 +1,39 @@
+# Forward compatibility, one line per migration: <file> <additive|breaking>
+#   additive: a release that does NOT list this migration still runs correctly
+#             once it is applied (rollback to it, or an old box mid-rollout).
+#   breaking: it does not; such a release refuses to start or deploy.
+# polis-migrate records each line in public.migrations.compat when it applies
+# (or next deploys over) the migration, because an older release cannot read
+# this file. An undeclared migration counts as breaking. Recorded declarations
+# only ever tighten (additive -> breaking). Every release carries every line
+# forward; a new migration adds its own line in number order, with its evidence
+# in the PR. Evidence for 000019-000030: docs/migrations.md "Forward compatibility".
+# 000000-000018 predate the runner and were not evaluated: fail closed.
+000000_initial.sql breaking
+000001_update_pwreset_table.sql breaking
+000002_add_xid_constraint.sql breaking
+000003_add_origin_permanent_cookie_columns.sql breaking
+000004_drop_waitinglist_table.sql breaking
+000005_drop_slack_stripe_canvas.sql breaking
+000006_update_votes_rule.sql breaking
+000007_drop_geolocation_fields.sql breaking
+000008_add_comment_priority.sql breaking
+000009_add_uuid_to_zinvites.sql breaking
+000010_create_oidc_user_mappings.sql breaking
+000011_alter_suzinvites_xid_to_text.sql breaking
+000012_create_topic_agenda_selections.sql breaking
+000013_create_treevite.sql breaking
+000014_alter_reports_modlevel.sql breaking
+000015_add_xid_requirements.sql breaking
+000016_add_orig_id.sql breaking
+000017_create_byod_job_table.sql breaking
+000018_add_topics_enabled.sql breaking
+000019_create_polis_queue.sql additive
+000021_create_polis_coordinator.sql additive
+000022_add_poll_timestamp_indexes.sql additive
+000023_create_delphi_foundation.sql additive
+000024_create_polis_queue_large_class.sql breaking
+000027_create_sealed_job_graphs.sql breaking
+000028_create_delphi_results.sql additive
+000029_extend_delphi_graph_stages.sql additive
+000030_create_delphi_writers.sql additive

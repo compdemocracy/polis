@@ -20,3 +20,6 @@ __pycache__/
 
 # two-convention gate outputs (ci/vote_convention/run.sh)
 .vote-gate/
+
+# Written into the CodeDeploy bundle by the deploy workflow; never committed.
+scripts/deploy-revision.txt

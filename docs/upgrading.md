@@ -41,6 +41,31 @@ failure fails deployment, not an automatic container rollback or schema undo.
 Successful earlier migrations may remain after a later failure. Preserve backup
 and migration-specific recovery procedures. No automatic down migration runs.
 
+## Rollbacks and rolling deployments of a migration release
+
+Each box's AfterInstall checks out exactly the commit its deployment was built
+from (`scripts/deploy-revision.txt`, written into the bundle by the deploy
+workflow), and only if that commit is on `origin/stable`. A promotion merged
+while a deployment is mid-rollout therefore reaches no box, and its migrations
+are applied only by its own deployment. A bundle without the file, or with a
+commit not on stable, deploys nothing.
+
+A release tolerates applied migrations it does not list when they are declared
+additive ([forward compatibility](migrations.md#forward-compatibility)):
+
+- **Rollback.** Redeploying an earlier bundle, or a stable revert, starts the
+  earlier release beside newer additive migrations; its runner applies nothing
+  and logs each tolerated migration. A newer breaking migration still refuses
+  in AfterInstall, before any service is replaced; that needs a forward fix or
+  a reviewed down script. No automatic down migration runs.
+- **Rolling deployment.** Once box 1 applies an additive migration, a server
+  still on the previous release that restarts (crash, OOM, reboot) passes its
+  startup check and serves. After a breaking migration it refuses and Docker
+  keeps restarting it until that box's own AfterInstall runs.
+
+Both hold only for releases that contain the rule: the first release with it is
+the earliest rollback target that tolerates newer migrations.
+
 ## Configuration Changes (Q1 2023)
 
 `polis.config.template.js` and `polis.config.js` files are removed and no longer used.
