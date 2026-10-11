@@ -114,8 +114,15 @@ esac
 
 # Apply the release schema before stopping/replacing any healthy service.
 # All roles use the same database lock; a second box waits, then applies nothing.
-# Build the client with this checkout. No manual image staging or local Rust needed.
-sudo docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile .
+# The migration runner image is built once by the deploy workflow for exactly this
+# commit and pushed to the registry; a box only pulls it. Compiling it here filled
+# the 8 GB root disks and failed deploys. A missing image fails the deploy before
+# any service is replaced, so the healthy revision keeps serving.
+ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com"
+MIGRATE_IMAGE="${ECR_REGISTRY}/polis:migrate-${DEPLOY_REVISION}"
+aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
+sudo docker pull "$MIGRATE_IMAGE"
+sudo docker tag "$MIGRATE_IMAGE" polis-migrate:deploy
 sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 
 # Validate configuration before replacing any running container. Compose replaces

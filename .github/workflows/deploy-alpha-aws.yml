@@ -37,6 +37,10 @@ jobs:
         run: |
           docker-compose build server
           docker push $ECR_REGISTRY/polis/server:latest
+          # The migration runner is built once here, for exactly the commit the
+          # bundle deploys, and pulled by every box instead of compiled on it.
+          docker build -t "$ECR_REGISTRY/polis:migrate-$GITHUB_SHA" -f queue-rs/polis-migrate/Dockerfile .
+          docker push "$ECR_REGISTRY/polis:migrate-$GITHUB_SHA"
 
   # =====================================================
   # ==      JOB 2: DEPLOY TO PRODUCTION (US)           ==

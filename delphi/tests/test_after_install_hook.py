@@ -73,6 +73,8 @@ FAKES = {
         '  *ollama*) exit 255;;\n'
         '  *polis-web-app-env-vars*) echo "PUBLIC_SERVICE_URL=https://example.invalid";;\n'
         '  *"ssm get-parameter"*) echo value;;\n'
+        '  *"sts get-caller-identity"*) echo 123456789012;;\n'
+        '  *"ecr get-login-password"*) echo token;;\n'
         '  *) echo \'{"username":"u","password":"p","dbname":"d"}\';;\n'
         'esac\n'),
     "docker": RECORD + (
@@ -127,6 +129,7 @@ def _run(tmp_path, script_path, rules, root, env):
 
 
 REVISION = "89abcdef0123456789abcdef0123456789abcdef"
+REGISTRY = "123456789012.dkr.ecr.us-east-1.amazonaws.com"
 
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
@@ -237,10 +240,11 @@ def test_the_stop_hook_leaves_every_service_running(tmp_path, service_type):
 def test_migration_succeeds_before_any_service_replacement(tmp_path, service_type, worker_class):
     proc, log = _deploy(tmp_path, service_type, worker_class=worker_class)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    build = "docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile ."
+    pull = f"docker pull {REGISTRY}/polis:migrate-{REVISION}"
     apply = "docker run --rm --network host --env-file .env polis-migrate:deploy deploy"
-    assert log.count(build) == log.count(apply) == 1
-    assert log.index(build) < log.index(apply)
+    assert log.count(pull) == log.count(apply) == 1
+    assert log.index(pull) < log.index(apply)
+    assert not [c for c in log if c.startswith("docker build")]
     replacements = [i for i, call in enumerate(log) if call.startswith((
         "docker-compose down", "docker rm ", "docker system prune",
         "docker-compose up", "systemctl restart"))]
@@ -248,7 +252,7 @@ def test_migration_succeeds_before_any_service_replacement(tmp_path, service_typ
     assert not replacements or log.index(apply) < min(replacements)
 
 
-@pytest.mark.parametrize("failure", ["build", "run"])
+@pytest.mark.parametrize("failure", ["pull", "run"])
 @pytest.mark.parametrize("service_type,worker_class", [
     ("server", None), ("delphi", None), ("math", None),
     ("delphi-large", "large"), ("delphi-worker", "delphi"),
@@ -260,7 +264,7 @@ def test_migration_failure_preserves_every_running_service(tmp_path, service_typ
     assert _calls(log, "docker-compose") == []
     assert _calls(log, "systemctl") == []
     docker = _calls(log, "docker")
-    assert [call.split()[0] for call in docker] == (["build"] if failure == "build" else ["build", "run"])
+    assert [call.split()[0] for call in docker] == (["login", "pull"] if failure == "pull" else ["login", "pull", "tag", "run"])
 
 
 def test_the_checkout_is_the_bundle_commit_not_the_branch_head(tmp_path):
@@ -270,9 +274,8 @@ def test_the_checkout_is_the_bundle_commit_not_the_branch_head(tmp_path):
     assert f"reset --hard {REVISION}" in git
     assert not [c for c in git if c.startswith(("pull", "reset --hard origin/"))]
     assert git.index(f"merge-base --is-ancestor {REVISION} origin/stable") < git.index(f"reset --hard {REVISION}")
-    # Checked out before the runner is built, so the migrations are this commit's.
-    assert log.index(f"git reset --hard {REVISION}") < log.index(
-        "docker build -t polis-migrate:deploy -f queue-rs/polis-migrate/Dockerfile .")
+    # Checked out before the runner image for this commit is pulled.
+    assert log.index(f"git reset --hard {REVISION}") < log.index(f"docker pull {REGISTRY}/polis:migrate-{REVISION}")
 
 
 @pytest.mark.parametrize("revision,not_on_branch,reason", [
