@@ -21,11 +21,6 @@ logger.info(
 // If DYNAMODB_ENDPOINT is set, we're using local DynamoDB
 if (Config.dynamoDbEndpoint) {
   dynamoDBConfig.endpoint = Config.dynamoDbEndpoint;
-  // For local DynamoDB, use dummy credentials
-  dynamoDBConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
   logger.info(`Using local DynamoDB at endpoint: ${Config.dynamoDbEndpoint}`);
 } else {
   // For production, use real AWS credentials

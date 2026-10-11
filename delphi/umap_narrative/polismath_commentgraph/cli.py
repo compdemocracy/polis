@@ -313,8 +313,6 @@ def lambda_local(args):
 
     # Log the endpoint being used
     logger.info(f"Using DynamoDB endpoint: {os.environ.get('DYNAMODB_ENDPOINT')}")
-    os.environ["AWS_ACCESS_KEY_ID"] = "fakeMyKeyId"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "fakeSecretAccessKey"
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
     # Reinitialize the DynamoDB storage with direct credentials

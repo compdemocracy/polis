@@ -36,10 +36,14 @@ const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 const s3Config: any = {
   region: Config.AWS_REGION || "us-east-1",
   endpoint: Config.AWS_S3_ENDPOINT,
-  credentials: {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID || "minioadmin",
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY || "minioadmin",
-  },
+  ...(Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY
+    ? {
+        credentials: {
+          accessKeyId: Config.AWS_ACCESS_KEY_ID,
+          secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
+        },
+      }
+    : {}),
   forcePathStyle: true, // Required for MinIO
 };
 
@@ -67,7 +71,7 @@ async function doVotesPost(
   tid?: number,
   voteType?: number,
   weight?: number,
-  high_priority?: boolean
+  high_priority?: boolean,
 ): Promise<VoteResult> {
   const zid = conv?.zid;
   // voteType is a wire value (range-checked by the route's parser); the row
@@ -108,11 +112,11 @@ async function votesPost(
   tid?: number,
   voteType?: number,
   weight?: number,
-  high_priority?: boolean
+  high_priority?: boolean,
 ): Promise<VoteResult> {
   const rows = (await pg.queryP_readOnly(
     "select * from conversations where zid = ($1);",
-    [zid]
+    [zid],
   )) as ConversationInfo[];
 
   if (!rows || !rows.length) {
@@ -165,14 +169,14 @@ async function votesGet(p: {
         } else {
           resolve(results.rows.map((row) => storageRowToWire(row)));
         }
-      }
+      },
     );
   });
 }
 
 function handle_GET_votes_me(
   req: { p: { zid: number; uid?: number; pid: number } },
-  res: any
+  res: any,
 ) {
   getPid(req.p.zid, req.p.uid, function (err: any, pid: number) {
     if (err || pid < 0) {
@@ -192,9 +196,9 @@ function handle_GET_votes_me(
         }
         finishArray(
           res,
-          docs.rows.map((row) => storageRowToWire(row))
+          docs.rows.map((row) => storageRowToWire(row)),
         );
-      }
+      },
     );
   });
 }
@@ -224,7 +228,7 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
       tid,
       vote,
       weight,
-      high_priority
+      high_priority,
     );
 
     const voteRecord = voteResult.vote;
@@ -312,7 +316,7 @@ async function markJobAsFailedInDb(jobId: number, errorMessage: string) {
   } catch (dbErr) {
     logger.error(
       `CRITICAL: Failed to update job status for job ${jobId}`,
-      dbErr
+      dbErr,
     );
   }
 }
@@ -368,7 +372,7 @@ async function triggerImportWorker(payload: {
 
 async function handle_POST_votes_bulk(
   req: RequestWithP,
-  res: Response & { json: (data: any) => void }
+  res: Response & { json: (data: any) => void },
 ): Promise<void> {
   // Express 3.21.2 invokes a route callback and moves on
   // (express/lib/router/index.js:164): it neither awaits the returned promise
@@ -395,7 +399,7 @@ async function handle_POST_votes_bulk(
   // everywhere in the API.
   try {
     checkImportDeclaration(
-      typeof csv === "string" ? csv.split("\n", 1)[0] : null
+      typeof csv === "string" ? csv.split("\n", 1)[0] : null,
     );
   } catch (err) {
     if (err instanceof VoteDeclarationError) {

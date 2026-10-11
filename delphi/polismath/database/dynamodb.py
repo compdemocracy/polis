@@ -36,8 +36,8 @@ class DynamoDBClient:
         Args:
             endpoint_url: URL for the DynamoDB service
             region_name: AWS region name
-            aws_access_key_id: AWS access key ID (uses environment variables if None)
-            aws_secret_access_key: AWS secret access key (uses environment variables if None)
+            aws_access_key_id: AWS access key ID (uses the SDK credential chain if None)
+            aws_secret_access_key: AWS secret access key (uses the SDK credential chain if None)
         """
         self.endpoint_url = endpoint_url
         self.region_name = region_name
@@ -49,13 +49,7 @@ class DynamoDBClient:
         
     def initialize(self) -> None:
         """Initialize DynamoDB connection and create tables if needed."""
-        # Set up environment variables for credentials if not provided and not already set
-        if os.environ.get('DELPHI_RESULT_BACKEND') != 'postgres' and not self.aws_access_key_id and not os.environ.get('AWS_ACCESS_KEY_ID'):
-            os.environ['AWS_ACCESS_KEY_ID'] = 'dummy'
-        
-        if os.environ.get('DELPHI_RESULT_BACKEND') != 'postgres' and not self.aws_secret_access_key and not os.environ.get('AWS_SECRET_ACCESS_KEY'):
-            os.environ['AWS_SECRET_ACCESS_KEY'] = 'dummy'
-        
+        # Leave missing credentials to the SDK default chain.
         # Create DynamoDB client
         kwargs = {
             'region_name': self.region_name

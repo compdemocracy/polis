@@ -26,8 +26,8 @@ def setup_minio_bucket(bucket_name=None):
     """Set up MinIO bucket with public read access"""
     # Get configuration from environment variables or defaults
     endpoint_url = os.environ.get("AWS_S3_ENDPOINT", "http://host.docker.internal:9000")
-    access_key = os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin")
-    secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin")
+    access_key = os.environ.get("AWS_ACCESS_KEY_ID") or None
+    secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY") or None
     bucket_name = bucket_name or os.environ.get("AWS_S3_BUCKET_NAME", "polis-delphi")
     region = os.environ.get("AWS_REGION", "us-east-1")
 

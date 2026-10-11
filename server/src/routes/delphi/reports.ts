@@ -11,12 +11,9 @@ const dynamoDBConfig: any = {
 };
 if (Config.dynamoDbEndpoint) {
   dynamoDBConfig.endpoint = Config.dynamoDbEndpoint;
-  dynamoDBConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
   logger.info(`Using local DynamoDB at endpoint: ${Config.dynamoDbEndpoint}`);
-} else {
+}
+{
   if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
     dynamoDBConfig.credentials = {
       accessKeyId: Config.AWS_ACCESS_KEY_ID,

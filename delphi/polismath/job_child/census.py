@@ -177,6 +177,5 @@ def default_dynamodb(region: Optional[str] = None):
     raw = os.environ.get("DYNAMODB_ENDPOINT")
     endpoint = raw if raw and raw.strip() else None
     if endpoint:
-        return result_resource("dynamodb", endpoint_url=endpoint, region_name="us-east-1",
-                              aws_access_key_id="dummy", aws_secret_access_key="dummy")
+        return result_resource("dynamodb", endpoint_url=endpoint, region_name="us-east-1")
     return result_resource("dynamodb", region_name=region or os.environ.get("AWS_REGION", "us-east-1"))
