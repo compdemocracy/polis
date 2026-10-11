@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 import psycopg2
 sys.path.insert(0,'/app')
 sys.path.insert(0,'/app/scripts')
-from polismath.delphi_storage import codec, legacy_import as legacy, production_import as imp, import_report
+from polismath.delphi_storage import codec, legacy_import as legacy, production_import as imp, import_report, scan_pacing
 from polismath.delphi_storage.golden_corpus import corpus
 
 
@@ -25,7 +25,7 @@ def sql(query,args=()):
 
 def cli(*args,ok=True):
     command=[sys.executable,'scripts/import_dynamo_production.py','--region','us-east-1',
-             '--local-endpoint','http://127.0.0.1:8000',*args]
+             '--local-endpoint','http://127.0.0.1:8000','--max-read-units-per-second','200',*args]
     result=subprocess.run(command,capture_output=True,text=True)
     if ok and result.returncode:
         # Constructed test diagnosis only; production CLI never prints private logs.
@@ -136,14 +136,18 @@ def main():
             raise AssertionError('DescribeTable unexpectedly allowed')
         assert len(calls) == 1 and calls[0][0] == 'DynamoDB_20120810.DescribeTable'
         calls.clear()
+        # Local proof runs faster than the 2-unit/s production default; pacing
+        # itself is unit-tested. Every request must still be metered.
         result=subprocess.run([sys.executable,'scripts/report_dynamo_import.py','--region','us-east-1',
-            '--local-endpoint',endpoint],capture_output=True,text=True)
+            '--local-endpoint',endpoint,'--max-read-units-per-second','200'],capture_output=True,text=True)
         assert result.returncode == 0, result.stderr
         assert calls and all(target == 'DynamoDB_20120810.Scan' for target, _ in calls)
-        assert all(args['ConsistentRead'] is True for _, args in calls)
+        assert all(args['ConsistentRead'] is False for _, args in calls)
+        assert all(args['ReturnConsumedCapacity'] == 'TOTAL' and args['Limit'] == 25 for _, args in calls)
+        assert '"unmetered_pages": 0' in result.stderr, result.stderr
         assert {args['TableName'] for _, args in calls} == set(codec.FAMILIES)
         assert sum('ExclusiveStartKey' in args for _, args in calls) >= 2
-        print(f'PASS Scan-only report: DescribeTable denied; {len(calls)} consistent Scan requests across two passes; all 20 families and pagination; no other DynamoDB operations')
+        print(f'PASS Scan-only report: DescribeTable denied; {len(calls)} eventually consistent, metered Scan requests across two passes; all 20 families and pagination; no other DynamoDB operations')
     assert result.returncode==0,result.stderr
     rows=[json.loads(line) for line in result.stdout.splitlines()]
     report_path=Path('/import/generated-report.jsonl');report_path.write_text(result.stdout)
@@ -164,7 +168,8 @@ def main():
     # The exact source digest before/after the report proves no Dynamo mutation.
     with closing(import_report.connect_existing()) as conn:
         conversations,reports=imp.mapping(conn)
-    after_source=imp.census(source,Path('/import/after-report.sqlite'),conversations,reports)
+    after_source=imp.census(source,Path('/import/after-report.sqlite'),conversations,reports,
+        pacer=scan_pacing.ScanPacer(200))
     assert after_source['source_sha256']==rows[-1]['source_sha256']
     # Existing broad login is made read-only before the very first transaction.
     old=os.environ['DATABASE_URL'];os.environ['DATABASE_URL']=os.environ['TEST_ADMIN_DATABASE_URL']
