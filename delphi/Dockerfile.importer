@@ -1,0 +1,8 @@
+# Build from a reviewed Delphi runtime containing the matching polis-jobs binary.
+# The deployer must pin DELPHI_BASE by image digest. No model/provider invocation.
+ARG DELPHI_BASE
+FROM ${DELPHI_BASE}
+COPY delphi/ /app/
+ENV PYTHONPATH=/app:/app/scripts PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+ENTRYPOINT ["python", "scripts/import_dynamo_production.py"]
