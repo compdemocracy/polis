@@ -11,6 +11,18 @@
 --    served bundles of given conversations and return its rows in DynamoDB key
 --    order, one bounded keyset page at a time.
 -- 3. Indexes for that order and for the job reader's text-keyed filters.
+--
+-- Locks. The runner applies a migration in one transaction and builds indexes
+-- CONCURRENTLY only for 000022, so these are plain builds, held until COMMIT:
+-- ACCESS EXCLUSIVE on delphi_result_current_rows (view readers wait), SHARE on
+-- delphi_result_rows (result writers wait; plain table reads do not) and SHARE
+-- on delphi_jobs (job admission and status writes wait). On a generated copy
+-- of 1.6 million result rows (1.7 GB) and 10,000 jobs the whole migration took
+-- about 2 s, 1.7 s of it the key-order index; the job indexes took
+-- milliseconds. With result tables near empty it takes milliseconds. A result
+-- read or write transaction left open makes the migration wait lock_timeout
+-- (5 s, during which new view readers queue), then fail with 55P03 and roll
+-- back with no history row; the deploy can be retried.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL ROLE polis_queue_owner;

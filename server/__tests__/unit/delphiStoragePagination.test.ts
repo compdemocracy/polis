@@ -25,13 +25,29 @@ test("report reader follows an empty filtered page and retains later row order a
   expect(makeDynamoClient).not.toHaveBeenCalled();
 });
 
-test("a changed generation on a later page refuses partial report success", async () => {
+test("a failed later page refuses partial report success", async () => {
   send.mockResolvedValueOnce({Items:[item("rlocalpage#0000","stored")], LastEvaluatedKey:{rid_section_model:"rlocalpage#0000"}})
-    .mockRejectedValueOnce(new Error("result generation changed; restart pagination"));
+    .mockRejectedValueOnce(new Error("database unavailable"));
   const result=await new DynamoStorageService("report_narrative_store").getAllByReportID("rlocalpage#");
   expect(result.success).toBe(false);
   expect(result.data).toBeUndefined();
-  expect(result.error?.message).toContain("generation changed");
+  expect(result.error?.message).toContain("database unavailable");
   expect(send).toHaveBeenCalledTimes(2);
+  expect(makeDynamoClient).not.toHaveBeenCalled();
+});
+
+test("the cache prune follows an empty filtered page and deletes every later match", async () => {
+  send.mockResolvedValueOnce({Items:[], LastEvaluatedKey:{rid_section_model:"generated-other#0999"}})
+    .mockResolvedValueOnce({Items:[item("rlocalpage#section-a","a")], LastEvaluatedKey:{rid_section_model:"rlocalpage#section-a"}})
+    .mockResolvedValueOnce({}) // delete section-a
+    .mockResolvedValueOnce({Items:[], LastEvaluatedKey:{rid_section_model:"generated-other#0998"}})
+    .mockResolvedValueOnce({Items:[item("rlocalpage#section-b","b")]})
+    .mockResolvedValueOnce({}); // delete section-b
+  const result=await new DynamoStorageService("report_narrative_store").deleteAllByReportID("rlocalpage#");
+  expect(result).toEqual({success:true, deletedCount:2});
+  const names=send.mock.calls.map(([command]:any[])=>command.constructor.name);
+  expect(names).toEqual(["ScanCommand","ScanCommand","DeleteItemCommand","ScanCommand","ScanCommand","DeleteItemCommand"]);
+  expect(send.mock.calls[1][0].input.ExclusiveStartKey).toEqual({rid_section_model:"generated-other#0999"});
+  expect(send.mock.calls[4][0].input.ExclusiveStartKey).toEqual({rid_section_model:"generated-other#0998"});
   expect(makeDynamoClient).not.toHaveBeenCalled();
 });

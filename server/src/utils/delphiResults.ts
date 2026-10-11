@@ -244,22 +244,9 @@ async function readResults(query: ResultQuery, command: any, operation: string):
   const zids = zidScope(equals, condition.prefixes, values);
   const base = values.slice();
   const scopeSql = scope ? "$3" : "NULL";
-  const generations: Record<string,string> = {};
-  let generationsLoaded = false;
-  const loadGenerations = async () => {
-    if (generationsLoaded) return;
-    generationsLoaded = true;
-    for (const row of await query<any>(`SELECT zid,scope_key,generation::text
-      FROM public.pd_result_family_batches($1,${zids},${scopeSql},$2) ORDER BY zid,scope_key`, base)) {
-      generations[`${row.zid}:${row.scope_key}`] = row.generation;
-    }
-  };
-  if (start) {
-    await loadGenerations();
-    if (JSON.stringify(start._polisPgGenerations) !== JSON.stringify(generations)) {
-      throw new Error("result generation changed; restart pagination");
-    }
-  }
+  // A cursor is a key position, never a publication: like a DynamoDB
+  // ExclusiveStartKey, a later page reads what is served when it runs and
+  // continues after that position, even if a publication landed in between.
   const [hashName, rangeName] = keys;
   const rangeType = FAMILIES[family].key[keys.length - 1][1];
   const unusualKeyCondition = !scan && (condition.other || Object.keys(condition.equals).some(k => !keys.includes(k))
@@ -323,40 +310,47 @@ async function readResults(query: ResultQuery, command: any, operation: string):
       if (!keyMatches(item) || !keyPredicate(item)) continue;
       candidates.push({item, bytes: itemBytes(row.item)});
     }
-    candidates = afterStart(orderedCandidates(candidates, input, keys), start);
+    candidates = afterStart(orderedCandidates(candidates, input, keys), start, input, keys);
     ({page, full: more} = cutPage(candidates, limit));
   }
   const filtered = page.map(c => c.item).filter(predicate(input.FilterExpression,input));
   if (operation === "GetCommand") return {Item: filtered[0]};
   let lastKey: any;
   if (more) {
-    await loadGenerations();
     const last = page[page.length-1];
     // Without a configured scope, copies of the last key in other scopes are
     // the same item (or refused as ambiguous above): resume past all of them.
     const after = last.after && !scope ? {...last.after, ...(input.ScanIndexForward === false && !scan
       ? {z: -2147483648, s: ""} : {z: 2147483647, s: "\u{10FFFF}"})} : last.after;
-    lastKey = {...key(last.item), ...indexKey(input, last.item), _polisPgGenerations: generations, ...(after ? {_polisPgAfter: after} : {})};
+    lastKey = {...key(last.item), ...indexKey(input, last.item), ...(after ? {_polisPgAfter: after} : {})};
   }
   return {Items:filtered, Count:filtered.length, ScannedCount:page.length, ...(lastKey ? {LastEvaluatedKey:lastKey} : {})};
 }
 
-function orderedCandidates(candidates: Candidate[], input: any, keys: string[]): Candidate[] {
+/** Index order: the index's range attribute, then the table key. */
+function compareFor(input: any, keys: string[]) {
   const order = input.IndexName ? indexOrder[input.IndexName] : keys[keys.length-1];
-  if (input.IndexName) candidates = candidates.filter(c => c.item[order] !== undefined && c.item[order] !== null);
-  const compare = (a:any,b:any) => {
+  return (a:any,b:any) => {
     for (const field of [order,...keys]) { if(a[field]<b[field])return -1;if(a[field]>b[field])return 1; }
     return 0;
   };
+}
+function orderedCandidates(candidates: Candidate[], input: any, keys: string[]): Candidate[] {
+  const order = input.IndexName ? indexOrder[input.IndexName] : keys[keys.length-1];
+  if (input.IndexName) candidates = candidates.filter(c => c.item[order] !== undefined && c.item[order] !== null);
+  const compare = compareFor(input, keys);
   candidates.sort((a,b) => compare(a.item,b.item));
   if (input.ScanIndexForward === false) candidates.reverse();
   return candidates;
 }
-function afterStart(candidates: Candidate[], start: any): Candidate[] {
+/** The items strictly after the cursor's key position in read order. As on
+ * DynamoDB, the cursor item itself need not still exist. */
+function afterStart(candidates: Candidate[], start: any, input: any, keys: string[]): Candidate[] {
   if (!start) return candidates;
-  const offset = candidates.findIndex(c => Object.entries(start).filter(([k]) => !k.startsWith("_polisPg")).every(([k,v]) => c.item[k] === v));
-  if (offset < 0) throw new Error("stale result cursor");
-  return candidates.slice(offset+1);
+  const compare = compareFor(input, keys);
+  const position = Object.fromEntries(Object.entries(start).filter(([k]) => !k.startsWith("_polisPg")));
+  const backward = input.ScanIndexForward === false;
+  return candidates.filter(c => backward ? compare(c.item, position) < 0 : compare(c.item, position) > 0);
 }
 
 /** Delphi_JobQueue: queue rows plus archived legacy controls of the served bundles. */
@@ -374,7 +368,6 @@ async function readJobs(query: ResultQuery, command: any, operation: string): Pr
     : jobId !== undefined ? ` AND job_id=$${values.push(jobId)}` : "";
   const rows = await query<any>(`SELECT job_id,conversation_id,report_id,status,job_type,job_config,created_at,completed_at,error,env,scope_key
     FROM public.delphi_result_jobs WHERE env=$1 ${scope ? "AND scope_key=$2" : ""}${narrow}`,values);
-  const generations: Record<string,string> = {};
   const activeIds = new Set(rows.map(row => row.job_id));
   const archived = new Map<string,any>();
   const tags = new Map<any,any>();
@@ -385,11 +378,10 @@ async function readJobs(query: ResultQuery, command: any, operation: string): Pr
     const zid = conversation !== undefined && /^\d{1,9}$/.test(conversation) ? Number(conversation) : undefined;
     const archiveNarrow = conversation === undefined ? "" : zid === undefined ? " AND FALSE"
       : ` AND zid=$${archiveValues.push(zid)}`;
-    const archives = await query<any>(`SELECT zid,scope_key,generation::text,codec_wire
+    const archives = await query<any>(`SELECT zid,scope_key,codec_wire
       FROM public.delphi_result_legacy_controls WHERE env=$1 AND family='Delphi_JobQueue'
       ${scope ? "AND scope_key=$2" : ""}${archiveNarrow} ORDER BY zid,scope_key`,archiveValues);
     for (const archive of archives) {
-      generations[`${archive.zid}:${archive.scope_key}`] = archive.generation;
       const decoded = decodeFamily(Buffer.from(archive.codec_wire,"utf8"));
       if (decoded.family !== family) throw new Error("legacy control family mismatch");
       for (const tag of decoded.items) {
@@ -402,15 +394,13 @@ async function readJobs(query: ResultQuery, command: any, operation: string): Pr
       }
     }
   }
+  // As for results: the cursor is a key position, not a publication.
   const start = input.ExclusiveStartKey;
-  if (start && JSON.stringify(start._polisPgGenerations) !== JSON.stringify(generations)) {
-    throw new Error("result generation changed; restart pagination");
-  }
   const matches = predicate(input.KeyConditionExpression,input);
   let candidates: Candidate[] = [...archived.values(),...rows].filter(matches)
     .filter(item => !input.Key || Object.entries(input.Key).every(([k,v]) => item[k] === v))
     .map(item => ({item, bytes: itemBytes(tags.get(item) ?? marshal(item).M)}));
-  candidates = afterStart(orderedCandidates(candidates, input, keys), start);
+  candidates = afterStart(orderedCandidates(candidates, input, keys), start, input, keys);
   const limit = operation === "GetCommand" ? undefined : input.Limit;
   if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) throw new Error("invalid result limit");
   const {page, full} = cutPage(candidates, limit);
@@ -431,7 +421,7 @@ async function readJobs(query: ResultQuery, command: any, operation: string): Pr
   }
   const last = page[page.length-1]?.item;
   return {Items:filtered, Count:filtered.length, ScannedCount:page.length,
-    ...(full ? {LastEvaluatedKey:{...Object.fromEntries(keys.map(k => [k,last[k]])),...indexKey(input, last),_polisPgGenerations:generations}} : {})};
+    ...(full ? {LastEvaluatedKey:{...Object.fromEntries(keys.map(k => [k,last[k]])),...indexKey(input, last)}} : {})};
 }
 
 export async function sendPostgresResult(command: any): Promise<any> {

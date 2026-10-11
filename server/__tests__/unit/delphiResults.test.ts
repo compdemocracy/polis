@@ -43,20 +43,27 @@ test("a report key resolves its conversation through reports",async()=>{
  expect(sql.mock.calls[0][1][2]).toBe("rabc");
 });
 
-test("Limit pages carry the keyset position and the publication generations",async()=>{
+test("Limit pages carry the keyset position, never a publication",async()=>{
  sql.mockImplementation(async(text:string,values:any[])=>{
-  if (!isPage(text)) return [{zid:1,scope_key:"scope",generation:"1"}];
+  if (!isPage(text)) throw new Error("only page reads expected");
   const after=values.at(-2)?JSON.parse(values.at(-2)):null;
   return [row(0),row(1),row(2)].filter(r=>!after||Number(r.sort_n)>Number(after.n)).slice(0,values.at(-1));
  });
  const first=await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},Limit:2}));
  expect(first.Items.map((i:any)=>i.comment_id)).toEqual([0,1]);
- expect(first.LastEvaluatedKey).toMatchObject({conversation_id:"1",comment_id:1,_polisPgGenerations:{"1:scope":"1"},_polisPgAfter:{n:"1"}});
+ expect(first.LastEvaluatedKey).toMatchObject({conversation_id:"1",comment_id:1,_polisPgAfter:{n:"1"}});
+ expect(first.LastEvaluatedKey).not.toHaveProperty("_polisPgGenerations");
  const second=await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},Limit:2,ExclusiveStartKey:first.LastEvaluatedKey}));
  expect(second.Items.map((i:any)=>i.comment_id)).toEqual([2]);
  expect(second.LastEvaluatedKey).toBeUndefined();
- sql.mockImplementation(async(text:string)=>isPage(text)?[row(2)]:[{zid:1,scope_key:"scope",generation:"2"}]);
- await expect(sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},ExclusiveStartKey:first.LastEvaluatedKey}))).rejects.toThrow("generation changed");
+ // A publication between pages (the cursor row gone, a new row after it):
+ // the read continues after the cursor's key, as a DynamoDB Query does.
+ sql.mockImplementation(async(text:string,values:any[])=>{
+  const after=JSON.parse(values.at(-2));
+  return [row(0),row(3)].filter(r=>Number(r.sort_n)>Number(after.n));
+ });
+ const mixed=await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},ExclusiveStartKey:first.LastEvaluatedKey}));
+ expect(mixed.Items.map((i:any)=>i.comment_id)).toEqual([3]);
 });
 
 test("conflicting published scopes fail visibly",async()=>{
@@ -95,6 +102,19 @@ test("ConversationIndex selects newest job by creation time, not UUID, within th
  expect(reply.LastEvaluatedKey).toMatchObject({job_id:"a-newest",conversation_id:"1",created_at:"2026-01-01T00:00:00Z"});
  expect(sql.mock.calls[0][0]).toContain("conversation_id=$2");expect(sql.mock.calls[0][1]).toEqual(["generated","1"]);
  expect(sql.mock.calls[1][0]).toContain("zid=$2");expect(sql.mock.calls[1][1]).toEqual(["generated",1]);
+});
+
+test("an index cursor is a key position: its item may be gone, later items follow it",async()=>{
+ const job=(job_id:string,created_at:string)=>({job_id,conversation_id:"1",created_at,status:"COMPLETED"});
+ const input={TableName:"Delphi_JobQueue",IndexName:"ConversationIndex",KeyConditionExpression:"conversation_id = :c",
+  ExpressionAttributeValues:{":c":"1"},ScanIndexForward:false,Limit:1};
+ sql.mockResolvedValueOnce([job("b","2025-06-01T00:00:00Z"),job("c","2026-01-01T00:00:00Z")]).mockResolvedValueOnce([]);
+ const first=await sendPostgresResult(new QueryCommand(input));
+ expect(first.Items.map((i:any)=>i.job_id)).toEqual(["c"]);
+ // Between pages the cursor's job disappears and an older one appears.
+ sql.mockResolvedValueOnce([job("a","2025-01-01T00:00:00Z"),job("b","2025-06-01T00:00:00Z")]).mockResolvedValueOnce([]);
+ const second=await sendPostgresResult(new QueryCommand({...input,Limit:5,ExclusiveStartKey:first.LastEvaluatedKey}));
+ expect(second.Items.map((i:any)=>i.job_id)).toEqual(["b","a"]);
 });
 
 test("archived metadata preserves NUL, exposes exact unsafe decimal and never replaces a current queue row",async()=>{

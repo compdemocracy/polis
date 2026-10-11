@@ -52,7 +52,7 @@
 -- sha256 0f90d8c7c6f9a440b2d9901dcf7a00f17222d01e48f38fb1c8c7d22be05156c8 000028_create_delphi_results.sql
 -- sha256 b4dd41790639184c40418effd290ecd86d15cb8d9f46a1a77b616f37a63d5906 000029_extend_delphi_graph_stages.sql
 -- sha256 14581a3a77c6e5cf73305a45f6635f8869a26a5674ea423b7d4fd2a146b653ce 000030_create_delphi_writers.sql
--- sha256 08f901338b81e4518779a566f9835d8e4f15d2c836b1cfdb5186a14710a5e391 000031_scope_delphi_result_reads.sql
+-- sha256 fe132110ebcb89e0a3f90c9321b6e47ad4da37179defeb88894abc93bd42f53f 000031_scope_delphi_result_reads.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';
