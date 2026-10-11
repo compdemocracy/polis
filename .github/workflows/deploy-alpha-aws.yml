@@ -59,7 +59,11 @@ jobs:
           aws-region: us-east-1
 
       - name: Create US deployment package
-        run: zip -r deployment-us.zip appspec.yml scripts/* docker-compose.yml
+        # The hooks deploy exactly this commit (scripts/after_install.sh), not
+        # whatever stable is when each box's turn comes.
+        run: |
+          git rev-parse HEAD > scripts/deploy-revision.txt
+          zip -r deployment-us.zip appspec.yml scripts/* docker-compose.yml
 
       - name: Upload US deployment package to S3
         run: aws s3 cp deployment-us.zip s3://polis-deployment-packages-050917022930-us-east-1/deployments/deployment.zip
