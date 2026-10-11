@@ -1,4 +1,4 @@
-import { resultClient, postgresResults } from "./delphiResults";
+import { resultClient } from "./delphiResults";
 import pg from "../db/pg-query";
 import logger from "./logger";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -115,8 +115,6 @@ export async function getClusterAssignments(
   zid: number,
   useCache = false
 ): Promise<Map<number, ClusterAssignment>> {
-  // A request snapshot must not reuse assignments from an older publication.
-  if (postgresResults()) useCache = false;
   // Check cache if enabled
   if (useCache) {
     const cached = clusterAssignmentsCache.get(zid);

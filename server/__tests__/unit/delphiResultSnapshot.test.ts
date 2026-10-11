@@ -1,55 +1,55 @@
 import { EventEmitter } from "events";
 import pg from "../../src/db/pg-query";
-import { delphiResultSnapshot, resultQuery } from "../../src/utils/delphiResultSnapshot";
+import { resultQuery, withResultSnapshot } from "../../src/utils/delphiResultSnapshot";
 jest.mock("../../src/db/pg-query", () => ({__esModule:true, default:{connectResultSnapshot:jest.fn(),queryP:jest.fn()}}));
-jest.mock("../../src/utils/logger", () => ({__esModule:true,default:{error:jest.fn()}}));
-const tick = () => new Promise(resolve => setImmediate(resolve));
-beforeEach(() => { jest.clearAllMocks(); process.env.DELPHI_RESULT_BACKEND="postgres"; });
-afterAll(() => { delete process.env.DELPHI_RESULT_BACKEND; });
-test("parallel family reads share a transaction and finish/close release once", async () => {
-  const client = Object.assign(new EventEmitter(), {query:jest.fn().mockResolvedValue({rows:[{value:1}]}),release:jest.fn()});
-  (pg.connectResultSnapshot as jest.Mock).mockResolvedValue(client);
-  const res = new EventEmitter();
-  await new Promise<void>((resolve,reject) => delphiResultSnapshot({} as any,res as any, (() => {
-    Promise.all([resultQuery("SELECT topics"),resultQuery("SELECT assignments")]).then(() => resolve(),reject);
-  }) as any));
-  expect(pg.connectResultSnapshot).toHaveBeenCalledTimes(1);
-  expect(client.query.mock.calls[0][0]).toBe("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-  res.emit("finish"); res.emit("close"); await tick();
-  expect(client.query.mock.calls.filter(([sql]) => sql === "ROLLBACK")).toHaveLength(1);
-  expect(client.release).toHaveBeenCalledTimes(1);
+
+const client = (rows: (sql: string) => any = () => [{value:1}]) => Object.assign(new EventEmitter(), {
+  query: jest.fn(async (sql: string) => ({rows: rows(sql)})), release: jest.fn(),
 });
-test("requests without results acquire no client, and failed setup releases it", async () => {
-  const empty = new EventEmitter();
-  delphiResultSnapshot({} as any,empty as any, (()=>{}) as any);
-  empty.emit("close"); expect(pg.connectResultSnapshot).not.toHaveBeenCalled();
-  const failure = new Error("begin failed");
-  const client = Object.assign(new EventEmitter(), {query:jest.fn().mockRejectedValue(failure),release:jest.fn()});
-  (pg.connectResultSnapshot as jest.Mock).mockResolvedValue(client);
-  const res = new EventEmitter();
-  await new Promise<void>((resolve,reject) => delphiResultSnapshot({} as any,res as any, (() => {
-    resultQuery("SELECT topics").then(()=>reject(new Error("expected failure")),error=>{
-      expect(error).toBe(failure); resolve();
-    });
-  }) as any));
-  res.emit("close"); await tick();
-  expect(client.release).toHaveBeenCalledTimes(1);
-  expect(client.release).toHaveBeenCalledWith(failure);
+const statements = (c: any) => c.query.mock.calls.map(([sql]: [string]) => sql);
+beforeEach(() => { jest.clearAllMocks(); });
+
+test("each read runs in its own read-only snapshot and returns its connection when it ends", async () => {
+  const first = client(), second = client();
+  (pg.connectResultSnapshot as jest.Mock).mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+  await withResultSnapshot(async query => { await query("SELECT topics"); await query("SELECT assignments"); });
+  expect(statements(first)).toEqual(["BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    "SET LOCAL statement_timeout = '30s'; SET LOCAL idle_in_transaction_session_timeout = '30s'",
+    "SELECT topics", "SELECT assignments", "ROLLBACK"]);
+  expect(first.release).toHaveBeenCalledWith(undefined);
+  // The connection is back before the caller's next step: a later read is a new snapshot.
+  await resultQuery("SELECT topics");
+  expect(pg.connectResultSnapshot).toHaveBeenCalledTimes(2);
+  expect(statements(second)).toContain("SELECT topics");
+  expect(second.release).toHaveBeenCalledTimes(1);
 });
 
-test("connection errors cannot crash the process or reuse a failed snapshot", async () => {
-  const client = Object.assign(new EventEmitter(), {query:jest.fn().mockResolvedValue({rows:[]}),release:jest.fn()});
-  (pg.connectResultSnapshot as jest.Mock).mockResolvedValue(client);
-  const res = new EventEmitter();
+test("a failed statement rolls back and keeps the healthy connection", async () => {
+  const failure = new Error("unsupported result index");
+  const c = client(sql => { if (sql === "SELECT bad") throw failure; return []; });
+  (pg.connectResultSnapshot as jest.Mock).mockResolvedValue(c);
+  await expect(resultQuery("SELECT bad")).rejects.toBe(failure);
+  expect(statements(c)).toContain("ROLLBACK");
+  expect(c.release).toHaveBeenCalledWith(undefined);
+});
+
+test("a connection error is never reused and cannot crash the process", async () => {
   const failure = new Error("idle transaction terminated");
-  await new Promise<void>((resolve,reject) => delphiResultSnapshot({} as any,res as any, (() => {
-    (async () => {
-      await resultQuery("SELECT topics");
-      client.emit("error",failure);
-      await expect(resultQuery("SELECT assignments")).rejects.toBe(failure);
-      resolve();
-    })().catch(reject);
-  }) as any));
-  res.emit("finish"); await tick();
-  expect(client.release).toHaveBeenCalledWith(failure);
+  const c = client();
+  (pg.connectResultSnapshot as jest.Mock).mockResolvedValue(c);
+  await expect(withResultSnapshot(async query => {
+    await query("SELECT topics");
+    c.emit("error", failure);
+    return query("SELECT assignments");
+  })).rejects.toBe(failure);
+  expect(statements(c)).not.toContain("ROLLBACK");
+  expect(c.release).toHaveBeenCalledWith(failure);
+});
+
+test("failed setup releases the connection", async () => {
+  const failure = new Error("begin failed");
+  const c = client(sql => { if (sql.startsWith("BEGIN")) throw failure; return []; });
+  (pg.connectResultSnapshot as jest.Mock).mockResolvedValue(c);
+  await expect(resultQuery("SELECT topics")).rejects.toBe(failure);
+  expect(c.release).toHaveBeenCalledTimes(1);
 });
