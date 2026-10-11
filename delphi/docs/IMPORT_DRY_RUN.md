@@ -15,8 +15,10 @@ identity. Both the per-conversation totals and grand totals conserve every sourc
 row. Only the description is shortened; source records and result counts are exact.
 The report escapes user text as JSON, including newlines and terminal controls.
 
-This command has **no apply option**. It invokes only DescribeTable, consistent
-paginated Scan and read-only PostgreSQL SELECTs. PostgreSQL sessions start with
+This command has **no apply option**. It invokes only consistent paginated Scan
+and read-only PostgreSQL SELECTs; it never calls DescribeTable. Known family key
+names/types are checked on every returned row by the codec. Empty tables have no
+row keys to check; the report does not certify the live table schema. PostgreSQL sessions start with
 `default_transaction_read_only=on` even when using an existing broad application
 login. It preserves the deployed connection's explicit TLS configuration. Without
 one it requires TLS; this path does not assert stronger transport verification
@@ -29,9 +31,11 @@ After review, place the merged source checkout containing this patch in a separa
 source directory on the existing Delphi box. Use the ordinary operator file-delivery
 path; do not redeploy or overwrite the active checkout just to run this inventory.
 The launcher starts the **exact running Delphi image ID** with the reviewed
-`delphi/` directory mounted read-only at `/app`; it builds and pulls no image. No new AWS role, stack, secret or database login
+`delphi/` directory mounted read-only at `/opt/polis-import-source`; it builds and
+pulls no image. Inherited mounts such as `/app/data` stay separate, so the reviewed
+source needs no `data/` directory. No new AWS role, stack, secret or database login
 is needed. It needs Docker and Python 3 on that box, and the current instance role
-must already allow DescribeTable and Scan on the 20 source tables. It uses IMDSv2
+must already allow Scan on the 20 source tables. It uses IMDSv2
 through host networking; static credentials/default MinIO keys in the old container
 are not copied. An access failure refuses rather than provisioning new authority.
 
@@ -102,8 +106,12 @@ DynamoDB Local and generated multi-conversation data, including pagination,
 quarantine-only conversations, unmapped data, public aliases and description
 truncation. It verifies every public PostgreSQL table before/after reporting,
 the Dynamo source digest, read-only refusal for a broad login, and conservation.
+The report runs through a loopback proxy that permits only Scan and explicitly
+denies DescribeTable; all other DynamoDB operations are also denied. Missing tables
+are detected by Scan; access denial and disappearance during pagination refuse.
 It also reruns the reviewed #1449 staged import/daemon/idempotence regression in
 local test mode. The legacy `import_dynamo_production.py --apply` remains in that
 reviewed importer; it is never selected by this launcher and production apply is
-outside this task. The older dedicated-role/apply instructions in
+outside this task. That importer's table-schema preflight still requires
+DescribeTable. The older dedicated-role/apply instructions in
 `PRODUCTION_DYNAMO_IMPORT.md` do not apply to this existing-box dry-run path.

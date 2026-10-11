@@ -102,32 +102,48 @@ def bind(item, conversations, reports):
     return next(iter(candidates)) if len(candidates) == 1 else None
 
 
-def census(client, database, conversations, reports, allowed_missing=()):
-    """Read every page of every known family; keep all rows, including unmapped."""
+def census(client, database, conversations, reports, allowed_missing=(), *, validate_schema=True):
+    """Read every page of every known family; keep all rows, including unmapped.
+
+    The read-only report uses Scan alone and validates row keys with the codec.
+    Import/apply callers retain the table-schema preflight by default.
+    """
     db = sqlite3.connect(database)
     db.execute('CREATE TABLE rows(family TEXT, k BLOB, zid INTEGER, disposition TEXT, wire BLOB, PRIMARY KEY(family,k))')
     counts, missing = {}, []
     for family, definition in sorted(codec.FAMILIES.items()):
         counts[family] = dict(source=0, imported=0, archived=0, quarantined=0)
-        try:
-            description = client.describe_table(TableName=family)['Table']
-        except client.exceptions.ResourceNotFoundException:
-            if family not in allowed_missing:
-                raise ValueError('unapproved missing source table') from None
-            missing.append(family)
-            continue
-        keys = description['KeySchema']
-        types = {a['AttributeName']: a['AttributeType'] for a in description['AttributeDefinitions']}
-        actual = [(k['AttributeName'], types[k['AttributeName']]) for k in
-                  sorted(keys, key=lambda k: k['KeyType'] != 'HASH')]
-        if actual != definition['key']:
-            raise ValueError('source key schema mismatch')
+        if validate_schema:
+            try:
+                description = client.describe_table(TableName=family)['Table']
+            except client.exceptions.ResourceNotFoundException:
+                if family not in allowed_missing:
+                    raise ValueError('unapproved missing source table') from None
+                missing.append(family)
+                continue
+            keys = description['KeySchema']
+            types = {a['AttributeName']: a['AttributeType'] for a in description['AttributeDefinitions']}
+            actual = [(k['AttributeName'], types[k['AttributeName']]) for k in
+                      sorted(keys, key=lambda k: k['KeyType'] != 'HASH')]
+            if actual != definition['key']:
+                raise ValueError('source key schema mismatch')
         start, seen = None, set()
         while True:
             args = dict(TableName=family, ConsistentRead=True, Limit=100)
             if start:
                 args['ExclusiveStartKey'] = start
-            response = client.scan(**args)
+            try:
+                response = client.scan(**args)
+            except client.exceptions.ResourceNotFoundException:
+                if validate_schema:
+                    raise  # Preserve the checked importer's failure after its preflight.
+                # A table lost mid-scan must never become a successful partial census.
+                if start or counts[family]['source']:
+                    raise ValueError('source table disappeared during scan') from None
+                if family not in allowed_missing:
+                    raise ValueError('unapproved missing source table') from None
+                missing.append(family)
+                break
             for item in response.get('Items', []):
                 wire = codec.encode_item(family, item).encode('utf-8')
                 key = codec.dumps([json.loads(wire)[name] for name, _ in definition['key']]).encode('utf-8')

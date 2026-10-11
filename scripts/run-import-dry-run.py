@@ -18,12 +18,14 @@ DATABASE_NAMES = {"DATABASE_URL", "DATABASE_HOST", "DATABASE_PORT", "DATABASE_NA
 
 
 def command(container, image, scratch, source, region, environment, missing):
+    # Keep reviewed source separate from inherited mounts such as /app/data.
+    # Docker must not create their mountpoints inside the read-only source bind.
     result = ["docker", "run", "--rm", "--network", "host", "--read-only",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
         "--tmpfs", "/tmp:rw,nosuid,nodev,mode=1777", "--volumes-from", container + ":ro",
         "--mount", "type=bind,src=" + str(scratch) + ",dst=/import",
-        "--mount", "type=bind,src=" + str(source) + ",dst=/app,readonly",
-        "--workdir", "/app", "--env", "PYTHONDONTWRITEBYTECODE=1",
+        "--mount", "type=bind,src=" + str(source) + ",dst=/opt/polis-import-source,readonly",
+        "--workdir", "/opt/polis-import-source", "--env", "PYTHONDONTWRITEBYTECODE=1",
         "--entrypoint", "python"]
     for name in sorted(DATABASE_NAMES & environment.keys()):
         result.extend(["--env", name])
