@@ -1,0 +1,11 @@
+[package]
+name = "polis-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+polis-contracts = { path = "../../../queue-rs/polis-contracts" }
+serde_json.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+url = "2"
+flate2 = "1"

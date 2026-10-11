@@ -1,0 +1,15 @@
+{
+  "default": "prod",
+  "sites": {
+    "prod": "https://pol.is/",
+    "local": "http://localhost:5000/"
+  },
+  "auth": {
+    "prod": {
+      "issuer": "https://compdem.us.auth0.com/",
+      "client_id": "GKurxYlJC0Zkaz6ysMDlQkkfRGbI9zgD",
+      "audience": "users",
+      "callback_port": 53147
+    }
+  }
+}
