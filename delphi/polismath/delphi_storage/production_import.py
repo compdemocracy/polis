@@ -1,0 +1,346 @@
+"""One-shot source census and detached import. Never publishes a result.
+
+Source rows stay in private scratch. SQLite bounds the census memory and sorts
+codec keys without converting numbers to floats. The ordinary daemon owns all
+queue fences, child exits, result staging and artifact finalization.
+"""
+from __future__ import annotations
+
+from contextlib import closing
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sqlite3
+import subprocess
+import sys
+import time
+
+from . import codec, legacy_import as legacy
+
+SNAPSHOTS = Path('/import/snapshots')
+FAMILY_LIMIT = 64 * 1024 * 1024
+BATCH_LIMIT = 256 * 1024 * 1024
+MANIFEST_LIMIT = 128 * 1024
+
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def code_sha():
+    return sha(Path(__file__).read_bytes())
+
+
+def write_private(path, raw):
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as f:
+        f.write(raw)
+
+
+def source_client(region, endpoint=None):
+    if endpoint:
+        return legacy.local_client(endpoint)
+    # AWS execution deliberately accepts only EC2 instance-profile credentials.
+    # Never fall back to a developer profile, env keys or a mounted credentials file.
+    import boto3
+    from botocore.config import Config
+    session = boto3.Session(region_name=region)
+    credentials = session.get_credentials()
+    if credentials is None or credentials.method != 'iam-role':
+        raise ValueError('instance role required')
+    return session.client('dynamodb', config=Config(
+        connect_timeout=5, read_timeout=60, retries={'mode': 'standard', 'max_attempts': 5}))
+
+
+def connect_readonly_source(local=False):
+    import psycopg2
+    from psycopg2.extensions import parse_dsn
+    dsn = os.environ['IMPORT_SOURCE_DATABASE_URL']
+    if not local and parse_dsn(dsn).get('sslmode') != 'verify-full':
+        raise ValueError('verified source database TLS required')
+    connection = psycopg2.connect(dsn, connect_timeout=10)
+    connection.set_session(readonly=True)
+    return connection
+
+
+def mapping(connection):
+    connection.set_session(readonly=True)
+    with connection, connection.cursor() as cursor:
+        cursor.execute('SELECT zid FROM conversations')
+        conversations = {str(row[0]): row[0] for row in cursor}
+        cursor.execute('SELECT report_id,zid FROM reports')
+        reports = {}
+        for rid, zid in cursor:
+            if rid in reports and reports[rid] != zid:
+                raise ValueError('ambiguous report binding')
+            reports[rid] = zid
+    return conversations, reports
+
+
+def bind(item, conversations, reports):
+    candidates = set()
+    for name, sep in [('zid', None), ('conversation_id', None), ('zid_tick', ':'),
+                      ('zid_tick_gid', ':'), ('zid_topic_jobid', '#')]:
+        if name in item:
+            value = item[name].get('S', item[name].get('N'))
+            if not isinstance(value, str):
+                return None
+            value = value.split(sep, 1)[0] if sep else value
+            if value not in conversations:
+                return None
+            candidates.add(conversations[value])
+    for name in ('report_id', 'rid_section_model'):
+        if name in item:
+            value = item[name].get('S')
+            if not isinstance(value, str):
+                return None
+            rid = value.split('#', 1)[0] if name == 'rid_section_model' else value
+            if rid not in reports:
+                return None
+            candidates.add(reports[rid])
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
+def census(client, database, conversations, reports, allowed_missing=()):
+    """Read every page of every known family; keep all rows, including unmapped."""
+    db = sqlite3.connect(database)
+    db.execute('CREATE TABLE rows(family TEXT, k BLOB, zid INTEGER, disposition TEXT, wire BLOB, PRIMARY KEY(family,k))')
+    counts, missing = {}, []
+    for family, definition in sorted(codec.FAMILIES.items()):
+        counts[family] = dict(source=0, imported=0, archived=0, quarantined=0)
+        try:
+            description = client.describe_table(TableName=family)['Table']
+        except client.exceptions.ResourceNotFoundException:
+            if family not in allowed_missing:
+                raise ValueError('unapproved missing source table') from None
+            missing.append(family)
+            continue
+        keys = description['KeySchema']
+        types = {a['AttributeName']: a['AttributeType'] for a in description['AttributeDefinitions']}
+        actual = [(k['AttributeName'], types[k['AttributeName']]) for k in
+                  sorted(keys, key=lambda k: k['KeyType'] != 'HASH')]
+        if actual != definition['key']:
+            raise ValueError('source key schema mismatch')
+        start, seen = None, set()
+        while True:
+            args = dict(TableName=family, ConsistentRead=True, Limit=100)
+            if start:
+                args['ExclusiveStartKey'] = start
+            response = client.scan(**args)
+            for item in response.get('Items', []):
+                wire = codec.encode_item(family, item).encode('utf-8')
+                key = codec.dumps([json.loads(wire)[name] for name, _ in definition['key']]).encode('utf-8')
+                zid = bind(item, conversations, reports)
+                disposition = ('archived' if family in legacy.CONTROL_FAMILIES else
+                               'quarantined' if zid is None or legacy.has_nul(item) else 'imported')
+                try:
+                    db.execute('INSERT INTO rows VALUES(?,?,?,?,?)', (family, key, zid, disposition, wire))
+                except sqlite3.IntegrityError:
+                    raise ValueError('duplicate source key during scan') from None
+                counts[family]['source'] += 1
+                counts[family][disposition] += 1
+            start = response.get('LastEvaluatedKey')
+            if not start:
+                break
+            token = sha(legacy.json_bytes({k: str(v) for k, v in sorted(start.items())}))
+            if token in seen:
+                raise ValueError('repeated source continuation')
+            seen.add(token)
+        db.commit()
+    inventory = {}
+    for family in sorted(codec.FAMILIES):
+        h = hashlib.sha256((codec.header(family) + '\n').encode())
+        for (wire,) in db.execute('SELECT wire FROM rows WHERE family=? ORDER BY k', (family,)):
+            h.update(wire + b'\n')
+        inventory[family] = h.hexdigest()
+    db.close()
+    return dict(counts=counts, inventory=inventory, missing=missing,
+                source_sha256=sha(legacy.json_bytes(dict(inventory=inventory, missing=missing))))
+
+
+def materialize(database, root, summary):
+    """Bounded family files per conversation, plus exact private control/quarantine archive."""
+    root.mkdir(mode=0o700, parents=True, exist_ok=False)
+    db = sqlite3.connect(database)
+    bundles = []
+    for (zid,) in db.execute("SELECT DISTINCT zid FROM rows WHERE disposition='imported' ORDER BY zid"):
+        directory = root / str(zid)
+        directory.mkdir(mode=0o700)
+        families, total = {}, 0
+        # Explicit empty families prevent accidentally inheriting older result rows.
+        for family in sorted(set(codec.FAMILIES) - legacy.CONTROL_FAMILIES):
+            path = directory / (family + '.jsonl')
+            h, size, count = hashlib.sha256(), 0, 0
+            with path.open('xb') as f:
+                head = (codec.header(family) + '\n').encode()
+                f.write(head); h.update(head); size += len(head)
+                for (wire,) in db.execute("SELECT wire FROM rows WHERE family=? AND zid=? AND disposition='imported' ORDER BY k", (family, zid)):
+                    f.write(wire + b'\n'); h.update(wire + b'\n'); size += len(wire) + 1; count += 1
+                    if size > FAMILY_LIMIT:
+                        raise ValueError('conversation family exceeds staged storage bound')
+            total += size
+            if total > BATCH_LIMIT:
+                raise ValueError('conversation exceeds staged batch bound')
+            families[family] = dict(sha256=h.hexdigest(), bytes=size, rows=count)
+        manifest = dict(schema='polis-production-import/1', zid=zid, families=families,
+                        source_sha256=summary['source_sha256'], adapter_sha256=code_sha())
+        raw = legacy.json_bytes(manifest)
+        digest = sha(raw)
+        write_private(directory / 'manifest.json', raw)
+        destination = root / digest
+        directory.rename(destination)
+        bundles.append(dict(digest=digest, zid=zid, bytes=total))
+    archives = {}
+    for disposition in ('archived', 'quarantined'):
+        for family in sorted(codec.FAMILIES):
+            path = root / (disposition + '-' + family + '.jsonl')
+            h, count = hashlib.sha256(), 0
+            with path.open('xb') as f:
+                head = (codec.header(family) + '\n').encode(); f.write(head); h.update(head)
+                for (wire,) in db.execute('SELECT wire FROM rows WHERE family=? AND disposition=? ORDER BY k', (family, disposition)):
+                    f.write(wire + b'\n'); h.update(wire + b'\n'); count += 1
+            archives[path.name] = dict(sha256=h.hexdigest(), rows=count)
+    db.close()
+    write_private(root / 'inventory.json', legacy.json_bytes(dict(summary=summary, bundles=bundles, archives=archives)))
+    return bundles
+
+
+def read_bundle(digest):
+    if not re.fullmatch('[0-9a-f]{64}', digest):
+        raise ValueError('invalid snapshot reference')
+    root = SNAPSHOTS / digest
+    if root.is_symlink() or SNAPSHOTS.is_symlink():
+        raise ValueError('snapshot symlink refused')
+    raw = legacy.read_regular_file(root / 'manifest.json', MANIFEST_LIMIT)
+    if sha(raw) != digest:
+        raise ValueError('snapshot digest mismatch')
+    manifest = json.loads(raw)
+    if (manifest['schema'] != 'polis-production-import/1' or manifest['adapter_sha256'] != code_sha()
+            or set(manifest['families']) != set(codec.FAMILIES) - legacy.CONTROL_FAMILIES):
+        raise ValueError('snapshot contract mismatch')
+    return root, manifest
+
+
+def execute(frame):
+    """Offline child: verifies all bytes and emits files; no database/source credentials."""
+    config = frame['input']['declared']['config']
+    root, manifest = read_bundle(config['snapshot_ref'])
+    if (config.get('production_import_sha256') != code_sha() or manifest['zid'] != frame['zid']
+            or config['source_sha256'] != manifest['source_sha256']):
+        raise ValueError('detached import identity mismatch')
+    output_root = Path(os.environ['DELPHI_OUTPUT_MANIFEST']).parent
+    spool, total = {}, 0
+    for family, entry in sorted(manifest['families'].items()):
+        raw = legacy.read_regular_file(root / (family + '.jsonl'), FAMILY_LIMIT)
+        total += len(raw)
+        if total > BATCH_LIMIT or len(raw) != entry['bytes'] or sha(raw) != entry['sha256']:
+            raise ValueError('detached source bytes mismatch')
+        actual, rows = codec.decode_family(raw)
+        if actual != family or len(rows) != entry['rows']:
+            raise ValueError('detached source count mismatch')
+        for row in rows:
+            # Source report ownership is rechecked by M28 at fenced insertion.
+            legacy.check_binding(row, frame['zid'], config['report_ids'])
+            if legacy.has_nul(row):
+                raise ValueError('unquarantined source row')
+        path = output_root / (family + '.jsonl')
+        write_private(path, raw)
+        spool[family] = dict(file=path.name, sha256=sha(raw))
+    return dict(model=legacy.MODEL, source_sha256=manifest['source_sha256'],
+                snapshot_sha256=config['snapshot_ref'], family_spool=spool)
+
+
+def specification(bundle, report_ids):
+    # Reuse the admitted model and provenance contract, detach only the input bytes.
+    worker = Path(__file__).resolve().parents[2] / 'scripts/job_graph_stage.py'
+    snapshot = {'texts': ['legacy import']}
+    config = dict(snapshot_ref=bundle['digest'], source_sha256=read_bundle(bundle['digest'])[1]['source_sha256'],
+                  report_ids=sorted(report_ids), production_import_sha256=code_sha(),
+                  importer_sha256=legacy.code_digest(), codec_sha256=legacy.codec_digest())
+    return dict(schema='polis-job-graph/1', nodes=[dict(key='legacy_import_' + str(bundle['zid']), stage='graph_narrative',
+        **{'class': 'delphi'}, declared=dict(snapshot=dict(data=snapshot, sha256=sha(json.dumps(snapshot).encode())),
+        code=sha(worker.read_bytes()), model=legacy.MODEL, runtime='python-' + sys.version.split()[0],
+        seed=0, config=config, mode='full', memory_bytes=4294967296, work_units=1), inputs=[], max_attempts=3)])
+
+
+def import_all(bundles, reports, environment, timeout, scope):
+    """Run the actual daemon in a dedicated import environment; never publish."""
+    import psycopg2
+    from job_graph_client import GraphClient
+    if not re.fullmatch('import-[a-z0-9_-]{1,57}', environment):
+        raise ValueError('dedicated import environment required')
+    if not scope or len(scope) > 128:
+        raise ValueError('invalid import scope')
+    dsn = os.environ['QUEUE_DATABASE_URL']
+    from psycopg2.extensions import parse_dsn
+    if os.environ.get('POLIS_JOBS_TRANSPORT', 'tls') != 'loopback' and parse_dsn(dsn).get('sslmode') != 'verify-full':
+        raise ValueError('verified queue database TLS required')
+    worker_env = {**os.environ, 'QUEUE_ENV': environment, 'POLIS_JOBS_ENABLED': '1',
+                  'POLIS_JOBS_WORKER_CLASS': 'delphi', 'POLIS_JOBS_STAGES': 'graph_narrative',
+                  'POLIS_JOBS_PYTHON': sys.executable, 'DELPHI_APP_PATH': '/app',
+                  'POLIS_JOBS_WORK_DIR': '/import/work', 'POLIS_JOBS_JOURNAL_DIR': '/import/journal'}
+    with closing(psycopg2.connect(dsn, connect_timeout=10)) as connection:
+        with connection, connection.cursor() as cursor:
+            cursor.execute("SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR pg_has_role(current_user, 'polis_queue_owner', 'member'), pg_has_role(current_user, 'polis_queue_executor', 'member') FROM pg_roles WHERE rolname=current_user")
+            superuser, member = cursor.fetchone()
+            if superuser or not member:
+                raise ValueError('narrow queue executor login required')
+        client = GraphClient(connection, environment)
+        # Dedicated environment must not contain unrelated runnable work.
+        with connection, connection.cursor() as cur:
+            cur.execute('SELECT job_config FROM delphi_result_jobs WHERE env=%s', (environment,))
+            if any(row[0].get('production_import_sha256') != code_sha() for row in cur):
+                raise ValueError('import environment contains unrelated jobs')
+        prepared = []
+        for bundle in bundles:
+            spec = specification(bundle, [rid for rid, zid in reports.items() if zid == bundle['zid']])
+            if len(legacy.json_bytes(spec)) > 900000:
+                raise ValueError('import admission exceeds graph input bound')
+            prepared.append((bundle, spec))
+        admitted = []
+        # Daemon logs stay on the private mount; exceptions below contain no data.
+        with open('/import/worker.log', 'ab') as log:
+            worker = subprocess.Popen(['polis-jobs'], env=worker_env, stdout=log, stderr=log)
+            try:
+                deadline = time.monotonic() + timeout
+                for bundle, spec in prepared:
+                    # The queue guard is per environment/scope, so complete and
+                    # safely release each import before admitting the next one.
+                    # Every conversation retains one common future reader scope.
+                    client._call('pd_graph_reconcile')
+                    key = 'import-' + sha(legacy.json_bytes(spec))
+                    receipt = client.admit(bundle['zid'], scope, key, spec)
+                    admitted.append((bundle, receipt))
+                    while True:
+                        status = client.status(receipt['graph_id'])
+                        node = status['nodes'][0]
+                        state = node['readiness']['state']
+                        if state == 'succeeded':
+                            artifact = node['artifact']
+                            payload = json.loads(artifact['payload'])
+                            if (payload['snapshot_sha256'] != bundle['digest']
+                                    or sha(artifact['payload'].encode()) != artifact['content_sha']):
+                                raise ValueError('artifact verification failed')
+                            root, manifest = read_bundle(bundle['digest'])
+                            for family, entry in manifest['families'].items():
+                                wire = client._call('pd_result_artifact_wire', artifact['artifact_id'], family)
+                                if wire['sha256'] != entry['sha256'] or sha(wire['wire'].encode()) != entry['sha256']:
+                                    raise ValueError('destination digest mismatch')
+                            if client.served(bundle['zid'], scope) is not None:
+                                raise ValueError('unexpected published import')
+                            break
+                        if state in {'dead', 'cancelled', 'parked'} or worker.poll() is not None:
+                            raise ValueError('import worker failed')
+                        if time.monotonic() >= deadline:
+                            raise ValueError('import wait bound exceeded')
+                        time.sleep(1)
+            finally:
+                if worker.poll() is None:
+                    worker.terminate()
+                    # Let the real daemon drain and confirm exit. Never fabricate completion.
+                    worker.wait(timeout=120)
+        receipt_path = Path('/import') / ('receipts-' + sha(legacy.json_bytes([r for _, r in admitted])) + '.json')
+        if not receipt_path.exists():
+            write_private(receipt_path, legacy.json_bytes([r for _, r in admitted]))
+    return len(admitted)
