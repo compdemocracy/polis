@@ -8,6 +8,13 @@ import pytest
 from polismath.delphi_storage import production_import as imp
 from polismath.delphi_storage import legacy_import as legacy
 from polismath.delphi_storage import codec
+from polismath.delphi_storage import scan_pacing
+
+
+@pytest.fixture(autouse=True)
+def no_pacing_sleep(monkeypatch):
+    # Pacing arithmetic is covered in test_scan_pacing.py; never wait here.
+    monkeypatch.setattr(scan_pacing, '_sleep', lambda seconds: None)
 
 FAMILY = 'Delphi_CommentEmbeddings'
 
@@ -48,7 +55,8 @@ def test_all_families_pages_partition_conservation(tmp_path):
     assert summary['counts']['Delphi_JobQueue']['archived'] == 1
     assert len(summary['inventory']) == 20
     assert all(c['source']==c['imported']+c['archived']+c['quarantined'] for c in summary['counts'].values())
-    assert all(c['ConsistentRead'] is True for c in source.calls)
+    assert all(c['ConsistentRead'] is False for c in source.calls)
+    assert all(c['ReturnConsumedCapacity'] == 'TOTAL' and c['Limit'] == 25 for c in source.calls)
     bundles = imp.materialize(tmp_path/'rows.db',tmp_path/'out',summary)
     assert {b['zid'] for b in bundles} == {1,2}
     archived = (tmp_path/'out'/'archived-Delphi_JobQueue.jsonl').read_bytes()

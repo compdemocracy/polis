@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# The commit this CodeDeploy revision was built from. The deploy workflow writes
+# it into the bundle (scripts/deploy-revision.txt) before zipping. Resolve it
+# before any cd: CodeDeploy runs this file from the revision's own archive.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_REVISION="$(cat "$HOOK_DIR/deploy-revision.txt" 2>/dev/null || true)"
+
 # MINIMAL CHANGE: Ensure parent directory exists before trying to cd into it
 sudo mkdir -p /opt/polis
 
@@ -21,7 +27,26 @@ fi
 cd polis
 sudo git config --global --add safe.directory /opt/polis/polis
 sudo git config pull.rebase true
-sudo git reset --hard origin/$GIT_BRANCH && sudo git pull
+# Check out exactly this deployment's commit, never whatever the branch is at
+# hook time: with ONE_AT_A_TIME, a promotion merged mid-rollout would otherwise
+# reach the remaining boxes (and its migrations would be applied below) without
+# a deployment of its own. The commit must be on the branch, so a bundle built
+# from another branch cannot deploy, and a redeploy of an earlier bundle (a
+# CodeDeploy rollback) checks out that earlier commit.
+if ! printf '%s\n' "$DEPLOY_REVISION" | grep -Eqx '[0-9a-f]{40}'; then
+  echo "Error: this deployment bundle names no source commit (scripts/deploy-revision.txt); refusing to deploy whatever $GIT_BRANCH is now"
+  exit 1
+fi
+if [ "$(sudo git rev-parse --is-shallow-repository)" = "true" ]; then
+  sudo git fetch --unshallow origin "$GIT_BRANCH"
+fi
+sudo git fetch origin "+refs/heads/$GIT_BRANCH:refs/remotes/origin/$GIT_BRANCH"
+if ! sudo git merge-base --is-ancestor "$DEPLOY_REVISION" "origin/$GIT_BRANCH"; then
+  echo "Error: deployment commit $DEPLOY_REVISION is not on origin/$GIT_BRANCH; refusing to deploy it"
+  exit 1
+fi
+sudo git reset --hard "$DEPLOY_REVISION"
+echo "Deploying commit $DEPLOY_REVISION (origin/$GIT_BRANCH is $(sudo git rev-parse "origin/$GIT_BRANCH"))"
 
 # --- Fetch pre-configured .env from SSM Parameter Store ---
 PRE_CONFIGURED_ENV=$(aws secretsmanager get-secret-value --secret-id polis-web-app-env-vars --query SecretString --output text --region us-east-1)

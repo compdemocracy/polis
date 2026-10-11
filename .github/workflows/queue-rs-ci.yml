@@ -168,6 +168,7 @@ jobs:
           python3 queue-rs/polis-migrate/tests/indexes.py
           python3 queue-rs/polis-migrate/tests/adoption.py
           python3 queue-rs/polis-migrate/tests/selection.py
+          python3 queue-rs/polis-migrate/tests/forward.py
           python3 queue-rs/polis-migrate/tests/lexer.py
       - name: Prove the fresh database image and restart
         run: bash queue-rs/polis-migrate/tests/fresh-image.sh
@@ -189,7 +190,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
       - name: Install Node adapter test dependencies
         working-directory: server
         run: npm ci --no-audit --no-fund

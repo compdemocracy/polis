@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from polismath.delphi_storage import import_report as report
 from polismath.delphi_storage import production_import as imp
-from test_production_import import Source, row, FAMILY
+from test_production_import import Source, row, FAMILY, no_pacing_sleep  # noqa: F401 (autouse)
 
 
 def load(name, path):
@@ -125,7 +125,7 @@ def test_scan_only_census_matches_checked_importer(tmp_path):
     actual = imp.census(source, tmp_path/'scan', {'1': 1}, {}, validate_schema=False)
     assert actual == expected
     assert len(source.calls) == len(imp.codec.FAMILIES) + 2
-    assert all(call['ConsistentRead'] is True for call in source.calls)
+    assert all(call['ConsistentRead'] is False for call in source.calls)
     assert any('ExclusiveStartKey' in call for call in source.calls)
 
 
@@ -154,6 +154,31 @@ def test_scan_only_errors_are_not_missing(tmp_path, code):
     with pytest.raises(ClientError) as exc:
         imp.census(source, tmp_path/'refused', {}, {}, list(imp.codec.FAMILIES), validate_schema=False)
     assert exc.value.response['Error']['Code'] == code
+
+
+def test_skipped_family_is_never_read(tmp_path):
+    """An explicitly skipped source table is never scanned, even when the role is denied on it."""
+    from botocore.exceptions import ClientError
+    rows = {'Delphi_JobQueue': [{'job_id': {'S': 'generated'}}]}
+    source = ScanOnlySource(rows)
+    original = source.scan
+    def scan(**kwargs):
+        if kwargs['TableName'] == FAMILY:
+            raise ClientError({'Error': {'Code': 'AccessDeniedException'}}, 'Scan')
+        return original(**kwargs)
+    source.scan = scan
+    with pytest.raises(ClientError):
+        imp.census(source, tmp_path/'refused', {}, {}, validate_schema=False)
+    summary = imp.census(source, tmp_path/'skipped', {}, {}, validate_schema=False, skipped=[FAMILY])
+    assert summary['skipped'] == [FAMILY] and summary['missing'] == []
+    assert summary['counts'][FAMILY]['source'] == 0
+    assert all(call['TableName'] != FAMILY for call in source.calls)
+    # The skip is part of the census identity, so a run with and without it never compares equal.
+    plain = imp.census(ScanOnlySource(rows), tmp_path/'plain', {}, {}, validate_schema=False)
+    assert plain['source_sha256'] != summary['source_sha256']
+    # Resuming the same census must keep the skip; dropping it is refused.
+    with pytest.raises(ValueError, match='previously skipped'):
+        imp.census(source, tmp_path/'skipped', {}, {}, validate_schema=False, resume=True)
 
 
 @pytest.mark.parametrize('empty_first_page', [False, True])
