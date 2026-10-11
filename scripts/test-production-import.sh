@@ -31,7 +31,6 @@ fi
 if [[ -z ${IMPORT_PROOF_POSTGRES_IMAGE:-} ]]; then
  docker build --build-context queue-rs=queue-rs -f server/Dockerfile-db -t "$pgimage" server > "$proof/postgres-build.log" 2>&1
 fi
-cp scripts/run-import-dry-run.py "$proof/launcher.py"
 docker build -f delphi/Dockerfile.importer --build-arg "DELPHI_BASE=$base" -t "$image" . > "$proof/importer-build.log" 2>&1
 # Bind the runtime source to this checkout, even when dependencies are cached.
 docker run --rm --network none --entrypoint python -v "$repo/delphi:/candidate:ro" "$image" -c '
@@ -52,7 +51,7 @@ for f in /candidate/*; do
 done
 printf "PASS migration image source binding: %s files\n" "$count"
 ' | tee "$proof/migration-binding.log"
-docker run --rm --network none -v "$proof/launcher.py:/launcher.py:ro" --entrypoint python "$image" -m pytest --noconftest -o addopts= -q \
+docker run --rm --network none -v "$repo/scripts:/checkout/scripts:ro" -e POLIS_CHECKOUT_DIR=/checkout --entrypoint python "$image" -m pytest --noconftest -o addopts= -q \
  tests/test_production_import.py tests/test_import_report.py tests/test_delphi_legacy_import.py tests/test_delphi_storage_codec.py | tee "$proof/unit.log"
 owned+=("$pg")
 docker run -d --name "$pg" -p "127.0.0.1:$POLIS_RECOVERY_PG_PORT:5432" \

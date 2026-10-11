@@ -1,6 +1,7 @@
 """Generated report, connection and dry-only launcher boundary tests."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -86,7 +87,9 @@ def test_production_report_has_no_apply_option():
 
 
 def test_launcher_dry_only_credentials_and_mounts():
-    launcher = load('launcher', '/launcher.py')
+    # CI supplies the same checkout root used by the other host-script tests.
+    checkout = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parents[2]))
+    launcher = load('launcher', checkout / 'scripts/run-import-dry-run.py')
     cmd = launcher.command('generated-delphi', 'generated-image', Path('/private/generated'), Path('/reviewed/delphi'),
         'us-east-1', {'DATABASE_URL': 'SENSITIVE', 'ANTHROPIC_API_KEY': 'NEVER', 'AWS_ACCESS_KEY_ID': 'NEVER'}, [])
     assert 'SENSITIVE' not in ' '.join(cmd) and 'NEVER' not in ' '.join(cmd)
