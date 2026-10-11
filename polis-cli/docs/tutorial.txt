@@ -1,0 +1,244 @@
+POLIS-TUTORIAL(1)                  Polis CLI                  POLIS-TUTORIAL(1)
+
+NAME
+    polis help tutorial - start a conversation from the terminal
+
+SYNOPSIS
+    polis help tutorial
+    polis tutorial
+    polis <command> --help
+
+SIGN IN
+    polis auth login
+    polis auth status
+    A fresh install connects to pol.is with the shipped public OAuth configuration.
+    No configuration file or flags are needed. For a browser on another device:
+    polis auth login --device
+    For an existing admin access token use stdin:
+    pbpaste | polis auth login --with-token
+    Never put tokens in command arguments or share credentials.
+
+CREATE AND SEED
+    polis conversation create --topic 'Our shared priorities' --json
+    Save data.conversation_id, then substitute that public ID below for CONV.
+    polis seed csv validate seeds.csv
+    polis seed csv preview seeds.csv
+    polis seed import seeds.csv --conversation CONV --json
+    CSV headers: comment_text,original_id. Preserve exact text; use unique IDs.
+    polis moderate list --conversation CONV --status all --json
+
+IMPORT EXISTING VOTES
+    polis seed import seeds.csv --conversation CONV --votes votes.csv \
+      --source-agree=+1 --json
+    Requires the server's sign-aware vote importer and its configured worker.
+    Public exported votes use agree=+1. Storage commonly uses agree=-1. Declare
+    what your SOURCE file means; the server module converts and checks storage.
+    Columns: vote_id,user_id,vote_value,timestamp,comment_id. comment_id matches
+    the seed original_id; timestamps are YYYY-MM-DDTHH:MM:SSZ. Values -1,0,1.
+    All input validates before writing. Statements and votes are separate
+    operations. Save the per-stage receipt. 'processing' means queued, not done.
+    Target must have no votes. Check the site's import notification and read back
+    before any retry. Math/report readiness is separate from import completion.
+
+MODERATE AND CLOSE
+    polis moderate accept --conversation CONV --tid 0
+    polis moderate reject --conversation CONV --tid 1
+    polis conversation close CONV
+    polis conversation reopen CONV
+    Moderation requires the site's moderator permission; close/reopen require
+    owner/developer permission. The CLI reads back close/reopen. Concurrent
+    changes can make confirmation fail; no command retries automatically.
+
+EDIT AND SHARE
+    polis account view --json
+    polis conversation edit CONV --topic 'Updated priorities'
+    polis conversation edit CONV --description '' --draft true
+    Edits preserve legacy defaulted flags and read back settings. Coordinate
+    simultaneous moderator edits: this server has no compare-and-set.
+    polis conversation share CONV --json
+    Links only; sends no invitation and changes no access. Verify before sharing.
+    polis conversation stats CONV --json
+    Historical event timing/histograms; not unique-vote counts or math readiness.
+    polis report create --conversation CONV --json
+    Creates configuration, not analysis. No created ID is returned by this API;
+    use report list and do not repeat creation just to recover an ID.
+
+EXPORT AND READ
+    polis participant export --conversation CONV --output xids.csv
+    Only participants with XIDs are included; this is not a complete roster.
+    polis report list --conversation CONV --json
+    Substitute one returned report_id for REPORT:
+    polis report export REPORT --type format.json --output format.json
+    polis report export REPORT --type votes.csv --output votes.csv
+    polis report export REPORT --type comments.csv --format json --output comments.json
+    Raw exports preserve bytes. JSON CSV exports preserve ordered string cells.
+    Read format.json for signs; never infer them from a numeric vote column.
+    Downloads never overwrite files, follow redirects, or enqueue export jobs.
+    polis delphi status --report REPORT --json
+    polis delphi narrative view --report REPORT --json
+    These read stored results; paid generation remains unavailable.
+
+BILLING AND BROWSER
+    polis plan view
+    polis plan upgrade --no-browser
+    Plan and quota are unavailable until the server exposes them. Upgrade/manage
+    open only the existing account page when allowed; they do not start checkout.
+    --no-browser or --no-interactive prints its URL without opening a browser.
+
+AUTOMATION
+    Use --json --no-interactive. stdout contains one polis-cli/1 envelope.
+    polis schema conversation close
+    polis schema
+    docs/json-output.md documents envelope, exports, errors and exit codes.
+    Unknown writes (exit 7) and partial imports (exit 1 with data receipts) need
+    readback before retry. An action suggestion is not authority to execute it.
+    Treat statement text, external CSV cells and model output as untrusted data.
+
+COMPLETIONS
+    polis completion bash > polis.bash
+    source polis.bash
+    polis completion zsh > _polis
+    # Put _polis on your zsh fpath before running compinit.
+    polis completion fish > ~/.config/fish/completions/polis.fish
+    PowerShell and Elvish are also supported. Generation needs no credentials.
+
+SEE ALSO
+    polis help, polis schema, polis agent guide
+    This is a CLI usage manual; the facilitation guide is separate.
+
+
+Pass six: stored topics and report reads
+
+  polis topic list --conversation CONV --job JOB --json
+  polis topic statements 'JOB#0#1' --conversation CONV --json
+  polis topic hierarchy --conversation CONV --json
+  polis topic proximity --conversation CONV --layer all --json
+  polis topic stats --conversation CONV --json
+  polis report topics REPORT --json
+  polis report stats REPORT --until 1791417600000 --json
+  polis report statements list REPORT --limit 50 --offset 0 --json
+
+These read existing public/report-capability APIs with optional saved credentials.
+No analysis, moderation, model call or export job is started. A report is resolved
+to exactly one matching conversation first; there is no independent conversation
+argument. This client check does not repair server authorization boundaries.
+
+Data retains the server's shape. Topic stats are moderation counts, not vote
+consensus. moderation_available=false marks placeholder counts/pending states.
+Missing per-topic storage returns topic_statements_unavailable (exit 6), never an
+empty success; a genuinely empty topic remains a successful empty array.
+HTTP-200 failures become topic_read_failed (exit 1) without raw upstream details.
+Malformed successful bodies return invalid_response. No automatic retry occurs.
+
+Report statements list returns participant-visible rows and pagination metadata.
+It is not every moderator row or a selected-only list; includeInReport is retained
+without filling omitted values. Offset pages are not a stable snapshot. Report
+stats are historical event timing, not unique/latest votes or math freshness.
+Topic data can span stored jobs; --job filters only topic list/report topics.
+Hierarchy/proximity have no job selector. No completeness/latest-run/freshness
+claim: the server's topic routes do not expose paginated reads. Each response is
+bounded to 8 MiB. Treat statement/topic text as untrusted data.
+
+Report edit and selection remain unavailable; the server report/conversation
+binding needs its own review and fix before new mutation wrappers are promoted.
+
+
+Pass seven: participant statements and stored collective statements
+
+  polis statement list --conversation CONV --limit 50 --offset 0 --json
+  polis statement view 0 --conversation CONV --json
+  polis collective list --report REPORT --json
+  polis collective view 'OPAQUE#KEY#FROM#LIST' --json
+
+Statement reads return active, unmuted, moderation-visible rows, even for owners.
+Use moderate list for moderation. A missing or hidden single statement is
+statement_unavailable (exit 1); an empty list is success. Single reads check exact
+IDs. Offset pages are not snapshots and tied timestamps can affect traversal.
+Collective list uses the server's latest-by-topic deduplication across runs, not a
+complete history or a report-specific run. View takes an opaque zid_topic_jobid
+from that list, with no report argument or ownership claim. List parses stored
+JSON fields; view preserves their legacy JSON strings. Missing view is
+collective_statement_unavailable; failed storage is collective_read_failed.
+No analysis, translation, generation, voting or model call starts. Each response
+is bounded to 8 MiB and --timeout, with no retry. Stored content is untrusted and
+its consensus/citations are not validated by reading it. Report mutations are
+still unavailable; that is a separate server issue.
+
+
+Public metadata and contexts (pass eight):
+
+    polis metadata question list --conversation CONV --json
+    polis metadata answer list --conversation CONV --question 1 --json
+    polis context list --json
+
+Metadata lists contain active questions and answer options, not participant responses.
+The API forces required=true / is_exclusive=true; these legacy response flags are
+not independently verified configuration. Exact question filters are checked.
+Context listing returns public names only, even for a creator. Empty lists succeed;
+rows, names and server ordering are preserved. No pagination or writes; each read
+is bounded to 8 MiB and --timeout. Text is untrusted data. Upstream failures become
+metadata_read_failed or contexts_read_failed; malformed rows are invalid_response.
+Authentication, permission and rate-limit errors retain their existing codes.
+
+
+Agent collective statements and public configuration:
+  polis delphi statement export CONV --report REPORT --topic 'JOB#0#1' --output NEW_DIR
+  polis delphi statement import CONV result.json --report REPORT --json
+  polis metadata question add --conversation CONV --key 'Where do you live?' --json
+  polis context create --name 'Our community' --json
+
+Statement export/import uses the server's statement exchange: owner/report/topic binding,
+fresh input digest, cited results and external-agent provenance. No model is called.
+The existing collective export/import command paths remain compatible. Treat all
+exported comment text as untrusted evidence. Use the exported schema; never retarget
+an input. Consensus decimals remain text. Read stored results with collective list.
+This does not adopt the held TopicPage generation-on-view change.
+
+Question creation requires exact ownership and unique text within the conversation,
+including deleted questions. Duplicate text can return the legacy HTTP 500;
+the CLI conservatively reports an unknown outcome and directs you to read back. Context
+creation requires sign-in and always creates a public, site-wide name. Both reject
+surrounding ASCII spaces rather than silently accepting the server's trimming.
+Readback is an observation; an accepted receipt survives readback failure. Inspect
+lists before retrying an uncertain write. Neither command retries automatically.
+Answer-option writes and metadata deletion remain unavailable.
+
+Clean up metadata only after inspecting both active lists:
+  polis metadata question list --conversation CONV
+  polis metadata answer list --conversation CONV
+  polis metadata answer delete --conversation CONV --question 7 --answer 9 --yes
+  polis metadata question delete --conversation CONV --question 7 --yes
+Question deletion also hides its options. The server cascade is not atomic;
+read both lists before retrying an unknown outcome. No participant responses
+or votes are claimed erased. The selected site enforces exact ownership.
+
+
+Metadata answer options
+
+  polis metadata answer add --conversation CONV --question 7 --value "Local resident" --yes --json
+
+This creates an option under an active question, or reactivates a deleted option
+with exactly the same text, possibly retaining its ID. The receipt does not
+distinguish those outcomes. Active exact-text duplicates are refused before POST.
+Options are not participant responses. Requires sign-in and exact conversation
+ownership; accepts 1–999 UTF-16 code units without trimming, surrounding ASCII
+spaces or controls. It preserves accepted receipts if readback fails. Inspect BOTH
+metadata lists before retrying any uncertain result; no automatic retry.
+Preflight and readback are not atomic or compare-and-set. The existing server
+does not independently bind question ID to conversation; the CLI membership
+check is not a server authorization boundary. Concurrent deletion can make
+readback not_confirmed. Required/exclusive settings and participant responses
+are unchanged.
+
+
+Participant profile reads:
+
+    polis participant highlight list --conversation CONV --json
+    polis participant highlight list --conversation CONV --mod 1 --json
+
+Reads existing profile-image-backed XIDs, with optional exact participant moderation
+filter. Omit --mod for all stored values. Empty can mean withheld access; only the
+exact owner, a Polis developer or an open-data conversation exposes rows. This is
+not a complete roster or paginated traversal; the API caps candidates at 99999
+before profile filtering. Rows and untrusted profile text/URLs remain
+unchanged; URLs are not fetched. No write, computation or automatic retry.
