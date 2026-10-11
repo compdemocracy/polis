@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:polis:cli:envelope:1",
+  "title": "Polis CLI envelope version 1",
+  "type": "object",
+  "required": ["schema", "ok", "site", "meta", "warnings"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "polis-cli/1"},
+    "ok": {"type": "boolean"},
+    "site": {"type": "string"},
+    "data": {},
+    "meta": {
+      "type": "object", "required": ["usage"], "additionalProperties": false,
+      "properties": {"usage": {"type":"object", "required":["state","unit","remaining","as_of"], "additionalProperties":false, "properties":{"state":{"const":"unavailable"},"unit":{"type":"null"},"remaining":{"type":"null"},"as_of":{"type":"null"}}}}
+    },
+    "warnings": {"type":"array", "items":{"type":"string"}},
+    "error": {
+      "type":"object", "additionalProperties":false,
+      "required":["code","message","action","retryable","outcome","upstream"],
+      "properties": {
+        "code":{"type":"string"}, "message":{"type":"string"}, "action":{"type":"string"},
+        "retryable":{"type":"boolean"}, "outcome":{"enum":["not_sent","rejected","unknown"]},
+        "upstream":{"type":["object","null"],"additionalProperties":false,"properties":{"status":{"type":"integer"},"request_id":{"type":["string","null"]},"code":{"type":"string"}}}
+      }
+    }
+  },
+  "allOf": [
+    {"if":{"properties":{"ok":{"const":true}}},"then":{"required":["data"],"not":{"required":["error"]}},"else":{"required":["error"]}}
+  ]
+}

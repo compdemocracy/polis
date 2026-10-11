@@ -5,13 +5,20 @@ from contextlib import closing
 import fcntl
 import os
 from pathlib import Path
+import json
 import sqlite3
 import sys
-import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from polismath.delphi_storage import production_import as imp
 from polismath.delphi_storage import import_report
+from polismath.delphi_storage.scan_pacing import ScanPaused
+
+
+def pacing(pacer):
+    # Aggregate counters only: no table names, keys or identifiers.
+    if pacer is not None:
+        print('scan pacing ' + json.dumps(pacer.summary(), sort_keys=True), file=sys.stderr)
 
 
 def main(argv=None):
@@ -19,16 +26,18 @@ def main(argv=None):
     parser.add_argument('--region', required=True)
     parser.add_argument('--local-endpoint', help='tests only: explicit loopback DynamoDB Local')
     parser.add_argument('--allow-missing', action='append', choices=sorted(imp.codec.FAMILIES), default=[])
+    imp.pacing_arguments(parser)
     args = parser.parse_args(argv)
     os.umask(0o077)
+    pacer = None
     try:
         scratch = Path('/import')
         if scratch.is_symlink() or not scratch.is_dir():
             raise ValueError('private import mount required')
         with open(scratch / '.lock', 'a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            attempt = scratch / ('report-' + uuid.uuid4().hex)
-            attempt.mkdir(mode=0o700)
+            pacer = imp.pacer_from(args)
+            attempt = imp.attempt_directory(scratch, 'report-', args.resume)
             if not args.local_endpoint:
                 # This launcher deliberately uses the existing box's instance role.
                 for name in ('AWS_PROFILE', 'AWS_DEFAULT_PROFILE', 'AWS_ACCESS_KEY_ID',
@@ -42,10 +51,11 @@ def main(argv=None):
             source = imp.source_client(args.region, args.local_endpoint)
             with closing(import_report.connect_existing()) as conn:
                 conversations, reports = imp.mapping(conn)
+            # Each pass resumes from its own per-table checkpoint inside the attempt.
             first = imp.census(source, attempt/'first.sqlite', conversations, reports,
-                               args.allow_missing, validate_schema=False)
+                               args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume)
             second = imp.census(source, attempt/'second.sqlite', conversations, reports,
-                                args.allow_missing, validate_schema=False)
+                                args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume)
             if first != second:
                 raise ValueError('source changed between census passes')
             with closing(sqlite3.connect(attempt/'first.sqlite')) as db:
@@ -58,9 +68,16 @@ def main(argv=None):
             imp.materialize(attempt/'first.sqlite', attempt/'snapshot', first)
             raw = import_report.encode(import_report.report(attempt/'first.sqlite', details, first))
             imp.write_private(attempt/'report.jsonl', raw)
+            imp.finish_attempt(attempt)
+            pacing(pacer)
             sys.stdout.buffer.write(raw)
         return 0
+    except ScanPaused:
+        pacing(pacer)
+        print('import dry-run paused (ScanPaused); checkpoint kept, rerun with --resume', file=sys.stderr)
+        return 3
     except Exception as exc:
+        pacing(pacer)
         print('import dry-run refused (' + type(exc).__name__ + ')', file=sys.stderr)
         return 2
 

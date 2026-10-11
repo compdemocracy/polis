@@ -189,7 +189,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
       - name: Install Node adapter test dependencies
         working-directory: server
         run: npm ci --no-audit --no-fund
