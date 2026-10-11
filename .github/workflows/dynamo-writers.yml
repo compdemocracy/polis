@@ -1,0 +1,27 @@
+name: Postgres Delphi writers
+on:
+  pull_request:
+    paths: ['delphi/**', 'server/**', 'queue-rs/**', 'scripts/test-dynamo-writers.sh', '.github/workflows/dynamo-writers.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  writers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      COMPOSE_PROJECT_NAME: polis-graph-test-writers-${{ github.run_id }}-${{ github.run_attempt }}
+      POLIS_RECOVERY_PG_PORT: '55453'
+      RECOVERY_PG_PORT: '55453'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: bash scripts/test-dynamo-writers.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: delphi-writers-proof
+          path: .writer-proof/**/*.log
+          include-hidden-files: true
+          retention-days: 7

@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const underscore = require('underscore');
 const server = path.resolve(__dirname, '../..');
-const realFiles = new Set(['nextComment.ts','comment.ts','conversation.ts','db/sql.ts','utils/pca.ts','utils/commentClusters.ts','votes/convention.ts','utils/zinvite.ts']);
+const realFiles = new Set(['nextComment.ts','comment.ts','conversation.ts','db/sql.ts','utils/pca.ts','utils/commentClusters.ts','votes/convention.ts','utils/zinvite.ts','utils/delphiResults.ts','utils/delphiResultWriter.ts','utils/delphiResultSnapshot.ts','utils/delphiStorageCodec.ts']);
 
 exports.runtime = function runtime(client, fixture, mutate = null) {
   let now = 1700000000000;
@@ -93,7 +93,7 @@ exports.runtime = function runtime(client, fixture, mutate = null) {
       if(spec==='@aws-sdk/client-dynamodb') return {DynamoDBClient:class {}};
       if(spec==='@aws-sdk/lib-dynamodb') return {DynamoDBDocumentClient:{from:()=>dynamo},QueryCommand:class {constructor(input){this.input=input;}}};
       if(spec==='@google-cloud/translate') return {v2:{Translate:class {async translate(txt,lang){observation.translations++;return [`${lang}: ${txt}`];}}}};
-      if(!['lru-cache','sql','zlib','crypto'].includes(spec)) throw Error(`unapproved external import ${spec}`);
+      if(!['lru-cache','sql','zlib','crypto','async_hooks'].includes(spec)) throw Error(`unapproved external import ${spec}`);
       return require(spec);
     };
     const math=Object.create(Math); math.random=()=>{const n=0.625;observation.draws.push(n);return n;};

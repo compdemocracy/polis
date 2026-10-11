@@ -526,6 +526,8 @@ class JobProcessor:
     
     def __init__(self, endpoint_url=None, region='us-east-1'):
         """Initialize the job processor."""
+        if os.environ.get('DELPHI_RESULT_BACKEND') == 'postgres':
+            raise RuntimeError('Postgres jobs run through polis-jobs, never the Dynamo poller')
         self.worker_id = str(uuid.uuid4())
         raw_endpoint = endpoint_url or os.environ.get('DYNAMODB_ENDPOINT')
         self.endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
@@ -1435,6 +1437,9 @@ def poll_and_process(processor: JobProcessor, interval: int = 10):
 
 
 def main():
+    if os.environ.get('DELPHI_RESULT_BACKEND') == 'postgres':
+        os.environ['POLIS_JOBS_ENABLED'] = '1'
+        os.execvp('polis-jobs', ['polis-jobs'])
     # This function is correct.
     parser = argparse.ArgumentParser(description='Delphi Job Poller Service')
     parser.add_argument('--endpoint-url', type=str, default=None)

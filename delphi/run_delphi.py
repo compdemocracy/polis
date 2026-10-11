@@ -116,24 +116,31 @@ def main():
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
     # validate_arg = "--validate" if args.validate else ""
 
-    # --- Reset all data before processing ---
-    print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
-    reset_command = [
-        "python",
-        "umap_narrative/reset_conversation.py",
-        f"--zid={zid}",
-    ]
-    # If a report ID is provided, pass it to the reset script for full cleanup
-    if rid:
-        reset_command.append(f"--rid={rid}")
-        print(f"{YELLOW}Using report ID {rid} for full narrative report cleanup.{NC}")
+    if os.environ.get("DELPHI_RESULT_BACKEND") == "postgres":
+        if job is None:
+            raise RuntimeError("Postgres pipelines must be admitted through polis-jobs")
+        from polismath.delphi_storage.writer import WriterResource
+        # Clear only this attempt's private working copy; previous publications survive.
+        WriterResource().reset()
+    else:
+        # --- Reset all data before processing ---
+        print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
+        reset_command = [
+            "python",
+            "umap_narrative/reset_conversation.py",
+            f"--zid={zid}",
+        ]
+        # If a report ID is provided, pass it to the reset script for full cleanup
+        if rid:
+            reset_command.append(f"--rid={rid}")
+            print(f"{YELLOW}Using report ID {rid} for full narrative report cleanup.{NC}")
     
-    reset_process = subprocess.run(reset_command)
-    if reset_process.returncode != 0:
-        print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
-        # Under the daemon the exit-code set is closed (0/1/2/4/5/6): any other failure is 1.
-        sys.exit(1 if job is not None else reset_process.returncode)
-    print(f"{GREEN}Data reset complete.{NC}")
+        reset_process = subprocess.run(reset_command)
+        if reset_process.returncode != 0:
+            print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
+            # Under the daemon the exit-code set is closed (0/1/2/4/5/6): any other failure is 1.
+            sys.exit(1 if job is not None else reset_process.returncode)
+        print(f"{GREEN}Data reset complete.{NC}")
 
     print(f"{GREEN}Processing conversation {zid}...{NC}")
 
@@ -263,6 +270,7 @@ def main():
         # First, determine available layers from DynamoDB
         try:
             import boto3
+            from polismath.delphi_storage.resource import result_resource
             from boto3.dynamodb.conditions import Key
             
             raw_endpoint = os.environ.get('DYNAMODB_ENDPOINT')
@@ -270,13 +278,13 @@ def main():
             
             # Using dummy credentials for local, IAM role for AWS
             if endpoint_url:
-                dynamodb = boto3.resource('dynamodb', 
+                dynamodb = result_resource('dynamodb', 
                                          endpoint_url=endpoint_url, 
                                          region_name='us-east-1',
                                          aws_access_key_id='dummy',
                                          aws_secret_access_key='dummy')
             else:
-                dynamodb = boto3.resource('dynamodb', region_name=args.region)
+                dynamodb = result_resource('dynamodb', region_name=args.region)
 
 
             table = dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
