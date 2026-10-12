@@ -132,6 +132,8 @@ describe("CSV import transaction and lifecycle boundaries", () => {
       expect.stringContaining("missing-comment")
     );
     expect(client.release).toHaveBeenCalledTimes(1);
+    // Closed, not pooled: the batch's participant lock must not outlive it.
+    expect(client.release).toHaveBeenCalledWith(true);
     expect(jobUpdates("completed")).toHaveLength(1);
     expect(jobUpdates("failed")).toHaveLength(0);
     expect(events.indexOf("COMMIT")).toBeLessThan(
@@ -235,6 +237,7 @@ describe("CSV import transaction and lifecycle boundaries", () => {
     expect(client.query).toHaveBeenCalledWith("ROLLBACK");
     expect(client.query).not.toHaveBeenCalledWith("COMMIT");
     expect(client.release).toHaveBeenCalledTimes(1);
+    expect(client.release).toHaveBeenCalledWith(true);
     expect(
       query.mock.calls.some(([sql]) =>
         String(sql).includes("INSERT INTO votes_latest_unique")
