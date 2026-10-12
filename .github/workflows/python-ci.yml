@@ -81,7 +81,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: delphi-shard-${{ matrix.shard }}
-        path: delphi-results/shard-${{ matrix.shard }}
+        path: |
+          delphi-results/shard-${{ matrix.shard }}
+          !delphi-results/shard-${{ matrix.shard }}/stack
         if-no-files-found: ignore
 
   test:

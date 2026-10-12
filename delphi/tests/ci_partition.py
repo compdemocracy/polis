@@ -7,10 +7,13 @@ point sets one of these environment variables:
                                split by unit: an xdist_group name when the
                                test has one (so a dataset is computed in one
                                shard only), otherwise its module file. Units
-                               are spread over shards by expected seconds
+                               are spread over shards by expected wall seconds
                                (ci/local/delphi-test-durations.json, a
                                per-test default for units it does not list),
                                longest first, so the shards finish together.
+                               The plan depends only on the collection and that
+                               file, never on the machine, so every shard
+                               computes the same plan.
   DELPHI_TEST_MANIFEST=<path>  write the collected and selected node ids
                                (before -m), so the combine step can prove every
                                test ran in exactly one shard.
@@ -33,6 +36,9 @@ import pytest
 
 # Seconds assumed for a test in a unit the durations file does not list.
 DEFAULT_TEST_SECONDS = 0.5
+# Workers assumed when turning parallel-pass seconds into wall seconds (a
+# hosted runner's CPUs). A constant, so the plan is the same on every machine.
+PLAN_WORKERS = 4
 
 
 def base_nodeid(nodeid: str) -> str:
@@ -66,16 +72,23 @@ def unit_of(item) -> str:
 
 
 def _load_durations() -> dict[str, float]:
+    """Expected wall seconds per unit. The file holds [parallel, serial]
+    seconds per unit: parallel-pass tests share PLAN_WORKERS workers, the
+    serial pass has the shard to itself."""
     path = os.environ.get("DELPHI_TEST_DURATIONS")
     if not path or not Path(path).is_file():
         return {}
     data = json.loads(Path(path).read_text())
-    return {str(k): float(v) for k, v in data.get("units", {}).items()}
+    out = {}
+    for unit, value in data.get("units", {}).items():
+        parallel, serial = value if isinstance(value, list) else (value, 0.0)
+        out[str(unit)] = float(parallel) / PLAN_WORKERS + float(serial)
+    return out
 
 
 def assign_shards(units: dict[str, int], durations: dict[str, float], count: int) -> dict[str, int]:
     """Longest-expected unit first onto the least-loaded shard (1-based)."""
-    weight = {u: durations.get(u, n * DEFAULT_TEST_SECONDS) for u, n in units.items()}
+    weight = {u: durations.get(u, n * DEFAULT_TEST_SECONDS / PLAN_WORKERS) for u, n in units.items()}
     loads = [0.0] * count
     out = {}
     for unit in sorted(units, key=lambda u: (-weight[u], u)):
@@ -142,6 +155,8 @@ class CiPartition:
                 "collected": collected,
                 "selected": [base_nodeid(i.nodeid) for i in items],
                 "units": {base_nodeid(i.nodeid): unit_of(i) for i in items},
+                "serial": [base_nodeid(i.nodeid) for i in items
+                           if i.get_closest_marker("serial") is not None],
             }))
 
     def pytest_runtest_logreport(self, report):

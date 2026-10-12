@@ -104,16 +104,17 @@ SHARD_I="${SHARD%/*}"; SHARD_N="${SHARD#*/}"
 
 PROJECT="${DELPHI_CHECK_PROJECT:-delphi-python-${SHARD_I}of${SHARD_N}-$(printf '%s' "$ROOT" | sha)}"
 OUT="${DELPHI_CHECK_OUT:-$ROOT/.ci-out/$PROJECT}"
-rm -rf "$OUT"; mkdir -p "$OUT"
+rm -rf "$OUT"; mkdir -p "$OUT/stack"
 OUT="$(cd "$OUT" && pwd)"
+STACK="$OUT/stack"   # compose inputs, kept apart from the results
 log "project $PROJECT; shard $SHARD; results $OUT"
 
 # test.env plus the in-network hostnames the delphi service reads.
 [ -f test.env ] || die "test.env not found"
-{ cat test.env; echo "POSTGRES_HOST=postgres"; echo "DYNAMODB_ENDPOINT=http://dynamodb:8000"; echo "AWS_S3_ENDPOINT=http://minio:9000"; } > "$OUT/test.env"
+{ cat test.env; echo "POSTGRES_HOST=postgres"; echo "DYNAMODB_ENDPOINT=http://dynamodb:8000"; echo "AWS_S3_ENDPOINT=http://minio:9000"; } > "$STACK/test.env"
 
 # No published host ports: nothing in this check reaches the stack from the host.
-cat > "$OUT/no-host-ports.yml" <<'EOF'
+cat > "$STACK/no-host-ports.yml" <<'EOF'
 services:
   client-participation-alpha: { ports: !reset [] }
   ses-local: { ports: !reset [] }
@@ -123,7 +124,7 @@ services:
   minio: { ports: !reset [] }
   dynamodb: { ports: !reset [] }
 EOF
-COMPOSE_ARGS=(-p "$PROJECT" -f docker-compose.test.yml -f "$OUT/no-host-ports.yml" --env-file "$OUT/test.env")
+COMPOSE_ARGS=(-p "$PROJECT" -f docker-compose.test.yml -f "$STACK/no-host-ports.yml" --env-file "$STACK/test.env")
 compose() { docker compose "${COMPOSE_ARGS[@]}" "$@"; }
 
 cleanup() {
@@ -153,7 +154,7 @@ endgroup
 group "apply and check migrations"
 # test-migrations.sh puts its own -f docker-compose.test.yml first; it reads the
 # env file from POLIS_TEST_ENV_FILE.
-POLIS_TEST_ENV_FILE="$OUT/test.env" bash ci/test-migrations.sh -p "$PROJECT" -f "$OUT/no-host-ports.yml"
+POLIS_TEST_ENV_FILE="$STACK/test.env" bash ci/test-migrations.sh -p "$PROJECT" -f "$STACK/no-host-ports.yml"
 endgroup
 
 group "start the stack"

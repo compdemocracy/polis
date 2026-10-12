@@ -5,8 +5,9 @@
   combine --out OUT DIR...    check that the shards' selections partition the
                               collected tests (each test in exactly one shard),
                               add up the counts, and write OUT/counts.json and
-                              OUT/test-durations.json (seconds per shard unit,
-                              the format of ci/local/delphi-test-durations.json)
+                              OUT/test-durations.json ([parallel, serial] seconds
+                              per shard unit, the format of
+                              ci/local/delphi-test-durations.json)
 
 Counts are pytest's own summary numbers (passed, failed, skipped, xfailed,
 xpassed, error), read from the controller of each pass. "deselected" is left
@@ -41,15 +42,18 @@ def fmt(c: Counter) -> str:
     return ", ".join(f"{c.get(k, 0)} {k}" for k in keys)
 
 
-def durations(run_dir: Path, units: dict[str, str]) -> Counter:
-    out: Counter = Counter()
+def durations(run_dir: Path, manifest: dict) -> tuple[Counter, Counter]:
+    """Seconds per unit, split into parallel-pass and serial-marked tests."""
+    units, serial = manifest["units"], set(manifest.get("serial", []))
+    parallel_s: Counter = Counter()
+    serial_s: Counter = Counter()
     for f in sorted(run_dir.glob("results-*.jsonl")):
         for line in f.read_text().splitlines():
             rec = json.loads(line)
             unit = units.get(rec["nodeid"])
             if unit:
-                out[unit] += rec["duration"]
-    return out
+                (serial_s if rec["nodeid"] in serial else parallel_s)[unit] += rec["duration"]
+    return parallel_s, serial_s
 
 
 def cmd_summary(args) -> int:
@@ -68,7 +72,8 @@ def cmd_combine(args) -> int:
     owner: dict[str, str] = {}
     problems = []
     total: Counter = Counter()
-    unit_seconds: Counter = Counter()
+    parallel_s: Counter = Counter()
+    serial_s: Counter = Counter()
     for d in map(Path, args.dirs):
         manifest = json.loads((d / "manifest.json").read_text())
         shard = manifest["shard"]
@@ -85,7 +90,9 @@ def cmd_combine(args) -> int:
         c = run_counts(d)
         print(f"shard {shard}: {len(manifest['selected'])} tests; {fmt(c)}")
         total += c
-        unit_seconds += durations(d, manifest["units"])
+        p, s = durations(d, manifest)
+        parallel_s += p
+        serial_s += s
     missing = sorted(set(collected or []) - set(owner))
     for nodeid in missing[:20]:
         problems.append(f"{nodeid} was collected but no shard selected it")
@@ -94,7 +101,8 @@ def cmd_combine(args) -> int:
     print(f"all shards: {len(owner)} of {len(collected or [])} collected tests; {fmt(total)}")
     (out / "counts.json").write_text(json.dumps(dict(total), sort_keys=True, indent=1) + "\n")
     (out / "test-durations.json").write_text(json.dumps(
-        {"units": {u: round(s, 1) for u, s in sorted(unit_seconds.items())}},
+        {"units": {u: [round(parallel_s[u], 1), round(serial_s[u], 1)]
+                   for u in sorted(set(parallel_s) | set(serial_s))}},
         indent=1, sort_keys=True) + "\n")
     if total.get("failed") or total.get("error"):
         problems.append(f"{total.get('failed', 0)} failed and {total.get('error', 0)} errors across the shards")
