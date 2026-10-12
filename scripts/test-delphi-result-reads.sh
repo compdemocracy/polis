@@ -7,7 +7,9 @@
 #
 # Starts one PostgreSQL 17 and one DynamoDB Local container, applies the
 # release migrations with polis-migrate, runs the parity, snapshot and
-# concurrency suites, and removes both containers.
+# concurrency suites and the participation-path guards that need a real
+# migrated database (server/__tests__/participation-pg), and removes both
+# containers.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=$PWD
