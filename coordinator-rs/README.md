@@ -423,10 +423,9 @@ plumbing does not silently rewrite or close those obligations.
   counts, stage reachability, byte-hash comparisons against the existing
   writer and the real Node reader, and the metric catalog. No production
   data or credentials are in these files.
-- `cost-reduction/04-plans/P-026-rust-coordinator-report.md` and
-  `P-022-G-coordinator-contract.md` — the accepted design notes this README
-  summarizes; they live outside this branch and are the authoritative
-  record of why each decision was made and who signed off.
+- The accepted design notes this README summarizes (the coordinator report
+  and the coordinator contract) live outside this repository; they are the
+  authoritative record of why each decision was made and who signed off.
 - Raw logs and per-run artifacts go to a git-ignored `artifacts/` directory,
   not checked in; only the sanitized `evidence/` summaries are.
 

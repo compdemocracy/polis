@@ -38,11 +38,11 @@ def test_evoc(args):
     datasets = [
         {
             "name": "biodiversity",
-            "file": "/Users/colinmegill/evoc-top-exp/polis_data/biodiversity/biodiversity_comments.csv",
+            "file": os.path.expanduser("~/evoc-top-exp/polis_data/biodiversity/biodiversity_comments.csv"),
         },
         {
             "name": "bg2050",
-            "file": "/Users/colinmegill/evoc-top-exp/polis_data/bg2050/comments.csv",
+            "file": os.path.expanduser("~/evoc-top-exp/polis_data/bg2050/comments.csv"),
         },
     ]
 

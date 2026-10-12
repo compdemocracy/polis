@@ -25,8 +25,8 @@ cache charge), sampled at startup and again by ``refresh_baseline`` whenever
 nothing is granted or held (the readiness tick calls it). The impossible-fit
 test and ``compute_capacity_bytes`` use that baseline.
 
-Estimates (02-findings/python-engine-memory-scaling.md, local measurement,
-recalibrated by P-073 §2.1 against every recorded production attempt):
+Estimates (a local memory-scaling measurement of the Python engine,
+recalibrated against every recorded production attempt):
   * compute peak above the process base = max(job floor, safety x (133 MiB
     per million voter x comment cells + 1,000 B per fetched vote row)), job
     floor 64 MiB. The previous model was 116 MiB/Mcell (the local 30k x 1000

@@ -134,11 +134,13 @@ include = [
 
 # Pytest configuration
 [tool.pytest.ini_options]
-# Force sequential execution (-n0) to leverage the session-scoped conversation cache.
-# The cache shares computed conversations across test files, but each xdist worker
-# has its own process with a separate cache. With only 2 datasets (biodiversity, vw),
-# sequential execution with caching is ~6x faster than parallel execution where each
-# worker recomputes the conversations independently.
+# A plain `pytest` runs sequentially (-n0) so the session-scoped conversation cache
+# is shared across test files: each xdist worker has its own process and cache, and
+# with `--dist load` every worker would recompute the same conversations.
+# ci/local/delphi-python.sh (the entry point CI calls) overrides this with
+# `-n <CPUs> --dist loadgroup`: dataset-parametrized tests carry
+# xdist_group(<dataset>), so each conversation is still computed by one worker only.
+# Tests marked `serial` run afterwards in a second, sequential pass.
 addopts = "-n0"
 filterwarnings = [
     # Ignore python_multipart deprecation warning from ddtrace (third-party)
@@ -150,6 +152,7 @@ markers = [
     "local_dataset: mark test as using local (non-committed) datasets from real_data/.local/",
     "clojure_comparison: mark test as comparing with Clojure reference implementation (can be excluded with '-m \"not clojure_comparison\"')",
     "integration: mark test as an opt-in integration test needing a real Postgres (self-skips if docker/port unavailable)",
+    "serial: must not run concurrently with other tests (shared cluster-wide state or timing); the CI entry point runs these in a sequential pass after the parallel one",
     "recovery: P-022 §C poller recovery matrix (R01-R12); REQUIRES a real Postgres via POLIS_TEST_POSTGRES_URL and FAILS (never skips) without one — run via `make test-recovery`",
 ]
 

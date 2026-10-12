@@ -258,7 +258,7 @@ def _mapping_problems(main_data, bid_data, pts_data=None):
       links against the pids that join actually yields.
 
     Deliberately SELF-CONTAINED (its helpers are nested, not module-level): the
-    review's harness ``cost-reduction/scripts/p022-review-2702-checks.py``
+    review's out-of-tree harness
     lifts this one function out of the module with ``ast`` and ``exec``s it in
     an empty namespace, and that reproduction must keep working.
     """
@@ -913,7 +913,7 @@ class TestNegativeControl:
 # The review's public-fixture mutation cases, as first-class controls.
 #
 # These need no database: they are the exact observations
-# `cost-reduction/scripts/p022-review-2702-checks.py` makes, pinned so the
+# the review's out-of-tree harness makes, pinned so the
 # helper can never regress to the pid-namespace reading again.  Bid ids and pid
 # ids are deliberately drawn from DISJOINT ranges (bids 10/20/30, pids 0..5) so
 # that reading one namespace as the other cannot accidentally look correct.

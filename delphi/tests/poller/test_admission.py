@@ -45,7 +45,7 @@ class TestModel:
         assert est > 3_530  # above the measured peak
 
     def test_measured_points_are_all_under_the_estimate(self):
-        # (P, C, peak MiB) from 02-findings/python-engine-memory-scaling.md,
+        # (P, C, peak MiB) from the local memory-scaling measurement,
         # 5.5% density.
         for p, c, peak in [(1_000, 300, 246), (1_000, 1_000, 324), (5_000, 300, 380),
                            (5_000, 1_000, 784), (10_000, 300, 548), (10_000, 1_000, 1_365),

@@ -3,12 +3,12 @@
 import xml.etree.ElementTree as ET
 import sys
 
-def main():
+def main(path='/app/coverage.xml'):
     """
     Parses a coverage.xml file and prints a Markdown table to stdout.
     """
     try:
-        tree = ET.parse('/app/coverage.xml')
+        tree = ET.parse(path)
         root = tree.getroot()
 
         lines = [
@@ -77,4 +77,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    main(*sys.argv[1:2])

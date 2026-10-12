@@ -637,7 +637,11 @@ def _seed(cur, zid, uid_start, *, votes, comments, participants, banned_pids=())
         )
 
 
+# serial: seeds zids 101001-101005 in the shared test database and leaves them
+# there; when it ran before test_certify_bundle_integration.py, that survey picked
+# zid 101005 as its zero-vote conversation instead of the one it planted.
 @pytest.mark.integration
+@pytest.mark.serial
 def test_survey_and_extract_round_trip(tmp_path, monkeypatch):
     from tests.conftest import require_polis_postgres
 
