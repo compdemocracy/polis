@@ -130,6 +130,26 @@ describe("the TypeScript port of the poller's line validators", () => {
     expect(() => parseCapacity(absent)).toThrow(LineShapeError);
   });
 
+  test("the admission and observability keys are closed, nullable where a read may be missing", () => {
+    const cap = LINES.find((l) => l.startsWith('{"class":"small"'))!;
+    for (const key of ["large_dead", "oldest_queued_age_ms", "queue_bytes", "sweep_age_ms"]) {
+      expect(cap).toContain(`"${key}":`);
+      const nulled = cap.replace(new RegExp(`"${key}":(\\d+|null)`), `"${key}":null`);
+      expect(parseCapacity(nulled)).not.toBeNull();
+      const absent = cap.replace(
+        new RegExp(`,"${key}":(\\d+|null)|"${key}":(\\d+|null),`),
+        ""
+      );
+      expect(() => parseCapacity(absent)).toThrow(LineShapeError);
+    }
+    for (const key of ["queue_full", "queue_unreachable"]) {
+      expect(cap).toContain(`"${key}":0`);
+      expect(() => parseCapacity(cap.replace(`"${key}":0`, `"${key}":null`))).toThrow(
+        LineShapeError
+      );
+    }
+  });
+
   test("other lines are not readiness lines", () => {
     expect(
       parseReadiness("Wrote math results for zid=1 math_tick=2")
