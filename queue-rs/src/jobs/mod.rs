@@ -19,6 +19,7 @@ pub mod reaper;
 pub mod rpc;
 pub mod scope;
 pub mod shutdown;
+pub mod sweep;
 pub mod task;
 pub mod transport;
 
