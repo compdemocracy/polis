@@ -42,10 +42,17 @@ def reason(exc):
     return text
 
 
-def report_refusal(stderr_log, pattern=REPORT_REFUSAL):
-    """The report's last refusal (or drift) line from its stderr log, when it has the expected shape."""
+def report_refusal(stderr_log, pattern=REPORT_REFUSAL, start=0):
+    """The report's last refusal (or drift) line written at or after byte `start`.
+
+    A resumed run appends to the same log, so only this run's bytes count;
+    an earlier attempt's line is never relayed as current.
+    """
     try:
-        lines = stderr_log.read_bytes()[-65536:].decode('ascii', 'replace').splitlines()
+        with stderr_log.open('rb') as log:
+            size = os.fstat(log.fileno()).st_size
+            log.seek(max(start, size - 65536))
+            lines = log.read().decode('ascii', 'replace').splitlines()
     except OSError:
         return None
     for line in reversed(lines):
@@ -145,6 +152,8 @@ def main(argv=None):
             (args.output/'runtime.json').write_text(runtime)
             report_mode, error_mode = 'xb', 'xb'
         with (args.output/'report.jsonl').open(report_mode) as report, (args.output/'stderr.log').open(error_mode) as errors:
+            # Where this run's own stderr begins (non-zero on --resume).
+            start = os.fstat(errors.fileno()).st_size
             result = subprocess.run(command(args.container,image,scratch,root/'delphi',args.region,environment,
                                             args.allow_missing,report_extra(args),skipped=args.skip_family),
                 env={**os.environ, **environment},stdout=report,stderr=errors)
@@ -154,7 +163,7 @@ def main(argv=None):
             return 3
         if result.returncode:
             for pattern in (REPORT_DRIFT, REPORT_REFUSAL):
-                line = report_refusal(args.output/'stderr.log', pattern)
+                line = report_refusal(args.output/'stderr.log', pattern, start)
                 if line:
                     print(line, file=sys.stderr)
             raise ValueError('report failed; inspect private stderr')

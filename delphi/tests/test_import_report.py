@@ -446,3 +446,36 @@ def test_production_importer_accepts_additions_and_refuses_removals(monkeypatch,
     err = capfd.readouterr().err
     assert drift_counts(err)['conversations']['removed'] == 1
     assert err.splitlines()[-1] == 'production import refused (ValueError)'
+
+
+def test_launcher_resume_relays_only_this_runs_lines(monkeypatch, tmp_path, capfd, keep_umask):
+    """--resume appends to stderr.log; an earlier attempt's refusal is never relayed as current."""
+    checkout = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parents[2]))
+    launcher = load('launcher', checkout / 'scripts/run-import-dry-run.py')
+    output = tmp_path/'output'
+    (output/'scratch').mkdir(parents=True)
+    root = Path(launcher.__file__).resolve().parents[1]
+    (output/'runtime.json').write_text(json.dumps(dict(image='generated-image', source=str(root/'delphi'))))
+    (output/'report.jsonl').write_bytes(b'')
+    stale = ('identity mapping drift {"conversations": {"added": 9, "changed": 0, "removed": 0}}\n'
+             'import dry-run refused (ValueError: source changed between census passes)\n')
+    (output/'stderr.log').write_text(stale)
+    inspect = json.dumps([dict(State=dict(Running=True), Image='generated-image',
+        Config=dict(Env=[], Labels={'com.docker.compose.service': 'delphi'}))]).encode()
+    monkeypatch.setattr(launcher.subprocess, 'check_output', lambda *a, **kw: inspect)
+    def resume(written, code):
+        def run(command, env, stdout, stderr):
+            stderr.write(written.encode())
+            return SimpleNamespace(returncode=code)
+        monkeypatch.setattr(launcher.subprocess, 'run', run)
+        result = launcher.main(['--container', 'generated', '--output', str(output), '--resume'])
+        return result, capfd.readouterr().err.splitlines()
+    # This attempt fails without a refusal line of its own: nothing earlier is relayed.
+    code, err = resume('scan pacing {"pages": 1}\nTraceback-free failure\n', 2)
+    assert code == 2 and err == ['import report launcher refused (ValueError: report failed; '
+                                 'inspect private stderr); inspect private output directory']
+    # This attempt's own refusal is relayed, and the stale drift line is not.
+    code, err = resume('import dry-run refused (ValueError: source identity mapping changed)\n', 2)
+    assert code == 2 and err[0] == 'import dry-run refused (ValueError: source identity mapping changed)'
+    assert len(err) == 2 and 'added": 9' not in ' '.join(err)
+    assert (output/'stderr.log').read_text().startswith(stale)
