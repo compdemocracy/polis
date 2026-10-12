@@ -1,0 +1,7 @@
+{
+  "rootDir": "../../",
+  "transform": {"^.+\\.ts$": ["ts-jest", {"tsconfig": "./tsconfig.json"}]},
+  "testEnvironment": "node",
+  "testMatch": ["**/__tests__/delphi-results-pg/*.pgtest.ts"],
+  "forceExit": true
+}

@@ -245,13 +245,15 @@ export default class DynamoStorageService {
         itemsToDelete = scanResponse.Items;
         lastEvaluatedKey = scanResponse.LastEvaluatedKey;
 
+        // A filtered Scan page can be empty while later pages still hold
+        // matches (another report's rows filled it): keep paging.
         if (!itemsToDelete || itemsToDelete.length === 0) {
-          if (!lastEvaluatedKey) {
+          if (!lastEvaluatedKey && totalDeletedCount === 0) {
             logger.debug(
               `No items found with report ID prefix: ${reportIdPrefix}`
             );
           }
-          break;
+          continue;
         }
         logger.debug(
           `Found ${itemsToDelete.length} items to delete in this batch.`

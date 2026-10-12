@@ -1,13 +1,23 @@
-jest.mock("../../src/db/pg-query", () => ({__esModule:true,default:{queryP:jest.fn()}}));
+jest.mock("../../src/db/pg-query", () => ({__esModule:true,default:{queryP:jest.fn(),connectResultSnapshot:jest.fn()}}));
+import { EventEmitter } from "events";
 import pg from "../../src/db/pg-query";
-import {sendPostgresResult,sqlPredicate,resultClient,decodeAttribute} from "../../src/utils/delphiResults";
+import {sendPostgresResult,sqlPredicate,resultClient,decodeAttribute,itemBytes} from "../../src/utils/delphiResults";
 import {encodeFamily} from "../../src/utils/delphiStorageCodec";
 class QueryCommand { constructor(public input:any) {} }
 class GetCommand { constructor(public input:any) {} }
 const family="Delphi_CommentEmbeddings";
-const row=(id:number,generation="1",scope_key="scope")=>({zid:1,scope_key,generation,item:{conversation_id:{S:"1"},comment_id:{N:String(id)}}});
+/** Statements other than transaction control reach this mock. */
+const sql = jest.fn();
+const row=(id:number,scope_key="scope",text?:string)=>({zid:1,scope_key,item_key:[{S:"1"},{N:String(id)}],
+ item:{conversation_id:{S:"1"},comment_id:{N:String(id)},...(text ? {text:{S:text}} : {})},sort_n:String(id),sort_t:"",hash_t:'{"S": "1"}'});
+const isPage = (text:string) => text.includes("pd_result_page");
 
-beforeEach(()=>{jest.clearAllMocks();process.env.DELPHI_RESULT_BACKEND="postgres";process.env.DELPHI_RESULT_ENV="generated";delete process.env.DELPHI_RESULT_SCOPE;});
+beforeEach(()=>{
+ jest.clearAllMocks();sql.mockReset();
+ (pg.connectResultSnapshot as jest.Mock).mockImplementation(async()=>Object.assign(new EventEmitter(),{
+  query:jest.fn(async(text:string,params:any[])=>/^(BEGIN|SET LOCAL|ROLLBACK)/.test(text)?{rows:[]}:{rows:await sql(text,params)}),release:jest.fn()}));
+ process.env.DELPHI_RESULT_BACKEND="postgres";process.env.DELPHI_RESULT_ENV="generated";delete process.env.DELPHI_RESULT_SCOPE;
+});
 afterAll(()=>{delete process.env.DELPHI_RESULT_BACKEND;delete process.env.DELPHI_RESULT_ENV;});
 
 test("key expressions use parameters for untrusted values",()=>{
@@ -15,41 +25,96 @@ test("key expressions use parameters for untrusted values",()=>{
  const text=sqlPredicate("#c = :c AND begins_with(topic_key, :prefix)",{ExpressionAttributeNames:{"#c":"conversation_id"},ExpressionAttributeValues:{":c":"1' OR TRUE",":prefix":"%_"}},values);
  expect(text).not.toContain("1' OR TRUE");expect(text).toContain("starts_with");expect(values).toContain('%_');
 });
-test("pagination carries generation and refuses mixed snapshots",async()=>{
- (pg.queryP as jest.Mock).mockResolvedValue([row(0),row(1)]);
- const first=await sendPostgresResult(new QueryCommand({TableName:family,Limit:1}));
- expect(first.Items[0].comment_id).toBe(0);
- const second=await sendPostgresResult(new QueryCommand({TableName:family,Limit:1,ExclusiveStartKey:first.LastEvaluatedKey}));
- expect(second.Items[0].comment_id).toBe(1);
- (pg.queryP as jest.Mock).mockResolvedValue([row(0,"2"),row(1,"2")]);
- await expect(sendPostgresResult(new QueryCommand({TableName:family,ExclusiveStartKey:first.LastEvaluatedKey}))).rejects.toThrow("generation changed");
-});
-test("SQL is scoped to environment and configured publication",async()=>{
- process.env.DELPHI_RESULT_SCOPE="selected";(pg.queryP as jest.Mock).mockResolvedValue([row(0)]);
+
+test("a conversation query reads only that conversation's served family, with bound values",async()=>{
+ process.env.DELPHI_RESULT_SCOPE="selected";sql.mockResolvedValue([row(0)]);
+ await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :id",ExpressionAttributeValues:{":id":"1' OR TRUE"}}));
+ const [text,values]=sql.mock.calls[0];
+ expect(text).toContain("pd_result_page($1,$4::integer[],$3,$2,");expect(text).not.toContain("OR TRUE");
+ expect(values.slice(0,4)).toEqual(["generated",family,"selected",[]]);
  await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :id",ExpressionAttributeValues:{":id":"1"}}));
- expect((pg.queryP as jest.Mock).mock.calls[0][1]).toEqual(['generated',family,'selected','conversation_id',JSON.stringify({S:'1'})]);
+ expect(sql.mock.calls[1][1].slice(0,5)).toEqual(["generated",family,"selected",[1],JSON.stringify({S:"1"})]);
 });
+
+test("a report key resolves its conversation through reports",async()=>{
+ sql.mockResolvedValue([]);
+ await sendPostgresResult(new QueryCommand({TableName:"report_narrative_store",KeyConditionExpression:"rid_section_model = :r",ExpressionAttributeValues:{":r":"rabc#topics#openai"}}));
+ expect(sql.mock.calls[0][0]).toContain("ARRAY(SELECT zid FROM public.reports WHERE report_id=$3)");
+ expect(sql.mock.calls[0][1][2]).toBe("rabc");
+});
+
+test("Limit pages carry the keyset position, never a publication",async()=>{
+ sql.mockImplementation(async(text:string,values:any[])=>{
+  if (!isPage(text)) throw new Error("only page reads expected");
+  const after=values.at(-2)?JSON.parse(values.at(-2)):null;
+  return [row(0),row(1),row(2)].filter(r=>!after||Number(r.sort_n)>Number(after.n)).slice(0,values.at(-1));
+ });
+ const first=await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},Limit:2}));
+ expect(first.Items.map((i:any)=>i.comment_id)).toEqual([0,1]);
+ expect(first.LastEvaluatedKey).toMatchObject({conversation_id:"1",comment_id:1,_polisPgAfter:{n:"1"}});
+ expect(first.LastEvaluatedKey).not.toHaveProperty("_polisPgGenerations");
+ const second=await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},Limit:2,ExclusiveStartKey:first.LastEvaluatedKey}));
+ expect(second.Items.map((i:any)=>i.comment_id)).toEqual([2]);
+ expect(second.LastEvaluatedKey).toBeUndefined();
+ // A publication between pages (the cursor row gone, a new row after it):
+ // the read continues after the cursor's key, as a DynamoDB Query does.
+ sql.mockImplementation(async(text:string,values:any[])=>{
+  const after=JSON.parse(values.at(-2));
+  return [row(0),row(3)].filter(r=>Number(r.sort_n)>Number(after.n));
+ });
+ const mixed=await sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},ExclusiveStartKey:first.LastEvaluatedKey}));
+ expect(mixed.Items.map((i:any)=>i.comment_id)).toEqual([3]);
+});
+
 test("conflicting published scopes fail visibly",async()=>{
- (pg.queryP as jest.Mock).mockResolvedValue([row(0),{...row(0,"1","other"),item:{...row(0).item,text:{S:"different"}}}]);
- await expect(sendPostgresResult(new QueryCommand({TableName:family}))).rejects.toThrow("Ambiguous");
+ sql.mockResolvedValue([row(0,"one","a"),row(0,"two","b")]);
+ await expect(sendPostgresResult(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"}}))).rejects.toThrow("Ambiguous");
 });
+
+test("DynamoDB item sizes: base-100 numbers, 3-byte containers plus 1 per element",()=>{
+ // Pinned against DynamoDB Local by the parity suite's page boundaries.
+ expect(itemBytes({n:{N:"10000"}})).toBe(1+2);
+ expect(itemBytes({n:{N:"10001"}})).toBe(1+4);
+ expect(itemBytes({n:{N:"1.5"}})).toBe(1+3);
+ expect(itemBytes({n:{N:"-0.00125"}})).toBe(1+4);
+ expect(itemBytes({s:{S:"é"},b:{BOOL:true},z:{NULL:true}})).toBe(1+2+1+1+1+1);
+ expect(itemBytes({l:{L:[{S:"ab"},{N:"1"}]},m:{M:{aa:{S:"xy"}}}})).toBe(1+3+1+2+1+2+1+3+1+2+2);
+});
+
 test("Postgres error never creates an AWS client",async()=>{
- const factory=jest.fn();(pg.queryP as jest.Mock).mockRejectedValue(new Error("database unavailable"));
+ const factory=jest.fn();sql.mockRejectedValue(new Error("database unavailable"));
  const client=resultClient(factory);
- await expect(client.send(new QueryCommand({TableName:family}))).rejects.toThrow("database unavailable");
+ await expect(client.send(new QueryCommand({TableName:family,KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"}}))).rejects.toThrow("database unavailable");
  expect(factory).not.toHaveBeenCalled();
 });
 test("unsafe integral numeric values fail instead of rounding",()=>{
  expect(()=>decodeAttribute({N:"9007199254740993"})).toThrow("precision");
 });
 
-test("ConversationIndex selects newest job by creation time, not UUID",async()=>{
- (pg.queryP as jest.Mock).mockResolvedValueOnce([
+test("ConversationIndex selects newest job by creation time, not UUID, within the conversation",async()=>{
+ sql.mockResolvedValueOnce([
   {job_id:"z-older",conversation_id:"1",created_at:"2025-01-01T00:00:00Z",status:"COMPLETED"},
   {job_id:"a-newest",conversation_id:"1",created_at:"2026-01-01T00:00:00Z",status:"COMPLETED"}
  ]).mockResolvedValueOnce([]);
- const reply=await sendPostgresResult(new QueryCommand({TableName:"Delphi_JobQueue",IndexName:"ConversationIndex",ScanIndexForward:false,Limit:1}));
+ const reply=await sendPostgresResult(new QueryCommand({TableName:"Delphi_JobQueue",IndexName:"ConversationIndex",
+  KeyConditionExpression:"conversation_id = :c",ExpressionAttributeValues:{":c":"1"},ScanIndexForward:false,Limit:1}));
  expect(reply.Items[0].job_id).toBe("a-newest");
+ expect(reply.LastEvaluatedKey).toMatchObject({job_id:"a-newest",conversation_id:"1",created_at:"2026-01-01T00:00:00Z"});
+ expect(sql.mock.calls[0][0]).toContain("conversation_id=$2");expect(sql.mock.calls[0][1]).toEqual(["generated","1"]);
+ expect(sql.mock.calls[1][0]).toContain("zid=$2");expect(sql.mock.calls[1][1]).toEqual(["generated",1]);
+});
+
+test("an index cursor is a key position: its item may be gone, later items follow it",async()=>{
+ const job=(job_id:string,created_at:string)=>({job_id,conversation_id:"1",created_at,status:"COMPLETED"});
+ const input={TableName:"Delphi_JobQueue",IndexName:"ConversationIndex",KeyConditionExpression:"conversation_id = :c",
+  ExpressionAttributeValues:{":c":"1"},ScanIndexForward:false,Limit:1};
+ sql.mockResolvedValueOnce([job("b","2025-06-01T00:00:00Z"),job("c","2026-01-01T00:00:00Z")]).mockResolvedValueOnce([]);
+ const first=await sendPostgresResult(new QueryCommand(input));
+ expect(first.Items.map((i:any)=>i.job_id)).toEqual(["c"]);
+ // Between pages the cursor's job disappears and an older one appears.
+ sql.mockResolvedValueOnce([job("a","2025-01-01T00:00:00Z"),job("b","2025-06-01T00:00:00Z")]).mockResolvedValueOnce([]);
+ const second=await sendPostgresResult(new QueryCommand({...input,Limit:5,ExclusiveStartKey:first.LastEvaluatedKey}));
+ expect(second.Items.map((i:any)=>i.job_id)).toEqual(["b","a"]);
 });
 
 test("archived metadata preserves NUL, exposes exact unsafe decimal and never replaces a current queue row",async()=>{
@@ -57,7 +122,7 @@ test("archived metadata preserves NUL, exposes exact unsafe decimal and never re
   {job_id:{S:"legacy"},conversation_id:{S:"1"},status:{S:"PROCESSING"},logs:{S:"a\0b"},job_config:{M:{large:{N:"9007199254740993"}}}},
   {job_id:{S:"current"},status:{S:"PROCESSING"}}
  ]).toString();
- (pg.queryP as jest.Mock).mockResolvedValueOnce([{job_id:"current",status:"COMPLETED"}])
+ sql.mockResolvedValueOnce([{job_id:"current",status:"COMPLETED"}])
  .mockResolvedValueOnce([{zid:1,scope_key:"scope",generation:"4",codec_wire}]);
  const reply=await sendPostgresResult(new QueryCommand({TableName:"Delphi_JobQueue"}));
  const legacy=reply.Items.find((item:any)=>item.job_id==="legacy");
@@ -69,24 +134,25 @@ test("archived metadata preserves NUL, exposes exact unsafe decimal and never re
 
 test("modern job metadata uses the same graph scope as liveness and archived controls",async()=>{
  process.env.DELPHI_RESULT_SCOPE="delphi";
- (pg.queryP as jest.Mock).mockResolvedValue([]);
+ sql.mockResolvedValue([]);
  await sendPostgresResult(new QueryCommand({TableName:"Delphi_JobQueue"}));
- expect((pg.queryP as jest.Mock).mock.calls).toHaveLength(2);
- for (const [sql,values] of (pg.queryP as jest.Mock).mock.calls) {
-  expect(sql).toContain("scope_key=$2");expect(values).toEqual(["generated","delphi"]);
+ expect(sql.mock.calls).toHaveLength(2);
+ for (const [text,values] of sql.mock.calls) {
+  expect(text).toContain("scope_key=$2");expect(values).toEqual(["generated","delphi"]);
  }
 });
 
-test("job get binds current attempt logs while job listings do not fetch log payloads",async()=>{
+test("job get reads the job by id, binds current attempt logs, and skips archives it would hide",async()=>{
  const job_id="11111111-1111-1111-1111-111111111111",attempt="22222222-2222-2222-2222-222222222222";
- (pg.queryP as jest.Mock).mockResolvedValueOnce([{job_id,conversation_id:"1"}]).mockResolvedValueOnce([])
+ sql.mockResolvedValueOnce([{job_id,conversation_id:"1"}])
  .mockResolvedValueOnce([{value:{attempt_id:attempt}}]).mockResolvedValueOnce([{timestamp:"2026-01-01T00:00:00Z",level:"INFO",message:"actual child output"}]);
  const reply=await sendPostgresResult(new GetCommand({TableName:"Delphi_JobQueue",Key:{job_id}}));
  expect(reply.Item.logs.entries[0].message).toBe("actual child output");expect(reply.Item.log_attempt_id).toBe(attempt);
- const calls=(pg.queryP as jest.Mock).mock.calls;
- expect(calls[2][1]).toEqual(["generated",job_id]);expect(calls[3][1]).toEqual(["generated",attempt]);
- expect(calls[3][0]).toContain("pq_attempt_logs($1::text,$2::uuid,NULL,1000)");
- expect(calls[3][0]).toContain("stream IN ('stdout','stderr')");
+ const calls=sql.mock.calls;
+ expect(calls[0][0]).toContain("job_id=$2");expect(calls[0][1]).toEqual(["generated",job_id]);
+ expect(calls[1][1]).toEqual(["generated",job_id]);expect(calls[2][1]).toEqual(["generated",attempt]);
+ expect(calls[2][0]).toContain("pq_attempt_logs($1::text,$2::uuid,NULL,1000)");
+ expect(calls[2][0]).toContain("stream IN ('stdout','stderr')");
 });
 
 // A merge must preserve the existing reader without any activation setting.
@@ -99,5 +165,5 @@ test.each([undefined, "dynamodb"])("backend %s forwards unchanged to DynamoDB", 
  const factory = jest.fn(() => ({send}));
  expect(await resultClient(factory).send(command)).toBe(response);
  expect(send).toHaveBeenCalledWith(command);
- expect(pg.queryP).not.toHaveBeenCalled();
+ expect(pg.connectResultSnapshot).not.toHaveBeenCalled();
 });

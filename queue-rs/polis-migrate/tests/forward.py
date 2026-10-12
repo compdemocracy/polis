@@ -39,7 +39,7 @@ class ForwardProof(unittest.TestCase):
             '000019_create_polis_queue.sql', '000021_create_polis_coordinator.sql',
             '000022_add_poll_timestamp_indexes.sql', '000023_create_delphi_foundation.sql',
             '000028_create_delphi_results.sql', '000029_extend_delphi_graph_stages.sql',
-            '000030_create_delphi_writers.sql'})
+            '000030_create_delphi_writers.sql', '000031_scope_delphi_result_reads.sql'})
 
     def test_02_deploy_records_declarations(self):
         db = self.new('records'); p.runner(db, 'deploy')
@@ -56,7 +56,7 @@ class ForwardProof(unittest.TestCase):
             self.assertIn('applied 0 migration(s)', out)
             for name in newer:
                 self.assertIn(f'tolerating {name}', out)
-            self.assertIn('3 newer additive migration(s) tolerated', p.runner(db, 'check', dir=old).stdout)
+            self.assertIn('4 newer additive migration(s) tolerated', p.runner(db, 'check', dir=old).stdout)
             gate = p.gate(db, True, dir=old)
             self.assertIn('tolerating 000030_create_delphi_writers.sql', gate.stdout)
             self.assertEqual(before, history(db))
@@ -77,29 +77,29 @@ class ForwardProof(unittest.TestCase):
         for compat in ('breaking', None):
             with self.subTest(compat=compat), tempfile.TemporaryDirectory() as tmp:
                 db = self.new('unknown_'+(compat or 'undeclared')); p.runner(db, 'deploy')
-                newer = release(tmp, add=[('000031_generated_newer.sql', 'CREATE TABLE public.generated_newer(id integer);', compat)])
+                newer = release(tmp, add=[('000900_generated_newer.sql', 'CREATE TABLE public.generated_newer(id integer);', compat)])
                 p.runner(db, 'deploy', dir=newer)
                 before = history(db)
                 err = p.runner(db, 'deploy', ok=False).stderr
-                self.assertIn('history names migration absent from this release: 000031_generated_newer.sql', err)
+                self.assertIn('history names migration absent from this release: 000900_generated_newer.sql', err)
                 self.assertIn('declared breaking' if compat else 'no forward-compatibility declaration', err)
                 p.runner(db, 'check', ok=False)
                 gate = subprocess_gate(db)
-                self.assertIn('000031_generated_newer.sql', gate)
+                self.assertIn('000900_generated_newer.sql', gate)
                 self.assertEqual(before, history(db))
 
     def test_06_unknown_additive_is_tolerated(self):
         db = self.new('newer_additive'); p.runner(db, 'deploy')
         with tempfile.TemporaryDirectory() as tmp:
-            newer = release(tmp, add=[('000031_generated_newer.sql', 'CREATE TABLE public.generated_newer(id integer);', 'additive')])
+            newer = release(tmp, add=[('000900_generated_newer.sql', 'CREATE TABLE public.generated_newer(id integer);', 'additive')])
             p.runner(db, 'deploy', dir=newer)
-        self.assertIn('tolerating 000031_generated_newer.sql', p.runner(db, 'deploy').stdout)
+        self.assertIn('tolerating 000900_generated_newer.sql', p.runner(db, 'deploy').stdout)
         p.gate(db, True)
 
     def test_07_pending_beside_newer_refuses_without_change(self):
         db = self.new('pending'); p.runner(db, 'deploy')
         with tempfile.TemporaryDirectory() as tmp:
-            newer = release(tmp, add=[('000031_generated_newer.sql', 'CREATE TABLE public.generated_newer(id integer);', 'additive')])
+            newer = release(tmp, add=[('000900_generated_newer.sql', 'CREATE TABLE public.generated_newer(id integer);', 'additive')])
             p.runner(db, 'deploy', dir=newer)
             p.sql(db, "DELETE FROM migrations WHERE name='000030_create_delphi_writers.sql'")
             before = history(db)

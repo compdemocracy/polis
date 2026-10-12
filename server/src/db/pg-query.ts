@@ -257,13 +257,18 @@ function connectReadOnly() {
   return readPool.connect();
 }
 
-// Result requests hold a repeatable-read snapshot while other route work may
-// borrow the primary pool. A separate bounded pool prevents pool starvation.
+// Delphi result reads take one short read-only snapshot per DynamoDB-shaped
+// call (utils/delphiResultSnapshot.ts) and return it when that call ends, so a
+// connection is held for milliseconds, never across a request's model calls.
+// A separate pool keeps result reads and the primary pool from starving each
+// other. nextComment's topical routing issues one read per selected topic
+// concurrently, so the pool allows several reads in flight per process.
+export const RESULT_SNAPSHOT_POOL_MAX = Config.isDevMode ? 4 : 8;
 let resultSnapshotPool: Pool | undefined;
 function connectResultSnapshot() {
   if (!resultSnapshotPool) {
     resultSnapshotPool = new Pool({
-      ...pgConnection, max: 2, connectionTimeoutMillis: 30000,
+      ...pgConnection, max: RESULT_SNAPSHOT_POOL_MAX, connectionTimeoutMillis: 30000,
     } as unknown as PoolConfig);
     resultSnapshotPool.on("error", error => logger.error("pg_result_snapshot_pool", error));
   }
