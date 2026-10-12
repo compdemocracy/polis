@@ -92,11 +92,26 @@ no live service or source table is changed.
 
 Missing tables refuse unless explicitly named with repeated `--allow-missing
 TABLE` on the launcher after checking the inventory; the report lists every allowed
-missing table. Source changes between the two scans refuse. Matching scans are an
+missing table. Source changes between the two scans refuse.
+
+The conversation and report mapping (`conversations.zid`, `reports.report_id`/`zid`)
+is read before the first scan and again after the second. Conversations and reports
+created during the run are accepted: the finished census is reopened as a resume,
+which re-derives every row's binding under the newer mapping without reading
+DynamoDB again, so rows for a conversation that appeared mid-run are counted under
+it and a new conversation without rows adds nothing. A removed conversation or
+report, or a report now bound to a different conversation, refuses. Either way
+`stderr.log` carries one `identity mapping drift` line with added, removed and
+changed counts (never ids). The report and the importer apply the same rule.
+
+Matching scans are an
 inventory observation, **not** a transactional DynamoDB snapshot or permission to
 apply while writers are running. The reviewed importer bounds (64 MiB/family,
 256 MiB/conversation) also run before printing a successful report; oversized
-sources refuse without truncation. `stderr.log` contains a sanitized failure class.
+sources refuse without truncation. `stderr.log` contains the failure class and, for
+the importer's own refusals, their fixed reason text (for example `import dry-run
+refused (ValueError: source changed between census passes)`); any other message,
+which could quote a source value, is withheld. The launcher repeats that line.
 There is no automatic retry of a refused report.
 
 ## Read pacing, throttling and resume

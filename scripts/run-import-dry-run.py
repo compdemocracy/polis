@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -15,6 +16,49 @@ import sys
 DATABASE_NAMES = {"DATABASE_URL", "DATABASE_HOST", "DATABASE_PORT", "DATABASE_NAME",
     "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_SSL_MODE", "PGSSLROOTCERT",
     "PGSSLCERT", "PGSSLKEY", "PGSSLCRL"}
+
+
+# This launcher's own refusals: fixed text, no box identifiers or source values.
+REFUSALS = frozenset({
+    'absolute output directory required',
+    'new output directory required, or --resume with the paused one',
+    'symlink output ancestor refused',
+    'running Delphi compose container required',
+    'paused run with the same image and source required',
+    'output already holds a report',
+    'report failed; inspect private stderr',
+})
+# The report's own refusal line (already reduced to a class and fixed text).
+REPORT_REFUSAL = re.compile(r"import dry-run refused \([A-Za-z_][A-Za-z0-9_]{0,63}(: [A-Za-z0-9 ,;.'/()_-]{1,120})?\)")
+# The report's mapping-drift line: added/removed/changed counts only.
+REPORT_DRIFT = re.compile(r'identity mapping drift \{[a-z0-9 ",:{}_]{1,400}\}')
+
+
+def reason(exc):
+    """Exception class, plus its text only when it is one of this launcher's fixed refusals."""
+    text = type(exc).__name__
+    if type(exc) is ValueError and len(exc.args) == 1 and exc.args[0] in REFUSALS:
+        text += ': ' + exc.args[0]
+    return text
+
+
+def report_refusal(stderr_log, pattern=REPORT_REFUSAL, start=0):
+    """The report's last refusal (or drift) line written at or after byte `start`.
+
+    A resumed run appends to the same log, so only this run's bytes count;
+    an earlier attempt's line is never relayed as current.
+    """
+    try:
+        with stderr_log.open('rb') as log:
+            size = os.fstat(log.fileno()).st_size
+            log.seek(max(start, size - 65536))
+            lines = log.read().decode('ascii', 'replace').splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        if pattern.fullmatch(line):
+            return line
+    return None
 
 
 def command(container, image, scratch, source, region, environment, missing, extra=(), skipped=()):
@@ -108,6 +152,8 @@ def main(argv=None):
             (args.output/'runtime.json').write_text(runtime)
             report_mode, error_mode = 'xb', 'xb'
         with (args.output/'report.jsonl').open(report_mode) as report, (args.output/'stderr.log').open(error_mode) as errors:
+            # Where this run's own stderr begins (non-zero on --resume).
+            start = os.fstat(errors.fileno()).st_size
             result = subprocess.run(command(args.container,image,scratch,root/'delphi',args.region,environment,
                                             args.allow_missing,report_extra(args),skipped=args.skip_family),
                 env={**os.environ, **environment},stdout=report,stderr=errors)
@@ -116,13 +162,17 @@ def main(argv=None):
                   'with --resume (same --output).', file=sys.stderr)
             return 3
         if result.returncode:
+            for pattern in (REPORT_DRIFT, REPORT_REFUSAL):
+                line = report_refusal(args.output/'stderr.log', pattern, start)
+                if line:
+                    print(line, file=sys.stderr)
             raise ValueError('report failed; inspect private stderr')
         # Intentional private display requested by the operator; SSM output can
         # truncate. The byte-complete report always remains in --output.
         sys.stdout.buffer.write((args.output/'report.jsonl').read_bytes())
         return 0
     except Exception as exc:
-        print('import report launcher refused (' + type(exc).__name__ + '); inspect private output directory', file=sys.stderr)
+        print('import report launcher refused (' + reason(exc) + '); inspect private output directory', file=sys.stderr)
         return 2
 
 
