@@ -201,7 +201,7 @@ before. `apply` never runs this release's pending SQL after a tolerated newer
 migration; that order is refused before any change. The rule only helps
 releases that contain it: a release built before it refuses every newer row.
 
-Declarations for 000019–000030 (the older code is the release just before each
+Declarations for 000019–000031 (the older code is the release just before each
 migration, as recorded in `release.txt` history):
 
 | Migration | Declared | Evidence |
@@ -216,9 +216,10 @@ migration, as recorded in `release.txt` history):
 | 000028 Delphi results | additive | New result tables and functions; its trigger on `delphi_artifacts` acts only on payload keys the earlier release never writes. |
 | 000029 graph stages | additive | Stage and kind CHECKs are strict supersets of 000027's; `pd_graph_admit` keeps its signature and only accepts more. |
 | 000030 Delphi writers | additive | New writer tables and functions; `pd_finalize` keeps its signature and its earlier path unless a writer run exists, which only the new admission creates. |
+| 000031 scoped result reads | additive | `delphi_result_current_rows` is redefined with the same columns, types, owner, options, grants and rows (compared row for row at 1.6 million rows and on adversarial bundle shapes); the new page functions and indexes are unused by the earlier release. The runner's `forward.py` tolerates it as additive. |
 
 So a rollback to a release with this rule that lists 000027 starts beside
-000028–000030; a rollback past 000027 (or 000024) refuses, as it must: the
+000028–000031; a rollback past 000027 (or 000024) refuses, as it must: the
 earlier queue daemon would exit on the newer contract.
 
 ## CI and local test stacks
