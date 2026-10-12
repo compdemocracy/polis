@@ -14,6 +14,11 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 const outputDirectory = "dist";
 
+// index.ejs reads window.jwt_decode before the main bundle loads. The browser
+// build is copied unchanged from the pinned npm package (the version the page
+// has been loading) and served from this build, never from a CDN.
+const jwtDecodeScript = `js/jwt-decode-${require("jwt-decode/package.json").version}.js`;
+
 /**
  * Generates .headersJson files alongside files served by the file-server. Reading these files instructs file-server
  * what HTML headers should be added to each file.
@@ -219,6 +224,11 @@ module.exports = (env, options) => {
           {
             from: "node_modules/font-awesome/fonts/**/*",
             to: "./fonts/[name][ext]"
+          },
+          {
+            from: "node_modules/jwt-decode/build/jwt-decode.js",
+            to: jwtDecodeScript,
+            info: { minimized: true }
           }
         ]
       }),
@@ -228,6 +238,7 @@ module.exports = (env, options) => {
         filename: "index.html",
         templateParameters: {
           versionString: pkg.version,
+          jwtDecodeSrc: `/${jwtDecodeScript}`,
           gaTrackingId: gaTrackingId,
           oidcCacheKeyPrefix: oidcCacheKeyPrefix,
           oidcCacheKeyIdTokenSuffix: oidcCacheKeyIdTokenSuffix,
