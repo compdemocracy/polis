@@ -75,6 +75,15 @@ def refusal(exc):
     return 'import dry-run refused (' + reason + ')'
 
 
+def drift(before, after):
+    """Counts of added, removed and re-pointed mapping entries; never ids."""
+    result = {}
+    for name, old, new in zip(('conversations', 'reports'), before, after):
+        result[name] = dict(added=len(new.keys() - old.keys()), removed=len(old.keys() - new.keys()),
+                            changed=sum(old[key] != new[key] for key in old.keys() & new.keys()))
+    return result
+
+
 def pacing(pacer):
     # Aggregate counters only: no table names, keys or identifiers.
     if pacer is not None:
@@ -125,7 +134,10 @@ def main(argv=None):
             with closing(sqlite3.connect(attempt/'first.sqlite')) as db:
                 zids = [row[0] for row in db.execute('SELECT DISTINCT zid FROM rows WHERE zid IS NOT NULL')]
             with closing(import_report.connect_existing()) as conn:
-                if imp.mapping(conn) != (conversations, reports):
+                current = imp.mapping(conn)
+                if current != (conversations, reports):
+                    print('identity mapping drift ' + json.dumps(drift((conversations, reports), current),
+                                                                 sort_keys=True), file=sys.stderr)
                     raise ValueError('source identity mapping changed')
                 details = import_report.metadata(conn, zids)
             # Same size/binding validation as the reviewed importer, no admission.

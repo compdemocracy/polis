@@ -240,7 +240,7 @@ def report_cli():
     return load('report_cli', Path(__file__).resolve().parents[1]/'scripts/report_dynamo_import.py')
 
 
-def refusal_run(monkeypatch, tmp_path, source, census=None):
+def refusal_run(monkeypatch, tmp_path, source, census=None, mapping=None):
     """Drive the real report entry point against a generated source; no AWS or database."""
     cli = report_cli()
     scratch = tmp_path/'import'
@@ -248,7 +248,7 @@ def refusal_run(monkeypatch, tmp_path, source, census=None):
     monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
     monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: source)
     monkeypatch.setattr(report, 'connect_existing', lambda: SimpleNamespace(close=lambda: None))
-    monkeypatch.setattr(imp, 'mapping', lambda connection: ({'1': 1}, {}))
+    monkeypatch.setattr(imp, 'mapping', mapping or (lambda connection: ({'1': 1}, {})))
     if census:
         monkeypatch.setattr(imp, 'census', census)
     return cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9'])
@@ -322,7 +322,43 @@ def test_launcher_relays_report_refusal(tmp_path, capfd, keep_umask):
     log.write_text('import dry-run refused (ValueError: {"S": "PRIVATE"})\n')
     assert launcher.report_refusal(log) is None
     assert launcher.report_refusal(tmp_path/'absent.log') is None
+    drift = 'identity mapping drift {"conversations": {"added": 1, "changed": 0, "removed": 0}}'
+    log.write_text(drift + '\n' + line + '\n')
+    assert launcher.report_refusal(log, launcher.REPORT_DRIFT) == drift
+    log.write_text('identity mapping drift {"conversations": ["PRIVATE-ID"]}\n')
+    assert launcher.report_refusal(log, launcher.REPORT_DRIFT) is None
     assert launcher.reason(KeyError('PRIVATE')) == 'KeyError'
     assert launcher.main(['--container', 'generated', '--output', 'relative/generated']) == 2
     assert capfd.readouterr().err == ('import report launcher refused (ValueError: absolute output '
                                       'directory required); inspect private output directory\n')
+
+
+def test_conversation_created_during_run_refuses_with_drift_counts(monkeypatch, tmp_path, capfd, keep_umask):
+    """The Postgres identity mapping is read before pass one and again after pass two."""
+    source = ScanOnlySource({FAMILY: [row()]})
+    conversations, reports = {'1': 1}, {'r-generated': 1}
+    def mapping(connection):
+        return dict(conversations), dict(reports)
+    census, passes = imp.census, []
+    def census_then_create(*args, **kwargs):
+        passes.append(census(*args, **kwargs))
+        if len(passes) == 1:
+            # A participant creates a conversation on the live site between the passes.
+            conversations['424242'] = 424242
+        return passes[-1]
+    assert refusal_run(monkeypatch, tmp_path, source, census_then_create, mapping=mapping) == 2
+    err = capfd.readouterr().err.splitlines()
+    assert len(passes) == 2 and passes[0] == passes[1]
+    assert err[-1] == 'import dry-run refused (ValueError: source identity mapping changed)'
+    drift_line = [line for line in err if line.startswith('identity mapping drift ')]
+    assert json.loads(drift_line[0][len('identity mapping drift '):]) == dict(
+        conversations=dict(added=1, removed=0, changed=0), reports=dict(added=0, removed=0, changed=0))
+    assert not any('424242' in line or 'r-generated' in line for line in err)
+
+
+def test_drift_counts_removed_and_repointed_entries():
+    cli = report_cli()
+    before = ({'1': 1, '2': 2}, {'a': 1, 'b': 2})
+    after = ({'1': 1, '3': 3}, {'a': 2, 'c': 1})
+    assert cli.drift(before, after) == dict(conversations=dict(added=1, removed=1, changed=0),
+                                            reports=dict(added=1, removed=1, changed=1))

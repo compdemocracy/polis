@@ -30,6 +30,8 @@ REFUSALS = frozenset({
 })
 # The report's own refusal line (already reduced to a class and fixed text).
 REPORT_REFUSAL = re.compile(r"import dry-run refused \([A-Za-z_][A-Za-z0-9_]{0,63}(: [A-Za-z0-9 ,;.'/()_-]{1,120})?\)")
+# The report's mapping-drift line: added/removed/changed counts only.
+REPORT_DRIFT = re.compile(r'identity mapping drift \{[a-z0-9 ",:{}_]{1,400}\}')
 
 
 def reason(exc):
@@ -40,14 +42,14 @@ def reason(exc):
     return text
 
 
-def report_refusal(stderr_log):
-    """The report's last refusal line from its stderr log, when it has the expected shape."""
+def report_refusal(stderr_log, pattern=REPORT_REFUSAL):
+    """The report's last refusal (or drift) line from its stderr log, when it has the expected shape."""
     try:
         lines = stderr_log.read_bytes()[-65536:].decode('ascii', 'replace').splitlines()
     except OSError:
         return None
     for line in reversed(lines):
-        if REPORT_REFUSAL.fullmatch(line):
+        if pattern.fullmatch(line):
             return line
     return None
 
@@ -151,9 +153,10 @@ def main(argv=None):
                   'with --resume (same --output).', file=sys.stderr)
             return 3
         if result.returncode:
-            refused = report_refusal(args.output/'stderr.log')
-            if refused:
-                print(refused, file=sys.stderr)
+            for pattern in (REPORT_DRIFT, REPORT_REFUSAL):
+                line = report_refusal(args.output/'stderr.log', pattern)
+                if line:
+                    print(line, file=sys.stderr)
             raise ValueError('report failed; inspect private stderr')
         # Intentional private display requested by the operator; SSM output can
         # truncate. The byte-complete report always remains in --output.
