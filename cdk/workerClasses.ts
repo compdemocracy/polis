@@ -156,7 +156,7 @@ export interface WorkerClassKeys {
 
 /** One row of the class table. */
 export interface WorkerClassSpec {
-  /** The class as the docket names it. */
+  /** The class name, as the queue class table lists it. */
   name: string;
   /** Construct id stem: `<id>InstanceRole`, `<id>LaunchTemplate`, `Asg<id>`. */
   id: string;
