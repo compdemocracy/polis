@@ -106,9 +106,20 @@ changed counts (never ids). The report and the importer apply the same rule.
 
 Matching scans are an
 inventory observation, **not** a transactional DynamoDB snapshot or permission to
-apply while writers are running. The reviewed importer bounds (64 MiB/family,
-256 MiB/conversation) also run before printing a successful report; oversized
-sources refuse without truncation. `stderr.log` contains the failure class and, for
+apply while writers are running. The importer's per-run bounds (64 MiB per
+family, 256 MiB per conversation) are the destination's result contract: the
+queue daemon and the Postgres result functions accept no larger family or run.
+The dry run never refuses on them. Every family is staged in full, without
+truncation, and the report says which conversations would not fit: each
+conversation row gets a `staging` object (staged bytes, `within_bound`,
+`oversized_families` with their byte sizes, `batch_over_bound`), and the grand
+totals get `staging` with, per family, the number of conversations past the
+bound and their largest and total sizes. When any conversation is past a bound,
+`stderr.log` also carries one `staging bound exceeded (reported, not refused)`
+line with those counts and sizes (never ids), and the launcher repeats it. The
+importer's own dry run adds the same aggregate as `staging`; with `--apply` it
+still refuses at the first family past a bound, before anything is copied or
+admitted. `stderr.log` contains the failure class and, for
 the importer's own refusals, their fixed reason text (for example `import dry-run
 refused (ValueError: source changed between census passes)`); any other message,
 which could quote a source value, is withheld. The launcher repeats that line.
@@ -148,8 +159,8 @@ the Dynamo source digest, read-only refusal for a broad login, and conservation.
 The report runs through a loopback proxy that permits only Scan and explicitly
 denies DescribeTable; all other DynamoDB operations are also denied. Missing tables
 are detected by Scan; access denial and disappearance during pagination refuse.
-It also reruns the reviewed #1449 staged import/daemon/idempotence regression in
-local test mode. The legacy `import_dynamo_production.py --apply` remains in that
+It also reruns the reviewed staged import/daemon/idempotence regression
+(`tests/production_import/proof.py`) in local test mode. The legacy `import_dynamo_production.py --apply` remains in that
 reviewed importer; it is never selected by this launcher and production apply is
 outside this task. That importer's table-schema preflight still requires
 DescribeTable. The older dedicated-role/apply instructions in
