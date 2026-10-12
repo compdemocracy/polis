@@ -80,6 +80,33 @@ def mapping(connection):
     return conversations, reports
 
 
+def mapping_drift(before, after):
+    """Counts of added, removed and re-pointed mapping entries; never ids."""
+    result = {}
+    for name, old, new in zip(('conversations', 'reports'), before, after):
+        result[name] = dict(added=len(new.keys() - old.keys()), removed=len(old.keys() - new.keys()),
+                            changed=sum(old[key] != new[key] for key in old.keys() & new.keys()))
+    return result
+
+
+def rebind_additions(database, before, after, allowed_missing=(), *, validate_schema=True, skipped=()):
+    """Bind a finished census to a mapping that only gained entries since it was read.
+
+    Conversations and reports created during a long census are accepted. A row
+    already bound cannot change binding, because every entry it resolved through
+    is unchanged; a row left unbound may now bind to a new entry. The census is
+    reopened as a resume, which re-derives every row's binding from its exact
+    source bytes and recomputes the summary without reading the source (every
+    family is already finished; no client is passed). A removed conversation or
+    report, or a report bound to a different conversation, still refuses.
+    """
+    drift = mapping_drift(before, after)
+    if any(entry['removed'] or entry['changed'] for entry in drift.values()):
+        raise ValueError('source identity mapping changed')
+    return census(None, database, *after, allowed_missing, validate_schema=validate_schema,
+                  resume=True, skipped=skipped)
+
+
 def bind(item, conversations, reports):
     candidates = set()
     for name, sep in [('zid', None), ('conversation_id', None), ('zid_tick', ':'),
