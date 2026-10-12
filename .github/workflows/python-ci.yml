@@ -161,7 +161,7 @@ jobs:
             if (error.status === 403) {
               console.log('Note: Could not post coverage comment to PR.');
               console.log('This is expected for PRs from forks due to GitHub token permissions.');
-              console.log('Coverage report is in the test job's log and in the coverage-report artifact.');
+              console.log('Coverage report is in the log of the test job and in the coverage-report artifact.');
             } else {
               console.log(`Unexpected error posting comment: ${error.message}`);
             }
