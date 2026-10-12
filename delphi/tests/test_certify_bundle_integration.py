@@ -40,7 +40,9 @@ from tests.vote_fixtures import seed_vote, seed_vote_from_export
 #: The stored value of each vote the seeds write, named by meaning.
 STORED = {name: seed_vote(name) for name in ("agree", "disagree", "pass")}
 
-pytestmark = pytest.mark.integration
+# serial: seeds fixed conversation ids (zid 1990000001...) in the shared test
+# database; a second worker seeding the same rows hits a duplicate key.
+pytestmark = [pytest.mark.integration, pytest.mark.serial]
 
 # ---------------------------------------------------------------------------
 # Planted public-fixture identifiers — the redaction assertions look for these.

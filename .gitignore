@@ -23,3 +23,6 @@ __pycache__/
 
 # Written into the CodeDeploy bundle by the deploy workflow; never committed.
 scripts/deploy-revision.txt
+
+# Results of ci/local/ check runs
+.ci-out/
