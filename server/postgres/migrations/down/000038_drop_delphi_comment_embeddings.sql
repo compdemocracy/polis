@@ -25,7 +25,7 @@ DROP FUNCTION public.pd_embedding_rows(text,uuid,text),public.pd_embedding_serve
  public.pd_embedding_set(text,uuid,text),public.pd_embedding_close(text,uuid,uuid,uuid,bigint,text),
  public.pd_embedding_put(text,uuid,uuid,uuid,bigint,text,integer[],bytea[],real[]),
  public.pd_embedding_receipt(public.delphi_embedding_sets),public.pd_embedding_batch(text,uuid,uuid,text),
- public.pd_embedding_prune(text,text,integer,text,integer);
+ public.pd_embedding_prune(text,text,integer,text);
 DROP TABLE public.delphi_embedding_sets,public.delphi_comment_embeddings,public.delphi_embedding_models;
 DROP FUNCTION public.pd_embedding_immutable();
 COMMIT;

@@ -11,8 +11,8 @@
 -- before the batch is sealed, so the existing served pointer (delphi_graph_served)
 -- publishes it with the run's families. Later runs only add rows with a higher
 -- seq, so a closed set never changes. Rows and sets are never updated, and are
--- deleted only through pd_embedding_prune (superseded sets, orphaned rows, a
--- whole conversation, or a retired model).
+-- deleted only through pd_embedding_prune (a whole conversation, or a retired
+-- model).
 --
 -- real[] rather than pgvector's vector(384): the dev, CI and fresh-database
 -- images (postgres:17-alpine, postgres:17.11) have no vector extension. The
@@ -35,8 +35,8 @@ SET LOCAL search_path=pg_catalog,pg_temp;
 -- pd_embedding_prune, which turns this setting on for its own deletes and off
 -- again before it returns (an error inside it rolls the setting back with the
 -- deletes; a function SET clause cannot carry a custom setting for a
--- non-superuser owner). Only the owner holds DELETE on these tables, so this guards
--- against a stray DELETE; it is not a privilege boundary.
+-- non-superuser owner). Only the owner holds DELETE on these tables, so this
+-- guards against a stray DELETE; it is not a privilege boundary.
 CREATE FUNCTION public.pd_embedding_immutable() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
@@ -79,10 +79,10 @@ CREATE TRIGGER comment_embedding_immutable BEFORE UPDATE OR DELETE ON public.del
 
 -- One closed set per (batch, model). The set keeps its foreign key to the
 -- batch: a set describes that run's publication and must never outlive it, so
--- a result-batch prune deletes the batch's sets (pd_embedding_prune) first, and
--- an out-of-order delete fails instead of leaving a set without its batch. content_sha is SHA-256 over one line per
--- row in tid order, tid:hex(text_sha):hex(sha256(array_send(embedding))),
--- joined by newlines, so a reader can check what it streamed.
+-- deleting a batch that still has a set fails instead of leaving the set
+-- without its batch. content_sha is SHA-256 over one line per row in tid
+-- order, tid:hex(text_sha):hex(sha256(array_send(embedding))), joined by
+-- newlines, so a reader can check what it streamed.
 CREATE TABLE public.delphi_embedding_sets(
  env text NOT NULL, batch_id uuid NOT NULL,
  model_id smallint NOT NULL REFERENCES public.delphi_embedding_models,
@@ -234,29 +234,24 @@ SET search_path=pg_catalog,pg_temp SET enable_seqscan=off AS $$
 $$;
 
 -- The only delete path. Modes:
---  superseded (p_zid): per model, keep every set the conversation's served
---   pointers resolve to, every set newer than the oldest of those, the p_keep
---   newest older sets (rollback by pointer), and any set still consumed by an
---   unfinished job or whose run has neither published nor finished; delete the
---   other sets. Then, if no job for the conversation is unfinished, delete rows
---   above every remaining set's mark (rows of runs that never closed a set).
---   Sets are cumulative, so rows at or below the newest remaining mark are
---   always still covered and are never deleted here.
 --  conversation (p_zid, optional p_model): every row and set of the
 --   conversation, e.g. once its reports are baked or before an operator
 --   deletes the conversation. Refused while a job for it is unfinished.
 --  model (p_model): every row and set of a retired model in the environment.
 --   Refused while a job for any affected conversation is unfinished.
+-- Superseded sets of a conversation that stays are not pruned here: a run's
+-- set is a small metadata row (the rows are shared, once per comment), and a
+-- safe rule must know which sets a later pointer, rollback or unfinished
+-- graph can still resolve to. That rule is left for a later migration.
 -- Owner only: nothing calls it yet. Serializes with put and close on the same
 -- per-(conversation, model) lock, taken in (zid, model) order.
-CREATE FUNCTION public.pd_embedding_prune(p_env text,p_mode text,p_zid integer DEFAULT NULL,p_model text DEFAULT NULL,p_keep integer DEFAULT 1)
+CREATE FUNCTION public.pd_embedding_prune(p_env text,p_mode text,p_zid integer DEFAULT NULL,p_model text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET enable_seqscan=off AS $$
-DECLARE mid smallint; z record; oldest public.delphi_embedding_sets; mark bigint; busy boolean;
- n integer; sets_deleted integer=0; rows_deleted integer=0;
+DECLARE mid smallint; z record; n integer; sets_deleted integer=0; rows_deleted integer=0;
 BEGIN
- IF p_env IS NULL OR p_mode IS NULL OR p_mode NOT IN ('superseded','conversation','model') OR p_keep IS NULL OR p_keep<0
-  OR (p_mode IN ('superseded','conversation') AND p_zid IS NULL)
+ IF p_env IS NULL OR p_mode IS NULL OR p_mode NOT IN ('conversation','model')
+  OR (p_mode='conversation' AND p_zid IS NULL)
   OR (p_mode='model' AND (p_model IS NULL OR p_zid IS NOT NULL))
  THEN RAISE EXCEPTION 'invalid embedding prune'; END IF;
  IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION 'embedding prune requires read committed'; END IF;
@@ -271,40 +266,13 @@ BEGIN
   ) x ORDER BY x.zid,x.model_id
  LOOP
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('pd:embeddings',p_env,z.zid,z.model_id)::text,0));
-  busy=EXISTS(SELECT 1 FROM public.polis_queue_jobs j JOIN public.polis_queue_runs r ON r.env=j.env AND r.run_id=j.run_id
-   WHERE j.env=p_env AND r.zid=z.zid AND j.state NOT IN ('succeeded','dead','cancelled'));
-  IF p_mode<>'superseded' THEN
-   IF busy THEN RAISE EXCEPTION 'embedding prune: conversation has unfinished jobs'; END IF;
-   DELETE FROM public.delphi_embedding_sets s WHERE s.env=p_env AND s.zid=z.zid AND s.model_id=z.model_id;
-   GET DIAGNOSTICS n=ROW_COUNT; sets_deleted=sets_deleted+n;
-   DELETE FROM public.delphi_comment_embeddings e WHERE e.env=p_env AND e.zid=z.zid AND e.model_id=z.model_id;
-   GET DIAGNOSTICS n=ROW_COUNT; rows_deleted=rows_deleted+n;
-   CONTINUE;
-  END IF;
-  -- The oldest set any served pointer of this conversation resolves to.
-  SELECT s.* INTO oldest FROM public.delphi_graph_served g
-  JOIN public.delphi_embedding_models m ON m.model_id=z.model_id
-  JOIN public.delphi_embedding_sets s ON s.env=p_env AND s.model_id=z.model_id
-   AND s.batch_id=(public.pd_embedding_set(p_env,g.artifact_id,m.name)->>'batch_id')::uuid
-  WHERE g.env=p_env AND g.zid=z.zid ORDER BY s.seq_mark,s.created_at LIMIT 1;
-  IF oldest.batch_id IS NULL THEN CONTINUE; END IF; -- nothing served: delete nothing
-  DELETE FROM public.delphi_embedding_sets d USING (
-   SELECT s.batch_id FROM public.delphi_embedding_sets s
-   JOIN public.delphi_result_batches b ON b.env=s.env AND b.batch_id=s.batch_id
-   WHERE s.env=p_env AND s.zid=z.zid AND s.model_id=z.model_id
-    AND (s.seq_mark,s.created_at)<(oldest.seq_mark,oldest.created_at)
-    AND (b.artifact_id IS NOT NULL OR EXISTS(SELECT 1 FROM public.polis_queue_jobs j
-     WHERE j.env=b.env AND j.job_id=b.job_id AND j.state IN ('succeeded','dead','cancelled')))
-    AND NOT EXISTS(SELECT 1 FROM public.delphi_graph_edges e JOIN public.polis_queue_jobs j ON j.env=e.env AND j.job_id=e.consumer
-     WHERE e.env=p_env AND e.artifact_id=b.artifact_id AND j.state NOT IN ('succeeded','dead','cancelled'))
-   ORDER BY s.seq_mark DESC,s.created_at DESC OFFSET p_keep
-  ) x WHERE d.env=p_env AND d.batch_id=x.batch_id AND d.model_id=z.model_id;
+  IF EXISTS(SELECT 1 FROM public.polis_queue_jobs j JOIN public.polis_queue_runs r ON r.env=j.env AND r.run_id=j.run_id
+   WHERE j.env=p_env AND r.zid=z.zid AND j.state NOT IN ('succeeded','dead','cancelled'))
+  THEN RAISE EXCEPTION 'embedding prune: conversation has unfinished jobs'; END IF;
+  DELETE FROM public.delphi_embedding_sets s WHERE s.env=p_env AND s.zid=z.zid AND s.model_id=z.model_id;
   GET DIAGNOSTICS n=ROW_COUNT; sets_deleted=sets_deleted+n;
-  IF NOT busy THEN
-   SELECT max(s.seq_mark) INTO mark FROM public.delphi_embedding_sets s WHERE s.env=p_env AND s.zid=z.zid AND s.model_id=z.model_id;
-   DELETE FROM public.delphi_comment_embeddings e WHERE e.env=p_env AND e.zid=z.zid AND e.model_id=z.model_id AND e.seq>mark;
-   GET DIAGNOSTICS n=ROW_COUNT; rows_deleted=rows_deleted+n;
-  END IF;
+  DELETE FROM public.delphi_comment_embeddings e WHERE e.env=p_env AND e.zid=z.zid AND e.model_id=z.model_id;
+  GET DIAGNOSTICS n=ROW_COUNT; rows_deleted=rows_deleted+n;
  END LOOP;
  PERFORM set_config('polis.pd_embedding_prune','off',true);
  RETURN jsonb_build_object('mode',p_mode,'sets_deleted',sets_deleted,'rows_deleted',rows_deleted);
@@ -317,7 +285,7 @@ REVOKE ALL ON FUNCTION public.pd_embedding_batch(text,uuid,uuid,text),
  public.pd_embedding_receipt(public.delphi_embedding_sets),
  public.pd_embedding_set(text,uuid,text),public.pd_embedding_served(text,integer,text,text),
  public.pd_embedding_rows(text,uuid,text),public.pd_embedding_immutable(),
- public.pd_embedding_prune(text,text,integer,text,integer) FROM PUBLIC,polis_queue_executor;
+ public.pd_embedding_prune(text,text,integer,text) FROM PUBLIC,polis_queue_executor;
 GRANT EXECUTE ON FUNCTION public.pd_embedding_put(text,uuid,uuid,uuid,bigint,text,integer[],bytea[],real[]),
  public.pd_embedding_close(text,uuid,uuid,uuid,bigint,text),
  public.pd_embedding_set(text,uuid,text),public.pd_embedding_served(text,integer,text,text),
