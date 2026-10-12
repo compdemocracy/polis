@@ -13,6 +13,9 @@ BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL ROLE polis_queue_owner;
 SET LOCAL search_path=pg_catalog,pg_temp;
+-- Hold both tables before checking, so a put that is still in flight either
+-- commits first (and the check sees its rows) or waits and then fails.
+LOCK TABLE public.delphi_comment_embeddings,public.delphi_embedding_sets IN ACCESS EXCLUSIVE MODE;
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.delphi_comment_embeddings) OR EXISTS(SELECT 1 FROM public.delphi_embedding_sets) THEN
   RAISE EXCEPTION 'embeddings are stored; roll back by pointer, not by drop';
