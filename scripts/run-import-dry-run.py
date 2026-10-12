@@ -32,6 +32,9 @@ REFUSALS = frozenset({
 REPORT_REFUSAL = re.compile(r"import dry-run refused \([A-Za-z_][A-Za-z0-9_]{0,63}(: [A-Za-z0-9 ,;.'/()_-]{1,120})?\)")
 # The report's mapping-drift line: added/removed/changed counts only.
 REPORT_DRIFT = re.compile(r'identity mapping drift \{[a-z0-9 ",:{}_]{1,400}\}')
+# The report's staging line: per-family conversation counts and byte sizes of
+# families past the importer's per-run bounds. Never ids; the run continues.
+REPORT_STAGING = re.compile(r'staging bound exceeded \(reported, not refused\) \{[A-Za-z0-9 ",:{}_]{1,4000}\}')
 
 
 def reason(exc):
@@ -167,6 +170,9 @@ def main(argv=None):
                 if line:
                     print(line, file=sys.stderr)
             raise ValueError('report failed; inspect private stderr')
+        line = report_refusal(args.output/'stderr.log', REPORT_STAGING, start)
+        if line:
+            print(line, file=sys.stderr)
         # Intentional private display requested by the operator; SSM output can
         # truncate. The byte-complete report always remains in --output.
         sys.stdout.buffer.write((args.output/'report.jsonl').read_bytes())

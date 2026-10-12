@@ -479,3 +479,104 @@ def test_launcher_resume_relays_only_this_runs_lines(monkeypatch, tmp_path, capf
     assert code == 2 and err[0] == 'import dry-run refused (ValueError: source identity mapping changed)'
     assert len(err) == 2 and 'added": 9' not in ' '.join(err)
     assert (output/'stderr.log').read_text().startswith(stale)
+
+
+def staging_line(err):
+    cli = report_cli()
+    lines = [line for line in err.splitlines() if line.startswith(cli.STAGING_LINE)]
+    assert len(lines) <= 1
+    return json.loads(lines[0][len(cli.STAGING_LINE):]) if lines else None
+
+
+def test_dry_run_reports_a_family_past_the_staging_bound_and_completes(monkeypatch, tmp_path, capfd, keep_umask):
+    """The same seeded source refused with the bound before; the dry run now reports it and continues."""
+    source = ScanOnlySource({FAMILY: [row(cid=i, text='x'*400) for i in range(3)] + [row('2', text='small')]})
+    monkeypatch.setattr(imp, 'FAMILY_LIMIT', 1000)
+    # Before: materialize without a collector (the apply path) refuses on this census.
+    summary = imp.census(source, tmp_path/'before.sqlite', {'1': 1, '2': 2}, {}, validate_schema=False)
+    with pytest.raises(ValueError, match='conversation family exceeds staged storage bound'):
+        imp.materialize(tmp_path/'before.sqlite', tmp_path/'before', summary)
+    monkeypatch.setattr(report, 'metadata', metadata_stub)
+    code = refusal_run(monkeypatch, tmp_path, source, mapping=lambda connection: ({'1': 1, '2': 2}, {}))
+    out, err = capfd.readouterr()
+    assert code == 0, err
+    assert 'refused (' not in err
+    lines = [json.loads(line) for line in out.splitlines()]
+    big, small, grand = lines
+    assert big['zid'] == 1 and big['topic'] == 'Generated'
+    size = big['staging']['oversized_families'][FAMILY]
+    assert size > 1000 and big['staging']['within_bound'] is False and big['staging']['batch_over_bound'] is False
+    assert small['staging']['within_bound'] is True and small['staging']['oversized_families'] == {}
+    expected = dict(conversations=1, family_limit=1000, batch_limit=imp.BATCH_LIMIT,
+                    families={FAMILY: dict(conversations=1, bytes_max=size, bytes_total=size)})
+    assert grand['staging'] == expected
+    assert grand['totals']['would_import'] == 4
+    # Stderr carries counts and sizes only.
+    assert staging_line(err) == expected
+    assert 'Generated' not in err
+    # The report and the complete marker are written as for any other run.
+    attempts = list((tmp_path/'import').glob('report-*'))
+    assert len(attempts) == 1 and (attempts[0]/'report.jsonl').read_bytes() == out.encode()
+
+
+def test_dry_run_within_bounds_prints_no_staging_line(monkeypatch, tmp_path, capfd, keep_umask):
+    monkeypatch.setattr(report, 'metadata', metadata_stub)
+    assert refusal_run(monkeypatch, tmp_path, ScanOnlySource({FAMILY: [row()]})) == 0
+    out, err = capfd.readouterr()
+    assert staging_line(err) is None
+    lines = [json.loads(line) for line in out.splitlines()]
+    assert lines[0]['staging']['within_bound'] is True
+    assert lines[-1]['staging']['conversations'] == 0 and lines[-1]['staging']['families'] == {}
+
+
+def test_launcher_relays_staging_line_on_success(monkeypatch, tmp_path, capfd, keep_umask):
+    checkout = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parents[2]))
+    launcher = load('launcher', checkout / 'scripts/run-import-dry-run.py')
+    cli = report_cli()
+    line = cli.STAGING_LINE + json.dumps(dict(conversations=1, batch_limit=268435456, family_limit=67108864,
+        families={FAMILY: dict(conversations=1, bytes_max=70000000, bytes_total=70000000)}), sort_keys=True)
+    log = tmp_path/'stderr.log'
+    log.write_text('scan pacing {"pages": 2}\n' + line + '\n')
+    assert launcher.report_refusal(log, launcher.REPORT_STAGING) == line
+    log.write_text(cli.STAGING_LINE + '{"conversations": ["PRIVATE-ID"]}\n')
+    assert launcher.report_refusal(log, launcher.REPORT_STAGING) is None
+    inspect = json.dumps([dict(State=dict(Running=True), Image='generated-image',
+        Config=dict(Env=[], Labels={'com.docker.compose.service': 'delphi'}))]).encode()
+    monkeypatch.setattr(launcher.subprocess, 'check_output', lambda *a, **kw: inspect)
+    def run(command, env, stdout, stderr):
+        stderr.write((line + '\n').encode())
+        stdout.write(b'{"type": "grand_totals"}\n')
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(launcher.subprocess, 'run', run)
+    assert launcher.main(['--container', 'generated', '--output', str(tmp_path/'output')]) == 0
+    out, err = capfd.readouterr()
+    assert err.splitlines() == [line]
+    assert out == '{"type": "grand_totals"}\n'
+
+
+def test_production_importer_dry_run_reports_oversized_and_apply_still_refuses(monkeypatch, tmp_path, capfd, keep_umask):
+    cli = load('importer_cli', Path(__file__).resolve().parents[1]/'scripts/import_dynamo_production.py')
+    rows = {FAMILY: [row(cid=i, text='x'*400) for i in range(3)] + [row('2', text='small')]}
+    monkeypatch.setattr(imp, 'FAMILY_LIMIT', 1000)
+    admitted = []
+    monkeypatch.setattr(imp, 'import_all', lambda *args: admitted.append(args) or 0)
+    monkeypatch.setattr(imp, 'SNAPSHOTS', tmp_path/'snapshots')
+    def run(*extra):
+        scratch = tmp_path/('import-' + str(len(list(tmp_path.iterdir()))))
+        scratch.mkdir()
+        monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
+        monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: Source(rows))
+        monkeypatch.setattr(imp, 'connect_readonly_source', lambda local=False: SimpleNamespace(close=lambda: None))
+        monkeypatch.setattr(imp, 'mapping', lambda connection: ({'1': 1, '2': 2}, {}))
+        return cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9', *extra])
+    assert run() == 0
+    out, err = capfd.readouterr()
+    result = json.loads(out)
+    assert result['mode'] == 'dry-run' and result['conversations'] == 2
+    assert result['staging']['conversations'] == 1
+    assert set(result['staging']['families']) == {FAMILY}
+    # --apply refuses on the same source before any snapshot is copied or any graph admitted.
+    assert run('--apply', '--source-frozen') == 2
+    err = capfd.readouterr().err
+    assert err.splitlines()[-1] == 'production import refused (ValueError)'
+    assert admitted == [] and not (tmp_path/'snapshots').exists()

@@ -51,7 +51,13 @@ def counts(source=0, imported=0, archived=0, quarantined=0):
     return dict(source=source, would_import=imported, archive=archived, quarantine=quarantined)
 
 
-def report(database, details, summary):
+def report(database, details, summary, staging=None):
+    """Per-conversation rows, the unmapped bucket and the grand totals.
+
+    `staging` (from production_import.staging) adds each conversation's staged
+    byte size and whether it fits the importer's per-run bounds, and the
+    aggregate of the families past them.
+    """
     with closing(sqlite3.connect(database)) as db:
         grouped = {}
         for zid, family, disposition, count in db.execute(
@@ -66,17 +72,25 @@ def report(database, details, summary):
             # part of the conservation equation, including global controls.
             identity = dict(details[zid]) if zid is not None else dict(zid=None, conversation_id=None,
                 conversation_ids=[], topic=None, description=None, participant_count=None)
-            rows.append(dict(type="conversation" if zid is not None else "unmapped", **identity, families=families))
+            row = dict(type="conversation" if zid is not None else "unmapped", **identity, families=families)
+            if staging is not None and zid is not None:
+                # A conversation with only archived/quarantined rows stages nothing.
+                row["staging"] = staging["conversations"].get(zid, dict(
+                    bytes=0, within_bound=True, oversized_families={}, batch_over_bound=False))
+            rows.append(row)
         grand = {family: counts(**value) for family, value in summary["counts"].items()}
         totals = {key: sum(value[key] for value in grand.values()) for key in counts()}
         for family, expected in grand.items():
             if any(sum(row["families"][family][key] for row in rows) != value for key, value in expected.items()):
                 raise ValueError("report conservation failure")
-        rows.append(dict(type="grand_totals", schema="polis-import-dry-run/1", mode="dry-run",
+        grand_totals = dict(type="grand_totals", schema="polis-import-dry-run/1", mode="dry-run",
             source_sha256=summary["source_sha256"], missing_tables=summary["missing"],
             conversations=sum(row["type"] == "conversation" for row in rows),
             participant_count_source="conversations.participant_count (stored count)",
-            families=grand, totals=totals))
+            families=grand, totals=totals)
+        if staging is not None:
+            grand_totals["staging"] = staging["totals"]
+        rows.append(grand_totals)
         return rows
 
 

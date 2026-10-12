@@ -172,3 +172,52 @@ def test_no_remote_local_endpoint():
 def test_production_database_tls_required(monkeypatch):
     monkeypatch.setenv('IMPORT_SOURCE_DATABASE_URL','host=example.invalid sslmode=require')
     with pytest.raises(ValueError,match='TLS'):imp.connect_readonly_source()
+
+
+def test_dry_run_staging_reports_every_oversized_family_and_continues(tmp_path, monkeypatch):
+    """A family past the bound refuses on the apply path, and is staged in full and listed on the dry-run path."""
+    other = 'Delphi_CommentExtremity'
+    rows = {FAMILY: [row(cid=i, text='x'*400) for i in range(3)] + [row('2', text='small')],
+            other: [codec.item_from_python(dict(conversation_id='1', comment_id='1', text='y'*400))]}
+    summary = imp.census(Source(rows), tmp_path/'db', {'1': 1, '2': 2}, {})
+    # Eighteen empty family headers alone are about 2 KB; one small conversation fits under 3 KB.
+    monkeypatch.setattr(imp, 'FAMILY_LIMIT', 1000)
+    monkeypatch.setattr(imp, 'BATCH_LIMIT', 3000)
+    with pytest.raises(ValueError, match='conversation family exceeds staged storage bound'):
+        imp.materialize(tmp_path/'db', tmp_path/'refused', summary)
+    oversized = []
+    bundles = imp.materialize(tmp_path/'db', tmp_path/'staged', summary, oversized=oversized)
+    assert [b['zid'] for b in bundles] == [1, 2]
+    staged = tmp_path/'staged'/bundles[0]['digest']
+    # The oversized family is staged in full, not truncated, and its size is exact.
+    raw = (staged/(FAMILY+'.jsonl')).read_bytes()
+    assert codec.decode_family(raw)[1] == rows[FAMILY][:3]
+    assert oversized == [dict(zid=1, family=FAMILY, bytes=len(raw), rows=3),
+                         dict(zid=1, family=None, bytes=bundles[0]['bytes'], rows=4)]
+    assert bundles[0]['bytes'] > 3000 and bundles[1]['bytes'] < 3000
+    totals = imp.oversize_summary(oversized)
+    assert totals == dict(conversations=1, family_limit=1000, batch_limit=3000, families={
+        FAMILY: dict(conversations=1, bytes_max=len(raw), bytes_total=len(raw)),
+        'batch': dict(conversations=1, bytes_max=bundles[0]['bytes'], bytes_total=bundles[0]['bytes'])})
+    state = imp.staging(bundles, oversized)
+    assert state['conversations'][1] == dict(bytes=bundles[0]['bytes'], within_bound=False,
+                                             oversized_families={FAMILY: len(raw)}, batch_over_bound=True)
+    assert state['conversations'][2] == dict(bytes=bundles[1]['bytes'], within_bound=True,
+                                             oversized_families={}, batch_over_bound=False)
+    assert imp.oversize_summary([]) == dict(conversations=0, families={}, family_limit=1000, batch_limit=3000)
+
+
+def test_batch_bound_alone_refuses_on_apply_and_is_reported_on_dry_run(tmp_path, monkeypatch):
+    other = 'Delphi_CommentExtremity'
+    rows = {FAMILY: [row(text='x'*600)],
+            other: [codec.item_from_python(dict(conversation_id='1', comment_id='1', text='y'*600))]}
+    summary = imp.census(Source(rows), tmp_path/'db', {'1': 1}, {})
+    # Every family stays under the family bound; only the conversation's sum crosses the batch bound.
+    monkeypatch.setattr(imp, 'BATCH_LIMIT', 3000)
+    with pytest.raises(ValueError, match='conversation exceeds staged batch bound'):
+        imp.materialize(tmp_path/'db', tmp_path/'refused', summary)
+    oversized = []
+    bundles = imp.materialize(tmp_path/'db', tmp_path/'staged', summary, oversized=oversized)
+    assert oversized == [dict(zid=1, family=None, bytes=bundles[0]['bytes'], rows=2)]
+    assert 3000 < bundles[0]['bytes'] and all(entry['bytes'] < imp.FAMILY_LIMIT
+                                               for entry in json.loads((tmp_path/'staged'/bundles[0]['digest']/'manifest.json').read_text())['families'].values())

@@ -67,6 +67,10 @@ REFUSALS = frozenset({
 })
 
 
+# Stderr prefix for the aggregate of families past the staging bounds.
+STAGING_LINE = 'staging bound exceeded (reported, not refused) '
+
+
 def refusal(exc):
     """The stderr line for a refused run: the class, plus the listed fixed text."""
     reason = type(exc).__name__
@@ -135,9 +139,16 @@ def main(argv=None):
                 with closing(sqlite3.connect(attempt/'first.sqlite')) as db:
                     zids = [row[0] for row in db.execute('SELECT DISTINCT zid FROM rows WHERE zid IS NOT NULL')]
                 details = import_report.metadata(conn, zids)
-            # Same size/binding validation as the reviewed importer, no admission.
-            imp.materialize(attempt/'first.sqlite', attempt/'snapshot', first)
-            raw = import_report.encode(import_report.report(attempt/'first.sqlite', details, first))
+            # Same binding validation as the reviewed importer, no admission. A
+            # dry run never refuses on size: families past the importer's per-run
+            # bounds are staged in full, reported and counted, and the run goes on.
+            oversized = []
+            bundles = imp.materialize(attempt/'first.sqlite', attempt/'snapshot', first, oversized=oversized)
+            staged = imp.staging(bundles, oversized)
+            if oversized:
+                # Counts and byte sizes only; the report carries the conversations.
+                print(STAGING_LINE + json.dumps(staged['totals'], sort_keys=True), file=sys.stderr)
+            raw = import_report.encode(import_report.report(attempt/'first.sqlite', details, first, staged))
             imp.write_private(attempt/'report.jsonl', raw)
             imp.finish_attempt(attempt)
             pacing(pacer)
