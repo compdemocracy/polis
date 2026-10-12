@@ -26,7 +26,9 @@ from polismath.poller.worker_pool import REBUILD, CoalescedBatch
 from tests.conftest import require_polis_postgres
 from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
-pytestmark = pytest.mark.integration
+# serial: seeds fixed zids (13500...) in the shared test database and creates the
+# cluster-wide role math_queue_test; concurrent workers collide on both.
+pytestmark = [pytest.mark.integration, pytest.mark.serial]
 
 DAY_MS = 24 * 60 * 60 * 1000
 VERIFY_SQL = (Path(__file__).resolve().parents[2] / "polismath" / "poller"

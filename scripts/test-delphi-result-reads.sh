@@ -36,5 +36,5 @@ POLIS_MIGRATIONS_DIR="$repo/server/postgres/migrations" queue-rs/target/debug/po
 cd server
 [[ -d node_modules ]] || npm ci --no-audit --no-fund
 export DYNAMODB_ENDPOINT="http://127.0.0.1:$RESULT_READS_DYNAMO_PORT"
-export AWS_REGION=us-east-1 DATABASE_SSL=false NODE_ENV=test
+export AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY DATABASE_SSL=false NODE_ENV=test
 npx jest --config __tests__/delphi-results-pg/jest.config.json --runInBand "$@"

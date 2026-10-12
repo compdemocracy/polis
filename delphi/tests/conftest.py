@@ -371,7 +371,9 @@ def _get_requested_datasets(config) -> set[str] | None:
 
 
 def pytest_configure(config):
-    """Register custom markers."""
+    """Register custom markers, and the CI shard/result plugin when asked."""
+    from tests.ci_partition import register as register_ci_partition
+    register_ci_partition(config)
     config.addinivalue_line(
         "markers",
         "use_discovered_datasets(use_blobs=False): dynamically parametrize with discovered "

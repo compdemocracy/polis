@@ -29,7 +29,9 @@ import pytest
 from tests.conftest import require_polis_postgres
 from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
-pytestmark = pytest.mark.integration
+# serial: every test seeds and deletes fixed zids (SOURCE_ZID, FAKE_ZID) in the
+# shared test database; two workers at once saw each other's rows (assert 7 == 12).
+pytestmark = [pytest.mark.integration, pytest.mark.serial]
 
 
 def _load_generator():

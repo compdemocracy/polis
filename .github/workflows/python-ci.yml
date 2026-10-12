@@ -19,6 +19,9 @@ on:
       - 'docker-compose*.yml'
       - '.github/workflows/python-ci.yml'
       - 'ci/test-migrations.sh'
+      - 'ci/local/delphi-python.sh'
+      - 'ci/local/delphi_python_results.py'
+      - 'ci/local/delphi-test-durations.json'
       - 'docker-compose.test.yml'
       - 'server/Dockerfile-db'
       - 'server/postgres/**'
@@ -41,156 +44,82 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  # Every step of the check lives in ci/local/delphi-python.sh, which runs the
+  # same way on any Docker host. Hosted CI splits the suite into shards (each
+  # also parallel inside its job) and the `test` job puts the shards back
+  # together: it proves every test ran in exactly one shard, adds up the
+  # counts and combines coverage.
+  shard:
+    name: test shard ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
-    
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: 1. Free up disk space on runner
+    - name: Free up disk space on runner
       run: |
-        echo "Starting disk cleanup..."
         df -h
         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/powershell
-        echo "Disk space after cleanup:"
         df -h
-
-    - name: 2. Create .env file for CI
-      run: |
-        if [ -f "test.env" ]; then
-          cp test.env .env
-          echo "Using test.env for CI."
-        else
-          echo "::error::test.env file not found!"
-          exit 1
-        fi
-
-        # Add hostnames for container-to-container networking
-        # The 'delphi' service in 'docker-compose.test.yml' reads these
-        echo "POSTGRES_HOST=postgres" >> .env
-        echo "DYNAMODB_ENDPOINT=http://dynamodb:8000" >> .env
-        echo "AWS_S3_ENDPOINT=http://minio:9000" >> .env
 
     # BuildKit is required by `RUN --mount=type=cache` in the npm Dockerfiles.
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: 3. Build Docker images
+    - name: Delphi pytest (shard ${{ matrix.shard }}/3)
+      env:
+        DELPHI_CHECK_OUT: ${{ github.workspace }}/delphi-results/shard-${{ matrix.shard }}
+      run: bash ci/local/delphi-python.sh --shard ${{ matrix.shard }}/3
+
+    - name: Upload shard results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: delphi-shard-${{ matrix.shard }}
+        path: |
+          delphi-results/shard-${{ matrix.shard }}
+          !delphi-results/shard-${{ matrix.shard }}/stack
+        if-no-files-found: ignore
+
+  test:
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Every shard passed
       run: |
-        # Build all services in the test file (including delphi)
-        docker compose -f docker-compose.test.yml --env-file .env build
+        echo "shards: ${{ needs.shard.result }}"
+        test "${{ needs.shard.result }}" = success
 
-        # Apply/check before starting application services on this volume.
-        bash ci/test-migrations.sh
+    - name: Download shard results
+      uses: actions/download-artifact@v4
+      with:
+        pattern: delphi-shard-*
+        path: delphi-results
 
-        # The 'delphi' container will start and run 'tail -f /dev/null'
-        docker compose -f docker-compose.test.yml --env-file .env up -d
-        
-        echo "Waiting for services to be healthy..."
-        sleep 20 # Wait for containers to start
-        docker compose -f docker-compose.test.yml ps
-
-    - name: 5. Check service health
+    - name: Combine shards (counts, coverage)
+      env:
+        DELPHI_CHECK_OUT: ${{ github.workspace }}/delphi-results/combined
       run: |
-        # Wait for postgres to be ready
-        echo "Checking postgres..."
-        docker compose -f docker-compose.test.yml exec -T postgres \
-          bash -c 'until pg_isready -U $POSTGRES_USER; do sleep 5; done'
-        echo "Postgres is ready."
+        bash ci/local/delphi-python.sh combine delphi-results/delphi-shard-1 delphi-results/delphi-shard-2 delphi-results/delphi-shard-3
+        cp delphi-results/combined/coverage-comment.md coverage-comment.md
 
-    # The opt-in Postgres integration tests (require_polis_postgres) run here
-    # against the compose `postgres` service, whose image bakes the polis
-    # migrations through polis-migrate during initialization and the explicit CI step,
-    # rule are already applied. The pytest step exports POLIS_TEST_POSTGRES_URL;
-    # the cold-start generator under test is already baked into the delphi image
-    # (Dockerfile `COPY scripts/ ./scripts/`), built from this checkout.
-    - name: 6. Run Delphi Pytest
-      run: |
-        echo "Copying test files into container..."
-        docker compose -f docker-compose.test.yml cp delphi/tests delphi:/app/tests
-        docker compose -f docker-compose.test.yml cp delphi/real_data delphi:/app/real_data
-        echo "Copying coverage script into container..."
-        docker compose -f docker-compose.test.yml cp delphi/generate_coverage_md.py delphi:/app/generate_coverage_md.py
-        echo "Copying script to be tested into container..."
-        docker compose -f docker-compose.test.yml cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
-        docker compose -f docker-compose.test.yml cp delphi/umap_narrative delphi:/app/umap_narrative
-        # The same container-layout preparation and hook tests run on mm5.
-        bash scripts/test-deploy-hooks.sh
-
-        # Wire a checkout-shaped root so delphi/tests/scripts collects AND RUNS the
-        # pure-Python inventory sweep + the DB-free gate unit tests (the conftest
-        # locator resolves POLIS_CHECKOUT_DIR). The scan inputs are copied in as REAL,
-        # traversable directories (NOT symlinks — os.walk would skip those). The set
-        # of inputs is DERIVED from the scanner's own declaration
-        # (`--print-scan-inputs`) so it can never diverge from what the sweep scans;
-        # a test asserts every declared input is present under /app/projgate.
-        echo "Wiring projection-gate scan inputs (derived from the scanner declaration)..."
-        docker compose -f docker-compose.test.yml exec -T delphi mkdir -p /app/projgate
-        # Iterate a CAPTURED list, not `... | while read`: a `docker compose exec`
-        # inside a while-read loop drains the piped stdin and truncates the list to
-        # its first item (observed: only server/src copied).
-        # Recordings tests also load the packer and its digest helper from ci/.
-        # battery_coverage.py is already included in the declared delphi/scripts.
-        # Representative payload tests import the box planner/gate and their
-        # helpers from this same checkout root; keep their relative paths intact.
-        # Light-shadow triage tests also import the compare/triage modules.
-        for rel in $(python3 delphi/scripts/projection_inventory.py --print-scan-inputs) \
-          ci/p022_recordings_manifest.py ci/p022_battery_digest.py \
-          ci/private_cert/images/gate.py ci/private_cert/images/probe.py \
-          ci/private_cert/images/attribution.py ci/private_cert/images/diagnostic_projection.py ci/private_cert/images/selection_context.py \
-          ci/private_cert/images/g12.py ci/private_cert/images/near_ties.py ci/private_cert/control.py \
-          ci/private_cert/image_admission.py ci/probe_box/receipt.py \
-          ci/probe_box/contracts.py ci/probe_box/light_shadow.py ci/probe_box/light_shadow_queries.py \
-          ci/private_cert/images/light_shadow_compare.py ci/private_cert/images/light_shadow_triage.py \
-          ci/private_cert/images/recipe.py scripts/run-import-dry-run.py; do
-          docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
-          docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
-            || { echo "failed to copy scan input: $rel"; exit 1; }
-        done
-
-        echo "Running tests and generating coverage report..."
-        docker compose \
-          -f docker-compose.test.yml \
-          --env-file .env \
-          exec -T \
-          -e AWS_DEFAULT_REGION=us-east-1 \
-          -e AWS_REGION=us-east-1 \
-          -e AWS_ACCESS_KEY_ID=dummy \
-          -e AWS_SECRET_ACCESS_KEY=dummy \
-          -e SKIP_GOLDEN=1 \
-          -e POSTGRES_CONNECT_TIMEOUT=5 \
-          -e POLIS_CHECKOUT_DIR=/app/projgate \
-          delphi \
-          bash -c " \
-            set -e; \
-            echo '--- Setting up DynamoDB Tables ---'; \
-            python create_dynamodb_tables.py --region us-east-1; \
-            echo '--- Running Pytest ---'; \
-            export PYTHONPATH=\$PYTHONPATH:/app; \
-            export POLIS_TEST_POSTGRES_URL=\"postgresql://\$DATABASE_USER:\$DATABASE_PASSWORD@\$DATABASE_HOST/\$DATABASE_NAME\"; \
-            pytest --cov=polismath --cov=run_math_pipeline --cov=./umap_narrative --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
-            echo '--- Generating Coverage Comment Text ---'; \
-            python /app/generate_coverage_md.py > /app/coverage-comment.md \
-          "
-
-    - name: 7. Copy coverage report from container
-      if: success()
-      run: |
-        echo "Copying coverage-comment.md from delphi container..."
-        docker compose -f docker-compose.test.yml cp delphi:/app/coverage-comment.md .
-        echo "=== Coverage Report ==="
-        cat coverage-comment.md
-
-    - name: 8. Upload Coverage Report
-      if: success()
+    - name: Upload Coverage Report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: coverage-comment.md
 
-    - name: 9. Post Coverage Comment
-      if: success() && github.event_name == 'pull_request'
+    - name: Post Coverage Comment
+      if: github.event_name == 'pull_request'
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -232,24 +161,8 @@ jobs:
             if (error.status === 403) {
               console.log('Note: Could not post coverage comment to PR.');
               console.log('This is expected for PRs from forks due to GitHub token permissions.');
-              console.log('Coverage report is available in the workflow logs (step 7) and as a downloadable artifact (step 8).');
+              console.log('Coverage report is in the log of the test job and in the coverage-report artifact.');
             } else {
               console.log(`Unexpected error posting comment: ${error.message}`);
             }
           }
-
-    - name: 10. Show service logs on failure
-      if: failure()
-      run: |
-        echo "=== Delphi service logs ==="
-        docker compose -f docker-compose.test.yml logs delphi || true
-        echo "=== Postgres service logs ==="
-        docker compose -f docker-compose.test.yml logs postgres || true
-        echo "=== DynamoDB service logs ==="
-        docker compose -f docker-compose.test.yml logs dynamodb || true
-
-    - name: 11. Clean up services
-      if: always()
-      run: |
-        echo "Cleaning up services..."
-        docker compose -f docker-compose.test.yml down -v
