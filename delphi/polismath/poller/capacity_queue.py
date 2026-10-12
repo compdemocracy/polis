@@ -77,7 +77,8 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from types import MappingProxyType
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import psycopg2
 
@@ -179,8 +180,25 @@ _BOUNDARY_SQL = (
     "  OR pg_has_role(current_user,'polis_queue_owner','MEMBER') AS owner_escape"
 )
 
-DEFAULT_PRIORITY = 1
-DEFAULT_MAX_ATTEMPTS = 3
+@dataclass(frozen=True)
+class StagePolicy:
+    """What the queue is told about a stage at admission (P-082): the lane
+    (``priority`` 0-2; a worker claims lane 0, then 1, then 2), the attempt
+    budget (``max_attempts``, the row's own ceiling) and the worker class."""
+
+    lane: int
+    max_attempts: int
+    worker_class: str
+
+
+#: The one closed table of scheduling constants (cost-reduction P-082, day
+#: one). Math rebuilds ride lane 1 (lane 0 is kept for operator re-runs, lane
+#: 2 for bulk work), three attempts per job, class large. Nothing else in the
+#: poller chooses a lane or a budget; a stage not in this table cannot be
+#: enqueued. tests/poller/test_capacity_queue.py pins it.
+STAGE_POLICY: Mapping[str, StagePolicy] = MappingProxyType({
+    STAGE_MATH_REBUILD: StagePolicy(lane=1, max_attempts=3, worker_class=WORKER_CLASS_LARGE),
+})
 
 
 class QueueProtocolError(ValueError):
@@ -421,8 +439,7 @@ class QueueClient:
 
     # -- the calls ---------------------------------------------------------- #
     def enqueue_math_rebuild(self, zid: int, *, config: Dict[str, Any], staged_label: str,
-                             target_label: str, priority: int = DEFAULT_PRIORITY,
-                             max_attempts: int = DEFAULT_MAX_ATTEMPTS) -> Tuple[str, str]:
+                             target_label: str) -> Tuple[str, str]:
         """One ``math_rebuild`` job of class ``large`` for ``zid``, idempotent
         under the scope guard. Returns ``(outcome, job_id)``: ``enqueued`` a
         new job; ``existing``/``conflict`` the active one; ``poisoned`` the
@@ -431,9 +448,10 @@ class QueueClient:
         admission asked once more; a refused release leaves it to the daemon."""
         if not _LABEL.fullmatch(staged_label or "") or not _LABEL.fullmatch(target_label or ""):
             raise ValueError("queue_label")
+        policy = STAGE_POLICY[STAGE_MATH_REBUILD]
         outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
-                                     target_label=target_label, priority=priority,
-                                     max_attempts=max_attempts)
+                                     target_label=target_label, priority=policy.lane,
+                                     max_attempts=policy.max_attempts)
         if outcome in ("existing", "conflict") and reply["state"] in TERMINAL_STATES:
             # Finding 2: the guard outlived its job (a cancel nobody ran, a
             # daemon lost before its release). The SQL re-checks every
@@ -442,8 +460,8 @@ class QueueClient:
                 logger.info("capacity: zid=%s released the scope of %s job %s; asking again",
                             zid, reply["state"], str(reply["job_id"])[:8])
                 outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
-                                             target_label=target_label, priority=priority,
-                                             max_attempts=max_attempts)
+                                             target_label=target_label, priority=policy.lane,
+                                             max_attempts=policy.max_attempts)
             else:
                 logger.warning("capacity: zid=%s %s job %s still holds its scope (exit "
                                "unproven or provider work open); left to the daemon",
@@ -561,7 +579,8 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
 __all__ = [
     "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_COUNTS", "DEPTH_FIELDS", "DEPTH_VERSION",
     "JOB_FIELDS", "MANIFEST_SCHEMA", "MANIFEST_STREAM", "QueueClient", "QueueProtocolError",
-    "QueueRefused", "QueueSettings", "RPC", "Receipt", "STAGE_MATH_REBUILD", "TABLE_RPC",
+    "QueueRefused", "QueueSettings", "RPC", "Receipt", "STAGE_MATH_REBUILD", "STAGE_POLICY",
+    "StagePolicy", "TABLE_RPC",
     "TERMINAL_STATES", "WORKER_CLASS_LARGE", "admission", "canonical_bytes",
     "decode_frame_uri", "encode_frame_uri", "enqueue_routed", "receipt_of", "scope_key",
     "sha256_hex", "validate_depth", "validate_job", "validate_log_rows", "validate_release",

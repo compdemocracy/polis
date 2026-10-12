@@ -109,6 +109,7 @@ class DaemonProcess:
             "POLIS_JOBS_LEASE_SECONDS": "15",
             "POLIS_JOBS_HEARTBEAT_SECONDS": "2",
             "POLIS_JOBS_POLL_SECONDS": "1",
+            "POLIS_JOBS_IDLE_POLL_SECONDS": "1",
             "POLIS_JOBS_REAP_SECONDS": "1",
             "POLIS_JOBS_READINESS_SECONDS": "2",
             "POLIS_JOBS_KILL_GRACE_SECONDS": "2",
