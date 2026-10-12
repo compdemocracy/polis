@@ -64,7 +64,10 @@ def main(argv=None):
                                          args.allow_missing)
             conversations, reports = current
         root = attempt / 'snapshot'
-        bundles = imp.materialize(attempt/'first.sqlite', root, first)
+        # --apply refuses at the first family past the per-run bounds, before
+        # anything is copied or admitted. A dry run reports them and continues.
+        oversized = None if args.apply else []
+        bundles = imp.materialize(attempt/'first.sqlite', root, first, oversized=oversized)
         imported = 0
         if args.apply:
             imp.SNAPSHOTS.mkdir(mode=0o700, exist_ok=True)
@@ -83,6 +86,9 @@ def main(argv=None):
                       missing_tables=len(first['missing']), conversations=len(bundles),
                       large_conversations=sum(b['bytes'] > legacy.MAX_BYTES for b in bundles),
                       canonical_result_bytes=sum(b['bytes'] for b in bundles), completed_graphs=imported)
+        if not args.apply:
+            # Counts and byte sizes only, never ids.
+            result['staging'] = imp.oversize_summary(oversized)
         imp.finish_attempt(attempt)
         print(json.dumps(result, sort_keys=True))
         return 0

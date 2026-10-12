@@ -89,6 +89,38 @@ def mapping_drift(before, after):
     return result
 
 
+def oversize_summary(oversized):
+    """Counts and byte sizes of the families past the staging bounds; never ids.
+
+    `families` covers the per-family bound; the key "batch" covers the
+    whole-conversation bound. `conversations` counts distinct conversations
+    past either bound.
+    """
+    families = {}
+    for entry in oversized:
+        name = entry['family'] or 'batch'
+        bucket = families.setdefault(name, dict(conversations=0, bytes_max=0, bytes_total=0))
+        bucket['conversations'] += 1
+        bucket['bytes_max'] = max(bucket['bytes_max'], entry['bytes'])
+        bucket['bytes_total'] += entry['bytes']
+    return dict(conversations=len({entry['zid'] for entry in oversized}), families=families,
+                family_limit=FAMILY_LIMIT, batch_limit=BATCH_LIMIT)
+
+
+def staging(bundles, oversized):
+    """Per-conversation staged size and bound status, plus the aggregate, for the report."""
+    per_zid = {bundle['zid']: dict(bytes=bundle['bytes'], within_bound=True, oversized_families={},
+                                   batch_over_bound=False) for bundle in bundles}
+    for entry in oversized:
+        state = per_zid[entry['zid']]
+        state['within_bound'] = False
+        if entry['family'] is None:
+            state['batch_over_bound'] = True
+        else:
+            state['oversized_families'][entry['family']] = entry['bytes']
+    return dict(conversations=per_zid, totals=oversize_summary(oversized))
+
+
 def rebind_additions(database, before, after, allowed_missing=(), *, validate_schema=True, skipped=()):
     """Bind a finished census to a mapping that only gained entries since it was read.
 
@@ -357,15 +389,25 @@ def census(client, database, conversations, reports, allowed_missing=(), *, vali
                                                           skipped=skipped))))
 
 
-def materialize(database, root, summary):
-    """Bounded family files per conversation, plus exact private control/quarantine archive."""
+def materialize(database, root, summary, oversized=None):
+    """Bounded family files per conversation, plus exact private control/quarantine archive.
+
+    The bounds mirror the destination's per-run result contract: one family's
+    wire and one run's batch, as the queue daemon and the Postgres result
+    functions accept them. They are not a disk budget. With `oversized=None`
+    (the importer's apply path) the first family or conversation past a bound
+    refuses before anything is admitted. A dry run passes a list instead: every
+    family is staged in full, each one past a bound is appended to the list as
+    {zid, family, bytes, rows} (family None for the whole-conversation batch
+    bound), and staging continues.
+    """
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     db = sqlite3.connect(database)
     bundles = []
     for (zid,) in db.execute("SELECT DISTINCT zid FROM rows WHERE disposition='imported' ORDER BY zid"):
         directory = root / str(zid)
         directory.mkdir(mode=0o700)
-        families, total = {}, 0
+        families, total, rows = {}, 0, 0
         # Explicit empty families prevent accidentally inheriting older result rows.
         for family in sorted(set(codec.FAMILIES) - legacy.CONTROL_FAMILIES):
             path = directory / (family + '.jsonl')
@@ -375,12 +417,19 @@ def materialize(database, root, summary):
                 f.write(head); h.update(head); size += len(head)
                 for (wire,) in db.execute("SELECT wire FROM rows WHERE family=? AND zid=? AND disposition='imported' ORDER BY k", (family, zid)):
                     f.write(wire + b'\n'); h.update(wire + b'\n'); size += len(wire) + 1; count += 1
-                    if size > FAMILY_LIMIT:
+                    if size > FAMILY_LIMIT and oversized is None:
                         raise ValueError('conversation family exceeds staged storage bound')
+            if size > FAMILY_LIMIT:
+                if oversized is None:
+                    raise ValueError('conversation family exceeds staged storage bound')
+                oversized.append(dict(zid=zid, family=family, bytes=size, rows=count))
             total += size
-            if total > BATCH_LIMIT:
+            rows += count
+            if total > BATCH_LIMIT and oversized is None:
                 raise ValueError('conversation exceeds staged batch bound')
             families[family] = dict(sha256=h.hexdigest(), bytes=size, rows=count)
+        if total > BATCH_LIMIT:
+            oversized.append(dict(zid=zid, family=None, bytes=total, rows=rows))
         manifest = dict(schema='polis-production-import/1', zid=zid, families=families,
                         source_sha256=summary['source_sha256'], adapter_sha256=code_sha())
         raw = legacy.json_bytes(manifest)
