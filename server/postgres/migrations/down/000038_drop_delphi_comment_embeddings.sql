@@ -1,7 +1,7 @@
 -- down/000038_drop_delphi_comment_embeddings.sql
 --
 -- Reverses 000038_create_delphi_comment_embeddings.sql: drops its three tables
--- and seven functions. Nothing that existed before 000038 is touched.
+-- and nine functions. Nothing that existed before 000038 is touched.
 --
 --   psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f server/postgres/migrations/down/000038_drop_delphi_comment_embeddings.sql
 --
@@ -24,6 +24,8 @@ END $$;
 DROP FUNCTION public.pd_embedding_rows(text,uuid,text),public.pd_embedding_served(text,integer,text,text),
  public.pd_embedding_set(text,uuid,text),public.pd_embedding_close(text,uuid,uuid,uuid,bigint,text),
  public.pd_embedding_put(text,uuid,uuid,uuid,bigint,text,integer[],bytea[],real[]),
- public.pd_embedding_receipt(public.delphi_embedding_sets),public.pd_embedding_batch(text,uuid,uuid,text);
+ public.pd_embedding_receipt(public.delphi_embedding_sets),public.pd_embedding_batch(text,uuid,uuid,text),
+ public.pd_embedding_prune(text,text,integer,text,integer);
 DROP TABLE public.delphi_embedding_sets,public.delphi_comment_embeddings,public.delphi_embedding_models;
+DROP FUNCTION public.pd_embedding_immutable();
 COMMIT;
