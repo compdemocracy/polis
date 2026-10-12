@@ -1,0 +1,56 @@
+# Public-repo hygiene allowlist, seeded 2026-10-11 from the edge branch.
+#
+# Read by scripts/check-public-hygiene.sh. Every line of this file is compared
+# with the full text of each hit; a hit whose text equals a line here exactly
+# (whitespace included) does not fail the check. These comment lines can never
+# equal a hit, so they need no special handling.
+#
+# The entries below are lines already present in the tree when the guard was
+# added. They are scheduled to be cleaned up; remove an entry when its line is
+# fixed, and add one only for a line that is genuinely public.
+            "file": "/Users/colinmegill/evoc-top-exp/polis_data/bg2050/comments.csv",
+            "file": "/Users/colinmegill/evoc-top-exp/polis_data/biodiversity/biodiversity_comments.csv",
+        # (P, C, peak MiB) from 02-findings/python-engine-memory-scaling.md,
+        local_dir = f"/Users/colinmegill/polis/delphi/visualizations/{zid}"
+        source = notes / "04-plans/p032-slice2-comments/recording-plan.json"
+    "checker": "cost-reduction/scripts/p026-step4-plan-check.py (out of tree)",
+    // cost-reduction/04-plans/P-038-global-error-handler-notes.md.
+    conversation_id: 'synthetic',
+    cost-reduction/04-plans/P-030-R-ORACLE-implementation-notes.md.
+    review's harness ``cost-reduction/scripts/p022-review-2702-checks.py``
+    view.rerender(<Survey {...props} conversation_id="synthetic-two" initialStatement={second} />)
+   - Enhanced `/Users/colinmegill/polis/delphi/reset_database.sh` to properly handle the new table names
+  /** The class as the docket names it. */
+  // cost-reduction/04-plans/P-031-slice1-implementation-notes.md. This asserts
+  await fetchNextComment('synthetic', undefined, 0)
+  const second = { tid: 701, txt: 'Synthetic next blended choice', remaining: 1 }
+  rows = [3, 0, 2].map((tid) => ({ zid: 7, tid, txt: `Synthetic ${tid}` }));
+  token.mockReturnValue({ token: 'synthetic', pid: 0 })
+  token.mockReturnValue({ token: 'synthetic', pid: 9 })
+ * (cost-reduction/scripts/p2727-r2-node-review.cjs), committed unchanged in
+ * The forty checks of cost-reduction/scripts/p024-queue-sql-smoke.py, ported to
+ * UNIMPLEMENTED. See cost-reduction/04-plans/P-022-E-ci-spec.md and the round-2
+ * specification. cost-reduction/scripts/p024-queue-sql-smoke.py stays as the
+# `cost-reduction/scripts/p022-review-2702-checks.py` makes, pinned so the
+# worker in cost-reduction/04-plans/P-022-E-ci-spec.md and does not exist yet.
+#: The six mutations the second reviewer's probe (``cost-reduction/scripts/p2725-alias-review.py``)
+- **File**: `/Users/colinmegill/polis/delphi/umap_narrative/801_narrative_report_batch.py`
+- `cost-reduction/04-plans/P-026-rust-coordinator-report.md` and
+-- Content below is cost-reduction/04-plans/P-024-queue-substrate-v1.sql, which
+-- Design: cost-reduction/04-plans/P-024-queue-substrate.md (revision 4).
+-- Design: cost-reduction/04-plans/P-073-r2-queue.md (oversized conversations
+-- substrate. Design: cost-reduction/04-plans/P-077-delphi-job-model.md (P1, the
+// Confirms the second reviewer's independent probe (cost-reduction/scripts/p2727-r2-node-review.cjs,
+// cost-reduction/04-plans/P-024-queue-substrate.md. These are declared initial
+// cost-reduction/04-plans/P-038-global-error-handler-notes.md. The flag exists
+> `cost-reduction/04-plans/P-022-E-ci-spec.md` and **is not implemented**.
+Estimates (02-findings/python-engine-memory-scaling.md, local measurement,
+Operator controls (see cost-reduction/04-plans/P-070-math-backfill.md): the
+The full catalog is `cost-reduction/04-plans/P-031-cloudwatch-alarms.md` (rev2).
+The independent P-019 review (cost-reduction/04-plans/P-019-julien-stack-
+[["Map",1,2],"meta::meta",["Map",3,4,5,6],"astro-version","5.16.4","astro-config-digest","{\"root\":{},\"srcDir\":{},\"publicDir\":{},\"outDir\":{},\"cacheDir\":{},\"compressHTML\":true,\"base\":\"/\",\"trailingSlash\":\"ignore\",\"output\":\"server\",\"scopedStyleStrategy\":\"attribute\",\"build\":{\"format\":\"directory\",\"client\":{},\"server\":{},\"assets\":\"_astro\",\"serverEntry\":\"entry.mjs\",\"redirects\":false,\"inlineStylesheets\":\"auto\",\"concurrency\":1},\"server\":{\"open\":false,\"host\":\"0.0.0.0\",\"port\":4321,\"streaming\":true,\"allowedHosts\":[]},\"redirects\":{},\"image\":{\"endpoint\":{\"route\":\"/_image\",\"entrypoint\":\"astro/assets/endpoint/dev\"},\"service\":{\"entrypoint\":\"astro/assets/services/sharp\",\"config\":{}},\"domains\":[],\"remotePatterns\":[],\"responsiveStyles\":false},\"devToolbar\":{\"enabled\":true},\"markdown\":{\"syntaxHighlight\":{\"type\":\"shiki\",\"excludeLangs\":[\"math\"]},\"shikiConfig\":{\"langs\":[],\"langAlias\":{},\"theme\":\"github-dark\",\"themes\":{},\"wrap\":false,\"transformers\":[]},\"remarkPlugins\":[],\"rehypePlugins\":[],\"remarkRehype\":{},\"gfm\":true,\"smartypants\":true},\"security\":{\"checkOrigin\":true,\"allowedDomains\":[]},\"env\":{\"schema\":{},\"validateSecrets\":false},\"experimental\":{\"clientPrerender\":false,\"contentIntellisense\":false,\"headingIdCompat\":false,\"preserveScriptOrder\":false,\"liveContentCollections\":false,\"csp\":false,\"staticImportMetaEnv\":false,\"chromeDevtoolsWorkspace\":false,\"failOnPrerenderConflict\":false,\"svgo\":false},\"legacy\":{\"collections\":false},\"session\":{\"driver\":\"fs-lite\",\"options\":{\"base\":\"/Users/bennie/code/src/github.com/compdemocracy/polis/client-participation-alpha/node_modules/.astro/sessions\"}}}"]
+`cost-reduction/04-plans/P-030-R-ORACLE-implementation-notes.md`.
+cd /Users/colinmegill/polis/
+cd /Users/colinmegill/polis/client-report
+const props = { s, conversation_id: 'synthetic-one', initialStatement: first }
+cost-reduction/scripts/p019-review-probes.py (adapted copy reads HEAD).
