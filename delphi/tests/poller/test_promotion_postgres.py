@@ -44,6 +44,16 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(autouse=True)
+def _many_admissions_a_day(monkeypatch):
+    """These walks admit several jobs for one conversation inside a day;
+    production's per-conversation cap (2 a day, P-084) is pinned in
+    test_capacity_queue.py."""
+    from polismath.poller import capacity_queue as cq
+
+    monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)
+
+
+@pytest.fixture(autouse=True)
 def _source_commit(monkeypatch):
     """The poller's own source commit: the admission config carries it and
     the child refuses any other (or none)."""
@@ -458,6 +468,9 @@ def small_service(url, small, large, *, zids, limit_mb=40, restage=None, state_p
                             run_id="0123456789ab")
     svc.capacity_queue = queue if queue is not None else FakeQueue()
     svc.capacity_loop._queue = svc.capacity_queue
+    # The queue is in hand: routing is allowed (P-084 refuses it until the
+    # queue answers; that gate is test_capacity_queue.py's).
+    svc.capacity.set_queue_refused(None)
     # The source commit the admission config carries and the child checks.
     svc.capacity_loop._source_commit = COMMIT
     return svc, pg

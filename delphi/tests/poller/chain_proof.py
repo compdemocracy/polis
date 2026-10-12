@@ -109,6 +109,7 @@ class DaemonProcess:
             "POLIS_JOBS_LEASE_SECONDS": "15",
             "POLIS_JOBS_HEARTBEAT_SECONDS": "2",
             "POLIS_JOBS_POLL_SECONDS": "1",
+            "POLIS_JOBS_IDLE_POLL_SECONDS": "1",
             "POLIS_JOBS_REAP_SECONDS": "1",
             "POLIS_JOBS_READINESS_SECONDS": "2",
             "POLIS_JOBS_KILL_GRACE_SECONDS": "2",
@@ -212,6 +213,9 @@ def main() -> int:
     os.environ["MATH_POLLER_SOURCE_COMMIT"] = COMMIT_A
     from polismath.database.postgres import PostgresClient, PostgresConfig
     from polismath.poller import capacity_queue as cq
+    # The proof admits more than two jobs for its one conversation inside a
+    # day (cancel, restart, kill, dead x3); production's per-day cap is 2.
+    cq.SCOPE_DAILY_CAP = 1000
     from polismath.poller.admission import MemoryAdmission, MemoryModel, read_conversation_sizes
     from polismath.poller.capacity import CapacityRouter, CapacitySettings, validate_counts
     from polismath.poller.promotion import SmallCapacityLoop

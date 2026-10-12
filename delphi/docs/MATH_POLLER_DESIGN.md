@@ -315,8 +315,9 @@ error. Exit 5: the bundle published but the manifest could not be built.
 | Setting | Default | Where | Effect |
 |---|---|---|---|
 | `MATH_CAPACITY_CLASS` | `small` | small | `large` refuses to start: the large class is a child, not a poller |
-| `MATH_CAPACITY_QUEUE_DSN` | unset | small | the queue login (an executor member); unset: routed conversations are not enqueued |
+| `MATH_CAPACITY_QUEUE_DSN` | unset | small | the queue login (an executor member), no password; unset or unreachable with routing on: routing refused (P-084) |
 | `MATH_CAPACITY_QUEUE_ENV` | unset | small | the queue env namespace; required with the DSN |
+| `MATH_CAPACITY_QUEUE_LOGIN_SECRET` | unset | small | the NAME of the secret holding the queue login's password; the DSN carries none (P-084) |
 | `MATH_CAPACITY_PROMOTE` | `0` | small | `1` (needs routing): promote staged bundles |
 | `MATH_CAPACITY_STAGED_LABEL` | `python-large` | small | the label the child writes (its `MATH_ENV`) |
 | `MATH_CAPACITY_RESTAGE` | unset | small | a 16-64 hex nonce; a malformed one is ignored and logged |

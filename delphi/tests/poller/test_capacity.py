@@ -148,12 +148,12 @@ class TestRecords:
         assert r.observe(13, sizes=sizes(5000), refused=True) == EXCEEDS_LARGEST
         clock.t += 4000
         c = r.counts()
-        assert set(c) == set(COUNT_KEYS)
-        assert c == {"routing": 0, "large_demand": 1, "large_leased": None, "large_parked": None,
+        assert set(c) == set(COUNT_KEYS) | {"rev"}
+        assert c == {"rev": 3, "routing": 0, "large_demand": 1, "large_leased": None, "large_parked": None,
                      "large_poisoned": 0,
                      "pending_promotion": 0, "exceeds_largest": 1, "fits_small": 1,
                      "oldest_unresolved_age_ms": 4000, "refusals_total": 3, "routed_total": 0,
-                     "promoted_total": 0}
+                     "promoted_total": 0, "queue_full": 0, "queue_unreachable": 0}
 
     def test_record_fields(self):
         r = router()
@@ -323,7 +323,7 @@ class TestReadiness:
         assert out[-1].startswith(HEARTBEAT)  # the heartbeat itself is unchanged
         line = parse_line(caps[-1])
         assert line["role"] == "primary" and line["label"] == "python"
-        assert {k: line[k] for k in COUNT_KEYS} == counts
+        assert {k: line[k] for k in ("rev",) + COUNT_KEYS} == counts
 
     def test_standby_tick_logs_null_counts(self):
         r, out, caps = _reporter()
@@ -370,6 +370,9 @@ def service(monkeypatch, tmp_path, *, routing, sizes_by_zid, large_budget_mb=Non
     svc = MathPollerService(MagicMock(), PollerConfig(dump_dir=str(tmp_path), retry_cap=0,
                                                       worker_pool_size=1),
                             admission=adm, capacity=cap)
+    # These are routing mechanics; the queue that allows routing in production
+    # (P-084) is covered in test_capacity_queue.py.
+    cap.set_queue_refused(None)
     svc._writer = MagicMock()
     svc._on_engine_error = MagicMock()
     loads = []

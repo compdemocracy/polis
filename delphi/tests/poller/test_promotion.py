@@ -405,6 +405,7 @@ class TestBackfillSkipsRouted:
         adm = MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
         cap = CapacityRouter(adm, CapacitySettings(routing=routing))
         svc = MathPollerService(MagicMock(), PollerConfig(), admission=adm, capacity=cap)
+        cap.set_queue_refused(None)       # routing mechanics; the queue gate is P-084's test
         route(cap, 7)
         return svc
 
@@ -432,13 +433,14 @@ class TestBackfillSkipsRouted:
         assert make_svc(CapacitySettings(capacity_class="large",
                                          promote_into="python")).capacity_loop is None
 
-    def test_without_a_queue_dsn_routing_still_works(self, caplog):
+    def test_without_a_queue_dsn_routing_is_refused(self, caplog):
         adm = MemoryAdmission(1000 * MB, MODEL)
         svc = MathPollerService(MagicMock(), PollerConfig(), admission=adm,
                                 capacity=CapacityRouter(adm, CapacitySettings(routing=True)))
         assert svc.capacity_loop is not None and svc.capacity_queue is None
         assert svc.capacity_loop.state()["queue"] is False
         assert "routing is on without MATH_CAPACITY_QUEUE_DSN" in caplog.text
+        assert svc.capacity.routing is False      # P-084: no queue, no routing
 
     def test_the_loop_ticks_once_at_start(self):
         adm = MemoryAdmission(1000 * MB, MODEL)
