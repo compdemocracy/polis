@@ -25,11 +25,11 @@ def fixture(**updates):
 class IsolationTest(unittest.TestCase):
     def test_comments_plan_matches_governing_notes(self):
         plan = (HERE / "comments-plan.json").read_bytes()
-        # Portable pin of the governing recording plan; when P027_PLAN_SOURCE names
-        # a separately kept copy of that plan, also compare it to detect live drift.
+        # Portable pin of the governing recording plan; when ISOLATION_PLAN_SOURCE
+        # names a separately kept copy of that plan, also compare it to detect drift.
         self.assertEqual(hashlib.sha256(plan).hexdigest(),
                          "b51438a86b99d9e36d4585feff397a4636247148544ebe9a2194dd5e4f48f471")
-        source = os.environ.get("P027_PLAN_SOURCE")
+        source = os.environ.get("ISOLATION_PLAN_SOURCE")
         if source:
             self.assertEqual(json.loads(plan),
                              json.loads(Path(source).read_text()))
