@@ -14,7 +14,7 @@
  * Generated data only. Needs DATABASE_URL (superuser, migrated); see
  * scripts/test-delphi-result-reads.sh. */
 import { Client } from "pg";
-import { addParticipant } from "../../src/participant";
+import { addParticipant, joinConversation } from "../../src/participant";
 
 // pid_auto's advisory lock class; the conversation id is the second key.
 const PID_LOCK = 873791983;
@@ -24,14 +24,14 @@ const LATER_JOIN_BUDGET_MS = 1000;
 // A joiner facing a lock nobody releases must be answered within this cap.
 const HELD_LOCK_CAP_MS = 8000;
 
-type Outcome = { ms: number; rows?: any[]; error?: any };
+type Outcome = { ms: number; rows?: any; error?: any };
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 let pg: Client;
 // A second server process: its own module instance, so its own connection
 // pools, against the same database.
 let otherServer: { addParticipant: typeof addParticipant };
 
-function timed(work: Promise<any[]>): Promise<Outcome> {
+function timed(work: Promise<any>): Promise<Outcome> {
   const started = Date.now();
   return work.then(
     rows => ({ ms: Date.now() - started, rows }),
@@ -139,7 +139,13 @@ test("a joiner that loses the pid race leaves no lock behind, still gets a parti
   expect(new Set(pids.map(r => r.pid)).size).toBe(3);
 }, 60000);
 
-test("a joiner facing a participant lock that is never released is answered, not left waiting", async () => {
+// Both ways a participant row is created: addParticipant directly (votes and
+// comments, through ensureParticipant and the comment route) and
+// joinConversation, which retries a failed join up to ten times.
+test.each([
+  ["addParticipant (votes, comments)", (zid: number, uid: number) => addParticipant(zid, uid)],
+  ["joinConversation (POST /api/v3/participants, /api/v3/joinWithInvite)", (zid: number, uid: number) => joinConversation(zid, uid)],
+])("%s: a joiner facing a participant lock that is never released is answered, not left waiting", async (path, join) => {
   const [uid] = await newUsers(1);
   // A session that kept the lock: a server still running code that leaks it,
   // during a deploy for example.
@@ -147,13 +153,14 @@ test("a joiner facing a participant lock that is never released is answered, not
   await holder.connect();
   await holder.query("SELECT pg_advisory_lock($1, $2)", [PID_LOCK, HELD_ZID]);
 
-  const join = timed(addParticipant(HELD_ZID, uid));
-  const seen = await within(join, HELD_LOCK_CAP_MS);
+  const joining = timed(join(HELD_ZID, uid));
+  const seen = await within(joining, HELD_LOCK_CAP_MS);
   await holder.query("SELECT pg_advisory_unlock_all()");
   await holder.end();
-  const finished = await join;
+  const finished = await joining;
 
   process.stdout.write(`${JSON.stringify({
+    path,
     held_lock_join: seen === "waiting" ? `>${HELD_LOCK_CAP_MS} (waiting)` : (seen.error ? `error ${seen.error.code}` : "joined"),
     held_lock_join_ms: seen === "waiting" ? null : seen.ms,
     finished_after_release_ms: finished.ms,

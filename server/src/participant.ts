@@ -164,6 +164,8 @@ function tryToJoinConversation(
 // server still running code that leaks it, for example) answers the joiner
 // with an error instead of holding a read-write connection indefinitely.
 const PARTICIPANT_INSERT_LOCK_TIMEOUT = "5s";
+// SQLSTATE raised when lock_timeout expires.
+const LOCK_NOT_AVAILABLE = "55P03";
 
 async function insertParticipant(zid: number, uid?: number): Promise<any> {
   // Use a dedicated client (not pool-level queries) so all statements in the
@@ -281,6 +283,15 @@ function joinConversation(
     return tryToJoinConversation(zid, uid, info, pmaid_answers);
   }
 
+  function retryJoin(err: any) {
+    // A lock timeout means the conversation's participant lock is held
+    // elsewhere; another attempt would only wait out the same timeout again.
+    if (err?.code === LOCK_NOT_AVAILABLE) {
+      throw err;
+    }
+    return tryJoin();
+  }
+
   function doJoin() {
     // retry up to 10 times
     // NOTE: Shouldn't be needed, since we have an advisory lock in the insert trigger.
@@ -288,15 +299,15 @@ function joinConversation(
     //       Doing this retry in JS for now since it's quick and easy, rather than try to
     //       figure what's wrong with the postgres locks.
     const promise = tryJoin()
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin);
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin);
     return promise;
   }
 
