@@ -15,6 +15,66 @@ from polismath.delphi_storage import import_report
 from polismath.delphi_storage.scan_pacing import ScanPaused
 
 
+# The fixed text of every ValueError raised by this report path (this script,
+# production_import, import_report and scan_pacing). None of them carries a
+# source value. Only an exact ValueError whose text is listed here is printed;
+# any other exception prints its class alone, because codec errors (a ValueError
+# subclass) quote item values and library errors can quote connection details.
+REFUSALS = frozenset({
+    'ambiguous report binding',
+    'artifact verification failed',
+    'census checkpoint unreadable',
+    'census database already exists',
+    'conversation exceeds staged batch bound',
+    'conversation family exceeds staged storage bound',
+    'dedicated import environment required',
+    'destination digest mismatch',
+    'detached import identity mismatch',
+    'detached source bytes mismatch',
+    'detached source count mismatch',
+    'duplicate source key during scan',
+    'exactly one incomplete attempt required to resume',
+    'existing database connection required',
+    'import admission exceeds graph input bound',
+    'import environment contains unrelated jobs',
+    'import wait bound exceeded',
+    'import worker failed',
+    'instance role required',
+    'invalid backoff bounds',
+    'invalid import scope',
+    'invalid scan checkpoint',
+    'invalid snapshot reference',
+    'narrow queue executor login required',
+    'page limit must be 1..1000',
+    'positive read rate required',
+    'previously skipped family must stay skipped on resume',
+    'private import mount required',
+    'repeated source continuation',
+    'report conservation failure',
+    'skipped family was already scanned',
+    'snapshot contract mismatch',
+    'snapshot digest mismatch',
+    'snapshot symlink refused',
+    'source changed between census passes',
+    'source identity mapping changed',
+    'source key schema mismatch',
+    'source table disappeared during scan',
+    'unapproved missing source table',
+    'unexpected published import',
+    'unquarantined source row',
+    'verified queue database TLS required',
+    'verified source database TLS required',
+})
+
+
+def refusal(exc):
+    """The stderr line for a refused run: the class, plus the listed fixed text."""
+    reason = type(exc).__name__
+    if type(exc) is ValueError and len(exc.args) == 1 and exc.args[0] in REFUSALS:
+        reason += ': ' + exc.args[0]
+    return 'import dry-run refused (' + reason + ')'
+
+
 def pacing(pacer):
     # Aggregate counters only: no table names, keys or identifiers.
     if pacer is not None:
@@ -82,7 +142,7 @@ def main(argv=None):
         return 3
     except Exception as exc:
         pacing(pacer)
-        print('import dry-run refused (' + type(exc).__name__ + ')', file=sys.stderr)
+        print(refusal(exc), file=sys.stderr)
         return 2
 
 

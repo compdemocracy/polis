@@ -225,3 +225,104 @@ def test_importer_still_refuses_table_lost_after_schema_preflight(tmp_path):
     source.scan = missing
     with pytest.raises(source.Missing):
         imp.census(source, tmp_path/'refused', {}, {}, list(imp.codec.FAMILIES))
+
+
+@pytest.fixture
+def keep_umask():
+    # Both entry points set a private umask for their process; restore it here.
+    previous = os.umask(0o022)
+    os.umask(previous)
+    yield
+    os.umask(previous)
+
+
+def report_cli():
+    return load('report_cli', Path(__file__).resolve().parents[1]/'scripts/report_dynamo_import.py')
+
+
+def refusal_run(monkeypatch, tmp_path, source, census=None):
+    """Drive the real report entry point against a generated source; no AWS or database."""
+    cli = report_cli()
+    scratch = tmp_path/'import'
+    scratch.mkdir()
+    monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
+    monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: source)
+    monkeypatch.setattr(report, 'connect_existing', lambda: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(imp, 'mapping', lambda connection: ({'1': 1}, {}))
+    if census:
+        monkeypatch.setattr(imp, 'census', census)
+    return cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9'])
+
+
+def test_refusal_prints_fixed_reason_for_source_change(monkeypatch, tmp_path, capfd, keep_umask):
+    """A source written between the two census passes refuses and says so in stderr."""
+    source = ScanOnlySource({FAMILY: [row()], 'Delphi_JobQueue': [{'job_id': {'S': 'generated'}}]})
+    census, passes = imp.census, []
+    def census_then_write(*args, **kwargs):
+        summary = census(*args, **kwargs)
+        passes.append(summary)
+        # A live writer touches a control row after the first pass.
+        source.rows['Delphi_JobQueue'] = [{'job_id': {'S': 'generated'}, 'status': {'S': 'PRIVATE-ROW-VALUE'}}]
+        return summary
+    assert refusal_run(monkeypatch, tmp_path, source, census_then_write) == 2
+    err = capfd.readouterr().err
+    assert len(passes) == 2
+    assert err.splitlines()[-1] == 'import dry-run refused (ValueError: source changed between census passes)'
+    assert 'PRIVATE-ROW-VALUE' not in err and 'generated' not in err
+    assert err.splitlines()[0].startswith('scan pacing {')
+
+
+def test_refusal_withholds_codec_and_unlisted_text(monkeypatch, tmp_path, capfd, keep_umask):
+    """Codec errors quote item values, so only their class reaches stderr."""
+    item = {'conversation_id': {'S': '1'}, 'comment_id': {'N': 'PRIVATE-ROW-VALUE'}}
+    assert refusal_run(monkeypatch, tmp_path, ScanOnlySource({FAMILY: [item]})) == 2
+    err = capfd.readouterr().err
+    assert err.splitlines()[-1] == 'import dry-run refused (CodecError)'
+    assert 'PRIVATE-ROW-VALUE' not in err
+    cli = report_cli()
+    assert cli.refusal(ValueError('invalid literal for int(): PRIVATE')) == 'import dry-run refused (ValueError)'
+    assert cli.refusal(ValueError('source changed between census passes', 'PRIVATE')) == 'import dry-run refused (ValueError)'
+    assert cli.refusal(imp.codec.CodecError('source changed between census passes')) == 'import dry-run refused (CodecError)'
+    assert cli.refusal(KeyError('PRIVATE')) == 'import dry-run refused (KeyError)'
+
+
+def literal_value_errors(path):
+    """Every `raise ValueError(...)` text in a file; a non-literal text fails the test."""
+    import ast
+    found = set()
+    for node in ast.walk(ast.parse(Path(path).read_text())):
+        if (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)
+                and getattr(node.exc.func, 'id', None) == 'ValueError'):
+            args = node.exc.args
+            assert len(args) == 1 and isinstance(args[0], ast.Constant) and isinstance(args[0].value, str), \
+                '%s:%d raises ValueError with non-literal text' % (path, node.lineno)
+            found.add(args[0].value)
+    return found
+
+
+def test_refusal_list_matches_every_raise_site():
+    """Each listed text is a fixed literal (reviewed for source values) and none is missing."""
+    cli = report_cli()
+    files = [imp.__file__, report.__file__, imp.scan_pacing.__file__, cli.__file__]
+    assert set().union(*map(literal_value_errors, files)) == cli.REFUSALS
+    checkout = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parents[2]))
+    launcher = load('launcher', checkout / 'scripts/run-import-dry-run.py')
+    assert literal_value_errors(launcher.__file__) == launcher.REFUSALS
+
+
+def test_launcher_relays_report_refusal(tmp_path, capfd, keep_umask):
+    checkout = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parents[2]))
+    launcher = load('launcher', checkout / 'scripts/run-import-dry-run.py')
+    log = tmp_path/'stderr.log'
+    line = 'import dry-run refused (ValueError: source changed between census passes)'
+    log.write_text('scan pacing {"pages": 2}\n' + line + '\n')
+    assert launcher.report_refusal(log) == line
+    log.write_text('import dry-run refused (CodecError)\n')
+    assert launcher.report_refusal(log) == 'import dry-run refused (CodecError)'
+    log.write_text('import dry-run refused (ValueError: {"S": "PRIVATE"})\n')
+    assert launcher.report_refusal(log) is None
+    assert launcher.report_refusal(tmp_path/'absent.log') is None
+    assert launcher.reason(KeyError('PRIVATE')) == 'KeyError'
+    assert launcher.main(['--container', 'generated', '--output', 'relative/generated']) == 2
+    assert capfd.readouterr().err == ('import report launcher refused (ValueError: absolute output '
+                                      'directory required); inspect private output directory\n')

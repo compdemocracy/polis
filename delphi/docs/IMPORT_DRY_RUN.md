@@ -96,7 +96,10 @@ missing table. Source changes between the two scans refuse. Matching scans are a
 inventory observation, **not** a transactional DynamoDB snapshot or permission to
 apply while writers are running. The reviewed importer bounds (64 MiB/family,
 256 MiB/conversation) also run before printing a successful report; oversized
-sources refuse without truncation. `stderr.log` contains a sanitized failure class.
+sources refuse without truncation. `stderr.log` contains the failure class and, for
+the importer's own refusals, their fixed reason text (for example `import dry-run
+refused (ValueError: source changed between census passes)`); any other message,
+which could quote a source value, is withheld. The launcher repeats that line.
 There is no automatic retry of a refused report.
 
 ## Read pacing, throttling and resume

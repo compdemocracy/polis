@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -15,6 +16,40 @@ import sys
 DATABASE_NAMES = {"DATABASE_URL", "DATABASE_HOST", "DATABASE_PORT", "DATABASE_NAME",
     "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_SSL_MODE", "PGSSLROOTCERT",
     "PGSSLCERT", "PGSSLKEY", "PGSSLCRL"}
+
+
+# This launcher's own refusals: fixed text, no box identifiers or source values.
+REFUSALS = frozenset({
+    'absolute output directory required',
+    'new output directory required, or --resume with the paused one',
+    'symlink output ancestor refused',
+    'running Delphi compose container required',
+    'paused run with the same image and source required',
+    'output already holds a report',
+    'report failed; inspect private stderr',
+})
+# The report's own refusal line (already reduced to a class and fixed text).
+REPORT_REFUSAL = re.compile(r"import dry-run refused \([A-Za-z_][A-Za-z0-9_]{0,63}(: [A-Za-z0-9 ,;.'/()_-]{1,120})?\)")
+
+
+def reason(exc):
+    """Exception class, plus its text only when it is one of this launcher's fixed refusals."""
+    text = type(exc).__name__
+    if type(exc) is ValueError and len(exc.args) == 1 and exc.args[0] in REFUSALS:
+        text += ': ' + exc.args[0]
+    return text
+
+
+def report_refusal(stderr_log):
+    """The report's last refusal line from its stderr log, when it has the expected shape."""
+    try:
+        lines = stderr_log.read_bytes()[-65536:].decode('ascii', 'replace').splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        if REPORT_REFUSAL.fullmatch(line):
+            return line
+    return None
 
 
 def command(container, image, scratch, source, region, environment, missing, extra=(), skipped=()):
@@ -116,13 +151,16 @@ def main(argv=None):
                   'with --resume (same --output).', file=sys.stderr)
             return 3
         if result.returncode:
+            refused = report_refusal(args.output/'stderr.log')
+            if refused:
+                print(refused, file=sys.stderr)
             raise ValueError('report failed; inspect private stderr')
         # Intentional private display requested by the operator; SSM output can
         # truncate. The byte-complete report always remains in --output.
         sys.stdout.buffer.write((args.output/'report.jsonl').read_bytes())
         return 0
     except Exception as exc:
-        print('import report launcher refused (' + type(exc).__name__ + '); inspect private output directory', file=sys.stderr)
+        print('import report launcher refused (' + reason(exc) + '); inspect private output directory', file=sys.stderr)
         return 2
 
 
