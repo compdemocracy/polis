@@ -275,8 +275,8 @@ function connectResultSnapshot() {
   return resultSnapshotPool.connect();
 }
 
-// Session policy applied immediately after BEGIN, from
-// cost-reduction/04-plans/P-024-queue-substrate.md. These are declared initial
+// Session policy applied immediately after BEGIN, taken from the queue
+// substrate's design. These are declared initial
 // bounds for the queue substrate, not a general-purpose transaction profile;
 // changing them is a pinned contract change with its own tests.
 //

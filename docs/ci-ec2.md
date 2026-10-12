@@ -5,8 +5,8 @@
 > (`vw`, `biodiversity`), and its verdict is `PUBLIC-BATTERY-PASS` precisely so it
 > cannot be mistaken for a release certificate. Private certification — the
 > prod-derived fixture bundle, a baked trusted AMI, an isolated account and VPC,
-> and a signed summary GitHub reads but cannot influence — is specified in
-> `cost-reduction/04-plans/P-022-E-ci-spec.md` and **is not implemented**.
+> and a signed summary GitHub reads but cannot influence — is specified
+> separately and **is not implemented**.
 
 The recovery matrix and the replay battery are too heavy for a GitHub-hosted
 runner: the battery replays conversations against both the Clojure and the

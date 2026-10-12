@@ -54,7 +54,7 @@
   },
   "audit_inventory_summary_agree": true,
   "plan_checker_controls": {
-    "checker": "cost-reduction/scripts/p026-step4-plan-check.py (out of tree)",
+    "checker": "the step-4 plan checker (out of tree)",
     "invariant": "len(open_conditions) + len(closed_conditions) == 8 declared conditions; a partial_conditions entry discharges nothing, so its condition must still be listed open",
     "run_on_every_invocation": true,
     "controls": [

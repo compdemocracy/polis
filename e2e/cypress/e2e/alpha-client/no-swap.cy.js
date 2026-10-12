@@ -30,7 +30,7 @@ describe('Alpha Client: retained blended SSR choice', function () {
   let conversationId
   let renderedFirst
   let ssrHTML
-  const second = { tid: 701, txt: 'Synthetic next blended choice', remaining: 1 }
+  const second = { tid: 701, txt: 'Generated next blended choice', remaining: 1 }
 
   before(function () {
     setupTestConversation({ topic: 'Retained SSR regression', comments: ['SSR seed A', 'SSR seed B', 'SSR seed C'] })
