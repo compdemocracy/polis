@@ -333,32 +333,116 @@ def test_launcher_relays_report_refusal(tmp_path, capfd, keep_umask):
                                       'directory required); inspect private output directory\n')
 
 
-def test_conversation_created_during_run_refuses_with_drift_counts(monkeypatch, tmp_path, capfd, keep_umask):
-    """The Postgres identity mapping is read before pass one and again after pass two."""
-    source = ScanOnlySource({FAMILY: [row()]})
-    conversations, reports = {'1': 1}, {'r-generated': 1}
-    def mapping(connection):
-        return dict(conversations), dict(reports)
+def metadata_stub(connection, zids):
+    return {zid: dict(zid=zid, conversation_id=None, conversation_ids=[], topic='Generated', description=None,
+                      participant_count=0) for zid in zids}
+
+
+def drifting_run(monkeypatch, tmp_path, source, start, change):
+    """The Postgres mapping is read before pass one and after pass two; `change` runs between passes."""
+    conversations, reports = (dict(part) for part in start)
     census, passes = imp.census, []
-    def census_then_create(*args, **kwargs):
-        passes.append(census(*args, **kwargs))
-        if len(passes) == 1:
-            # A participant creates a conversation on the live site between the passes.
-            conversations['424242'] = 424242
-        return passes[-1]
-    assert refusal_run(monkeypatch, tmp_path, source, census_then_create, mapping=mapping) == 2
-    err = capfd.readouterr().err.splitlines()
-    assert len(passes) == 2 and passes[0] == passes[1]
-    assert err[-1] == 'import dry-run refused (ValueError: source identity mapping changed)'
-    drift_line = [line for line in err if line.startswith('identity mapping drift ')]
-    assert json.loads(drift_line[0][len('identity mapping drift '):]) == dict(
-        conversations=dict(added=1, removed=0, changed=0), reports=dict(added=0, removed=0, changed=0))
-    assert not any('424242' in line or 'r-generated' in line for line in err)
+    def census_then_change(client, database, *args, **kwargs):
+        summary = census(client, database, *args, **kwargs)
+        if not kwargs.get('resume'):
+            passes.append(Path(database).name)
+            if len(passes) == 1:
+                change(conversations, reports)
+        return summary
+    monkeypatch.setattr(report, 'metadata', metadata_stub)
+    code = refusal_run(monkeypatch, tmp_path, source, census_then_change,
+                       mapping=lambda connection: (dict(conversations), dict(reports)))
+    assert passes == ['first.sqlite', 'second.sqlite']
+    return code
 
 
-def test_drift_counts_removed_and_repointed_entries():
-    cli = report_cli()
-    before = ({'1': 1, '2': 2}, {'a': 1, 'b': 2})
-    after = ({'1': 1, '3': 3}, {'a': 2, 'c': 1})
-    assert cli.drift(before, after) == dict(conversations=dict(added=1, removed=1, changed=0),
-                                            reports=dict(added=1, removed=1, changed=1))
+def drift_counts(err):
+    lines = [line for line in err.splitlines() if line.startswith('identity mapping drift ')]
+    assert len(lines) == 1
+    return json.loads(lines[0][len('identity mapping drift '):])
+
+
+def test_conversation_and_report_created_during_run_are_accepted(monkeypatch, tmp_path, capfd, keep_umask):
+    # Rows for conversation 7 exist before its conversation row is visible to the first read.
+    source = ScanOnlySource({FAMILY: [row(), row('7')]})
+    def create(conversations, reports):
+        conversations['424242'] = 424242          # created with no Delphi rows yet
+        conversations['7'] = 7
+        reports['r-created'] = 424242
+    assert drifting_run(monkeypatch, tmp_path, source, ({'1': 1}, {'r-1': 1}), create) == 0
+    out, err = capfd.readouterr()
+    assert drift_counts(err) == dict(conversations=dict(added=2, removed=0, changed=0),
+                                     reports=dict(added=1, removed=0, changed=0))
+    assert '424242' not in err and 'r-created' not in err
+    lines = [json.loads(line) for line in out.splitlines()]
+    # The new conversation without rows adds nothing; the rebound row now counts under its conversation.
+    assert [line['zid'] for line in lines[:-1]] == [1, 7]
+    assert lines[-1]['totals'] == dict(source=2, would_import=2, archive=0, quarantine=0)
+
+
+@pytest.mark.parametrize('change,expected', [
+    (lambda conversations, reports: conversations.pop('2'),
+     dict(conversations=dict(added=0, removed=1, changed=0), reports=dict(added=0, removed=0, changed=0))),
+    (lambda conversations, reports: reports.update({'r-1': 2}),
+     dict(conversations=dict(added=0, removed=0, changed=0), reports=dict(added=0, removed=0, changed=1))),
+])
+def test_removed_conversation_or_repointed_report_refuses(monkeypatch, tmp_path, capfd, keep_umask, change, expected):
+    source = ScanOnlySource({FAMILY: [row()]})
+    assert drifting_run(monkeypatch, tmp_path, source, ({'1': 1, '2': 2}, {'r-1': 1}), change) == 2
+    err = capfd.readouterr().err
+    assert drift_counts(err) == expected
+    assert err.splitlines()[-1] == 'import dry-run refused (ValueError: source identity mapping changed)'
+
+
+def test_rebind_additions_reads_nothing_and_refuses_removals(tmp_path):
+    source = ScanOnlySource({FAMILY: [row(), row('7')]})
+    before = ({'1': 1}, {})
+    summary = imp.census(source, tmp_path/'first.sqlite', *before, validate_schema=False)
+    assert summary['counts'][FAMILY]['quarantined'] == 1
+    calls = len(source.calls)
+    rebound = imp.rebind_additions(tmp_path/'first.sqlite', before, ({'1': 1, '7': 7}, {}), validate_schema=False)
+    assert len(source.calls) == calls
+    assert rebound['counts'][FAMILY] == dict(source=2, imported=2, archived=0, quarantined=0)
+    assert rebound['source_sha256'] == summary['source_sha256']
+    with pytest.raises(ValueError, match='identity mapping changed'):
+        imp.rebind_additions(tmp_path/'first.sqlite', ({'1': 1, '7': 7}, {}), ({'7': 7}, {}), validate_schema=False)
+    assert imp.mapping_drift(({'1': 1, '2': 2}, {'a': 1, 'b': 2}), ({'1': 1, '3': 3}, {'a': 2, 'c': 1})) == dict(
+        conversations=dict(added=1, removed=1, changed=0), reports=dict(added=1, removed=1, changed=1))
+
+
+def test_production_importer_accepts_additions_and_refuses_removals(monkeypatch, tmp_path, capfd, keep_umask):
+    """The real importer's dry run applies the same rule."""
+    cli = load('importer_cli', Path(__file__).resolve().parents[1]/'scripts/import_dynamo_production.py')
+    def run(change, rows):
+        scratch = tmp_path/('import-' + str(len(list(tmp_path.iterdir()))))
+        scratch.mkdir()
+        conversations, reports = {'1': 1, '2': 2}, {'r-1': 1}
+        census, passes = imp.census, []
+        def census_then_change(client, database, *args, **kwargs):
+            summary = census(client, database, *args, **kwargs)
+            if not kwargs.get('resume'):
+                passes.append(Path(database).name)
+                if len(passes) == 1:
+                    change(conversations, reports)
+            return summary
+        monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
+        monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: Source(rows))
+        monkeypatch.setattr(imp, 'connect_readonly_source', lambda local=False: SimpleNamespace(close=lambda: None))
+        monkeypatch.setattr(imp, 'mapping', lambda connection: (dict(conversations), dict(reports)))
+        monkeypatch.setattr(imp, 'census', census_then_change)
+        code = cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9'])
+        assert passes == ['first.sqlite', 'second.sqlite']
+        return code
+    def add(conversations, reports):
+        conversations['7'] = 7
+        reports['r-7'] = 7
+    assert run(add, {FAMILY: [row(), row('7')]}) == 0
+    out, err = capfd.readouterr()
+    result = json.loads(out)
+    assert result['conversations'] == 2 and result['counts'][FAMILY]['imported'] == 2
+    assert drift_counts(err) == dict(conversations=dict(added=1, removed=0, changed=0),
+                                     reports=dict(added=1, removed=0, changed=0))
+    assert run(lambda conversations, reports: conversations.pop('2'), {FAMILY: [row()]}) == 2
+    err = capfd.readouterr().err
+    assert drift_counts(err)['conversations']['removed'] == 1
+    assert err.splitlines()[-1] == 'production import refused (ValueError)'

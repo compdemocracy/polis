@@ -54,8 +54,15 @@ def main(argv=None):
         if first != second:
             raise ValueError('source changed between census passes')
         with closing(imp.connect_readonly_source(local=bool(args.local_endpoint))) as conn:
-            if imp.mapping(conn) != (conversations, reports):
-                raise ValueError('source identity mapping changed')
+            current = imp.mapping(conn)
+        if current != (conversations, reports):
+            # Counts only. Additions (conversations or reports created during
+            # the census) are accepted and the census is rebound to them.
+            print('identity mapping drift ' + json.dumps(imp.mapping_drift((conversations, reports), current),
+                                                         sort_keys=True), file=sys.stderr)
+            first = imp.rebind_additions(attempt/'first.sqlite', (conversations, reports), current,
+                                         args.allow_missing)
+            conversations, reports = current
         root = attempt / 'snapshot'
         bundles = imp.materialize(attempt/'first.sqlite', root, first)
         imported = 0
