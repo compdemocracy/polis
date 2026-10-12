@@ -159,8 +159,8 @@ the Dynamo source digest, read-only refusal for a broad login, and conservation.
 The report runs through a loopback proxy that permits only Scan and explicitly
 denies DescribeTable; all other DynamoDB operations are also denied. Missing tables
 are detected by Scan; access denial and disappearance during pagination refuse.
-It also reruns the reviewed #1449 staged import/daemon/idempotence regression in
-local test mode. The legacy `import_dynamo_production.py --apply` remains in that
+It also reruns the reviewed staged import/daemon/idempotence regression
+(`tests/production_import/proof.py`) in local test mode. The legacy `import_dynamo_production.py --apply` remains in that
 reviewed importer; it is never selected by this launcher and production apply is
 outside this task. That importer's table-schema preflight still requires
 DescribeTable. The older dedicated-role/apply instructions in

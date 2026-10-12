@@ -35,6 +35,30 @@ REPORT_DRIFT = re.compile(r'identity mapping drift \{[a-z0-9 ",:{}_]{1,400}\}')
 # The report's staging line: per-family conversation counts and byte sizes of
 # families past the importer's per-run bounds. Never ids; the run continues.
 REPORT_STAGING = re.compile(r'staging bound exceeded \(reported, not refused\) \{[A-Za-z0-9 ",:{}_]{1,4000}\}')
+STAGING_FAMILY = re.compile(r'Delphi_[A-Za-z]{1,60}|report_narrative_store|batch')
+
+
+def staging_counts_only(line):
+    """True only for the exact counts-and-sizes shape; a key or value that could be an id fails.
+
+    Top level: conversations, families, family_limit, batch_limit. Each family
+    key is a table name (or "batch") with exactly conversations, bytes_max and
+    bytes_total. Every value is a non-negative integer; no lists, no strings.
+    """
+    try:
+        value = json.loads(line[line.index('{'):])
+    except ValueError:
+        return False
+    def count(x):
+        return type(x) is int and x >= 0
+    if (not isinstance(value, dict) or set(value) != {'conversations', 'families', 'family_limit', 'batch_limit'}
+            or not all(count(value[k]) for k in ('conversations', 'family_limit', 'batch_limit'))
+            or not isinstance(value['families'], dict)):
+        return False
+    return all(STAGING_FAMILY.fullmatch(name) and isinstance(entry, dict)
+               and set(entry) == {'conversations', 'bytes_max', 'bytes_total'}
+               and all(count(v) for v in entry.values())
+               for name, entry in value['families'].items())
 
 
 def reason(exc):
@@ -171,7 +195,7 @@ def main(argv=None):
                     print(line, file=sys.stderr)
             raise ValueError('report failed; inspect private stderr')
         line = report_refusal(args.output/'stderr.log', REPORT_STAGING, start)
-        if line:
+        if line and staging_counts_only(line):
             print(line, file=sys.stderr)
         # Intentional private display requested by the operator; SSM output can
         # truncate. The byte-complete report always remains in --output.

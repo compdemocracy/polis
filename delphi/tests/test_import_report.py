@@ -540,6 +540,16 @@ def test_launcher_relays_staging_line_on_success(monkeypatch, tmp_path, capfd, k
     assert launcher.report_refusal(log, launcher.REPORT_STAGING) == line
     log.write_text(cli.STAGING_LINE + '{"conversations": ["PRIVATE-ID"]}\n')
     assert launcher.report_refusal(log, launcher.REPORT_STAGING) is None
+    assert launcher.staging_counts_only(line)
+    # Lines that pass the character pattern but carry id-shaped keys or values are not relayed.
+    sizes = dict(conversations=1, bytes_max=2, bytes_total=2)
+    for shaped in (dict(conversations=1, family_limit=1, batch_limit=1, families={'31337': sizes}),
+                   dict(conversations=1, family_limit=1, batch_limit=1, families={FAMILY: dict(sizes, zid=31337)}),
+                   dict(conversations=1, family_limit=1, batch_limit=1, families={}, zids={'a': 31337}),
+                   dict(conversations='abc', family_limit=1, batch_limit=1, families={}),
+                   dict(conversations=True, family_limit=1, batch_limit=1, families={})):
+        candidate = cli.STAGING_LINE + json.dumps(shaped, sort_keys=True)
+        assert not launcher.staging_counts_only(candidate)
     inspect = json.dumps([dict(State=dict(Running=True), Image='generated-image',
         Config=dict(Env=[], Labels={'com.docker.compose.service': 'delphi'}))]).encode()
     monkeypatch.setattr(launcher.subprocess, 'check_output', lambda *a, **kw: inspect)
@@ -552,6 +562,12 @@ def test_launcher_relays_staging_line_on_success(monkeypatch, tmp_path, capfd, k
     out, err = capfd.readouterr()
     assert err.splitlines() == [line]
     assert out == '{"type": "grand_totals"}\n'
+    line = cli.STAGING_LINE + json.dumps(dict(conversations=1, family_limit=1, batch_limit=1,
+                                              families={'31337': sizes}), sort_keys=True)
+    # `run` writes the current `line`, now id-shaped: the run succeeds and the line stays private.
+    assert launcher.main(['--container', 'generated', '--output', str(tmp_path/'output2')]) == 0
+    out, err = capfd.readouterr()
+    assert err == '' and '31337' not in out
 
 
 def test_production_importer_dry_run_reports_oversized_and_apply_still_refuses(monkeypatch, tmp_path, capfd, keep_umask):
