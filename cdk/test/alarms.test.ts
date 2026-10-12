@@ -133,8 +133,8 @@ describe(`${ALARMS_ENABLED_CONTEXT} context flag`, () => {
 
 describe('the gate adds nothing when it is off', () => {
   // The real proof that the deployed template is byte-identical with the flag
-  // off is a `cdk synth` diff of the whole CdkStack against edge, recorded in
-  // cost-reduction/04-plans/P-031-slice1-implementation-notes.md. This asserts
+  // off is a `cdk synth` diff of the whole CdkStack against edge, run by hand
+  // when the gate was added and not repeated here. This asserts
   // the mechanism the stack uses to reach that state: the construct is never
   // called, so nothing can be added.
   const baseline = () => {

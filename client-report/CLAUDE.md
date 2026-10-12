@@ -5,7 +5,7 @@
 Run the development server with:
 
 ```
-cd /Users/colinmegill/polis/client-report
+cd client-report
 SERVICE_URL=http://localhost npm start
 ```
 

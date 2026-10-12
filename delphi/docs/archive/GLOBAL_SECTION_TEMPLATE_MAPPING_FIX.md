@@ -99,7 +99,7 @@ The fix ensures that:
 
 ## Files Modified
 
-- **File**: `/Users/colinmegill/polis/delphi/umap_narrative/801_narrative_report_batch.py`
+- **File**: `delphi/umap_narrative/801_narrative_report_batch.py`
 - **Lines**: 981-1007 (template selection logic)
 - **Change Type**: Bug fix + robustness improvement
 

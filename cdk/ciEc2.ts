@@ -19,8 +19,8 @@
  * Private certification (baked trusted AMI, cloud-init disabled, isolated
  * account/VPC, endpoint-only egress, autonomous worker publishing a signed
  * fixed-schema summary that GitHub reads but cannot influence) remains
- * UNIMPLEMENTED. See cost-reduction/04-plans/P-022-E-ci-spec.md and the round-2
- * section of P-022-E-implementation-notes.md.
+ * UNIMPLEMENTED; its design is kept outside this repository. docs/ci-ec2.md
+ * describes what this public stage does and does not do.
  *
  * ## Gate
  *

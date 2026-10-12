@@ -37,7 +37,7 @@ still prevents overlapping admission. Admission does not publish the result.
 After successful execution, publication uses the ordinary explicit
 `pd_graph_publish` generation check, so a failed import cannot replace a report.
 The approved core contract does not support replacing a failed graph with a
-superseding branch; that capability is deferred to #1436. The importer exposes
+superseding branch; that capability is deferred to later work. The importer exposes
 ordinary admission, status verification and publication only.
 
 Every source row is counted as one of:

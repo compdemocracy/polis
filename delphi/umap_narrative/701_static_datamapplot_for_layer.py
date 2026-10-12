@@ -421,7 +421,6 @@ def generate_static_datamapplot(zid, layer_num=0, output_dir=None):
         app_path = os.environ.get('DELPHI_APP_PATH', '/app')
         container_dir = f"{app_path}/visualizations/{zid}"
         host_dir = f"/visualizations/{zid}"
-        local_dir = f"/Users/colinmegill/polis/delphi/visualizations/{zid}"
         
         # Ensure directories exist
         os.makedirs(container_dir, exist_ok=True)

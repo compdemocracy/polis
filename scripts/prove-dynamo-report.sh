@@ -13,8 +13,8 @@ repo_root=$PWD
 [[ "$DYNAMO_PROOF_OUTPUT" = /* ]]
 proof_network="${COMPOSE_PROJECT_NAME}_default"
 proof_pg="${COMPOSE_PROJECT_NAME}-postgres-1"
-proof_prefix="${DYNAMO_PROOF_CONTAINER_PREFIX:-astra-dynamo1424-${COMPOSE_PROJECT_NAME#polis-graph-test-}}"
-[[ "$proof_prefix" == astra-dynamo1424-* ]]
+proof_prefix="${DYNAMO_PROOF_CONTAINER_PREFIX:-dynamo-proof-${COMPOSE_PROJECT_NAME#polis-graph-test-}}"
+[[ "$proof_prefix" == dynamo-proof-* ]]
 proof_server="$proof_prefix-server"
 proof_web="$proof_prefix-web"
 proof_port="${DYNAMO_PROOF_PORT:-58244}"
@@ -55,7 +55,7 @@ node --test ci/dynamo-removal/report-quality.test.cjs > "$DYNAMO_PROOF_OUTPUT/re
 # still use the real AuthProvider. These must exist at Webpack build time.
 (cd client-report && AUTH_AUDIENCE=users AUTH_CLIENT_ID=dev-client-id \
  AUTH_ISSUER=https://localhost:3000/ AUTH_NAMESPACE=https://pol.is/ npm run build:prod) > "$DYNAMO_PROOF_OUTPUT/report-build.log" 2>&1
-sed "s/astra-dynamo1424-server/$proof_server/" ci/dynamo-removal/report-nginx.conf > "$DYNAMO_PROOF_OUTPUT/nginx.conf"
+sed "s/dynamo-proof-server/$proof_server/" ci/dynamo-removal/report-nginx.conf > "$DYNAMO_PROOF_OUTPUT/nginx.conf"
 docker run -d --name "$proof_server" --network "$proof_network" \
  --label polis.proof=dynamo1424 --env-file test.env \
  -e NODE_ENV=development -e "DATABASE_URL=postgresql://postgres@$proof_pg:5432/$DYNAMO_PROOF_PG_DATABASE" \

@@ -267,7 +267,7 @@ Roughly **$0.40/month** incremental.
 
 ## Adding the remaining catalog alarms
 
-The full catalog is `cost-reduction/04-plans/P-031-cloudwatch-alarms.md` (rev2).
+The full catalog (rev2) is kept with the design notes, outside this repository.
 Its rows **A08–A11 are historical**: they were dropped on 2026-09-09 per the
 no-Lambda ruling and now need the Postgres queue substrate's metrics (P-024),
 not the demand-observer Lambda they were written against — read them there as a

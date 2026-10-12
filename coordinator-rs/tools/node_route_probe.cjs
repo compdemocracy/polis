@@ -1,6 +1,6 @@
 /*
  * CO08/D4 first-generation route coverage, from the second reviewer's round-2 probe
- * (cost-reduction/scripts/p2727-r2-node-review.cjs), committed unchanged in
+ * (a Node review script kept outside this repository), committed unchanged in
  * substance.
  *
  * It mounts the REAL `handle_GET_math_pca2` on a real Express app over loopback

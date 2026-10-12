@@ -143,8 +143,8 @@ def test_both_engines_dump_stages_and_the_comparison_report_is_produced(tmp_path
     batch (equal input digests), and every stage is present on both sides with
     an error report. It does NOT assert a verdict — stage dumps are diagnostics
     (P-030 §2.3), and a numeric threshold here would quietly become the gate the
-    plan forbids. The measured first-diverging-stage result is recorded in
-    cost-reduction/04-plans/P-030-R-ORACLE-implementation-notes.md.
+    plan forbids. The measured first-diverging-stage result is kept with the
+    implementation notes, outside this repository.
     """
     ds = real_data.load_export_votes(BATTERY_DATASET)
     spec = _spec(ds)

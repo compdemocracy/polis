@@ -34,9 +34,9 @@ the ENTRY POINT for the session that ships the cutover. Read order:
 
 ## P-019 review fixes (must-fix items M1–M5)
 
-The independent P-019 review (cost-reduction/04-plans/P-019-julien-stack-
-review.md) found defects that are now fixed on this branch. Probe:
-cost-reduction/scripts/p019-review-probes.py (adapted copy reads HEAD).
+The independent P-019 review of the stack found defects that are now fixed
+on this branch. Probe: the review's own script, kept outside this repository
+(an adapted copy reads HEAD).
 
 - **M1 — park/unpark lost failed votes.** After retry exhaustion a parked
   zid kept its stale cached conversation, so the interval that failed

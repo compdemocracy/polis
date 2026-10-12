@@ -533,5 +533,5 @@ input digests match, every stage is present with an error report — and
 deliberately asserts **no verdict**, because a numeric threshold there would
 quietly become the gate the plan forbids.
 
-Measured results on the public battery cases are recorded in
-`cost-reduction/04-plans/P-030-R-ORACLE-implementation-notes.md`.
+Measured results on the public battery cases are recorded with the
+implementation notes, outside this repository.

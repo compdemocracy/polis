@@ -17,8 +17,8 @@ const shouldUseTranslationAPI: boolean = isTrue(
 // router, which is the only position from which it can see errors handed to
 // `next(err)` by a route (Express 3 walks the app stack forward only).
 // Default OFF: turning it on changes served bytes on every error that reaches
-// finalhandler today (status, Content-Type and body all change) — see
-// cost-reduction/04-plans/P-038-global-error-handler-notes.md. The flag exists
+// finalhandler today (status, Content-Type and body all change; app.ts,
+// where the handler is mounted, lists which paths change). The flag exists
 // so the characterization harness can re-record the difference before anyone
 // decides to adopt it.
 const reachableErrorHandler: boolean = isTrue(
