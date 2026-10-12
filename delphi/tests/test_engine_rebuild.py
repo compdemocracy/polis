@@ -27,6 +27,10 @@ NOWHERE = "postgresql://postgres@127.0.0.1:1/none"
 LABEL = "probe"
 ZIDS = (9101, 9102)
 
+# serial: seeds these fixed zids in the shared test database; concurrent workers
+# collide on duplicate keys.
+pytestmark = pytest.mark.serial
+
 
 def run(argv, environ=None):
     out = io.StringIO()

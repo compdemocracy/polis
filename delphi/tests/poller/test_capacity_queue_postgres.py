@@ -41,7 +41,9 @@ from polismath.poller.readiness import COMMIT_ENV
 from tests.conftest import require_polis_postgres
 from tests.poller.test_backfill_postgres import _TABLES, coherent, q, seed_conversation
 
-pytestmark = pytest.mark.integration
+# serial: creates the cluster-wide login role math_queue_test (fixed name, shared
+# with test_backfill_postgres.py); concurrent workers fail with "role already exists".
+pytestmark = [pytest.mark.integration, pytest.mark.serial]
 
 MB = 1024 * 1024
 HERE = Path(__file__).resolve().parent
