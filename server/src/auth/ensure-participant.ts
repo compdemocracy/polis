@@ -78,6 +78,44 @@ interface EnsureParticipantOptions {
 }
 
 /**
+ * Whether the participant token on this request was issued for a conversation
+ * other than the one the route resolved.
+ *
+ * The JWT extractor compares the token's conversation id with the request's
+ * query or body before the route has resolved anything, and those two inputs
+ * can differ (the vote route reads the body). The decision is made here
+ * against the resolved zid: the same conversation id string is the same
+ * conversation and costs no lookup; otherwise the token's conversation id is
+ * resolved (an LRU-cached read) and the zids are compared. A token for a
+ * conversation that cannot be resolved counts as a token for another one.
+ */
+async function _tokenIsForAnotherConversation(
+  req: RequestWithP,
+  zid: number
+): Promise<boolean> {
+  const tokenConversationId = req.p.jwt_conversation_id;
+  if (tokenConversationId === undefined) {
+    // No participant token on this request.
+    return false;
+  }
+  // The conversation id the route's parameter parsing read: query and params
+  // are merged into the body before parsing on the routes that accept them.
+  const routeConversationId = req.body?.conversation_id;
+  if (
+    routeConversationId !== undefined &&
+    routeConversationId === tokenConversationId
+  ) {
+    return false;
+  }
+  try {
+    const tokenZid = await getZidFromConversationId(tokenConversationId);
+    return tokenZid !== zid;
+  } catch (err) {
+    return true;
+  }
+}
+
+/**
  * Handle JWT conversation mismatches
  * Returns true if the request should be treated as a new participant
  */
@@ -385,21 +423,24 @@ async function _ensureParticipantInternal(
   let needsNewJWT = false;
   let legacyCookieToken: string | undefined;
 
-  // Handle JWT conversation mismatches. The handler clears req.p.uid and
-  // req.p.pid when the token was issued for another conversation, so the
-  // identity is read from req.p only after it has run.
-  const treatedAsNew = await _handleJWTConversationMismatch(req, zid);
-  if (treatedAsNew) {
-    needsNewJWT = true;
-  }
+  // Decide the token's scope against the conversation the route resolved,
+  // then let the handler apply its per-token-kind policy to req.p.uid and
+  // req.p.pid. The identity is read from req.p only after both have run.
+  req.p.jwt_conversation_mismatch = await _tokenIsForAnotherConversation(
+    req,
+    zid
+  );
+  await _handleJWTConversationMismatch(req, zid);
 
-  // A pid only has meaning in the conversation whose token carried it. A
-  // token issued for another conversation never supplies this conversation's
-  // pid, whatever the handler decided about the uid: the participant is
-  // looked up (or created) for (zid, uid) below. A token for this
-  // conversation is untouched here.
   if (req.p.jwt_conversation_mismatch) {
+    // A pid only has meaning in the conversation whose token carried it. A
+    // token issued for another conversation never supplies this
+    // conversation's pid, whatever the handler decided about the uid: the
+    // participant is looked up (or created) for (zid, uid) below. And the
+    // response carries a token for this conversation, so the client stops
+    // presenting the other conversation's token here.
     req.p.pid = undefined;
+    needsNewJWT = true;
   }
 
   let uid = req.p.uid;
@@ -473,7 +514,20 @@ async function _ensureParticipantInternal(
       // Check if the current user is the conversation owner
       const isOwner = uid !== undefined && convRows[0].owner === uid;
 
-      if (!isOwner) {
+      // An existing participant of this conversation is never a first join.
+      // The identity may carry no pid for this conversation (a token issued
+      // for another conversation, or no participant token at all), so its
+      // membership is looked up before it can be refused; the pid found is
+      // used below without a second read. A user created on this request
+      // has no membership to look up.
+      if (!isOwner && uid !== undefined && !isNewlyCreatedUser) {
+        const existingPid = await getPidPromise(zid, uid, true);
+        if (existingPid !== -1) {
+          pid = existingPid;
+        }
+      }
+
+      if (!isOwner && (pid === undefined || pid === -1)) {
         // This person wants to become a participant in a Treevite conversation
         // but has no existing participation and is not the owner - block them
         throw new Error("polis_err_treevite_auth_required");
