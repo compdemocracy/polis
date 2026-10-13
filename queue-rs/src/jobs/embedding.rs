@@ -144,7 +144,14 @@ pub fn read_spool(bytes: &[u8]) -> Result<(String, u16, Vec<Row>)> {
         "embedding_spool_model"
     );
     let model = std::str::from_utf8(r.take(model_len)?)?.to_owned();
-    let mut rows = Vec::with_capacity(count);
+    // Cap the pre-allocation by what the remaining bytes could hold, so the
+    // header count cannot drive a huge reservation before any row is read. A row
+    // is at least `4 (tid) + 32 (text_sha) + dims*4` bytes, and a well-formed
+    // spool has `bytes.len() >= 16 + model_len + count*stride`, so this never
+    // under-reserves for valid input; a hostile count is bounded to
+    // `bytes.len()/stride`, itself bounded by `MAX_SPOOL_BYTES` (checked above).
+    let row_stride = 36 + dims as usize * 4;
+    let mut rows = Vec::with_capacity(count.min(bytes.len() / row_stride));
     for _ in 0..count {
         let tid = r.i32()?;
         ensure!(tid >= 0, "embedding_spool_tid");
@@ -322,6 +329,23 @@ mod tests {
         );
         assert!(write_spool("", 3, &rows()).is_err(), "empty model");
         assert!(write_spool("m", 0, &rows()).is_err(), "zero dims");
+    }
+
+    /// A spool header that declares far more rows than its bytes could hold must
+    /// not drive a huge `Vec` reservation before any row is read: the capacity is
+    /// capped by the remaining bytes, and the short body is refused as truncated.
+    /// Hand-built so the count is hostile (`u32::MAX`) with an empty row body.
+    #[test]
+    fn read_spool_caps_capacity_from_a_crafted_header() -> Result<()> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(MAGIC);
+        bytes.extend_from_slice(&3u16.to_le_bytes()); // dims
+        bytes.extend_from_slice(&u32::MAX.to_le_bytes()); // crafted row_count
+        bytes.extend_from_slice(&1u16.to_le_bytes()); // model_len
+        bytes.extend_from_slice(b"m"); // model, then no rows at all
+        let error = read_spool(&bytes).err().map(|e| e.to_string());
+        assert_eq!(error, Some("embedding_spool_truncated".into()));
+        Ok(())
     }
 
     /// Build a binary COPY stream of (tid, text_sha, embedding) by hand, then
