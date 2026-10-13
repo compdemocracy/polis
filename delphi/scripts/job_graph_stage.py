@@ -47,6 +47,16 @@ def run(frame):
                 filename = family + '.jsonl'
                 (directory / filename).write_text(wire, encoding='utf-8')
                 output['family_spool'][family] = dict(file=filename, sha256=hashlib.sha256(wire.encode()).hexdigest())
+            # With the embeddings table on, graph_embed returns rows to spool for
+            # the daemon's pd_embedding_put instead of a codec family.
+            embedding_rows = output.pop('_embedding_rows', None)
+            if embedding_rows is not None:
+                from polismath.delphi_storage.embedding_spool import write_spool
+                spool_rows = [(row['tid'], bytes.fromhex(row['text_sha']), row['vector']) for row in embedding_rows['rows']]
+                data = write_spool(embedding_rows['model'], embedding_rows['dims'], spool_rows)
+                (directory / 'embeddings.spool').write_bytes(data)
+                output['embedding_spool'] = dict(file='embeddings.spool', sha256=hashlib.sha256(data).hexdigest(),
+                    model=embedding_rows['model'], dims=embedding_rows['dims'], rows=len(spool_rows))
         payload = json.dumps(output, sort_keys=True, separators=(',', ':'), allow_nan=False)
         if len(payload.encode()) > 524288:
             raise ValueError('stage artifact exceeds 512 KiB')

@@ -23,6 +23,11 @@ _codec = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_codec)
 encode_family, decode_family = _codec.encode_family, _codec.decode_family
 item_from_python, to_python = _codec.item_from_python, _codec.to_python
+# The embeddings spool (migration 000038), loaded stdlib-only like the codec so
+# this sandboxed stage never imports the wider polismath package.
+_espec = importlib.util.spec_from_file_location('delphi_embedding_spool', ROOT / 'polismath/delphi_storage/embedding_spool.py')
+_espool = importlib.util.module_from_spec(_espec)
+_espec.loader.exec_module(_espool)
 
 MODELS = {'graph_embed': 'sentence-transformers/all-MiniLM-L6-v2',
           'graph_cluster': 'delphi-umap-evoc/1', 'graph_topics': 'delphi-tfidf-keywords/1',
@@ -89,6 +94,23 @@ def upstream(frame, role):
     return value
 
 
+def embeddings_table_enabled(frame):
+    """The one switch, carried in the frame by the daemon only when on."""
+    return bool(frame.get('embeddings_table'))
+
+
+def _read_spool(descriptor):
+    """Read and digest-check one embeddings spool the daemon wrote beside the
+    manifest, returning (model, dims, rows). Only the daemon's own file names."""
+    if descriptor['file'] not in ('embeddings.set.spool', 'embeddings.prior.spool'):
+        raise ValueError('unexpected embedding spool file')
+    path = Path(os.environ['DELPHI_OUTPUT_MANIFEST']).parent / descriptor['file']
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != descriptor['sha256']:
+        raise ValueError('embedding spool digest mismatch')
+    return _espool.read_spool(data)
+
+
 
 def narrative_sections(topics, context, ids, texts):
     """Use existing topic/global filters, selection limits, XML and report prompts."""
@@ -149,16 +171,39 @@ def execute(frame):
         if model_digest(model_path) != config['model_sha256']:
             raise ValueError('embedding model bytes differ from admission')
         model = SentenceTransformer(model_path, device='cpu', local_files_only=True)
-        vectors = model.encode(texts, convert_to_numpy=True, batch_size=32, show_progress_bar=False)
-        if vectors.shape != (len(texts), 384) or not np.isfinite(vectors).all() or (np.linalg.norm(vectors, axis=1) == 0).any():
-            raise ValueError('invalid MiniLM embedding output')
-        families['Delphi_CommentEmbeddings'] = [dict(conversation_id=zid, comment_id=i,
-            embedding=dict(vector=v.tolist(), dimensions=384, model=d['model'])) for i,v in zip(ids,vectors)]
+        if embeddings_table_enabled(frame):
+            # Embed only the comments the current set is missing, then spool them
+            # for the daemon's pd_embedding_put. A comment's text never changes,
+            # so a tid already in the prior set is skipped (its row stays).
+            prior = {}
+            if frame.get('embedding_prior'):
+                _, _, prior_rows = _read_spool(frame['embedding_prior'])
+                prior = {int(row['tid']) for row in prior_rows}
+            pending = [(i, t) for i, t in zip(ids, texts) if int(i) not in prior]
+            spooled = []
+            if pending:
+                vectors = model.encode([t for _, t in pending], convert_to_numpy=True, batch_size=32, show_progress_bar=False)
+                if vectors.shape != (len(pending), 384) or not np.isfinite(vectors).all() or (np.linalg.norm(vectors, axis=1) == 0).any():
+                    raise ValueError('invalid MiniLM embedding output')
+                spooled = [dict(tid=int(i), text_sha=hashlib.sha256(t.encode('utf-8')).hexdigest(), vector=v.tolist())
+                           for (i, t), v in zip(pending, vectors)]
+            output['_embedding_rows'] = dict(model=d['model'], dims=384, rows=spooled)
+        else:
+            vectors = model.encode(texts, convert_to_numpy=True, batch_size=32, show_progress_bar=False)
+            if vectors.shape != (len(texts), 384) or not np.isfinite(vectors).all() or (np.linalg.norm(vectors, axis=1) == 0).any():
+                raise ValueError('invalid MiniLM embedding output')
+            families['Delphi_CommentEmbeddings'] = [dict(conversation_id=zid, comment_id=i,
+                embedding=dict(vector=v.tolist(), dimensions=384, model=d['model'])) for i,v in zip(ids,vectors)]
     elif stage == 'graph_cluster':
         import numpy as np
-        source = read_family(upstream(frame, 'embeddings'), 'Delphi_CommentEmbeddings')
-        by_id = {int(row['comment_id']): row for row in source}
-        vectors = np.asarray([by_id[i]['embedding']['vector'] for i in ids], dtype=np.float32)
+        if embeddings_table_enabled(frame):
+            _, _, set_rows = _read_spool(frame['embedding_spool'])
+            by_id = {int(row['tid']): row['vector'] for row in set_rows}
+            vectors = np.asarray([by_id[i] for i in ids], dtype=np.float32)
+        else:
+            source = read_family(upstream(frame, 'embeddings'), 'Delphi_CommentEmbeddings')
+            by_id = {int(row['comment_id']): row for row in source}
+            vectors = np.asarray([by_id[i]['embedding']['vector'] for i in ids], dtype=np.float32)
         if str(ROOT / 'umap_narrative') not in sys.path:
             sys.path.insert(0, str(ROOT / 'umap_narrative'))
         from umap_narrative.numerical_stages import project_and_cluster, characterize_comment_clusters
