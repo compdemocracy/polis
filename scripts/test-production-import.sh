@@ -11,9 +11,12 @@ proof=${IMPORT_PROOF_ROOT:-$repo/.import-proof/$COMPOSE_PROJECT_NAME}
 mkdir -p "$proof"; proof=$(cd "$proof" && pwd)
 [[ ! -e "$proof/scratch" ]]
 mkdir -m 700 "$proof/scratch"
+[[ ! -e "$proof/scratch-emb" ]]
+mkdir -m 700 "$proof/scratch-emb"
 pg=${COMPOSE_PROJECT_NAME}-postgres
 dynamo=${COMPOSE_PROJECT_NAME}-dynamo
 runner=${COMPOSE_PROJECT_NAME}-proof
+embrunner=${COMPOSE_PROJECT_NAME}-emb-proof
 image=${COMPOSE_PROJECT_NAME}:importer
 base=${IMPORT_PROOF_BASE:-${COMPOSE_PROJECT_NAME}:base}
 pgimage=${IMPORT_PROOF_POSTGRES_IMAGE:-${COMPOSE_PROJECT_NAME}:postgres}
@@ -22,7 +25,7 @@ cleanup() {
  for c in "${owned[@]}"; do docker logs "$c" > "$proof/$c.log" 2>&1 || true; docker rm -f -v "$c" >/dev/null 2>&1 || true; done
 }
 trap cleanup EXIT
-for c in "$pg" "$dynamo" "$runner"; do
+for c in "$pg" "$dynamo" "$runner" "$embrunner"; do
  if docker inspect "$c" >/dev/null 2>&1; then echo 'owned name already exists' >&2; exit 2; fi
 done
 if [[ -z ${IMPORT_PROOF_BASE:-} ]]; then
@@ -70,6 +73,7 @@ CREATE ROLE import_source LOGIN;
 GRANT SELECT(zid,topic,description,participant_count) ON conversations TO import_source;
 GRANT SELECT(zid,zinvite,created) ON zinvites TO import_source;
 GRANT SELECT(report_id,zid) ON reports TO import_source;
+GRANT SELECT(zid,tid,txt) ON comments TO import_source;
 SQL
 owned+=("$dynamo")
 docker run -d --name "$dynamo" --network "container:$pg" amazon/dynamodb-local:3.3.1 \
@@ -84,3 +88,16 @@ docker run --name "$runner" --network "container:$pg" --entrypoint python \
  -e POLIS_JOBS_TRANSPORT=loopback -e POLIS_JOBS_POLL_SECONDS=1 -e POLIS_JOBS_HEARTBEAT_SECONDS=5 \
  -e POLIS_JOBS_LEASE_SECONDS=60 "$image" tests/production_import/proof.py | tee "$proof/integration.log"
 printf 'PASS production importer: dry-run, multiple conversations, large artifacts, narrow roles, unpublished run bindings, repeat\n'
+# Flag-on comment embeddings: its own clean DynamoDB and import environment, so the
+# only source embeddings are the mappable ones it builds. IMPORT_PROOF_EMBEDDINGS_COMMENTS
+# sizes the conversation (default is CI-fast; a value over ~6,000 exceeds the old 64 MiB cap).
+owned+=("$embrunner")
+docker run --name "$embrunner" --network "container:$pg" --entrypoint python \
+ -v "$proof/scratch-emb:/import" \
+ -e TEST_ADMIN_DATABASE_URL=postgresql://postgres@127.0.0.1/importproof \
+ -e IMPORT_SOURCE_DATABASE_URL=postgresql://import_source@127.0.0.1/importproof \
+ -e QUEUE_DATABASE_URL='postgresql://import_worker@127.0.0.1/importproof?sslmode=disable' \
+ -e POLIS_JOBS_TRANSPORT=loopback -e POLIS_JOBS_POLL_SECONDS=1 -e POLIS_JOBS_HEARTBEAT_SECONDS=5 \
+ -e POLIS_JOBS_LEASE_SECONDS=60 ${IMPORT_PROOF_EMBEDDINGS_COMMENTS:+-e IMPORT_PROOF_EMBEDDINGS_COMMENTS="$IMPORT_PROOF_EMBEDDINGS_COMMENTS"} \
+ "$image" tests/production_import/embeddings_proof.py | tee "$proof/embeddings.log"
+printf 'PASS comment-embeddings import (flag on): per-row table, empty codec family, set receipt, float32 exact\n'

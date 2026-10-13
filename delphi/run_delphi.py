@@ -119,6 +119,13 @@ def main():
     if os.environ.get("DELPHI_RESULT_BACKEND") == "postgres":
         if job is None:
             raise RuntimeError("Postgres pipelines must be admitted through polis-jobs")
+        # The embeddings-table switch (migration 000038) arrives in the frame the
+        # daemon writes. Propagate it to this pipeline's subprocesses (the embedding
+        # producer and the datamap reader read it from the environment). Default off.
+        import json as _json
+        _frame = _json.loads(open(os.environ["DELPHI_FRAME"]).read()) if os.environ.get("DELPHI_FRAME") else {}
+        if _frame.get("embeddings_table") or _frame.get("config", {}).get("embeddings_table"):
+            os.environ["DELPHI_EMBEDDINGS_TABLE"] = "1"
         from polismath.delphi_storage.writer import WriterResource
         # Clear only this attempt's private working copy; previous publications survive.
         WriterResource().reset()

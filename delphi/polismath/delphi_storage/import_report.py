@@ -51,12 +51,15 @@ def counts(source=0, imported=0, archived=0, quarantined=0):
     return dict(source=source, would_import=imported, archive=archived, quarantine=quarantined)
 
 
-def report(database, details, summary, staging=None):
+def report(database, details, summary, staging=None, embedding_models=None):
     """Per-conversation rows, the unmapped bucket and the grand totals.
 
     `staging` (from production_import.staging) adds each conversation's staged
     byte size and whether it fits the importer's per-run bounds, and the
-    aggregate of the families past them.
+    aggregate of the families past them. `embedding_models` (counts only, from
+    production_import.embedding_model_counts) adds the distinct model strings the
+    source's embeddings carry and how many rows each has, so an operator sees them
+    before any flag-on import maps them onto the seeded model.
     """
     with closing(sqlite3.connect(database)) as db:
         grouped = {}
@@ -87,7 +90,7 @@ def report(database, details, summary, staging=None):
             source_sha256=summary["source_sha256"], missing_tables=summary["missing"],
             conversations=sum(row["type"] == "conversation" for row in rows),
             participant_count_source="conversations.participant_count (stored count)",
-            families=grand, totals=totals)
+            families=grand, totals=totals, embedding_models=embedding_models or {})
         if staging is not None:
             grand_totals["staging"] = staging["totals"]
         rows.append(grand_totals)
