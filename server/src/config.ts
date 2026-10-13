@@ -167,6 +167,28 @@ export default {
     isTrue(process.env.POLIS_QUEUE_SUBSTRATE_ENABLED),
   readOnlyDatabaseURL:
     process.env.READ_ONLY_DATABASE_URL || (process.env.DATABASE_URL as string),
+  // Reports, data exports and heavy admin reads run on a small dedicated pool
+  // (db/pg-query.ts) so they can never take the connections the participation
+  // path needs. See docs/configuration.md "Connection budget".
+  // One at a time by default: further exports wait for the acquire timeout.
+  reportExportPoolMax: parseInt(
+    process.env.REPORT_EXPORT_POOL_MAX || "1",
+    10
+  ),
+  // How long a report/export waits for one of those connections before it is
+  // rejected (ms). It degrades itself here rather than waiting on, or spilling
+  // into, the participation pools.
+  reportExportAcquireTimeoutMs: parseInt(
+    process.env.REPORT_EXPORT_ACQUIRE_TIMEOUT_MS || "30000",
+    10
+  ),
+  // Per-statement cap on that pool (ms). Generous by default so today's largest
+  // exports still succeed; streamed exports read their cursor in small batches,
+  // so this bounds a single runaway statement, not a long stream.
+  reportExportStatementTimeoutMs: parseInt(
+    process.env.REPORT_EXPORT_STATEMENT_TIMEOUT_MS || "300000",
+    10
+  ),
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS),
   shouldUseTranslationAPI: setGoogleApplicationCredentials(),
   staticFilesAdminPort: parseInt(

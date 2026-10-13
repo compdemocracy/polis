@@ -50,7 +50,7 @@ function getSocialParticipantsForMod(
     ") " +
     "select * from all_rows where (xid is not null) " +
     ";";
-  return pg.queryP(q, params);
+  return pg.queryP_reportExport(q, params);
 }
 
 function removeNullOrUndefinedProperties(o: { [x: string]: any }) {

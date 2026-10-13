@@ -86,8 +86,12 @@ function queryImpl(pool: Pool, queryString: string, ...args: any[]) {
     pool.connect((err, client, release) => {
       if (err) {
         if (callback) callback(err);
-        // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
-        release(err);
+        // A failed or timed-out acquire (e.g. the report/export pool rejecting
+        // when it is full) calls back with no client and no release function, so
+        // only release a real client — passing the error so the pool discards
+        // it. Calling an undefined release here used to throw a TypeError that
+        // masked the real connection error.
+        if (typeof release === "function") release(err);
         logger.error("pg_connect_pool_fail", err);
         return reject(err);
       }
@@ -275,6 +279,140 @@ function connectResultSnapshot() {
   return resultSnapshotPool.connect();
 }
 
+// Reports, data exports and heavy admin reads run on their own small pool so
+// they can never take the connections the participation path needs (vote and
+// comment writes and nextComment candidate selection on readWritePool; getPca,
+// votesGet and the participation GET aggregates on readPool). The pool is
+// intentionally small and bounded two ways: when it is full a new report/export
+// is rejected after REPORT_EXPORT_ACQUIRE_TIMEOUT_MS (connectionTimeoutMillis)
+// instead of waiting on, or spilling into, a participation connection, and every
+// statement is capped at REPORT_EXPORT_STATEMENT_TIMEOUT_MS. It targets the same
+// database as the read pool (the replica when one is configured, otherwise the
+// primary); the isolation is the connection count per process, not the host.
+// Participation reads never use this pool.
+export const REPORT_EXPORT_POOL_MAX = Config.reportExportPoolMax;
+const REPORT_EXPORT_ACQUIRE_TIMEOUT_MS = Config.reportExportAcquireTimeoutMs;
+const REPORT_EXPORT_STATEMENT_TIMEOUT_MS = Config.reportExportStatementTimeoutMs;
+let reportExportPool: Pool | undefined;
+function reportExportPoolInstance(): Pool {
+  if (!reportExportPool) {
+    const pool = new Pool({
+      ...readsPgConnection,
+      max: REPORT_EXPORT_POOL_MAX,
+      connectionTimeoutMillis: REPORT_EXPORT_ACQUIRE_TIMEOUT_MS,
+    } as unknown as PoolConfig);
+    // statement_timeout is a session setting, so it is applied once as each
+    // physical connection is created. A streamed export reads its cursor in
+    // small batches, each its own command, so this caps a single runaway
+    // statement rather than a long legitimate stream.
+    pool.on("connect", client => {
+      client
+        .query(`SET statement_timeout = ${REPORT_EXPORT_STATEMENT_TIMEOUT_MS}`)
+        .catch(error =>
+          logger.error("pg_report_export_statement_timeout", error)
+        );
+    });
+    pool.on("error", error => logger.error("pg_report_export_pool", error));
+    reportExportPool = pool;
+  }
+  return reportExportPool;
+}
+
+// A pooled read on the report/export pool. Same shape as queryP_readOnly; the
+// only difference is the pool, so nothing that votes/comments/nextComment use is
+// touched.
+function queryP_reportExport<T>(queryString: string, ...args: any[]) {
+  return queryP_impl<T>(reportExportPoolInstance(), queryString, ...args);
+}
+
+// A streamed read on the report/export pool (the whole-conversation vote
+// matrices). Mirrors stream_queryP_readOnly but on the bounded export pool.
+//
+// When the HTTP client disconnects mid-stream, the cursor is closed and the
+// connection released promptly, so a stalled or aborted export cannot hold one
+// of the few report/export connections until the whole conversation has been
+// read. Pass `res` (the HTTP response) to arm this; the success-path output is
+// byte-for-byte unchanged whether or not it is passed.
+function stream_queryP_reportExport(
+  queryString: string,
+  params: any[],
+  onRow: (row: any) => void,
+  onEnd: () => void,
+  onError: (error: Error) => void,
+  res?: {
+    on?: (event: string, listener: () => void) => void;
+    removeListener?: (event: string, listener: () => void) => void;
+  }
+) {
+  const query = new QueryStream(queryString, params);
+
+  reportExportPoolInstance().connect((err, client, done) => {
+    if (err) {
+      onError(err);
+      return;
+    }
+
+    // Release the pooled connection at most once, whichever of normal end,
+    // error or client-disconnect happens first.
+    let released = false;
+    const release = (error?: Error) => {
+      if (released) return;
+      released = true;
+      done(error);
+    };
+
+    const stream = client.query(query);
+
+    // If the HTTP client disconnects, stop fetching and close the cursor. The
+    // connection is released on the stream's "close" event below, once the
+    // cursor has actually closed, so the pooled client is clean for reuse.
+    let clientDisconnected = false;
+    let onClientClose: (() => void) | undefined;
+    const disarmClientClose = () => {
+      if (onClientClose && res && typeof res.removeListener === "function") {
+        res.removeListener("close", onClientClose);
+      }
+    };
+    if (res && typeof res.on === "function") {
+      onClientClose = () => {
+        if (released || clientDisconnected) return;
+        clientDisconnected = true;
+        stream.destroy();
+      };
+      res.on("close", onClientClose);
+    }
+
+    stream.on("data", (row: QueryResult) => {
+      onRow(row);
+    });
+
+    stream.on("end", () => {
+      disarmClientClose();
+      release();
+      onEnd();
+    });
+
+    stream.on("error", (error: Error) => {
+      disarmClientClose();
+      release(error);
+      // A disconnect-triggered destroy can surface here as an error; the client
+      // is already gone, so there is nothing to report back to it.
+      if (!clientDisconnected) {
+        onError(error);
+      }
+    });
+
+    // Fires after the cursor has closed following a client-disconnect destroy.
+    // On normal end/error the connection is already released above, so the
+    // guard makes this a no-op then.
+    stream.on("close", () => {
+      if (clientDisconnected) {
+        release();
+      }
+    });
+  });
+}
+
 // Session policy applied immediately after BEGIN, taken from the queue
 // substrate's design. These are declared initial
 // bounds for the queue substrate, not a general-purpose transaction profile;
@@ -387,7 +525,9 @@ export default {
   queryP_metered_readOnly,
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
+  queryP_reportExport,
   stream_queryP_readOnly,
+  stream_queryP_reportExport,
   connect,
   connectReadOnly,
   connectResultSnapshot,

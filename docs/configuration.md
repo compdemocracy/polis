@@ -86,6 +86,43 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 
 - **`DYNAMODB_ENDPOINT`** (optional) DynamoDB endpoint. The server shared builder uses the AWS SDK endpoint when absent ([dynamoClient:41](../server/src/utils/dynamoClient.ts#L41)); Python constructors have distinct local fallbacks. Follow the [per-site reference](configuration-env-reference.md), especially when moving between host and container networking.
 
+#### Connection budget
+
+The participant-facing path — submitting a vote, submitting a comment, and
+getting the next statement — must always answer promptly and must never wait on
+or be rejected because of other work. Everything else (reports, data exports,
+the math engine, the analysis service, imports, admin views) is capped so it can
+never take the database connections that path needs. There is no read replica;
+the isolation is the connection count per workload, not a separate host. Keep the
+sum of the caps below comfortably under the database's `max_connections`.
+
+The API server opens three pools per process ([pg-query.ts](../server/src/db/pg-query.ts)):
+a read-write pool (vote and comment writes, next-statement candidate selection)
+and a read pool (the math blob read, `GET /votes`, participation aggregates),
+each `max` 12 in production (2 in dev, 3 when a read replica is configured); and
+a results pool (`RESULT_SNAPSHOT_POOL_MAX`, 8 in production). Reports, data
+exports and heavy admin reads run on a fourth, deliberately small pool so they
+can never grow into the other three:
+
+- **`REPORT_EXPORT_POOL_MAX`** maximum connections for the report/export/heavy-admin-read pool. Default `1`: reports, exports and heavy admin reads run one at a time, and the rest wait up to the acquire timeout. Reports, the `/api/v3/dataExport` CSV routes ([report.ts](../server/src/report.ts)), the comment-clusters export, `conversationStats` and the moderator participant query run here; participant-facing reads never do.
+- **`REPORT_EXPORT_ACQUIRE_TIMEOUT_MS`** how long a report/export waits for one of those connections before it is rejected. Default `30000`. When the pool is full a new report/export fails here (it degrades itself) rather than waiting on, or spilling into, a participant-facing connection.
+- **`REPORT_EXPORT_STATEMENT_TIMEOUT_MS`** per-statement cap for that pool, applied as each connection is created. Default `300000` (five minutes), generous so today's largest exports still succeed. Streamed exports read their cursor in small batches, so this bounds a single runaway statement rather than a long stream. Raise it if a deployment has larger exports; lowering it can make a large report or export time out.
+
+The other workloads cap themselves through their own pool settings, each a member of the budget:
+
+- **Math engines** read `DATABASE_POOL_SIZE` (the Clojure engine's HikariCP pool, default 3; the Python engine's pool, default 5) and the Python engine also reads **`DATABASE_MAX_OVERFLOW`** (default 10), so one Python engine process uses at most 5 + 10 = 15 pooled connections plus one dedicated writer-lock connection. One process per shard.
+- **`POLIS_JOBS_CONCURRENCY`** the queue daemon's worker count (default 1); each daemon uses two connections plus one per running job.
+- **`POLIS_API_DB_POOL`** the typed read API server's pool (default 8), with **`POLIS_API_DB_ACQUIRE_TIMEOUT_MS`** (2000) and **`POLIS_API_DB_STATEMENT_TIMEOUT_MS`** (3000).
+- The import worker reuses the API server's pools, so it carries the same per-process budget; it scales to a small number of tasks on queue depth.
+
+Illustrative production total against a single primary: two API servers at
+12 + 12 + 8 + 1 = 33 each, plus one analysis box at ~16 for the Python engine and
+~3 for the queue daemon, is roughly 85 connections at the default desired counts
+— well under a connection alarm set at 500. At maximum autoscale the API servers
+and import workers dominate, which is why their pools, not the exports, are the
+largest line; size `max_connections` and any per-login limits against the sum of
+all the caps above.
+
 ### Docker Concerns
 
 - **`TAG`** selects Compose image tags; defaults to `dev` at [Compose:242](../docker-compose.yml#L242). Project naming is configured separately.

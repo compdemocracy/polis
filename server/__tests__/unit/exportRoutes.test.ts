@@ -41,9 +41,9 @@ function createMockResponse(): MockResponse {
   };
 }
 
-// Helper function to mock stream_queryP_readOnly with row callbacks
+// Helper function to mock stream_queryP_reportExport with row callbacks
 function mockStreamWithRows(rows: any[], shouldError = false, error?: Error) {
-  return (pg.stream_queryP_readOnly as jest.Mock).mockImplementation(
+  return (pg.stream_queryP_reportExport as jest.Mock).mockImplementation(
     (...args: any[]) => {
       if (shouldError) {
         const onError = args[4];
@@ -65,8 +65,8 @@ jest.mock("../../src/db/pg-query", () => {
   return {
     __esModule: true,
     default: {
-      queryP_readOnly: jest.fn(),
-      stream_queryP_readOnly: jest.fn(),
+      queryP_reportExport: jest.fn(),
+      stream_queryP_reportExport: jest.fn(),
     },
   };
 });
@@ -181,7 +181,7 @@ describe("handle_GET_reportExport", () => {
 
       // Mock the dependencies
       (getZinvite as jest.Mock).mockResolvedValue("test-zinvite" as never);
-      (pg.queryP_readOnly as jest.Mock)
+      (pg.queryP_reportExport as jest.Mock)
         .mockResolvedValueOnce([
           { topic: "Test Topic", description: "Test Description" },
         ] as never)
@@ -305,7 +305,7 @@ describe("handle_GET_reportExport", () => {
       );
 
       // Mock the importance_enabled query (returns false by default)
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { importance_enabled: false },
       ] as never);
 
@@ -339,7 +339,7 @@ describe("handle_GET_reportExport", () => {
       );
 
       // Mock the importance_enabled query (returns true)
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { importance_enabled: true },
       ] as never);
 
@@ -371,7 +371,7 @@ describe("handle_GET_reportExport", () => {
       const mockError = new Error("Test error");
 
       // Mock the importance_enabled query
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { importance_enabled: false },
       ] as never);
 
@@ -415,8 +415,8 @@ describe("handle_GET_reportExport", () => {
     };
 
     it("sendParticipantVotesSummary should send the participant votes summary as CSV", async () => {
-      // Mock pg.queryP_readOnly to return comment data
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      // Mock pg.queryP_reportExport to return comment data
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { tid: 1, pid: 1 },
         { tid: 2, pid: 1 },
         { tid: 3, pid: 2 },
@@ -452,8 +452,8 @@ describe("handle_GET_reportExport", () => {
     it("sendParticipantVotesSummary should handle errors during participant vote summary export", async () => {
       const mockError = new Error("Test error");
 
-      // Mock pg.queryP_readOnly to return an empty array
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
+      // Mock pg.queryP_reportExport to return an empty array
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([] as never);
 
       // Mock stream with error
       mockStreamWithRows([], true, mockError);
@@ -473,8 +473,8 @@ describe("handle_GET_reportExport", () => {
     });
 
     it("sendParticipantVotesSummary should handle participants not found in any base cluster", async () => {
-      // Mock pg.queryP_readOnly to return comment data
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      // Mock pg.queryP_reportExport to return comment data
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { tid: 1, pid: 1 },
         { tid: 2, pid: 3 }, // Participant 3 is in in-conv but not in any base cluster
       ] as never);
@@ -528,8 +528,8 @@ describe("handle_GET_reportExport", () => {
       const zid = 789;
       const mockResNonSequential = createMockResponse();
 
-      // 1. Mock comment data (pg.queryP_readOnly)
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      // 1. Mock comment data (pg.queryP_reportExport)
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { tid: 101, pid: 10 }, // Participant 10 authored comment 101
         { tid: 102, pid: 20 }, // Participant 20 authored comment 102
         { tid: 103, pid: 30 }, // Participant 30 authored comment 103 (will be in-conv but no group)
@@ -560,7 +560,7 @@ describe("handle_GET_reportExport", () => {
         asPOJO: pcaDataWithNonSequentialBaseClusterIds,
       } as never);
 
-      // 3. Mock votes data (stream_queryP_readOnly)
+      // 3. Mock votes data (stream_queryP_reportExport)
       mockStreamWithRows([
         { pid: 10, tid: 101, vote: -1 }, // Participant 10 voted on their comment (agree)
         { pid: 20, tid: 102, vote: 1 }, // Participant 20 voted on their comment (disagree)
@@ -573,7 +573,7 @@ describe("handle_GET_reportExport", () => {
         "content-type",
         "text/csv"
       );
-      // Header should now include all tids from the mocked queryP_readOnly call for comments
+      // Header should now include all tids from the mocked queryP_reportExport call for comments
       expect(mockResNonSequential.write).toHaveBeenCalledWith(
         "participant,group-id,n-comments,n-votes,n-agree,n-disagree,101,102,103,104\n"
       );
@@ -617,8 +617,8 @@ describe("handle_GET_reportExport", () => {
     };
 
     it("sendParticipantImportance should send the participant importance summary as CSV", async () => {
-      // Mock pg.queryP_readOnly to return comment data
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      // Mock pg.queryP_reportExport to return comment data
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { tid: 1, pid: 1 },
         { tid: 2, pid: 1 },
         { tid: 3, pid: 2 },
@@ -653,8 +653,8 @@ describe("handle_GET_reportExport", () => {
     });
 
     it("sendParticipantImportance should handle participants with no important votes", async () => {
-      // Mock pg.queryP_readOnly to return comment data
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      // Mock pg.queryP_reportExport to return comment data
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { tid: 1, pid: 1 },
         { tid: 2, pid: 1 },
       ] as never);
@@ -687,8 +687,8 @@ describe("handle_GET_reportExport", () => {
     it("sendParticipantImportance should handle errors during participant importance export", async () => {
       const mockError = new Error("Test error");
 
-      // Mock pg.queryP_readOnly to return an empty array
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
+      // Mock pg.queryP_reportExport to return an empty array
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([] as never);
 
       // Mock stream with error
       mockStreamWithRows([], true, mockError);
@@ -708,8 +708,8 @@ describe("handle_GET_reportExport", () => {
     });
 
     it("sendParticipantImportance should handle participants not found in any base cluster", async () => {
-      // Mock pg.queryP_readOnly to return comment data
-      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      // Mock pg.queryP_reportExport to return comment data
+      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
         { tid: 1, pid: 1 },
         { tid: 2, pid: 3 }, // Participant 3 is in in-conv but not in any base cluster
       ] as never);
