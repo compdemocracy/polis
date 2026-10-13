@@ -211,7 +211,11 @@ export function Statement({
           {isVoting ? '' : passUnsureText}
         </button>
       </div>
-      {voteError && <p className="vote-error">{voteError}</p>}
+      {voteError && (
+        <p className="vote-error" role="alert">
+          {voteError}
+        </p>
+      )}
     </div>
   )
 }

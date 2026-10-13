@@ -34,7 +34,7 @@ s.commentSent = "意見已送出！"
 s.commentSendFailed = "送出意見時發生錯誤。"
 s.submitComment = "送出"
 s.writePrompt = "分享您的觀點..."
-s.writeCommentHelpText = "如果您的觀點沒有人寫過，請務必將它<strong>寫下來</strong>！</i>"
+s.writeCommentHelpText = "如果您的觀點沒有人寫過，請務必將它<strong>寫下來</strong>！"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization
