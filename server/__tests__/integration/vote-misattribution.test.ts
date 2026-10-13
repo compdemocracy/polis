@@ -417,13 +417,19 @@ async function assertVotesAsOwnNewParticipant(opts: {
   expect(vr.status).toBe(200);
   expect(latest).toHaveLength(1);
   const mine = latest[0];
-  // Not the holder of that pid number in Y, and nothing under that pid.
-  if (holder !== null) expect(mine.uid).not.toBe(holder);
-  expect(mine.pid).not.toBe(A.pid);
-  expect(underTokenPid).toHaveLength(0);
-  expect(await uidOfPid(Y.zid, A.pid)).toBe(holder);
-  // Not an orphan: a participant row owns the vote, and it was created for this vote.
+  if (holder !== null) {
+    // Not the holder of that pid number in Y, and nothing under that pid.
+    expect(mine.uid).not.toBe(holder);
+    expect(mine.pid).not.toBe(A.pid);
+    expect(underTokenPid).toHaveLength(0);
+    expect(await uidOfPid(Y.zid, A.pid)).toBe(holder);
+  }
+  // Not an orphan: a participant row owns the vote, and it was created for
+  // this vote. (When nobody held the token's pid number in Y, the participant
+  // created here may well be allocated that same number; the number is not
+  // what matters, the row is.)
   expect(mine.uid).not.toBeNull();
+  expect(await uidOfPid(Y.zid, mine.pid)).toBe(mine.uid);
   expect(mine.pid).toBeGreaterThan(participantsBefore);
   expect(vr.body.currentPid).toBe(mine.pid);
   if (keepsIdentity(kind)) {
