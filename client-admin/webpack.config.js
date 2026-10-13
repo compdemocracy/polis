@@ -8,15 +8,26 @@ import TerserPlugin from 'terser-webpack-plugin'
 import EventHooksPlugin from 'event-hooks-webpack-plugin'
 import * as glob from 'glob'
 import fs from 'fs'
+import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
 import webpack from 'webpack'
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const cjsRequire = createRequire(import.meta.url)
 
 // Development port
 const port = process.env.PORT || 3002
+
+// The theme's font (Space Mono 400, 700 and 400 italic), served from this
+// build rather than a font CDN: the CSS and font files are copied unchanged
+// from the pinned @fontsource/space-mono package. The directory carries the
+// package version because these files are served with a one-year cache.
+const spaceMonoPackage = path.dirname(cjsRequire.resolve('@fontsource/space-mono/package.json'))
+const spaceMonoDir = `static/fonts/space-mono-${cjsRequire('@fontsource/space-mono/package.json').version}`
+const spaceMonoStyles = ['400', '700', '400-italic']
+const longCache = 'no-transform,public,max-age=31536000,s-maxage=31536000'
 
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
@@ -96,7 +107,24 @@ export default (env, argv) => {
         template: 'public/index.html',
         filename: isProduction ? 'index_admin.html' : 'index.html',
         inject: 'body',
-        isProduction: isProduction // Pass isProduction to the template
+        isProduction: isProduction, // Pass isProduction to the template
+        fontStylesheets: spaceMonoStyles.map((style) => `/${spaceMonoDir}/${style}.css`)
+      }),
+      new CopyPlugin({
+        patterns: [
+          {
+            context: spaceMonoPackage,
+            from: `{${spaceMonoStyles.join(',')}}.css`,
+            to: `${spaceMonoDir}/`,
+            toType: 'dir'
+          },
+          {
+            context: spaceMonoPackage,
+            from: `files/space-mono-*-{400-normal,700-normal,400-italic}.{woff,woff2}`,
+            to: `${spaceMonoDir}/`,
+            toType: 'dir'
+          }
+        ]
       }),
       new webpack.DefinePlugin({
         'process.env.ADMIN_UIDS': JSON.stringify(process.env.ADMIN_UIDS),
@@ -156,6 +184,24 @@ export default (env, argv) => {
               'Content-Encoding': 'gzip',
               'Content-Type': 'application/javascript',
               'Cache-Control': 'no-transform,public,max-age=31536000,s-maxage=31536000'
+            })
+
+            // Headers for the theme font and the emoji images (versioned paths)
+            writeHeadersJson(`${spaceMonoDir}/*.css`, {
+              'Content-Type': 'text/css',
+              'Cache-Control': longCache
+            })
+            writeHeadersJson(`${spaceMonoDir}/files/*.woff2`, {
+              'Content-Type': 'font/woff2',
+              'Cache-Control': longCache
+            })
+            writeHeadersJson(`${spaceMonoDir}/files/*.woff`, {
+              'Content-Type': 'font/woff',
+              'Cache-Control': longCache
+            })
+            writeHeadersJson('twemoji/*/72x72/*.png', {
+              'Content-Type': 'image/png',
+              'Cache-Control': longCache
             })
 
             // Headers for other files

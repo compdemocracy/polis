@@ -12,13 +12,18 @@ const rid=process.env.DYNAMO_PROOF_REPORT_ID;
 assert(/^rlocal[a-z0-9]+$/.test(rid),'generated local report ID required');
 const output=process.env.DYNAMO_PROOF_OUTPUT;
 assert(output,'DYNAMO_PROOF_OUTPUT required');fs.mkdirSync(output,{recursive:true});
+// The report must render with every non-local host blocked. Deliberate third
+// parties are listed by name; they are blocked too, only the assertion allows them.
+const deliberateHosts=new Set(['scripts.simpleanalyticscdn.com','queue.simpleanalyticscdn.com']);
+const localUrl=/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//;
 (async()=>{
  const browser=await chromium.launch({headless:true});const receipts=[];
  try {
   for(const route of ['report','topicStats','topicReport']){
    const page=await browser.newPage({viewport:{width:1440,height:1100}});
-   const errors=[];const responses=[];let narrativeEvidence;
+   const errors=[];const responses=[];const blocked=[];let narrativeEvidence;
    page.on('pageerror',error=>errors.push(error.message));
+   await page.route(url=>!localUrl.test(url.href),route=>{blocked.push(route.request().url());return route.abort('blockedbyclient')});
    page.on('response',async response=>{
     if(!response.url().includes('/api/'))return;
     let body;try{body=await response.text()}catch{body='unavailable'}
@@ -61,8 +66,10 @@ assert(output,'DYNAMO_PROOF_OUTPUT required');fs.mkdirSync(output,{recursive:tru
    const body=await page.locator('body').innerText();
    await page.screenshot({path:path.join(output,route+'.png'),fullPage:true});
    await page.screenshot({path:path.join(output,route+'-viewport.png')});
-   const record={route,body,errors,responses,narrativeEvidence};receipts.push(record);
+   const record={route,body,errors,blocked,responses,narrativeEvidence};receipts.push(record);
    fs.writeFileSync(path.join(output,'browser.json'),JSON.stringify(receipts,null,2));
+   const thirdParty=blocked.filter(url=>!deliberateHosts.has(new URL(url).hostname));
+   assert.deepEqual(thirdParty,[],route+': requests to third-party hosts');
    assert.equal(errors.length,0,route+': '+errors.join('; '));
    assert(responses.length>0,route+': API requests observed');
    assert(responses.every(r=>r.status<400),route+': '+responses.filter(r=>r.status>=400).map(r=>r.url));

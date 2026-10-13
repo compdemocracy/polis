@@ -47,5 +47,9 @@ module.exports = {
     hints: 'warning', // 'error' for errors, 'warning' for warnings, false to disable
     maxAssetSize: 505000, // Size limit in bytes, default is 250000 (250 KB)
     maxEntrypointSize: 500000, // Size limit in bytes, default is 250000 (250 KB)
+    // The budget is for the report's own bundle; the copied browser-global
+    // libraries (webpack.common.js) are unchanged third-party files.
+    assetFilter: (assetFilename) =>
+      !assetFilename.startsWith('report_vendor_') && !assetFilename.endsWith('.map'),
   },
 };
