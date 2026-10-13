@@ -171,6 +171,30 @@ def main():
     after_source=imp.census(source,Path('/import/after-report.sqlite'),conversations,reports,
         pacer=scan_pacing.ScanPacer(200))
     assert after_source['source_sha256']==rows[-1]['source_sha256']
+    # Read-capacity budget, measured against real DynamoDB Local: a full census
+    # held to a low ceiling consumes read units no faster than the ceiling, and
+    # every page carries real ConsumedCapacity (no fallback metering). The
+    # arithmetic is unit-tested with a fake clock; this proves the real metered
+    # numbers obey it. Waiting out the last page's reservation makes the elapsed
+    # time cover the whole pacing, so units/elapsed <= ceiling holds exactly.
+    import time as clock
+    budget=16.0
+    paced=scan_pacing.ScanPacer(budget)
+    start=clock.monotonic()
+    imp.census(source,Path('/import/measure.sqlite'),conversations,reports,validate_schema=False,pacer=paced)
+    if paced._ready_at is not None:
+        remaining=paced._ready_at-clock.monotonic()
+        if remaining>0: clock.sleep(remaining)
+    elapsed=clock.monotonic()-start
+    paced_summary=paced.summary()
+    achieved=paced_summary['read_units']/elapsed
+    assert paced_summary['unmetered_pages']==0, paced_summary
+    assert paced_summary['read_units']>budget, paced_summary  # enough traffic that the ceiling bound it
+    assert achieved<=budget+1e-6, (achieved,elapsed,paced_summary)
+    print(f'PASS read-capacity budget: {paced_summary["pages"]} eventually consistent pages, '
+          f'{paced_summary["read_units"]} metered read units over {elapsed:.2f}s = {achieved:.3f} units/s '
+          f'(ceiling {budget}); {paced_summary["unmetered_pages"]} unmetered pages, '
+          f'{paced_summary["throttles"]} throttles')
     # Existing broad login is made read-only before the very first transaction.
     old=os.environ['DATABASE_URL'];os.environ['DATABASE_URL']=os.environ['TEST_ADMIN_DATABASE_URL']
     with closing(import_report.connect_existing()) as conn:

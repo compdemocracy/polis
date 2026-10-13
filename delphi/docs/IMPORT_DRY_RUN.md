@@ -104,6 +104,16 @@ report, or a report now bound to a different conversation, refuses. Either way
 `stderr.log` carries one `identity mapping drift` line with added, removed and
 changed counts (never ids). The report and the importer apply the same rule.
 
+Rebinding only re-derives the binding of rows already scanned, so a conversation
+whose result rows are written after this run's scan has passed their page is
+accepted with nothing to bind and would otherwise be missed. Every mid-run
+addition's identity is therefore recorded in `follow-up.json` inside the run's
+attempt directory on the private mount (never relayed, never on stdout/stderr):
+the added conversation zids and each new `report_id`→`zid`. The importer's own
+stdout result gains a counts-only `follow_up` (`conversations`, `reports`) when
+there are additions. Run the import again to pick them up; re-importing a
+conversation already imported in the same run is idempotent (no duplicate rows).
+
 Matching scans are an
 inventory observation, **not** a transactional DynamoDB snapshot or permission to
 apply while writers are running. The importer's per-run bounds (64 MiB per

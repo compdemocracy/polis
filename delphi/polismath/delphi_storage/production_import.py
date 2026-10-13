@@ -25,6 +25,7 @@ SNAPSHOTS = Path('/import/snapshots')
 FAMILY_LIMIT = 64 * 1024 * 1024
 BATCH_LIMIT = 256 * 1024 * 1024
 MANIFEST_LIMIT = 128 * 1024
+FOLLOW_UP = 'follow-up.json'
 
 
 def sha(raw):
@@ -139,6 +140,38 @@ def rebind_additions(database, before, after, allowed_missing=(), *, validate_sc
                   resume=True, skipped=skipped)
 
 
+def mapping_additions(before, after):
+    """Conversations and reports present in `after` but not `before`: the mid-run additions.
+
+    Returns their identities (sorted zids, and each new report_id to its zid).
+    Rebinding re-derives the binding of rows already scanned, so a conversation
+    that appeared mid-run with rows read before it did is counted under it in
+    this run. The additions returned here are the superset that a follow-up pass
+    covers; see `write_follow_up`.
+    """
+    (before_conversations, before_reports), (after_conversations, after_reports) = before, after
+    conversations = sorted(after_conversations[key] for key in after_conversations.keys() - before_conversations.keys())
+    reports = {rid: after_reports[rid] for rid in sorted(after_reports.keys() - before_reports.keys())}
+    return dict(conversations=conversations, reports=reports)
+
+
+def write_follow_up(attempt, before, after):
+    """Record the mid-run additions privately so a follow-up pass re-imports them.
+
+    Rebinding reclassifies rows already scanned for a conversation that appeared
+    during the run, but a conversation whose result rows are written after this
+    run's scan has passed their page is accepted with nothing to bind and would
+    otherwise be missed silently. Every mid-run addition's identity is written
+    here, on the private import mount only (never a relayed channel), so a later
+    run imports anything this run could not see; re-importing a conversation
+    already imported in this run is idempotent. Returns counts only.
+    """
+    additions = mapping_additions(before, after)
+    write_private(attempt / FOLLOW_UP, legacy.json_bytes(
+        dict(schema='polis-production-import-follow-up/1', **additions)))
+    return dict(conversations=len(additions['conversations']), reports=len(additions['reports']))
+
+
 def bind(item, conversations, reports):
     candidates = set()
     for name, sep in [('zid', None), ('conversation_id', None), ('zid_tick', ':'),
@@ -206,7 +239,7 @@ def attempt_directory(scratch, prefix, resume):
         raise ValueError('exactly one incomplete attempt required to resume')
     attempt = candidates[0]
     # Only the census databases carry progress; later outputs are rebuilt from them.
-    for derived in ('snapshot', 'report.jsonl'):
+    for derived in ('snapshot', 'report.jsonl', FOLLOW_UP):
         path = attempt / derived
         if path.is_symlink() or path.is_file():
             path.unlink()
