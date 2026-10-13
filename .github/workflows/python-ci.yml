@@ -22,6 +22,8 @@ on:
       - 'ci/local/delphi-python.sh'
       - 'ci/local/delphi_python_results.py'
       - 'ci/local/delphi-test-durations.json'
+      - 'ci/local/test-images.sh'
+      - '.github/workflows/test-images.yml'
       - 'docker-compose.test.yml'
       - 'server/Dockerfile-db'
       - 'server/postgres/**'
@@ -45,36 +47,49 @@ on:
 
 jobs:
   # Every step of the check lives in ci/local/delphi-python.sh, which runs the
-  # same way on any Docker host. Hosted CI splits the suite into shards (each
-  # also parallel inside its job) and the `test` job puts the shards back
-  # together: it proves every test ran in exactly one shard, adds up the
+  # same way on any Docker host. Hosted CI builds the stack's images once
+  # (test-images.yml), splits the suite into shards (each also parallel inside
+  # its job) that run from those images, and the `test` job puts the shards
+  # back together: it proves every test ran in exactly one shard, adds up the
   # counts and combines coverage.
+  images:
+    uses: ./.github/workflows/test-images.yml
+    with:
+      # The suite runs against Postgres and the delphi image (math-python runs it too).
+      images: postgres,delphi
+
   shard:
-    name: test shard ${{ matrix.shard }}/3
+    name: test shard ${{ matrix.shard }}
+    needs: images
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Free up disk space on runner
+    - name: Download the test images
+      uses: actions/download-artifact@v4
+      with:
+        name: test-images
+        path: ${{ runner.temp }}/test-images
+
+    - name: Load the test images
       run: |
-        df -h
-        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/powershell
-        df -h
+        bash ci/local/test-images.sh load "$RUNNER_TEMP/test-images"
+        rm -rf "$RUNNER_TEMP/test-images"
+        df -h /
 
-    # BuildKit is required by `RUN --mount=type=cache` in the npm Dockerfiles.
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Delphi pytest (shard ${{ matrix.shard }}/3)
+    - name: Delphi pytest (shard ${{ matrix.shard }}/${{ strategy.job-total }})
       env:
+        POLIS_TEST_IMAGES: ci
         DELPHI_CHECK_OUT: ${{ github.workspace }}/delphi-results/shard-${{ matrix.shard }}
-      run: bash ci/local/delphi-python.sh --shard ${{ matrix.shard }}/3
+        # The runner is discarded after the job; tearing the stack down only costs time.
+        DELPHI_CHECK_KEEP: '1'
+      run: bash ci/local/delphi-python.sh --shard ${{ matrix.shard }}/${{ strategy.job-total }}
 
     - name: Upload shard results
       if: always()
@@ -109,7 +124,7 @@ jobs:
       env:
         DELPHI_CHECK_OUT: ${{ github.workspace }}/delphi-results/combined
       run: |
-        bash ci/local/delphi-python.sh combine delphi-results/delphi-shard-1 delphi-results/delphi-shard-2 delphi-results/delphi-shard-3
+        bash ci/local/delphi-python.sh combine delphi-results/delphi-shard-*
         cp delphi-results/combined/coverage-comment.md coverage-comment.md
 
     - name: Upload Coverage Report

@@ -2,695 +2,868 @@
  "units": {
   "file:tests/job_graph/test_numerical_stages.py": [
    0.2,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_atomic_publish.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_empty_publication.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r01_stage_failures.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r02_newer_revote_during_retry.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r03_park_then_silence.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r04_park_unpark_races.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r05_mid_batch_restart.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r06_lru_in_flight.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r07_overlapping_shards.py": [
    0.4,
-   0
+   0,
+   0.2
   ],
   "file:tests/poller/recovery/test_r08_timestamp_boundary.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r09_partial_tables_readers.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r10_poll_load_failure_fairness.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r11_namespace_config.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/recovery/test_r12_publication_cursor.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_admission.py": [
    2.7,
-   0
+   0,
+   0.6
   ],
   "file:tests/poller/test_backfill.py": [
-   0.7,
-   0
+   0.9,
+   0,
+   0.0
   ],
   "file:tests/poller/test_backfill_postgres.py": [
    0,
-   56.5
+   71.5,
+   0.0
   ],
   "file:tests/poller/test_cache_lock.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_capacity.py": [
-   0.3,
-   0
+   0.2,
+   0,
+   0.0
   ],
   "file:tests/poller/test_capacity_queue.py": [
-   0.2,
-   0
+   0.3,
+   0,
+   0.0
   ],
   "file:tests/poller/test_capacity_queue_postgres.py": [
    0,
-   29.1
+   28.0,
+   0.0
   ],
   "file:tests/poller/test_child_process_fence.py": [
    1.2,
-   0
+   0,
+   0.2
   ],
   "file:tests/poller/test_coalescing.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_collect_readiness.py": [
-   232.1,
-   0
+   140.3,
+   0,
+   26.3
   ],
   "file:tests/poller/test_empty_output.py": [
-   0.4,
-   0
+   0.3,
+   0,
+   0.2
   ],
   "file:tests/poller/test_enqueue_math_rebuild.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/poller/test_error_path.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/poller/test_integration_postgres.py": [
-   0.8,
-   0
+   0.3,
+   0,
+   0.3
   ],
   "file:tests/poller/test_load_or_init.py": [
-   2.9,
-   0
+   1.3,
+   0,
+   0.2
   ],
   "file:tests/poller/test_math_writer.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_ops_fixture_lines.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_park_rebuild_recovery.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/poller/test_poll_once_timeout.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_postgres_client_pid_types.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_postgres_vote_chokepoint.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_promotion.py": [
-   0.2,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/poller/test_promotion_postgres.py": [
-   67.9,
-   0
+   75.4,
+   0,
+   30.7
   ],
   "file:tests/poller/test_readiness.py": [
    0.5,
-   0
+   0,
+   0.4
   ],
   "file:tests/poller/test_readiness_sources.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_recovery.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/poller/test_revote_order.py": [
-   0.0,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/poller/test_serialization.py": [
    0.1,
-   0
+   0,
+   0.1
   ],
   "file:tests/poller/test_served_env_guard.py": [
-   0.0,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/poller/test_service.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/poller/test_single_writer_guards.py": [
-   28.1,
-   0
+   30.7,
+   0,
+   7.6
   ],
   "file:tests/poller/test_single_writer_lock.py": [
-   160.6,
-   0
+   113.3,
+   0,
+   17.8
   ],
   "file:tests/poller/test_watermark.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/projgate/projection_gate_test.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/projgate/projection_inventory_test.py": [
-   7.8,
-   0
+   5.2,
+   0,
+   4.8
   ],
   "file:tests/projgate/test_checkout_locator.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_attribution_observer.py": [
-   1.9,
-   0
+   3.4,
+   0,
+   1.7
   ],
   "file:tests/replay_harness/test_axis_continuity.py": [
-   0.3,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_battery_coverage.py": [
-   0.2,
-   0
+   0.4,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_certify.py": [
-   8.5,
-   0
+   27.8,
+   0,
+   14.1
   ],
   "file:tests/replay_harness/test_certify_cache_keys_p019.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_certify_canonicalization.py": [
-   0.4,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_certify_cli.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_certify_strict_gate.py": [
-   57.2,
-   0
+   13.5,
+   0,
+   6.9
   ],
   "file:tests/replay_harness/test_ci_recordings_manifest.py": [
-   1.0,
-   0
+   0.8,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_cli.py": [
-   4.6,
-   0
+   5.5,
+   0,
+   5.5
   ],
   "file:tests/replay_harness/test_clj_crosslang.py": [
-   0.4,
-   0
+   0.6,
+   0,
+   0.3
   ],
   "file:tests/replay_harness/test_clj_moderation_tail.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_decision_ties.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_driver.py": [
-   3.2,
-   0
+   10.6,
+   0,
+   1.7
   ],
   "file:tests/replay_harness/test_event_ingress.py": [
-   0.2,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_polarity_property.py": [
-   53.1,
-   0
+   49.1,
+   0,
+   12.8
   ],
   "file:tests/replay_harness/test_poller_equiv_compare.py": [
-   0.9,
-   0
+   0.8,
+   0,
+   0.1
   ],
   "file:tests/replay_harness/test_poller_equiv_envelope.py": [
-   0.9,
-   0
+   1.4,
+   0,
+   0.5
   ],
   "file:tests/replay_harness/test_poller_equiv_seed.py": [
-   0.2,
-   0
+   0.4,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_real_data_local.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_real_data_mod_events.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_schedule.py": [
-   0.4,
-   0
+   0.7,
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_shard_bench.py": [
-   0.5,
-   0
+   0.8,
+   0,
+   0.4
   ],
   "file:tests/replay_harness/test_stage_oracle_e2e.py": [
-   3.7,
-   0
+   3.8,
+   0,
+   2.5
   ],
   "file:tests/replay_harness/test_stages.py": [
-   0.8,
-   0
+   0.5,
+   0,
+   0.1
   ],
   "file:tests/replay_harness/test_stepcompare.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/replay_harness/test_store.py": [
-   0.2,
-   0
+   0.5,
+   0,
+   0.1
   ],
   "file:tests/test_501_calculate_comment_extremity.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_after_install_hook.py": [
-   2.3,
-   0
+   4.1,
+   0,
+   0.3
   ],
   "file:tests/test_aws_credentials.py": [
-   9.0,
-   0
+   9.1,
+   0,
+   0.6
   ],
   "file:tests/test_base_cluster_lineage.py": [
-   3.3,
-   0
+   3.2,
+   0,
+   1.5
   ],
   "file:tests/test_batch_id.py": [
-   4.5,
-   0
+   4.7,
+   0,
+   1.4
   ],
   "file:tests/test_before_install_hook.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_benchmark_boundaries.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_benchmarks_importable.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_bool_flags.py": [
-   171.8,
-   0
+   242.0,
+   0,
+   125.7
   ],
   "file:tests/test_certify_bundle.py": [
-   44.0,
-   0
+   54.6,
+   0,
+   3.8
   ],
   "file:tests/test_certify_bundle_integration.py": [
    0,
-   22.4
+   14.1,
+   0.0
   ],
   "file:tests/test_certify_fixture_config.py": [
-   0.4,
-   0
+   0.6,
+   0,
+   0.0
   ],
   "file:tests/test_certify_probe_config.py": [
-   7.8,
-   0
+   9.0,
+   0,
+   6.1
   ],
   "file:tests/test_certify_served_math.py": [
-   2.3,
-   0
+   2.2,
+   0,
+   0.1
   ],
   "file:tests/test_clj_hash_order.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_clojure_comparer.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/test_clusters.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_compose_math_env.py": [
-   9.4,
-   0
+   9.9,
+   0,
+   0.4
   ],
   "file:tests/test_convergence_distance.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_conversation.py": [
-   1.3,
-   0
+   0.6,
+   0,
+   0.1
   ],
   "file:tests/test_conversation_smoke.py": [
-   9.9,
-   0
+   10.7,
+   0,
+   6.3
   ],
   "file:tests/test_coordinator_collection.py": [
-   10.7,
-   0
+   9.8,
+   0,
+   2.7
   ],
   "file:tests/test_corr.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/test_dataset_selection.py": [
-   1.0,
-   0
+   1.1,
+   0,
+   0.3
   ],
   "file:tests/test_datasets.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_degenerate_tick_parity.py": [
-   0.6,
-   0
+   1.4,
+   0,
+   0.5
   ],
   "file:tests/test_delphi_legacy_import.py": [
-   2.9,
-   0
+   2.7,
+   0,
+   0.5
   ],
   "file:tests/test_delphi_postgres_results.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_delphi_result_resource.py": [
-   0.1,
-   0
+   0.2,
+   0,
+   0.0
   ],
   "file:tests/test_delphi_result_resource_pagination.py": [
-   0.9,
-   0
+   1.6,
+   0,
+   0.4
   ],
   "file:tests/test_delphi_storage_codec.py": [
    0.2,
-   0
+   0,
+   0.1
   ],
   "file:tests/test_delphi_vote_convention_sites.py": [
    0.4,
-   0
+   0,
+   0.2
   ],
   "file:tests/test_delphi_writer.py": [
-   0.7,
-   0
+   0.6,
+   0,
+   0.1
   ],
   "file:tests/test_discrepancy_fixes.py": [
-   0.6,
-   0
+   0.4,
+   0,
+   0.0
   ],
   "file:tests/test_dsn_admission.py": [
    0.2,
-   0
+   0,
+   0.1
   ],
   "file:tests/test_dynamodb_consensus_roundtrip.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/test_dynamodb_float_serialization.py": [
-   0.6,
-   0
+   0.7,
+   0,
+   0.1
   ],
   "file:tests/test_edge_cases.py": [
-   0.2,
-   0
+   0.3,
+   0,
+   0.2
   ],
   "file:tests/test_empty_conversation_readers.py": [
    0.1,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_engine_rebuild.py": [
    0,
-   13.1
+   10.6,
+   0.0
   ],
   "file:tests/test_entrypoint_boundaries.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_env_flags.py": [
-   0.4,
-   0
+   0.2,
+   0,
+   0.2
   ],
   "file:tests/test_generator_vote_copy.py": [
    0,
-   0.1
+   0.1,
+   0.0
   ],
   "file:tests/test_geometry_axis_pair.py": [
-   0.6,
-   0
+   0.3,
+   0,
+   0.2
   ],
   "file:tests/test_group_k_smoother.py": [
-   2.0,
-   0
+   1.9,
+   0,
+   1.5
   ],
   "file:tests/test_group_vote_counts.py": [
-   0.2,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/test_import_report.py": [
-   2.2,
-   0
+   1.8,
+   0,
+   0.2
   ],
   "file:tests/test_in_conv_greedy_carry.py": [
-   0.6,
-   0
+   1.5,
+   0,
+   0.4
   ],
   "file:tests/test_job_child_protocol.py": [
-   53.5,
-   0
+   31.0,
+   0,
+   4.5
   ],
   "file:tests/test_large_conv_tick_bench.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_legacy_blob_shape.py": [
-   1.5,
-   0
+   1.6,
+   0,
+   0.2
   ],
   "file:tests/test_legacy_kmeans.py": [
-   0.3,
-   0
+   0.6,
+   0,
+   0.2
   ],
   "file:tests/test_light_shadow_triage.py": [
-   4.0,
-   0
+   5.4,
+   0,
+   0.5
   ],
   "file:tests/test_math_pipeline_runs_e2e.py": [
-   4.4,
-   0
+   6.3,
+   0,
+   6.3
   ],
   "file:tests/test_math_writer_numpy_serialization.py": [
-   0.3,
-   0
+   0.4,
+   0,
+   0.2
   ],
   "file:tests/test_minio_access.py": [
    0.3,
-   0
+   0,
+   0.3
   ],
   "file:tests/test_mod_ptpt_leak_parity.py": [
-   1.4,
-   0
+   0.6,
+   0,
+   0.3
   ],
   "file:tests/test_mod_update_parity.py": [
-   0.6,
-   0
+   0.7,
+   0,
+   0.3
   ],
   "file:tests/test_most_distal_distance.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_narrative_audit.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_null_vote_fold.py": [
-   1.1,
-   0
+   1.8,
+   0,
+   1.6
   ],
   "file:tests/test_participant_info.py": [
-   0.3,
-   0
+   0.2,
+   0,
+   0.0
   ],
   "file:tests/test_pca_column_order.py": [
-   1.3,
-   0
+   3.0,
+   0,
+   1.5
   ],
   "file:tests/test_pca_edge_cases.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_pca_operation_parity.py": [
-   0.2,
-   0
+   0.1,
+   0,
+   0.0
   ],
   "file:tests/test_pca_unit.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_pca_warm_start.py": [
-   0.3,
-   0
+   0.6,
+   0,
+   0.2
   ],
   "file:tests/test_postgres_real_data.py": [
-   0.9,
-   0
+   0.4,
+   0,
+   0.4
   ],
   "file:tests/test_powerit_pca.py": [
    0.2,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_priority_unmirror.py": [
    0.5,
-   0
+   0,
+   0.3
   ],
   "file:tests/test_probe_reader_snapshot.py": [
-   0.1,
-   0
+   0.3,
+   0,
+   0.1
   ],
   "file:tests/test_prodclone_extract.py": [
    0.2,
-   0.1
+   0.1,
+   0.0
   ],
   "file:tests/test_production_import.py": [
-   1.8,
-   0
+   2.9,
+   0,
+   2.2
   ],
   "file:tests/test_public_fixture_cli.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_queue_noop_executor.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/test_regression.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_repness_fallback_precision.py": [
-   2.2,
-   0
+   3.0,
+   0,
+   2.6
   ],
   "file:tests/test_repness_unit.py": [
-   6.1,
-   0
+   2.8,
+   0,
+   1.9
   ],
   "file:tests/test_report_math_env.py": [
-   21.9,
-   0
+   17.8,
+   0,
+   4.2
   ],
   "file:tests/test_representative_payloads.py": [
-   27.9,
-   0
+   19.7,
+   0,
+   1.4
   ],
   "file:tests/test_representative_selection.py": [
-   0.8,
-   0
+   1.2,
+   0,
+   0.1
   ],
   "file:tests/test_reset_conversation.py": [
-   0.0,
-   0
+   0.3,
+   0,
+   0.3
   ],
   "file:tests/test_run_delphi_exit_codes.py": [
-   326.3,
-   0
+   284.5,
+   0,
+   135.2
   ],
   "file:tests/test_run_math_pipeline_main.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/test_sanity_checks.py": [
-   2.8,
-   0
+   1.5,
+   0,
+   1.4
   ],
   "file:tests/test_scan_pacing.py": [
-   1.0,
-   0
+   0.9,
+   0,
+   0.1
   ],
   "file:tests/test_serialization_unfolding.py": [
    0.2,
-   0
+   0,
+   0.1
   ],
   "file:tests/test_umap_narrative_pipeline.py": [
-   156.7,
-   0
+   115.3,
+   0,
+   115.3
   ],
   "file:tests/test_validate_service_hook.py": [
-   6.0,
-   0
+   4.4,
+   0,
+   1.4
   ],
   "file:tests/test_vote_convention_source.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "file:tests/topic_naming/test_job_routing.py": [
    0.0,
-   0
+   0,
+   0.0
   ],
   "file:tests/topic_naming/test_model_provider_batch.py": [
-   1.9,
-   0
+   2.0,
+   0,
+   1.9
   ],
   "file:tests/topic_naming/test_topic_naming.py": [
-   0.1,
-   0
+   0.0,
+   0,
+   0.0
   ],
   "group:dataset-biodiversity": [
-   38.1,
-   0
+   68.4,
+   0,
+   6.6
   ],
   "group:dataset-vw": [
-   8.8,
-   0
+   6.6,
+   0,
+   0.5
   ]
  }
 }
