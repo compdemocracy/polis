@@ -1695,3 +1695,294 @@ fn schema_invalid_manifests_never_finalize() {
         assert_eq!(d.stop(), Some(0));
     }
 }
+
+/// The embeddings table (migration 000038) behind the flag: the daemon's typed
+/// writer (`Rpc::embedding_put`, its two-dimensional real[] matrix) and reader
+/// (`Rpc::embedding_copy`, binary COPY) against a real database carrying the
+/// whole release chain, scaffolded through the real graph RPCs. These paths run
+/// only when the flag is on; the daemon-level flag off is covered by the unit
+/// tests and leaves every existing integration test unchanged.
+mod embeddings_table {
+    use super::{ENV, LOGIN, admin_url, root, url_for};
+    use polis_queue_adapter::jobs::config::TransportKind;
+    use polis_queue_adapter::jobs::embedding;
+    use polis_queue_adapter::jobs::rpc::Rpc;
+    use polis_queue_adapter::jobs::transport::Connector;
+    use postgres::{Client, NoTls};
+    use serde_json::{Value, json};
+    use sha2::{Digest, Sha256};
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    const MODEL: &str = embedding::MODEL_MINILM;
+    const DIMS: usize = 384;
+
+    /// A throwaway database carrying the full release chain (through 000038),
+    /// an executor login and the fixture conversation (zid 1).
+    struct FullDb {
+        name: String,
+    }
+
+    impl FullDb {
+        fn new() -> Self {
+            let name = format!("emb_{}", Uuid::new_v4().simple());
+            Client::connect(&admin_url(), NoTls)
+                .unwrap()
+                .batch_execute(&format!("CREATE DATABASE {name}"))
+                .unwrap();
+            let dsn = url_for(&name, "postgres");
+            // Apply the whole release chain with the runner itself: this is the
+            // only template that includes 000038 and its 000027-000031 base.
+            let release =
+                polis_migrate::load(&root().join("../server/postgres/migrations")).unwrap();
+            let mut runner = polis_migrate::connect(&format!("{dsn}?sslmode=disable")).unwrap();
+            polis_migrate::apply(&mut runner, &release).unwrap();
+            drop(runner);
+            Client::connect(&dsn, NoTls)
+                .unwrap()
+                .batch_execute(&format!(
+                    "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='{LOGIN}') \
+                       THEN CREATE ROLE {LOGIN} LOGIN; END IF; END $$;
+                     GRANT polis_queue_executor TO {LOGIN};
+                     INSERT INTO users(uid,hname) VALUES(1,'generated embeddings owner') ON CONFLICT DO NOTHING;
+                     INSERT INTO conversations(zid,owner,topic) VALUES(1,1,'generated embeddings proof') ON CONFLICT DO NOTHING;"
+                ))
+                .unwrap();
+            FullDb { name }
+        }
+
+        fn admin(&self) -> Client {
+            Client::connect(&url_for(&self.name, "postgres"), NoTls).unwrap()
+        }
+
+        fn executor(&self) -> Client {
+            Client::connect(&url_for(&self.name, LOGIN), NoTls).unwrap()
+        }
+
+        fn rpc(&self) -> Rpc {
+            let connector = Connector::from_parts(
+                &url_for(&self.name, LOGIN),
+                &TransportKind::Loopback,
+                None,
+                "embeddings-test",
+            )
+            .unwrap();
+            Rpc::new(Arc::new(connector), ENV)
+        }
+
+        /// Admit a four-node graph and claim its embed node, returning the fence
+        /// tokens `[env, job, owner, attempt, lease_epoch]` as JSON values.
+        fn claim_embed(&self, scope: &str, key: &str) -> [Value; 5] {
+            let texts = json!([
+                "trees green leaves",
+                "green leaves grow",
+                "water flows river",
+                "river water blue",
+                "sky above clouds"
+            ]);
+            let data = json!({ "texts": texts });
+            let mut admin = self.admin();
+            let sha: String = admin
+                .query_one("SELECT public.pd_graph_hash($1)", &[&data])
+                .unwrap()
+                .get(0);
+            let code = super::sha_hex(b"generated embeddings proof");
+            let stages = [
+                ("e", "graph_embed", MODEL, json!([])),
+                (
+                    "c",
+                    "graph_cluster",
+                    "local-nearest-centroid/1",
+                    json!([{"node":"e","role":"embeddings"}]),
+                ),
+                (
+                    "t",
+                    "graph_topics",
+                    "delphi-tfidf-keywords/1",
+                    json!([{"node":"c","role":"clusters"}]),
+                ),
+                (
+                    "n",
+                    "graph_narrative",
+                    "local-narrative-fixture/1",
+                    json!([{"node":"t","role":"topics"}]),
+                ),
+            ];
+            let nodes: Vec<Value> = stages
+                .iter()
+                .map(|(k, stage, model, inputs)| {
+                    json!({
+                        "key": k, "stage": stage, "class": "delphi",
+                        "declared": {
+                            "snapshot": {"data": data, "sha256": sha}, "code": code, "model": model,
+                            "runtime": "python-3.12", "seed": 0, "config": {}, "mode": "full",
+                            "memory_bytes": 1048576, "work_units": 100
+                        },
+                        "inputs": inputs, "max_attempts": 1
+                    })
+                })
+                .collect();
+            let spec = json!({"schema": "polis-job-graph/1", "nodes": nodes});
+            let mut ex = self.executor();
+            let admit: Value = ex
+                .query_one(
+                    "SELECT public.pd_graph_admit($1,$2,$3,$4,$5,NULL)",
+                    &[&ENV, &1i32, &scope, &key, &spec],
+                )
+                .unwrap()
+                .get(0);
+            assert!(admit["graph_id"].is_string(), "admit: {admit}");
+            let owner = Uuid::new_v4();
+            let attempt = Uuid::new_v4();
+            let claim: Value = ex
+                .query_one(
+                    "SELECT public.pd_graph_claim($1,$2::smallint,$3::uuid,$4::uuid,$5,$6,$7)",
+                    &[
+                        &ENV,
+                        &1i16,
+                        &owner,
+                        &attempt,
+                        &900i32,
+                        &"delphi",
+                        &"graph_embed",
+                    ],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(claim["outcome"], "owned", "claim: {claim}");
+            [
+                json!(ENV),
+                claim["job_id"].clone(),
+                claim["owner_id"].clone(),
+                claim["attempt_id"].clone(),
+                claim["lease_epoch"].clone(),
+            ]
+        }
+    }
+
+    impl Drop for FullDb {
+        fn drop(&mut self) {
+            if let Ok(mut admin) = Client::connect(&admin_url(), NoTls) {
+                let _ = admin.batch_execute(&format!(
+                    "DROP DATABASE IF EXISTS {} WITH (FORCE)",
+                    self.name
+                ));
+            }
+        }
+    }
+
+    fn vector(tid: i32) -> Vec<f32> {
+        (0..DIMS)
+            .map(|i| ((i64::from(tid) * 31 + i as i64).rem_euclid(997)) as f32 / 997.0)
+            .collect()
+    }
+
+    fn text_sha(tid: i32) -> [u8; 32] {
+        let mut h = Sha256::new();
+        h.update(format!("comment {tid}").as_bytes());
+        h.finalize().into()
+    }
+
+    /// Put the given comment ids under one claimed embed attempt.
+    fn put(rpc: &mut Rpc, identity: &[Value; 5], tids: &[i32]) -> Value {
+        let shas: Vec<[u8; 32]> = tids.iter().map(|t| text_sha(*t)).collect();
+        let refs: Vec<&[u8]> = shas.iter().map(|s| &s[..]).collect();
+        let matrix: Vec<f32> = tids.iter().flat_map(|t| vector(*t)).collect();
+        rpc.embedding_put(identity, MODEL, tids, &refs, DIMS, &matrix)
+            .unwrap()
+    }
+
+    fn close(rpc: &mut Rpc, identity: &[Value; 5]) -> Value {
+        let mut args = identity.to_vec();
+        args.push(json!(MODEL));
+        rpc.committed("pd_embedding_close", &args).unwrap()
+    }
+
+    #[test]
+    fn write_read_reuse_ordering_and_digest() {
+        let db = FullDb::new();
+        let mut rpc = db.rpc();
+
+        // Run one: five comments.
+        let run1 = db.claim_embed("s1", "r1");
+        let added = put(&mut rpc, &run1, &[0, 1, 2, 3, 4]);
+        assert_eq!(added["added"], 5, "{added}");
+        assert_eq!(added["existing"], 0, "{added}");
+        let receipt1 = close(&mut rpc, &run1);
+        assert_eq!(receipt1["row_count"], 5, "{receipt1}");
+        assert_eq!(receipt1["dims"], 384, "{receipt1}");
+        let batch1 = receipt1["batch_id"].as_str().unwrap().to_owned();
+
+        // Read it back by binary COPY; the independent digest matches the receipt.
+        let set1 = embedding::set_from_copy_binary(
+            &rpc.embedding_copy(&batch1, MODEL).unwrap(),
+            MODEL,
+            DIMS as u16,
+        )
+        .unwrap();
+        assert_eq!(set1.rows.len(), 5);
+        assert_eq!(set1.content_sha, receipt1["sha256"].as_str().unwrap());
+        let row0 = set1.rows.iter().find(|r| r.tid == 0).unwrap();
+        assert_eq!(
+            row0.vector,
+            vector(0),
+            "the matrix round-trips through real[]"
+        );
+        assert_eq!(row0.text_sha, text_sha(0));
+
+        // Put after close is refused.
+        let shas = [text_sha(9)];
+        let err = rpc
+            .embedding_put(&run1, MODEL, &[9], &[&shas[0][..]], DIMS, &vector(9))
+            .unwrap_err();
+        assert!(err.to_string().contains("embedding set closed"), "{err}");
+
+        // Run two on the same conversation adds only the new comments.
+        let run2 = db.claim_embed("s2", "r2");
+        let added2 = put(&mut rpc, &run2, &[0, 1, 2, 3, 4, 5, 6]);
+        assert_eq!(added2["added"], 2, "only the two new comments: {added2}");
+        assert_eq!(added2["existing"], 5, "{added2}");
+        let receipt2 = close(&mut rpc, &run2);
+        assert_eq!(receipt2["row_count"], 7, "{receipt2}");
+        let batch2 = receipt2["batch_id"].as_str().unwrap().to_owned();
+
+        // The first run's closed set never changes; the second holds all seven.
+        let set1b = embedding::set_from_copy_binary(
+            &rpc.embedding_copy(&batch1, MODEL).unwrap(),
+            MODEL,
+            DIMS as u16,
+        )
+        .unwrap();
+        assert_eq!(set1b.rows.len(), 5, "a closed set never gains rows");
+        let copy2 = rpc.embedding_copy(&batch2, MODEL).unwrap();
+        let set2 = embedding::set_from_copy_binary(&copy2, MODEL, DIMS as u16).unwrap();
+        assert_eq!(set2.rows.len(), 7);
+        assert_eq!(set2.content_sha, receipt2["sha256"].as_str().unwrap());
+
+        // A tampered stream is refused: either it no longer parses, or its
+        // digest no longer matches the receipt the daemon would check against.
+        let mut tampered = copy2.clone();
+        let mid = tampered.len() / 2;
+        tampered[mid] ^= 0x01;
+        if let Ok(set) = embedding::set_from_copy_binary(&tampered, MODEL, DIMS as u16) {
+            assert_ne!(
+                set.content_sha,
+                receipt2["sha256"].as_str().unwrap(),
+                "a changed byte must change the digest"
+            );
+        }
+
+        // Close must precede the batch seal: a seal first makes close refuse.
+        let run3 = db.claim_embed("s3", "r3");
+        put(&mut rpc, &run3, &[10, 11]);
+        let seal = rpc.committed("pd_result_seal", &run3).unwrap();
+        assert_eq!(seal["schema"], "delphi-result-batch/1", "{seal}");
+        let mut late = run3.to_vec();
+        late.push(json!(MODEL));
+        let err = rpc.committed("pd_embedding_close", &late).unwrap_err();
+        assert!(
+            err.to_string().contains("sealed"),
+            "close after seal: {err}"
+        );
+    }
+}

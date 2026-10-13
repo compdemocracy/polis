@@ -14,21 +14,179 @@ from pathlib import Path
 import re
 import shutil
 import sqlite3
+import struct
 import subprocess
 import sys
 import time
 import uuid
 
 from . import codec, legacy_import as legacy, scan_pacing
+from .embedding_spool import MAX_DIMS, MAX_SPOOL_BYTES, write_spool
 
 SNAPSHOTS = Path('/import/snapshots')
 FAMILY_LIMIT = 64 * 1024 * 1024
 BATCH_LIMIT = 256 * 1024 * 1024
 MANIFEST_LIMIT = 128 * 1024
+FOLLOW_UP = 'follow-up.json'
+
+# The one comment-embeddings family, and the single model migration 000038 seeds
+# (model_id 1, 384 dims). The legacy bare name normalizes to the seeded name, so
+# both legacy spellings land on the same model; any other string refuses, because
+# nothing has admitted it. Kept in step with queue-rs embedding::MODEL_MINILM and
+# the migration's seed row.
+EMBEDDINGS_FAMILY = 'Delphi_CommentEmbeddings'
+SEEDED_EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
+EMBEDDING_MODEL_ALIASES = {
+    'all-MiniLM-L6-v2': SEEDED_EMBEDDING_MODEL,
+    SEEDED_EMBEDDING_MODEL: SEEDED_EMBEDDING_MODEL,
+}
+# The spool file written beside a conversation's family files, read by the
+# detached child and routed by the daemon into pd_embedding_put/close.
+EMBEDDING_SPOOL_FILE = 'embeddings.spool'
+
+
+def embeddings_table_enabled():
+    """The one switch, default off. Only the exact string "1" turns it on, so one
+    value moves the importer, the daemon (DELPHI_EMBEDDINGS_TABLE in queue-rs) and
+    Delphi's Python together. Off is today's codec-family path, unchanged."""
+    return os.environ.get('DELPHI_EMBEDDINGS_TABLE') == '1'
 
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def _float32_exact(text):
+    """(float32 value as a Python float, exact) for one canonical decimal string.
+
+    float32 exact means float(numpy.float32(float(s))) == float(s): the legacy
+    MiniLM path printed float32 vectors, so every value must survive narrowing to
+    float32 and back with no change. Done with stdlib struct (no numpy), which
+    narrows to the same IEEE-754 float32 the table stores."""
+    value = float(text)
+    try:
+        narrowed = struct.unpack('<f', struct.pack('<f', value))[0]
+    except (OverflowError, struct.error):
+        return None, False
+    return narrowed, narrowed == value
+
+
+def _array_send_real(vector):
+    """Reproduce Postgres array_send(real[]) over a one-dimensional float4 array:
+    big-endian ndim, has_null, element Oid 700, dim length, lower bound, then each
+    element as (length 4, big-endian float32). The set content digest hashes these
+    exact bytes, so the importer can recompute what pd_embedding_close stored."""
+    out = bytearray()
+    out += struct.pack('>iiIii', 1, 0, 700, len(vector), 1)
+    for v in vector:
+        out += struct.pack('>if', 4, v)
+    return bytes(out)
+
+
+def embedding_content_sha(rows):
+    """Reproduce delphi_embedding_sets.content_sha: SHA-256 over one line per row
+    in tid order, tid:hex(text_sha):hex(sha256(array_send(embedding))), joined by
+    newlines. `rows` is (tid, text_sha bytes, float32 vector), already tid-sorted."""
+    lines = ['%d:%s:%s' % (tid, text_sha.hex(), sha(_array_send_real(vector)))
+             for tid, text_sha, vector in rows]
+    return hashlib.sha256('\n'.join(lines).encode('utf-8')).hexdigest()
+
+
+def embedding_model_counts(database):
+    """{raw model string -> imported-row count} over Delphi_CommentEmbeddings.
+
+    Counts only, never ids; the dry run reports it so an operator sees which model
+    strings the source holds before any flag-on import maps and stores them. A row
+    whose embedding shape is unreadable is counted under the sentinel '<no model>'.
+    """
+    counts = {}
+    with closing(sqlite3.connect(database)) as db:
+        for (wire,) in db.execute(
+                "SELECT wire FROM rows WHERE family=? AND disposition='imported'", (EMBEDDINGS_FAMILY,)):
+            try:
+                model = json.loads(wire)['embedding']['M']['model']['S']
+                if not isinstance(model, str):
+                    raise TypeError
+            except (KeyError, TypeError, ValueError):
+                model = '<no model>'
+            counts[model] = counts.get(model, 0) + 1
+    return counts
+
+
+def embedding_text_shas(connection, database):
+    """{(zid, tid) -> SHA-256 bytes of comments.txt} for every imported embedding.
+
+    A comment's text is its embedding's provenance (text_sha in the row). The read
+    is bounded (comments for the conversations that have embeddings, keyed by the
+    indexed zid) and happens on a read-only connection the caller opens and closes
+    before materialize, so no Postgres connection or lock is held across the slow
+    staging work and the server's vote pools are never touched (ops red tape)."""
+    with closing(sqlite3.connect(database)) as db:
+        zids = [z for (z,) in db.execute(
+            "SELECT DISTINCT zid FROM rows WHERE family=? AND disposition='imported' AND zid IS NOT NULL",
+            (EMBEDDINGS_FAMILY,))]
+    result = {}
+    if not zids:
+        return result
+    connection.set_session(readonly=True)
+    with connection, connection.cursor() as cursor:
+        cursor.execute('SELECT zid, tid, txt FROM comments WHERE zid = ANY(%s)', (zids,))
+        for zid, tid, txt in cursor:
+            result[(zid, tid)] = hashlib.sha256(txt.encode('utf-8')).digest()
+    return result
+
+
+def _conversation_embedding_spool(db, zid, text_shas, report):
+    """One conversation's imported embeddings as a spool, or None if it has none.
+
+    Returns (model, dims, rows, spool_bytes, content_sha) where rows is a tid-sorted
+    list of (tid, text_sha bytes, float32 vector). Refuses the whole conversation on
+    an unmapped model, a dimension that disagrees with the vector, a value that is
+    not float32-exact, or more than one model in the conversation. A comment whose
+    text is gone is skipped and counted in `report` (text_missing); its embedding is
+    not stored, because without the text there is no provenance to record."""
+    model = dims = None
+    collected = []
+    for (wire,) in db.execute(
+            "SELECT wire FROM rows WHERE family=? AND zid=? AND disposition='imported' ORDER BY k",
+            (EMBEDDINGS_FAMILY, zid)):
+        item = json.loads(wire)
+        try:
+            tid = int(item['comment_id']['N'])
+            embedding = item['embedding']['M']
+            raw_model = embedding['model']['S']
+            dimensions = int(embedding['dimensions']['N'])
+            vector_avs = embedding['vector']['L']
+        except (KeyError, TypeError, ValueError):
+            raise ValueError('unreadable embedding row')
+        normalized = EMBEDDING_MODEL_ALIASES.get(raw_model)
+        if normalized is None:
+            raise ValueError('unmapped embedding model')
+        if dimensions != len(vector_avs) or not 1 <= dimensions <= MAX_DIMS:
+            raise ValueError('embedding dimension mismatch')
+        if model is None:
+            model, dims = normalized, dimensions
+        elif normalized != model or dimensions != dims:
+            raise ValueError('multiple embedding models in conversation')
+        vector = []
+        for av in vector_avs:
+            narrowed, exact = _float32_exact(av['N'])
+            if not exact:
+                raise ValueError('embedding value is not float32 exact')
+            vector.append(narrowed)
+        text_sha = text_shas.get((zid, tid))
+        if text_sha is None:
+            report['text_missing'] = report.get('text_missing', 0) + 1
+            continue
+        collected.append((tid, text_sha, vector))
+    if model is None:
+        return None
+    collected.sort(key=lambda entry: entry[0])
+    spool_bytes = write_spool(model, dims, collected)
+    report['rows'] = report.get('rows', 0) + len(collected)
+    report.setdefault('models', {})
+    report['models'][model] = report['models'].get(model, 0) + len(collected)
+    return model, dims, collected, spool_bytes, embedding_content_sha(collected)
 
 
 def code_sha():
@@ -139,6 +297,38 @@ def rebind_additions(database, before, after, allowed_missing=(), *, validate_sc
                   resume=True, skipped=skipped)
 
 
+def mapping_additions(before, after):
+    """Conversations and reports present in `after` but not `before`: the mid-run additions.
+
+    Returns their identities (sorted zids, and each new report_id to its zid).
+    Rebinding re-derives the binding of rows already scanned, so a conversation
+    that appeared mid-run with rows read before it did is counted under it in
+    this run. The additions returned here are the superset that a follow-up pass
+    covers; see `write_follow_up`.
+    """
+    (before_conversations, before_reports), (after_conversations, after_reports) = before, after
+    conversations = sorted(after_conversations[key] for key in after_conversations.keys() - before_conversations.keys())
+    reports = {rid: after_reports[rid] for rid in sorted(after_reports.keys() - before_reports.keys())}
+    return dict(conversations=conversations, reports=reports)
+
+
+def write_follow_up(attempt, before, after):
+    """Record the mid-run additions privately so a follow-up pass re-imports them.
+
+    Rebinding reclassifies rows already scanned for a conversation that appeared
+    during the run, but a conversation whose result rows are written after this
+    run's scan has passed their page is accepted with nothing to bind and would
+    otherwise be missed silently. Every mid-run addition's identity is written
+    here, on the private import mount only (never a relayed channel), so a later
+    run imports anything this run could not see; re-importing a conversation
+    already imported in this run is idempotent. Returns counts only.
+    """
+    additions = mapping_additions(before, after)
+    write_private(attempt / FOLLOW_UP, legacy.json_bytes(
+        dict(schema='polis-production-import-follow-up/1', **additions)))
+    return dict(conversations=len(additions['conversations']), reports=len(additions['reports']))
+
+
 def bind(item, conversations, reports):
     candidates = set()
     for name, sep in [('zid', None), ('conversation_id', None), ('zid_tick', ':'),
@@ -206,7 +396,7 @@ def attempt_directory(scratch, prefix, resume):
         raise ValueError('exactly one incomplete attempt required to resume')
     attempt = candidates[0]
     # Only the census databases carry progress; later outputs are rebuilt from them.
-    for derived in ('snapshot', 'report.jsonl'):
+    for derived in ('snapshot', 'report.jsonl', FOLLOW_UP):
         path = attempt / derived
         if path.is_symlink() or path.is_file():
             path.unlink()
@@ -389,7 +579,8 @@ def census(client, database, conversations, reports, allowed_missing=(), *, vali
                                                           skipped=skipped))))
 
 
-def materialize(database, root, summary, oversized=None):
+def materialize(database, root, summary, oversized=None, *, embeddings_table=False,
+                text_shas=None, embedding_report=None):
     """Bounded family files per conversation, plus exact private control/quarantine archive.
 
     The bounds mirror the destination's per-run result contract: one family's
@@ -400,7 +591,18 @@ def materialize(database, root, summary, oversized=None):
     family is staged in full, each one past a bound is appended to the list as
     {zid, family, bytes, rows} (family None for the whole-conversation batch
     bound), and staging continues.
+
+    With `embeddings_table` (the flag on), Delphi_CommentEmbeddings leaves the
+    codec family: the family file is written empty (header only) and the rows go
+    to a per-conversation binary spool (``embeddings.spool``), with the model
+    mapped, every value checked float32-exact and the comment text's SHA-256 from
+    ``text_shas``. The 64 MiB family bound no longer touches embeddings, so the
+    two production conversations that exceeded it stage; the manifest records the
+    spool so the detached child re-emits it and the daemon routes it through
+    pd_embedding_put/close. Flag off, this family stages like every other one and
+    every byte below is identical to today.
     """
+    report = embedding_report if embedding_report is not None else {}
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     db = sqlite3.connect(database)
     bundles = []
@@ -408,17 +610,20 @@ def materialize(database, root, summary, oversized=None):
         directory = root / str(zid)
         directory.mkdir(mode=0o700)
         families, total, rows = {}, 0, 0
+        embeddings_descriptor = None
         # Explicit empty families prevent accidentally inheriting older result rows.
         for family in sorted(set(codec.FAMILIES) - legacy.CONTROL_FAMILIES):
+            spool_family = embeddings_table and family == EMBEDDINGS_FAMILY
             path = directory / (family + '.jsonl')
             h, size, count = hashlib.sha256(), 0, 0
             with path.open('xb') as f:
                 head = (codec.header(family) + '\n').encode()
                 f.write(head); h.update(head); size += len(head)
-                for (wire,) in db.execute("SELECT wire FROM rows WHERE family=? AND zid=? AND disposition='imported' ORDER BY k", (family, zid)):
-                    f.write(wire + b'\n'); h.update(wire + b'\n'); size += len(wire) + 1; count += 1
-                    if size > FAMILY_LIMIT and oversized is None:
-                        raise ValueError('conversation family exceeds staged storage bound')
+                if not spool_family:
+                    for (wire,) in db.execute("SELECT wire FROM rows WHERE family=? AND zid=? AND disposition='imported' ORDER BY k", (family, zid)):
+                        f.write(wire + b'\n'); h.update(wire + b'\n'); size += len(wire) + 1; count += 1
+                        if size > FAMILY_LIMIT and oversized is None:
+                            raise ValueError('conversation family exceeds staged storage bound')
             if size > FAMILY_LIMIT:
                 if oversized is None:
                     raise ValueError('conversation family exceeds staged storage bound')
@@ -428,10 +633,22 @@ def materialize(database, root, summary, oversized=None):
             if total > BATCH_LIMIT and oversized is None:
                 raise ValueError('conversation exceeds staged batch bound')
             families[family] = dict(sha256=h.hexdigest(), bytes=size, rows=count)
+            if spool_family:
+                built = _conversation_embedding_spool(db, zid, text_shas or {}, report)
+                if built is not None:
+                    model, dims, spool_rows, spool_bytes, content = built
+                    write_private(directory / EMBEDDING_SPOOL_FILE, spool_bytes)
+                    embeddings_descriptor = dict(file=EMBEDDING_SPOOL_FILE, sha256=sha(spool_bytes),
+                                                 model=model, dims=dims, rows=len(spool_rows),
+                                                 content_sha=content)
         if total > BATCH_LIMIT:
             oversized.append(dict(zid=zid, family=None, bytes=total, rows=rows))
         manifest = dict(schema='polis-production-import/1', zid=zid, families=families,
                         source_sha256=summary['source_sha256'], adapter_sha256=code_sha())
+        if embeddings_table:
+            manifest['embeddings_table'] = True
+            if embeddings_descriptor is not None:
+                manifest['embeddings'] = embeddings_descriptor
         raw = legacy.json_bytes(manifest)
         digest = sha(raw)
         write_private(directory / 'manifest.json', raw)
@@ -470,12 +687,22 @@ def read_bundle(digest):
 
 
 def execute(frame):
-    """Offline child: verifies all bytes and emits files; no database/source credentials."""
+    """Offline child: verifies all bytes and emits files; no database/source credentials.
+
+    With the embeddings table on, the daemon carries ``embeddings_table`` in the
+    frame; the manifest records that the snapshot was staged with the flag on and
+    (for a conversation that had embeddings) an ``embeddings`` spool descriptor.
+    The two must agree, so a snapshot staged one way is never imported the other
+    way and embeddings are never silently dropped. When they agree and a spool is
+    present, the child re-emits it (bytes digest-checked against the manifest) for
+    the daemon to route into pd_embedding_put/close; the codec family is empty."""
     config = frame['input']['declared']['config']
     root, manifest = read_bundle(config['snapshot_ref'])
     if (config.get('production_import_sha256') != code_sha() or manifest['zid'] != frame['zid']
             or config['source_sha256'] != manifest['source_sha256']):
         raise ValueError('detached import identity mismatch')
+    if bool(frame.get('embeddings_table')) != bool(manifest.get('embeddings_table')):
+        raise ValueError('embeddings table flag mismatch')
     output_root = Path(os.environ['DELPHI_OUTPUT_MANIFEST']).parent
     spool, total = {}, 0
     for family, entry in sorted(manifest['families'].items()):
@@ -494,8 +721,18 @@ def execute(frame):
         path = output_root / (family + '.jsonl')
         write_private(path, raw)
         spool[family] = dict(file=path.name, sha256=sha(raw))
-    return dict(model=legacy.MODEL, source_sha256=manifest['source_sha256'],
-                snapshot_sha256=config['snapshot_ref'], family_spool=spool)
+    output = dict(model=legacy.MODEL, source_sha256=manifest['source_sha256'],
+                  snapshot_sha256=config['snapshot_ref'], family_spool=spool)
+    descriptor = manifest.get('embeddings')
+    if descriptor is not None:
+        raw = legacy.read_regular_file(root / EMBEDDING_SPOOL_FILE, MAX_SPOOL_BYTES)
+        if sha(raw) != descriptor['sha256']:
+            raise ValueError('detached embedding spool mismatch')
+        write_private(output_root / EMBEDDING_SPOOL_FILE, raw)
+        # Exactly the keys the daemon's stage_embeddings re-checks (no content_sha,
+        # which stays in the manifest for the importer's post-import verification).
+        output['embedding_spool'] = {k: descriptor[k] for k in ('file', 'sha256', 'model', 'dims', 'rows')}
+    return output
 
 
 def specification(bundle, report_ids):
@@ -574,6 +811,19 @@ def import_all(bundles, reports, environment, timeout, scope):
                                 wire = client._call('pd_result_artifact_wire', artifact['artifact_id'], family)
                                 if wire['sha256'] != entry['sha256'] or sha(wire['wire'].encode()) != entry['sha256']:
                                     raise ValueError('destination digest mismatch')
+                            descriptor = manifest.get('embeddings')
+                            if descriptor is not None:
+                                # The set the daemon closed for this artifact must
+                                # match the spool exactly: the receipt digest is over
+                                # the stored real[] array_send bytes, so an equal sha,
+                                # row count and dimension prove the float32 vectors
+                                # round-tripped through Postgres with no change.
+                                receipt = client._call('pd_embedding_set', artifact['artifact_id'], descriptor['model'])
+                                if (receipt is None or receipt.get('sha256') != descriptor['content_sha']
+                                        or receipt.get('row_count') != descriptor['rows']
+                                        or receipt.get('dims') != descriptor['dims']
+                                        or receipt.get('model') != descriptor['model']):
+                                    raise ValueError('embedding set verification failed')
                             if client.served(bundle['zid'], scope) is not None:
                                 raise ValueError('unexpected published import')
                             break

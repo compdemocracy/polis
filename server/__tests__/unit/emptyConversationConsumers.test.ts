@@ -11,6 +11,11 @@ jest.mock("../../src/db/pg-query", () => ({
   default: {
     queryP_readOnly,
     queryP: queryP_readOnly,
+    // Reports and exports now read on the dedicated report/export pool; the
+    // export senders (loadConversationSummary, sendCommentGroupsSummary) call
+    // these, so route them through the same SQL-matching stub.
+    queryP_reportExport: queryP_readOnly,
+    stream_queryP_reportExport: queryP_readOnly,
     // callback style, used by routes/participation.ts:71 (_getParticipant)
     query_readOnly: (_sql: string, _params: any[], cb: any) =>
       cb(null, { rows: [{ zid: 1, uid: 7, pid: 11 }] }),

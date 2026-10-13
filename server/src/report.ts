@@ -25,6 +25,11 @@ interface ResponseLike {
   send: (data: string) => void;
   write: (data: string) => void;
   end: () => void;
+  // The real Express response emits "close" on client disconnect; streamed
+  // exports pass it to stream_queryP_reportExport so an aborted download frees
+  // its connection. Optional so plain mock responses still satisfy the type.
+  on?: (event: string, listener: () => void) => void;
+  removeListener?: (event: string, listener: () => void) => void;
 }
 
 type CommentRow = {
@@ -190,7 +195,7 @@ async function loadParticipantExportContext(
   zid: number
 ): Promise<ParticipantExportContext> {
   const [commentRowsRaw, pca] = await Promise.all([
-    pg.queryP_readOnly(
+    pg.queryP_reportExport(
       "SELECT tid, pid FROM comments WHERE zid = ($1) ORDER BY tid ASC, created ASC",
       [zid]
     ),
@@ -245,11 +250,11 @@ export function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
 export async function loadConversationSummary(zid: number, siteUrl: string) {
   const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
     getZinvite(zid),
-    pg.queryP_readOnly(
+    pg.queryP_reportExport(
       `SELECT topic, description FROM conversations WHERE zid = $1`,
       [zid]
     ),
-    pg.queryP_readOnly(
+    pg.queryP_reportExport(
       `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
       [zid]
     ),
@@ -315,7 +320,7 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
 
   try {
     // Check if importance is enabled for this conversation
-    const convRows = (await pg.queryP_readOnly(
+    const convRows = (await pg.queryP_reportExport(
       "SELECT importance_enabled FROM conversations WHERE zid = ($1)",
       [zid]
     )) as { importance_enabled: boolean }[];
@@ -323,7 +328,7 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       convRows.length > 0 ? convRows[0].importance_enabled : false;
 
     // First query: Load comments metadata
-    const commentRows = (await pg.queryP_readOnly(
+    const commentRows = (await pg.queryP_reportExport(
       "SELECT tid, pid, created, txt, mod, velocity, active FROM comments WHERE zid = ($1)",
       [zid]
     )) as CommentRow[];
@@ -338,7 +343,7 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
     }
 
     // Second query: Count votes in a single pass
-    pg.stream_queryP_readOnly(
+    pg.stream_queryP_reportExport(
       "SELECT tid, vote, high_priority FROM votes WHERE zid = ($1) ORDER BY tid",
       [zid],
       (row) => {
@@ -387,7 +392,8 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       },
       (error) => {
         logger.error("polis_err_report_comments", error);
-      }
+      },
+      res
     );
   } catch (err) {
     logger.error("polis_err_report_comments", err);
@@ -398,7 +404,7 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
 export async function sendVotesSummary(zid: number, res: ResponseLike) {
   try {
     // Check if importance is enabled for this conversation
-    const convRows = (await pg.queryP_readOnly(
+    const convRows = (await pg.queryP_reportExport(
       "SELECT importance_enabled FROM conversations WHERE zid = ($1)",
       [zid]
     )) as { importance_enabled: boolean }[];
@@ -428,7 +434,7 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
       ? "SELECT created as timestamp, tid, pid, vote, high_priority FROM votes WHERE zid = $1 ORDER BY tid, pid"
       : "SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 ORDER BY tid, pid";
 
-    pg.stream_queryP_readOnly(
+    pg.stream_queryP_reportExport(
       selectClause,
       [zid],
       (row) => res.write(formatCSVRow(row, formatters) + sep),
@@ -437,7 +443,8 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
         // Handle any errors
         logger.error("polis_err_report_votes_csv", error);
         failJson(res, 500, "polis_err_data_export", error);
-      }
+      },
+      res
     );
   } catch (err) {
     logger.error("polis_err_report_votes", err);
@@ -501,7 +508,7 @@ export async function sendParticipantVotesSummary(
     );
   };
 
-  pg.stream_queryP_readOnly(
+  pg.stream_queryP_reportExport(
     "SELECT pid, tid, vote FROM votes WHERE zid = ($1) ORDER BY pid, tid",
     [zid],
     (row) => {
@@ -524,7 +531,8 @@ export async function sendParticipantVotesSummary(
     (error) => {
       logger.error("polis_err_report_participant_votes", error);
       failJson(res, 500, "polis_err_data_export", error);
-    }
+    },
+    res
   );
 }
 
@@ -590,7 +598,7 @@ export async function sendParticipantImportance(
     );
   };
 
-  pg.stream_queryP_readOnly(
+  pg.stream_queryP_reportExport(
     "SELECT pid, tid, vote, high_priority FROM votes WHERE zid = ($1) ORDER BY pid, tid",
     [zid],
     (row) => {
@@ -618,7 +626,8 @@ export async function sendParticipantImportance(
     (error) => {
       logger.error("polis_err_report_participant_importance", error);
       failJson(res, 500, "polis_err_data_export", error);
-    }
+    },
+    res
   );
 }
 
@@ -662,7 +671,7 @@ export async function sendCommentGroupsSummary(
     (pca.asPOJO["pca"]?.["comment-extremity"] as Array<number>) || [];
 
   // Load comment texts
-  const commentRows = (await pg.queryP_readOnly(
+  const commentRows = (await pg.queryP_reportExport(
     "SELECT tid, txt FROM comments WHERE zid = ($1)",
     [zid]
   )) as { tid: number; txt: string }[];

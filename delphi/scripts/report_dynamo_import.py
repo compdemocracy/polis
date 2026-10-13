@@ -29,10 +29,15 @@ REFUSALS = frozenset({
     'conversation family exceeds staged storage bound',
     'dedicated import environment required',
     'destination digest mismatch',
+    'detached embedding spool mismatch',
     'detached import identity mismatch',
     'detached source bytes mismatch',
     'detached source count mismatch',
     'duplicate source key during scan',
+    'embedding dimension mismatch',
+    'embedding set verification failed',
+    'embedding value is not float32 exact',
+    'embeddings table flag mismatch',
     'exactly one incomplete attempt required to resume',
     'existing database connection required',
     'import admission exceeds graph input bound',
@@ -41,6 +46,9 @@ REFUSALS = frozenset({
     'import worker failed',
     'instance role required',
     'invalid backoff bounds',
+    'multiple embedding models in conversation',
+    'unmapped embedding model',
+    'unreadable embedding row',
     'invalid import scope',
     'invalid scan checkpoint',
     'invalid snapshot reference',
@@ -103,6 +111,8 @@ def main(argv=None):
         with open(scratch / '.lock', 'a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             pacer = imp.pacer_from(args)
+            embeddings_on = imp.embeddings_table_enabled()
+            embedding_report = {}
             attempt = imp.attempt_directory(scratch, 'report-', args.resume)
             if not args.local_endpoint:
                 # This launcher deliberately uses the existing box's instance role.
@@ -135,20 +145,30 @@ def main(argv=None):
                                                                  sort_keys=True), file=sys.stderr)
                     first = imp.rebind_additions(attempt/'first.sqlite', (conversations, reports), current,
                                                  args.allow_missing, validate_schema=False, skipped=args.skip_family)
+                    # The identities of the mid-run additions, on the private
+                    # mount only, so a follow-up pass re-imports anything whose
+                    # rows landed after this run's scan passed their page.
+                    imp.write_follow_up(attempt, (conversations, reports), current)
                     conversations, reports = current
                 with closing(sqlite3.connect(attempt/'first.sqlite')) as db:
                     zids = [row[0] for row in db.execute('SELECT DISTINCT zid FROM rows WHERE zid IS NOT NULL')]
                 details = import_report.metadata(conn, zids)
+                # With the flag on, read each embedded comment's text SHA once on
+                # this read-only connection and release it before the staging below.
+                text_shas = imp.embedding_text_shas(conn, attempt/'first.sqlite') if embeddings_on else None
             # Same binding validation as the reviewed importer, no admission. A
             # dry run never refuses on size: families past the importer's per-run
             # bounds are staged in full, reported and counted, and the run goes on.
             oversized = []
-            bundles = imp.materialize(attempt/'first.sqlite', attempt/'snapshot', first, oversized=oversized)
+            bundles = imp.materialize(attempt/'first.sqlite', attempt/'snapshot', first, oversized=oversized,
+                                      embeddings_table=embeddings_on, text_shas=text_shas,
+                                      embedding_report=embedding_report)
             staged = imp.staging(bundles, oversized)
             if oversized:
                 # Counts and byte sizes only; the report carries the conversations.
                 print(STAGING_LINE + json.dumps(staged['totals'], sort_keys=True), file=sys.stderr)
-            raw = import_report.encode(import_report.report(attempt/'first.sqlite', details, first, staged))
+            raw = import_report.encode(import_report.report(attempt/'first.sqlite', details, first, staged,
+                                      embedding_models=imp.embedding_model_counts(attempt/'first.sqlite')))
             imp.write_private(attempt/'report.jsonl', raw)
             imp.finish_attempt(attempt)
             pacing(pacer)

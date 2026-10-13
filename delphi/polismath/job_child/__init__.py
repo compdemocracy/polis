@@ -141,6 +141,14 @@ def requested(environ: Optional[Dict[str, str]] = None) -> bool:
     return bool(environ.get(MANIFEST_ENV, "").strip())
 
 
+def embeddings_table_enabled(frame: Dict[str, Any]) -> bool:
+    """The one embeddings-table switch (migration 000038), default off. The daemon
+    carries it in the frame — never an env var, since graph children run with a
+    cleared environment — as a top-level key for a graph stage or under ``config``
+    for a Postgres writer. Absent, it is off and today's codec-family path runs."""
+    return bool(frame.get("embeddings_table") or frame.get("config", {}).get("embeddings_table"))
+
+
 def effective_math_env(environ: Optional[Dict[str, str]] = None) -> str:
     """The math_env the stages read: MATH_ENV, else ConfigManager's default 'prod'."""
     environ = os.environ if environ is None else environ
@@ -369,12 +377,38 @@ def _nullable(value, kind, what):
         raise ManifestError(f"{what} must be {kind.__name__} or null")
 
 
+def _validate_embedding_spool(spool: Any) -> None:
+    """The writer manifest's optional embeddings-spool descriptor: a fixed file
+    name, a sha256, and the model, dimensions and row count the daemon re-checks.
+    Mirrors the daemon's Rust validator (manifest.rs validate_embedding_spool)."""
+    if not isinstance(spool, dict) or set(spool) != {"file", "sha256", "model", "dims", "rows"}:
+        raise ManifestError("embedding_spool keys must be exactly file, sha256, model, dims, rows")
+    if spool["file"] != "embeddings.spool":
+        raise ManifestError("embedding_spool.file must be 'embeddings.spool'")
+    if not isinstance(spool["sha256"], str) or not _HEX64.match(spool["sha256"]):
+        raise ManifestError("embedding_spool.sha256 must be 64 lowercase hex characters")
+    if not isinstance(spool["model"], str) or not 1 <= len(spool["model"]) <= 200:
+        raise ManifestError("embedding_spool.model must be 1-200 characters")
+    for key in ("dims", "rows"):
+        value = spool[key]
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ManifestError(f"embedding_spool.{key} must be a non-negative integer")
+    if not 1 <= spool["dims"] <= 2000:
+        raise ManifestError("embedding_spool.dims must be between 1 and 2000")
+
+
 def validate_manifest(m: Any) -> None:
     """The output-manifest/1 shape: closed key sets, typed values."""
     writer = isinstance(m, dict) and m.get("schema") == "polis-jobs.output-manifest/2"
     expected_keys = set(MANIFEST_KEYS) | ({"family_spool"} if "family_spool" in m else {"results"}) if writer else set(MANIFEST_KEYS)
+    # Optional on a writer manifest when the embeddings table flag routed this
+    # run's embeddings to their own spool; absent, the key set is exactly today's.
+    if writer and "embedding_spool" in m:
+        expected_keys |= {"embedding_spool"}
     if not isinstance(m, dict) or set(m) != expected_keys:
         raise ManifestError(f"manifest keys must be exactly {sorted(MANIFEST_KEYS)}")
+    if writer and "embedding_spool" in m:
+        _validate_embedding_spool(m["embedding_spool"])
     if m["schema"] != MANIFEST_SCHEMA and not writer:
         raise ManifestError("wrong manifest schema")
     for key in ("job_id", "attempt_id"):
@@ -469,6 +503,12 @@ def write_manifest(ctx: JobContext, manifest: Dict[str, Any]) -> str:
         manifest = dict(manifest, schema="polis-jobs.output-manifest/2",
                         outputs=[dict(o, store="postgres") for o in manifest["outputs"]],
                         family_spool=resource.spool() if manifest["outcome"] == "succeeded" else {})
+        # With the embeddings table on, a succeeded run's embeddings are a spool
+        # the daemon routes into pd_embedding_put/close instead of the codec family.
+        if manifest["outcome"] == "succeeded":
+            descriptor = resource.embedding_spool()
+            if descriptor is not None:
+                manifest["embedding_spool"] = descriptor
     data = encode_manifest(manifest)
     if os.path.lexists(ctx.manifest_path):
         raise ManifestError("the manifest already exists")

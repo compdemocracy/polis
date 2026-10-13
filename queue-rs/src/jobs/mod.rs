@@ -8,6 +8,7 @@
 pub mod child;
 pub mod claim;
 pub mod config;
+pub mod embedding;
 pub mod graph;
 pub mod journal;
 pub mod lease;

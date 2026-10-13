@@ -305,30 +305,39 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     
     # Load comment embeddings to get comment IDs in order
     try:
-        # Query CommentEmbeddings for this conversation
-        logger.info(f"Loading comment embeddings to get full comment list...")
-        table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_embeddings'])
-        logger.debug(f"CommentEmbeddings table name: {dynamo_storage.table_names['comment_embeddings']}")
-        
-        response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(str(zid))
-        )
-        embeddings = response.get('Items', [])
-        
-        # Handle pagination if needed
-        while 'LastEvaluatedKey' in response:
-            logger.debug(f"Handling pagination for comment embeddings...")
+        # With the per-row embeddings table on (migration 000038), the comment ids
+        # come from the served embedding set in that table; off, from the codec
+        # family exactly as before.
+        if dynamo_storage.embeddings_table_enabled():
+            logger.info("Loading comment ids from the per-row embeddings table...")
+            comment_ids = dynamo_storage.comment_embedding_ids(zid)
+            data["comment_ids"] = comment_ids
+            logger.info(f"Loaded {len(comment_ids)} comment IDs from the embeddings table")
+        else:
+            # Query CommentEmbeddings for this conversation
+            logger.info(f"Loading comment embeddings to get full comment list...")
+            table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_embeddings'])
+            logger.debug(f"CommentEmbeddings table name: {dynamo_storage.table_names['comment_embeddings']}")
+
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(str(zid)),
-                ExclusiveStartKey=response['LastEvaluatedKey']
+                KeyConditionExpression=Key('conversation_id').eq(str(zid))
             )
-            embeddings.extend(response.get('Items', []))
-        
-        # Extract comment IDs in order
-        comment_ids = [int(item['comment_id']) for item in embeddings]
-        data["comment_ids"] = comment_ids
-        logger.info(f"Loaded {len(comment_ids)} comment IDs from embeddings")
-        logger.debug(f"Sample comment IDs: {comment_ids[:5] if comment_ids else []}")
+            embeddings = response.get('Items', [])
+
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                logger.debug(f"Handling pagination for comment embeddings...")
+                response = table.query(
+                    KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                embeddings.extend(response.get('Items', []))
+
+            # Extract comment IDs in order
+            comment_ids = [int(item['comment_id']) for item in embeddings]
+            data["comment_ids"] = comment_ids
+            logger.info(f"Loaded {len(comment_ids)} comment IDs from embeddings")
+            logger.debug(f"Sample comment IDs: {comment_ids[:5] if comment_ids else []}")
     except Exception as e:
         logger.error(f"Error retrieving comment embeddings: {e}")
         import traceback

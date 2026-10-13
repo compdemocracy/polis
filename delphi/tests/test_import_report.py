@@ -362,6 +362,14 @@ def drift_counts(err):
     return json.loads(lines[0][len('identity mapping drift '):])
 
 
+def follow_up_record(scratch):
+    """The single private follow-up.json a drifting run leaves in its attempt directory."""
+    files = list(Path(scratch).glob('*/' + imp.FOLLOW_UP))
+    assert len(files) == 1
+    assert oct(files[0].stat().st_mode)[-3:] == '600'
+    return json.loads(files[0].read_text())
+
+
 def test_conversation_and_report_created_during_run_are_accepted(monkeypatch, tmp_path, capfd, keep_umask):
     # Rows for conversation 7 exist before its conversation row is visible to the first read.
     source = ScanOnlySource({FAMILY: [row(), row('7')]})
@@ -378,6 +386,13 @@ def test_conversation_and_report_created_during_run_are_accepted(monkeypatch, tm
     # The new conversation without rows adds nothing; the rebound row now counts under its conversation.
     assert [line['zid'] for line in lines[:-1]] == [1, 7]
     assert lines[-1]['totals'] == dict(source=2, would_import=2, archive=0, quarantine=0)
+    # Every mid-run addition is flagged for a follow-up pass, by identity, on the
+    # private mount only (ids never reach stderr). 7 was imported here via the
+    # rebind; 424242 arrived with no scanned rows and its conversation makes no
+    # report line, yet it is recorded so a later run cannot silently miss it.
+    assert follow_up_record(tmp_path/'import') == dict(
+        schema='polis-production-import-follow-up/1', conversations=[7, 424242], reports={'r-created': 424242})
+    assert 424242 not in [line['zid'] for line in lines[:-1]]
 
 
 @pytest.mark.parametrize('change,expected', [
@@ -408,6 +423,14 @@ def test_rebind_additions_reads_nothing_and_refuses_removals(tmp_path):
         imp.rebind_additions(tmp_path/'first.sqlite', ({'1': 1, '7': 7}, {}), ({'7': 7}, {}), validate_schema=False)
     assert imp.mapping_drift(({'1': 1, '2': 2}, {'a': 1, 'b': 2}), ({'1': 1, '3': 3}, {'a': 2, 'c': 1})) == dict(
         conversations=dict(added=1, removed=1, changed=0), reports=dict(added=1, removed=1, changed=1))
+    # mapping_additions keeps the added identities (sorted zids; new report_id -> zid);
+    # write_follow_up records them privately and returns counts only.
+    assert imp.mapping_additions(({'1': 1, '9': 9}, {'a': 1}), ({'1': 1, '9': 9, '4': 4}, {'a': 1, 'b': 9})) == dict(
+        conversations=[4], reports={'b': 9})
+    assert imp.write_follow_up(tmp_path, ({'1': 1}, {}), ({'1': 1, '9': 9, '4': 4}, {'b': 9})) == dict(
+        conversations=2, reports=1)
+    assert json.loads((tmp_path/imp.FOLLOW_UP).read_text()) == dict(
+        schema='polis-production-import-follow-up/1', conversations=[4, 9], reports={'b': 9})
 
 
 def test_production_importer_accepts_additions_and_refuses_removals(monkeypatch, tmp_path, capfd, keep_umask):
@@ -440,12 +463,17 @@ def test_production_importer_accepts_additions_and_refuses_removals(monkeypatch,
     out, err = capfd.readouterr()
     result = json.loads(out)
     assert result['conversations'] == 2 and result['counts'][FAMILY]['imported'] == 2
-    assert drift_counts(err) == dict(conversations=dict(added=1, removed=0, changed=0),
-                                     reports=dict(added=1, removed=0, changed=0))
+    # Stdout carries counts only; the identities are on the private mount for a follow-up pass.
+    assert result['follow_up'] == dict(conversations=1, reports=1)
+    assert 'r-7' not in out
+    assert follow_up_record(tmp_path/'import-0') == dict(
+        schema='polis-production-import-follow-up/1', conversations=[7], reports={'r-7': 7})
     assert run(lambda conversations, reports: conversations.pop('2'), {FAMILY: [row()]}) == 2
     err = capfd.readouterr().err
     assert drift_counts(err)['conversations']['removed'] == 1
     assert err.splitlines()[-1] == 'production import refused (ValueError)'
+    # A refused (removal) run accepts nothing and writes no follow-up record.
+    assert not list((tmp_path/'import-1').glob('*/' + imp.FOLLOW_UP))
 
 
 def test_launcher_resume_relays_only_this_runs_lines(monkeypatch, tmp_path, capfd, keep_umask):

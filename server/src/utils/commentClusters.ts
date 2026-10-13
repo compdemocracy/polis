@@ -273,7 +273,7 @@ export async function getCommentsWithClusters(
   logger.info(`Fetching comments with clusters for conversation ${zid}`);
 
   // Step 1: Get all comments from PostgreSQL
-  const comments = (await pg.queryP_readOnly(
+  const comments = (await pg.queryP_reportExport(
     "SELECT tid, txt, pid, created, mod, active FROM comments WHERE zid = ($1) ORDER BY tid",
     [zid]
   )) as Array<{

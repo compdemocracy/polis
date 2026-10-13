@@ -113,3 +113,62 @@ def test_postgres_bootstrap_and_legacy_poller_never_construct_dynamo(writer,monk
     assert create_dynamodb_tables.create_tables()==[]
     assert create_dynamodb_tables.main() is None
     with pytest.raises(RuntimeError,match='polis-jobs'):JobProcessor()
+
+
+# --- embeddings table (migration 000038), flag on ---------------------------
+
+def _flag_on_writer(tmp_path, monkeypatch, base_families=None):
+    jid, run, attempt = [str(uuid.uuid4()) for _ in range(3)]
+    frame = dict(schema='polis-jobs.frame/1', env='proof', zid=1, job_id=jid, run_id=run, attempt_id=attempt,
+                 lease_epoch='1', config={'result_backend': 'postgres', 'embeddings_table': True},
+                 writer_base={'schema': 'delphi-writer-base/1', 'zid': 1, 'families': base_families or {}})
+    (tmp_path/'frame.json').write_text(json.dumps(frame))
+    for key, value in dict(DELPHI_RESULT_BACKEND='postgres', DELPHI_OUTPUT_MANIFEST=str(tmp_path/'manifest.json'),
+            DELPHI_FRAME=str(tmp_path/'frame.json'), DELPHI_JOB_ID=jid, DELPHI_RUN_ID=run, DELPHI_ATTEMPT_ID=attempt).items():
+        monkeypatch.setenv(key, value)
+    import boto3
+    monkeypatch.setattr(boto3, 'resource', lambda *a, **k: pytest.fail('Dynamo resource created'))
+    return WriterResource()
+
+
+def test_embeddings_table_write_spools_and_excludes_codec_family(tmp_path, monkeypatch):
+    import hashlib
+    from polismath.delphi_storage.embedding_spool import read_spool
+    # A base publication that carries the codec embeddings family; the flag must
+    # keep it out of the scratch so it stages empty.
+    base = {'Delphi_CommentEmbeddings': [{'conversation_id': '1', 'comment_id': 9,
+            'embedding': {'vector': [0.5], 'dimensions': 1, 'model': 'm'}}]}
+    w = _flag_on_writer(tmp_path, monkeypatch, base_families=base)
+    assert w.embeddings_table is True
+    assert w.Table('Delphi_CommentEmbeddings').scan()['Items'] == []  # base family not seeded
+    rows = [(5, hashlib.sha256(b'c5').digest(), [0.5, -1.0, 2.25]),
+            (2, hashlib.sha256(b'c2').digest(), [0.0, 1.5, -3.5])]
+    w.put_comment_embeddings(rows, 'sentence-transformers/all-MiniLM-L6-v2', 3)
+    descriptor = w.embedding_spool()
+    assert descriptor == dict(file='embeddings.spool', sha256=descriptor['sha256'],
+                              model='sentence-transformers/all-MiniLM-L6-v2', dims=3, rows=2)
+    model, dims, back = read_spool((w.directory/'embeddings.spool').read_bytes())
+    assert model == 'sentence-transformers/all-MiniLM-L6-v2' and dims == 3 and {r['tid'] for r in back} == {2, 5}
+    files = w.spool()
+    assert len(files) == 18
+    actual, crows = decode_family((w.directory/files['Delphi_CommentEmbeddings']['file']).read_bytes())
+    assert actual == 'Delphi_CommentEmbeddings' and crows == []  # codec family stays empty
+
+
+def test_embedding_spool_refuses_bad_rows_and_mixed_model(tmp_path, monkeypatch):
+    import hashlib
+    w = _flag_on_writer(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match='invalid embedding row'):
+        w.put_comment_embeddings([(0, hashlib.sha256(b'x').digest(), [0.5, 0.5])], 'm', 3)  # width != dims
+    w.put_comment_embeddings([(1, hashlib.sha256(b'a').digest(), [0.5, 0.5, 0.5])], 'm', 3)
+    with pytest.raises(ValueError, match='changed within a run'):
+        w.put_comment_embeddings([(2, hashlib.sha256(b'b').digest(), [0.5, 0.5, 0.5])], 'other', 3)
+
+
+def test_embedding_spool_is_none_when_flag_off(writer):
+    # Flag off: no spool, no base exclusion; the codec-family path is unchanged.
+    assert writer.embeddings_table is False
+    assert writer.embedding_spool() is None
+    import pytest as _pytest
+    with _pytest.raises(ValueError, match='flag off'):
+        writer.put_comment_embeddings([(0, b'0'*32, [0.5])], 'm', 1)

@@ -72,17 +72,19 @@ def unit_of(item) -> str:
 
 
 def _load_durations() -> dict[str, float]:
-    """Expected wall seconds per unit. The file holds [parallel, serial]
-    seconds per unit: parallel-pass tests share PLAN_WORKERS workers, the
-    serial pass has the shard to itself."""
+    """Expected wall seconds per unit. The file holds [parallel, serial] or
+    [parallel, serial, longest] seconds per unit: parallel-pass tests share
+    PLAN_WORKERS workers, but a unit cannot finish before its longest single
+    test does; the serial pass has the shard to itself."""
     path = os.environ.get("DELPHI_TEST_DURATIONS")
     if not path or not Path(path).is_file():
         return {}
     data = json.loads(Path(path).read_text())
     out = {}
     for unit, value in data.get("units", {}).items():
-        parallel, serial = value if isinstance(value, list) else (value, 0.0)
-        out[str(unit)] = float(parallel) / PLAN_WORKERS + float(serial)
+        values = list(value) if isinstance(value, list) else [value]
+        parallel, serial, longest = (values + [0.0, 0.0])[:3]
+        out[str(unit)] = max(float(parallel) / PLAN_WORKERS, float(longest)) + float(serial)
     return out
 
 

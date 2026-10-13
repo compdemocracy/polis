@@ -205,12 +205,16 @@ function handle_GET_participation(
         return;
       }
 
+      // This owner-gated route runs two whole-conversation group-by scans over
+      // votes and comments; like conversationStats they run on the bounded
+      // report/export pool, never the participation read pool. getXids stays on
+      // the read pool (it is a shared helper, not itself a heavy scan).
       return Promise.all([
-        pg.queryP_readOnly(
+        pg.queryP_reportExport(
           "select pid, count(*) from votes where zid = ($1) group by pid;",
           [zid]
         ),
-        pg.queryP_readOnly(
+        pg.queryP_reportExport(
           "select pid, count(*) from comments where zid = ($1) group by pid;",
           [zid]
         ),

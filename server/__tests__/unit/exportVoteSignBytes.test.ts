@@ -35,7 +35,7 @@ import {
 
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP_readOnly: jest.fn(), stream_queryP_readOnly: jest.fn() },
+  default: { queryP_reportExport: jest.fn(), stream_queryP_reportExport: jest.fn() },
 }));
 jest.mock("../../src/utils/zinvite", () => ({
   getZinvite: jest.fn(),
@@ -49,7 +49,7 @@ jest.mock("../../src/utils/fail");
 type Row = Record<string, unknown>;
 
 function streamRows(rows: Row[]) {
-  (pg.stream_queryP_readOnly as jest.Mock).mockImplementation(
+  (pg.stream_queryP_reportExport as jest.Mock).mockImplementation(
     (...args: any[]) => {
       rows.forEach((row) => args[2](row));
       args[3]();
@@ -92,7 +92,7 @@ beforeEach(() => jest.clearAllMocks());
 
 describe("vote CSV exports keep their bytes", () => {
   test("votes.csv", async () => {
-    (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+    (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
       { importance_enabled: false },
     ] as never);
     streamRows([
@@ -116,7 +116,7 @@ describe("vote CSV exports keep their bytes", () => {
   });
 
   test("participant-votes.csv", async () => {
-    (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+    (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
       { tid: 1, pid: 1 },
       { tid: 2, pid: 1 },
       { tid: 3, pid: 2 },
@@ -142,7 +142,7 @@ describe("vote CSV exports keep their bytes", () => {
   });
 
   test("participant-importance.csv", async () => {
-    (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+    (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
       { tid: 1, pid: 1 },
       { tid: 2, pid: 1 },
       { tid: 3, pid: 2 },
@@ -166,7 +166,7 @@ describe("vote CSV exports keep their bytes", () => {
   });
 
   test("comments.csv counts", async () => {
-    (pg.queryP_readOnly as jest.Mock)
+    (pg.queryP_reportExport as jest.Mock)
       .mockResolvedValueOnce([{ importance_enabled: false }] as never)
       .mockResolvedValueOnce([
         {
@@ -216,7 +216,7 @@ const SUMMARY_BEFORE_DECLARATION = [
 
 function summaryConversation() {
   (getZinvite as jest.Mock).mockResolvedValue("test-zinvite" as never);
-  (pg.queryP_readOnly as jest.Mock)
+  (pg.queryP_reportExport as jest.Mock)
     .mockResolvedValueOnce([
       { topic: "Test Topic", description: "Test Description" },
     ] as never)

@@ -164,6 +164,30 @@ fn is_hex64(s: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// The writer manifest's optional embeddings-spool descriptor: a fixed file name,
+/// a sha256, and the model, dimensions and row count the daemon re-checks against
+/// the spool it reads. Exactly these keys.
+fn validate_embedding_spool(v: &Value) -> Result<(), Invalid> {
+    let o = v.as_object().ok_or(Invalid::Field("embedding_spool"))?;
+    closed(
+        o,
+        &["file", "sha256", "model", "dims", "rows"],
+        "embedding_spool",
+    )?;
+    let ok = o["file"] == "embeddings.spool"
+        && o["sha256"].as_str().is_some_and(is_hex64)
+        && o["model"]
+            .as_str()
+            .is_some_and(|m| (1..=200).contains(&m.len()))
+        && o["dims"].as_u64().is_some_and(|d| (1..=2000).contains(&d))
+        && o["rows"].as_u64().is_some();
+    if ok {
+        Ok(())
+    } else {
+        Err(Invalid::Field("embedding_spool"))
+    }
+}
+
 /// Validate exact manifest bytes for this attempt.
 pub fn validate(
     bytes: Option<&[u8]>,
@@ -189,6 +213,12 @@ pub fn validate(
         } else {
             "results"
         });
+        // Optional: present only when the embeddings table flag routed this run's
+        // embeddings to their own spool. Absent, the key set is exactly today's.
+        if root.contains_key("embedding_spool") {
+            keys.push("embedding_spool");
+            validate_embedding_spool(&m["embedding_spool"])?;
+        }
         closed(root, &keys, "root")?;
     } else {
         closed(root, &ROOT_KEYS, "root")?;

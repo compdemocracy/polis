@@ -26,9 +26,14 @@
 #   DELPHI_CHECK_OUT       results directory (default: .ci-out/<project>)
 #   DELPHI_CHECK_KEEP=1    leave the stack running afterwards
 #   DELPHI_PYTEST_ARGS     extra pytest arguments for both passes
+#   POLIS_TEST_IMAGES=T    run the stack from images built by
+#                          `ci/local/test-images.sh build --tag T` instead of
+#                          building them here
 #
 # Published host ports are removed (the tests talk to the services inside the
-# compose network), so several runs can share one Docker host.
+# compose network), so several runs can share one Docker host. Only the
+# services the suite uses are started: Postgres, DynamoDB, MinIO, the math
+# poller (math-python) and the delphi container the tests run in.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -124,8 +129,15 @@ services:
   minio: { ports: !reset [] }
   dynamodb: { ports: !reset [] }
 EOF
-COMPOSE_ARGS=(-p "$PROJECT" -f docker-compose.test.yml -f "$STACK/no-host-ports.yml" --env-file "$STACK/test.env")
+EXTRA_FILES=(-f "$STACK/no-host-ports.yml")
+if [ -n "${POLIS_TEST_IMAGES:-}" ]; then
+  bash ci/local/test-images.sh override "$POLIS_TEST_IMAGES" "$STACK/images.yml" postgres delphi
+  EXTRA_FILES+=(-f "$STACK/images.yml")
+fi
+COMPOSE_ARGS=(-p "$PROJECT" -f docker-compose.test.yml "${EXTRA_FILES[@]}" --env-file "$STACK/test.env")
 compose() { docker compose "${COMPOSE_ARGS[@]}" "$@"; }
+# math-python runs the delphi image; dynamodb-init and minio-init are one-shot.
+SERVICES=(postgres dynamodb dynamodb-init minio minio-init math-python delphi)
 
 cleanup() {
   local rc=$?
@@ -147,19 +159,33 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-group "build images (every service in docker-compose.test.yml)"
-compose build
-endgroup
+if [ -n "${POLIS_TEST_IMAGES:-}" ]; then
+  log "using prebuilt images polis-test-*:$POLIS_TEST_IMAGES (not building)"
+else
+  group "build images (postgres, delphi; math-python runs the delphi image)"
+  compose build postgres delphi
+  endgroup
+fi
 
 group "apply and check migrations"
 # test-migrations.sh puts its own -f docker-compose.test.yml first; it reads the
 # env file from POLIS_TEST_ENV_FILE.
-POLIS_TEST_ENV_FILE="$STACK/test.env" bash ci/test-migrations.sh -p "$PROJECT" -f "$STACK/no-host-ports.yml"
+POLIS_TEST_ENV_FILE="$STACK/test.env" bash ci/test-migrations.sh -p "$PROJECT" "${EXTRA_FILES[@]}"
 endgroup
 
 group "start the stack"
-compose up -d
-sleep 20
+compose up -d "${SERVICES[@]}"
+# `up` has waited for postgres (healthy) and dynamodb-init (done) because the
+# delphi service depends on them; wait for the bucket set-up too.
+for init in dynamodb-init minio-init; do
+  waited=0
+  until [ "$(compose ps -a --format '{{.State}} {{.ExitCode}}' "$init")" = "exited 0" ]; do
+    state="$(compose ps -a --format '{{.State}} {{.ExitCode}}' "$init")"
+    case "$state" in exited*) die "$init failed: $state" ;; esac
+    [ "$waited" -lt 120 ] || die "$init did not finish in 120 s ($state)"
+    sleep 1; waited=$((waited + 1))
+  done
+done
 compose ps
 compose exec -T postgres bash -c 'until pg_isready -U $POSTGRES_USER; do sleep 5; done'
 endgroup
@@ -172,7 +198,13 @@ compose cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.p
 compose cp delphi/umap_narrative delphi:/app/umap_narrative
 compose cp "$DURATIONS_FILE" delphi:/app/test-durations.json
 # The same container-layout preparation and hook tests run on any Docker host.
-bash scripts/test-deploy-hooks.sh "${COMPOSE_ARGS[@]}"
+# The hook tests themselves run in one shard (the first); every shard copies
+# their inputs, which the full suite also reads.
+if [ "$SHARD_I" = 1 ]; then
+  bash scripts/test-deploy-hooks.sh "${COMPOSE_ARGS[@]}"
+else
+  DEPLOY_HOOKS_COPY_ONLY=1 bash scripts/test-deploy-hooks.sh "${COMPOSE_ARGS[@]}"
+fi
 
 # A checkout-shaped root so delphi/tests/scripts collects and runs the
 # pure-Python inventory sweep and the DB-free gate unit tests (the conftest
@@ -238,10 +270,19 @@ compose exec -T \
       DELPHI_TEST_MANIFEST=/app/out/manifest.json DELPHI_TEST_RESULTS=/app/out/results-parallel.jsonl \
         pytest -n "$workers" --dist loadgroup -m "not serial" $cov --cov-report= $tests ${DELPHI_PYTEST_ARGS:-}
       rc1=$?
-      echo "--- pytest: the serial group ---"
-      DELPHI_TEST_RESULTS=/app/out/results-serial.jsonl \
-        pytest -n0 -m serial $cov --cov-append --cov-report= $tests ${DELPHI_PYTEST_ARGS:-}
-      rc2=$?
+      # The manifest written while the parallel pass collected lists the
+      # serial-marked tests of this shard; with none, a serial pass would only
+      # collect the suite again and select nothing (exit 5).
+      nserial="$(python -c "import json; print(len(json.load(open(\"/app/out/manifest.json\"))[\"serial\"]))" 2>/dev/null || echo unknown)"
+      if [ "$nserial" = 0 ]; then
+        echo "--- pytest: no serial tests in this shard ---"
+        rc2=5
+      else
+        echo "--- pytest: the serial group ---"
+        DELPHI_TEST_RESULTS=/app/out/results-serial.jsonl \
+          pytest -n0 -m serial $cov --cov-append --cov-report= $tests ${DELPHI_PYTEST_ARGS:-}
+        rc2=$?
+      fi
       echo "--- pytest exit codes: parallel $rc1, serial $rc2 ---"
       rc=0; ok $rc1 || rc=$rc1; ok $rc2 || rc=$rc2
     fi

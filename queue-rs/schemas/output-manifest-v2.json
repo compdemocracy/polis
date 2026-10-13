@@ -273,6 +273,42 @@
     "results": {
       "type": "object",
       "description": "Fenced delphi-result-batch/1 receipt inserted by daemon, never trusted from child."
+    },
+    "embedding_spool": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Present only with the embeddings table flag on: the run's embeddings as one bounded spool file the daemon routes to pd_embedding_put/close before sealing.",
+      "required": [
+        "file",
+        "sha256",
+        "model",
+        "dims",
+        "rows"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "const": "embeddings.spool"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "dims": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   },
   "oneOf": [

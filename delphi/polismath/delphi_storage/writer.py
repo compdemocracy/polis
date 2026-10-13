@@ -17,6 +17,14 @@ from .codec import FAMILIES, dumps, encode_family, item_from_python, to_python, 
 from .postgres import RESULT_FAMILIES, decode_rows
 from .resource import _clauses
 
+EMBEDDINGS_FAMILY = 'Delphi_CommentEmbeddings'
+
+
+def _embeddings_table(frame):
+    """The one switch (migration 000038), default off. The daemon carries it in a
+    Postgres writer's frame under config; absent, today's codec-family path runs."""
+    return bool(frame.get('embeddings_table') or frame.get('config', {}).get('embeddings_table'))
+
 
 class WriterResource:
     def __init__(self):
@@ -34,9 +42,12 @@ class WriterResource:
         self.frame = frame
         self.connection = sqlite3.connect(self.directory/'writer.sqlite', timeout=30)
         self.connection.execute('PRAGMA busy_timeout=30000')
+        self.embeddings_table = _embeddings_table(frame)
         self.connection.executescript('''CREATE TABLE IF NOT EXISTS binding(value TEXT PRIMARY KEY);
           CREATE TABLE IF NOT EXISTS items(family TEXT,key TEXT,item TEXT,PRIMARY KEY(family,key));
-          CREATE TABLE IF NOT EXISTS dirty(family TEXT PRIMARY KEY);''')
+          CREATE TABLE IF NOT EXISTS dirty(family TEXT PRIMARY KEY);
+          CREATE TABLE IF NOT EXISTS comment_embeddings(tid INTEGER PRIMARY KEY, text_sha BLOB NOT NULL, vector TEXT NOT NULL);
+          CREATE TABLE IF NOT EXISTS comment_embeddings_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);''')
         binding = dumps({k:frame[k] for k in ('env','job_id','run_id','attempt_id','lease_epoch')})
         with self.connection:
             self.connection.execute('BEGIN IMMEDIATE')
@@ -46,6 +57,11 @@ class WriterResource:
                 for family, rows in base['families'].items():
                     if family not in RESULT_FAMILIES:
                         raise ValueError('unsupported base family')
+                    # With the flag on, embeddings live in the per-row table; never
+                    # seed the codec family from the base (it stays empty and the
+                    # rows the run keeps are carried in the embeddings spool instead).
+                    if self.embeddings_table and family == EMBEDDINGS_FAMILY:
+                        continue
                     for item in rows:
                         self.connection.execute('INSERT INTO items VALUES(?,?,?)',
                             (family,self.key(family,item),dumps(item)))
@@ -97,6 +113,53 @@ class WriterResource:
                 f.write(wire)
             result[family] = dict(file=filename,sha256=hashlib.sha256(wire).hexdigest())
         return result
+
+    def put_comment_embeddings(self, rows, model, dims):
+        """Collect this run's embeddings for the per-row table (flag on only).
+
+        `rows` is (tid:int>=0, text_sha:bytes[32], vector:sequence[float] of dims).
+        The daemon turns them into a bounded embeddings spool and routes it through
+        pd_embedding_put/close. The spool carries one model and dimension, so a run
+        that produced two refuses here rather than silently splitting."""
+        if not self.embeddings_table:
+            raise ValueError('embeddings table flag off')
+        if not 1 <= len(model.encode('utf-8')) <= 200 or not 1 <= dims <= 2000:
+            raise ValueError('embedding model or dims out of range')
+        with self.connection:
+            for key, value in (('model', model), ('dims', str(dims))):
+                existing = self.connection.execute(
+                    'SELECT value FROM comment_embeddings_meta WHERE key=?', (key,)).fetchone()
+                if existing is None:
+                    self.connection.execute('INSERT INTO comment_embeddings_meta VALUES(?,?)', (key, value))
+                elif existing[0] != value:
+                    raise ValueError('embedding model or dims changed within a run')
+            for tid, text_sha, vector in rows:
+                if int(tid) < 0 or len(text_sha) != 32 or len(vector) != dims:
+                    raise ValueError('invalid embedding row')
+                self.connection.execute('INSERT OR REPLACE INTO comment_embeddings VALUES(?,?,?)',
+                    (int(tid), bytes(text_sha), json.dumps([float(v) for v in vector])))
+
+    def embedding_spool(self):
+        """The embeddings-spool descriptor + file for the writer manifest, or None.
+
+        One bounded regular file (``embeddings.spool``) holds every (tid, text_sha,
+        float32 vector) the run stored; the daemon's stage_writer_results routes it.
+        None when the flag is off or the run stored no embeddings (then the empty
+        codec family in `spool()` is all the manifest carries)."""
+        if not self.embeddings_table:
+            return None
+        rows = [(tid, bytes(text_sha), json.loads(vector)) for tid, text_sha, vector in
+                self.connection.execute('SELECT tid,text_sha,vector FROM comment_embeddings ORDER BY tid')]
+        if not rows:
+            return None
+        meta = {key: value for key, value in self.connection.execute('SELECT key,value FROM comment_embeddings_meta')}
+        model, dims = meta['model'], int(meta['dims'])
+        from .embedding_spool import write_spool
+        data = write_spool(model, dims, rows)
+        with (self.directory/'embeddings.spool').open('xb') as f:
+            f.write(data)
+        return dict(file='embeddings.spool', sha256=hashlib.sha256(data).hexdigest(),
+                    model=model, dims=dims, rows=len(rows))
 
 
 class WriterTable:

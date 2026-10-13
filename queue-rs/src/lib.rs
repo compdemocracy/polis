@@ -72,6 +72,13 @@ pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
         "pd_graph_reconcile" => &["text"],
         "pd_result_put_family" => &["text", "uuid", "uuid", "uuid", "bigint", "text", "text"],
         "pd_result_seal" => &["text", "uuid", "uuid", "uuid", "bigint"],
+        // Comment-embeddings table (000038). `pd_embedding_put` is not here: its
+        // two-dimensional real[] matrix is bound through a typed path that never
+        // reserializes floats as JSON (see `Rpc::embedding_put`), and its rows
+        // stream out by binary COPY (`Rpc::embedding_copy`), not a scalar reply.
+        "pd_embedding_close" => &["text", "uuid", "uuid", "uuid", "bigint", "text"],
+        "pd_embedding_set" => &["text", "uuid", "text"],
+        "pd_embedding_served" => &["text", "integer", "text", "text"],
         "pd_writer_base" => &["text", "uuid"],
         "pd_result_artifact_wire" => &["text", "uuid", "text"],
         "pq_claim" => &["text", "smallint", "uuid", "uuid", "integer", "text"],
@@ -109,6 +116,19 @@ pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
     })
 }
 
+/// Decode an even-length lowercase/uppercase hex string to bytes, refusing any
+/// non-hex input (`queue_rpc_type`). Shared by the `bytea` and `bytea[]` casts.
+fn hex_bytes(hex: &str) -> Result<Vec<u8>> {
+    ensure!(
+        hex.len().is_multiple_of(2) && hex.bytes().all(|b| b.is_ascii_hexdigit()),
+        "queue_rpc_type"
+    );
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(Into::into))
+        .collect()
+}
+
 /// Bind JSON arguments to their declared SQL types. UUIDs bind as UUIDs,
 /// priority as i16, counts as i32, epochs (decimal strings) as i64, digests
 /// (lowercase hex strings) as bytea, timestamps as text cast by the server.
@@ -132,17 +152,25 @@ pub fn bind_args(casts: &[&str], args: &[Value]) -> Result<Vec<Box<dyn ToSql + S
             "smallint" => Box::new(i16::try_from(value.as_i64().ok_or_else(invalid)?)?),
             "integer" => Box::new(i32::try_from(value.as_i64().ok_or_else(invalid)?)?),
             "bigint" => Box::new(value.as_str().ok_or_else(invalid)?.parse::<i64>()?),
-            "bytea" => {
-                let hex = value.as_str().ok_or_else(invalid)?;
-                ensure!(
-                    hex.len() % 2 == 0 && hex.bytes().all(|b| b.is_ascii_hexdigit()),
-                    "queue_rpc_type"
-                );
-                let bytes = (0..hex.len())
-                    .step_by(2)
-                    .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
-                    .collect::<std::result::Result<Vec<u8>, _>>()?;
-                Box::new(bytes)
+            "bytea" => Box::new(hex_bytes(value.as_str().ok_or_else(invalid)?)?),
+            // One-dimensional typed arrays for the embeddings writer (000038):
+            // comment ids and their text digests. The float matrix is bound
+            // separately (never as JSON) by `Rpc::embedding_put`.
+            "integer[]" => {
+                let items = value.as_array().ok_or_else(invalid)?;
+                let out: Vec<i32> = items
+                    .iter()
+                    .map(|v| i32::try_from(v.as_i64().ok_or_else(invalid)?).map_err(Into::into))
+                    .collect::<Result<_>>()?;
+                Box::new(out)
+            }
+            "bytea[]" => {
+                let items = value.as_array().ok_or_else(invalid)?;
+                let out: Vec<Vec<u8>> = items
+                    .iter()
+                    .map(|v| hex_bytes(v.as_str().ok_or_else(invalid)?))
+                    .collect::<Result<_>>()?;
+                Box::new(out)
             }
             _ => anyhow::bail!("queue_rpc_type"),
         });
