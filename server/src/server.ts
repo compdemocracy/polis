@@ -288,7 +288,10 @@ function initializePolisHelpers() {
       };
     }
   ) {
-    // if uid is not conversation owner, fail
+    // Only the conversation's owner may read its zinvites. The owner probe
+    // returns no rows for everyone else, so an empty result is a non-owner and
+    // must be refused: zinvites carries the conversation's uuid, which is the
+    // capability key for the participant-XID export (GET /api/v3/xid/<uuid>-xid.csv).
     pg.query_readOnly(
       "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
       [req.p.zid, req.p.uid],
@@ -302,15 +305,13 @@ function initializePolisHelpers() {
           );
           return;
         }
-        if (!results || !results.rows) {
-          res.writeHead(404);
-          res.json({
-            status: 404,
-          });
+        if (!results || !results.rows || !results.rows.length) {
+          failJson(res, 403, "polis_err_fetching_zinvite_not_conversation_owner");
           return;
         }
+        // Return only the columns clients read; never the uuid column.
         pg.query_readOnly(
-          "SELECT * FROM zinvites WHERE zid = ($1);",
+          "SELECT zid, zinvite, created FROM zinvites WHERE zid = ($1);",
           [req.p.zid],
           function (err: any, results: { rows: any }) {
             if (err) {
