@@ -67,11 +67,21 @@ def main(argv=None):
             # anything whose rows landed after this run's scan passed their page.
             follow_up = imp.write_follow_up(attempt, (conversations, reports), current)
             conversations, reports = current
+        # With the embeddings table on, read each embedded comment's text once
+        # (bounded, read-only, released before the slow staging) so materialize can
+        # record the text SHA-256 beside each embedding; off, nothing is read.
+        embeddings_on = imp.embeddings_table_enabled()
+        text_shas, embedding_report = None, {}
+        if embeddings_on:
+            with closing(imp.connect_readonly_source(local=bool(args.local_endpoint))) as conn:
+                text_shas = imp.embedding_text_shas(conn, attempt/'first.sqlite')
         root = attempt / 'snapshot'
         # --apply refuses at the first family past the per-run bounds, before
         # anything is copied or admitted. A dry run reports them and continues.
         oversized = None if args.apply else []
-        bundles = imp.materialize(attempt/'first.sqlite', root, first, oversized=oversized)
+        bundles = imp.materialize(attempt/'first.sqlite', root, first, oversized=oversized,
+                                  embeddings_table=embeddings_on, text_shas=text_shas,
+                                  embedding_report=embedding_report)
         imported = 0
         if args.apply:
             imp.SNAPSHOTS.mkdir(mode=0o700, exist_ok=True)
@@ -89,7 +99,11 @@ def main(argv=None):
                       source_sha256=first['source_sha256'], counts=first['counts'],
                       missing_tables=len(first['missing']), conversations=len(bundles),
                       large_conversations=sum(b['bytes'] > legacy.MAX_BYTES for b in bundles),
-                      canonical_result_bytes=sum(b['bytes'] for b in bundles), completed_graphs=imported)
+                      canonical_result_bytes=sum(b['bytes'] for b in bundles), completed_graphs=imported,
+                      embedding_models=imp.embedding_model_counts(attempt/'first.sqlite'))
+        if embeddings_on:
+            # Counts only (rows stored, comments whose text was gone, per-model).
+            result['embeddings'] = embedding_report
         if not args.apply:
             # Counts and byte sizes only, never ids.
             result['staging'] = imp.oversize_summary(oversized)

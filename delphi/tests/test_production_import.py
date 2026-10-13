@@ -1,14 +1,18 @@
 """Generated boundary tests; no cloud, provider or raw votes."""
+import hashlib
 import json
 import os
 from pathlib import Path
 import sqlite3
+import struct
+from decimal import Decimal
 from types import SimpleNamespace
 import pytest
 from polismath.delphi_storage import production_import as imp
 from polismath.delphi_storage import legacy_import as legacy
 from polismath.delphi_storage import codec
 from polismath.delphi_storage import scan_pacing
+from polismath.delphi_storage.embedding_spool import read_spool
 
 
 @pytest.fixture(autouse=True)
@@ -221,3 +225,139 @@ def test_batch_bound_alone_refuses_on_apply_and_is_reported_on_dry_run(tmp_path,
     assert oversized == [dict(zid=1, family=None, bytes=bundles[0]['bytes'], rows=2)]
     assert 3000 < bundles[0]['bytes'] and all(entry['bytes'] < imp.FAMILY_LIMIT
                                                for entry in json.loads((tmp_path/'staged'/bundles[0]['digest']/'manifest.json').read_text())['families'].values())
+
+
+# ---------------------------------------------------------------- embeddings table (flag on)
+
+def embedding_item(zid, tid, vector, model='all-MiniLM-L6-v2'):
+    """A Delphi_CommentEmbeddings source item in the real shape the writers store."""
+    return codec.item_from_python(dict(
+        conversation_id=str(zid), comment_id=tid,
+        embedding=dict(vector=[Decimal(str(v)) for v in vector], dimensions=len(vector), model=model)))
+
+
+def text_sha(text):
+    return hashlib.sha256(text.encode('utf-8')).digest()
+
+
+def _manifest(root, bundle):
+    return json.loads((root / bundle['digest'] / 'manifest.json').read_text())
+
+
+def test_embeddings_table_spools_and_empties_the_family(tmp_path, monkeypatch):
+    vectors = {1: [0.5, -1.0, 2.25], 2: [0.0, 1.5, -3.5]}
+    rows = [embedding_item(1, tid, vec) for tid, vec in vectors.items()]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    shas = {(1, tid): text_sha('generated %d' % tid) for tid in vectors}
+    report = {}
+    monkeypatch.setattr(imp, 'SNAPSHOTS', tmp_path/'snapshots')
+    bundles = imp.materialize(tmp_path/'db', tmp_path/'snapshots', summary,
+                              embeddings_table=True, text_shas=shas, embedding_report=report)
+    manifest = _manifest(tmp_path/'snapshots', bundles[0])
+    # The codec family is empty (header only); the rows went to the spool.
+    assert manifest['embeddings_table'] is True
+    assert manifest['families'][FAMILY]['rows'] == 0
+    assert (tmp_path/'snapshots'/bundles[0]['digest']/(FAMILY+'.jsonl')).read_bytes() == (codec.header(FAMILY)+'\n').encode()
+    descriptor = manifest['embeddings']
+    assert descriptor['model'] == imp.SEEDED_EMBEDDING_MODEL and descriptor['dims'] == 3 and descriptor['rows'] == 2
+    assert report == {'rows': 2, 'models': {imp.SEEDED_EMBEDDING_MODEL: 2}}
+    # content_sha reproduces delphi_embedding_sets.content_sha over the float32 rows.
+    expected_rows = [(tid, shas[(1, tid)], [struct.unpack('<f', struct.pack('<f', v))[0] for v in vectors[tid]])
+                     for tid in sorted(vectors)]
+    assert descriptor['content_sha'] == imp.embedding_content_sha(expected_rows)
+    # The detached child re-emits the spool for the daemon, keyed exactly as it re-checks.
+    spec = imp.specification(bundles[0], [])
+    out = tmp_path/'out'; out.mkdir()
+    monkeypatch.setenv('DELPHI_OUTPUT_MANIFEST', str(out/'manifest.json'))
+    frame = dict(zid=1, embeddings_table=True, input=dict(declared=spec['nodes'][0]['declared']))
+    output = imp.execute(frame)
+    assert set(output['embedding_spool']) == {'file', 'sha256', 'model', 'dims', 'rows'}
+    assert output['embedding_spool'] == dict(file='embeddings.spool', sha256=descriptor['sha256'],
+                                             model=imp.SEEDED_EMBEDDING_MODEL, dims=3, rows=2)
+    model, dims, back = read_spool((out/'embeddings.spool').read_bytes())
+    assert model == imp.SEEDED_EMBEDDING_MODEL and dims == 3 and {r['tid'] for r in back} == {1, 2}
+    # The empty codec family is still staged.
+    assert codec.decode_family((out/(FAMILY+'.jsonl')).read_bytes())[1] == []
+
+
+def test_embeddings_flag_must_agree_between_snapshot_and_frame(tmp_path, monkeypatch):
+    rows = [embedding_item(1, 1, [0.5, 0.25, 0.125])]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    monkeypatch.setattr(imp, 'SNAPSHOTS', tmp_path/'snapshots')
+    bundles = imp.materialize(tmp_path/'db', tmp_path/'snapshots', summary,
+                              embeddings_table=True, text_shas={(1, 1): text_sha('x')}, embedding_report={})
+    spec = imp.specification(bundles[0], [])
+    out = tmp_path/'out'; out.mkdir()
+    monkeypatch.setenv('DELPHI_OUTPUT_MANIFEST', str(out/'manifest.json'))
+    frame_off = dict(zid=1, input=dict(declared=spec['nodes'][0]['declared']))
+    with pytest.raises(ValueError, match='embeddings table flag mismatch'):
+        imp.execute(frame_off)
+    # Snapshot staged flag-off, frame flag-on also refuses rather than drop rows.
+    off = imp.materialize(tmp_path/'db', tmp_path/'plain', summary)
+    monkeypatch.setattr(imp, 'SNAPSHOTS', tmp_path/'plain')
+    spec_off = imp.specification(off[0], [])
+    out2 = tmp_path/'out2'; out2.mkdir()
+    monkeypatch.setenv('DELPHI_OUTPUT_MANIFEST', str(out2/'manifest.json'))
+    frame_on = dict(zid=1, embeddings_table=True, input=dict(declared=spec_off['nodes'][0]['declared']))
+    with pytest.raises(ValueError, match='embeddings table flag mismatch'):
+        imp.execute(frame_on)
+
+
+def test_flag_on_large_embeddings_family_no_longer_refuses(tmp_path, monkeypatch):
+    # Enough embedding rows that the codec family exceeds a lowered family bound.
+    rows = [embedding_item(1, i, [0.5, 0.25, 0.125, -0.5]) for i in range(40)]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    shas = {(1, i): text_sha('c%d' % i) for i in range(40)}
+    monkeypatch.setattr(imp, 'FAMILY_LIMIT', 500)
+    # Flag off: the oversized codec family refuses on the apply path, as today.
+    with pytest.raises(ValueError, match='conversation family exceeds staged storage bound'):
+        imp.materialize(tmp_path/'db', tmp_path/'off', summary)
+    # Flag on: the family is empty and the rows are in the spool; no refusal.
+    report = {}
+    bundles = imp.materialize(tmp_path/'db', tmp_path/'on', summary,
+                              embeddings_table=True, text_shas=shas, embedding_report=report)
+    manifest = _manifest(tmp_path/'on', bundles[0])
+    assert manifest['families'][FAMILY]['bytes'] < 500 and manifest['families'][FAMILY]['rows'] == 0
+    assert manifest['embeddings']['rows'] == 40 and report['rows'] == 40
+
+
+def test_missing_comment_text_is_skipped_and_counted(tmp_path, monkeypatch):
+    rows = [embedding_item(1, 1, [0.5, 0.25, 0.125]), embedding_item(1, 2, [1.0, -2.0, 0.5])]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    report = {}
+    bundles = imp.materialize(tmp_path/'db', tmp_path/'snap', summary,
+                              embeddings_table=True, text_shas={(1, 1): text_sha('only one')}, embedding_report=report)
+    assert report == {'rows': 1, 'text_missing': 1, 'models': {imp.SEEDED_EMBEDDING_MODEL: 1}}
+    assert _manifest(tmp_path/'snap', bundles[0])['embeddings']['rows'] == 1
+
+
+@pytest.mark.parametrize('rows,match', [
+    ([embedding_item(1, 1, [0.5, 0.25, 0.125], model='some-other-model')], 'unmapped embedding model'),
+    ([embedding_item(1, 1, [0.1, 0.2, 0.3])], 'float32 exact'),
+    ([embedding_item(1, 1, [0.5, 0.25, 0.125]), embedding_item(1, 2, [0.5, 0.25])], 'multiple embedding models in conversation'),
+])
+def test_flag_on_refuses_bad_embeddings(tmp_path, rows, match):
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    shas = {(1, 1): text_sha('a'), (1, 2): text_sha('b')}
+    with pytest.raises(ValueError, match=match):
+        imp.materialize(tmp_path/'db', tmp_path/'snap', summary,
+                        embeddings_table=True, text_shas=shas, embedding_report={})
+
+
+def test_embedding_model_counts_are_per_raw_string(tmp_path):
+    rows = [embedding_item(1, 1, [0.5, 0.25, 0.125], model='all-MiniLM-L6-v2'),
+            embedding_item(1, 2, [0.5, 0.25, 0.125], model='all-MiniLM-L6-v2'),
+            embedding_item(2, 3, [0.5, 0.25, 0.125], model='sentence-transformers/all-MiniLM-L6-v2')]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1, '2': 2}, {})
+    assert imp.embedding_model_counts(tmp_path/'db') == {
+        'all-MiniLM-L6-v2': 2, 'sentence-transformers/all-MiniLM-L6-v2': 1}
+
+
+def test_flag_off_materialize_is_unchanged(tmp_path):
+    rows = [embedding_item(1, 1, [0.5, 0.25, 0.125]), embedding_item(1, 2, [1.0, -2.0, 0.5])]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    plain = imp.materialize(tmp_path/'db', tmp_path/'off', summary)
+    manifest = _manifest(tmp_path/'off', plain[0])
+    assert 'embeddings_table' not in manifest and 'embeddings' not in manifest
+    assert manifest['families'][FAMILY]['rows'] == 2
+    assert codec.decode_family((tmp_path/'off'/plain[0]['digest']/(FAMILY+'.jsonl')).read_bytes())[1] == rows

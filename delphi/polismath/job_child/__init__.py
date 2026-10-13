@@ -503,6 +503,12 @@ def write_manifest(ctx: JobContext, manifest: Dict[str, Any]) -> str:
         manifest = dict(manifest, schema="polis-jobs.output-manifest/2",
                         outputs=[dict(o, store="postgres") for o in manifest["outputs"]],
                         family_spool=resource.spool() if manifest["outcome"] == "succeeded" else {})
+        # With the embeddings table on, a succeeded run's embeddings are a spool
+        # the daemon routes into pd_embedding_put/close instead of the codec family.
+        if manifest["outcome"] == "succeeded":
+            descriptor = resource.embedding_spool()
+            if descriptor is not None:
+                manifest["embedding_spool"] = descriptor
     data = encode_manifest(manifest)
     if os.path.lexists(ctx.manifest_path):
         raise ManifestError("the manifest already exists")

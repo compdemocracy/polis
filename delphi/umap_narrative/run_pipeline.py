@@ -1094,12 +1094,22 @@ def process_conversation(
         )
         dynamo_storage.create_conversation_meta(conversation_meta)
 
-        # Store embeddings
+        # Store embeddings. With the per-row table on (migration 000038), the run's
+        # embeddings go to that table with each comment's text SHA-256 as provenance,
+        # not the codec family; off, the codec-family path is unchanged.
         logger.info("Storing comment embeddings...")
-        embedding_models = DataConverter.batch_convert_embeddings(
-            conversation_id, document_vectors, comment_ids
-        )
-        result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
+        if dynamo_storage.embeddings_table_enabled():
+            import hashlib
+            model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+            text_shas = [hashlib.sha256(text.encode("utf-8")).digest() for text in comment_texts]
+            result = dynamo_storage.put_comment_embeddings_table(
+                conversation_id, comment_ids, text_shas, document_vectors, model_name
+            )
+        else:
+            embedding_models = DataConverter.batch_convert_embeddings(
+                conversation_id, document_vectors, comment_ids
+            )
+            result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(
             f"Stored {result['success']} embeddings with {result['failure']} failures"
         )
