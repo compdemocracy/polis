@@ -637,9 +637,12 @@ function handle_GET_conversationStats(
         args.push(until);
       }
 
+      // conversationStats scans the whole conversation's comments and votes for
+      // the admin histograms; it runs on the bounded report/export pool, never
+      // the participation read pool.
       return Promise.all([
-        pg.queryP_readOnly(q0, args),
-        pg.queryP_readOnly(q1, args),
+        pg.queryP_reportExport(q0, args),
+        pg.queryP_reportExport(q1, args),
       ]).then(function (a: any[]) {
         function castTimestamp(o: { created: number }) {
           o.created = Number(o.created);
