@@ -380,18 +380,30 @@ async function _ensureParticipantInternal(
     throw new Error("polis_err_missing_zid");
   }
 
-  let uid = req.p.uid;
-  let pid = req.p.pid;
   let isNewlyCreatedUser = false;
   let isNewlyCreatedParticipant = false;
   let needsNewJWT = false;
   let legacyCookieToken: string | undefined;
 
-  // Handle JWT conversation mismatches
+  // Handle JWT conversation mismatches. The handler clears req.p.uid and
+  // req.p.pid when the token was issued for another conversation, so the
+  // identity is read from req.p only after it has run.
   const treatedAsNew = await _handleJWTConversationMismatch(req, zid);
   if (treatedAsNew) {
     needsNewJWT = true;
   }
+
+  // A pid only has meaning in the conversation whose token carried it. A
+  // token issued for another conversation never supplies this conversation's
+  // pid, whatever the handler decided about the uid: the participant is
+  // looked up (or created) for (zid, uid) below. A token for this
+  // conversation is untouched here.
+  if (req.p.jwt_conversation_mismatch) {
+    req.p.pid = undefined;
+  }
+
+  let uid = req.p.uid;
+  let pid = req.p.pid;
 
   // Check for legacy cookie before creating new user
   if (uid === undefined && !req.p.jwt_conversation_mismatch) {

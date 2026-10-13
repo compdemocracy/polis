@@ -1,10 +1,4 @@
-import {
-  describe,
-  test,
-  expect,
-  beforeAll,
-  afterAll,
-} from "@jest/globals";
+import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
 import {
   newAgent,
   createConversation,
@@ -16,55 +10,48 @@ import {
   getJwtAuthenticatedAgent,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
+import { toWire } from "../setup/vote-wire";
 import { issueAnonymousJWT } from "../../src/auth/anonymous-jwt";
 import { issueStandardUserJWT } from "../../src/auth/standard-user-jwt";
 import { pool, closePool } from "../setup/db-test-helpers";
 
 /**
- * Cross-conversation vote attribution — reproduction battery.
+ * A participant token is scoped to the conversation it was issued in.
  *
- * Claim under test: a participant token minted for conversation X (carrying that
- * participant's pid) can be used to POST a vote to a *different* conversation Y,
- * and the vote is stored against whichever participant happens to hold that pid
- * number in Y — i.e. attributed to a different person.
+ * Participant pids are assigned per conversation starting at 0 (trigger
+ * `pid_auto`, server/postgres/migrations/000000_initial.sql), so the same pid
+ * number names a different person in every conversation. A token issued in
+ * conversation X carries X's (uid, pid). When that token is presented in a
+ * different conversation Y, the server resolves the participant for Y itself:
+ * the vote is recorded for the caller's own participant in Y (created on the
+ * spot when there is none), never for whoever holds that pid number in Y, and
+ * never for a pid that has no participant row.
  *
- * Why this is possible, traced through the request pipeline (origin/edge):
- *   - participant pids are assigned PER CONVERSATION starting at 0
- *     (trigger `pid_auto`, server/postgres/migrations/000000_initial.sql:891-905),
- *     so pid collisions across conversations are the norm, not the exception.
- *   - the vote route runs hybridAuthOptional -> resolves the REQUESTED conversation
- *     to req.p.zid -> ensureParticipant (server/app.ts:1226-1244).
- *   - the JWT extractor sets req.p.pid from the token and flags, but does not
- *     reject, a conversation mismatch (server/src/auth/jwt-utils.ts:297, 309-321).
- *   - ensureParticipant copies uid/pid into locals (ensure-participant.ts:383-384)
- *     BEFORE _handleJWTConversationMismatch nulls req.p.uid/req.p.pid
- *     (ensure-participant.ts:391, 92-152); the locals are never refreshed.
- *   - the nonnegative-pid fast path returns the stale pid unchanged
- *     (ensure-participant.ts:221-222), and it is written back to req.p
- *     (ensure-participant.ts:539-540).
- *   - handle_POST_votes inserts (pid, zid, tid, vote) with no uid/pid consistency
- *     check (server/src/routes/votes.ts:201-215, 70-72); the `votes` table has no
- *     (zid,pid) foreign key, so even a pid that does not exist in Y is accepted.
+ * ensureParticipant (server/src/auth/ensure-participant.ts) reads the request's
+ * uid/pid only after the conversation-mismatch handler has run, and a token for
+ * another conversation never supplies this conversation's pid. A token used in
+ * the conversation it was issued in takes exactly the path it always has.
  *
- * The COMMENT route uses the same middleware but re-resolves pid against (zid,uid)
- * in the handler (server/src/routes/comments.ts:408-444), so it is expected NOT to
- * misattribute — it is included here as a control/comparison.
+ * Cases:
+ *   - same-conversation token (anonymous, XID, standard-user): votes as itself,
+ *     creates no participant, is issued no new token;
+ *   - cross-conversation token (anonymous, XID, standard-user): votes as a new
+ *     participant in Y, not as the holder of the same pid in Y, not as an
+ *     orphan pid, and the response carries a token for Y;
+ *   - cross-conversation token whose pid has no participant in Y: no orphan row;
+ *   - participationInit with a cross-conversation token shows nobody else's votes;
+ *   - controls: the raw OIDC access token (carries no pid) and the comment route
+ *     (re-resolves the pid by (zid, uid)) attribute to the caller.
  *
- * The raw OIDC access token is also included as a control: it carries no pid and
- * sets no mismatch flag, so ensureParticipant resolves the pid fresh per
- * conversation (server/src/auth/jwt-middleware.ts extractUserFromJWT); it is
- * expected NOT to misattribute.
- *
- * STATUS: failing-first. Each reproduction assertion states the CORRECT behaviour
- * (a token for X must never cast a vote recorded under another person in Y). Where
- * the defect is live these assertions FAIL (red) on purpose; they are evidence, not
- * a passing regression. Every test also logs the exact stored rows for the record.
- * Votes are written ONLY through the real vote route (submitVote); nothing here
- * raw-inserts a vote value.
+ * Votes are written only through the real vote route (submitVote); nothing here
+ * writes a vote value directly. Each test logs the stored rows for the record.
  */
 
-const ATTACK_VOTE = -1; // storage convention: -1 = agree. Written via the route only.
-const MAT_VOTE = 0; // pass/skip, used only to materialize victim participants.
+// The vote under test, on the wire. Nothing is identified by its value: the
+// comment it is cast on is otherwise untouched, so the row is found by tid.
+const VOTE_UNDER_TEST = toWire("agree");
+// Used only to materialize other participants.
+const MAT_VOTE = toWire("pass");
 
 // ---- DB inspection helpers (read-only) ----
 async function zidOf(conversationId: string): Promise<number> {
@@ -133,8 +120,19 @@ async function agentWithToken(token: string) {
   return a;
 }
 
+type Conversation = {
+  convId: string;
+  zid: number;
+  matTid: number;
+  voteTid: number;
+};
+
+type ParticipantToken = { token: string; uid: number; pid: number };
+
 // ---- Shared owner (OIDC) for all conversations ----
-async function makeOwner(poolIndex: number): Promise<{ agent: any; uid: number }> {
+async function makeOwner(
+  poolIndex: number
+): Promise<{ agent: any; uid: number }> {
   const pu = getPooledTestUser(poolIndex);
   const { agent } = await getJwtAuthenticatedAgent({
     email: pu.email,
@@ -155,96 +153,213 @@ async function makeOwner(poolIndex: number): Promise<{ agent: any; uid: number }
   return { agent, uid };
 }
 
-/** Create a conversation with a materialize comment and an untouched attack comment. */
-async function makeConversation(
-  ownerAgent: any
-): Promise<{ convId: string; zid: number; matTid: number; attackTid: number }> {
+/** A conversation with a comment to materialize on and an untouched comment to vote on. */
+async function makeConversation(ownerAgent: any): Promise<Conversation> {
   const convId = await createConversation(ownerAgent, {
     is_active: true,
     is_anon: true,
     strict_moderation: false,
     profanity_filter: false,
   });
-  // First createComment internally seeds a comment to vote on, then creates matTid.
   const matTid = await createComment(ownerAgent, convId, {
     conversation_id: convId,
     txt: `materialize target ${convId} ${Date.now()}`,
   } as any);
-  const attackTid = await createComment(ownerAgent, convId, {
+  const voteTid = await createComment(ownerAgent, convId, {
     conversation_id: convId,
-    txt: `attack target ${convId} ${Date.now()}`,
+    txt: `vote target ${convId} ${Date.now()}`,
   } as any);
-  return { convId, zid: await zidOf(convId), matTid, attackTid };
+  return { convId, zid: await zidOf(convId), matTid, voteTid };
 }
 
 /** Ensure conversation Y has a participant at pid === targetPid, owned by someone != aUid. */
-async function ensureVictimAtPid(
-  convY: string,
-  zidY: number,
-  targetPid: number,
-  matTid: number
+async function ensureHolderAtPid(
+  Y: Conversation,
+  targetPid: number
 ): Promise<number> {
   let guard = 0;
-  while ((await maxPid(zidY)) < targetPid) {
-    const { agent } = await initializeParticipant(convY);
+  while ((await maxPid(Y.zid)) < targetPid) {
+    const { agent } = await initializeParticipant(Y.convId);
     await submitVote(agent, {
-      conversation_id: convY,
-      tid: matTid,
+      conversation_id: Y.convId,
+      tid: Y.matTid,
       vote: MAT_VOTE,
     } as any);
     if (++guard > targetPid + 8) {
-      throw new Error(`could not materialize a victim at pid ${targetPid}`);
+      throw new Error(
+        `could not materialize a participant at pid ${targetPid}`
+      );
     }
   }
-  const uidB = await uidOfPid(zidY, targetPid);
+  const uidB = await uidOfPid(Y.zid, targetPid);
   if (uidB == null) throw new Error(`no participant at pid ${targetPid} in Y`);
   return uidB;
 }
 
-/**
- * Run the shared cross-conversation vote assertion for a pid-carrying token kind.
- * `tokenA` is a valid token for conversation X carrying (uidA, pidA).
- */
-async function assertVoteAttribution(opts: {
-  kind: string;
-  tokenA: string;
-  uidA: number;
-  pidA: number;
-  convY: string;
-  zidY: number;
-  attackTid: number;
-  uidB: number;
-}) {
-  const { kind, tokenA, uidA, pidA, convY, zidY, attackTid, uidB } = opts;
+// ---- Tokens issued in conversation X, each carrying X's (uid, pid) ----
 
-  const attacker = await agentWithToken(tokenA);
-  const vr = await submitVote(attacker, {
-    conversation_id: convY,
-    tid: attackTid,
-    vote: ATTACK_VOTE,
+/** An anonymous participant token, as the server issues it on the first vote. */
+async function anonymousTokenFor(X: Conversation): Promise<ParticipantToken> {
+  const { agent } = await initializeParticipant(X.convId);
+  const vr = await submitVote(agent, {
+    conversation_id: X.convId,
+    tid: X.matTid,
+    vote: MAT_VOTE,
   } as any);
-
-  const latest = await latestVotesWithOwner(zidY, attackTid);
-  const raw = await rawVoteRows(zidY, pidA, attackTid);
-  const aPidInY = await pidOfUid(zidY, uidA);
-  const victimRows = latest.filter((r) => r.uid === uidB);
-  const victimGotMyVote = victimRows.some((r) => r.vote === ATTACK_VOTE);
-
-  // eslint-disable-next-line no-console
-  console.log(
-    `[VOTE/${kind}] POST /votes -> status ${vr.status}; ` +
-      `A=(uid ${uidA}, pid ${pidA} in X); victim B=(uid ${uidB}, pid ${pidA} in Y); ` +
-      `A's own pid in Y=${aPidInY}; ` +
-      `latest votes on attack tid=${JSON.stringify(latest)}; ` +
-      `raw votes at (Y, pid ${pidA}, tid)=${raw.length}`
-  );
-
-  // CORRECT behaviour (failing-first): a token for X must NEVER cast a vote that
-  // is stored under another participant (the victim) in Y.
-  expect({ kind, victimGotMyVote }).toEqual({ kind, victimGotMyVote: false });
+  const token: string = vr.body?.auth?.token;
+  expect(typeof token).toBe("string");
+  const claims = decodeJwt(token);
+  expect(claims.conversation_id).toBe(X.convId);
+  return { token, uid: claims.uid as number, pid: claims.pid as number };
 }
 
-describe("cross-conversation vote attribution (failing-first evidence; RED until fixed)", () => {
+/** An XID participant token, as the server issues it. */
+async function xidTokenFor(X: Conversation): Promise<ParticipantToken> {
+  const xid = `scoped-xid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const init = await initializeParticipantWithXid(X.convId, xid);
+  const vr = await submitVote(init.agent, {
+    conversation_id: X.convId,
+    tid: X.matTid,
+    vote: MAT_VOTE,
+    xid,
+  } as any);
+  const token: string = vr.body?.auth?.token || init.token;
+  expect(typeof token).toBe("string");
+  const claims = decodeJwt(token);
+  expect(claims.conversation_id).toBe(X.convId);
+  expect(claims.xid_participant).toBe(true);
+  return { token, uid: claims.uid as number, pid: claims.pid as number };
+}
+
+/**
+ * A standard-user participant token. The server mints it with
+ * issueStandardUserJWT(sub, conversationId, uid, pid); the real (uid, pid) come
+ * from an OIDC user who participated in X, and the token is minted exactly as
+ * the server would. The oidc_sub string plays no part in pid resolution.
+ */
+async function standardUserTokenFor(
+  X: Conversation,
+  poolIndex: number
+): Promise<ParticipantToken> {
+  const pu = getPooledTestUser(poolIndex);
+  const { agent: oidcAgent } = await getJwtAuthenticatedAgent({
+    email: pu.email,
+    hname: pu.name,
+    password: pu.password,
+  } as any);
+  await oidcAgent.get("/api/v3/users");
+  await submitVote(oidcAgent, {
+    conversation_id: X.convId,
+    tid: X.matTid,
+    vote: MAT_VOTE,
+  } as any);
+  const uid = (await oidcAgent.get("/api/v3/users")).body?.uid as number;
+  const pid = await pidOfUid(X.zid, uid);
+  expect(typeof uid).toBe("number");
+  expect(typeof pid).toBe("number");
+  const token = issueStandardUserJWT(
+    `scoped-sub-${Date.now()}`,
+    X.convId,
+    uid,
+    pid as number
+  );
+  return { token, uid, pid: pid as number };
+}
+
+// ---- Shared assertions ----
+
+/** A token for X, used in X: the vote is recorded for its own participant and nothing else changes. */
+async function assertVotesAsItself(
+  kind: string,
+  A: ParticipantToken,
+  X: Conversation
+) {
+  const participantsBefore = await maxPid(X.zid);
+  const caller = await agentWithToken(A.token);
+  const vr = await submitVote(caller, {
+    conversation_id: X.convId,
+    tid: X.voteTid,
+    vote: VOTE_UNDER_TEST,
+  } as any);
+  const latest = await latestVotesWithOwner(X.zid, X.voteTid);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[SAME/${kind}] POST /votes -> status ${vr.status}; A=(uid ${A.uid}, pid ${A.pid}); ` +
+      `latest votes on tid=${JSON.stringify(latest)}; auth in response=${!!vr
+        .body?.auth}`
+  );
+  expect(vr.status).toBe(200);
+  expect(vr.body.currentPid).toBe(A.pid);
+  expect(latest).toHaveLength(1);
+  expect(latest[0]).toMatchObject({ pid: A.pid, uid: A.uid });
+  // No participant was created and no token was reissued: today's path.
+  expect(await maxPid(X.zid)).toBe(participantsBefore);
+  expect(vr.body.auth).toBeUndefined();
+}
+
+/**
+ * A token for X, used in Y where someone else (uidB) holds pid A.pid: the vote
+ * is recorded for a participant created for the caller in Y. `keepsIdentity`
+ * says whether that participant belongs to the token's uid (XID and
+ * standard-user tokens keep their user; an anonymous token starts over).
+ */
+async function assertVotesAsOwnNewParticipant(opts: {
+  kind: string;
+  A: ParticipantToken;
+  Y: Conversation;
+  uidB: number;
+  keepsIdentity: boolean;
+}) {
+  const { kind, A, Y, uidB, keepsIdentity } = opts;
+  expect(uidB).not.toBe(A.uid);
+  expect(await pidOfUid(Y.zid, A.uid)).toBeNull();
+  const participantsBefore = await maxPid(Y.zid);
+
+  const caller = await agentWithToken(A.token);
+  const vr = await submitVote(caller, {
+    conversation_id: Y.convId,
+    tid: Y.voteTid,
+    vote: VOTE_UNDER_TEST,
+  } as any);
+
+  const latest = await latestVotesWithOwner(Y.zid, Y.voteTid);
+  const underTokenPid = await rawVoteRows(Y.zid, A.pid, Y.voteTid);
+  const ownPidInY = await pidOfUid(Y.zid, A.uid);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[CROSS/${kind}] POST /votes -> status ${vr.status}; ` +
+      `A=(uid ${A.uid}, pid ${A.pid} in X); B=(uid ${uidB}, pid ${A.pid} in Y); ` +
+      `A's own pid in Y=${ownPidInY}; latest votes on tid=${JSON.stringify(
+        latest
+      )}; ` +
+      `raw votes at (Y, pid ${A.pid}, tid)=${underTokenPid.length}; ` +
+      `currentPid=${vr.body?.currentPid}; auth in response=${!!vr.body?.auth}`
+  );
+
+  expect(vr.status).toBe(200);
+  expect(latest).toHaveLength(1);
+  const mine = latest[0];
+  // Not the holder of that pid number in Y.
+  expect(mine.uid).not.toBe(uidB);
+  expect(mine.pid).not.toBe(A.pid);
+  expect(underTokenPid).toHaveLength(0);
+  // Not an orphan: a participant row owns the vote, and it was created for this vote.
+  expect(mine.uid).not.toBeNull();
+  expect(mine.pid).toBeGreaterThan(participantsBefore);
+  expect(vr.body.currentPid).toBe(mine.pid);
+  if (keepsIdentity) {
+    expect(mine.uid).toBe(A.uid);
+    expect(ownPidInY).toBe(mine.pid);
+  }
+  // The response carries a token for Y bound to the new participant.
+  const token = vr.body?.auth?.token;
+  expect(typeof token).toBe("string");
+  const claims = decodeJwt(token);
+  expect(claims.conversation_id).toBe(Y.convId);
+  expect(claims.pid).toBe(mine.pid);
+}
+
+describe("participant tokens are scoped to the conversation they were issued in", () => {
   let owner: { agent: any; uid: number };
 
   beforeAll(async () => {
@@ -255,280 +370,226 @@ describe("cross-conversation vote attribution (failing-first evidence; RED until
     await closePool();
   });
 
-  describe("anonymous participant token", () => {
-    test("vote: token for X is recorded under the victim's pid in Y (should be rejected or A's own)", async () => {
+  describe("a token used in its own conversation votes as itself", () => {
+    test("anonymous participant token", async () => {
       const X = await makeConversation(owner.agent);
-      const { agent } = await initializeParticipant(X.convId);
-      const vr = await submitVote(agent, {
-        conversation_id: X.convId,
-        tid: X.attackTid,
-        vote: 1,
-      } as any);
-      const tokenA: string = vr.body?.auth?.token;
-      expect(typeof tokenA).toBe("string");
-      const claims = decodeJwt(tokenA);
-      expect(claims.conversation_id).toBe(X.convId);
-      const uidA = claims.uid as number;
-      const pidA = claims.pid as number;
+      const A = await anonymousTokenFor(X);
+      await assertVotesAsItself("anonymous", A, X);
+    });
 
+    test("XID participant token", async () => {
+      const X = await makeConversation(owner.agent);
+      const A = await xidTokenFor(X);
+      await assertVotesAsItself("xid", A, X);
+    });
+
+    test("standard-user participant token", async () => {
+      const X = await makeConversation(owner.agent);
+      const A = await standardUserTokenFor(X, 3);
+      await assertVotesAsItself("standard-user", A, X);
+    });
+  });
+
+  describe("a token used in another conversation votes as a new participant there", () => {
+    test("anonymous participant token: not the holder of the same pid, not an orphan", async () => {
+      const X = await makeConversation(owner.agent);
+      const A = await anonymousTokenFor(X);
       const Y = await makeConversation(owner.agent);
-      const uidB = await ensureVictimAtPid(Y.convId, Y.zid, pidA, Y.matTid);
-      expect(uidB).not.toBe(uidA);
-
-      await assertVoteAttribution({
+      const uidB = await ensureHolderAtPid(Y, A.pid);
+      await assertVotesAsOwnNewParticipant({
         kind: "anonymous",
-        tokenA,
-        uidA,
-        pidA,
-        convY: Y.convId,
-        zidY: Y.zid,
-        attackTid: Y.attackTid,
+        A,
+        Y,
         uidB,
+        keepsIdentity: false,
       });
     });
 
-    test("comment (control): re-resolves pid by (zid,uid), so it is attributed to A, not the victim", async () => {
+    test("XID participant token: not the holder of the same pid, not an orphan", async () => {
       const X = await makeConversation(owner.agent);
-      const { agent } = await initializeParticipant(X.convId);
-      const vr = await submitVote(agent, {
-        conversation_id: X.convId,
-        tid: X.attackTid,
-        vote: 1,
-      } as any);
-      const tokenA: string = vr.body?.auth?.token;
-      const claims = decodeJwt(tokenA);
-      const uidA = claims.uid as number;
-      const pidA = claims.pid as number;
-
+      const A = await xidTokenFor(X);
       const Y = await makeConversation(owner.agent);
-      const uidB = await ensureVictimAtPid(Y.convId, Y.zid, pidA, Y.matTid);
-
-      const attacker = await agentWithToken(tokenA);
-      const txt = `anon cross-conv comment ${Date.now()}`;
-      const cr = await submitComment(attacker, {
-        conversation_id: Y.convId,
-        txt,
-      } as any);
-      const { rows } = await pool.query(
-        "SELECT pid, uid FROM comments WHERE zid = $1 AND txt = $2",
-        [Y.zid, txt]
-      );
-      // eslint-disable-next-line no-console
-      console.log(
-        `[COMMENT/anonymous] POST /comments -> status ${cr.status}; stored=${JSON.stringify(
-          rows
-        )}; A uid=${uidA}, victim uid=${uidB}, stale pid=${pidA}`
-      );
-      expect(rows[0]?.uid).toBe(uidA);
-      expect(rows[0]?.uid).not.toBe(uidB);
-    });
-  });
-
-  describe("XID participant token", () => {
-    test("vote: token for X is recorded under the victim's pid in Y (should be rejected or A's own)", async () => {
-      const X = await makeConversation(owner.agent);
-      const xid = `misattr-xid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-      const init = await initializeParticipantWithXid(X.convId, xid);
-      const vr = await submitVote(init.agent, {
-        conversation_id: X.convId,
-        tid: X.attackTid,
-        vote: 1,
-        xid,
-      } as any);
-      const tokenA: string = vr.body?.auth?.token || init.token;
-      expect(typeof tokenA).toBe("string");
-      const claims = decodeJwt(tokenA);
-      expect(claims.conversation_id).toBe(X.convId);
-      expect(claims.xid_participant).toBe(true);
-      const uidA = claims.uid as number;
-      const pidA = claims.pid as number;
-
-      const Y = await makeConversation(owner.agent);
-      const uidB = await ensureVictimAtPid(Y.convId, Y.zid, pidA, Y.matTid);
-      expect(uidB).not.toBe(uidA);
-
-      await assertVoteAttribution({
+      const uidB = await ensureHolderAtPid(Y, A.pid);
+      await assertVotesAsOwnNewParticipant({
         kind: "xid",
-        tokenA,
-        uidA,
-        pidA,
-        convY: Y.convId,
-        zidY: Y.zid,
-        attackTid: Y.attackTid,
+        A,
+        Y,
         uidB,
+        keepsIdentity: true,
       });
     });
 
-    test("comment (control): attributed to A, not the victim", async () => {
+    test("standard-user participant token: not the holder of the same pid, not an orphan", async () => {
       const X = await makeConversation(owner.agent);
-      const xid = `misattr-xid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-      const init = await initializeParticipantWithXid(X.convId, xid);
-      const vr = await submitVote(init.agent, {
-        conversation_id: X.convId,
-        tid: X.attackTid,
-        vote: 1,
-        xid,
-      } as any);
-      const tokenA: string = vr.body?.auth?.token || init.token;
-      const claims = decodeJwt(tokenA);
-      const uidA = claims.uid as number;
-      const pidA = claims.pid as number;
-
+      const A = await standardUserTokenFor(X, 2);
       const Y = await makeConversation(owner.agent);
-      const uidB = await ensureVictimAtPid(Y.convId, Y.zid, pidA, Y.matTid);
+      const uidB = await ensureHolderAtPid(Y, A.pid);
+      await assertVotesAsOwnNewParticipant({
+        kind: "standard-user",
+        A,
+        Y,
+        uidB,
+        keepsIdentity: true,
+      });
+    });
 
-      const attacker = await agentWithToken(tokenA);
-      const txt = `xid cross-conv comment ${Date.now()}`;
-      const cr = await submitComment(attacker, {
+    test("a pid with no participant in Y is never written: the vote gets a participant of its own", async () => {
+      const Y = await makeConversation(owner.agent);
+      const absentPid = 900000 + Math.floor(Math.random() * 90000);
+      // An anonymous token for some other conversation (a throwaway id, so the
+      // mismatch path is exercised) carrying a real uid and a pid that exists
+      // nowhere in Y.
+      const token = issueAnonymousJWT(
+        "not-a-real-conv-id",
+        owner.uid,
+        absentPid
+      );
+      const participantsBefore = await maxPid(Y.zid);
+      const caller = await agentWithToken(token);
+      const vr = await submitVote(caller, {
         conversation_id: Y.convId,
-        txt,
+        tid: Y.voteTid,
+        vote: VOTE_UNDER_TEST,
       } as any);
-      const { rows } = await pool.query(
-        "SELECT pid, uid FROM comments WHERE zid = $1 AND txt = $2",
-        [Y.zid, txt]
+
+      const atAbsentPid = await rawVoteRows(Y.zid, absentPid, Y.voteTid);
+      const latest = await latestVotesWithOwner(Y.zid, Y.voteTid);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[CROSS/absent-pid] POST /votes -> status ${vr.status}; token pid=${absentPid}; ` +
+          `vote rows at (Y, token pid, tid)=${atAbsentPid.length}; ` +
+          `latest votes on tid=${JSON.stringify(latest)}`
+      );
+      expect(vr.status).toBe(200);
+      expect(atAbsentPid).toHaveLength(0);
+      expect(latest).toHaveLength(1);
+      expect(latest[0].uid).not.toBeNull();
+      expect(latest[0].pid).toBeGreaterThan(participantsBefore);
+      expect(vr.body.currentPid).toBe(latest[0].pid);
+      expect(decodeJwt(vr.body.auth.token).conversation_id).toBe(Y.convId);
+    });
+
+    test("participationInit with a token for another conversation shows nobody else's votes", async () => {
+      const X = await makeConversation(owner.agent);
+      const A = await anonymousTokenFor(X);
+      const Y = await makeConversation(owner.agent);
+      // The holder of pid A.pid in Y has a vote on Y.matTid.
+      const uidB = await ensureHolderAtPid(Y, A.pid);
+      expect(uidB).not.toBe(A.uid);
+
+      const caller = await agentWithToken(A.token);
+      const ir = await caller.get(
+        `/api/v3/participationInit?conversation_id=${Y.convId}&pid=-1&lang=en`
       );
       // eslint-disable-next-line no-console
       console.log(
-        `[COMMENT/xid] POST /comments -> status ${cr.status}; stored=${JSON.stringify(
-          rows
-        )}; A uid=${uidA}, victim uid=${uidB}, stale pid=${pidA}`
+        `[INIT/anonymous] GET /participationInit -> status ${ir.status}; ` +
+          `votes=${JSON.stringify(ir.body?.votes)}`
       );
-      expect(rows[0]?.uid).toBe(uidA);
-      expect(rows[0]?.uid).not.toBe(uidB);
+      expect(ir.status).toBe(200);
+      expect(ir.body.votes ?? []).toHaveLength(0);
     });
   });
 
-  describe("standard-user (OIDC-derived participant) token", () => {
-    // The standard-user participant JWT is minted by the server's own
-    // issueStandardUserJWT(sub, conversationId, uid, pid). We obtain the real
-    // (uid, pid) by having a real OIDC user participate in X, then mint the token
-    // exactly as the server would. The oidc_sub string does not affect pid-based
-    // attribution.
-    test("vote: token for X is recorded under the victim's pid in Y (should be rejected or A's own)", async () => {
+  describe("controls", () => {
+    test("raw OIDC access token (carries no pid): votes as the caller's own participant in Y", async () => {
       const X = await makeConversation(owner.agent);
-      const puA = getPooledTestUser(2);
+      const pu = getPooledTestUser(3);
       const { agent: oidcAgent } = await getJwtAuthenticatedAgent({
-        email: puA.email,
-        hname: puA.name,
-        password: puA.password,
+        email: pu.email,
+        hname: pu.name,
+        password: pu.password,
       } as any);
       await oidcAgent.get("/api/v3/users");
       await submitVote(oidcAgent, {
         conversation_id: X.convId,
-        tid: X.attackTid,
-        vote: 1,
-      } as any);
-      const uidA = (await oidcAgent.get("/api/v3/users")).body?.uid as number;
-      const pidA = await pidOfUid(X.zid, uidA);
-      expect(typeof uidA).toBe("number");
-      expect(typeof pidA).toBe("number");
-
-      const tokenA = issueStandardUserJWT(
-        `misattr-sub-${Date.now()}`,
-        X.convId,
-        uidA,
-        pidA as number
-      );
-
-      const Y = await makeConversation(owner.agent);
-      const uidB = await ensureVictimAtPid(
-        Y.convId,
-        Y.zid,
-        pidA as number,
-        Y.matTid
-      );
-      expect(uidB).not.toBe(uidA);
-
-      await assertVoteAttribution({
-        kind: "standard-user",
-        tokenA,
-        uidA,
-        pidA: pidA as number,
-        convY: Y.convId,
-        zidY: Y.zid,
-        attackTid: Y.attackTid,
-        uidB,
-      });
-    });
-  });
-
-  describe("raw OIDC access token (control: carries no pid)", () => {
-    test("vote: resolves A's own participant in Y; must NOT land on the victim", async () => {
-      const X = await makeConversation(owner.agent);
-      const puA = getPooledTestUser(3);
-      const { agent: oidcAgent } = await getJwtAuthenticatedAgent({
-        email: puA.email,
-        hname: puA.name,
-        password: puA.password,
-      } as any);
-      await oidcAgent.get("/api/v3/users");
-      await submitVote(oidcAgent, {
-        conversation_id: X.convId,
-        tid: X.attackTid,
-        vote: 1,
+        tid: X.matTid,
+        vote: MAT_VOTE,
       } as any);
       const uidA = (await oidcAgent.get("/api/v3/users")).body?.uid as number;
       const pidAInX = await pidOfUid(X.zid, uidA);
 
       const Y = await makeConversation(owner.agent);
-      // Put a victim at the pid A happened to hold in X, to show OIDC does NOT reuse it.
-      const uidB = await ensureVictimAtPid(
-        Y.convId,
-        Y.zid,
-        pidAInX as number,
-        Y.matTid
-      );
+      const uidB = await ensureHolderAtPid(Y, pidAInX as number);
       expect(uidB).not.toBe(uidA);
 
-      // Same OIDC agent (raw bearer) votes in Y.
       const vr = await submitVote(oidcAgent, {
         conversation_id: Y.convId,
-        tid: Y.attackTid,
-        vote: ATTACK_VOTE,
+        tid: Y.voteTid,
+        vote: VOTE_UNDER_TEST,
       } as any);
 
-      const latest = await latestVotesWithOwner(Y.zid, Y.attackTid);
+      const latest = await latestVotesWithOwner(Y.zid, Y.voteTid);
       const aPidInY = await pidOfUid(Y.zid, uidA);
-      const victimGotMyVote = latest.some(
-        (r) => r.uid === uidB && r.vote === ATTACK_VOTE
-      );
       // eslint-disable-next-line no-console
       console.log(
-        `[VOTE/oidc] POST /votes -> status ${vr.status}; A uid=${uidA} (pid in X=${pidAInX}); ` +
-          `A's own pid in Y=${aPidInY}; victim uid=${uidB} at pid ${pidAInX}; ` +
+        `[CONTROL/oidc] POST /votes -> status ${vr.status}; A uid=${uidA} (pid in X=${pidAInX}); ` +
+          `A's own pid in Y=${aPidInY}; B uid=${uidB} at pid ${pidAInX}; ` +
           `latest=${JSON.stringify(latest)}`
       );
-      // Expected to PASS: OIDC is the control (no pid in token, resolved fresh).
-      expect(victimGotMyVote).toBe(false);
+      expect(vr.status).toBe(200);
+      expect(latest).toHaveLength(1);
+      expect(latest[0]).toMatchObject({ uid: uidA, pid: aPidInY });
     });
-  });
 
-  describe("stale pid that does not exist in Y (orphan vote)", () => {
-    test("vote with a nonexistent pid: should be rejected; no FK means it is stored orphaned", async () => {
+    test("comment route with an anonymous token for another conversation: attributed to the caller", async () => {
+      const X = await makeConversation(owner.agent);
+      const A = await anonymousTokenFor(X);
       const Y = await makeConversation(owner.agent);
-      const bogusPid = 900000 + Math.floor(Math.random() * 90000);
-      // A valid anon token for some conversation (owner's uid is a real user),
-      // carrying a pid that does not exist in Y. conversation_id in the token is
-      // set to a throwaway string so the mismatch path is exercised; uid is real.
-      const tokenA = issueAnonymousJWT("not-a-real-conv-id", owner.uid, bogusPid);
-      const attacker = await agentWithToken(tokenA);
-      const vr = await submitVote(attacker, {
-        conversation_id: Y.convId,
-        tid: Y.attackTid,
-        vote: ATTACK_VOTE,
-      } as any);
+      const uidB = await ensureHolderAtPid(Y, A.pid);
 
-      const orphan = await rawVoteRows(Y.zid, bogusPid, Y.attackTid);
-      const ownerOfBogus = await uidOfPid(Y.zid, bogusPid);
+      const caller = await agentWithToken(A.token);
+      const txt = `anon cross-conv comment ${Date.now()}`;
+      const cr = await submitComment(caller, {
+        conversation_id: Y.convId,
+        txt,
+      } as any);
+      const { rows } = await pool.query(
+        "SELECT pid, uid FROM comments WHERE zid = $1 AND txt = $2",
+        [Y.zid, txt]
+      );
       // eslint-disable-next-line no-console
       console.log(
-        `[VOTE/orphan] POST /votes -> status ${vr.status}; bogus pid=${bogusPid}; ` +
-          `orphan vote rows at (Y, bogus pid, tid)=${orphan.length}; ` +
-          `participant at that pid in Y=${ownerOfBogus}`
+        `[CONTROL/comment anonymous] POST /comments -> status ${
+          cr.status
+        }; stored=${JSON.stringify(rows)}; A uid=${
+          A.uid
+        }, B uid=${uidB}, token pid=${A.pid}`
       );
-      // CORRECT behaviour (failing-first): a vote for a pid with no participant in
-      // Y must not be stored.
-      expect(orphan.length).toBe(0);
+      expect(cr.status).toBe(200);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].uid).not.toBe(uidB);
+      expect(await uidOfPid(Y.zid, rows[0].pid)).toBe(rows[0].uid);
+    });
+
+    test("comment route with an XID token for another conversation: attributed to the caller", async () => {
+      const X = await makeConversation(owner.agent);
+      const A = await xidTokenFor(X);
+      const Y = await makeConversation(owner.agent);
+      const uidB = await ensureHolderAtPid(Y, A.pid);
+
+      const caller = await agentWithToken(A.token);
+      const txt = `xid cross-conv comment ${Date.now()}`;
+      const cr = await submitComment(caller, {
+        conversation_id: Y.convId,
+        txt,
+      } as any);
+      const { rows } = await pool.query(
+        "SELECT pid, uid FROM comments WHERE zid = $1 AND txt = $2",
+        [Y.zid, txt]
+      );
+      // eslint-disable-next-line no-console
+      console.log(
+        `[CONTROL/comment xid] POST /comments -> status ${
+          cr.status
+        }; stored=${JSON.stringify(rows)}; A uid=${
+          A.uid
+        }, B uid=${uidB}, token pid=${A.pid}`
+      );
+      expect(cr.status).toBe(200);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].uid).toBe(A.uid);
+      expect(rows[0].uid).not.toBe(uidB);
     });
   });
 });
