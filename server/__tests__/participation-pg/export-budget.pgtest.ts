@@ -248,3 +248,108 @@ test("votes, comments and nextComment stay prompt while slow exports saturate th
   expect(overflowOut.ms).toBeGreaterThanOrEqual(ACQUIRE_TIMEOUT_MS - 250);
   expect(overflowOut.ms).toBeLessThan(OVERFLOW_CAP_MS);
 }, 120000);
+
+/** A streamed export reads the whole conversation through a cursor. If the HTTP
+ * client disconnects mid-stream, the export must stop fetching and release its
+ * connection right away, so a stalled or aborted download cannot hold one of the
+ * few export-pool connections until the whole conversation has been read. This
+ * fills the pool to its last free connection, takes it with a long streaming
+ * export, disconnects the client mid-stream, and shows a further export is then
+ * served — proof the stream freed its connection. */
+test("a client disconnect mid-stream frees the export-pool connection", async () => {
+  // Hold every export-pool connection but one with slow queries, so the stream
+  // below takes the last one and the pool is full while it is mid-cursor.
+  const holders = EXPORT_POOL_MAX - 1;
+  const saturating = Array.from({ length: holders }, () =>
+    (
+      pg.queryP_reportExport("SELECT pg_sleep($1)", [
+        SATURATING_SLEEP_S,
+      ]) as Promise<unknown>
+    ).catch(() => {})
+  );
+  const deadline = Date.now() + 10000;
+  while ((await sleepingBackends()) < holders) {
+    if (Date.now() > deadline) throw new Error("export pool never saturated");
+    await sleep(25);
+  }
+
+  // A fake HTTP response that lets the test fire the "close" (client-disconnect)
+  // event on demand, the same event Express emits when the socket goes away.
+  const closeListeners: Array<() => void> = [];
+  const res = {
+    on: (event: string, listener: () => void) => {
+      if (event === "close") closeListeners.push(listener);
+    },
+    removeListener: (event: string, listener: () => void) => {
+      if (event === "close") {
+        const i = closeListeners.indexOf(listener);
+        if (i >= 0) closeListeners.splice(i, 1);
+      }
+    },
+  };
+  const disconnect = () => closeListeners.slice().forEach((cb) => cb());
+
+  // A long streaming export: many rows so the cursor stays open (the connection
+  // stays held) well past the acquire timeout if it were never released.
+  let streamEnded = false;
+  let streamError: any;
+  const firstRow = new Promise<void>((resolve, reject) => {
+    let resolved = false;
+    pg.stream_queryP_reportExport(
+      "SELECT n FROM generate_series(1, 5000000) AS n",
+      [],
+      () => {
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+      },
+      () => {
+        streamEnded = true;
+      },
+      (error: any) => {
+        streamError = error;
+        if (!resolved) {
+          resolved = true;
+          reject(error);
+        }
+      },
+      res
+    );
+  });
+  // Cursor open, last connection held -> pool is now full.
+  await firstRow;
+
+  // The client disconnects. The stream must close its cursor and release its
+  // connection; a further export then acquires it instead of being rejected.
+  disconnect();
+  const probe = await timed(pg.queryP_reportExport("SELECT 42 AS ok"));
+
+  // Release the saturating queries so nothing lingers.
+  await admin.query(
+    `SELECT pg_cancel_backend(pid) FROM pg_stat_activity
+     WHERE datname = current_database() AND state = 'active'
+     AND pid <> pg_backend_pid()`
+  );
+  await Promise.all(saturating);
+
+  process.stdout.write(
+    `${JSON.stringify({
+      disconnect_test: true,
+      export_pool_max: EXPORT_POOL_MAX,
+      holders,
+      stream_ended_normally: streamEnded,
+      probe_ms: probe.ms,
+      probe_served: !probe.error && probe.value?.[0]?.ok === 42,
+    })}\n`
+  );
+
+  // The stream did not finish on its own; it was aborted by the disconnect.
+  expect(streamEnded).toBe(false);
+  expect(streamError).toBeUndefined();
+  // The further export was served (connection was freed), not rejected at the
+  // acquire timeout.
+  expect(probe.error).toBeUndefined();
+  expect(probe.value?.[0]?.ok).toBe(42);
+  expect(probe.ms).toBeLessThan(ACQUIRE_TIMEOUT_MS);
+}, 120000);

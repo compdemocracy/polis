@@ -25,6 +25,11 @@ interface ResponseLike {
   send: (data: string) => void;
   write: (data: string) => void;
   end: () => void;
+  // The real Express response emits "close" on client disconnect; streamed
+  // exports pass it to stream_queryP_reportExport so an aborted download frees
+  // its connection. Optional so plain mock responses still satisfy the type.
+  on?: (event: string, listener: () => void) => void;
+  removeListener?: (event: string, listener: () => void) => void;
 }
 
 type CommentRow = {
@@ -387,7 +392,8 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       },
       (error) => {
         logger.error("polis_err_report_comments", error);
-      }
+      },
+      res
     );
   } catch (err) {
     logger.error("polis_err_report_comments", err);
@@ -437,7 +443,8 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
         // Handle any errors
         logger.error("polis_err_report_votes_csv", error);
         failJson(res, 500, "polis_err_data_export", error);
-      }
+      },
+      res
     );
   } catch (err) {
     logger.error("polis_err_report_votes", err);
@@ -524,7 +531,8 @@ export async function sendParticipantVotesSummary(
     (error) => {
       logger.error("polis_err_report_participant_votes", error);
       failJson(res, 500, "polis_err_data_export", error);
-    }
+    },
+    res
   );
 }
 
@@ -618,7 +626,8 @@ export async function sendParticipantImportance(
     (error) => {
       logger.error("polis_err_report_participant_importance", error);
       failJson(res, 500, "polis_err_data_export", error);
-    }
+    },
+    res
   );
 }
 

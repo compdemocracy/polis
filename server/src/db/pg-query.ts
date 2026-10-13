@@ -327,12 +327,22 @@ function queryP_reportExport<T>(queryString: string, ...args: any[]) {
 
 // A streamed read on the report/export pool (the whole-conversation vote
 // matrices). Mirrors stream_queryP_readOnly but on the bounded export pool.
+//
+// When the HTTP client disconnects mid-stream, the cursor is closed and the
+// connection released promptly, so a stalled or aborted export cannot hold one
+// of the few report/export connections until the whole conversation has been
+// read. Pass `res` (the HTTP response) to arm this; the success-path output is
+// byte-for-byte unchanged whether or not it is passed.
 function stream_queryP_reportExport(
   queryString: string,
   params: any[],
   onRow: (row: any) => void,
   onEnd: () => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  res?: {
+    on?: (event: string, listener: () => void) => void;
+    removeListener?: (event: string, listener: () => void) => void;
+  }
 ) {
   const query = new QueryStream(queryString, params);
 
@@ -342,20 +352,63 @@ function stream_queryP_reportExport(
       return;
     }
 
+    // Release the pooled connection at most once, whichever of normal end,
+    // error or client-disconnect happens first.
+    let released = false;
+    const release = (error?: Error) => {
+      if (released) return;
+      released = true;
+      done(error);
+    };
+
     const stream = client.query(query);
+
+    // If the HTTP client disconnects, stop fetching and close the cursor. The
+    // connection is released on the stream's "close" event below, once the
+    // cursor has actually closed, so the pooled client is clean for reuse.
+    let clientDisconnected = false;
+    let onClientClose: (() => void) | undefined;
+    const disarmClientClose = () => {
+      if (onClientClose && res && typeof res.removeListener === "function") {
+        res.removeListener("close", onClientClose);
+      }
+    };
+    if (res && typeof res.on === "function") {
+      onClientClose = () => {
+        if (released || clientDisconnected) return;
+        clientDisconnected = true;
+        stream.destroy();
+      };
+      res.on("close", onClientClose);
+    }
 
     stream.on("data", (row: QueryResult) => {
       onRow(row);
     });
 
     stream.on("end", () => {
-      done();
+      disarmClientClose();
+      release();
       onEnd();
     });
 
     stream.on("error", (error: Error) => {
-      done(error);
-      onError(error);
+      disarmClientClose();
+      release(error);
+      // A disconnect-triggered destroy can surface here as an error; the client
+      // is already gone, so there is nothing to report back to it.
+      if (!clientDisconnected) {
+        onError(error);
+      }
+    });
+
+    // Fires after the cursor has closed following a client-disconnect destroy.
+    // On normal end/error the connection is already released above, so the
+    // guard makes this a no-op then.
+    stream.on("close", () => {
+      if (clientDisconnected) {
+        release();
+      }
     });
   });
 }
