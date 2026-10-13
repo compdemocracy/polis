@@ -6,10 +6,62 @@
 use super::transport::Connector;
 use crate::{Completion, bind_args, placeholders, signature_v2};
 use anyhow::{Result, ensure};
-use postgres::{Client, IsolationLevel, types::ToSql};
+use bytes::BytesMut;
+use postgres::types::{IsNull, ToSql, Type, to_sql_checked};
+use postgres::{Client, IsolationLevel};
+use postgres_protocol::types::{ArrayDimension, array_to_sql, float4_to_sql};
 use serde_json::Value;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// A row-major `real[rows][cols]` bound as one two-dimensional float4 array.
+/// `Vec<Vec<f32>>` cannot do this — the postgres crate only ever emits a single
+/// array dimension — so `pd_embedding_put`'s matrix argument binds through here,
+/// never through JSON (no float is reserialized). Lower bound 1 on both axes,
+/// to match the migration's `array_lower(...)=1` checks.
+#[derive(Debug)]
+pub struct Matrix<'a> {
+    pub rows: usize,
+    pub cols: usize,
+    /// Exactly `rows * cols` values, row 0 first.
+    pub data: &'a [f32],
+}
+
+impl ToSql for Matrix<'_> {
+    fn to_sql(
+        &self,
+        _ty: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        let dimensions = [
+            ArrayDimension {
+                len: i32::try_from(self.rows)?,
+                lower_bound: 1,
+            },
+            ArrayDimension {
+                len: i32::try_from(self.cols)?,
+                lower_bound: 1,
+            },
+        ];
+        array_to_sql(
+            dimensions,
+            Type::FLOAT4.oid(),
+            self.data.iter().copied(),
+            |value, buf| {
+                float4_to_sql(value, buf);
+                // array_to_sql's serializer reports nullness in postgres-protocol's
+                // own IsNull, distinct from the ToSql trait's.
+                Ok(postgres_protocol::IsNull::No)
+            },
+            out,
+        )?;
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        *ty == Type::FLOAT4_ARRAY
+    }
+    to_sql_checked!();
+}
 
 /// The executor tables that must stay unreadable to the daemon's login.
 const TABLES: [&str; 5] = [
@@ -101,6 +153,13 @@ pub fn db_message(error: &anyhow::Error) -> Option<String> {
     error.downcast_ref::<DbError>().map(|e| e.message.clone())
 }
 
+/// A single-quoted SQL string literal (quotes doubled). COPY takes no bind
+/// parameters, so the embeddings reader interpolates its three controlled
+/// values; this keeps that interpolation injection-proof even so.
+fn sql_literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
 fn classify(error: postgres::Error) -> anyhow::Error {
     match error.as_db_error() {
         Some(db) => DbError {
@@ -186,6 +245,122 @@ impl Rpc {
             Completion::Committed(v) => Ok(v),
             Completion::Unknown(_) => anyhow::bail!("uncertain commit for {name}"),
         }
+    }
+
+    /// One `pd_embedding_put`: add up to 4,096 embeddings under one fenced
+    /// attempt. The tids and digests bind as one-dimensional arrays; the matrix
+    /// binds through `Matrix`, so no float makes a JSON round trip. `identity`
+    /// is `task::identity(claim)` — `[env, job, owner, attempt, lease_epoch]`.
+    /// A committed reply is `{rows, added, existing}`; an uncertain commit is an
+    /// error, and a retry re-runs this idempotent call (`ON CONFLICT DO NOTHING`).
+    pub fn embedding_put(
+        &mut self,
+        identity: &[Value],
+        model: &str,
+        tids: &[i32],
+        text_shas: &[&[u8]],
+        cols: usize,
+        matrix: &[f32],
+    ) -> Result<Value> {
+        ensure!(identity.len() == 5, "embedding_put_identity");
+        ensure!(
+            !tids.is_empty() && tids.len() <= super::embedding::PUT_CHUNK,
+            "embedding_put_chunk"
+        );
+        ensure!(
+            tids.len() == text_shas.len() && matrix.len() == tids.len() * cols,
+            "embedding_put_shape"
+        );
+        // The six scalar arguments bind exactly as every other /2 call does.
+        let scalars = ["text", "uuid", "uuid", "uuid", "bigint", "text"];
+        let mut head: Vec<Value> = identity.to_vec();
+        head.push(Value::from(model));
+        let mut values = bind_args(&scalars, &head)?;
+        values.push(Box::new(tids.to_vec()));
+        values.push(Box::new(
+            text_shas
+                .iter()
+                .map(|s| s.to_vec())
+                .collect::<Vec<Vec<u8>>>(),
+        ));
+        values.push(Box::new(Matrix {
+            rows: tids.len(),
+            cols,
+            data: matrix,
+        }));
+        let query = "SELECT public.pd_embedding_put($1::text,$2::uuid,$3::uuid,$4::uuid,\
+             $5::bigint,$6::text,$7::integer[],$8::bytea[],$9::real[])";
+        let result = (|| -> Result<Value> {
+            let client = self.client()?;
+            let mut tx = client
+                .build_transaction()
+                .isolation_level(IsolationLevel::ReadCommitted)
+                .start()?;
+            tx.batch_execute(
+                "SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='10s'; \
+                 SET LOCAL idle_in_transaction_session_timeout='30s'; SET LOCAL TimeZone='UTC'",
+            )?;
+            let params: Vec<&(dyn ToSql + Sync)> = values.iter().map(|v| v.as_ref()).collect();
+            let reply = tx
+                .query_one(query, &params)
+                .map_err(classify)?
+                .try_get::<_, Option<Value>>(0)?
+                .unwrap_or(Value::Null);
+            match tx.commit() {
+                Ok(()) => Ok(reply),
+                Err(_) => anyhow::bail!("uncertain commit for pd_embedding_put"),
+            }
+        })();
+        if let Err(error) = &result {
+            self.drop_on_transport_error(error);
+        }
+        result
+    }
+
+    /// Stream a closed set's rows out by binary COPY and return the raw bytes
+    /// (bounded). `pd_embedding_rows` is a SRF, so this cannot go through the
+    /// scalar-reply `call` path; COPY carries no bind parameters, so the three
+    /// controlled values are quoted as literals (the env is already `[a-z0-9_-]`,
+    /// the batch is a parsed UUID, the model a short identifier). The caller
+    /// checks the decoded rows against the set receipt's digest.
+    pub fn embedding_copy(&mut self, batch: &str, model: &str) -> Result<Vec<u8>> {
+        use std::io::Read;
+        let batch = Uuid::parse_str(batch)?;
+        let query = format!(
+            "COPY (SELECT tid, text_sha, embedding FROM public.pd_embedding_rows(\
+             {},'{batch}'::uuid,{})) TO STDOUT (FORMAT binary)",
+            sql_literal(&self.env),
+            sql_literal(model),
+        );
+        let result = (|| -> Result<Vec<u8>> {
+            let client = self.client()?;
+            let mut tx = client
+                .build_transaction()
+                .isolation_level(IsolationLevel::ReadCommitted)
+                .start()?;
+            tx.batch_execute(
+                "SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='10s'; \
+                 SET LOCAL idle_in_transaction_session_timeout='30s'; SET LOCAL TimeZone='UTC'",
+            )?;
+            let mut buf = Vec::new();
+            {
+                let mut reader = tx.copy_out(&query).map_err(classify)?;
+                reader
+                    .by_ref()
+                    .take(super::embedding::MAX_SPOOL_BYTES as u64 + 1)
+                    .read_to_end(&mut buf)?;
+            }
+            ensure!(
+                buf.len() <= super::embedding::MAX_SPOOL_BYTES,
+                "embedding_copy_bound"
+            );
+            tx.commit()?;
+            Ok(buf)
+        })();
+        if let Err(error) = &result {
+            self.drop_on_transport_error(error);
+        }
+        result
     }
 
     /// `SELECT contract_version FROM polis_queue_install` (the column the

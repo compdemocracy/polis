@@ -20,14 +20,23 @@ jobs-integration = []
 
 [dependencies]
 anyhow = "1"
+bytes = "1"
 libc = "0.2"
 native-tls = "=0.2.14"
 postgres = { version = "0.19", features = ["with-serde_json-1", "with-uuid-1"] }
+# The embeddings writer binds a two-dimensional real[] matrix, which the
+# postgres crate's Vec<Vec<f32>> cannot express; this gives array_to_sql.
+postgres-protocol = "0.6"
 postgres-native-tls = "=0.5.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+# The embeddings integration test applies the full release migration chain
+# (through 000038) to a throwaway database with the runner itself.
+polis-migrate = { path = "polis-migrate" }
 
 [lints.clippy]
 unwrap_used = "deny"
