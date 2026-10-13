@@ -34,11 +34,17 @@ DURATIONS = Path(__file__).with_name("e2e-spec-durations.json")
 # median of the recorded specs plus Cypress's per-spec start-up).
 DEFAULT_SPEC_SECONDS = 12.0
 COUNT_KEYS = ["tests", "passed", "failed", "pending", "skipped", "retried"]
+# Cypress's default specPattern; cypress.config.js does not set its own.
+SPEC_SUFFIXES = (".cy.js", ".cy.jsx", ".cy.ts", ".cy.tsx")
 
 
 def all_specs() -> list[str]:
     """Spec paths relative to e2e/, in the order a full `cypress run` uses."""
-    return sorted(str(p.relative_to(SPEC_DIR.parent.parent)) for p in SPEC_DIR.rglob("*.cy.js"))
+    return sorted(
+        str(p.relative_to(SPEC_DIR.parent.parent))
+        for p in SPEC_DIR.rglob("*.cy.*")
+        if p.name.endswith(SPEC_SUFFIXES)
+    )
 
 
 def parse_shard(text: str) -> tuple[int, int]:
