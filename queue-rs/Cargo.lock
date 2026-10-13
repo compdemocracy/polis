@@ -584,10 +584,13 @@ name = "polis-queue-adapter"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytes",
  "libc",
  "native-tls",
+ "polis-migrate",
  "postgres",
  "postgres-native-tls",
+ "postgres-protocol",
  "serde",
  "serde_json",
  "sha2 0.10.9",

@@ -85,15 +85,51 @@ pub fn validate(
 }
 
 /// Hydrate only immutable, digest-bound result bytes; queue credentials stay in daemon.
-pub fn hydrate(rpc: &mut super::rpc::Rpc, frame: &mut Value) -> Result<()> {
-    if frame["stage"] != "graph_cluster"
-        || frame["input"]["declared"]["model"] != "delphi-umap-evoc/1"
+/// With the embeddings table on, graph_cluster reads its set as a spool file the
+/// frame points at (digest-checked), and graph_embed is handed the prior served
+/// set so it re-embeds only the comments missing from it. Both leave the flag-off
+/// codec-family path exactly as it was.
+pub fn hydrate(
+    rpc: &mut super::rpc::Rpc,
+    frame: &mut Value,
+    directory: &std::path::Path,
+    embeddings_table: bool,
+) -> Result<()> {
+    if frame["stage"] == "graph_cluster"
+        && frame["input"]["declared"]["model"] == "delphi-umap-evoc/1"
     {
-        return Ok(());
+        return hydrate_cluster(rpc, frame, directory, embeddings_table);
     }
-    let artifact = &frame["input"]["artifacts"]["embeddings"];
+    if embeddings_table && frame["stage"] == "graph_embed" {
+        return hydrate_embed_prior(rpc, frame, directory);
+    }
+    Ok(())
+}
+
+fn hydrate_cluster(
+    rpc: &mut super::rpc::Rpc,
+    frame: &mut Value,
+    directory: &std::path::Path,
+    embeddings_table: bool,
+) -> Result<()> {
+    let artifact = frame["input"]["artifacts"]["embeddings"].clone();
     let payload: Value = serde_json::from_str(artifact["payload"].as_str().unwrap_or_default())?;
     if payload.get("family_files").is_some() {
+        return Ok(());
+    }
+    if embeddings_table {
+        // The embeddings live in delphi_comment_embeddings, reached through the
+        // producing artifact. Resolve the set, stream it out, write a spool file.
+        let receipt = rpc.committed(
+            "pd_embedding_set",
+            &[
+                frame["env"].clone(),
+                artifact["artifact_id"].clone(),
+                json!(super::embedding::MODEL_MINILM),
+            ],
+        )?;
+        ensure!(!receipt.is_null(), "embedding_set_missing");
+        frame["embedding_spool"] = hydrate_set(rpc, &receipt, directory, "embeddings.set.spool")?;
         return Ok(());
     }
     let family = "Delphi_CommentEmbeddings";
@@ -116,6 +152,133 @@ pub fn hydrate(rpc: &mut super::rpc::Rpc, frame: &mut Value) -> Result<()> {
         "result_wire_binding"
     );
     frame["result_families"] = json!({"embeddings": {family: wire}});
+    Ok(())
+}
+
+/// Hand graph_embed the conversation's currently served embedding set (if any)
+/// so it only computes vectors for comments not already stored. Absent set, or
+/// the conversation's first run: nothing is injected and graph_embed embeds all.
+fn hydrate_embed_prior(
+    rpc: &mut super::rpc::Rpc,
+    frame: &mut Value,
+    directory: &std::path::Path,
+) -> Result<()> {
+    let view = rpc.committed(
+        "pd_job_view",
+        &[frame["env"].clone(), frame["job_id"].clone()],
+    )?;
+    let Some(scope) = view["scope_key"].as_str().filter(|s| !s.is_empty()) else {
+        return Ok(());
+    };
+    let receipt = rpc.committed(
+        "pd_embedding_served",
+        &[
+            frame["env"].clone(),
+            frame["zid"].clone(),
+            json!(scope),
+            json!(super::embedding::MODEL_MINILM),
+        ],
+    )?;
+    if receipt.is_null() || receipt["batch_id"].is_null() {
+        return Ok(());
+    }
+    frame["embedding_prior"] = hydrate_set(rpc, &receipt, directory, "embeddings.prior.spool")?;
+    Ok(())
+}
+
+/// Stream one closed set out by binary COPY, check it against the set receipt's
+/// digest, row count and dimensions, and rewrite it as a spool file for the
+/// child. Returns the frame descriptor `{file, sha256, model, dims, rows}`.
+fn hydrate_set(
+    rpc: &mut super::rpc::Rpc,
+    receipt: &Value,
+    directory: &std::path::Path,
+    filename: &str,
+) -> Result<Value> {
+    let batch = receipt["batch_id"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("embedding_set_batch"))?;
+    let model = receipt["model"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("embedding_set_model"))?;
+    let dims = u16::try_from(
+        receipt["dims"]
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("embedding_set_dims"))?,
+    )?;
+    let row_count = receipt["row_count"]
+        .as_u64()
+        .ok_or_else(|| anyhow::anyhow!("embedding_set_rows"))?;
+    let bytes = rpc.embedding_copy(batch, model)?;
+    let set = super::embedding::set_from_copy_binary(&bytes, model, dims)?;
+    ensure!(
+        set.rows.len() as u64 == row_count && receipt["sha256"] == set.content_sha,
+        "embedding_set_digest"
+    );
+    let spool = super::embedding::write_spool(model, dims, &set.rows)?;
+    std::fs::create_dir_all(directory)?;
+    let temporary = directory.join(format!("{filename}.tmp"));
+    std::fs::write(&temporary, &spool)?;
+    std::fs::rename(temporary, directory.join(filename))?;
+    Ok(json!({
+        "file": filename,
+        "sha256": sha256_hex(&spool),
+        "model": model,
+        "dims": dims,
+        "rows": row_count,
+    }))
+}
+
+/// Route one embeddings spool the child wrote into the per-row table: chunked
+/// `pd_embedding_put`, then `pd_embedding_close`, both before `pd_result_seal`.
+/// The spool is a bounded regular file whose sha256 the manifest pins.
+fn stage_embeddings(
+    rpc: &mut super::rpc::Rpc,
+    claim: &super::child::Claim,
+    directory: &std::path::Path,
+    descriptor: &Value,
+) -> Result<()> {
+    ensure!(
+        descriptor["file"] == "embeddings.spool",
+        "embedding_spool_path"
+    );
+    let bytes = super::manifest::read_regular_file(
+        &directory.join("embeddings.spool"),
+        super::embedding::MAX_SPOOL_BYTES,
+    )
+    .map_err(|error| anyhow::anyhow!("embedding_spool_file:{error}"))?;
+    ensure!(
+        descriptor["sha256"] == sha256_hex(&bytes),
+        "embedding_spool_digest"
+    );
+    let (model, dims, rows) = super::embedding::read_spool(&bytes)?;
+    ensure!(
+        descriptor["model"] == model.as_str()
+            && descriptor["dims"] == dims
+            && descriptor["rows"].as_u64() == Some(rows.len() as u64),
+        "embedding_spool_descriptor"
+    );
+    let identity = super::task::identity(claim);
+    for chunk in rows.chunks(super::embedding::PUT_CHUNK) {
+        let tids: Vec<i32> = chunk.iter().map(|r| r.tid).collect();
+        let shas: Vec<&[u8]> = chunk.iter().map(|r| r.text_sha.as_slice()).collect();
+        let matrix: Vec<f32> = chunk
+            .iter()
+            .flat_map(|r| r.vector.iter().copied())
+            .collect();
+        let reply = rpc.embedding_put(&identity, &model, &tids, &shas, dims as usize, &matrix)?;
+        ensure!(
+            reply["rows"].as_u64() == Some(chunk.len() as u64),
+            "embedding_put_receipt"
+        );
+    }
+    let mut close = identity;
+    close.push(json!(model));
+    let receipt = rpc.committed("pd_embedding_close", &close)?;
+    ensure!(
+        receipt["schema"] == "delphi-embedding-set/1" && receipt["batch_id"] == claim.attempt_id,
+        "embedding_close_receipt"
+    );
     Ok(())
 }
 
@@ -157,6 +320,7 @@ pub fn stage_results(
     claim: &super::child::Claim,
     directory: &std::path::Path,
     manifest: Manifest,
+    embeddings_table: bool,
 ) -> Result<Manifest> {
     let mut document: Value = serde_json::from_str(&manifest.text)?;
     let mut payload: Value =
@@ -164,10 +328,20 @@ pub fn stage_results(
     let Some(spool) = payload.get("family_spool") else {
         return Ok(manifest);
     };
+    // With the flag on, graph_embed routes embeddings to the table and leaves no
+    // codec family, so an otherwise-empty family spool is expected then (only).
+    let embedding_spool = if embeddings_table {
+        payload.get("embedding_spool").cloned()
+    } else {
+        None
+    };
     let files = spool
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("result_spool_shape"))?;
-    ensure!(!files.is_empty() && files.len() <= 18, "result_spool_count");
+    ensure!(
+        (embedding_spool.is_some() || !files.is_empty()) && files.len() <= 18,
+        "result_spool_count"
+    );
     let mut total = 0_u64;
     for (family, value) in files {
         let wire = read_family_spool(directory, family, value, &mut total)?;
@@ -176,15 +350,19 @@ pub fn stage_results(
         let reply = rpc.committed("pd_result_put_family", &args)?;
         ensure!(reply["sha256"] == value["sha256"], "result_stage_receipt");
     }
+    if let Some(descriptor) = &embedding_spool {
+        stage_embeddings(rpc, claim, directory, descriptor)?;
+    }
     let results = rpc.committed("pd_result_seal", &super::task::identity(claim))?;
     ensure!(
         results["schema"] == "delphi-result-batch/1" && results["batch_id"] == claim.attempt_id,
         "result_batch_receipt"
     );
-    payload
+    let object = payload
         .as_object_mut()
-        .ok_or_else(|| anyhow::anyhow!("result_payload"))?
-        .remove("family_spool");
+        .ok_or_else(|| anyhow::anyhow!("result_payload"))?;
+    object.remove("family_spool");
+    object.remove("embedding_spool");
     payload["results"] = results;
     let wire = serde_json::to_string(&payload)?;
     document["output"]["sha256"] = json!(sha256_hex(wire.as_bytes()));
@@ -204,16 +382,25 @@ pub fn stage_writer_results(
     claim: &super::child::Claim,
     directory: &std::path::Path,
     manifest: Manifest,
+    embeddings_table: bool,
 ) -> Result<Manifest> {
     let mut document: Value = serde_json::from_str(&manifest.text)?;
     ensure!(
         document["schema"] == "polis-jobs.output-manifest/2",
         "writer_manifest_schema"
     );
+    let embedding_spool = if embeddings_table {
+        document.get("embedding_spool").cloned()
+    } else {
+        None
+    };
     let files = document["family_spool"]
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("writer_spool_shape"))?;
-    ensure!(!files.is_empty() && files.len() <= 18, "writer_spool_count");
+    ensure!(
+        (embedding_spool.is_some() || !files.is_empty()) && files.len() <= 18,
+        "writer_spool_count"
+    );
     let mut total = 0_u64;
     for (family, value) in files {
         let wire = read_family_spool(directory, family, value, &mut total)?;
@@ -222,15 +409,19 @@ pub fn stage_writer_results(
         let reply = rpc.committed("pd_result_put_family", &args)?;
         ensure!(reply["sha256"] == value["sha256"], "writer_stage_receipt");
     }
+    if let Some(descriptor) = &embedding_spool {
+        stage_embeddings(rpc, claim, directory, descriptor)?;
+    }
     let results = rpc.committed("pd_result_seal", &super::task::identity(claim))?;
     ensure!(
         results["schema"] == "delphi-result-batch/1" && results["batch_id"] == claim.attempt_id,
         "writer_batch_receipt"
     );
-    document
+    let object = document
         .as_object_mut()
-        .ok_or_else(|| anyhow::anyhow!("writer_manifest"))?
-        .remove("family_spool");
+        .ok_or_else(|| anyhow::anyhow!("writer_manifest"))?;
+    object.remove("family_spool");
+    object.remove("embedding_spool");
     document["results"] = results;
     let bytes = serde_json::to_vec(&document)?;
     let result =

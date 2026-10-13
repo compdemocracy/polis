@@ -413,7 +413,18 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             return;
         }
     };
-    if graph && super::graph::hydrate(&mut rpc, &mut frame).is_err() {
+    // Carry the one switch into the frame (never an env var: graph children run
+    // with a cleared environment). Only when on, so a flag-off frame is byte
+    // identical to today's. Graph stages read a top-level key; a Postgres writer
+    // reads it beside its result backend in config.
+    if cfg.embeddings_table {
+        if graph {
+            frame["embeddings_table"] = json!(true);
+        } else if frame["config"]["result_backend"] == "postgres" {
+            frame["config"]["embeddings_table"] = json!(true);
+        }
+    }
+    if graph && super::graph::hydrate(&mut rpc, &mut frame, &dir, cfg.embeddings_table).is_err() {
         refuse_without_child(&ctx, &mut rpc, &claim, false, "result_hydration_failed");
         let _ = ctx.journal.remove(&claim.attempt_id);
         return;
@@ -643,13 +654,13 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
         .and_then(|bytes| validate(Some(&bytes), &claim.job_id, &claim.attempt_id, &claim.stage));
     if graph && outcome::decide(&exit, &manifest) == Action::Finalize {
         manifest = manifest.and_then(|value| {
-            super::graph::stage_results(&mut rpc, &claim, &dir, value)
+            super::graph::stage_results(&mut rpc, &claim, &dir, value, cfg.embeddings_table)
                 .map_err(|_| manifest::Invalid::Field("result_staging_failed"))
         });
     }
     if result_writer && outcome::decide(&exit, &manifest) == Action::Finalize {
         manifest = manifest.and_then(|value| {
-            super::graph::stage_writer_results(&mut rpc, &claim, &dir, value)
+            super::graph::stage_writer_results(&mut rpc, &claim, &dir, value, cfg.embeddings_table)
                 .map_err(|_| manifest::Invalid::Field("writer_result_staging_failed"))
         });
     }

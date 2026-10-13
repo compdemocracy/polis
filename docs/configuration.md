@@ -215,6 +215,12 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
 
+### Comment Embeddings Table
+
+Off by default; nothing changes until it is set, and off is today's behaviour byte for byte.
+
+- **`DELPHI_EMBEDDINGS_TABLE`** (default off) When set to exactly `1`, the Delphi job daemon and the graph stages store and read comment embeddings as one row per comment in the `delphi_comment_embeddings` table (migration 000038) instead of the `Delphi_CommentEmbeddings` codec family, which a few thousand comments of 384 floats already overflow at the family's 64 MiB bound. It is read by the `polis-jobs` daemon ([config.rs](../queue-rs/src/jobs/config.rs)) and carried from the daemon into each Delphi child through the job frame, never through the child's environment (graph children run with a cleared environment). Because the Delphi service does not read it from its own environment, it is not listed in the `delphi` Compose `environment` block. Only the graph path (`graph_embed`/`graph_cluster`) routes to the table today; the legacy full pipeline keeps writing the codec family.
+
 ### Large Memory Class
 
 Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (`math-python` has no `env_file`), so a value set in `.env` or the deployment env document reaches the container only through these lines.

@@ -94,6 +94,12 @@ pub struct Config {
     pub password_file: Option<PathBuf>,
     pub worker_class: WorkerClass,
     pub stages: BTreeSet<String>,
+    /// One switch, default off: when on, comment embeddings are written to and
+    /// read from the per-row `delphi_comment_embeddings` table instead of the
+    /// `Delphi_CommentEmbeddings` result family. Shared with the Delphi Python
+    /// side under the same variable name so one setting moves both. Off is
+    /// today's behaviour unchanged.
+    pub embeddings_table: bool,
     pub lease_seconds: u32,
     pub heartbeat_seconds: u32,
     pub child_timeout: Duration,
@@ -265,6 +271,9 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     let container_id = get("POLIS_JOBS_CONTAINER_ID")
         .filter(|s| !s.is_empty())
         .unwrap_or_else(hostname);
+    // One flag, default off, shared by the daemon and Delphi's Python. Only the
+    // exact string "1" turns it on; anything else (unset, "0", "true", "") is off.
+    let embeddings_table = get("DELPHI_EMBEDDINGS_TABLE").as_deref() == Some("1");
     Ok(Load::Ready(Box::new(Config {
         dsn,
         env,
@@ -274,6 +283,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             .map(PathBuf::from),
         worker_class,
         stages,
+        embeddings_table,
         lease_seconds: lease as u32,
         heartbeat_seconds: heartbeat as u32,
         child_timeout: Duration::from_secs(child_timeout),
@@ -405,6 +415,7 @@ mod tests {
         assert_eq!(c.log_batch_interval, Duration::from_secs(2));
         assert_eq!(c.concurrency, 1);
         assert_eq!(c.worker_class, WorkerClass::Delphi);
+        assert!(!c.embeddings_table, "embeddings table flag defaults off");
         assert_eq!(c.app_path, PathBuf::from("/app"));
         assert_eq!(c.python, "python");
         assert_eq!(c.readiness, Duration::from_secs(60));
@@ -416,6 +427,16 @@ mod tests {
             c.stages.iter().map(String::as_str).collect::<Vec<_>>(),
             vec!["delphi_full_pipeline", "delphi_narrative"]
         );
+    }
+
+    #[test]
+    fn embeddings_table_flag_is_off_unless_exactly_one() {
+        assert!(!ready(&BASE).embeddings_table);
+        for (value, on) in [("1", true), ("0", false), ("true", false), ("", false)] {
+            let mut pairs = BASE.to_vec();
+            pairs.push(("DELPHI_EMBEDDINGS_TABLE", value));
+            assert_eq!(ready(&pairs).embeddings_table, on, "{value:?}");
+        }
     }
 
     #[test]
