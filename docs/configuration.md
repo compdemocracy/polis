@@ -104,7 +104,7 @@ a results pool (`RESULT_SNAPSHOT_POOL_MAX`, 8 in production). Reports, data
 exports and heavy admin reads run on a fourth, deliberately small pool so they
 can never grow into the other three:
 
-- **`REPORT_EXPORT_POOL_MAX`** maximum connections for the report/export/heavy-admin-read pool. Default `3` in production, `2` in dev. Reports, the `/api/v3/dataExport` CSV routes ([report.ts](../server/src/report.ts)), the comment-clusters export, `conversationStats` and the moderator participant query run here; participant-facing reads never do.
+- **`REPORT_EXPORT_POOL_MAX`** maximum connections for the report/export/heavy-admin-read pool. Default `1`: reports, exports and heavy admin reads run one at a time, and the rest wait up to the acquire timeout. Reports, the `/api/v3/dataExport` CSV routes ([report.ts](../server/src/report.ts)), the comment-clusters export, `conversationStats` and the moderator participant query run here; participant-facing reads never do.
 - **`REPORT_EXPORT_ACQUIRE_TIMEOUT_MS`** how long a report/export waits for one of those connections before it is rejected. Default `30000`. When the pool is full a new report/export fails here (it degrades itself) rather than waiting on, or spilling into, a participant-facing connection.
 - **`REPORT_EXPORT_STATEMENT_TIMEOUT_MS`** per-statement cap for that pool, applied as each connection is created. Default `300000` (five minutes), generous so today's largest exports still succeed. Streamed exports read their cursor in small batches, so this bounds a single runaway statement rather than a long stream. Raise it if a deployment has larger exports; lowering it can make a large report or export time out.
 
@@ -116,8 +116,8 @@ The other workloads cap themselves through their own pool settings, each a membe
 - The import worker reuses the API server's pools, so it carries the same per-process budget; it scales to a small number of tasks on queue depth.
 
 Illustrative production total against a single primary: two API servers at
-12 + 12 + 8 + 3 = 35 each, plus one analysis box at ~16 for the Python engine and
-~3 for the queue daemon, is roughly 90 connections at the default desired counts
+12 + 12 + 8 + 1 = 33 each, plus one analysis box at ~16 for the Python engine and
+~3 for the queue daemon, is roughly 85 connections at the default desired counts
 — well under a connection alarm set at 500. At maximum autoscale the API servers
 and import workers dominate, which is why their pools, not the exports, are the
 largest line; size `max_connections` and any per-login limits against the sum of

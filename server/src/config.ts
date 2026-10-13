@@ -170,8 +170,9 @@ export default {
   // Reports, data exports and heavy admin reads run on a small dedicated pool
   // (db/pg-query.ts) so they can never take the connections the participation
   // path needs. See docs/configuration.md "Connection budget".
+  // One at a time by default: further exports wait for the acquire timeout.
   reportExportPoolMax: parseInt(
-    process.env.REPORT_EXPORT_POOL_MAX || (devMode ? "2" : "3"),
+    process.env.REPORT_EXPORT_POOL_MAX || "1",
     10
   ),
   // How long a report/export waits for one of those connections before it is
