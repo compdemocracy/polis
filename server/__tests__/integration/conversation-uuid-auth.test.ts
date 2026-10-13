@@ -11,14 +11,12 @@ import {
 import { getPooledTestUser } from "../setup/test-user-helpers";
 import type { Agent, Response } from "supertest";
 
-// GET /api/v3/conversationUuid returns the conversation's zinvites.uuid (minting
-// one if the row somehow has none). That UUID is the capability key for the
-// participant-XID export at GET /api/v3/xid/<uuid>-xid.csv, so the endpoint is
-// gated to the owner or a moderator on the owner's site. These tests cover the
-// outcomes: a signed-in non-owner (and a participant) is refused with 403 and is
-// not handed the UUID, a non-owner request against a conversation with no UUID
-// yet does not mint one, the owner receives the UUID, and the owner's XID
-// capability link still works.
+// GET /api/v3/conversationUuid returns the conversation's UUID, minting one if
+// the row has none. The route requires the conversation's owner or a moderator
+// on the owner's site. These tests cover the outcomes: a signed-in non-owner
+// (and a participant) is refused with 403 and is not handed the UUID, a refused
+// request does not mint a UUID, the owner receives the UUID, and the owner's
+// download link still works.
 describe("GET /api/v3/conversationUuid - owner/moderator gate", () => {
   let ownerAgent: Agent;
   let strangerAgent: Agent;
@@ -122,8 +120,7 @@ describe("GET /api/v3/conversationUuid - owner/moderator gate", () => {
   });
 
   test("an anonymous participant token is also refused with 403", async () => {
-    // hybridAuth accepts participant (anonymous/XID) tokens, so prove a real
-    // participant session cannot obtain the UUID either.
+    // A participant session (anonymous token) must also be refused.
     const participant = await initializeParticipant(conversationId);
     await submitVote(participant.agent, {
       conversation_id: conversationId,
@@ -153,10 +150,9 @@ describe("GET /api/v3/conversationUuid - owner/moderator gate", () => {
     expect(uuidResponse.status).toBe(200);
     const uuid = uuidResponse.body.conversation_uuid;
 
-    // The admin XID page builds "<uuid>-xid.csv" and fetches the capability
-    // route, which carries no auth of its own (it is used with curl). It must
-    // keep returning the participant-XID CSV. A fresh, unauthenticated agent
-    // stands in for curl.
+    // The admin XID page builds "<uuid>-xid.csv" and fetches it to download the
+    // participant export; that download must keep working for the owner. A fresh
+    // agent stands in for the download.
     const anonymousAgent = await newAgent();
     const xidResponse: Response = await anonymousAgent.get(
       `/api/v3/xid/${uuid}-xid.csv`
