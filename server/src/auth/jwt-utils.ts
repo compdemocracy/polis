@@ -296,6 +296,11 @@ export function createExtractUserMiddleware(
       req.p = req.p || {};
       req.p.pid = payload.pid;
       req.p.conversation_id = payload.conversation_id;
+      // The conversation the token was issued for, kept apart from
+      // req.p.conversation_id (which a route's own parameter may overwrite):
+      // ensureParticipant decides the token's scope against the conversation
+      // the route resolves.
+      req.p.jwt_conversation_id = payload.conversation_id;
       req.p[`${participantType}_participant`] = true;
 
       // Add type-specific data
