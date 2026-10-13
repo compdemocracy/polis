@@ -288,7 +288,8 @@ function initializePolisHelpers() {
       };
     }
   ) {
-    // if uid is not conversation owner, fail
+    // Only the conversation's owner may read its zinvites: the owner probe
+    // returns no rows for anyone else, so an empty result must be refused.
     pg.query_readOnly(
       "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
       [req.p.zid, req.p.uid],
@@ -302,15 +303,13 @@ function initializePolisHelpers() {
           );
           return;
         }
-        if (!results || !results.rows) {
-          res.writeHead(404);
-          res.json({
-            status: 404,
-          });
+        if (!results || !results.rows || !results.rows.length) {
+          failJson(res, 403, "polis_err_fetching_zinvite_not_conversation_owner");
           return;
         }
+        // Return only the columns clients read; never the uuid column.
         pg.query_readOnly(
-          "SELECT * FROM zinvites WHERE zid = ($1);",
+          "SELECT zid, zinvite, created FROM zinvites WHERE zid = ($1);",
           [req.p.zid],
           function (err: any, results: { rows: any }) {
             if (err) {
@@ -353,13 +352,23 @@ function initializePolisHelpers() {
     pg.query(
       "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
       [req.p.zid, req.p.uid],
-      function (err: any) {
+      function (err: any, results: { rows: any }) {
         if (err) {
           failJson(
             res,
             500,
             "polis_err_creating_zinvite_invalid_conversation_or_owner",
             err
+          );
+          return;
+        }
+        // Only the conversation's owner may create a zinvite: the owner probe
+        // returns no rows for anyone else, so an empty result must be refused.
+        if (!results || !results.rows || !results.rows.length) {
+          failJson(
+            res,
+            403,
+            "polis_err_creating_zinvite_not_conversation_owner"
           );
           return;
         }
