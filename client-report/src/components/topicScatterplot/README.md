@@ -13,11 +13,9 @@ A standalone, reusable scatterplot visualization component for displaying topic 
 
 ## Prerequisites
 
-This component requires Plotly.js to be loaded in your application. Add this script tag to your HTML:
-
-```html
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-```
+This component requires Plotly.js to be loaded as `window.Plotly`. In this client, the build copies
+`plotly.min.js` from the pinned `plotly.js-dist-min` npm package and `public/index.html` loads it from
+our own host (see `webpack.common.js`); never load it from a CDN.
 
 ## Installation
 

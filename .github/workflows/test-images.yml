@@ -1,0 +1,70 @@
+name: Test images
+
+# Called by the workflows that run checks on the test stack
+# (docker-compose.test.yml). Builds every image the stack builds from this
+# commit ONCE per workflow run, through ci/local/test-images.sh (the same
+# command a Docker host runs locally), and hands them to the run's other jobs
+# as an artifact, so no shard builds its own copy.
+#
+# Layer cache: BuildKit reads the GitHub Actions cache written by the last
+# push to edge (or stable), so only layers whose inputs changed are rebuilt.
+# Only pushes write the cache, and only from the caller that sets write-cache
+# (E2E Tests, which runs on every push): the repository's cache space is shared
+# and small, a pull request's layers are of no use to the next pull request,
+# and two builds writing one scope at once leave it inconsistent. Pull requests
+# from forks read the cache and pass images the same way.
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: Comma-separated images to build (default every image the test stack builds)
+        type: string
+        default: ''
+      write-cache:
+        description: Write the layer cache (on pushes). One caller writes, so two builds never race on a scope.
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        # The runner is discarded after the job; removing the builder only costs time.
+        cleanup: false
+
+    # BuildKit's GitHub Actions cache backend reads these from the environment;
+    # the runner gives them to actions only, so hand them to the build step.
+    - name: Expose the Actions cache service to BuildKit
+      uses: actions/github-script@v7
+      with:
+        script: |
+          for (const k of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_URL', 'ACTIONS_CACHE_SERVICE_V2']) {
+            if (process.env[k]) core.exportVariable(k, process.env[k])
+          }
+
+    - name: Build every test-stack image once
+      env:
+        POLIS_TEST_IMAGES_CACHE_FROM: type=gha,scope=polis-test-{image}
+        POLIS_TEST_IMAGES_CACHE_TO: ${{ inputs.write-cache && github.event_name == 'push' && 'type=gha,mode=max,scope=polis-test-{image}' || '' }}
+        IMAGES: ${{ inputs.images }}
+      run: |
+        df -h /
+        only=(); [ -z "$IMAGES" ] || only=(--only "$IMAGES")
+        bash ci/local/test-images.sh build --tag ci "${only[@]}" --save "$RUNNER_TEMP/test-images"
+        df -h /
+
+    - name: Hand the images to this run's other jobs
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-images
+        path: ${{ runner.temp }}/test-images
+        retention-days: 1
+        # The image layers are already compressed.
+        compression-level: 0

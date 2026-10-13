@@ -1,7 +1,7 @@
 import { Component } from 'react'
 import { Box, Link, Heading } from 'theme-ui'
 
-import emoji from 'react-easy-emoji'
+import emoji from '../../util/emoji'
 
 class Header extends Component {
   render() {

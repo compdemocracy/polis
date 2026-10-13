@@ -1,4 +1,4 @@
-# Run-bound Delphi results (#1428)
+# Run-bound Delphi results
 
 M28 stores all 18 result families from frozen `delphi-storage-codec/1`. Queue and
 active-guard records remain control-plane records, never executable imported jobs.

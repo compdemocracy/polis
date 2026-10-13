@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { Box, Link } from 'theme-ui'
-import emoji from 'react-easy-emoji'
+import emoji from '../../util/emoji'
 
 const KnowledgeBase = ({ e, url, txt }) => {
   return (

@@ -27,6 +27,10 @@ NOWHERE = "postgresql://postgres@127.0.0.1:1/none"
 LABEL = "probe"
 ZIDS = (9101, 9102)
 
+# serial: seeds these fixed zids in the shared test database; concurrent workers
+# collide on duplicate keys.
+pytestmark = pytest.mark.serial
+
 
 def run(argv, environ=None):
     out = io.StringIO()
@@ -161,7 +165,11 @@ def _generated_fixture(cur, zid):
     """Two opinion camps over ten comments, with passes, gaps, one revote and
     one moderated-out comment. Stored at agree = -1 (raw = -semantic)."""
     rng = random.Random(zid)
-    base = 1_700_000_000_000 + zid * 10_000_000
+    # Timestamps in 2020: far older than the start of the test stack's live
+    # math-python poller (it begins 10 days back), so the poller never computes
+    # these conversations under its own label while the test checks that only
+    # the rebuild label has rows. (1.7e12 put them at 2026-10-03, inside that window.)
+    base = 1_600_000_000_000 + zid * 10_000_000
     cur.execute("SET session_replication_role = replica")
     for table in ("votes", "votes_latest_unique", "comments", "participants",
                   "math_main", "math_bidtopid", "math_ptptstats", "math_ticks",

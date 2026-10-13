@@ -925,7 +925,7 @@ def test_declared_alias_pair_admits_the_empty_and_singleton_group_states():
         "py: step-000")
 
 
-#: The six mutations the second reviewer's probe (``cost-reduction/scripts/p2725-alias-review.py``)
+#: The six mutations the second reviewer's out-of-tree alias probe
 #: drove through raw validation AND a full strict ``run_battery`` to PASS/exit 0
 #: under the first cut of policy v2: four raw-schema escapes (F1) and two
 #: well-typed but WRONG unfolded values (F2). Each mutates the UNFOLDED view of

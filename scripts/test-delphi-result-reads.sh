@@ -7,7 +7,9 @@
 #
 # Starts one PostgreSQL 17 and one DynamoDB Local container, applies the
 # release migrations with polis-migrate, runs the parity, snapshot and
-# concurrency suites, and removes both containers.
+# concurrency suites and the participation-path guards that need a real
+# migrated database (server/__tests__/participation-pg), and removes both
+# containers.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=$PWD
@@ -36,5 +38,5 @@ POLIS_MIGRATIONS_DIR="$repo/server/postgres/migrations" queue-rs/target/debug/po
 cd server
 [[ -d node_modules ]] || npm ci --no-audit --no-fund
 export DYNAMODB_ENDPOINT="http://127.0.0.1:$RESULT_READS_DYNAMO_PORT"
-export AWS_REGION=us-east-1 DATABASE_SSL=false NODE_ENV=test
+export AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY DATABASE_SSL=false NODE_ENV=test
 npx jest --config __tests__/delphi-results-pg/jest.config.json --runInBand "$@"

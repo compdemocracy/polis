@@ -20,7 +20,7 @@ const vote = jest.mocked(submitVote)
 const token = jest.mocked(getConversationToken)
 const first = { tid: 0, txt: 'Blended SSR first', remaining: 3 }
 const second = { tid: 2, txt: 'Blended next', remaining: 2 }
-const props = { s, conversation_id: 'synthetic-one', initialStatement: first }
+const props = { s, conversation_id: 'fixture-one', initialStatement: first }
 type Next = Awaited<ReturnType<typeof fetchNextComment>>
 const eligible = { ...first, initialStatus: 'eligible' } as Next
 function deferred<T>() {
@@ -73,7 +73,7 @@ test('no second selection draw after hydration or same-identity auth refresh', a
   expect(screen.getByText(first.txt)).toBeVisible()
 })
 test('first vote targets SSR tid and only then advances to the next blended choice', async () => {
-  token.mockReturnValue({ token: 'synthetic', pid: 0 })
+  token.mockReturnValue({ token: 'fixture', pid: 0 })
   await ready()
   vote.mockResolvedValueOnce({ nextComment: second })
   fireEvent.click(screen.getByTestId('vote-agree'))
@@ -81,7 +81,7 @@ test('first vote targets SSR tid and only then advances to the next blended choi
   expect(vote).toHaveBeenCalledWith(expect.objectContaining({ pid: 0, tid: 0, vote: 'agree' }))
 })
 test('returning participant with existing vote gets their unvoted statement', async () => {
-  token.mockReturnValue({ token: 'synthetic', pid: 0 })
+  token.mockReturnValue({ token: 'fixture', pid: 0 })
   next.mockResolvedValueOnce({ ...second, initialStatus: 'voted' } as Next)
   render(<Survey {...props} />)
   expect(screen.getByTestId('vote-agree')).toBeDisabled()
@@ -90,7 +90,7 @@ test('returning participant with existing vote gets their unvoted statement', as
   expect(screen.getByTestId('vote-agree')).toBeEnabled()
 })
 test('returning participant without a vote keeps the SSR choice', async () => {
-  token.mockReturnValue({ token: 'synthetic', pid: 9 })
+  token.mockReturnValue({ token: 'fixture', pid: 9 })
   await ready()
   expect(screen.getByText(first.txt)).toBeVisible()
 })
@@ -190,7 +190,7 @@ for (const phase of ['check', 'vote']) {
       fireEvent.click(screen.getByTestId('vote-agree'))
     }
     next.mockResolvedValueOnce({ ...second, initialStatus: 'eligible' } as Next)
-    view.rerender(<Survey {...props} conversation_id="synthetic-two" initialStatement={second} />)
+    view.rerender(<Survey {...props} conversation_id="fixture-two" initialStatement={second} />)
     await act(async () => {})
     await act(async () => pending.resolve({ ...eligible, nextComment: first }))
     expect(screen.getByText(second.txt)).toBeVisible()
@@ -201,7 +201,7 @@ test('invite gate waits for authentication before checking and revealing a state
   render(<Survey {...props} requiresInviteCode />)
   expect(screen.getByText('Invite gate')).toBeVisible()
   expect(next).not.toHaveBeenCalled()
-  token.mockReturnValue({ token: 'synthetic', pid: 0 })
+  token.mockReturnValue({ token: 'fixture', pid: 0 })
   next.mockResolvedValueOnce({ ...second, initialStatus: 'voted' } as Next)
   auth()
   await screen.findByText(second.txt)

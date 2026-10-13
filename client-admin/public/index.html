@@ -8,9 +8,10 @@
 
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
-      rel="stylesheet" />
+    <!-- Space Mono, copied from a pinned npm package into this build (see webpack.config.js) -->
+    <% htmlWebpackPlugin.options.fontStylesheets.forEach(function (href) { %>
+    <link href="<%= href %>" rel="stylesheet" />
+    <% }) %>
     <!-- 100% privacy-first analytics -->
     <% if (htmlWebpackPlugin.options.isProduction) { %>
     <script

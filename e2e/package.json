@@ -15,6 +15,7 @@
     "test:embed:alpha": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/alpha-client/embed.cy.js'",
     "test:integrated:alpha": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/alpha-client/integrated.cy.js'",
     "test:conversation": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-admin/conversation.cy.js'",
+    "test:self-contained": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/self-contained/**/*.cy.js'",
     "cy:run": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run",
     "cy:open": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress open",
     "build:embed": "node build-embed.js",

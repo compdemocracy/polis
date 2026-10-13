@@ -12,7 +12,7 @@
 //
 // These tests mount the real exported handlers on a real express app and drive
 // them with real HTTP requests, replicating only app.ts's parameter binding.
-// Confirms the second reviewer's independent probe (cost-reduction/scripts/p2727-r2-node-review.cjs,
+// Confirms the second reviewer's independent probe (an out-of-tree Node review script,
 // step 2 of that review round): pca2 answers 200
 // with ETag "0" at a committed generation 0.
 

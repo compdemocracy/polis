@@ -50,7 +50,7 @@ estimate includes the vote-history rows, and a large job holds an exclusive
 reservation, so live work that arrives while it runs waits for it rather than
 computing beside it. Refusals never truncate input and never count as done.
 
-Operator controls (see cost-reduction/04-plans/P-070-math-backfill.md): the
+Operator controls: the
 MATH_BACKFILL_* environment (read at start), SIGUSR1 to approve the gate after
 the first N publications, SIGUSR2 to pause or resume. The gate approval is
 bound to the calibration settings (memory model, budget, size rules): a change

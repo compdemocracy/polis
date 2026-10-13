@@ -67,8 +67,8 @@ moderator (uid 200004), foreign owner and admin (uid 2). Owner replicas use thre
 different generated identities. Parsed uid/pid/mode context is captured and replayed.
 The 396 comments requests establish 96 three-fixture cells, 102 dispatch witnesses
 and six identity witnesses; all add zero recorded writes/provider/JWT-issuance effects.
-The plan test pins the governing notes plan and also compares its current file when
-available; set P027_NOTES_ROOT to require that external-checkout comparison explicitly.
+The plan test pins the governing recording plan by SHA-256; set ISOLATION_PLAN_SOURCE
+to a separately kept copy of that plan to also compare it for drift.
 
 The 336 PCA2 requests cover 112 cells with three independent fixtures each,
 using 60 conversations and 4,450 public fixture votes. They add no DB, filesystem,

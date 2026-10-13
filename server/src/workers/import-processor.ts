@@ -367,7 +367,12 @@ async function flushBatchToDb(rows: any[][]) {
     await client.query("ROLLBACK");
     throw e;
   } finally {
-    client.release();
+    // The participants INSERT fires pid_auto, whose session advisory lock is
+    // given back only for rows actually inserted: a row skipped by ON CONFLICT
+    // DO NOTHING, or a failed batch, leaves it held on this connection through
+    // COMMIT or ROLLBACK. Close the connection instead of pooling it, so the
+    // lock ends with the session and joiners of this conversation never wait.
+    client.release(true);
   }
 }
 

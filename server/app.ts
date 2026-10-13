@@ -2272,8 +2272,8 @@ export const appReady = helpersInitialized.then(
     // changes on an already-500 path is the Content-Type and body, and only the
     // 400 paths (and the typed 23505/JWT/timeout branches) change status. It is
     // therefore off by default and gated so the change can be recorded and
-    // approved before it ships. See
-    // cost-reduction/04-plans/P-038-global-error-handler-notes.md.
+    // approved before it ships. See the flag's comment in
+    // server/src/config.ts.
     if (Config.reachableErrorHandler) {
       app.use(globalErrorHandler);
     }

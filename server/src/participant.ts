@@ -151,16 +151,36 @@ function tryToJoinConversation(
   });
 }
 
-async function addParticipant(zid: number, uid?: number): Promise<any> {
-  logger.debug("addParticipant starting", { zid, uid });
+// The pid_auto trigger takes the conversation's participant lock as a SESSION
+// advisory lock, and pid_auto_unlock gives it back only after an INSERT that
+// succeeds (server/postgres/migrations/000000_initial.sql). A participants
+// INSERT that fails after taking it (a lost pid race, an existing (zid, uid),
+// a lock timeout) leaves the lock on its connection, and ROLLBACK does not
+// release it. So a connection that saw any error here is closed instead of
+// being returned to the pool: the lock ends with its session, rather than
+// making every later joiner of the conversation wait on it.
+//
+// Every lock wait in the transaction is bounded, so a lock held elsewhere (a
+// server still running code that leaks it, for example) answers the joiner
+// with an error instead of holding a read-write connection indefinitely.
+const PARTICIPANT_INSERT_LOCK_TIMEOUT = "5s";
+// SQLSTATE raised when lock_timeout expires.
+const LOCK_NOT_AVAILABLE = "55P03";
 
+async function insertParticipant(zid: number, uid?: number): Promise<any> {
   // Use a dedicated client (not pool-level queries) so all statements in the
   // transaction run on the same connection. Without this, pg.query() grabs a
   // random connection from the pool for each call, breaking transaction
   // isolation under concurrent load. See: concurrent-same-participant.test.ts.
   const client = await pg.connect();
+  // Set when any statement on this connection failed; release(true) then
+  // closes the connection instead of pooling it.
+  let discard = false;
   try {
     await client.query("BEGIN");
+    await client.query(
+      `SET LOCAL lock_timeout = '${PARTICIPANT_INSERT_LOCK_TIMEOUT}';`
+    );
 
     // First insert into participants_extended (ignore duplicates)
     await client.query(
@@ -185,6 +205,7 @@ async function addParticipant(zid: number, uid?: number): Promise<any> {
       });
       return partResult.rows;
     } catch (partErr: any) {
+      discard = true;
       await client.query("ROLLBACK");
       if (partErr.code === "23505") {
         // Duplicate key — participant was created by a concurrent request.
@@ -206,7 +227,7 @@ async function addParticipant(zid: number, uid?: number): Promise<any> {
           });
           return selectResult.rows;
         }
-        // Concurrent transaction may not have committed yet — let caller retry
+        // No row for this uid: another joiner was given the same pid.
         throw partErr;
       }
       logger.error("participants insert failed", {
@@ -219,6 +240,7 @@ async function addParticipant(zid: number, uid?: number): Promise<any> {
       throw partErr;
     }
   } catch (err) {
+    discard = true;
     // Ensure rollback on any unexpected error
     try {
       await client.query("ROLLBACK");
@@ -227,7 +249,27 @@ async function addParticipant(zid: number, uid?: number): Promise<any> {
     }
     throw err;
   } finally {
-    client.release();
+    client.release(discard);
+  }
+}
+
+async function addParticipant(zid: number, uid?: number): Promise<any> {
+  logger.debug("addParticipant starting", { zid, uid });
+  try {
+    return await insertParticipant(zid, uid);
+  } catch (err: any) {
+    if (err?.code !== "23505") {
+      throw err;
+    }
+    // Another joiner was given the same pid: pid_auto computes MAX(pid) + 1
+    // before that joiner's row is committed. It is committed by the time this
+    // INSERT fails, so one more attempt, on a new connection, gets the next pid.
+    logger.info("participant pid collision; retrying once", {
+      zid,
+      uid,
+      constraint: err.constraint,
+    });
+    return insertParticipant(zid, uid);
   }
 }
 
@@ -241,6 +283,15 @@ function joinConversation(
     return tryToJoinConversation(zid, uid, info, pmaid_answers);
   }
 
+  function retryJoin(err: any) {
+    // A lock timeout means the conversation's participant lock is held
+    // elsewhere; another attempt would only wait out the same timeout again.
+    if (err?.code === LOCK_NOT_AVAILABLE) {
+      throw err;
+    }
+    return tryJoin();
+  }
+
   function doJoin() {
     // retry up to 10 times
     // NOTE: Shouldn't be needed, since we have an advisory lock in the insert trigger.
@@ -248,15 +299,15 @@ function joinConversation(
     //       Doing this retry in JS for now since it's quick and easy, rather than try to
     //       figure what's wrong with the postgres locks.
     const promise = tryJoin()
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin)
-      .catch(tryJoin);
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin)
+      .catch(retryJoin);
     return promise;
   }
 

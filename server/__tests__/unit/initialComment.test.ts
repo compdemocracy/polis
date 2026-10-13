@@ -40,7 +40,7 @@ import { checkInitialComment } from "../../src/nextComment";
 let rows: { zid: number; tid: number; txt: string }[];
 beforeEach(() => {
   jest.clearAllMocks();
-  rows = [3, 0, 2].map((tid) => ({ zid: 7, tid, txt: `Synthetic ${tid}` }));
+  rows = [3, 0, 2].map((tid) => ({ zid: 7, tid, txt: `Fixture ${tid}` }));
   mockComments.mockImplementation(async (params) =>
     rows.filter((r) => !params.tids || params.tids.includes(r.tid))
   );

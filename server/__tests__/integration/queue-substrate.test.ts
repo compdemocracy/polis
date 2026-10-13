@@ -1,9 +1,9 @@
 /**
  * P-024 Postgres queue substrate, first slice (noop only).
  *
- * The forty checks of cost-reduction/scripts/p024-queue-sql-smoke.py, ported to
- * run against the migrated schema rather than against the uninstalled SQL
- * specification. cost-reduction/scripts/p024-queue-sql-smoke.py stays as the
+ * The forty checks of the queue design's SQL smoke harness (kept outside this
+ * repository), ported to run against the migrated schema rather than against
+ * the uninstalled SQL specification. That harness stays as the
  * language-neutral spec harness; this file is the repository's regression test
  * for server/postgres/migrations/000019_create_polis_queue.sql.
  *

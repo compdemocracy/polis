@@ -2,6 +2,9 @@
 # Shared mm5/CI entry point. Requires an already-running Delphi test container.
 # Usage: bash scripts/test-deploy-hooks.sh [-f compose.yml --env-file .env ...]
 # Compose global options are passed through; this never starts/stops services.
+# DEPLOY_HOOKS_COPY_ONLY=1 copies the inputs and tests into the container and
+# stops there (the full Delphi suite reads the same inputs); a sharded run uses
+# it in every shard but one, so these tests run once per run.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 if [ "$#" -eq 0 ]; then
@@ -39,6 +42,10 @@ done
 for test in "${tests[@]}"; do
   "${compose[@]}" cp "delphi/tests/$test" "delphi:/app/tests/$test"
 done
+if [ -n "${DEPLOY_HOOKS_COPY_ONLY:-}" ]; then
+  echo "deploy-hook inputs copied; the hook tests run in another shard"
+  exit 0
+fi
 # This suite needs neither database fixtures nor the unrelated Delphi session
 # conftest. Keep its configuration identical here and in hosted CI. The full
 # Delphi suite still runs afterward in CI with its normal conftest and coverage.

@@ -4,7 +4,7 @@ import { Heading, Box, Text } from 'theme-ui'
 import { useCallback, useRef } from 'react'
 import { useDispatch } from 'react-redux'
 import { useAuth } from 'react-oidc-context'
-import emoji from 'react-easy-emoji'
+import emoji from '../../util/emoji'
 
 import { CheckboxField } from './CheckboxField'
 import { useConversationData } from '../../util/conversation_data'
