@@ -490,7 +490,6 @@ function pullXInfoIntoSubObjects(ptptoiRecord: any) {
   if (p.x_profile_image_url || p.xid || p.x_email) {
     p.xInfo = {};
     p.xInfo.x_profile_image_url = p.x_profile_image_url;
-    p.xInfo.xid = p.xid;
     p.xInfo.x_name = p.x_name;
     // p.xInfo.x_email = p.x_email;
     delete p.x_profile_image_url;

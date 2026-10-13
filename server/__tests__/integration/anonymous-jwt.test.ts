@@ -8,6 +8,7 @@ import {
 import {
   createXidTestUser,
   getXidAuthenticatedAgent,
+  simulateXidParticipantFlow,
   verifyXidJwtClaims,
 } from "../setup/xid-jwt-test-helpers";
 
@@ -188,9 +189,15 @@ describe("Anonymous and XID JWT Authentication", () => {
           commentCount: 1,
         });
 
-      // Get JWT for first conversation
+      // A real XID participant of the first conversation, holding the token
+      // the server issued for it there (a user that exists, unlike the
+      // simulated uid of createXidTestUser alone).
       const xidUser = createXidTestUser(conversationId);
-      const { agent } = await getXidAuthenticatedAgent(xidUser);
+      const { agent, token } = await simulateXidParticipantFlow(
+        conversationId,
+        xidUser.xid
+      );
+      expect(token).toBeTruthy();
 
       // Try to vote in the different conversation
       const voteResponse = await agent.post("/api/v3/votes").send({
@@ -200,7 +207,7 @@ describe("Anonymous and XID JWT Authentication", () => {
         pid: -1,
       });
 
-      // Should succeed with 200
+      // Should succeed with 200, as a participant of the other conversation
       expect(voteResponse.status).toBe(200);
       expect(voteResponse.body).toHaveProperty("currentPid");
       expect(typeof voteResponse.body.currentPid).toBe("number");
