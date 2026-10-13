@@ -55,6 +55,7 @@ def main(argv=None):
             raise ValueError('source changed between census passes')
         with closing(imp.connect_readonly_source(local=bool(args.local_endpoint))) as conn:
             current = imp.mapping(conn)
+        follow_up = None
         if current != (conversations, reports):
             # Counts only. Additions (conversations or reports created during
             # the census) are accepted and the census is rebound to them.
@@ -62,6 +63,9 @@ def main(argv=None):
                                                          sort_keys=True), file=sys.stderr)
             first = imp.rebind_additions(attempt/'first.sqlite', (conversations, reports), current,
                                          args.allow_missing)
+            # Private record of the additions so a follow-up pass re-imports
+            # anything whose rows landed after this run's scan passed their page.
+            follow_up = imp.write_follow_up(attempt, (conversations, reports), current)
             conversations, reports = current
         root = attempt / 'snapshot'
         # --apply refuses at the first family past the per-run bounds, before
@@ -89,6 +93,9 @@ def main(argv=None):
         if not args.apply:
             # Counts and byte sizes only, never ids.
             result['staging'] = imp.oversize_summary(oversized)
+        if follow_up is not None:
+            # Counts only; the identities are on the private mount (follow-up.json).
+            result['follow_up'] = follow_up
         imp.finish_attempt(attempt)
         print(json.dumps(result, sort_keys=True))
         return 0

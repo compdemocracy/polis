@@ -135,6 +135,10 @@ def main(argv=None):
                                                                  sort_keys=True), file=sys.stderr)
                     first = imp.rebind_additions(attempt/'first.sqlite', (conversations, reports), current,
                                                  args.allow_missing, validate_schema=False, skipped=args.skip_family)
+                    # The identities of the mid-run additions, on the private
+                    # mount only, so a follow-up pass re-imports anything whose
+                    # rows landed after this run's scan passed their page.
+                    imp.write_follow_up(attempt, (conversations, reports), current)
                     conversations, reports = current
                 with closing(sqlite3.connect(attempt/'first.sqlite')) as db:
                     zids = [row[0] for row in db.execute('SELECT DISTINCT zid FROM rows WHERE zid IS NOT NULL')]
