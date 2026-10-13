@@ -39,7 +39,8 @@ class ForwardProof(unittest.TestCase):
             '000019_create_polis_queue.sql', '000021_create_polis_coordinator.sql',
             '000022_add_poll_timestamp_indexes.sql', '000023_create_delphi_foundation.sql',
             '000028_create_delphi_results.sql', '000029_extend_delphi_graph_stages.sql',
-            '000030_create_delphi_writers.sql', '000031_scope_delphi_result_reads.sql'})
+            '000030_create_delphi_writers.sql', '000031_scope_delphi_result_reads.sql',
+            '000038_create_delphi_comment_embeddings.sql'})
 
     def test_02_deploy_records_declarations(self):
         db = self.new('records'); p.runner(db, 'deploy')
@@ -56,7 +57,7 @@ class ForwardProof(unittest.TestCase):
             self.assertIn('applied 0 migration(s)', out)
             for name in newer:
                 self.assertIn(f'tolerating {name}', out)
-            self.assertIn('4 newer additive migration(s) tolerated', p.runner(db, 'check', dir=old).stdout)
+            self.assertIn('5 newer additive migration(s) tolerated', p.runner(db, 'check', dir=old).stdout)
             gate = p.gate(db, True, dir=old)
             self.assertIn('tolerating 000030_create_delphi_writers.sql', gate.stdout)
             self.assertEqual(before, history(db))
