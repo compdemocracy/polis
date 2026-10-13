@@ -5,9 +5,11 @@
   combine --out OUT DIR...    check that the shards' selections partition the
                               collected tests (each test in exactly one shard),
                               add up the counts, and write OUT/counts.json and
-                              OUT/test-durations.json ([parallel, serial] seconds
-                              per shard unit, the format of
-                              ci/local/delphi-test-durations.json)
+                              OUT/test-durations.json ([parallel, serial, longest]
+                              seconds per shard unit, the format of
+                              ci/local/delphi-test-durations.json: the unit's
+                              parallel-pass and serial-pass totals, and its
+                              longest single parallel-pass test)
 
 Counts are pytest's own summary numbers (passed, failed, skipped, xfailed,
 xpassed, error), read from the controller of each pass. "deselected" is left
@@ -42,18 +44,30 @@ def fmt(c: Counter) -> str:
     return ", ".join(f"{c.get(k, 0)} {k}" for k in keys)
 
 
-def durations(run_dir: Path, manifest: dict) -> tuple[Counter, Counter]:
-    """Seconds per unit, split into parallel-pass and serial-marked tests."""
+def durations(run_dir: Path, manifest: dict) -> tuple[Counter, Counter, dict]:
+    """Seconds per unit, split into parallel-pass and serial-marked tests, and
+    the longest single parallel-pass test per unit (setup + call + teardown):
+    a unit made of a few long tests cannot finish sooner than its longest one,
+    however many workers share it."""
     units, serial = manifest["units"], set(manifest.get("serial", []))
     parallel_s: Counter = Counter()
     serial_s: Counter = Counter()
+    per_test: Counter = Counter()
     for f in sorted(run_dir.glob("results-*.jsonl")):
         for line in f.read_text().splitlines():
             rec = json.loads(line)
             unit = units.get(rec["nodeid"])
             if unit:
-                (serial_s if rec["nodeid"] in serial else parallel_s)[unit] += rec["duration"]
-    return parallel_s, serial_s
+                if rec["nodeid"] in serial:
+                    serial_s[unit] += rec["duration"]
+                else:
+                    parallel_s[unit] += rec["duration"]
+                    per_test[rec["nodeid"]] += rec["duration"]
+    longest: dict = defaultdict(float)
+    for nodeid, seconds in per_test.items():
+        unit = units[nodeid]
+        longest[unit] = max(longest[unit], seconds)
+    return parallel_s, serial_s, longest
 
 
 def cmd_summary(args) -> int:
@@ -74,6 +88,7 @@ def cmd_combine(args) -> int:
     total: Counter = Counter()
     parallel_s: Counter = Counter()
     serial_s: Counter = Counter()
+    longest: dict = defaultdict(float)
     for d in map(Path, args.dirs):
         manifest = json.loads((d / "manifest.json").read_text())
         shard = manifest["shard"]
@@ -90,9 +105,11 @@ def cmd_combine(args) -> int:
         c = run_counts(d)
         print(f"shard {shard}: {len(manifest['selected'])} tests; {fmt(c)}")
         total += c
-        p, s = durations(d, manifest)
+        p, s, top = durations(d, manifest)
         parallel_s += p
         serial_s += s
+        for unit, seconds in top.items():
+            longest[unit] = max(longest[unit], seconds)
     missing = sorted(set(collected or []) - set(owner))
     for nodeid in missing[:20]:
         problems.append(f"{nodeid} was collected but no shard selected it")
@@ -101,7 +118,7 @@ def cmd_combine(args) -> int:
     print(f"all shards: {len(owner)} of {len(collected or [])} collected tests; {fmt(total)}")
     (out / "counts.json").write_text(json.dumps(dict(total), sort_keys=True, indent=1) + "\n")
     (out / "test-durations.json").write_text(json.dumps(
-        {"units": {u: [round(parallel_s[u], 1), round(serial_s[u], 1)]
+        {"units": {u: [round(parallel_s[u], 1), round(serial_s[u], 1), round(longest[u], 1)]
                    for u in sorted(set(parallel_s) | set(serial_s))}},
         indent=1, sort_keys=True) + "\n")
     if total.get("failed") or total.get("error"):

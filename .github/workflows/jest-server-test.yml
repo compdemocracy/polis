@@ -70,6 +70,19 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        # The runner is discarded after the job; removing the builder only costs time.
+        cleanup: false
+
+    # BuildKit's GitHub Actions cache backend reads these from the environment;
+    # the runner gives them to actions only, so hand them to the build step.
+    - name: Expose the Actions cache service to BuildKit
+      uses: actions/github-script@v7
+      with:
+        script: |
+          for (const k of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_URL', 'ACTIONS_CACHE_SERVICE_V2']) {
+            if (process.env[k]) core.exportVariable(k, process.env[k])
+          }
 
     - name: Create test.env with CI-specific paths
       run: |
@@ -89,43 +102,27 @@ jobs:
         grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_|JWT_|JWKS_URI" test.env || true
 
     - name: Build Docker images
+      env:
+        # Layer cache kept by the test-stack image builds (test-images.yml).
+        POLIS_TEST_IMAGES_CACHE_FROM: type=gha,scope=polis-test-{image}
       run: |
-        # Build only the services these tests need (tests run on host).
+        # Build only the services these tests need (tests run on host); ses-local
+        # and dynamodb are pulled, not built.
         # The math engine (math-python) is intentionally excluded: the server
         # integration tests insert math_* rows directly and gate all live-math
         # assertions behind a hasMathData flag, so they pass with or without it.
-        docker compose -f docker-compose.test.yml --env-file test.env build \
-          postgres file-server ses-local oidc-simulator dynamodb
+        bash ci/local/test-images.sh build --tag ci --only postgres,file-server,oidc-simulator
+        bash ci/local/test-images.sh override ci "$RUNNER_TEMP/images.yml" postgres file-server oidc-simulator
 
     - name: Apply and check test database migrations
-      run: bash ci/test-migrations.sh
+      run: bash ci/test-migrations.sh -f "$RUNNER_TEMP/images.yml"
 
     - name: Start services
       run: |
-        # Start only required services in detached mode (exclude server + math-python)
-        docker compose -f docker-compose.test.yml --env-file test.env up -d \
+        # Start only required services in detached mode (exclude server + math-python).
+        # They come up while the server dependencies install; the health step waits for them.
+        docker compose -f docker-compose.test.yml -f "$RUNNER_TEMP/images.yml" --env-file test.env up -d \
           postgres file-server ses-local oidc-simulator dynamodb minio minio-init
-        
-        # Wait for services to be ready
-        echo "Waiting for services to start..."
-        sleep 30
-        
-        # Show running containers
-        docker compose -f docker-compose.test.yml ps
-
-    - name: Check service health
-      run: |
-        # Check if key services are responding
-        echo "Checking postgres..."
-        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
-        
-        echo "Checking oidc-simulator..."
-        curl -k -f https://localhost:3000/.well-known/jwks.json || true
-        
-        echo "Checking DynamoDB..."
-        curl -f http://localhost:8000 || true
-        # Alternative check using AWS CLI if available
-        aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 2>/dev/null || true
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -138,6 +135,31 @@ jobs:
       run: |
         cd server
         npm ci
+
+    - name: Check service health
+      run: |
+        # Wait (up to 120 s) until postgres, the OIDC simulator, DynamoDB and MinIO answer.
+        for i in $(seq 1 60); do
+          docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres >/dev/null 2>&1 \
+            && curl -ksf -o /dev/null https://localhost:3000/.well-known/jwks.json \
+            && curl -s -o /dev/null http://localhost:8000 \
+            && curl -s -o /dev/null http://localhost:9000 \
+            && break
+          sleep 2
+        done
+        docker compose -f docker-compose.test.yml ps
+
+        # Check if key services are responding
+        echo "Checking postgres..."
+        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
+        
+        echo "Checking oidc-simulator..."
+        curl -k -f https://localhost:3000/.well-known/jwks.json || true
+        
+        echo "Checking DynamoDB..."
+        curl -f http://localhost:8000 || true
+        # Alternative check using AWS CLI if available
+        aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 2>/dev/null || true
 
     - name: Generated contract files match the TypeBox source
       run: |
