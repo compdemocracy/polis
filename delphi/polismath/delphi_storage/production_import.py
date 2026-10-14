@@ -28,6 +28,12 @@ FAMILY_LIMIT = 64 * 1024 * 1024
 BATCH_LIMIT = 256 * 1024 * 1024
 MANIFEST_LIMIT = 128 * 1024
 FOLLOW_UP = 'follow-up.json'
+# The identity mapping (conversations and reports) the FIRST attempt read, saved
+# privately in the attempt directory so a later --resume compares drift against
+# it, not a freshly read one. Bounded well above any real production mapping.
+MAPPING_FILE = 'source-mapping.json'
+MAPPING_SCHEMA = 'polis-production-import-mapping/1'
+MAPPING_LIMIT = 64 * 1024 * 1024
 
 # The one comment-embeddings family, and the single model migration 000038 seeds
 # (model_id 1, 384 dims). The legacy bare name normalizes to the seeded name, so
@@ -327,6 +333,41 @@ def write_follow_up(attempt, before, after):
     write_private(attempt / FOLLOW_UP, legacy.json_bytes(
         dict(schema='polis-production-import-follow-up/1', **additions)))
     return dict(conversations=len(additions['conversations']), reports=len(additions['reports']))
+
+
+def _load_mapping(path):
+    """Parse a saved identity mapping, or refuse; never fall back to a fresh read."""
+    try:
+        data = json.loads(legacy.read_regular_file(path, MAPPING_LIMIT))
+        conversations, reports = data['conversations'], data['reports']
+        ok = (data.get('schema') == MAPPING_SCHEMA
+              and isinstance(conversations, dict) and isinstance(reports, dict)
+              and all(isinstance(k, str) and type(v) is int for k, v in conversations.items())
+              and all(isinstance(k, str) and type(v) is int for k, v in reports.items()))
+    except (OSError, ValueError, TypeError, KeyError):
+        ok = False
+    if not ok:
+        raise ValueError('saved source identity mapping unreadable')
+    return conversations, reports
+
+
+def baseline_mapping(attempt, current, resume):
+    """The identity mapping this import compares drift against across attempts.
+
+    On a first attempt, persist the mapping read now (private, mode 0600, never
+    on stdout or in logs, like follow-up.json) so a later --resume compares the
+    then-current mapping against it rather than a freshly read one: a report
+    removed or re-pointed between a refused attempt and its resume must refuse
+    exactly as it does within one run, and mid-run additions still go to
+    follow-up.json. On resume, load that saved mapping and ignore `current`; a
+    missing or corrupt saved mapping refuses rather than silently rebinding to a
+    fresh read.
+    """
+    if not resume:
+        write_private(attempt / MAPPING_FILE, legacy.json_bytes(dict(
+            schema=MAPPING_SCHEMA, conversations=current[0], reports=current[1])))
+        return current
+    return _load_mapping(attempt / MAPPING_FILE)
 
 
 def bind(item, conversations, reports):

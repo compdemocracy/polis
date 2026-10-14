@@ -47,6 +47,9 @@ def main(argv=None):
         import psycopg2
         with closing(imp.connect_readonly_source(local=bool(args.local_endpoint))) as conn:
             conversations, reports = imp.mapping(conn)
+        # The FIRST attempt saves this mapping privately; --resume compares drift
+        # against that saved baseline, not this freshly read mapping.
+        conversations, reports = imp.baseline_mapping(attempt, (conversations, reports), args.resume)
         first = imp.census(source, attempt/'first.sqlite', conversations, reports, args.allow_missing,
                            pacer=pacer, resume=args.resume)
         second = imp.census(source, attempt/'second.sqlite', conversations, reports, args.allow_missing,

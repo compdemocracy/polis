@@ -59,6 +59,7 @@ REFUSALS = frozenset({
     'private import mount required',
     'repeated source continuation',
     'report conservation failure',
+    'saved source identity mapping unreadable',
     'skipped family was already scanned',
     'snapshot contract mismatch',
     'snapshot digest mismatch',
@@ -127,6 +128,9 @@ def main(argv=None):
             source = imp.source_client(args.region, args.local_endpoint)
             with closing(import_report.connect_existing()) as conn:
                 conversations, reports = imp.mapping(conn)
+            # The FIRST attempt saves this mapping privately; --resume compares
+            # drift against that saved baseline, not this freshly read mapping.
+            conversations, reports = imp.baseline_mapping(attempt, (conversations, reports), args.resume)
             # Each pass resumes from its own per-table checkpoint inside the attempt.
             first = imp.census(source, attempt/'first.sqlite', conversations, reports,
                                args.allow_missing, validate_schema=False, pacer=pacer, resume=args.resume,

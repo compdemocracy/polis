@@ -361,3 +361,39 @@ def test_flag_off_materialize_is_unchanged(tmp_path):
     assert 'embeddings_table' not in manifest and 'embeddings' not in manifest
     assert manifest['families'][FAMILY]['rows'] == 2
     assert codec.decode_family((tmp_path/'off'/plain[0]['digest']/(FAMILY+'.jsonl')).read_bytes())[1] == rows
+
+
+# ---------------------------------------------------------------- resume baseline mapping
+
+def test_baseline_mapping_persists_on_first_and_loads_on_resume(tmp_path):
+    attempt = tmp_path/'attempt'; attempt.mkdir(mode=0o700)
+    before = ({'1': 1, '2': 2}, {'r-a': 1, 'r-b': 2})
+    assert imp.baseline_mapping(attempt, before, resume=False) == before
+    saved = attempt/imp.MAPPING_FILE
+    assert oct(saved.stat().st_mode)[-3:] == '600'
+    assert json.loads(saved.read_bytes()) == dict(
+        schema='polis-production-import-mapping/1', conversations={'1': 1, '2': 2}, reports={'r-a': 1, 'r-b': 2})
+    # On resume the freshly read mapping is ignored; the saved baseline is returned.
+    assert imp.baseline_mapping(attempt, ({'9': 9}, {'r-z': 9}), resume=True) == before
+
+
+@pytest.mark.parametrize('corrupt', [
+    lambda path: path.unlink(),
+    lambda path: path.write_bytes(b'not json at all'),
+    lambda path: path.write_bytes(json.dumps(dict(
+        schema='other', conversations={}, reports={})).encode()),
+    lambda path: path.write_bytes(json.dumps(dict(
+        schema='polis-production-import-mapping/1', conversations=[], reports={})).encode()),
+    lambda path: path.write_bytes(json.dumps(dict(
+        schema='polis-production-import-mapping/1', conversations={'1': '1'}, reports={})).encode()),
+    lambda path: path.write_bytes(json.dumps(dict(
+        schema='polis-production-import-mapping/1', conversations={'1': True}, reports={})).encode()),
+    lambda path: path.write_bytes(json.dumps(
+        ['polis-production-import-mapping/1']).encode()),
+])
+def test_baseline_mapping_refuses_missing_or_corrupt_saved_mapping(tmp_path, corrupt):
+    attempt = tmp_path/'attempt'; attempt.mkdir(mode=0o700)
+    imp.baseline_mapping(attempt, ({'1': 1}, {}), resume=False)
+    corrupt(attempt/imp.MAPPING_FILE)
+    with pytest.raises(ValueError, match='saved source identity mapping unreadable'):
+        imp.baseline_mapping(attempt, ({'1': 1}, {}), resume=True)

@@ -509,6 +509,171 @@ def test_launcher_resume_relays_only_this_runs_lines(monkeypatch, tmp_path, capf
     assert (output/'stderr.log').read_text().startswith(stale)
 
 
+# ---------------------------------------------------------------- resume baseline mapping
+
+def fail_once(success):
+    """A stand-in that interrupts the first attempt and behaves normally on resume."""
+    state = {'armed': True}
+    def wrapper(*args, **kwargs):
+        if state['armed']:
+            state['armed'] = False
+            raise RuntimeError('generated first-attempt interruption')
+        return success(*args, **kwargs)
+    return wrapper
+
+
+def report_resume_run(monkeypatch, scratch, source, conversations, reports, metadata):
+    """Drive the report entry point against one scratch dir across attempts; the
+    mapping stub reads the mutable dicts, so a change between attempts is seen."""
+    cli = report_cli()
+    scratch.mkdir()
+    monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
+    monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: source)
+    monkeypatch.setattr(report, 'connect_existing', lambda: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(imp, 'mapping', lambda connection: (dict(conversations), dict(reports)))
+    monkeypatch.setattr(report, 'metadata', metadata)
+    return lambda *extra: cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9', *extra])
+
+
+def test_resume_refuses_a_report_repointed_between_attempts(monkeypatch, tmp_path, capfd, keep_umask):
+    """A report re-pointed between a refused attempt and its resume refuses, because
+    drift is measured against the FIRST attempt's saved mapping, not a fresh read."""
+    source = ScanOnlySource({FAMILY: [row()]})
+    conversations, reports = {'1': 1, '2': 2}, {'r-1': 1}
+    run = report_resume_run(monkeypatch, tmp_path/'import', source, conversations, reports, fail_once(metadata_stub))
+    assert run() == 2                                    # interrupted after a clean census under the saved mapping
+    capfd.readouterr()
+    reports['r-1'] = 2                                   # the report now points at a different conversation
+    assert run('--resume') == 2
+    err = capfd.readouterr().err
+    assert drift_counts(err) == dict(conversations=dict(added=0, removed=0, changed=0),
+                                     reports=dict(added=0, removed=0, changed=1))
+    assert err.splitlines()[-1] == 'import dry-run refused (ValueError: source identity mapping changed)'
+
+
+def test_resume_accepts_additions_across_attempts_into_follow_up(monkeypatch, tmp_path, capfd, keep_umask):
+    """A conversation/report added between attempts is accepted and recorded in follow-up.json."""
+    source = ScanOnlySource({FAMILY: [row(), row('7')]})
+    conversations, reports = {'1': 1}, {'r-1': 1}
+    run = report_resume_run(monkeypatch, tmp_path/'import', source, conversations, reports, fail_once(metadata_stub))
+    assert run() == 2
+    capfd.readouterr()
+    conversations['7'] = 7                               # created between the attempts, with rows already scanned
+    reports['r-7'] = 7
+    assert run('--resume') == 0
+    out, err = capfd.readouterr()
+    assert drift_counts(err) == dict(conversations=dict(added=1, removed=0, changed=0),
+                                     reports=dict(added=1, removed=0, changed=0))
+    assert 'r-7' not in err
+    lines = [json.loads(line) for line in out.splitlines()]
+    assert [line['zid'] for line in lines[:-1]] == [1, 7]
+    assert follow_up_record(tmp_path/'import') == dict(
+        schema='polis-production-import-follow-up/1', conversations=[7], reports={'r-7': 7})
+
+
+def test_unchanged_resume_matches_a_fresh_run_byte_for_byte(monkeypatch, tmp_path, capfd, keep_umask):
+    """With the mapping unchanged across attempts, the resume's stdout is byte-identical
+    to a single clean run under the same mapping (today's behaviour is preserved)."""
+    rows = {FAMILY: [row(), row('2')]}
+    conversations, reports = {'1': 1, '2': 2}, {'r-1': 1}
+    fresh = report_resume_run(monkeypatch, tmp_path/'fresh', ScanOnlySource(dict(rows)),
+                              dict(conversations), dict(reports), metadata_stub)
+    assert fresh() == 0
+    expected = capfd.readouterr().out
+    run = report_resume_run(monkeypatch, tmp_path/'import', ScanOnlySource(dict(rows)),
+                            conversations, reports, fail_once(metadata_stub))
+    assert run() == 2
+    capfd.readouterr()
+    assert run('--resume') == 0
+    assert capfd.readouterr().out == expected
+
+
+@pytest.mark.parametrize('corrupt', [
+    lambda path: path.unlink(),
+    lambda path: path.write_bytes(b'{"schema": "polis-production-import-mapping/1"'),
+    lambda path: path.write_bytes(b'{"schema": "other", "conversations": {}, "reports": {}}'),
+])
+def test_resume_refuses_a_missing_or_corrupt_saved_mapping(monkeypatch, tmp_path, capfd, keep_umask, corrupt):
+    """A missing or corrupt saved mapping refuses; it never silently falls back to a fresh read."""
+    source = ScanOnlySource({FAMILY: [row()]})
+    conversations, reports = {'1': 1}, {'r-1': 1}
+    scratch = tmp_path/'import'
+    run = report_resume_run(monkeypatch, scratch, source, conversations, reports, fail_once(metadata_stub))
+    assert run() == 2
+    capfd.readouterr()
+    corrupt(next(scratch.glob('report-*'))/imp.MAPPING_FILE)
+    assert run('--resume') == 2
+    err = capfd.readouterr().err
+    assert err.splitlines()[-1] == 'import dry-run refused (ValueError: saved source identity mapping unreadable)'
+
+
+def test_saved_mapping_is_private_and_never_printed(monkeypatch, tmp_path, capfd, keep_umask):
+    """The saved mapping is written 0600 on the private mount and its ids never reach stdout/stderr."""
+    source = ScanOnlySource({FAMILY: [row('818181')]})
+    conversations, reports = {'818181': 818181}, {'report-secret-191919': 818181}
+    scratch = tmp_path/'import'
+    run = report_resume_run(monkeypatch, scratch, source, conversations, reports, fail_once(metadata_stub))
+    assert run() == 2
+    out, err = capfd.readouterr()
+    saved = next(scratch.glob('report-*'))/imp.MAPPING_FILE
+    assert oct(saved.stat().st_mode)[-3:] == '600'
+    assert json.loads(saved.read_bytes()) == dict(schema='polis-production-import-mapping/1',
+                                                  conversations={'818181': 818181},
+                                                  reports={'report-secret-191919': 818181})
+    assert 'report-secret-191919' not in out and 'report-secret-191919' not in err
+
+
+def test_importer_apply_resume_refuses_a_repointed_report(monkeypatch, tmp_path, capfd, keep_umask):
+    """The real importer's --apply resume applies the same across-attempt rule."""
+    cli = load('importer_cli', Path(__file__).resolve().parents[1]/'scripts/import_dynamo_production.py')
+    rows = {FAMILY: [row(cid=i, text='x'*400) for i in range(3)]}   # one oversized conversation
+    monkeypatch.setattr(imp, 'FAMILY_LIMIT', 1000)
+    monkeypatch.setattr(imp, 'SNAPSHOTS', tmp_path/'snapshots')
+    admitted = []
+    monkeypatch.setattr(imp, 'import_all', lambda *args: admitted.append(args) or 0)
+    scratch = tmp_path/'import'; scratch.mkdir()
+    conversations, reports = {'1': 1}, {'r-1': 1}
+    monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
+    monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: Source(rows))
+    monkeypatch.setattr(imp, 'connect_readonly_source', lambda local=False: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(imp, 'mapping', lambda connection: (dict(conversations), dict(reports)))
+    run = lambda *extra: cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9', *extra])
+    assert run('--apply', '--source-frozen') == 2       # refuses at the oversized family, after a clean census
+    capfd.readouterr()
+    reports['r-1'] = 2                                   # re-pointed before the resume
+    assert run('--apply', '--source-frozen', '--resume') == 2
+    err = capfd.readouterr().err
+    assert drift_counts(err) == dict(conversations=dict(added=0, removed=0, changed=0),
+                                     reports=dict(added=0, removed=0, changed=1))
+    assert err.splitlines()[-1] == 'production import refused (ValueError)'
+    assert admitted == []
+
+
+def test_importer_dry_run_resume_accepts_additions_into_follow_up(monkeypatch, tmp_path, capfd, keep_umask):
+    """The real importer's dry-run resume records mid-run additions for a follow-up pass."""
+    cli = load('importer_cli', Path(__file__).resolve().parents[1]/'scripts/import_dynamo_production.py')
+    rows = {FAMILY: [row(), row('7')]}
+    monkeypatch.setattr(imp, 'materialize', fail_once(imp.materialize))
+    scratch = tmp_path/'import'; scratch.mkdir()
+    conversations, reports = {'1': 1}, {'r-1': 1}
+    monkeypatch.setattr(cli, 'Path', lambda value: scratch if value == '/import' else Path(value))
+    monkeypatch.setattr(imp, 'source_client', lambda region, endpoint=None: Source(rows))
+    monkeypatch.setattr(imp, 'connect_readonly_source', lambda local=False: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(imp, 'mapping', lambda connection: (dict(conversations), dict(reports)))
+    run = lambda *extra: cli.main(['--region', 'us-east-1', '--local-endpoint', 'http://127.0.0.1:9', *extra])
+    assert run() == 2                                    # interrupted after a clean census under the saved mapping
+    capfd.readouterr()
+    conversations['7'] = 7
+    reports['r-7'] = 7
+    assert run('--resume') == 0
+    out = capfd.readouterr().out
+    result = json.loads(out)
+    assert result['follow_up'] == dict(conversations=1, reports=1) and result['counts'][FAMILY]['imported'] == 2
+    assert 'r-7' not in out
+    assert follow_up_record(tmp_path/'import') == dict(
+        schema='polis-production-import-follow-up/1', conversations=[7], reports={'r-7': 7})
+
+
 def staging_line(err):
     cli = report_cli()
     lines = [line for line in err.splitlines() if line.startswith(cli.STAGING_LINE)]
