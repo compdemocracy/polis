@@ -127,51 +127,119 @@ fn empty_list_is_success() {
     let (o, r) = fixture(
         200,
         "application/json",
-        r#"{"scope":"owner","conversations":[],"pagination":{"limit":2,"offset":0,"returned":0,"has_more":false,"next_offset":null}}"#,
+        "[]",
         &["conversation", "list", "--json", "--limit", "2"],
     );
     assert!(o.status.success());
-    assert!(r.starts_with("GET /api/v3/conversations?mine=true&limit=2&offset=0 "));
-    assert_eq!(parsed(&o)["data"]["pagination"]["has_more"], false);
-}
-#[test]
-fn legacy_list_cannot_claim_owner_pagination() {
-    let (o, _) = fixture(
-        200,
-        "application/json",
-        r#"[{"conversation_id":"generated"}]"#,
-        &["conversation", "list", "--json", "--limit", "1"],
+    // Only parameters the current API reads are sent; the bearer token goes in the header.
+    assert!(r.starts_with("GET /api/v3/conversations?limit=2 "), "{r}");
+    assert!(r
+        .to_ascii_lowercase()
+        .contains("authorization: bearer public-fixture-token"));
+    let data = &parsed(&o)["data"];
+    assert_eq!(data["scope"], "owner");
+    assert_eq!(data["conversations"], json!([]));
+    assert_eq!(
+        data["pagination"],
+        json!({"limit":2,"server_rows":0,"returned":0,"truncated":false})
     );
-    assert_eq!(o.status.code(), Some(8));
-    assert_eq!(parsed(&o)["error"]["code"], "capability_unavailable");
 }
 #[test]
-fn owner_filters_and_continuation_are_sent() {
+fn list_keeps_owned_rows_and_reports_truncation() {
+    // The API's array mixes owned rows with the site's shared rows (is_owner false).
     let (o, r) = fixture(
         200,
         "application/json",
-        r#"{"scope":"owner","conversations":[],"pagination":{"has_more":true,"next_offset":10}}"#,
+        r#"[{"conversation_id":"abc","topic":"Budget 2027","is_owner":true,"is_mod":true},{"conversation_id":"def","topic":"Shared site row","is_owner":false,"is_mod":true}]"#,
         &[
             "conversation",
             "list",
             "--mine",
             "--recent",
-            "--offset",
-            "5",
             "--limit",
-            "5",
+            "2",
+            "--json",
+        ],
+    );
+    assert!(o.status.success());
+    assert!(r.starts_with("GET /api/v3/conversations?limit=2 "), "{r}");
+    let data = &parsed(&o)["data"];
+    assert_eq!(data["conversations"].as_array().unwrap().len(), 1);
+    assert_eq!(data["conversations"][0]["conversation_id"], "abc");
+    assert_eq!(data["conversations"][0]["is_mod"], true);
+    assert_eq!(
+        data["pagination"],
+        json!({"limit":2,"server_rows":2,"returned":1,"truncated":true})
+    );
+}
+#[test]
+fn list_filters_are_sent_and_search_is_literal() {
+    let (o, r) = fixture(
+        200,
+        "application/json",
+        r#"[{"conversation_id":"a","topic":"50% OFF","is_owner":true},{"conversation_id":"b","topic":"500 ideas","is_owner":true}]"#,
+        &[
+            "conversation",
+            "list",
             "--active",
             "false",
             "--draft",
             "true",
             "--search",
-            "literal %",
+            "50% off",
             "--json",
         ],
     );
     assert!(o.status.success());
-    assert!(r.starts_with("GET /api/v3/conversations?mine=true&limit=5&offset=5&is_active=false&is_draft=true&search=literal+%25 "));
-    assert_eq!(parsed(&o)["data"]["pagination"]["next_offset"], 10);
+    assert!(
+        r.starts_with("GET /api/v3/conversations?limit=100&is_active=false&is_draft=true "),
+        "{r}"
+    );
+    let data = &parsed(&o)["data"];
+    assert_eq!(data["conversations"].as_array().unwrap().len(), 1);
+    assert_eq!(data["conversations"][0]["conversation_id"], "a");
+    assert_eq!(
+        data["pagination"],
+        json!({"limit":100,"server_rows":2,"returned":1,"truncated":false})
+    );
+}
+#[test]
+fn list_refuses_an_unrecognized_shape() {
+    for body in [r#"{"conversations":[]}"#, r#"[{"conversation_id":"x"}]"#] {
+        let (o, _) = fixture(
+            200,
+            "application/json",
+            body,
+            &["conversation", "list", "--json"],
+        );
+        assert_eq!(o.status.code(), Some(1), "{body}");
+        assert_eq!(parsed(&o)["error"]["code"], "invalid_response", "{body}");
+    }
+}
+#[test]
+fn offset_is_not_an_option() {
+    let t = tempfile::tempdir().unwrap();
+    let o = run(
+        t.path(),
+        &["conversation", "list", "--offset", "5", "--json"],
+    );
+    assert_eq!(o.status.code(), Some(2));
+    assert_eq!(parsed(&o)["error"]["code"], "invalid_input");
+}
+#[test]
+fn plural_conversations_is_an_alias() {
+    let t = tempfile::tempdir().unwrap();
+    let o = run(t.path(), &["conversations", "list", "--help", "--json"]);
+    assert!(o.status.success());
+    assert_eq!(parsed(&o)["ok"], true);
+    let (o, r) = fixture(
+        200,
+        "application/json",
+        "[]",
+        &["conversations", "list", "--json"],
+    );
+    assert!(o.status.success());
+    assert!(r.starts_with("GET /api/v3/conversations?limit=100 "), "{r}");
 }
 #[test]
 fn public_id_and_token_are_sent_correctly() {
