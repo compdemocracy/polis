@@ -38,8 +38,12 @@ this patch changes no IAM, deployment, service, or instance configuration.
 
 Supply these settings privately inside AWS, never in an image, checkout or CI log:
 
-- `IMPORT_SOURCE_DATABASE_URL`: read-only primary Postgres login; `SELECT(zid)` on
-  `conversations` and `SELECT(report_id,zid)` on `reports`. Its sessions are explicitly
+- `IMPORT_SOURCE_DATABASE_URL`: read-only primary Postgres login with exactly the grants
+  the import test harness uses (`scripts/test-production-import.sh`):
+  `SELECT(zid,topic,description,participant_count)` on `conversations`,
+  `SELECT(zid,zinvite,created)` on `zinvites`, `SELECT(report_id,zid)` on `reports`, and
+  `SELECT(zid,tid,txt)` on `comments` (for each comment embedding's text digest). The
+  login is provisioned by the operator, not by a migration. Its sessions are explicitly
   read-only. Production requires `sslmode=verify-full` and the approved CA.
 - `QUEUE_DATABASE_URL`: dedicated non-admin login that is a member of
   `polis_queue_executor`, without membership in `polis_queue_owner`, superuser,

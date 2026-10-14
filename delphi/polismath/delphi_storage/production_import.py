@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 import uuid
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 from . import codec, legacy_import as legacy, scan_pacing
 from .embedding_spool import MAX_DIMS, MAX_SPOOL_BYTES, write_spool
@@ -748,6 +749,65 @@ def specification(bundle, report_ids):
         seed=0, config=config, mode='full', memory_bytes=4294967296, work_units=1), inputs=[], max_attempts=3)])
 
 
+# libpq TLS policy parameters the Rust job daemon does NOT reproduce. Its transport
+# verifies the server with verify-full against POLIS_JOBS_CA_FILE plus a hostname and
+# exact host-allowlist check and a TLS 1.2 floor (queue-rs jobs/transport.rs), but it
+# loads no CRL, no client identity, no GSS policy and no requested min/max protocol
+# version. Silently dropping one of these would hand the daemon a weaker policy than
+# the import's own connection uses, so the importer refuses a queue URL that carries
+# one rather than quietly change it. `sslmode`/`sslrootcert` are handled separately
+# (removed, because the daemon reproduces exactly what they ask for); `sslnegotiation`
+# is left in place, since the pinned tokio-postgres parser accepts and applies it.
+_DAEMON_UNREPRODUCED_TLS_PARAMS = frozenset({
+    'sslcert', 'sslkey', 'sslpassword', 'sslcrl', 'sslcrldir',
+    'sslcompression', 'sslsni', 'sslcertmode', 'sslkeylogfile',
+    'ssl_min_protocol_version', 'ssl_max_protocol_version',
+    'requiressl', 'gssencmode', 'gsslib', 'krbsrvname',
+})
+
+
+def _daemon_queue_url(dsn):
+    """The queue DSN the Rust daemon can parse. Production always uses the URL form
+    (postgresql://...), which is the only form supported here; a keyword/value DSN is
+    refused rather than rewritten, because its grammar (quoting, escapes, spaces around
+    `=`) cannot be edited safely by token splitting. Only the two libpq TLS parameters
+    the daemon reproduces from its own configuration are removed -- `sslmode` (verify-
+    full or require) and `sslrootcert`, replaced by its verify-full CA/hostname/allowlist
+    checks. Any other libpq TLS policy parameter the daemon does not reproduce is
+    refused, not dropped. Every surviving span (user, the percent-encoded password,
+    host, port, dbname and each kept query token) is preserved byte for byte; only
+    parameter names and the `sslmode` value are percent-decoded for comparison, matching
+    how tokio-postgres reads keys, and nothing is re-encoded. The result still carries
+    the password: never log it."""
+    if not dsn.startswith(('postgresql://', 'postgres://')):
+        raise ValueError('queue database URL must be a postgresql:// URL')
+    # urlsplit silently deletes a raw tab, newline or carriage return (even inside the
+    # password or a retained value) and treats a raw '#' as the start of a fragment,
+    # which would hide query parameters from the checks below. libpq reads all four as
+    # ordinary bytes, so a caller must percent-encode them (%09/%0A/%0D/%23); the
+    # encoded forms are passed through and preserved. Refuse the raw bytes instead of
+    # handing the daemon a different password or a dropped parameter.
+    if any(ch in dsn for ch in '\t\n\r#'):
+        raise ValueError('queue database URL must percent-encode tab, newline, carriage return and #')
+    parts = urlsplit(dsn)
+    kept = []
+    for token in parts.query.split('&'):
+        if not token:
+            continue
+        raw_key, _, raw_value = token.partition('=')
+        key = unquote(raw_key).lower()
+        if key == 'sslmode':
+            if unquote(raw_value).lower() in ('verify-full', 'require'):
+                continue  # the daemon forces its own verified TLS instead
+            raise ValueError('unexpected sslmode in queue database URL')
+        if key == 'sslrootcert':
+            continue  # reproduced by POLIS_JOBS_CA_FILE
+        if key in _DAEMON_UNREPRODUCED_TLS_PARAMS:
+            raise ValueError('queue database URL carries a TLS policy parameter the daemon does not reproduce')
+        kept.append(token)
+    return urlunsplit(parts._replace(query='&'.join(kept)))
+
+
 def import_all(bundles, reports, environment, timeout, scope):
     """Run the actual daemon in a dedicated import environment; never publish."""
     import psycopg2
@@ -758,9 +818,17 @@ def import_all(bundles, reports, environment, timeout, scope):
         raise ValueError('invalid import scope')
     dsn = os.environ['QUEUE_DATABASE_URL']
     from psycopg2.extensions import parse_dsn
-    if os.environ.get('POLIS_JOBS_TRANSPORT', 'tls') != 'loopback' and parse_dsn(dsn).get('sslmode') != 'verify-full':
+    transport = os.environ.get('POLIS_JOBS_TRANSPORT', 'tls')
+    if transport != 'loopback' and parse_dsn(dsn).get('sslmode') != 'verify-full':
         raise ValueError('verified queue database TLS required')
-    worker_env = {**os.environ, 'QUEUE_ENV': environment, 'POLIS_JOBS_ENABLED': '1',
+    # The daemon parses QUEUE_DATABASE_URL with tokio-postgres, which cannot read the
+    # libpq verify-full/sslrootcert parameters this import requires. Under tls it
+    # verifies the server from its own POLIS_JOBS_* configuration, so hand it the same
+    # URL with exactly those two parameters removed (and any TLS policy parameter it
+    # cannot reproduce refused). Other transports keep the DSN as-is.
+    queue_url = _daemon_queue_url(dsn) if transport == 'tls' else dsn
+    worker_env = {**os.environ, 'QUEUE_DATABASE_URL': queue_url,
+                  'QUEUE_ENV': environment, 'POLIS_JOBS_ENABLED': '1',
                   'POLIS_JOBS_WORKER_CLASS': 'delphi', 'POLIS_JOBS_STAGES': 'graph_narrative',
                   'POLIS_JOBS_PYTHON': sys.executable, 'DELPHI_APP_PATH': '/app',
                   'POLIS_JOBS_WORK_DIR': '/import/work', 'POLIS_JOBS_JOURNAL_DIR': '/import/journal'}

@@ -361,3 +361,168 @@ def test_flag_off_materialize_is_unchanged(tmp_path):
     assert 'embeddings_table' not in manifest and 'embeddings' not in manifest
     assert manifest['families'][FAMILY]['rows'] == 2
     assert codec.decode_family((tmp_path/'off'/plain[0]['digest']/(FAMILY+'.jsonl')).read_bytes())[1] == rows
+
+
+def test_daemon_queue_url_strips_only_libpq_tls_params():
+    """The exact production QUEUE_DATABASE_URL shape: import_worker login, verify-full
+    and a pinned CA bundle. The daemon DSN drops only the libpq TLS parameters the
+    Rust parser rejects and keeps the user, password, host, port and dbname."""
+    from psycopg2.extensions import parse_dsn
+    # 44-char password, letters+digits only (the genpw alphabet, URL-safe with no encoding).
+    password = ('aZ09' * 11)
+    dsn = ('postgresql://import_worker:%s@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem' % password)
+    derived = imp._daemon_queue_url(dsn)
+    assert 'sslmode' not in derived and 'sslrootcert' not in derived
+    # Every stripped parameter is gone; everything else is byte-for-byte unchanged.
+    assert derived == 'postgresql://import_worker:%s@db.example.internal:5432/polis' % password
+    parsed = parse_dsn(derived)
+    assert parsed['user'] == 'import_worker' and parsed['password'] == password
+    assert parsed['host'] == 'db.example.internal' and parsed['port'] == '5432'
+    assert parsed['dbname'] == 'polis'
+    assert 'sslmode' not in parsed and 'sslrootcert' not in parsed
+
+
+def test_daemon_queue_url_preserves_percent_encoding_and_other_params():
+    """A percent-encoded password byte and a non-TLS parameter tokio-postgres accepts
+    survive unchanged; only the TLS keys are dropped."""
+    from psycopg2.extensions import parse_dsn
+    dsn = ('postgresql://import_worker:p%40ss%2Fword@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem'
+           '&application_name=import&connect_timeout=10')
+    derived = imp._daemon_queue_url(dsn)
+    assert derived == ('postgresql://import_worker:p%40ss%2Fword@db.example.internal:5432/polis'
+                       '?application_name=import&connect_timeout=10')
+    parsed = parse_dsn(derived)
+    assert parsed['password'] == 'p@ss/word'  # the percent-encoding round-trips
+    assert parsed['application_name'] == 'import' and parsed['connect_timeout'] == '10'
+
+
+def test_daemon_queue_url_odd_password_in_url_form_is_byte_preserved():
+    """An odd password in URL form (percent-encoded quotes, spaces and reserved bytes)
+    is kept byte for byte; only the TLS keys are dropped."""
+    from psycopg2.extensions import parse_dsn
+    # Encodes the literal password:  'a b'@=&/
+    encoded = "%27a%20b%27%40%3D%26%2F"
+    dsn = ('postgresql://import_worker:%s@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem' % encoded)
+    derived = imp._daemon_queue_url(dsn)
+    assert derived == 'postgresql://import_worker:%s@db.example.internal:5432/polis' % encoded
+    # The userinfo bytes were never decoded or re-encoded; libpq recovers the original.
+    assert parse_dsn(derived)['password'] == "'a b'@=&/"
+
+
+def test_daemon_queue_url_recognizes_percent_encoded_tls_keys():
+    """tokio-postgres percent-decodes parameter names, so an encoded sslmode/sslrootcert
+    key must be recognized and stripped, not passed through as an unknown name."""
+    # ssl%6Dode -> sslmode ; sslroot%63ert -> sslrootcert
+    dsn = ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+           '?ssl%6Dode=verify-full&sslroot%63ert=/ca/global-bundle.pem&application_name=import')
+    derived = imp._daemon_queue_url(dsn)
+    assert derived == ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+                       '?application_name=import')
+
+
+def test_daemon_queue_url_drops_duplicate_tls_params_keeps_tls_text_in_values():
+    """Repeated TLS keys are all removed; a non-TLS value that merely looks like a TLS
+    parameter (even percent-encoded) is left untouched."""
+    dsn = ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/a.pem&sslrootcert=/ca/b.pem'
+           '&application_name=sslmode%3Dverify-full')
+    derived = imp._daemon_queue_url(dsn)
+    assert derived == ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+                       '?application_name=sslmode%3Dverify-full')
+
+
+def test_daemon_queue_url_preserves_sslnegotiation():
+    """sslnegotiation is accepted and applied by the pinned tokio-postgres parser, so it
+    is preserved rather than stripped under the 'remove only what the daemon reproduces'
+    contract."""
+    dsn = ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem&sslnegotiation=direct')
+    derived = imp._daemon_queue_url(dsn)
+    assert derived == ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+                       '?sslnegotiation=direct')
+
+
+@pytest.mark.parametrize('dsn', [
+    'host=db.example.internal port=5432 user=import_worker dbname=polis sslmode=verify-full',
+    "host=db.example.internal user=import_worker password='a b' sslmode=verify-full",
+    'user=import_worker dbname=polis sslmode = verify-full sslrootcert = /ca/global-bundle.pem',
+])
+def test_daemon_queue_url_refuses_keyword_dsns(dsn):
+    """Keyword/value DSNs are refused, not rewritten: their grammar cannot be edited
+    safely by token splitting, and production never uses them."""
+    with pytest.raises(ValueError, match='postgresql'):
+        imp._daemon_queue_url(dsn)
+
+
+@pytest.mark.parametrize('param', [
+    'sslcrl=/ca/revoked.pem',
+    'sslcrldir=/ca/crls',
+    'ssl_min_protocol_version=TLSv1.3',
+    'ssl_max_protocol_version=TLSv1.3',
+    'sslcert=/ca/client.pem',
+    'sslkey=/ca/client.key',
+    'sslpassword=secret',
+    'gssencmode=require',
+    'sslcompression=1',
+    'ssl_%6Din_protocol_version=TLSv1.3',  # encoded 'm' -> ssl_min_protocol_version
+])
+def test_daemon_queue_url_refuses_unreproduced_tls_params(param):
+    """A TLS policy parameter the daemon does not reproduce is refused, never silently
+    dropped (which would hand the daemon a weaker policy than the import requires)."""
+    dsn = ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem&' + param)
+    with pytest.raises(ValueError, match='does not reproduce'):
+        imp._daemon_queue_url(dsn)
+
+
+@pytest.mark.parametrize('raw', ['\t', '\n', '\r', '#'], ids=['tab', 'lf', 'cr', 'hash'])
+def test_daemon_queue_url_refuses_raw_tab_newline_cr_and_hash_in_password(raw):
+    """urlsplit deletes a raw tab/newline/CR and treats a raw '#' as a fragment start,
+    either of which would change the password libpq sees. Refuse the raw byte and make
+    the caller percent-encode it."""
+    dsn = ('postgresql://import_worker:a' + raw + 'b@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem')
+    with pytest.raises(ValueError, match='percent-encode'):
+        imp._daemon_queue_url(dsn)
+
+
+def test_daemon_queue_url_refuses_raw_hash_that_would_hide_a_policy_param():
+    """A raw '#' in a query value would push the parameters after it into urlsplit's
+    fragment, bypassing the TLS-policy refusal below. Refuse it."""
+    dsn = ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem'
+           '&application_name=a#b&ssl_min_protocol_version=TLSv1.3')
+    with pytest.raises(ValueError, match='percent-encode'):
+        imp._daemon_queue_url(dsn)
+
+
+@pytest.mark.parametrize('raw', ['\t', '\n', '\r'], ids=['tab', 'lf', 'cr'])
+def test_daemon_queue_url_refuses_raw_whitespace_in_a_retained_value(raw):
+    """The same raw-byte refusal applies to a retained (non-TLS) query value, not only
+    the password."""
+    dsn = ('postgresql://import_worker:pw@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem'
+           '&application_name=a' + raw + 'b')
+    with pytest.raises(ValueError, match='percent-encode'):
+        imp._daemon_queue_url(dsn)
+
+
+def test_daemon_queue_url_preserves_percent_encoded_control_bytes():
+    """The percent-encoded counterparts (%09 tab, %0A LF, %0D CR, %23 '#') pass through
+    untouched in both the password and a retained value, and libpq recovers the literal
+    bytes."""
+    from psycopg2.extensions import parse_dsn
+    pw = 'a%09b%0Ac%0Dd%23e'          # tab, LF, CR, '#'
+    appname = 'x%09y%23z'
+    dsn = ('postgresql://import_worker:' + pw + '@db.example.internal:5432/polis'
+           '?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem'
+           '&application_name=' + appname)
+    derived = imp._daemon_queue_url(dsn)
+    assert derived == ('postgresql://import_worker:' + pw + '@db.example.internal:5432/polis'
+                       '?application_name=' + appname)
+    parsed = parse_dsn(derived)
+    assert parsed['password'] == 'a\tb\nc\rd#e'
+    assert parsed['application_name'] == 'x\ty#z'
