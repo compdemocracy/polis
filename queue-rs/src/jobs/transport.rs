@@ -200,4 +200,27 @@ mod tests {
         assert!(parse("postgresql://u@127.0.0.1/d", &TransportKind::Local).is_err());
         assert!(parse("host=relative/dir user=u", &TransportKind::Local).is_err());
     }
+
+    #[test]
+    fn tls_accepts_the_importer_derived_dsn_and_rejects_the_libpq_tls_form() {
+        // The production queue login reaches the database with libpq verify-full and a
+        // pinned CA bundle; the importer hands this parser the same DSN with those two
+        // parameters stripped, because the daemon verifies the server itself.
+        let kind = TransportKind::Tls {
+            ca_file: "/ca/global-bundle.pem".into(),
+            host_allowlist: vec!["db.example.internal".into()],
+        };
+        let derived = "postgresql://import_worker:aZ09aZ09aZ09@db.example.internal:5432/polis";
+        let config = parse(derived, &kind);
+        // It parses, the host is allowed, and TLS is still demanded (verification is
+        // done by the TLS connector, built-in roots off).
+        assert!(matches!(
+            config.map(|c| c.get_ssl_mode()),
+            Ok(SslMode::Require)
+        ));
+        // The original libpq form is what tokio-postgres cannot read: it is refused.
+        let original = "postgresql://import_worker:aZ09aZ09aZ09@db.example.internal:5432/polis\
+                        ?sslmode=verify-full&sslrootcert=/ca/global-bundle.pem";
+        assert!(parse(original, &kind).is_err());
+    }
 }
