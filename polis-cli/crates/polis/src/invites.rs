@@ -8,19 +8,25 @@ use std::path::Path;
 const STATUSES: [&str; 4] = ["unused", "used", "revoked", "expired"];
 
 fn invalid() -> Error {
-    Error::new(
+    let mut e = Error::new(
         "invalid_response",
         "The site returned an incompatible invite response.",
         "Check site compatibility; no automatic retry was made.",
         1,
-    )
+    );
+    // Only reached after a response arrived and failed validation.
+    e.outcome = "rejected";
+    e
 }
 fn authority(mut e: Error) -> Error {
     if e.upstream["status"].as_u64() == Some(403) || e.exit == 4 {
         e.code = "forbidden";
         e.exit = 4;
-        e.action =
-            "Only the conversation owner (or a moderator on the owner's site) may manage invites.";
+        // A recognised upstream code already carries route-specific advice:
+        // some invite reads are owner-only, others admit moderators.
+        if e.upstream.get("code").is_none() {
+            e.action = "Sign in as the conversation owner; some invite reads also admit a moderator on the owner's site.";
+        }
     }
     e
 }
@@ -70,10 +76,9 @@ fn query(id: &str) -> Vec<(String, String)> {
     vec![("conversation_id".into(), id.into())]
 }
 fn invite_only(c: &Client, id: &str) -> Result<bool> {
+    // A conversation can have several codes and the read returns one of them,
+    // so the echoed conversation_id need not equal the code typed here.
     let v = get(c, "/api/v3/conversations", &query(id))?;
-    if v["conversation_id"].as_str() != Some(id) {
-        return Err(invalid());
-    }
     v["treevite_enabled"].as_bool().ok_or_else(invalid)
 }
 fn waves(c: &Client, q: &[(String, String)]) -> Result<Vec<Value>> {

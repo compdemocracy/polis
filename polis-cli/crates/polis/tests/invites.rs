@@ -489,7 +489,6 @@ fn malformed_pages_and_settings_never_become_empty_success() {
     }
     for c in [
         json!({}),
-        json!({"conversation_id":"other","treevite_enabled":true}),
         json!({"conversation_id":"2demo","treevite_enabled":"false"}),
     ] {
         let t = tempfile::tempdir().unwrap();
@@ -503,6 +502,23 @@ fn malformed_pages_and_settings_never_become_empty_success() {
         assert_eq!(code, 1);
         s.join().unwrap();
     }
+    // A conversation can have several codes; the read may echo another one.
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![
+            json_res(json!({"conversation_id":"other","treevite_enabled":true})),
+            json_res(page(0, 50, 0, 1)),
+        ],
+    );
+    let (code, v) = call(
+        t.path(),
+        &["invite", "list", "--conversation", "2demo"],
+        None,
+        true,
+    );
+    assert_eq!(code, 0, "{v}");
+    s.join().unwrap();
 }
 #[test]
 fn uuid_is_raw_only_when_explicitly_requested_and_errors_never_echo_key() {
