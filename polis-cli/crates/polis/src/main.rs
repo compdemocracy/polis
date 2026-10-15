@@ -57,6 +57,56 @@ fn client(config: &profiles::Config, site: &str, timeout: u64, required: bool) -
     }
     Client::with_ca(url, token, timeout, config.auth(site)?.ca_file.as_deref())
 }
+/// `GET /api/v3/conversations` answers with an array: every conversation the account
+/// owns or shares a site with, newest created first, at most `limit` rows, each row
+/// carrying the server-set `is_owner`. The owner-only view is selected here from that
+/// flag; the API has no owner filter, offset, cursor or search parameter.
+fn owned_list(data: Value, limit: u16, search: Option<&str>) -> Result<Value> {
+    let rows = data
+        .as_array()
+        .ok_or_else(|| unrecognized_list("Expected a conversation array."))?;
+    let needle = search.map(str::to_lowercase);
+    let mut conversations = Vec::new();
+    for row in rows {
+        let is_owner = row
+            .get("is_owner")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| {
+                unrecognized_list("A conversation row lacks the boolean is_owner flag.")
+            })?;
+        if !is_owner {
+            continue;
+        }
+        if let Some(needle) = &needle {
+            let topic = row.get("topic").and_then(Value::as_str).unwrap_or("");
+            if !topic.to_lowercase().contains(needle.as_str()) {
+                continue;
+            }
+        }
+        conversations.push(row.clone());
+    }
+    let returned = conversations.len();
+    Ok(json!({
+        "scope": "owner",
+        "conversations": conversations,
+        "pagination": {
+            "limit": limit,
+            "server_rows": rows.len(),
+            "returned": returned,
+            "truncated": rows.len() >= usize::from(limit),
+        },
+    }))
+}
+fn unrecognized_list(message: &str) -> Error {
+    let mut error = Error::new(
+        "invalid_response",
+        message,
+        "Check site compatibility; no conversation list was read.",
+        1,
+    );
+    error.outcome = "rejected";
+    error
+}
 fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Result<Value> {
     let timeout = *root.get_one::<u64>("timeout").unwrap();
     let mut m = root;
@@ -260,17 +310,9 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         }
         "conversation list" => {
             let limit = *m.get_one::<u16>("limit").unwrap();
-            let offset = *m.get_one::<u32>("offset").unwrap();
-            let mut query = vec![
-                ("mine".into(), "true".into()),
-                ("limit".into(), limit.to_string()),
-                ("offset".into(), offset.to_string()),
-            ];
-            for (arg, key) in [
-                ("active", "is_active"),
-                ("draft", "is_draft"),
-                ("search", "search"),
-            ] {
+            // Only parameters the current API reads: limit, is_active, is_draft.
+            let mut query = vec![("limit".into(), limit.to_string())];
+            for (arg, key) in [("active", "is_active"), ("draft", "is_draft")] {
                 if let Some(value) = m.get_one::<String>(arg) {
                     query.push((key.into(), value.clone()));
                 }
@@ -282,13 +324,11 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 None,
                 false,
             )?;
-            if data["scope"] != "owner"
-                || !data["conversations"].is_array()
-                || !data["pagination"].is_object()
-            {
-                return Err(Error::new("capability_unavailable", "The server does not support owner-only paginated listing.", "Deploy the owner-list server patch; a legacy array cannot prove complete owner pagination.", 8));
-            }
-            Ok(data)
+            owned_list(
+                data,
+                limit,
+                m.get_one::<String>("search").map(String::as_str),
+            )
         }
         "conversation view" => {
             let id = str_arg(m, "id");

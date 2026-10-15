@@ -20,6 +20,12 @@ export const RESERVED_POOLED_USER_INDEXES = {
   domainWhitelist: 40,
   /** server/__tests__/integration/vote-path-recordings.test.ts */
   votePathRecordings: 41,
+  /** server/__tests__/integration/invite-admin-auth.test.ts (conversation owner) */
+  inviteAdminAuthOwner: 42,
+  /** server/__tests__/integration/invite-admin-auth.test.ts (site moderator; its site_id is aligned to the owner's) */
+  inviteAdminAuthModerator: 43,
+  /** server/__tests__/integration/conversations-xid-suzinvite.test.ts (conversation owner) */
+  conversationsXidSuzinvite: 44,
 } as const;
 
 export function getPooledTestUser(index: number): {

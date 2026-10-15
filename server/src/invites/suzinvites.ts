@@ -1,6 +1,5 @@
 import _ from "underscore";
 
-import { escapeLiteral } from "../utils/common";
 import { generateToken } from "../auth";
 import { getZinvite } from "../utils/zinvite";
 import { sendTextEmail } from "../email/senders";
@@ -158,10 +157,14 @@ async function saveSuzinvites(
 ): Promise<void> {
   const pairs = _.zip(emails, suzinvites) as [string, string][];
 
+  // Build a parameterised multi-row insert: every value is a bound parameter,
+  // so the invitee-supplied email (stored here as the xid) can never alter the
+  // SQL. Placeholders are numbered per row: ($1,$2,$3,$4),($5,$6,$7,$8),...
+  const params: unknown[] = [];
   const valuesStatements = pairs.map(([email, suzinvite]) => {
-    const xid = escapeLiteral(email);
-    const suzinviteEscaped = escapeLiteral(suzinvite);
-    return `(${suzinviteEscaped}, ${xid}, ${zid}, ${owner})`;
+    const base = params.length;
+    params.push(suzinvite, email, zid, owner);
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
   });
 
   const query = `INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ${valuesStatements.join(
@@ -169,7 +172,7 @@ async function saveSuzinvites(
   )}`;
 
   return new Promise((resolve, reject) => {
-    pg.query(query, [], (err: any) => {
+    pg.query(query, params, (err: any) => {
       if (err) {
         reject(err);
       } else {
