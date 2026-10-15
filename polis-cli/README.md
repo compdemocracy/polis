@@ -224,7 +224,8 @@ endpoints deliberately when retaining output.
 | 8 | Planned capability unavailable |
 
 `conversation list` uses the current API's bounded limit (default 100, maximum 9999).
-There is no cursor: reaching the limit sets `truncated:true`, conservatively. No
+There is no offset or cursor: when the site returned `--limit` rows,
+`pagination.truncated` is `true`, conservatively; raise `--limit` to read more. No
 invented pagination or exhaustive-list claim is made. Raw GETs may cause work, so
 `api` transport failures conservatively use mutation outcome handling. Quota/usage
 always reports `unavailable`; this client does not infer billing authority from roles.
@@ -252,7 +253,7 @@ The first real pol.is sign-in is made by an operator, never by the tests.
 ```sh
 polis auth login
 polis conversation list --mine --recent --limit 25
-polis conversation list --offset 25 --active true --draft false --search 'Topic'
+polis conversation list --limit 500 --active true --draft false --search 'Topic'
 ```
 
 The registered production callback is `http://127.0.0.1:53147/oauth/callback`.
@@ -269,13 +270,16 @@ with issuer/client/audience binding and silent renewal. No ID token is stored.
 Logout erases local credentials but does not end the issuer browser session. Without OAuth configuration, existing token/env login remains available; with a configured issuer, login starts a fresh browser flow. A failed forced login
 leaves a previously saved credential unchanged.
 
-Conversation listing now requires the separate owner-list server patch. It returns
-only the authenticated owner's rows, sorted by creation descending with zid as the
-tie breaker, and explicit `pagination.has_more` / `pagination.next_offset`. `--mine`
-and `--recent` name the defaults. Active/draft filters run before pagination; search
-is a literal case-insensitive topic substring, including `%` and `_`. Offset pages
-are live views: concurrent creates/deletes can shift subsequent pages. Legacy
-servers return an actionable capability error, never an apparently complete list.
+Conversation listing reads the current `GET /api/v3/conversations`, which answers
+with an array of the conversations the account owns or shares a site with, newest
+created first, at most `--limit` rows; it has no offset, cursor, owner filter or
+search parameter. The CLI keeps only rows whose server-set `is_owner` is `true`, so
+`pagination.returned` can be below `pagination.server_rows`; `pagination.truncated`
+is `true` when the site returned `--limit` rows. `--mine` and `--recent` name the
+defaults. `--active` and `--draft` are applied by the site; `--search` is a literal,
+case-insensitive topic substring (including `%` and `_`) applied to the rows read.
+An answer that is not an array of rows with a boolean `is_owner` is refused as
+`invalid_response`, never shown as a list.
 
 Moderation, report view/export and stored Delphi reads retain the previous pass's
 semantics. Plan view verifies the account and reports billing/quota unavailable.
