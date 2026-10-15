@@ -30,6 +30,17 @@ fn authority(mut e: Error) -> Error {
     }
     e
 }
+fn create_authority(e: Error, code: bool) -> Error {
+    let mut e = authority(e);
+    if e.exit == 4 {
+        e.action = if code {
+            "Sign in as the conversation owner; moderator access alone cannot create conversation codes."
+        } else {
+            "Sign in as the conversation owner or a moderator on the owner's site to create invite waves."
+        };
+    }
+    e
+}
 fn get(c: &Client, path: &str, query: &[(String, String)]) -> Result<Value> {
     c.request("GET", path, query, None, false)
         .map_err(authority)
@@ -199,7 +210,7 @@ pub fn execute(
                     Some(json!({"conversation_id":id,"short_url":short})),
                     true,
                 )
-                .map_err(authority)?;
+                .map_err(|e| create_authority(e, true))?;
             (|| {
                 let code = text(&v["zinvite"])?;
                 public_id(code).map_err(|_| invalid())?;
@@ -226,7 +237,7 @@ pub fn execute(
                     if e.upstream["code"] == "polis_err_treevite_parent_wave_not_found" {
                         uncertain(e)
                     } else {
-                        authority(e)
+                        create_authority(e, false)
                     }
                 })?;
             (|| {

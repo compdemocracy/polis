@@ -772,6 +772,15 @@ fn create_denials_stay_forbidden_without_readback_or_body_echo() {
         let (code, v) = call(t.path(), &create_args(w), None, true);
         assert_eq!(code, 4, "{v}");
         assert_eq!(v["error"]["code"], "forbidden");
+        let action = v["error"]["action"].as_str().unwrap();
+        assert!(
+            if w {
+                action.contains("or a moderator")
+            } else {
+                action.contains("moderator access alone cannot")
+            },
+            "{v}"
+        );
         assert!(!v.to_string().contains("not-for-output"));
         assert_eq!(s.join().unwrap().len(), 1);
     }
@@ -932,4 +941,22 @@ fn lost_create_response_is_unknown_and_never_retried() {
         assert_eq!(v["error"]["retryable"], false);
         assert_eq!(s.join().unwrap().len(), 1);
     }
+}
+
+#[test]
+fn create_permission_lookup_failure_is_server_error_with_unknown_effect() {
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![(
+            500,
+            "application/json",
+            json!({"error":"polis_err_treevite_auth_check"}).to_string(),
+        )],
+    );
+    let (code, v) = call(t.path(), &create_args(true), None, true);
+    assert_eq!(code, 7, "{v}");
+    assert_eq!(v["error"]["code"], "server_error");
+    assert_eq!(v["error"]["outcome"], "unknown");
+    assert_eq!(s.join().unwrap().len(), 1);
 }
