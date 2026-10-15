@@ -102,6 +102,12 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# The job daemon verifies the Postgres server with this pinned public RDS CA
+# (POLIS_JOBS_CA_FILE), the same bundle and checksum as the server image.
+RUN mkdir -p /etc/polis \
+ && curl --fail --location --proto '=https' --tlsv1.2 -o /etc/polis/rds-ca.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+ && echo '90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/polis/rds-ca.pem' | sha256sum -c -
+
 WORKDIR /app
 
 # Copy installed packages from builder stage
