@@ -3,7 +3,14 @@ import crypto from "node:crypto";
 
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: jest.fn(), queryP_readOnly: jest.fn() },
+  default: {
+    queryP: jest.fn(),
+    queryP_readOnly: jest.fn(),
+    // getPidPromise (via ../user) resolves the participant on the primary with
+    // the callback-style query.
+    query: jest.fn(),
+    query_readOnly: jest.fn(),
+  },
 }));
 jest.mock("../../src/config", () => ({
   __esModule: true,
@@ -43,6 +50,8 @@ import {
 
 const read = jest.mocked(pg.queryP_readOnly);
 const write = jest.mocked(pg.queryP);
+// The callback-style primary read getPidPromise uses to resolve a participant.
+const resolvePid = jest.mocked(pg.query);
 const compare = bcrypt.compare as jest.Mock;
 const response = () => {
   const res = {
@@ -199,14 +208,21 @@ describe("tree invitation authentication boundaries", () => {
     read.mockResolvedValue([
       { id: 9, wave_id: 3, parent_invite_id: null, invite_used_by_pid: null },
     ]);
+    // The participant for (zid 7, uid 12) resolves to pid 5 on the primary. The
+    // token carried pid 2 (which may belong to another conversation); the claim
+    // must use the resolved pid, never the token's.
+    resolvePid.mockImplementation(((_sql: unknown, _params: unknown, cb: any) =>
+      cb(null, { rows: [{ pid: 5 }] })) as any);
     const res = response();
     await handle_POST_treevite_acceptInvite(
       { p: { zid: 7, uid: 12, pid: 2, invite_code: " public-code " } },
       res
     );
+    // Resolving an existing participant adds no write; the only write is the
+    // atomic claim, and it uses the resolved pid (5), not the token's pid (2).
     expect(write).toHaveBeenCalledTimes(1);
     expect(write.mock.calls[0][0]).toContain("and status = 0 returning id");
-    expect(write.mock.calls[0][1]).toEqual([2, 9]);
+    expect(write.mock.calls[0][1]).toEqual([5, 9]);
     expect(failJson).toHaveBeenCalledWith(
       res,
       400,

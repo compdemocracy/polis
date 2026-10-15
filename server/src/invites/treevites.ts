@@ -13,6 +13,35 @@ import {
 import Config from "../config";
 import pg from "../db/pg-query";
 import logger from "../utils/logger";
+import { isModerator } from "../utils/common";
+import { getPidPromise } from "../user";
+
+// Administering an invite-only conversation's waves and owner invite codes is
+// work performed against someone else's conversation: the invite codes are the
+// keys that let a stranger past the participation gate. So the admin routes take
+// the same ownership gate as the other conversation-admin routes (the data
+// export, the conversation UUID): only the conversation's owner, or a moderator
+// on the owner's site, may read or mint them. Everyone else is refused with 403
+// before any read or write. Returns true when the caller is authorised; when it
+// is not, it has already answered the request and the handler must stop.
+async function requireConversationOwnerOrModerator(
+  req: { p: { uid?: number; zid: number } },
+  res: any
+): Promise<boolean> {
+  const { uid, zid } = req.p;
+  let isMod: boolean;
+  try {
+    isMod = await isModerator(zid, uid);
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_auth_check", err);
+    return false;
+  }
+  if (!isMod) {
+    failJson(res, 403, "polis_err_treevite_not_conversation_owner");
+    return false;
+  }
+  return true;
+}
 
 async function insertInviteWithRetry(
   params: {
@@ -202,6 +231,10 @@ export async function handle_POST_treevite_waves(req: any, res: any) {
       return;
     }
 
+    if (!(await requireConversationOwnerOrModerator(req, res))) {
+      return;
+    }
+
     if (invitesPerUser <= 0 && ownerInvites <= 0) {
       failJson(res, 400, "polis_err_treevite_wave_requires_invites");
       return;
@@ -352,6 +385,10 @@ export async function handle_GET_treevite_waves(req: any, res: any) {
       return;
     }
 
+    if (!(await requireConversationOwnerOrModerator(req, res))) {
+      return;
+    }
+
     let q =
       "select id, zid, wave, parent_wave, invites_per_user, owner_invites, size, created_at, updated_at from treevite_waves where zid = ($1)";
     const params: any[] = [zid];
@@ -401,9 +438,23 @@ export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
 
     // Check if we already have a participant from existing auth
     if (req.p.uid && req.p.pid && req.p.pid > 0) {
-      // Use existing authenticated participant
+      // A pid only has meaning in the conversation whose token carried it. The
+      // bearer token may have been issued for another conversation
+      // (hybridAuthOptional accepts it and sets req.p.pid from it), so the token's
+      // pid must never be trusted to identify a participant here. Resolve this
+      // user's participant for THIS conversation on the primary instead — the same
+      // scoping the vote and comment paths apply to a token presented for another
+      // conversation — and create it for a legitimate first-time accept so a real
+      // accept is never rejected.
       uid = req.p.uid;
-      pid = req.p.pid;
+      pid = await getPidPromise(zid, uid, true);
+      if (pid < 0) {
+        const partRows = (await pg.queryP(
+          "insert into participants (uid, zid) values (($1), ($2)) returning pid;",
+          [uid, zid]
+        )) as { pid: number }[];
+        pid = partRows[0].pid;
+      }
     } else {
       // Create new anonymous user and participant
       // This bypasses the normal treevite protection since we have a valid invite
@@ -628,6 +679,10 @@ export async function handle_GET_treevite_invites(req: any, res: any) {
       return;
     }
 
+    if (!(await requireConversationOwnerOrModerator(req, res))) {
+      return;
+    }
+
     // Parse pagination parameters
     const pagination = parsePagination(
       {
@@ -695,6 +750,10 @@ export async function handle_GET_treevite_invites_csv(req: any, res: any) {
 
     if (typeof zid !== "number") {
       failJson(res, 400, "polis_err_treevite_missing_zid");
+      return;
+    }
+
+    if (!(await requireConversationOwnerOrModerator(req, res))) {
       return;
     }
 
