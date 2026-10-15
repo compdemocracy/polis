@@ -526,3 +526,81 @@ def test_daemon_queue_url_preserves_percent_encoded_control_bytes():
     parsed = parse_dsn(derived)
     assert parsed['password'] == 'a\tb\nc\rd#e'
     assert parsed['application_name'] == 'x\ty#z'
+
+
+# ---- latest-tick-only for the tick-keyed PCA/KMeans families -----------------
+# Rows per tick for each tick-keyed family built by _tick_source below.
+PER_TICK = {'Delphi_PCAResults': 1, 'Delphi_KMeansClusters': 2, 'Delphi_CommentRouting': 2,
+            'Delphi_PCAParticipantProjections': 2, 'Delphi_RepresentativeComments': 4}
+
+
+def _tick_source(zid, ticks, comments=2, participants=2, groups=2):
+    """Source items for one conversation across several math ticks, shaped like the
+    five tick-keyed families (PER_TICK rows each per tick), as production_import.py
+    sees them from DynamoDB."""
+    src = {family: [] for family in imp.TICK_FAMILIES}
+    for t in ticks:
+        zt = '%s:%d' % (zid, t)
+        src['Delphi_PCAResults'].append(codec.item_from_python(dict(zid=zid, math_tick=t, comment_count=comments)))
+        for g in range(groups):
+            src['Delphi_KMeansClusters'].append(codec.item_from_python(dict(zid_tick=zt, group_id=g, zid=zid, n=1)))
+        for c in range(comments):
+            src['Delphi_CommentRouting'].append(codec.item_from_python(dict(zid_tick=zt, comment_id=str(c), zid=zid, p=1)))
+        for p in range(participants):
+            src['Delphi_PCAParticipantProjections'].append(codec.item_from_python(dict(zid_tick=zt, participant_id=str(p), zid=zid, x=1)))
+        for g in range(groups):
+            for c in range(comments):
+                src['Delphi_RepresentativeComments'].append(codec.item_from_python(dict(zid_tick_gid='%s:%d:%d' % (zid, t, g), comment_id=str(c), zid=zid, r=1)))
+    return src
+
+
+@pytest.mark.parametrize('n', [3, 33])
+def test_latest_tick_only_imports_newest_and_archives_older_ticks(tmp_path, n):
+    # 3 ticks, then 33 ticks of accumulated math history for one active conversation:
+    # one tick's worth is imported and every older tick is archived, not copied into
+    # the batch (33 ticks is the shape that overran result-family staging).
+    zid = '40001'
+    ticks = list(range(100, 100 + n))
+    newest = ticks[-1]
+    src = _tick_source(zid, ticks)
+    src['Delphi_PCAConversationConfig'] = [codec.item_from_python(
+        dict(zid=zid, latest_math_tick=newest, participant_count=2))]
+    summary = imp.census(Source(src), tmp_path / 'db', {zid: 40001}, {})
+
+    for family, per in PER_TICK.items():
+        assert summary['counts'][family] == dict(
+            source=per * n, imported=per, archived=per * (n - 1), quarantined=0), family
+    # The per-zid config pointer is single-copy and never archived.
+    assert summary['counts']['Delphi_PCAConversationConfig'] == dict(
+        source=1, imported=1, archived=0, quarantined=0)
+    # Conservation balances for every family (nothing lost, dropped rows countable).
+    assert all(c['source'] == c['imported'] + c['archived'] + c['quarantined']
+               for c in summary['counts'].values())
+
+    bundles = imp.materialize(tmp_path / 'db', tmp_path / 'out', summary)
+    digest = next(b['digest'] for b in bundles if b['zid'] == 40001)
+    for family in imp.TICK_FAMILIES:
+        imported = codec.decode_family((tmp_path / 'out' / digest / (family + '.jsonl')).read_bytes())[1]
+        archived = codec.decode_family((tmp_path / 'out' / ('archived-' + family + '.jsonl')).read_bytes())[1]
+        assert len(imported) == PER_TICK[family]
+        assert len(archived) == PER_TICK[family] * (n - 1)
+        # Served reads are unchanged: a reader resolves latest_math_tick and serves
+        # that one tick, which is exactly what was imported; the rest is archived.
+        assert all(imp._row_tick(family, r) == newest for r in imported)
+        assert all(imp._row_tick(family, r) in ticks[:-1] for r in archived)
+
+
+def test_latest_tick_falls_back_to_max_when_config_row_is_missing(tmp_path):
+    # No Delphi_PCAConversationConfig row: the latest tick is the max tick present,
+    # even when the ticks arrive out of order.
+    zid = '7001'
+    summary = imp.census(Source(_tick_source(zid, [5, 9, 2])), tmp_path / 'db', {zid: 7001}, {})
+    assert summary['counts']['Delphi_PCAConversationConfig']['source'] == 0
+    for family, per in PER_TICK.items():
+        assert summary['counts'][family] == dict(
+            source=per * 3, imported=per, archived=per * 2, quarantined=0), family
+    bundles = imp.materialize(tmp_path / 'db', tmp_path / 'out', summary)
+    digest = next(b['digest'] for b in bundles if b['zid'] == 7001)
+    for family in imp.TICK_FAMILIES:
+        imported = codec.decode_family((tmp_path / 'out' / digest / (family + '.jsonl')).read_bytes())[1]
+        assert all(imp._row_tick(family, r) == 9 for r in imported)
