@@ -1,12 +1,10 @@
 import _ from "underscore";
 import { DEFAULTS } from "../utils/constants";
-import { createOneSuzinvite } from "../invites/suzinvites";
 import { failJson } from "../utils/fail";
 import { generateAndRegisterZinvite, generateToken } from "../auth";
 import { getUserInfoForUid2 } from "../user";
 import { getZinvite } from "../utils/zinvite";
 import { sql_conversations } from "../db/sql";
-import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
@@ -48,20 +46,6 @@ function failWithRetryRequest(res: {
   res.setHeader("Retry-After", 0);
   logger.warn("failWithRetryRequest");
   res.writeHead(500).send(57493875);
-}
-
-function generateSingleUseUrl(
-  req: any,
-  conversation_id: string,
-  suzinvite: string
-) {
-  return (
-    Config.getServerNameWithProtocol(req) +
-    "/ot/" +
-    conversation_id +
-    "/" +
-    suzinvite
-  );
 }
 
 /**
@@ -176,40 +160,17 @@ async function processConversationData(
   isSiteAdmin: Record<number, boolean>
 ): Promise<any[]> {
   const uid = req.p.uid;
-  const xid = req.p.xid;
 
   try {
     // Add conversation IDs
     await addConversationIds(data);
-
-    // Handle single-use URLs if XID is provided
-    const suurlsPromise = xid
-      ? Promise.all(
-          data.map(function (conv: { zid: number; owner: number }) {
-            return createOneSuzinvite(
-              xid,
-              conv.zid,
-              conv.owner,
-              _.partial(generateSingleUseUrl, req)
-            );
-          })
-        )
-      : Promise.resolve();
-
-    const [suurlData] = await Promise.all([suurlsPromise]);
-
-    const suurlIndex = suurlData ? _.indexBy(suurlData, "zid") : null;
 
     // Process each conversation
     data.forEach(function (conv: any) {
       // Set ownership flag
       conv.is_owner = uid !== undefined && conv.owner === uid;
 
-      if (suurlIndex) {
-        conv.url = suurlIndex[conv.zid || ""].suurl;
-      } else {
-        conv.url = buildConversationUrl(req, conv.conversation_id);
-      }
+      conv.url = buildConversationUrl(req, conv.conversation_id);
 
       conv.created = Number(conv.created);
       conv.modified = Number(conv.modified);

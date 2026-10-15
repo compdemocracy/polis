@@ -3,7 +3,7 @@ import { failJson } from "../utils/fail";
 import { getConversationInfo } from "../conversation";
 import { getUser } from "../user";
 import { getXidRecord } from "../xids";
-import { isPolisDev } from "../utils/common";
+import { isModerator, isPolisDev } from "../utils/common";
 import { sql_users } from "../db/sql";
 import pg from "../db/pg-query";
 import {
@@ -139,6 +139,23 @@ async function handle_POST_users_invite(
 
   if (!uid) {
     failJson(res, 403, "Authentication required");
+    return;
+  }
+
+  // Sending join invitations for a conversation, and recording them against its
+  // owner, is work performed on someone else's conversation. Only the owner, or a
+  // moderator on the owner's site, may do it — the same ownership gate the other
+  // conversation-admin routes use. Everyone else is refused before any read,
+  // write or mail is sent.
+  let isMod: boolean;
+  try {
+    isMod = await isModerator(zid, uid);
+  } catch (err) {
+    failJson(res, 500, "polis_err_sending_invite_auth_check", err);
+    return;
+  }
+  if (!isMod) {
+    failJson(res, 403, "polis_err_sending_invite_not_conversation_owner");
     return;
   }
 

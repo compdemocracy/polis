@@ -1574,7 +1574,6 @@ export const appReady = helpersInitialized.then(
       ),
       want("limit", getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
       want("context", getStringLimitLength(1, 999), assignToP),
-      want("xid", getStringLimitLength(1, 999), assignToP),
       handle_GET_conversations
     );
 
