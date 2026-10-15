@@ -342,7 +342,7 @@ describe("Invite administration owner/moderator gate", () => {
     });
   });
 
-  describe("POST /api/v3/treevite/acceptInvite - participant scoping (S4)", () => {
+  describe("POST /api/v3/treevite/acceptInvite - participant scoping", () => {
     test("a token from another conversation is scoped to the requested conversation and is not rejected", async () => {
       const r: Response = await foreignParticipantAgent
         .post("/api/v3/treevite/acceptInvite")
