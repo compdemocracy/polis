@@ -281,6 +281,42 @@ fn every_command_maps_forbidden_and_suppresses_upstream_secrets() {
     }
 }
 #[test]
+fn invite_admin_refusals_preserve_known_codes_and_forbidden_exit() {
+    for upstream_code in [
+        "polis_err_treevite_not_conversation_owner",
+        "polis_err_treevite_auth_check",
+        "polis_err_sending_invite_not_conversation_owner",
+        "polis_err_sending_invite_auth_check",
+        "polis_err_fetching_zinvite_not_conversation_owner",
+    ] {
+        for (content_type, body) in [
+            (
+                "application/json",
+                json!({"error": upstream_code, "extra": "private-detail"}).to_string(),
+            ),
+            ("text/plain", upstream_code.to_owned()),
+        ] {
+            let t = tempfile::tempdir().unwrap();
+            let s = server(t.path(), vec![(403, content_type, body)]);
+            let (code, v) = call(
+                t.path(),
+                &["invite", "code", "list", "--conversation", "2demo"],
+                None,
+                true,
+            );
+            assert_eq!(code, 4, "{v}");
+            assert_eq!(v["error"]["code"], "forbidden");
+            assert_eq!(v["error"]["upstream"]["code"], upstream_code);
+            assert_eq!(v["error"]["upstream"]["status"], 403);
+            assert!(v["data"].is_null());
+            assert!(!v.to_string().contains("private-detail"));
+            let requests = s.join().unwrap();
+            assert_eq!(requests.len(), 1);
+            assert_get(&requests[0], "/api/v3/zinvites/0?conversation_id=2demo");
+        }
+    }
+}
+#[test]
 fn export_preserves_bytes_and_creates_private_file() {
     let t = tempfile::tempdir().unwrap();
     let output = t.path().join("codes.csv");
