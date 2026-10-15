@@ -10,6 +10,8 @@ on:
     paths:
       - 'queue-rs/**'
       - 'scripts/test-polis-auth.sh'
+      # polis-auth mirrors isModerator; a change there re-runs its parity test.
+      - 'server/src/utils/common.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
       - 'docs/job-graphs.md'
@@ -30,6 +32,8 @@ on:
     paths:
       - 'queue-rs/**'
       - 'scripts/test-polis-auth.sh'
+      # polis-auth mirrors isModerator; a change there re-runs its parity test.
+      - 'server/src/utils/common.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
       - 'docs/job-graphs.md'
