@@ -26,7 +26,7 @@ Use the database's actual network when it is inside Compose instead of the host
 network. `POLIS_MIGRATIONS_DIR` or `--dir` selects the release's SQL directory.
 TLS validates the certificate and hostname. The runner and API images include
 a checksum-pinned public RDS CA bundle (official global truststore, retrieved
-2026-10-09; SHA-256 `fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c`). `POLIS_MIGRATE_CA_FILE` supplies a
+2026-10-14; SHA-256 `90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b`). `POLIS_MIGRATE_CA_FILE` supplies a
 private PEM CA bundle (mount it into the container). Standalone Node startup
 uses `NODE_EXTRA_CA_CERTS` for a private/RDS CA; standalone Rust uses
 `POLIS_MIGRATE_CA_FILE`. For a disposable local

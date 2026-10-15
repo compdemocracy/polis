@@ -24,7 +24,7 @@ RUN apk add --no-cache python3 py3-pip ca-certificates
 # runner image. Deployments with another private CA can override this env.
 RUN mkdir -p /etc/polis \
  && wget -O /etc/polis/rds-ca.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
- && echo 'fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c  /etc/polis/rds-ca.pem' | sha256sum -c -
+ && echo '90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/polis/rds-ca.pem' | sha256sum -c -
 ENV NODE_EXTRA_CA_CERTS=/etc/polis/rds-ca.pem
 
 # This package is needed at runtime

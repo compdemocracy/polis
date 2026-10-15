@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libs
  && rm -rf /var/lib/apt/lists/*
 # Public RDS truststore retrieved over HTTPS 2026-10-09; checksum pins its bytes.
 RUN curl --fail --location --proto '=https' --tlsv1.2 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /rds-ca.pem \
- && echo 'fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c  /rds-ca.pem' | sha256sum --check
+ && echo '90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /rds-ca.pem' | sha256sum --check
 WORKDIR /src
 COPY queue-rs/ ./
 RUN cargo build --release --locked -p polis-migrate
