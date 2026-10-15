@@ -464,6 +464,75 @@ def _classify(family, item, conversations, reports):
     return zid, disposition
 
 
+# The legacy PCA/KMeans families whose primary key embeds a math tick, so an
+# active conversation accumulates one copy per tick until a Delphi run resets it
+# (polismath/database/dynamodb.py writes a new tick per math run;
+# umap_narrative/reset_conversation.py clears old ticks). A reader only ever
+# serves the newest tick: it resolves Delphi_PCAConversationConfig.latest_math_tick
+# and point-reads that one zid:tick partition (dynamodb.py read_latest_math /
+# read_math_by_tick). The import therefore keeps only the latest tick per
+# conversation and archives the rest, so one import batch holds one tick's worth
+# per family rather than every historical tick.
+PCA_CONFIG_FAMILY = 'Delphi_PCAConversationConfig'
+TICK_FAMILIES = ('Delphi_PCAResults', 'Delphi_KMeansClusters', 'Delphi_CommentRouting',
+                 'Delphi_PCAParticipantProjections', 'Delphi_RepresentativeComments')
+
+
+def _row_tick(family, item):
+    """The math tick a tick-keyed family's row belongs to, as an int, or None if
+    it cannot be parsed. A row whose tick cannot be read is left as it is (never
+    silently dropped); the conversation binding has already been checked."""
+    try:
+        if family == 'Delphi_PCAResults':
+            return int(item['math_tick']['N'])
+        if family == 'Delphi_RepresentativeComments':
+            return int(item['zid_tick_gid']['S'].split(':')[1])
+        return int(item['zid_tick']['S'].split(':')[1])
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+
+
+def _archive_superseded_ticks(db):
+    """Keep only the latest math tick per conversation across the tick-keyed
+    families; re-disposition every older-tick row from 'imported' to 'archived'
+    so it is preserved and counted (archived-<family>.jsonl, the counts) but not
+    staged. Latest tick per conversation is Delphi_PCAConversationConfig's
+    latest_math_tick; if that row is absent it falls back to the max tick present
+    for the conversation across these families. Idempotent: re-derived each call,
+    and only rows already classified 'imported' (a bound, non-NUL conversation)
+    are touched, so quarantined/unmapped rows keep their disposition."""
+    latest = {}
+    for zid, wire in db.execute(
+            "SELECT zid,wire FROM rows WHERE family=? AND disposition='imported'", (PCA_CONFIG_FAMILY,)):
+        if zid is None:
+            continue
+        tick = json.loads(wire).get('latest_math_tick', {}).get('N')
+        try:
+            latest[zid] = int(tick)
+        except (TypeError, ValueError):
+            continue
+    present_max = {}
+    imported = {}  # (family, k) -> (zid, tick) for the tick-keyed imported rows
+    for family in TICK_FAMILIES:
+        for k, zid, wire in db.execute(
+                "SELECT k,zid,wire FROM rows WHERE family=? AND disposition='imported'", (family,)):
+            if zid is None:
+                continue
+            tick = _row_tick(family, json.loads(wire))
+            if tick is None:
+                continue
+            imported[(family, k)] = (zid, tick)
+            if zid not in present_max or tick > present_max[zid]:
+                present_max[zid] = tick
+    target = {zid: latest.get(zid, present_max.get(zid))
+              for zid in set(latest) | set(present_max)}
+    superseded = [(family, k) for (family, k), (zid, tick) in imported.items()
+                  if target.get(zid) is not None and tick != target[zid]]
+    db.executemany("UPDATE rows SET disposition='archived' WHERE family=? AND k=?", superseded)
+    db.commit()
+    return len(superseded)
+
+
 def census(client, database, conversations, reports, allowed_missing=(), *, validate_schema=True,
            pacer=None, resume=False, skipped=()):
     """Read every page of every known family; keep all rows, including unmapped.
@@ -560,6 +629,12 @@ def census(client, database, conversations, reports, allowed_missing=(), *, vali
                 db.commit()
                 if not start:
                     break
+        # The scan is complete: keep only the latest math tick per conversation
+        # for the tick-keyed families, before counts are taken, so the report and
+        # the apply both reflect it. Archiving (not deleting) leaves the rows in
+        # the inventory, so source_sha256 is unchanged; only imported/archived
+        # move.
+        _archive_superseded_ticks(db)
         counts = {family: dict(source=0, imported=0, archived=0, quarantined=0)
                   for family in codec.FAMILIES}
         for family, disposition, count in db.execute(
