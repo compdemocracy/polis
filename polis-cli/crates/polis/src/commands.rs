@@ -11,7 +11,7 @@ const GROUPS: &[(&str, &str, &str)] = &[
  ("vote", "Participate with agree, disagree, or pass", "cast list import csv/validate csv/convert"),
  ("moderate", "Review statements as a moderator", "list accept reject set"),
  ("participant", "Participation, groups, and access lists", "join login status list export activity preferences group group-members query locations highlight/list highlight/set xid/list xid/export allowlist/view allowlist/import allowlist/export"),
- ("invite", "Invite people and manage invitation waves", "moderator/list moderator/create email/create email/view wave/list wave/create list export status accept"),
+ ("invite", "Invite people and manage invitation waves", "code/list code/create wave/list wave/create list export status revoke"),
  ("metadata", "Conversation questions and choices", "view choices question/list question/add question/delete answer/list answer/add answer/delete"),
  ("context", "Browse and create conversation contexts", "list create"),
  ("notification", "Manage conversation subscriptions", "subscribe unsubscribe set"),
@@ -45,6 +45,12 @@ pub fn available(path: &str) -> bool {
     matches!(
         path,
         "conversation reserve"
+            | "invite code list"
+            | "invite wave list"
+            | "invite list"
+            | "invite export"
+            | "invite status"
+            | "conversation uuid"
             | "participant preferences"
             | "participant locations"
             | "participant highlight list"
@@ -124,6 +130,14 @@ pub fn available(path: &str) -> bool {
 fn leaf(path: &str) -> Command {
     let name = path.split(' ').next_back().unwrap();
     let about = match path {
+        "invite code list" => "List the conversation's public codes as its owner",
+        "invite wave list" => "List invitation waves",
+        "invite list" => "List owner invitation codes, optionally filtered by status and wave",
+        "invite export" => "Download owner invitation codes to a new private CSV file",
+        "invite status" => "Read invite-only settings, waves and owner-code counts",
+        "conversation uuid" => {
+            "Print the secret key that unlocks the participant-XID export; may mint it"
+        }
         "conversation reserve" => "Allocate a conversation ID without creating a conversation",
         "participant preferences" => "Set this account's translation-display preference",
         "participant locations" => "Read stored coordinates for an opinion-group array index",
@@ -235,6 +249,11 @@ fn leaf(path: &str) -> Command {
         .about(about)
         .long_about(detail);
     c=match path {
+ "invite code list" | "invite status" => c.arg(arg("conversation", "Public conversation ID").required(true)).after_help("Invite codes are credentials. Code order is unspecified. Status uses separate reads, not an atomic snapshot; participant-owned codes are not counted."),
+ "invite wave list" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("wave", "Wave number").value_parser(clap::value_parser!(u32).range(0..=2147483647))),
+ "invite list" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("wave-id", "Wave database ID").value_parser(clap::value_parser!(u64).range(1..=9007199254740991))).arg(arg("status", "Owner-code status").value_parser(["unused", "used", "revoked", "expired"])).arg(arg("limit", "Page size").default_value("50").value_parser(clap::value_parser!(u32).range(1..=500))).arg(arg("offset", "Page offset").default_value("0").value_parser(clap::value_parser!(u32).range(0..=2147483647))).after_help("Reads conversation settings and one page. An empty page does not prove invite-only is enabled. pagination.hasMore uses the server's field name. Codes are credentials; reads are not an atomic snapshot."),
+ "invite export" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("output", "New private CSV file; never overwrite").required(true)).after_help("Downloads all owner codes with no filter or pagination. Bytes are preserved, including formula-like cells; treat CSV as untrusted data. Codes are credentials. Bounded to 8 MiB and --timeout."),
+ "conversation uuid" => c.arg(pos("id",true)).after_help("SECRET: anyone holding this key can download participant XIDs. Prints the raw key on stdout, or data.conversation_uuid with --json. The server may mint a key on first read; no automatic retry. Requires the site's moderator authority."),
  "conversation reserve" => c.after_help("EXAMPLE\n  polis conversation reserve --json\n\nOne authenticated POST requests a new ID. Legacy compatibility requires a conversation row at zid=0; a fresh database lacks it and returns a server failure. The CLI does not create that row. The legacy server registers it with zid=0: no conversation is created and no owner is bound. The ID is not proof of ownership or exclusive access. Preserve the receipt for a later explicit API creation request; conversation create does not yet accept a reserved ID. No lookup, release, expiry or idempotency contract is exposed. Every invocation can allocate another ID; no automatic retry or readback. If the response is lost, ask the site operator to inspect reservations before retrying. Responses are bounded to 8 MiB and --timeout."),
  "participant preferences" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("translations","Store translation display preference for the signed-in account").required(true).value_parser(["true","false"])).after_help("EXAMPLES\n  polis participant preferences --conversation CONV --translations true --json\n  polis participant preferences --conversation CONV --translations false --json\n\nSets show_translation_activated for the signed-in account in this conversation. Requires an explicit true or false; no participant ID, XID or another-account target is accepted. This changes a stored display preference only; no translation, model call or vote is requested. Sends one PUT, with no automatic retry. The legacy API returns an empty array even when no participant preference row exists. Success therefore reports state=acknowledged, affected_rows=null and persistence=unverified; it does not prove the value changed or create/join a participant. There is no preference readback endpoint. Ask the site operator to inspect this account's stored preference before retrying an uncertain write. Existing participant status does not read this preference. Requires site sign-in; 8 MiB response bound and --timeout apply."),
  "participant locations" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("group","Opinion-group array index, not its stored id or a base-cluster index").required(true).value_parser(clap::value_parser!(u32).range(0..=2147483647))).after_help("EXAMPLE\n  polis participant locations --conversation CONV --group 0 --json\n\nPublic read of stored participant coordinates for one opinion-group ARRAY INDEX in the site math, not its stored id or a base-cluster index. Rows contain lat, lng and n=1; duplicates and server order are preserved, with no identities added. Empty can mean no matching locations, absent math, a refused math bundle or an absent group: it does not prove no participants. The server may cache math and reads locations separately; no generation, freshness, full-population or cross-read coherence is promised. Optional saved credentials apply. Coordinates are untrusted stored data; no geocoding, map lookup, aggregation, writes, computation or retry. One bounded request, 8 MiB and --timeout. Non-finite or out-of-range coordinates are refused as invalid_response, never clipped or dropped."),

@@ -252,6 +252,32 @@ impl Client {
         }
         Ok(bytes)
     }
+    /// Download the fixed owner-invite CSV endpoint, preserving bytes and media type.
+    pub fn invite_export(&self, conversation: &str) -> Result<(String, Vec<u8>)> {
+        if conversation.is_empty()
+            || conversation.len() > 300
+            || !conversation.bytes().all(|b| b.is_ascii_alphanumeric())
+        {
+            return Err(Error::input("Invalid conversation ID."));
+        }
+        let (status, kind, bytes) = self.exchange(
+            "GET",
+            "/api/v3/treevite/invites/csv",
+            &[("conversation_id".into(), conversation.into())],
+            None,
+            false,
+            false,
+        )?;
+        if status != 200
+            || !kind
+                .split(';')
+                .next()
+                .is_some_and(|s| s.trim().eq_ignore_ascii_case("text/csv"))
+        {
+            return Err(protocol(false, "Invite export did not return CSV."));
+        }
+        Ok((kind, bytes))
+    }
     fn exchange(
         &self,
         method: &str,
