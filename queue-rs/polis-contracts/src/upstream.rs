@@ -55,7 +55,7 @@ pub fn guidance(code: &'static str) -> Guidance {
         "AUTH_REQUIRED" | "polis_err_need_auth" | "polis_err_treevite_auth_required" =>
             ("auth_required", "This operation requires authentication.", "Run polis auth status, then polis auth login for the selected site."),
         "OWNER_REQUIRED" => ("owner_required", "This operation requires the conversation owner.", "Sign in as the conversation owner; an enabled account alone is insufficient."),
-        "polis_err_fetching_zinvite_not_conversation_owner" =>
+        "polis_err_fetching_zinvite_not_conversation_owner" | "polis_err_creating_zinvite_not_conversation_owner" =>
             ("forbidden", "This operation requires the conversation owner.", "Check the selected site and sign in as the conversation owner; moderator access alone is insufficient."),
         "polis_err_treevite_not_conversation_owner" | "polis_err_sending_invite_not_conversation_owner" =>
             ("forbidden", "This operation requires the conversation owner or a moderator on the owner's site.", "Check the selected site and sign in as the conversation owner or a moderator; an enabled account alone is insufficient."),
@@ -128,6 +128,10 @@ mod tests {
             ),
             (
                 "polis_err_fetching_zinvite_not_conversation_owner",
+                "forbidden",
+            ),
+            (
+                "polis_err_creating_zinvite_not_conversation_owner",
                 "forbidden",
             ),
             ("polis_err_treevite_auth_check", "server_error"),
