@@ -1,0 +1,18 @@
+[package]
+name = "polis-auth"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Conversation authority decisions over verified Polis identities"
+
+[features]
+db-tests = []
+
+[dependencies]
+postgres = "0.19"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

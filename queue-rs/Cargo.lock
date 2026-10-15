@@ -569,6 +569,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "polis-auth"
+version = "0.1.0"
+dependencies = [
+ "postgres",
+]
+
+[[package]]
 name = "polis-migrate"
 version = "0.1.0"
 dependencies = [
