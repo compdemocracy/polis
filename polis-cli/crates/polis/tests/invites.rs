@@ -79,6 +79,9 @@ fn server(
                 }
             }
             requests.push(String::from_utf8(bytes).unwrap());
+            if status == 0 {
+                continue;
+            }
             write!(socket,"HTTP/1.1 {status} Fixture\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
         }
         requests
@@ -553,7 +556,7 @@ fn uuid_is_raw_only_when_explicitly_requested_and_errors_never_echo_key() {
     s.join().unwrap();
 }
 #[test]
-fn invalid_arguments_are_offline_and_write_commands_stay_unavailable() {
+fn invalid_arguments_are_offline_and_revoke_stays_unavailable() {
     for args in [
         vec!["invite", "list", "--conversation", "2demo", "--limit", "0"],
         vec![
@@ -582,15 +585,26 @@ fn invalid_arguments_are_offline_and_write_commands_stay_unavailable() {
         ],
         vec!["invite", "code", "list", "--conversation", "../escape"],
         vec!["conversation", "uuid", "../escape"],
+        vec!["invite", "code", "create"],
+        vec!["invite", "wave", "create"],
+        vec!["invite", "code", "create", "--conversation", "../escape"],
+        vec![
+            "invite",
+            "wave",
+            "create",
+            "--conversation",
+            "2demo",
+            "--per-user",
+            "-1",
+            "--owner-invites",
+            "2",
+        ],
     ] {
         let t = tempfile::tempdir().unwrap();
         assert_eq!(call(t.path(), &args, None, true).0, 2);
     }
-    for args in [
-        vec!["invite", "code", "create"],
-        vec!["invite", "wave", "create"],
-        vec!["invite", "revoke"],
-    ] {
+    {
+        let args = ["invite", "revoke"];
         let t = tempfile::tempdir().unwrap();
         assert_eq!(call(t.path(), &args, None, true).0, 8);
     }
@@ -647,4 +661,275 @@ fn bigint_identity_boundaries_are_exact_and_never_rounded() {
         &s.join().unwrap()[1],
         "/api/v3/treevite/invites?conversation_id=2demo&wave_id=9007199254740991&limit=50&offset=0",
     );
+}
+
+fn create_args(wave: bool) -> Vec<&'static str> {
+    if wave {
+        vec![
+            "invite",
+            "wave",
+            "create",
+            "--conversation",
+            "2demo",
+            "--per-user",
+            "3",
+            "--owner-invites",
+            "10",
+        ]
+    } else {
+        vec!["invite", "code", "create", "--conversation", "2demo"]
+    }
+}
+fn created_wave() -> Value {
+    let mut v = wave();
+    v["invites_created"] = json!(13);
+    v["private_extra"] = json!("not-for-output");
+    v
+}
+fn created_codes() -> Value {
+    json!({"codes":[{"zid":1,"zinvite":"2new","created":"1700000000000"}]})
+}
+fn assert_post(r: &str, path: &str, body: Value) {
+    assert!(r.starts_with(&format!("POST {path} HTTP/")), "{r}");
+    assert!(r
+        .to_lowercase()
+        .contains("authorization: bearer fixture-token"));
+    assert_eq!(
+        serde_json::from_str::<Value>(r.split("\r\n\r\n").nth(1).unwrap()).unwrap(),
+        body
+    );
+}
+#[test]
+fn code_create_posts_once_then_confirms_exact_code() {
+    for short in [false, true] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(
+            t.path(),
+            vec![
+                json_res(json!({"zinvite":"2new","private_extra":"not-for-output"})),
+                json_res(created_codes()),
+            ],
+        );
+        let mut args = create_args(false);
+        if short {
+            args.push("--short");
+        }
+        let (code, v) = call(t.path(), &args, None, true);
+        assert_eq!(code, 0, "{v}");
+        assert_eq!(v["data"]["code"], "2new");
+        assert_eq!(v["data"]["short"], short);
+        assert_eq!(v["data"]["verified"], true);
+        assert!(!v.to_string().contains("not-for-output"));
+        let requests = s.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_post(
+            &requests[0],
+            "/api/v3/zinvites/0",
+            json!({"conversation_id":"2demo","short_url":short}),
+        );
+        assert_get(&requests[1], "/api/v3/zinvites/0?conversation_id=2demo");
+    }
+}
+#[test]
+fn wave_create_posts_counts_and_optional_zero_parent_then_reads_identity() {
+    for explicit in [false, true] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(
+            t.path(),
+            vec![
+                (201, "application/json", created_wave().to_string()),
+                json_res(json!([wave()])),
+            ],
+        );
+        let mut args = create_args(true);
+        if explicit {
+            args.extend(["--parent-wave", "0"]);
+        }
+        let (code, v) = call(t.path(), &args, None, true);
+        assert_eq!(code, 0, "{v}");
+        assert_eq!(v["data"]["wave_id"], 41);
+        assert_eq!(v["data"]["invites_created"], 13);
+        assert_eq!(v["data"]["verified"], true);
+        assert!(!v.to_string().contains("not-for-output"));
+        let requests = s.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        let mut body = json!({"conversation_id":"2demo","invites_per_user":3,"owner_invites":10});
+        if explicit {
+            body["parent_wave"] = json!(0);
+        }
+        assert_post(&requests[0], "/api/v3/treevite/waves", body);
+        assert_get(
+            &requests[1],
+            "/api/v3/treevite/waves?conversation_id=2demo&wave=1",
+        );
+    }
+}
+#[test]
+fn create_denials_stay_forbidden_without_readback_or_body_echo() {
+    for w in [false, true] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(t.path(), vec![(403,"application/json",json!({"error":"polis_err_creating_zinvite_not_conversation_owner","private":"not-for-output"}).to_string())]);
+        let (code, v) = call(t.path(), &create_args(w), None, true);
+        assert_eq!(code, 4, "{v}");
+        assert_eq!(v["error"]["code"], "forbidden");
+        assert!(!v.to_string().contains("not-for-output"));
+        assert_eq!(s.join().unwrap().len(), 1);
+    }
+}
+#[test]
+fn create_unknown_success_and_server_failure_exit_seven_without_retry() {
+    for w in [false, true] {
+        for response in [
+            (200, "application/json", "{".into()),
+            json_res(json!({"wrong":"not-for-output"})),
+            (
+                500,
+                "application/json",
+                json!({"error":"polis_err_treevite_create_wave","private":"not-for-output"})
+                    .to_string(),
+            ),
+        ] {
+            let t = tempfile::tempdir().unwrap();
+            let s = server(t.path(), vec![response]);
+            let (code, v) = call(t.path(), &create_args(w), None, true);
+            assert_eq!(code, 7, "{v}");
+            assert_eq!(v["error"]["outcome"], "unknown");
+            assert_eq!(v["error"]["retryable"], false);
+            assert!(!v.to_string().contains("not-for-output"));
+            assert_eq!(s.join().unwrap().len(), 1);
+        }
+    }
+}
+#[test]
+fn create_failed_readback_remains_unknown_even_on_auth_or_transport_error() {
+    for w in [false, true] {
+        for response in [
+            (403, "application/json", "{}".into()),
+            (500, "application/json", "{}".into()),
+            json_res(json!({"wrong":"not-for-output"})),
+        ] {
+            let t = tempfile::tempdir().unwrap();
+            let first = if w {
+                created_wave()
+            } else {
+                json!({"zinvite":"2new"})
+            };
+            let s = server(t.path(), vec![json_res(first), response]);
+            let (code, v) = call(t.path(), &create_args(w), None, true);
+            assert_eq!(code, 7, "{v}");
+            assert_eq!(v["error"]["outcome"], "unknown");
+            assert_eq!(v["error"]["retryable"], false);
+            assert!(!v.to_string().contains("not-for-output"));
+            assert_eq!(s.join().unwrap().len(), 2);
+        }
+        let t = tempfile::tempdir().unwrap();
+        let first = if w {
+            created_wave()
+        } else {
+            json!({"zinvite":"2new"})
+        };
+        // Closing the fixture listener after POST makes the read-back fail to connect.
+        let s = server(t.path(), vec![json_res(first)]);
+        let (code, v) = call(t.path(), &create_args(w), None, true);
+        assert_eq!(code, 7, "{v}");
+        assert_eq!(v["error"]["outcome"], "unknown");
+        assert_eq!(s.join().unwrap().len(), 1);
+    }
+}
+#[test]
+fn mismatched_or_duplicate_readback_never_confirms_a_different_create() {
+    for rows in [
+        json!([]),
+        json!([wave(), wave()]),
+        {
+            let mut r = wave();
+            r["id"] = json!(42);
+            json!([r])
+        },
+        {
+            let mut r = wave();
+            r["owner_invites"] = json!(9);
+            json!([r])
+        },
+    ] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(t.path(), vec![json_res(created_wave()), json_res(rows)]);
+        let (code, v) = call(t.path(), &create_args(true), None, true);
+        assert_eq!(code, 7, "{v}");
+        s.join().unwrap();
+    }
+    for rows in [
+        json!({"codes":[]}),
+        {
+            let mut r = created_codes();
+            r["codes"][0]["zinvite"] = json!("2other");
+            r
+        },
+        {
+            let mut r = created_codes();
+            let copy = r["codes"][0].clone();
+            r["codes"].as_array_mut().unwrap().push(copy);
+            r
+        },
+    ] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(
+            t.path(),
+            vec![json_res(json!({"zinvite":"2new"})), json_res(rows)],
+        );
+        let (code, v) = call(t.path(), &create_args(false), None, true);
+        assert_eq!(code, 7, "{v}");
+        s.join().unwrap();
+    }
+}
+#[test]
+fn late_parent_wave_400_is_unknown_because_node_may_have_inserted() {
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![(
+            400,
+            "application/json",
+            json!({"error":"polis_err_treevite_parent_wave_not_found"}).to_string(),
+        )],
+    );
+    let (code, v) = call(t.path(), &create_args(true), None, true);
+    assert_eq!(code, 7, "{v}");
+    assert_eq!(v["error"]["outcome"], "unknown");
+    assert_eq!(s.join().unwrap().len(), 1);
+}
+#[test]
+fn wave_zero_counts_refuse_before_auth_or_network() {
+    let t = tempfile::tempdir().unwrap();
+    let (code, v) = call(
+        t.path(),
+        &[
+            "invite",
+            "wave",
+            "create",
+            "--conversation",
+            "2demo",
+            "--per-user",
+            "0",
+            "--owner-invites",
+            "0",
+        ],
+        None,
+        false,
+    );
+    assert_eq!(code, 2, "{v}");
+    assert_eq!(v["error"]["outcome"], "not_sent");
+}
+
+#[test]
+fn lost_create_response_is_unknown_and_never_retried() {
+    for w in [false, true] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(t.path(), vec![(0, "application/json", String::new())]);
+        let (code, v) = call(t.path(), &create_args(w), None, true);
+        assert_eq!(code, 7, "{v}");
+        assert_eq!(v["error"]["outcome"], "unknown");
+        assert_eq!(v["error"]["retryable"], false);
+        assert_eq!(s.join().unwrap().len(), 1);
+    }
 }

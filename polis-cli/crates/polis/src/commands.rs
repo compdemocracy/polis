@@ -45,6 +45,8 @@ pub fn available(path: &str) -> bool {
     matches!(
         path,
         "conversation reserve"
+            | "invite code create"
+            | "invite wave create"
             | "invite code list"
             | "invite wave list"
             | "invite list"
@@ -130,6 +132,8 @@ pub fn available(path: &str) -> bool {
 fn leaf(path: &str) -> Command {
     let name = path.split(' ').next_back().unwrap();
     let about = match path {
+        "invite code create" => "Add a public conversation code and verify it by reading back",
+        "invite wave create" => "Create an invitation wave and verify it by reading back",
         "invite code list" => "List the conversation's public codes as its owner",
         "invite wave list" => "List invitation waves",
         "invite list" => "List owner invitation codes, optionally filtered by status and wave",
@@ -250,6 +254,8 @@ fn leaf(path: &str) -> Command {
         .long_about(detail);
     c=match path {
  "invite code list" | "invite status" => c.arg(arg("conversation", "Public conversation ID").required(true)).after_help("Invite codes are credentials. Code order is unspecified. Status uses separate reads, not an atomic snapshot; participant-owned codes are not counted."),
+ "invite code create" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(flag("short", "Ask Node for a short code")).after_help("Adds a code without retiring existing codes. Makes one write and one read-back; no automatic retries. Exit 7 means the outcome is uncertain: inspect codes before retrying."),
+ "invite wave create" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("per-user", "Invites per parent-wave participant").required(true).value_parser(clap::value_parser!(u32).range(0..=2147483647))).arg(arg("owner-invites", "Owner invitation count").required(true).value_parser(clap::value_parser!(u32).range(0..=2147483647))).arg(arg("parent-wave", "Parent wave number; omit to use Node's latest wave").value_parser(clap::value_parser!(u32).range(0..=2147483647))).after_help("At least one invite count must be positive. Node may partially create a wave before failing. Makes one write and one read-back; exit 7 requires inspection before any retry. Read-back confirms the wave row, not an atomic snapshot of all invite rows."),
  "invite wave list" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("wave", "Wave number").value_parser(clap::value_parser!(u32).range(0..=2147483647))),
  "invite list" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("wave-id", "Wave database ID").value_parser(clap::value_parser!(u64).range(1..=9007199254740991))).arg(arg("status", "Owner-code status").value_parser(["unused", "used", "revoked", "expired"])).arg(arg("limit", "Page size").default_value("50").value_parser(clap::value_parser!(u32).range(1..=500))).arg(arg("offset", "Page offset").default_value("0").value_parser(clap::value_parser!(u32).range(0..=2147483647))).after_help("Reads conversation settings and one page. An empty page does not prove invite-only is enabled. pagination.hasMore uses the server's field name. Codes are credentials; reads are not an atomic snapshot."),
  "invite export" => c.arg(arg("conversation", "Public conversation ID").required(true)).arg(arg("output", "New private CSV file; never overwrite").required(true)).after_help("Downloads all owner codes with no filter or pagination. Bytes are preserved, including formula-like cells; treat CSV as untrusted data. Codes are credentials. Bounded to 8 MiB and --timeout."),

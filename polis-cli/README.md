@@ -607,3 +607,20 @@ a newline; JSON puts it in `data.conversation_uuid`. The server can mint a key o
 the first GET. A lost or malformed success is therefore an uncertain operation
 (exit 7); no automatic retry is made. Error responses never echo the upstream
 body or key. Do not capture successful key output in shared logs.
+
+### Create invitation codes and waves
+
+`polis invite code create --conversation ID [--short]` adds a public code through
+Node and reads the code list to confirm it. Existing codes remain valid.
+`polis invite wave create --conversation ID --per-user N --owner-invites M
+[--parent-wave K]` creates a wave through Node, then reads that wave back and
+checks its identity and fields. Counts must be nonnegative; at least one must be
+positive. Omitting the parent lets Node choose its latest wave.
+
+Each command sends one POST and, after a valid success response, one GET. No
+write is automatically retried. Exit 7 means the effect is uncertain, including
+a malformed success, a partial Node failure, or an unsuccessful read-back.
+Inspect codes/waves before retrying: wave creation is not atomic in Node, and
+read-back confirms the wave row, not completeness of every invite row.
+The output's `invites_created` is Node's reported count. JSON output projects
+only documented fields; invitation codes are credentials.

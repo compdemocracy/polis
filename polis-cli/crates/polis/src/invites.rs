@@ -131,6 +131,36 @@ fn page(c: &Client, q: &[(String, String)]) -> Result<Value> {
     )
 }
 
+// Once a write may have happened, a failed confirmation must never imply that
+// repeating it is safe. Retain only the client's sanitized upstream metadata.
+fn uncertain(mut e: Error) -> Error {
+    e.code = "outcome_unknown";
+    e.message = "The invite change could not be confirmed.".into();
+    e.action =
+        "Read the conversation's codes or waves before retrying; no automatic retry was made.";
+    e.exit = 7;
+    e.outcome = "unknown";
+    e.retryable = false;
+    e
+}
+fn codes(v: &Value) -> Result<Vec<Value>> {
+    let codes = v["codes"]
+        .as_array()
+        .ok_or_else(invalid)?
+        .iter()
+        .map(|r| {
+            let code = text(&r["zinvite"])?;
+            if public_id(code).is_err() {
+                return Err(invalid());
+            }
+            uint(&r["zid"])?;
+            let created = bigint(&r["created"])?;
+            Ok(json!({"code":code,"created":created}))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(codes)
+}
+
 pub fn execute(
     path: &str,
     m: &ArgMatches,
@@ -150,26 +180,98 @@ pub fn execute(
     if path == "invite export" {
         pass4::check_output(Path::new(str_arg(m, "output")))?;
     }
+    if path == "invite wave create"
+        && m.get_one::<u32>("per-user") == Some(&0)
+        && m.get_one::<u32>("owner-invites") == Some(&0)
+    {
+        return Err(Error::input("At least one invite count must be positive."));
+    }
     let c = client(config, site, timeout, true)?;
     let mut q = query(id);
     match path {
+        "invite code create" => {
+            let short = m.get_flag("short");
+            let v = c
+                .request(
+                    "POST",
+                    "/api/v3/zinvites/0",
+                    &[],
+                    Some(json!({"conversation_id":id,"short_url":short})),
+                    true,
+                )
+                .map_err(authority)?;
+            (|| {
+                let code = text(&v["zinvite"])?;
+                public_id(code).map_err(|_| invalid())?;
+                let observed = codes(&get(&c, "/api/v3/zinvites/0", &q)?)?;
+                if observed.iter().filter(|r| r["code"] == code).count() != 1 {
+                    return Err(invalid());
+                }
+                Ok(json!({"conversation_id":id,"code":code,"short":short,"verified":true,
+                    "note":"Added a code; existing codes stay valid. The server does not retire or order them."}))
+            })().map_err(uncertain)
+        }
+        "invite wave create" => {
+            let per_user = *m.get_one::<u32>("per-user").expect("required count");
+            let owner_invites = *m.get_one::<u32>("owner-invites").expect("required count");
+            let parent = m.get_one::<u32>("parent-wave").copied();
+            let mut body = json!({"conversation_id":id,"invites_per_user":per_user,"owner_invites":owner_invites});
+            if let Some(n) = parent {
+                body["parent_wave"] = json!(n);
+            }
+            let v = c
+                .request("POST", "/api/v3/treevite/waves", &[], Some(body), true)
+                .map_err(|e| {
+                    // Node can emit this 400 both before and after inserting a wave.
+                    if e.upstream["code"] == "polis_err_treevite_parent_wave_not_found" {
+                        uncertain(e)
+                    } else {
+                        authority(e)
+                    }
+                })?;
+            (|| {
+                let wave_id = bigint(&v["id"])?;
+                let wave = uint(&v["wave"])?;
+                let created = uint(&v["invites_created"])?;
+                if wave_id == 0
+                    || wave == 0
+                    || v["invites_per_user"] != per_user
+                    || v["owner_invites"] != owner_invites
+                    || parent.is_some_and(|n| v["parent_wave"] != n)
+                {
+                    return Err(invalid());
+                }
+                q.push(("wave".into(), wave.to_string()));
+                let rows = waves(&c, &q)?;
+                if rows.len() != 1 || rows[0]["id"] != wave_id {
+                    return Err(invalid());
+                }
+                for key in [
+                    "zid",
+                    "wave",
+                    "parent_wave",
+                    "invites_per_user",
+                    "owner_invites",
+                    "size",
+                    "created_at",
+                    "updated_at",
+                ] {
+                    if rows[0][key] != v[key] {
+                        return Err(invalid());
+                    }
+                }
+                Ok(
+                    json!({"wave":wave,"wave_id":wave_id,"parent_wave":v["parent_wave"],
+                    "invites_per_user":per_user,"owner_invites":owner_invites,"size":v["size"],
+                    "invites_created":created,"verified":true}),
+                )
+            })()
+            .map_err(uncertain)
+        }
         "invite code list" => {
             // The server resolves conversation_id and ignores the numeric path segment.
             let v = get(&c, "/api/v3/zinvites/0", &q)?;
-            let codes = v["codes"]
-                .as_array()
-                .ok_or_else(invalid)?
-                .iter()
-                .map(|r| {
-                    let code = text(&r["zinvite"])?;
-                    if public_id(code).is_err() {
-                        return Err(invalid());
-                    }
-                    uint(&r["zid"])?;
-                    let created = bigint(&r["created"])?;
-                    Ok(json!({"code":code,"created":created}))
-                })
-                .collect::<Result<Vec<_>>>()?;
+            let codes = codes(&v)?;
             Ok(
                 json!({"conversation_id":id,"codes":codes,"note":"The server does not order codes; URLs it builds may use any of them."}),
             )
