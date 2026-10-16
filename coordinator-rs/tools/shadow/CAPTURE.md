@@ -36,9 +36,8 @@ The scheduler freezes the collector profile bytes. The profile has exactly:
   `common` has `app_root`, `app_entry`, `build_manifest`, `dependency_manifest`,
   `node_build`, `node_dependencies`, `settings`, `node_settings`, `requests`.
   `build_manifest` covers every file under `dist`, `package.json`,
-  `package-lock.json`, and exactly the two eager runtime data assets
-  `src/prompts/moderation/script.xml` and
-  `src/prompts/report_experimental/system.xml`. Their exact bytes contribute to
+  `package-lock.json`, and exactly the one runtime data asset
+  `src/prompts/report_experimental/system.xml`. Its exact bytes contribute to
   `node_build`; missing entries, changed bytes, writable ancestors, symlinks or
   assets over 1 MiB refuse startup. The reader copies admitted asset bytes into
   its private working directory as mode-0400 regular files before app import.

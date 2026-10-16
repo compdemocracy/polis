@@ -164,7 +164,6 @@ function closureProfile(root) {
 }
 const minimalFiles = { "dist/app.js": "module.exports = {};", "package.json": "{}",
   "package-lock.json": "{}", "node_modules/library/index.js": "module.exports = 1;",
-  "src/prompts/moderation/script.xml": "<script>public prompt</script>\n",
   "src/prompts/report_experimental/system.xml": "<system>public lore</system>\n" };
 
 test("closure requires every build and dependency file, not just listed hashes", () => {
@@ -441,7 +440,7 @@ test("runtime assets refuse internal symlinks and oversized regular files", () =
   const fixture = tree(minimalFiles), relative = RUNTIME_ASSETS[0];
   try {
     fs.unlinkSync(path.join(fixture.root, relative));
-    fs.symlinkSync("../report_experimental/system.xml", path.join(fixture.root, relative));
+    fs.symlinkSync("../../../package.json", path.join(fixture.root, relative));
     const linked = closureProfile(fixture.root); fixture.freeze();
     assert.throws(() => admitClosure(linked), /SHADOW_BUILD/);
     fixture.thaw(); fs.unlinkSync(path.join(fixture.root, relative));

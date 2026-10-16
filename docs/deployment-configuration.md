@@ -208,7 +208,7 @@ The last column lists direct named environment reads in the same source file, if
 | 140 | SQS | [server/src/workers/start-import-worker.ts:19](../server/src/workers/start-import-worker.ts#L19) | in scope; application / script / infrastructure | None in this file; inspect imports/arguments/SDK |
 | 141 | Google Translate | [server/types/google-cloud__translate.d.ts:1](../server/types/google-cloud__translate.d.ts#L1) | outside scoped environment census | None in this file; inspect imports/arguments/SDK |
 | 142 | Auth0 Management | [server/src/routes/comments.ts:93](../server/src/routes/comments.ts#L93) | in scope; application / script / infrastructure | None in this file; inspect imports/arguments/SDK |
-| 143 | IP geolocation | [server/src/utils/moderation.ts:42](../server/src/utils/moderation.ts#L42) | in scope; application / script / infrastructure | None in this file; inspect imports/arguments/SDK |
+| 143 | IP geolocation | `server/src/utils/moderation.ts` (removed with the comment toxicity check; no lookup remains) | in scope; application / script / infrastructure | None |
 | 144 | Internal static asset fetch | [server/src/utils/file-fetcher.ts:26](../server/src/utils/file-fetcher.ts#L26) | in scope; application / script / infrastructure | None in this file; inspect imports/arguments/SDK |
 | 145 | HTTP fixture download | [delphi/scripts/regression_download.py:104](../delphi/scripts/regression_download.py#L104) | in scope; application / script / infrastructure | `DATABASE_URL`, `TEST_REPORT_IDS` |
 | 146 | S3 | [server/src/routes/dataExport.ts:147](../server/src/routes/dataExport.ts#L147) | in scope; application / script / infrastructure | None in this file; inspect imports/arguments/SDK |
