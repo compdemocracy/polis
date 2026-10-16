@@ -127,7 +127,6 @@ import {
   handle_GET_participants,
   handle_GET_participation,
   handle_GET_participationInit,
-  handle_POST_participants,
   handle_POST_query_participants_by_metadata,
   handle_PUT_participants_extended,
 } from "./src/routes/participation";
@@ -535,20 +534,6 @@ export const appReady = helpersInitialized.then(
       moveToBody,
       want("sinceUnixTimestamp", getStringLimitLength(99), assignToP),
       handle_GET_conversationsRecentActivity
-    );
-
-    app.post(
-      "/api/v3/participants",
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      want("answers", getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
-      want("parent_url", getStringLimitLength(9999), assignToP),
-      want("referrer", getStringLimitLength(9999), assignToP),
-      handle_POST_participants
     );
 
     app.get(
