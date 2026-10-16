@@ -791,6 +791,41 @@ function handle_POST_conversation_reopen(
     });
 }
 
+const XID_WHITELIST_FIXED = "polis_err_xid_whitelist_fixed_after_start";
+
+/**
+ * use_xid_whitelist is fixed once participation has started: it can be set
+ * freely while the conversation has no participant from outside the owner's
+ * site, and never changed after one has joined. The owner and their site's
+ * moderators do not count, since seeding statements gives them participant
+ * rows before the conversation is configured. Resolves when the requested
+ * value may be applied (unchanged, or not yet started); rejects with
+ * polis_err_xid_whitelist_fixed_after_start otherwise.
+ */
+async function requireXidWhitelistSettable(
+  zid: number,
+  requested: boolean
+): Promise<void> {
+  const rows = (await pg.queryP(
+    `select c.use_xid_whitelist,
+       exists(
+         select 1 from participants p
+         join users u on u.uid = p.uid
+         where p.zid = c.zid
+           and u.site_id is distinct from (select site_id from users where uid = c.owner)
+       ) as started
+     from conversations c where c.zid = ($1);`,
+    [zid]
+  )) as { use_xid_whitelist: boolean; started: boolean }[];
+  const conv = rows && rows[0];
+  if (!conv || !!conv.use_xid_whitelist === requested) {
+    return;
+  }
+  if (conv.started) {
+    throw new Error(XID_WHITELIST_FIXED);
+  }
+}
+
 function handle_PUT_conversations(
   req: {
     p: {
@@ -934,12 +969,17 @@ function handle_PUT_conversations(
         fields.use_xid_whitelist = !!req.p.use_xid_whitelist;
       }
 
+      // A refused setting refuses the whole update: nothing below runs.
+      const settingGuard = _.isUndefined(req.p.use_xid_whitelist)
+        ? Promise.resolve()
+        : requireXidWhitelistSettable(req.p.zid, !!req.p.use_xid_whitelist);
+
       const q = sql_conversations
         .update(fields)
         .where(sql_conversations.zid.equals(req.p.zid))
         // .and( sql_conversations.owner.equals(req.p.uid) )
         .returning("*");
-      verifyMetaPromise.then(
+      Promise.all([verifyMetaPromise, settingGuard]).then(
         function () {
           pg.query(q.toString(), function (err: any, result: { rows: any[] }) {
             if (err) {
@@ -1007,6 +1047,10 @@ function handle_PUT_conversations(
           });
         },
         function (err: { message: any }) {
+          if (err && err.message === XID_WHITELIST_FIXED) {
+            failJson(res, 409, XID_WHITELIST_FIXED);
+            return;
+          }
           failJson(res, 500, err.message, err);
         }
       );

@@ -26,6 +26,12 @@ export const RESERVED_POOLED_USER_INDEXES = {
   inviteAdminAuthModerator: 43,
   /** server/__tests__/integration/conversations-xid-suzinvite.test.ts (conversation owner) */
   conversationsXidSuzinvite: 44,
+  /** server/__tests__/integration/xid-identity-integrity.test.ts (conversation owner A) */
+  xidIdentityOwnerA: 45,
+  /** server/__tests__/integration/xid-identity-integrity.test.ts (conversation owner B) */
+  xidIdentityOwnerB: 46,
+  /** server/__tests__/integration/xid-identity-integrity.test.ts (site moderator; its site_id is aligned to owner A's) */
+  xidIdentityModerator: 47,
 } as const;
 
 export function getPooledTestUser(index: number): {
