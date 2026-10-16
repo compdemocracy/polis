@@ -1,11 +1,16 @@
-// Drive the real comment handler and the real moderation module for a
-// participant comment in a conversation whose owner has moderation enabled.
-// Stubbed at the boundary: the Gemini client, the HTTP client the moderation
-// module used for IP geolocation, global fetch, the identity provider, the
-// database and the translation provider. Nothing leaves the process.
+// Drive the real comment handler for a participant comment in a conversation
+// whose owner carries the delphi-enabled role. The toxicity check is off by
+// decision: the handler reaches neither the identity provider nor Gemini and
+// stores the statement under the conversation's own moderation. The dormant
+// moderation module keeps its neutral location context. Stubbed at the
+// boundary: the Gemini client, the HTTP client the moderation module used for
+// IP geolocation, global fetch, the identity provider, the database and the
+// translation provider. Nothing leaves the process.
 const mockGenerateContent = jest.fn();
 const mockHttpGet = jest.fn();
 const mockQuery = jest.fn();
+const mockGetByEmail = jest.fn();
+const mockGetRoles = jest.fn();
 
 jest.mock("@google/genai", () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
@@ -22,16 +27,8 @@ jest.mock("@google-cloud/translate", () => ({
 }));
 jest.mock("auth0", () => ({
   ManagementClient: jest.fn().mockImplementation(() => ({
-    usersByEmail: {
-      getByEmail: jest
-        .fn()
-        .mockResolvedValue({ data: [{ user_id: "owner-oidc-id" }] }),
-    },
-    users: {
-      getRoles: jest
-        .fn()
-        .mockResolvedValue({ data: [{ name: "delphi-enabled" }] }),
-    },
+    usersByEmail: { getByEmail: mockGetByEmail },
+    users: { getRoles: mockGetRoles },
   })),
 }));
 jest.mock("../../src/config", () => ({
@@ -82,11 +79,18 @@ jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));
 jest.mock("../../src/nextComment", () => ({}));
 
-const { moderationReady } = require("../../src/utils/moderation");
-const { handle_POST_comments } = require("../../src/routes/comments");
+const {
+  default: analyzeComment,
+  moderationReady,
+} = require("../../src/utils/moderation");
+const {
+  handle_POST_comments,
+  isProConvo,
+} = require("../../src/routes/comments");
 
 const NEUTRAL_DEFAULT = "US or Europe (EU)";
 const COMMENTER_IP = "203.0.113.7"; // documentation range (RFC 5737)
+const OWNER_UID = 11;
 const fetchSpy = jest.fn();
 const realFetch = (global as any).fetch;
 
@@ -96,7 +100,7 @@ async function postComment(headers: Record<string, string>) {
     {
       p: {
         zid: 7,
-        uid: 11,
+        uid: OWNER_UID,
         pid: 5,
         txt: "A public-fixture comment",
         is_seed: false,
@@ -132,6 +136,14 @@ function geolocationRequests(): unknown[] {
   );
 }
 
+function insertedCommentParams(): unknown[] {
+  const insert = mockQuery.mock.calls.find(([sql]) =>
+    /INSERT INTO COMMENTS/.test(String(sql))
+  );
+  expect(insert).toBeDefined();
+  return insert[1];
+}
+
 beforeAll(async () => {
   await moderationReady;
 });
@@ -150,8 +162,11 @@ beforeEach(() => {
       country: "Fixture Country",
     })
   );
+  // The owner carries the role, and any verdict is at the rejection threshold.
+  mockGetByEmail.mockResolvedValue({ data: [{ user_id: "owner-oidc-id" }] });
+  mockGetRoles.mockResolvedValue({ data: [{ name: "delphi-enabled" }] });
   mockGenerateContent.mockResolvedValue({
-    text: JSON.stringify({ output: { final_score: "5" } }),
+    text: JSON.stringify({ output: { final_score: "100" } }),
   });
   mockQuery.mockImplementation(async (sql: string) => {
     if (/INSERT INTO COMMENTS/.test(sql))
@@ -166,26 +181,40 @@ afterEach(() => {
   (global as any).fetch = realFetch;
 });
 
-describe("comment moderation location context", () => {
-  test("a comment sent through a proxy with the commenter's IP makes no geolocation request and uses the neutral default", async () => {
+describe("comment path with the toxicity check off", () => {
+  test("the owner would pass the Pro check under the stubbed identity provider", async () => {
+    await expect(isProConvo(OWNER_UID)).resolves.toBe(true);
+    expect(mockGetByEmail).toHaveBeenCalledTimes(1);
+    expect(mockGetRoles).toHaveBeenCalledTimes(1);
+  });
+
+  test("a participant comment makes no identity-provider call and no Gemini call, and is stored active and unmoderated", async () => {
     const res = await postComment({ "x-forwarded-for": COMMENTER_IP });
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ tid: 3 }));
+    expect(mockGetByEmail).not.toHaveBeenCalled();
+    expect(mockGetRoles).not.toHaveBeenCalled();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockHttpGet).not.toHaveBeenCalled();
+    expect(geolocationRequests()).toEqual([]);
+
+    const params = insertedCommentParams();
+    expect(params[4]).toBe(true); // active
+    expect(params[5]).toBe(0); // mod: unmoderated
+    expect(params[8]).toBe(false); // is_seed
+  });
+});
+
+describe("the dormant moderation module's location context", () => {
+  test("uses the neutral default and makes no geolocation request", async () => {
+    await analyzeComment("A public-fixture comment", "Public fixture topic");
+
     expect(geolocationRequests()).toEqual([]);
     expect(mockHttpGet).not.toHaveBeenCalled();
     const prompt = sentPrompt();
     expect(geographicalContext(prompt)).toBe(NEUTRAL_DEFAULT);
     expect(prompt).not.toContain(COMMENTER_IP);
     expect(prompt).not.toContain("Fixture City");
-  });
-
-  test("a comment with only a socket address makes no geolocation request and uses the neutral default", async () => {
-    const res = await postComment({});
-
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ tid: 3 }));
-    expect(geolocationRequests()).toEqual([]);
-    expect(mockHttpGet).not.toHaveBeenCalled();
-    expect(geographicalContext(sentPrompt())).toBe(NEUTRAL_DEFAULT);
   });
 });
