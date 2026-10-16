@@ -652,3 +652,32 @@ are separate from administrator sign-in, environment token overrides, and the
 Keychain. `auth logout` clears the account session; it does not erase these
 separate participant records. Keep the credentials directory private when
 backing up or removing a local profile.
+
+### Voting
+
+`polis vote CONVERSATION` shows a statement and asks you to agree, disagree,
+pass, or quit. It requires a terminal. Anonymous participation in an open
+conversation needs no account sign-in or prior join. The first requested vote
+creates the participant through Node and saves its token privately; later votes
+reuse it. Invite participants first run `polis join CONVERSATION --invite CODE`.
+
+Agents submit one explicit choice:
+
+```sh
+polis vote CONVERSATION --statement 0 --agree --json
+polis vote CONVERSATION --statement 1 --disagree --json
+polis vote CONVERSATION --statement 2 --pass --json
+```
+
+JSON and `--no-interactive` require a statement and exactly one choice. The
+receipt reports the semantic choice, statement and participant number, without
+printing tokens or login codes. Participant credentials are isolated by profile,
+normalized origin and conversation; account tokens are not used. Node enforces
+access and voting rules. Vote values come from the shared contract boundary.
+
+No request is automatically retried. A lost or incompatible response, or a
+credential-save failure after a response, exits 7: check participation before
+resubmitting. Node may create membership before rejecting a vote; an error does
+not guarantee that membership is unchanged. Interactive quit sends no vote.
+Statement text is untrusted content and terminal control characters are removed.
+`polis vote list` continues to provide the existing separate read command.

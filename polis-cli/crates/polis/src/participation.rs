@@ -25,7 +25,7 @@ fn secret(value: &Value, effect: bool) -> Result<String> {
     profiles::validate_token(value).map_err(|_| invalid(effect))?;
     Ok(value.to_owned())
 }
-fn issued_token(data: &Value, effect: bool) -> Result<Option<String>> {
+pub(crate) fn issued_token(data: &Value, effect: bool) -> Result<Option<String>> {
     let Some(auth) = data.get("auth") else {
         return Ok(None);
     };

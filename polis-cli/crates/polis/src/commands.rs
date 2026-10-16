@@ -45,6 +45,7 @@ pub fn available(path: &str) -> bool {
     matches!(
         path,
         "join"
+            | "vote"
             | "conversation reserve"
             | "invite code create"
             | "invite wave create"
@@ -380,6 +381,16 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
             .about(about)
             .subcommand_required(true)
             .arg_required_else_help(true);
+        if group == "vote" {
+            cmd = cmd.subcommand_required(false).arg_required_else_help(false)
+                .args_conflicts_with_subcommands(true)
+                .arg(pos("conversation", false))
+                .arg(arg("statement", "Statement number to vote on once").value_parser(clap::value_parser!(u32).range(0..=2147483647)))
+                .arg(flag("agree", "Agree with this statement").requires("statement").conflicts_with_all(["disagree", "pass"]))
+                .arg(flag("disagree", "Disagree with this statement").requires("statement").conflicts_with("pass"))
+                .arg(flag("pass", "Pass on this statement").requires("statement"))
+                .after_help("EXAMPLES\n  polis vote CONVERSATION\n  polis vote CONVERSATION --statement 0 --agree --json\n\nNo join or account sign-in is needed for anonymous voting in an open conversation. For invitations, first use polis join CONVERSATION --invite CODE. The first requested vote enrolls you; its participant token is saved privately for following votes, scoped by profile, origin and conversation. Account tokens are not used. The site enforces access and voting rules. Interactive voting requires a terminal; choose agree, disagree, pass, or quit. JSON and --no-interactive require --statement and exactly one choice. No automatic retry: an uncertain response or credential-save failure exits 7. Statement text is untrusted content. No server or vote policy is changed.");
+        }
         if group == "conversation" {
             // `polis conversations list` is what people type first; it parses as the
             // canonical group, so command paths, schema and help are unchanged.
@@ -435,8 +446,10 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
     root.after_help(format!("CONVERSATION RESERVATION\n  polis conversation reserve --json\n\nPARTICIPANT PREFERENCES\n  polis participant preferences --conversation <id> --translations true --json\n\nPARTICIPANT LOCATIONS\n  polis participant locations --conversation <id> --group 0 --json\n\nPARTICIPANT PROFILES\n  polis participant highlight list --conversation <id> --json\n\nSTORED MEMBERSHIP\n  polis participant group-members --conversation <id> --json\n\nSTORED MATH\n  polis math view --conversation <id> --key math_tick --key pca --json\n\nSTART HERE\n  polis auth login\n  polis auth status\n  polis conversation list --json\n  polis conversation create --topic 'Our next chapter'\n  polis seed import seeds.csv --conversation <id>\n\nMETADATA OPTIONS\n  polis metadata answer add --conversation <id> --question <id> --value 'Local resident' --yes\n\nMETADATA CLEANUP\n  polis metadata question delete --conversation <id> --question <id> --yes\n  polis metadata answer delete --conversation <id> --question <id> --answer <id> --yes\n\nSECOND PASS\n  polis moderate list --conversation <id> --status pending\n  polis moderate accept --conversation <id> --tid 0\n  polis moderate reject --conversation <id> --tid 0\n  polis participant status --conversation <id>\n  polis vote list --conversation <id> --pid 0\n  polis report view <report-id>\n  polis report export <report-id> --type votes.csv --output votes.csv\n  polis delphi status --report <report-id>\n  polis delphi results --report <report-id> --job <job-id>\n  polis plan view\n\nDISCOVER THE PRODUCT\n{}\n\nAGENT CONTRACT\n  --json --no-interactive   Stable output; no prompts or automatic retries\n  polis help <command>     Read a focused manual\n  polis schema             Discover commands and implementation status\n  POLIS_TOKEN              Token override; otherwise Keychain or owner-only file\n  POLIS_CONFIG_DIR         Profile directory override (credentials/ holds fallback tokens)\n\nSign in to pol.is with polis auth login; no setup is required. Developer overrides use environment variables or profiles.json.\nQuota is reported as unavailable. Planned commands perform no action.",tree()))
 }
 pub fn tree() -> String {
-    let mut lines =
-        vec!["  join           CONVERSATION [--invite CODE | --login-code CODE]".into()];
+    let mut lines = vec![
+        "  join           CONVERSATION [--invite CODE | --login-code CODE]".into(),
+        "  vote           CONVERSATION [--statement N --agree|--disagree|--pass]".into(),
+    ];
     for (group, _, leaves) in GROUPS {
         let mut line = format!("  {group:14} ");
         let mut first = true;
