@@ -79,23 +79,22 @@ async function getXidsCount(zid: number): Promise<number> {
  * @param owner - Conversation owner UID
  * @returns Promise resolving to total count
  */
-async function getXidAllowListCount(
-  zid: number,
-  owner: number
-): Promise<number> {
+async function getXidAllowListCount(owner: number): Promise<number> {
   const result = await pg.queryP_readOnly<{ count: string }>(
-    "select count(*) as count from xid_whitelist where (zid = ($1)) OR (zid IS NULL AND owner = ($2));",
-    [zid, owner]
+    "select count(*) as count from xid_whitelist where owner = ($1);",
+    [owner]
   );
   return result && result[0] ? parseInt(result[0].count, 10) : 0;
 }
 
 /**
- * Fetches XID allow list records for a conversation (paginated).
- * Returns records with pid if the xid is in use, null otherwise.
- * Includes records where zid matches OR (zid is NULL and owner matches).
- * @param zid - Conversation ID
- * @param owner - Conversation owner UID
+ * Fetches the allow-list that applies to a conversation (paginated): every
+ * row of the conversation's owner, whichever conversation listed it, since an
+ * allow-listed xid is admitted to every conversation of the owner. Each row
+ * carries the pid the xid holds in THIS conversation, or null when it has not
+ * joined it.
+ * @param zid - Conversation ID (for the pid column)
+ * @param owner - Conversation owner UID (whose list applies)
  * @param limit - Maximum number of records to return
  * @param offset - Number of records to skip
  * @returns Promise resolving to array of XidRecord objects {pid: number | null, xid: string}
@@ -106,20 +105,15 @@ async function getXidAllowListPaginated(
   limit: number,
   offset: number
 ): Promise<XidRecord[]> {
-  // Query to match allow list xids with participants (pids) if they're in use
-  // Uses LEFT JOINs to ensure all allow list entries are returned, even if not in use
+  // LEFT JOINs so that every listed xid is returned, joined or not
   const rows = await pg.queryP_readOnly<{ pid: number | null; xid: string }>(
-    `SELECT 
+    `SELECT
       wl.xid,
       p.pid
     FROM xid_whitelist wl
-    LEFT JOIN xids x ON x.xid = wl.xid 
-      AND (
-        (x.zid = $1) OR 
-        (x.zid IS NULL AND x.owner = $2)
-      )
+    LEFT JOIN xids x ON x.xid = wl.xid AND x.owner = $2
     LEFT JOIN participants p ON p.uid = x.uid AND p.zid = $1
-    WHERE (wl.zid = $1) OR (wl.zid IS NULL AND wl.owner = $2)
+    WHERE wl.owner = $2
     ORDER BY wl.xid
     LIMIT $3 OFFSET $4`,
     [zid, owner, limit, offset]
@@ -197,7 +191,9 @@ async function handle_GET_xids(
 
 /**
  * GET /api/v3/xidAllowList
- * Returns a paginated array of XID strings from the xid_whitelist table for a given conversation.
+ * Returns, paginated, the allow-list that applies to a conversation: every
+ * xid its owner has listed, from any of their conversations, with the pid the
+ * xid holds in this conversation when it has joined it.
  * Requires the user to be an admin, moderator, or owner of the conversation.
  */
 async function handle_GET_xidAllowList(
@@ -245,10 +241,11 @@ async function handle_GET_xidAllowList(
       { defaultLimit: 50, maxLimit: 500 }
     );
 
-    // Get total count (includes zid matches and legacy owner matches)
-    const total = await getXidAllowListCount(zid, owner);
+    // The owner's whole list: it is what admits participants to this
+    // conversation, whichever conversation each xid was listed from.
+    const total = await getXidAllowListCount(owner);
 
-    // Get paginated XIDs with pid associations (includes zid matches and legacy owner matches)
+    // Paginated xids with the pid each holds in this conversation
     const xids = await getXidAllowListPaginated(
       zid,
       owner,
@@ -352,8 +349,11 @@ async function handle_POST_xidAllowList(
       }
     }
 
-    // If replace_all is true, delete existing XIDs that are not in the incoming list
-    // This preserves existing pids for XIDs that are being kept
+    // If replace_all is true, delete the owner's listed XIDs that are not in
+    // the incoming list, whichever conversation listed them: the list is the
+    // owner's and applies to every conversation of theirs, so the incoming
+    // list replaces it as a whole. Existing rows (and the pids they hold) are
+    // kept for the XIDs that stay.
     if (replace_all) {
       logger.debug(
         "handle_POST_xidAllowList: replace_all is true, deleting non-matching XIDs",
@@ -368,10 +368,10 @@ async function handle_POST_xidAllowList(
         xid_allow_list.map((xid) => xid.toLowerCase())
       );
 
-      // Get all existing XIDs for this conversation (zid matches or legacy owner matches)
+      // Every XID the owner has listed, from any conversation or owner-wide
       const existingRows = await pg.queryP_readOnly<{ xid: string }>(
-        "SELECT xid FROM xid_whitelist WHERE (zid = $1) OR (zid IS NULL AND owner = $2);",
-        [zid, owner]
+        "SELECT xid FROM xid_whitelist WHERE owner = $1;",
+        [owner]
       );
 
       if (Array.isArray(existingRows) && existingRows.length > 0) {
@@ -393,8 +393,8 @@ async function handle_POST_xidAllowList(
             }
           );
 
-          // Delete by matching zid + xid (preferred) or owner + xid (legacy)
-          // Use parameterized query for safety
+          // Delete the owner's rows for those xids, whichever conversation
+          // listed them. Use parameterized query for safety
           const xidPlaceholders = xidsToDelete
             .map((_, idx) => `$${idx + 1}`)
             .join(",");
@@ -403,12 +403,10 @@ async function handle_POST_xidAllowList(
           await pg.queryP(
             "DELETE FROM xid_whitelist WHERE xid IN (" +
               xidPlaceholders +
-              ") AND ((zid = $" +
+              ") AND owner = $" +
               (xidsToDelete.length + 1) +
-              ") OR (zid IS NULL AND owner = $" +
-              (xidsToDelete.length + 2) +
-              "));",
-            [...deleteParams, zid, owner]
+              ";",
+            [...deleteParams, owner]
           );
         }
       }

@@ -18,7 +18,12 @@ import { Response, NextFunction } from "express";
 import { addParticipantAndMetadata } from "../participant";
 import { checkLegacyCookieAndIssueJWT } from "./legacyCookies";
 import { createAnonUser } from "./create-user";
-import { createXidRecord, getXidRecord, isXidAllowed, xidExists } from "../xids";
+import {
+  createXidRecord,
+  getXidRecord,
+  isXidAllowed,
+  xidExists,
+} from "../xids";
 import { failJson } from "../utils/fail";
 import { getConversationInfo, getZidFromConversationId } from "../conversation";
 import { getPidPromise } from "../user";
@@ -120,8 +125,7 @@ async function _tokenIsForAnotherConversation(
  * Returns true if the request should be treated as a new participant
  */
 async function _handleJWTConversationMismatch(
-  req: RequestWithP,
-  zid: number
+  req: RequestWithP
 ): Promise<boolean> {
   if (!req.p.jwt_conversation_mismatch) {
     return false;
@@ -137,49 +141,19 @@ async function _handleJWTConversationMismatch(
     return true;
   }
 
-  if (req.p.xid_participant && req.p.xid) {
-    // XID participant - apply the 4-case logic
-    const jwtXid = req.p.jwt_xid;
-    const requestXid = req.p.xid;
-    const xidMatches = jwtXid === requestXid;
-
-    // Check if XID exists for current conversation
-    let xidForCurrentConversation = false;
-    try {
-      const xidRecords = await getXidRecord(requestXid, zid);
-      if (xidRecords && xidRecords.length > 0) {
-        xidForCurrentConversation = true;
-      }
-    } catch (err) {
-      // XID not found for this conversation
-    }
-
-    if (xidMatches) {
-      // Case 2: Token and XID align but are for different conversation
-      logger.debug(
-        "Case 2: XID participant with matching JWT/XID for different conversation - treating as anonymous"
-      );
-      req.p.xid = undefined; // Clear XID to treat as anonymous
-      req.p.uid = undefined;
-      req.p.pid = undefined;
-      return true;
-    } else if (!xidMatches && xidForCurrentConversation) {
-      // Case 3: Token for different conversation, but XID is for current
-      logger.debug(
-        "Case 3: XID participant with mismatched JWT but XID for current conversation - maintaining XID"
-      );
-      req.p.uid = undefined;
-      req.p.pid = undefined;
-      return true;
-    } else {
-      // Case 4: Token for current conversation, but XID for different
-      logger.debug(
-        "Case 4: XID participant with JWT for current conversation but XID for different - treating as anonymous"
-      );
-      req.p.xid = undefined; // Clear XID
-      // Keep uid/pid from JWT
-      return false;
-    }
+  if (req.p.xid_participant) {
+    // An XID token for another conversation carries no identity here: its
+    // uid and pid belong to the conversation that issued it, which may be
+    // another owner's. The xid stays (the request's own, or the token's when
+    // the request named none) and is resolved under this conversation's
+    // owner like a first contact: the xid record under this owner if there
+    // is one, else this conversation's xid gates and a new user.
+    logger.debug(
+      "XID participant with JWT for different conversation - resolving the xid under this owner"
+    );
+    req.p.uid = undefined;
+    req.p.pid = undefined;
+    return true;
   }
 
   if (req.p.standard_user_participant) {
@@ -190,6 +164,39 @@ async function _handleJWTConversationMismatch(
   }
 
   return false;
+}
+
+/**
+ * The owner's allow-list, applied whenever an xid is the identity of the
+ * request: a bare xid, an XID token, or an XID token with another xid in the
+ * request. It runs on every action (the first join, and each vote, comment
+ * and read after it). The list is the conversation owner's: an xid listed
+ * for any conversation of theirs, or owner-wide, is admitted; an xid never
+ * listed for this owner is refused, as is one removed from the list, from
+ * then on, in every conversation of the owner that uses the list.
+ *
+ * Cost: one conversations read for a request whose identity is an xid, and
+ * one allow-list read when the conversation uses one. A request without an
+ * xid, or whose identity comes from another kind of token, reads nothing.
+ */
+async function _requireXidAllowed(
+  req: RequestWithP,
+  zid: number
+): Promise<void> {
+  const xidIsIdentity =
+    req.p.xid !== undefined &&
+    (req.p.uid === undefined || req.p.xid_participant);
+  if (!xidIsIdentity) {
+    return;
+  }
+  const conv = await getConversationInfo(zid);
+  if (!conv.use_xid_whitelist) {
+    return;
+  }
+  const isAllowed = await isXidAllowed(req.p.xid as string, zid, conv.owner);
+  if (!isAllowed) {
+    throw new Error("polis_err_xid_not_allowed");
+  }
 }
 
 /**
@@ -207,20 +214,11 @@ async function _handleUserIdentification(
 
   const conv = await getConversationInfo(zid);
 
-  // XID validation logic
-  if (conv.use_xid_whitelist) {
-    if (req.p.xid) {
-      const isAllowed = await isXidAllowed(req.p.xid, zid, conv.owner);
-      if (!isAllowed) {
-        throw new Error("polis_err_xid_not_allowed");
-      }
-    } else {
-      throw new Error("polis_err_xid_required");
-    }
-  } else if (conv.xid_required) {
-    if (!req.p.xid) {
-      throw new Error("polis_err_xid_required");
-    }
+  // A conversation that requires an xid (an allow-list implies one) admits
+  // no new user without it. Whether a named xid is on the allow-list was
+  // decided by _requireXidAllowed before any identity was resolved.
+  if ((conv.use_xid_whitelist || conv.xid_required) && !req.p.xid) {
+    throw new Error("polis_err_xid_required");
   }
 
   if (req.p.xid) {
@@ -319,15 +317,16 @@ async function _issueJWTIfNeeded(
 ): Promise<{ token?: string; conversationId?: string }> {
   // Only issue JWT for:
   // 1. Newly created participants
-  // 2. Participants that need a new JWT (conversation mismatch)
+  // 2. Participants that need a new JWT (the token presented was for another
+  //    conversation, or was bound to another xid than the request named)
   // 3. Legacy cookie users who need migration
   // 4. XID participants who don't have a JWT yet (first authenticated action)
-  // AND when they don't already have a valid JWT
+  // AND when they don't already have a valid JWT for this identity
   const isXidWithoutJWT =
     req.p.xid && !req.headers?.authorization && !legacyCookieToken;
   const shouldIssueJWT =
     (isNewlyCreated || needsNewJWT || isXidWithoutJWT) &&
-    (!req.headers?.authorization || req.p.jwt_conversation_mismatch);
+    (!req.headers?.authorization || needsNewJWT);
 
   if (!shouldIssueJWT) {
     logger.debug("JWT not needed", {
@@ -423,6 +422,13 @@ async function _ensureParticipantInternal(
   let needsNewJWT = false;
   let legacyCookieToken: string | undefined;
 
+  // An empty or whitespace-only xid in the request names nothing. The
+  // identity is then the token's xid when the token is bound to one, and
+  // otherwise no xid at all, as if the parameter were absent.
+  if (req.p.xid !== undefined && req.p.xid.trim() === "") {
+    req.p.xid = req.p.jwt_xid;
+  }
+
   // Decide the token's scope against the conversation the route resolved,
   // then let the handler apply its per-token-kind policy to req.p.uid and
   // req.p.pid. The identity is read from req.p only after both have run.
@@ -430,7 +436,7 @@ async function _ensureParticipantInternal(
     req,
     zid
   );
-  await _handleJWTConversationMismatch(req, zid);
+  await _handleJWTConversationMismatch(req);
 
   if (req.p.jwt_conversation_mismatch) {
     // A pid only has meaning in the conversation whose token carried it. A
@@ -442,6 +448,19 @@ async function _ensureParticipantInternal(
     req.p.pid = undefined;
     needsNewJWT = true;
   }
+
+  if (req.p.xid_participant && req.p.xid !== req.p.jwt_xid) {
+    // The request names an xid other than the one its token is bound to.
+    // The xid is the identity, never the token's participant: it is resolved
+    // on its own below, through this conversation's xid gates, and the
+    // response carries a token bound to it.
+    req.p.uid = undefined;
+    req.p.pid = undefined;
+    needsNewJWT = true;
+  }
+
+  // The allow-list applies before any identity is resolved or created.
+  await _requireXidAllowed(req, zid);
 
   let uid = req.p.uid;
   let pid = req.p.pid;

@@ -3,6 +3,7 @@
 import type { Response as ExpressResponse } from "express";
 import { getZidForRid, getZidForUuid } from "../utils/zinvite";
 import { failJson } from "../utils/fail";
+import { isModerator } from "../utils/common";
 import {
   sendVotesSummary,
   sendParticipantVotesSummary,
@@ -84,20 +85,28 @@ export async function handle_GET_reportExport(
 
 export async function handle_GET_xidReport(
   req: {
-    p: { xid_report: string };
+    p: { xid_report: string; uid?: number };
   },
   res: ExpressResponse
 ) {
-  const { xid_report } = req.p;
+  const { xid_report, uid } = req.p;
   // example xid_report: "51295d48-9422-4a58-90dd-8a6e32cd1b52-xid.csv"
   try {
     const uuid = xid_report.split("-xid.csv")[0];
     const zid = await getZidForUuid(uuid);
-    if (zid != null) {
-      await sendParticipantXidsSummary(zid, res);
-    } else {
+    if (zid == null) {
       failJson(res, 404, "polis_error_data_unknown_report");
+      return;
     }
+    // The UUID is a capability key for the participant-to-xid map, and a link
+    // that carries it can be copied or logged. The download therefore takes
+    // the same owner/moderator gate as minting the UUID
+    // (GET /api/v3/conversationUuid); nobody else is handed the map.
+    if (!(await isModerator(zid, uid))) {
+      failJson(res, 403, "polis_err_xid_report_auth");
+      return;
+    }
+    await sendParticipantXidsSummary(zid, res);
   } catch (err) {
     logger.error("polis_err_report_xid", err);
     failJson(res, 500, "polis_err_data_export", err);

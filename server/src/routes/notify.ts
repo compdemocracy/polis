@@ -486,8 +486,17 @@ function handle_POST_convSubscriptions(
   }
 
   if (type === 1) {
-    subscribeToNotifications(zid, uid, email)
-      .then(finish)
+    getConversationInfo(zid)
+      .then(function (info) {
+        // A conversation with subscriptions turned off (subscribe_type 0)
+        // collects no addresses: the request is refused before anything is
+        // stored.
+        if (!info || !info.subscribe_type) {
+          failJson(res, 403, "polis_err_subscriptions_disabled");
+          return;
+        }
+        return subscribeToNotifications(zid, uid, email).then(finish);
+      })
       .catch(function (err: any) {
         failJson(res, 500, "polis_err_sub_conv " + zid + " " + uid, err);
       });

@@ -437,6 +437,7 @@ export const appReady = helpersInitialized.then(
     app.get(
       "/api/v3/xid/:xid_report",
       moveToBody,
+      hybridAuth(assignToP),
       need("xid_report", getStringLimitLength(1, 99), assignToP),
       handle_GET_xidReport
     );
