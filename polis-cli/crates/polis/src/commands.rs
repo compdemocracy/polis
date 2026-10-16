@@ -44,7 +44,8 @@ fn flag(name: &str, help: &str) -> Arg {
 pub fn available(path: &str) -> bool {
     matches!(
         path,
-        "join"
+        "comment"
+            | "join"
             | "vote"
             | "conversation reserve"
             | "invite code create"
@@ -376,6 +377,11 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
         .arg(arg("invite", "Accept a one-time invite; save its login code privately").conflicts_with("login-code"))
         .arg(arg("login-code", "Sign in as a returning Treevite participant"))
         .after_help("Without a code, prepares participation without enrolling a fresh visitor. The first requested vote or comment enrolls them. Repeated joins reuse only this profile, origin and conversation's participant credentials. Invite and login codes are distinct; no automatic retry or fallback. Tokens and login codes are saved in the owner-only credentials store and never printed. Codes passed as arguments may be visible in local shell history and process listings."));
+    root = root.subcommand(Command::new("comment")
+        .about("Submit a participant statement to a conversation")
+        .arg(pos("conversation", true))
+        .arg(pos("text", true))
+        .after_help("EXAMPLES\n  polis comment CONVERSATION \"A statement to discuss\"\n  polis comment CONVERSATION \"A statement to discuss\" --json\n\nUses this profile, origin and conversation's participant credentials. In an open conversation the first requested comment enrolls an anonymous participant; no prior join or account sign-in is needed. For invitations, first use polis join CONVERSATION --invite CODE. Sends only conversation_id and txt, with no seed flag or author vote. Node enforces participation and moderation; a submission receipt does not imply approval or visibility. Text is never echoed in errors. Arguments can remain in shell history and process listings. No automatic retries; an uncertain write or credential-save failure exits 7. Inspect the conversation before submitting again."));
     for &(group, about, leaves) in GROUPS {
         let mut cmd = Command::new(group)
             .about(about)
@@ -448,6 +454,7 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
 pub fn tree() -> String {
     let mut lines = vec![
         "  join           CONVERSATION [--invite CODE | --login-code CODE]".into(),
+        "  comment        CONVERSATION TEXT".into(),
         "  vote           CONVERSATION [--statement N --agree|--disagree|--pass]".into(),
     ];
     for (group, _, leaves) in GROUPS {
