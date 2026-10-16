@@ -11,6 +11,18 @@ import XidAllowListTable from './ParticipantManagement/XidAllowListTable.js'
 import PolisNet from '../../util/net'
 import Spinner from '../framework/Spinner'
 
+const XID_ALLOW_LIST_FIXED = 'polis_err_xid_whitelist_fixed_after_start'
+
+// The words for a refused settings change. The one refusal the owner can act on
+// gets its own sentence; any other failure gets a plain one with no detail.
+export const settingErrorMessage = (error) => {
+  if (!error) return null
+  if (error.status === 409 && String(error.responseText || '').includes(XID_ALLOW_LIST_FIXED)) {
+    return "This setting can't change once participants have joined. Start a new conversation to use a different setting."
+  }
+  return "Couldn't save this change."
+}
+
 const ParticipantManagement = () => {
   const params = useParams()
   const conversationData = useConversationData()
@@ -30,13 +42,26 @@ const ParticipantManagement = () => {
   const xidRequired = Boolean(conversationData?.xid_required)
   const [activeTab, setActiveTab] = useState('inUse') // 'inUse' | 'allowList'
 
+  // The setting last changed from this screen; a refused update is shown under
+  // it. The store clears the error when the next update starts.
+  const [changedSetting, setChangedSetting] = useState(null)
+  const settingError = settingErrorMessage(conversationData?.error)
+  const errorFor = (field) =>
+    changedSetting === field && settingError ? (
+      <Text data-testid={`${field}_error`} sx={{ ml: [2], color: 'error', fontSize: [0] }}>
+        {settingError}
+      </Text>
+    ) : null
+
   const handleXidAllowListToggle = () => {
     const newValue = !useXidAllowList
+    setChangedSetting('use_xid_whitelist')
     dispatch(handleConversationDataUpdate(conversationData, 'use_xid_whitelist', newValue))
   }
 
   const handleXidRequiredToggle = () => {
     const newValue = !xidRequired
+    setChangedSetting('xid_required')
     dispatch(handleConversationDataUpdate(conversationData, 'xid_required', newValue))
   }
 
@@ -108,6 +133,7 @@ const ParticipantManagement = () => {
               Required because XID Allow List is enabled.
             </Text>
           )}
+          {errorFor('xid_required')}
         </Box>
       </Flex>
 
@@ -129,6 +155,7 @@ const ParticipantManagement = () => {
             overflowWrap: 'break-word'
           }}>
           <Text>Use XID Allow List</Text>
+          {errorFor('use_xid_whitelist')}
         </Box>
       </Flex>
 
