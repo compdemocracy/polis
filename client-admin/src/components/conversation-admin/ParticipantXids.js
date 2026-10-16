@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import { Heading, Link, Text } from 'theme-ui'
+import { Button, Heading, Link, Text } from 'theme-ui'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 
@@ -28,6 +28,34 @@ const ParticipantXids = ({ conversation_id }) => {
     isLoading: true,
     error: null
   })
+  const [downloadError, setDownloadError] = useState(null)
+
+  // The CSV route needs the admin's login: the file is fetched with the bearer
+  // token and handed to the browser as a download, instead of being linked.
+  const downloadXidCsv = async () => {
+    const url = `${urlPrefix}api/v3/xid/${state.conversationUuid}-xid.csv`
+    setDownloadError(null)
+    try {
+      const token = await PolisNet.getAccessTokenSilentlySPA()
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (!response.ok) {
+        throw new Error(`XID CSV download failed with status ${response.status}`)
+      }
+      const objectUrl = URL.createObjectURL(await response.blob())
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = getDownloadFilename(conversation_id)
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(objectUrl)
+    } catch (error) {
+      console.error('Error downloading XID CSV:', error)
+      setDownloadError('Could not download the XID CSV')
+    }
+  }
 
   const loadConversationUuid = () => {
     // Use PolisNet.polisGet to ensure proper authorization header
@@ -113,20 +141,28 @@ const ParticipantXids = ({ conversation_id }) => {
               display: 'block',
               mb: [2]
             }}>
-            <a
-              download={downloadFilename}
-              href={`${urlPrefix}api/v3/xid/${conversationUuid}-xid.csv`}
-              type="text/csv">
+            <Button type="button" onClick={downloadXidCsv}>
               xid csv download: {downloadFilename}
-            </a>
+            </Button>
           </Text>
+
+          {downloadError ? (
+            <Text
+              sx={{
+                display: 'block',
+                mb: [2],
+                color: 'error'
+              }}>
+              {downloadError}
+            </Text>
+          ) : null}
 
           <Text
             sx={{
               display: 'block',
               mb: [3]
             }}>
-            {`curl: ${urlPrefix}api/v3/xid/${conversationUuid}-xid.csv`}
+            {`curl -H "Authorization: Bearer <admin token>" ${urlPrefix}api/v3/xid/${conversationUuid}-xid.csv`}
           </Text>
         </>
       ) : (
