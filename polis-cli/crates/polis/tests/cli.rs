@@ -29,59 +29,225 @@ fn parsed(out: &Output) -> Value {
     })
 }
 fn fixture(status: u16, kind: &str, body: &str, args: &[&str]) -> (Output, String) {
+    let (out, mut requests, _) = sequence(&[(status, kind, body)], args);
+    (out, requests.remove(0))
+}
+/// Serves one response per connection, in order, and returns the CLI output, the
+/// requests as read, and the site origin the CLI was given.
+fn sequence(responses: &[(u16, &str, &str)], args: &[&str]) -> (Output, Vec<String>, String) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     listener.set_nonblocking(true).unwrap();
-    let response=format!("HTTP/1.1 {status} Fixture\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
+    let responses: Vec<String> = responses.iter().map(|(status, kind, body)| format!("HTTP/1.1 {status} Fixture\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len())).collect();
     let server = thread::spawn(move || {
-        let start = std::time::Instant::now();
-        let mut stream = loop {
-            match listener.accept() {
-                Ok((s, _)) => break s,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(start.elapsed().as_secs() < 10, "CLI never connected");
-                    thread::sleep(std::time::Duration::from_millis(10));
+        let mut requests = Vec::new();
+        for response in responses {
+            let start = std::time::Instant::now();
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((s, _)) => break s,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(start.elapsed().as_secs() < 10, "CLI never connected");
+                        thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    Err(e) => panic!("{e}"),
                 }
-                Err(e) => panic!("{e}"),
-            }
-        };
-        stream.set_nonblocking(false).unwrap();
-        stream
-            .set_read_timeout(Some(std::time::Duration::from_secs(10)))
-            .unwrap();
-        let mut bytes = Vec::new();
-        let mut buf = [0; 4096];
-        loop {
-            let n = stream.read(&mut buf).unwrap();
-            if n == 0 {
-                break;
-            }
-            bytes.extend_from_slice(&buf[..n]);
-            if let Some(end) = bytes.windows(4).position(|x| x == b"\r\n\r\n") {
-                let head = String::from_utf8_lossy(&bytes[..end]).to_ascii_lowercase();
-                let length = head
-                    .lines()
-                    .find_map(|s| {
-                        s.strip_prefix("content-length: ")
-                            .and_then(|v| v.parse::<usize>().ok())
-                    })
-                    .unwrap_or(0);
-                if bytes.len() >= end + 4 + length {
+            };
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(10)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let mut buf = [0; 4096];
+            loop {
+                let n = stream.read(&mut buf).unwrap();
+                if n == 0 {
                     break;
                 }
+                bytes.extend_from_slice(&buf[..n]);
+                if let Some(end) = bytes.windows(4).position(|x| x == b"\r\n\r\n") {
+                    let head = String::from_utf8_lossy(&bytes[..end]).to_ascii_lowercase();
+                    let length = head
+                        .lines()
+                        .find_map(|s| {
+                            s.strip_prefix("content-length: ")
+                                .and_then(|v| v.parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if bytes.len() >= end + 4 + length {
+                        break;
+                    }
+                }
             }
+            stream.write_all(response.as_bytes()).unwrap();
+            requests.push(String::from_utf8(bytes).unwrap());
         }
-        stream.write_all(response.as_bytes()).unwrap();
-        String::from_utf8(bytes).unwrap()
+        requests
     });
     let tmp = tempfile::tempdir().unwrap();
+    let origin = format!("http://{address}");
     std::fs::write(
         tmp.path().join("profiles.json"),
-        json!({"default":"local","sites":{"local":format!("http://{address}")}}).to_string(),
+        json!({"default":"local","sites":{"local":origin}}).to_string(),
     )
     .unwrap();
     let out = run(tmp.path(), args);
-    (out, server.join().unwrap())
+    (out, server.join().unwrap(), origin)
+}
+fn owned_conversations() -> String {
+    json!([
+        {"conversation_id":"abc","topic":"Budget 2027","description":"Where should the city spend next year?","is_owner":true},
+        {"conversation_id":"def","topic":"Parks","description":null,"is_owner":true},
+        {"conversation_id":"ghi","topic":"Shared site row","is_owner":false}
+    ])
+    .to_string()
+}
+fn text(out: &Output) -> String {
+    String::from_utf8(out.stdout.clone()).unwrap()
+}
+#[test]
+fn list_prints_a_table_with_the_newest_report_of_each_conversation() {
+    // PostgreSQL's BIGINT arrives as a string; a report without `created` never wins.
+    let reports = json!([
+        {"report_id":"r1older","conversation_id":"abc","created":"1700000000000"},
+        {"report_id":"r0undated","conversation_id":"abc"},
+        {"report_id":"r2newer","conversation_id":"abc","created":1800000000000u64},
+        {"report_id":"r3other","conversation_id":"zzz","created":1900000000000u64}
+    ])
+    .to_string();
+    let (o, requests, origin) = sequence(
+        &[
+            (200, "application/json", &owned_conversations()),
+            (200, "application/json", &reports),
+        ],
+        &["conversation", "list"],
+    );
+    assert!(o.status.success());
+    assert!(
+        o.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    assert!(requests[0].starts_with("GET /api/v3/conversations?limit=100 "));
+    assert!(
+        requests[1].starts_with("GET /api/v3/reports "),
+        "{}",
+        requests[1]
+    );
+    assert!(requests[1]
+        .to_ascii_lowercase()
+        .contains("authorization: bearer public-fixture-token"));
+    let stdout = text(&o);
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines.len(), 3, "{stdout}");
+    assert!(lines[0].starts_with("TOPIC        DESCRIPTION"), "{stdout}");
+    assert!(
+        lines[0].contains("  URL") && lines[0].ends_with("REPORT"),
+        "{stdout}"
+    );
+    assert_eq!(
+        lines[1],
+        format!("Budget 2027  Where should the city spend next year?  {origin}/abc  {origin}/report/r2newer +2")
+    );
+    assert_eq!(
+        lines[2].trim_end(),
+        format!("Parks                                                {origin}/def")
+    );
+    assert!(!stdout.contains("Shared site row") && !stdout.contains("r3other"));
+}
+#[test]
+fn list_table_survives_a_failed_or_missing_reports_read() {
+    for (status, kind, body) in [
+        (
+            403,
+            "application/json",
+            r#"{"error":"polis_err_permissions"}"#,
+        ),
+        (200, "text/html", "<html>old server</html>"),
+        (200, "application/json", r#"{"reports":[]}"#),
+    ] {
+        let (o, requests, origin) = sequence(
+            &[
+                (200, "application/json", &owned_conversations()),
+                (status, kind, body),
+            ],
+            &["conversation", "list"],
+        );
+        assert_eq!(o.status.code(), Some(0), "{status} {kind}");
+        assert_eq!(requests.len(), 2);
+        let stdout = text(&o);
+        assert!(stdout.starts_with("TOPIC        DESCRIPTION"), "{stdout}");
+        assert!(stdout.contains(&format!("  {origin}/abc\n")), "{stdout}");
+        assert!(stdout.contains(&format!("  {origin}/def\n")), "{stdout}");
+        assert!(!stdout.contains("/report/"));
+        let stderr = String::from_utf8_lossy(&o.stderr);
+        assert_eq!(stderr.lines().count(), 1, "{stderr}");
+        assert!(
+            stderr.starts_with("polis: report links unavailable"),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("polis_err_permissions") && !stderr.contains("old server"));
+    }
+}
+#[test]
+fn list_table_cleans_and_truncates_text_but_never_links() {
+    let long = "x".repeat(300);
+    let body = json!([{
+        "conversation_id":"abc",
+        "topic":"Bud\u{7}get \u{1b}[31m2027\u{200e}\r\n\tnow",
+        "description":long,
+        "is_owner":true
+    }])
+    .to_string();
+    let (o, _, origin) = sequence(
+        &[
+            (200, "application/json", &body),
+            (200, "application/json", "[]"),
+        ],
+        &["conversation", "list"],
+    );
+    assert!(o.status.success());
+    let stdout = text(&o);
+    assert!(
+        !stdout.contains('\u{7}') && !stdout.contains('\u{1b}') && !stdout.contains('\u{200e}')
+    );
+    let row = stdout.lines().nth(1).unwrap();
+    assert!(row.starts_with("Budget [31m2027 now  "), "{row}");
+    assert!(row.contains('…') && !row.contains(&"x".repeat(60)), "{row}");
+    assert!(row.ends_with(&format!("…  {origin}/abc")), "{row}");
+}
+#[test]
+fn list_without_conversations_reads_no_reports() {
+    let (o, requests, _) = sequence(
+        &[(200, "application/json", "[]")],
+        &["conversation", "list", "--search", "nothing"],
+    );
+    assert!(o.status.success());
+    assert_eq!(requests.len(), 1);
+    assert_eq!(text(&o), "No conversations.\n");
+    assert!(o.stderr.is_empty());
+}
+#[test]
+fn list_json_envelope_is_unchanged_by_the_table() {
+    let (o, requests, _) = sequence(
+        &[(200, "application/json", &owned_conversations())],
+        &["conversation", "list", "--json"],
+    );
+    assert!(o.status.success());
+    assert!(o.stderr.is_empty());
+    assert_eq!(requests.len(), 1);
+    let v = parsed(&o);
+    assert_eq!(v["schema"], "polis-cli/1");
+    assert_eq!(
+        v["data"].as_object().unwrap().keys().collect::<Vec<_>>(),
+        ["conversations", "pagination", "scope"]
+    );
+    let expected: Value = serde_json::from_str(&owned_conversations()).unwrap();
+    assert_eq!(
+        v["data"]["conversations"],
+        json!([expected[0], expected[1]])
+    );
+    assert_eq!(v["warnings"], json!([]));
 }
 #[test]
 fn all_help_and_schema_commands_are_reachable() {

@@ -1,6 +1,8 @@
 mod collective;
 mod commands;
 mod highlights;
+mod invites;
+mod listing;
 mod locations;
 mod math;
 mod membership;
@@ -169,6 +171,10 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "metadata question list" | "metadata answer list" | "context list" => {
             pass8::execute(&path, m, config, site, timeout)
         }
+        "invite code create" | "invite wave create" | "invite code list" | "invite wave list"
+        | "invite list" | "invite export" | "invite status" | "conversation uuid" => {
+            invites::execute(&path, m, config, site, timeout)
+        }
         "conversation reserve" => reserve::execute(config, site, timeout),
         "participant preferences" => preferences::execute(m, config, site, timeout),
         "participant locations" => locations::execute(m, config, site, timeout),
@@ -317,17 +323,46 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     query.push((key.into(), value.clone()));
                 }
             }
-            let data = client(config, site, timeout, true)?.request(
-                "GET",
-                "/api/v3/conversations",
-                &query,
-                None,
-                false,
-            )?;
-            owned_list(
+            let c = client(config, site, timeout, true)?;
+            let data = c.request("GET", "/api/v3/conversations", &query, None, false)?;
+            let listing = owned_list(
                 data,
                 limit,
                 m.get_one::<String>("search").map(String::as_str),
+            )?;
+            if m.get_flag("json") {
+                return Ok(listing);
+            }
+            // People get a table. Its report column needs a second read, which is
+            // best effort: when that fails the table still prints and one warning
+            // goes to stderr, because the conversations were read successfully.
+            let conversations = listing["conversations"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            let reports = if conversations.is_empty() {
+                None
+            } else {
+                match c.request("GET", "/api/v3/reports", &[], None, false) {
+                    Ok(Value::Array(reports)) => Some(reports),
+                    Ok(_) => {
+                        eprintln!("polis: report links unavailable; the site returned no report list [invalid_response]");
+                        None
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "polis: report links unavailable: {} [{}]",
+                            e.message, e.code
+                        );
+                        None
+                    }
+                }
+            };
+            if listing["pagination"]["truncated"] == true {
+                eprintln!("polis: the site returned {limit} rows; raise --limit to read more.");
+            }
+            Ok(
+                json!({"table": listing::table(config.url(site)?, conversations, reports.as_deref())}),
             )
         }
         "conversation view" => {
@@ -514,8 +549,14 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
     } else {
         match result {
             Ok(v) => {
-                if let Some(help) = v.get("help").and_then(Value::as_str) {
-                    print!("{help}")
+                // Preformatted text (manuals, completions, the conversation table)
+                // is printed as is; anything else is pretty JSON.
+                if let Some(text) = v
+                    .get("help")
+                    .or_else(|| v.get("table"))
+                    .and_then(Value::as_str)
+                {
+                    print!("{text}")
                 } else {
                     println!("{}", serde_json::to_string_pretty(&v).unwrap())
                 }
@@ -594,6 +635,16 @@ fn main() -> ExitCode {
     {
         if let Ok(value) = &result {
             println!("{}", value["access_token"].as_str().unwrap());
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode
+        && root
+            .subcommand_matches("conversation")
+            .is_some_and(|m| m.subcommand_name() == Some("uuid"))
+    {
+        if let Ok(value) = &result {
+            println!("{}", value["conversation_uuid"].as_str().unwrap());
             return ExitCode::SUCCESS;
         }
     }

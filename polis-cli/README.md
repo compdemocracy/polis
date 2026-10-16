@@ -201,7 +201,8 @@ Use `--json --no-interactive`. Every invocation, including help and parser error
 produces one `polis-cli/1` envelope. `polis schema [command ...]` exposes the command
 tree, implementation status, and arguments. Help/schema do not need a working profile
 file or credentials. `polis agent guide` describes the automation contract.
-Human-readable network results currently use pretty JSON too.
+Without `--json`, `conversation list` prints a table (topic, description, the
+conversation URL and its newest report URL); other network results use pretty JSON.
 
 Network waits default to 30 seconds, configurable from 1 to 300. Responses are bounded
 to 8 MiB. Redirects and **all automatic HTTP retries** are disabled. Requests cannot
@@ -280,6 +281,15 @@ defaults. `--active` and `--draft` are applied by the site; `--search` is a lite
 case-insensitive topic substring (including `%` and `_`) applied to the rows read.
 An answer that is not an array of rows with a boolean `is_owner` is refused as
 `invalid_response`, never shown as a list.
+
+Without `--json` the listing is a table: the topic and description (control and
+invisible formatting characters removed, cut with an ellipsis to fit the terminal),
+the full conversation URL on the selected site, and the URL of the conversation's
+newest report, followed by `+N` when it has N more. URLs are never truncated. The
+report column comes from a second, best-effort `GET /api/v3/reports`: if that read
+fails (permission, transport, or a site without the route), the table still prints
+with an empty column, one warning goes to stderr and the exit code stays 0. With
+`--json` only the conversations route is read and the envelope is unchanged.
 
 Moderation, report view/export and stored Delphi reads retain the previous pass's
 semantics. Plan view verifies the account and reports billing/quota unavailable.
@@ -557,3 +567,60 @@ API creation request; `conversation create` does not yet accept a reserved ID.
 Each call can allocate another ID. Incompatible or lost replies retain exit 7,
 `conversation_reservation_outcome_unknown`, and operator-inspection guidance.
 No automatic retry/readback; 8 MiB and `--timeout` bounds apply.
+
+### Invite reads and the conversation download key
+
+```sh
+polis invite code list --conversation CONV --json
+polis invite wave list --conversation CONV --wave 1 --json
+polis invite list --conversation CONV --status unused --limit 50 --offset 0 --json
+polis invite export --conversation CONV --output invites.csv --json
+polis invite status --conversation CONV --json
+polis conversation uuid CONV --json
+```
+
+These commands use the existing site routes and saved sign-in. Code listing is
+strictly owner-only on the current server; other routes enforce their site's
+permissions. The CLI does not add an authorization boundary to an older server.
+Code listing preserves the unspecified server order and exposes only the code
+and creation time. Wave listing preserves the server's rows and order, projecting
+only the documented fields. Decimal BIGINT IDs and creation times are normalized
+to exact JSON-safe integers; out-of-range values are refused. Invite listing supports `--wave-id` and the statuses
+`unused`, `used`, `revoked`, and `expired`; numeric wire statuses become names.
+The output includes `invite_only` from a separate conversation read, even when
+false. Pagination retains the server's `limit`, `offset`, `total`, and `hasMore`.
+
+Status reads conversation settings, waves, and four status-filtered pages. Counts
+come from each page's total, never its row count. These are separate reads, so the
+result is not an atomic snapshot. Participant-owned codes are excluded. A failed
+or malformed read fails the command without reporting partial counts.
+
+CSV export downloads all owner codes without filtering or pagination. It preserves
+bytes, including formula-like cells, and creates a private file without replacing
+an existing file or symlink. Treat CSV as untrusted data and keep codes private.
+The existing 8 MiB response bound, request timeout, no-redirect and no-retry rules
+apply. Invite creation and revocation remain unavailable (exit 8).
+
+`conversation uuid` deliberately prints a **secret**: anyone holding this key can
+download participant XIDs. Without `--json`, stdout contains only the raw key and
+a newline; JSON puts it in `data.conversation_uuid`. The server can mint a key on
+the first GET. A lost or malformed success is therefore an uncertain operation
+(exit 7); no automatic retry is made. Error responses never echo the upstream
+body or key. Do not capture successful key output in shared logs.
+
+### Create invitation codes and waves
+
+`polis invite code create --conversation ID [--short]` adds a public code through
+Node and reads the code list to confirm it. Existing codes remain valid.
+`polis invite wave create --conversation ID --per-user N --owner-invites M
+[--parent-wave K]` creates a wave through Node, then reads that wave back and
+checks its identity and fields. Counts must be nonnegative; at least one must be
+positive. Omitting the parent lets Node choose its latest wave.
+
+Each command sends one POST and, after a valid success response, one GET. No
+write is automatically retried. Exit 7 means the effect is uncertain, including
+a malformed success, a partial Node failure, or an unsuccessful read-back.
+Inspect codes/waves before retrying: wave creation is not atomic in Node, and
+read-back confirms the wave row, not completeness of every invite row.
+The output's `invites_created` is Node's reported count. JSON output projects
+only documented fields; invitation codes are credentials.
