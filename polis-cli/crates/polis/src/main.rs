@@ -1,6 +1,7 @@
 mod collective;
 mod commands;
 mod highlights;
+mod invites;
 mod locations;
 mod math;
 mod membership;
@@ -168,6 +169,10 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "tutorial" => pass4::tutorial(m.get_one::<String>("target").map(String::as_str)),
         "metadata question list" | "metadata answer list" | "context list" => {
             pass8::execute(&path, m, config, site, timeout)
+        }
+        "invite code list" | "invite wave list" | "invite list" | "invite export"
+        | "invite status" | "conversation uuid" => {
+            invites::execute(&path, m, config, site, timeout)
         }
         "conversation reserve" => reserve::execute(config, site, timeout),
         "participant preferences" => preferences::execute(m, config, site, timeout),
@@ -594,6 +599,16 @@ fn main() -> ExitCode {
     {
         if let Ok(value) = &result {
             println!("{}", value["access_token"].as_str().unwrap());
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode
+        && root
+            .subcommand_matches("conversation")
+            .is_some_and(|m| m.subcommand_name() == Some("uuid"))
+    {
+        if let Ok(value) = &result {
+            println!("{}", value["conversation_uuid"].as_str().unwrap());
             return ExitCode::SUCCESS;
         }
     }

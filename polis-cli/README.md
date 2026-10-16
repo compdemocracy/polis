@@ -557,3 +557,43 @@ API creation request; `conversation create` does not yet accept a reserved ID.
 Each call can allocate another ID. Incompatible or lost replies retain exit 7,
 `conversation_reservation_outcome_unknown`, and operator-inspection guidance.
 No automatic retry/readback; 8 MiB and `--timeout` bounds apply.
+
+### Invite reads and the conversation download key
+
+```sh
+polis invite code list --conversation CONV --json
+polis invite wave list --conversation CONV --wave 1 --json
+polis invite list --conversation CONV --status unused --limit 50 --offset 0 --json
+polis invite export --conversation CONV --output invites.csv --json
+polis invite status --conversation CONV --json
+polis conversation uuid CONV --json
+```
+
+These commands use the existing site routes and saved sign-in. Code listing is
+strictly owner-only on the current server; other routes enforce their site's
+permissions. The CLI does not add an authorization boundary to an older server.
+Code listing preserves the unspecified server order and exposes only the code
+and creation time. Wave listing preserves the server's rows and order, projecting
+only the documented fields. Decimal BIGINT IDs and creation times are normalized
+to exact JSON-safe integers; out-of-range values are refused. Invite listing supports `--wave-id` and the statuses
+`unused`, `used`, `revoked`, and `expired`; numeric wire statuses become names.
+The output includes `invite_only` from a separate conversation read, even when
+false. Pagination retains the server's `limit`, `offset`, `total`, and `hasMore`.
+
+Status reads conversation settings, waves, and four status-filtered pages. Counts
+come from each page's total, never its row count. These are separate reads, so the
+result is not an atomic snapshot. Participant-owned codes are excluded. A failed
+or malformed read fails the command without reporting partial counts.
+
+CSV export downloads all owner codes without filtering or pagination. It preserves
+bytes, including formula-like cells, and creates a private file without replacing
+an existing file or symlink. Treat CSV as untrusted data and keep codes private.
+The existing 8 MiB response bound, request timeout, no-redirect and no-retry rules
+apply. Invite creation and revocation remain unavailable (exit 8).
+
+`conversation uuid` deliberately prints a **secret**: anyone holding this key can
+download participant XIDs. Without `--json`, stdout contains only the raw key and
+a newline; JSON puts it in `data.conversation_uuid`. The server can mint a key on
+the first GET. A lost or malformed success is therefore an uncertain operation
+(exit 7); no automatic retry is made. Error responses never echo the upstream
+body or key. Do not capture successful key output in shared logs.

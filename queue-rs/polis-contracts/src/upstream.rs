@@ -55,6 +55,14 @@ pub fn guidance(code: &'static str) -> Guidance {
         "AUTH_REQUIRED" | "polis_err_need_auth" | "polis_err_treevite_auth_required" =>
             ("auth_required", "This operation requires authentication.", "Run polis auth status, then polis auth login for the selected site."),
         "OWNER_REQUIRED" => ("owner_required", "This operation requires the conversation owner.", "Sign in as the conversation owner; an enabled account alone is insufficient."),
+        "polis_err_fetching_zinvite_not_conversation_owner" =>
+            ("forbidden", "This operation requires the conversation owner.", "Check the selected site and sign in as the conversation owner; moderator access alone is insufficient."),
+        "polis_err_treevite_not_conversation_owner" | "polis_err_sending_invite_not_conversation_owner" =>
+            ("forbidden", "This operation requires the conversation owner or a moderator on the owner's site.", "Check the selected site and sign in as the conversation owner or a moderator; an enabled account alone is insufficient."),
+        // Answered with HTTP 500 when the permission lookup itself fails: a
+        // site fault, not a refusal (kept ahead of the "auth" catch-all below).
+        "polis_err_treevite_auth_check" | "polis_err_sending_invite_auth_check" =>
+            ("server_error", "The site could not check access to this conversation.", "Check site health and retry; give the upstream code to the site operator if this persists."),
         "STALE_NARRATIVE_INPUTS" => ("stale_narrative_inputs", "The conversation changed after narrative export.", "Export fresh inputs with polis delphi narrative export, then revise the result before importing."),
         "IMPORT_CONFLICT" => ("narrative_conflict", "This export already has a different imported result.", "View the existing narrative. Export fresh inputs for a new result; do not overwrite this export."),
         "INVALID_NARRATIVE" => ("invalid_narrative", "The narrative does not satisfy the exchange contract.", "Check result.schema.json, the resource IDs, sections, citations and digest from the exported manifest."),
@@ -109,6 +117,44 @@ mod tests {
             );
             assert_ne!(guidance(code.as_str()).code, "operation_failed");
         }
+    }
+    #[test]
+    fn invite_refusals_are_allowlisted_and_forbidden() {
+        for (code, kind) in [
+            ("polis_err_treevite_not_conversation_owner", "forbidden"),
+            (
+                "polis_err_sending_invite_not_conversation_owner",
+                "forbidden",
+            ),
+            (
+                "polis_err_fetching_zinvite_not_conversation_owner",
+                "forbidden",
+            ),
+            ("polis_err_treevite_auth_check", "server_error"),
+            ("polis_err_sending_invite_auth_check", "server_error"),
+        ] {
+            for body in [
+                json!(code),
+                json!({"code": code}),
+                json!({"error": code}),
+                json!({"error": {"code": code}}),
+                json!({"message": code}),
+            ] {
+                let recognized = code_from(&body).expect("known invite code");
+                assert_eq!(recognized, code);
+                assert_eq!(guidance(recognized).code, kind, "{code}");
+            }
+        }
+        // Moderators pass the treevite and emailed-invite checks; only the
+        // conversation-code read is owner-only.
+        assert!(guidance("polis_err_treevite_not_conversation_owner")
+            .message
+            .contains("moderator"));
+        assert!(
+            !guidance("polis_err_fetching_zinvite_not_conversation_owner")
+                .message
+                .contains("moderator")
+        );
     }
     #[test]
     fn payloads_cannot_be_echoed_as_codes() {
