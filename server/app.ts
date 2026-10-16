@@ -74,10 +74,7 @@ import {
 } from "./src/routes/api/v3/feeds";
 import { handle_GET_reportExport } from "./src/routes/export";
 import { handle_GET_reportNarrative } from "./src/routes/reportNarrative";
-import {
-  handle_POST_auth_deregister_jwt,
-  handle_POST_joinWithInvite,
-} from "./src/auth";
+import { handle_POST_auth_deregister_jwt } from "./src/auth";
 import {
   handle_GET_comments_translations,
   handle_GET_comments,
@@ -594,21 +591,6 @@ export const appReady = helpersInitialized.then(
       need("type", getInt, assignToP),
       need("email", getEmail, assignToP),
       handle_POST_convSubscriptions
-    );
-
-    app.post(
-      "/api/v3/joinWithInvite",
-      hybridAuthOptional(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      want("suzinvite", getOptionalStringLimitLength(32), assignToP),
-      want("answers", getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
-      want("referrer", getStringLimitLength(9999), assignToP),
-      want("parent_url", getStringLimitLength(9999), assignToP),
-      handle_POST_joinWithInvite
     );
 
     app.get("/perfStats_9182738127", moveToBody, handle_GET_perfStats);
