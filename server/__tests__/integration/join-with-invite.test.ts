@@ -20,6 +20,7 @@ import {
   updateConversation,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
+import { WIRE_AGREE } from "../../src/votes/convention";
 
 function pooled(index: number) {
   const u = getPooledTestUser(index);
@@ -100,7 +101,7 @@ describe("POST /api/v3/joinWithInvite", () => {
     const vote = await submitVote(stranger, {
       conversation_id: inviteOnlyConv,
       tid: inviteOnlyTid,
-      vote: -1,
+      vote: WIRE_AGREE,
     });
     expect(vote.status).toBe(401);
     expect(JSON.stringify(vote.body)).toContain(
