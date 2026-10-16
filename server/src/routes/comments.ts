@@ -489,8 +489,12 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     let active = true;
     let mod = 0;
 
-    // Always auto-approve seed comments regardless of pro status
-    if (is_seed || is_moderator) {
+    // Only a moderator can contribute a seed statement: from anyone else the
+    // flag is ignored and the statement is moderated like any other.
+    const seed = Boolean(is_seed) && is_moderator;
+
+    // Seed and moderator statements are approved on arrival.
+    if (seed || is_moderator) {
       mod = polisTypes.mod.ok;
       active = true;
     } else if (await isProConvo(conversation.owner)) {
@@ -521,7 +525,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
         mod,
         uid,
         false, // anon
-        is_seed || false,
+        seed,
         lang,
         lang_confidence,
       ]
