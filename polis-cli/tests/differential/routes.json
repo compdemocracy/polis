@@ -1,0 +1,7 @@
+{
+  "pca2": {
+    "path": "/api/v3/math/pca2",
+    "minimum_rust_successes": 2,
+    "commands": ["math view", "math view subset"]
+  }
+}
