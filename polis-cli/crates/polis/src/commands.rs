@@ -44,7 +44,8 @@ fn flag(name: &str, help: &str) -> Arg {
 pub fn available(path: &str) -> bool {
     matches!(
         path,
-        "conversation reserve"
+        "join"
+            | "conversation reserve"
             | "invite code create"
             | "invite wave create"
             | "invite code list"
@@ -368,6 +369,12 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
  .arg(flag("no-interactive","Never prompt; saved sign-ins (Keychain without dialogs, or file) and environment tokens still work").global(true))
  .arg(arg("timeout","Bound each HTTP request in seconds (1–300)").default_value("30").value_parser(clap::value_parser!(u64).range(1..=300)).global(true))
  .disable_help_subcommand(true).subcommand_required(true).arg_required_else_help(true);
+    root = root.subcommand(Command::new("join")
+        .about("Prepare anonymous participation or join with a Treevite code")
+        .arg(pos("conversation", true))
+        .arg(arg("invite", "Accept a one-time invite; save its login code privately").conflicts_with("login-code"))
+        .arg(arg("login-code", "Sign in as a returning Treevite participant"))
+        .after_help("Without a code, prepares participation without enrolling a fresh visitor. The first requested vote or comment enrolls them. Repeated joins reuse only this profile, origin and conversation's participant credentials. Invite and login codes are distinct; no automatic retry or fallback. Tokens and login codes are saved in the owner-only credentials store and never printed. Codes passed as arguments may be visible in local shell history and process listings."));
     for &(group, about, leaves) in GROUPS {
         let mut cmd = Command::new(group)
             .about(about)
@@ -428,7 +435,8 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
     root.after_help(format!("CONVERSATION RESERVATION\n  polis conversation reserve --json\n\nPARTICIPANT PREFERENCES\n  polis participant preferences --conversation <id> --translations true --json\n\nPARTICIPANT LOCATIONS\n  polis participant locations --conversation <id> --group 0 --json\n\nPARTICIPANT PROFILES\n  polis participant highlight list --conversation <id> --json\n\nSTORED MEMBERSHIP\n  polis participant group-members --conversation <id> --json\n\nSTORED MATH\n  polis math view --conversation <id> --key math_tick --key pca --json\n\nSTART HERE\n  polis auth login\n  polis auth status\n  polis conversation list --json\n  polis conversation create --topic 'Our next chapter'\n  polis seed import seeds.csv --conversation <id>\n\nMETADATA OPTIONS\n  polis metadata answer add --conversation <id> --question <id> --value 'Local resident' --yes\n\nMETADATA CLEANUP\n  polis metadata question delete --conversation <id> --question <id> --yes\n  polis metadata answer delete --conversation <id> --question <id> --answer <id> --yes\n\nSECOND PASS\n  polis moderate list --conversation <id> --status pending\n  polis moderate accept --conversation <id> --tid 0\n  polis moderate reject --conversation <id> --tid 0\n  polis participant status --conversation <id>\n  polis vote list --conversation <id> --pid 0\n  polis report view <report-id>\n  polis report export <report-id> --type votes.csv --output votes.csv\n  polis delphi status --report <report-id>\n  polis delphi results --report <report-id> --job <job-id>\n  polis plan view\n\nDISCOVER THE PRODUCT\n{}\n\nAGENT CONTRACT\n  --json --no-interactive   Stable output; no prompts or automatic retries\n  polis help <command>     Read a focused manual\n  polis schema             Discover commands and implementation status\n  POLIS_TOKEN              Token override; otherwise Keychain or owner-only file\n  POLIS_CONFIG_DIR         Profile directory override (credentials/ holds fallback tokens)\n\nSign in to pol.is with polis auth login; no setup is required. Developer overrides use environment variables or profiles.json.\nQuota is reported as unavailable. Planned commands perform no action.",tree()))
 }
 pub fn tree() -> String {
-    let mut lines = Vec::new();
+    let mut lines =
+        vec!["  join           CONVERSATION [--invite CODE | --login-code CODE]".into()];
     for (group, _, leaves) in GROUPS {
         let mut line = format!("  {group:14} ");
         let mut first = true;

@@ -356,6 +356,8 @@ pub fn clear_session(site: &str, url: &str) -> Result<()> {
 
 #[derive(Serialize, Deserialize)]
 struct SavedToken {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    participant_login: Option<String>,
     site: String,
     origin: String,
     token: Option<String>,
@@ -368,6 +370,7 @@ struct SavedToken {
 impl SavedToken {
     fn record(site: &str, url: &str, token: &str, session: Option<Session>) -> Self {
         Self {
+            participant_login: None,
             site: site.into(),
             origin: url.into(),
             token: Some(token.into()),
@@ -377,6 +380,7 @@ impl SavedToken {
     }
     fn tombstone(site: &str, url: &str) -> Self {
         Self {
+            participant_login: None,
             site: site.into(),
             origin: url.into(),
             token: None,
@@ -627,4 +631,56 @@ pub fn store_session(
         &SavedToken::record(site, url, token, Some(session)),
         keychain,
     )
+}
+
+// Participant records always use the owner-only file, never the account token
+// override or Keychain. The normalized origin cannot contain a fragment, and
+// conversation IDs are alphanumeric, so the scope is disjoint from account keys.
+pub fn participant_scope(origin: &str, conversation: &str) -> Result<String> {
+    crate::public_id(conversation)?;
+    Ok(format!(
+        "{}#participant={conversation}",
+        polis_client::base_url(origin)?
+    ))
+}
+pub struct ParticipantCredential {
+    pub token: String,
+    pub login_code: Option<String>,
+}
+pub fn participant_load(site: &str, scope: &str) -> Result<Option<ParticipantCredential>> {
+    let Some(record) = file_read(site, scope)? else {
+        return Ok(None);
+    };
+    if record.keychain || record.session.is_some() {
+        return Err(file_error());
+    }
+    if let Some(code) = &record.participant_login {
+        validate_token(code)?;
+    }
+    record
+        .token
+        .map(|token| {
+            Ok(ParticipantCredential {
+                token,
+                login_code: record.participant_login,
+            })
+        })
+        .transpose()
+}
+/// Caller holds credential_lock for this participant scope through the request
+/// and replacement. Future participant actions save their issued token here too.
+pub fn participant_store(
+    site: &str,
+    scope: &str,
+    token: &str,
+    login_code: Option<String>,
+) -> Result<()> {
+    validate_token(token)?;
+    if let Some(code) = &login_code {
+        validate_token(code)?;
+    }
+    let mut record = SavedToken::record(site, scope, token, None);
+    record.participant_login = login_code;
+    file_read(site, scope)?;
+    write_record(site, scope, &record)
 }
