@@ -702,3 +702,30 @@ tokens and raw receipts are never echoed; arguments can remain in local shell
 history and process listings. Lost or malformed write responses and failed
 credential saves exit 7, with no retry. Inspect the conversation before another
 submission. Empty text is rejected locally; Node enforces its text limits.
+
+### Start a conversation with a typed setup
+
+```sh
+polis conversation new --save setup.json
+polis conversation new --from setup.json --dry-run --json
+polis conversation new --from setup.json --json
+```
+
+The interactive wizard asks about participation, overlapping invitation and
+external-ID policies, moderation, visibility, and initial statements, then
+shows a summary before asking to apply. Agents use the same typed JSON file.
+Dry runs make no HTTP requests. Saved files are private and never overwrite an
+existing file.
+
+Setup creates a staged conversation, confirms each settings/wave/allowlist/
+statement step, and applies final participation settings last. On partial
+failure it exits 7 with the known conversation ID and completed steps, without
+retrying. Inspect that receipt before trying again: another `new` invocation
+creates another conversation. Initial statements use moderator authority, with
+no seed bypass flag or automatic vote. No invitation code is printed.
+
+[The complete setting inventory and admission model](../docs/conversation-setup.md)
+describe current Node behavior, including restrictions it does not enforce,
+and proposed permission improvements. Draft is a listing state, strict
+moderation controls visibility, and existing identities can bypass fresh-XID
+checks; the wizard does not present nonexistent permissions as working gates.

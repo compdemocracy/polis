@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 const GROUPS: &[(&str, &str, &str)] = &[
  ("auth", "Sign in and inspect your session", "login status logout token refresh"),
  ("account", "Your identity and organization", "view edit invite verify"),
- ("conversation", "Create and explore conversations", "create reserve list view edit close reopen stats activity snapshot uuid email-link share"),
+ ("conversation", "Create and explore conversations", "new create reserve list view edit close reopen stats activity snapshot uuid email-link share"),
  ("seed", "Prepare and import seed statements", "add import csv/validate csv/preview csv/normalize"),
  ("statement", "Read and contribute participant statements", "list view add next translations flag upvote star trash"),
  ("vote", "Participate with agree, disagree, or pass", "cast list import csv/validate csv/convert"),
@@ -92,6 +92,7 @@ pub fn available(path: &str) -> bool {
             | "auth status"
             | "auth logout"
             | "auth token"
+            | "conversation new"
             | "conversation create"
             | "conversation list"
             | "conversation view"
@@ -193,6 +194,7 @@ fn leaf(path: &str) -> Command {
         "auth token" => "Print the access token (secret) for the selected site; refresh if needed",
         "auth status" => "Check the saved sign-in with the server",
         "auth logout" => "Remove the saved sign-in and suppress stale Keychain credentials",
+        "conversation new" => "Start a conversation with a typed setup wizard or file",
         "conversation create" => "Create a conversation owned by the authenticated account",
         "conversation list" => "List only your conversations, newest created first",
         "conversation view" => "Read one conversation by its public ID",
@@ -322,6 +324,7 @@ fn leaf(path: &str) -> Command {
  "conversation stats" => c.arg(pos("id",true)).arg(arg("until","Exclusive UTC epoch-millisecond cutoff, positive safe integer").value_parser(clap::value_parser!(u64).range(1..=9007199254740991))).after_help("EXAMPLES\n  polis conversation stats CONV --json\n  polis conversation stats CONV --until 1791417600000 --json\n\nRequires this site's moderator permission. Returns the existing vote/comment timing and histogram fields unchanged; these are historical event statistics, not unique latest votes or math freshness. No pagination; bounded to 8 MiB and the request timeout. No report-ID permission fallback."),
  "report create" => c.arg(arg("conversation","Public conversation ID").required(true)).after_help("EXAMPLE\n  polis report create --conversation CONV --json\n  polis report list --conversation CONV --json\n\nRequires moderator access. Creates report configuration with the existing default mod_level=-2; starts no math, export or Delphi generation. The legacy POST has no created ID or idempotency key. data.report_id stays null; data.reports is an uncorrelated readback list, never proof of which report was created. A failed readback preserves the accepted receipt. Never repeat creation to recover a lost ID; list first. An uncertain write exits 7."),
  "account view" => c.after_help("EXAMPLE\n  polis account view --json\n\nRequires authentication. Returns this account's server profile, which may include personal data. It is not a plan, credit balance, or proof of permission for another resource."),
+ "conversation new" => c.arg(arg("from","Read a typed setup JSON file instead of asking questions")).arg(arg("save","Write the typed setup to a new private file")).arg(flag("dry-run","Describe setup without any HTTP requests")).after_help("EXAMPLES\n  polis conversation new\n  polis conversation new --from setup.json --dry-run --json\n  polis conversation new --from setup.json --json\n\nUses the same typed model for people and agents. Invalid settings fail before writes. The interactive wizard shows a summary and asks before applying. Creates a staged closed conversation, applies settings, invitation waves, external-ID allowlist and initial statements, reads back each step, then applies the final participation settings. Partial failure exits 7 with completed steps; never blindly rerun new, which creates another conversation. Initial statements use the moderator bulk endpoint with no seed flag or automatic vote. No server permissions are changed. See docs/conversation-setup.md for current behavior and proposed improvements."),
  "conversation create" => c.arg(arg("topic","Conversation topic (1–1000 UTF-16 units)").required(true)).arg(arg("description","Optional description (up to 50000 UTF-16 units)")).arg(flag("draft","Create a draft")),
  "conversation list" => c.arg(flag("mine","Owned conversations only (the default)")).arg(flag("recent","Newest created first (the default)")).arg(arg("limit","Rows read from the site before the owner filter (1–9999)").default_value("100").value_parser(clap::value_parser!(u16).range(1..=9999))).arg(arg("active","Filter active or closed").value_parser(["true","false"])).arg(arg("draft","Filter draft or published").value_parser(["true","false"])).arg(arg("search","Case-insensitive topic substring (literal), applied to the rows read")).after_help("EXAMPLES\n  polis conversation list --json\n  polis conversation list --limit 500 --active true --json\n  polis conversation list --search 'budget' --json\n\nReads GET /api/v3/conversations. The current API returns an array of the conversations this account owns or shares a site with, newest created first, at most --limit rows; it has no offset, cursor, owner filter or search parameter. Rows whose server-set is_owner is false are dropped here, so pagination.returned can be below pagination.server_rows. pagination.truncated is true when the site returned --limit rows: raise --limit to read more. --active and --draft are applied by the site; --search is a literal, case-insensitive topic match applied to the rows read. Requires sign-in. Bounded reads, 8 MiB and --timeout; no automatic retry.\n\nWithout --json the result is a table: topic and description (cleaned and cut to fit the terminal), the conversation URL and the newest report URL, with +N when the conversation has N more reports. The report column comes from a second, best-effort GET /api/v3/reports: if that read fails, the table still prints with an empty column and one warning on stderr. --json reads only the conversations route and returns the data envelope unchanged."),
  "conversation view" | "conversation close" | "conversation reopen" => c.arg(pos("id",true)),
