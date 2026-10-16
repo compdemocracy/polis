@@ -1,6 +1,10 @@
 import _ from "underscore";
 
-import { addExtendedParticipantInfo, joinConversation } from "../participant";
+import {
+  addExtendedParticipantInfo,
+  joinConversation,
+  referrerWithoutQuery,
+} from "../participant";
 import { failJson } from "../utils/fail";
 import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
@@ -131,7 +135,7 @@ function handle_POST_participants(
     info.parent_url = parent_url;
   }
   if (referrer) {
-    info.referrer = referrer;
+    info.referrer = referrerWithoutQuery(referrer);
   }
 
   function finish(ptpt: any) {
