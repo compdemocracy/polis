@@ -171,8 +171,8 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "metadata question list" | "metadata answer list" | "context list" => {
             pass8::execute(&path, m, config, site, timeout)
         }
-        "invite code list" | "invite wave list" | "invite list" | "invite export"
-        | "invite status" | "conversation uuid" => {
+        "invite code create" | "invite wave create" | "invite code list" | "invite wave list"
+        | "invite list" | "invite export" | "invite status" | "conversation uuid" => {
             invites::execute(&path, m, config, site, timeout)
         }
         "conversation reserve" => reserve::execute(config, site, timeout),

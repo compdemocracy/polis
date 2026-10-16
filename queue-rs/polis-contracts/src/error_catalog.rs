@@ -35,6 +35,7 @@ pub const CATALOG: &[&str] = &[
     "polis_err_creating_otzinvite",
     "polis_err_creating_zinvite",
     "polis_err_creating_zinvite_invalid_conversation_or_owner",
+    "polis_err_creating_zinvite_not_conversation_owner",
     "polis_err_data_export",
     "polis_err_data_export123",
     "polis_err_data_export123b",
