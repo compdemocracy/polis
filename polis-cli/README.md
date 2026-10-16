@@ -624,3 +624,31 @@ Inspect codes/waves before retrying: wave creation is not atomic in Node, and
 read-back confirms the wave row, not completeness of every invite row.
 The output's `invites_created` is Node's reported count. JSON output projects
 only documented fields; invitation codes are credentials.
+
+
+### Join a conversation
+
+```sh
+polis join CONVERSATION
+polis join CONVERSATION --invite CODE
+polis join CONVERSATION --login-code CODE --json
+```
+
+Plain join uses the participation bootstrap. A fresh visitor is **ready, not yet
+enrolled**: joining itself submits no vote or comment. Readiness does not promise
+that every action is allowed; Node applies the conversation's current access
+rules when an action is requested. An existing participant's token is reused.
+
+`--invite` accepts a one-time Treevite invitation. `--login-code` is a returning
+participant's reusable code; the CLI never substitutes one flow for the other or
+retries automatically. Tokens and issued login codes are saved privately and
+omitted from both human and JSON output, including errors. An uncertain effect
+or failure to save issued credentials exits 7: inspect access before retrying.
+Codes supplied on the command line may remain in shell history or process lists.
+
+Participant credentials use the owner-only credentials directory (0700), atomic
+files (0600), and a lock per profile, normalized origin, and conversation. They
+are separate from administrator sign-in, environment token overrides, and the
+Keychain. `auth logout` clears the account session; it does not erase these
+separate participant records. Keep the credentials directory private when
+backing up or removing a local profile.

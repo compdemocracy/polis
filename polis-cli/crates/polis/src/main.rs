@@ -8,6 +8,7 @@ mod math;
 mod membership;
 mod narrative;
 mod oauth;
+mod participation;
 mod pass10;
 mod pass11;
 mod pass4;
@@ -175,6 +176,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         | "invite list" | "invite export" | "invite status" | "conversation uuid" => {
             invites::execute(&path, m, config, site, timeout)
         }
+        "join" => participation::join(m, config, site, timeout),
         "conversation reserve" => reserve::execute(config, site, timeout),
         "participant preferences" => preferences::execute(m, config, site, timeout),
         "participant locations" => locations::execute(m, config, site, timeout),
@@ -590,11 +592,14 @@ fn main() -> ExitCode {
                     true,
                 );
             }
-            if e.kind() == clap::error::ErrorKind::UnknownArgument {
+            if !display
+                && (args.iter().any(|arg| arg == "join")
+                    || e.kind() == clap::error::ErrorKind::UnknownArgument)
+            {
                 return render(
                     "unresolved",
                     Err(Error::input(
-                        "Unknown command option. Run polis help for usage.",
+                        "Invalid command arguments. Run polis help for usage.",
                     )),
                     false,
                 );
@@ -645,6 +650,19 @@ fn main() -> ExitCode {
     {
         if let Ok(value) = &result {
             println!("{}", value["conversation_uuid"].as_str().unwrap());
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode && root.subcommand_name() == Some("join") {
+        if let Ok(value) = &result {
+            println!(
+                "{}",
+                if value["enrolled"] == true {
+                    "Joined. Participant credentials are saved privately."
+                } else {
+                    "Ready, not yet enrolled. Your first vote or comment will enroll you."
+                }
+            );
             return ExitCode::SUCCESS;
         }
     }
