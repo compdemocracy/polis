@@ -1,7 +1,6 @@
 import _ from "underscore";
 import { ManagementClient } from "auth0";
 import { parse } from "csv-parse/sync";
-import badwords from "badwords/object";
 
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
@@ -13,7 +12,6 @@ import { getZinvite } from "../utils/zinvite";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
-import analyzeComment from "../utils/moderation";
 import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
@@ -101,17 +99,6 @@ interface PolisRequest {
     referer?: string;
   };
   timedout?: any;
-}
-
-function hasBadWords(txt: string) {
-  txt = txt.toLowerCase();
-  const tokens = txt.split(" ");
-  for (let i = 0; i < tokens.length; i++) {
-    if (badwords[tokens[i]]) {
-      return true;
-    }
-  }
-  return false;
 }
 
 const managementClient = new ManagementClient({
@@ -269,12 +256,6 @@ function addNotificationTask(zid: number): Promise<any> {
   );
 }
 
-interface CommentModerationResult {
-  active: boolean;
-  mod: number;
-  classifications: string[];
-}
-
 export async function isProConvo(owner: number): Promise<boolean> {
   try {
     const { email } = await getUserInfoForUid2(owner);
@@ -339,50 +320,6 @@ function moderateCommentQuery(
       }
     });
   });
-}
-
-// Perform content moderation checks (Pro feature - toxicity analysis and profanity filtering)
-// Note: Seed and moderator comments bypass this function entirely
-// Dormant: handle_POST_comments no longer calls it (toxicity check off by decision).
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function moderateComment(
-  txt: string,
-  conversation: any
-): Promise<CommentModerationResult> {
-  let active = true;
-  const classifications: string[] = [];
-  let mod = 0;
-
-  // Run moderation checks in parallel
-  const [polisModResponse, bad] = await Promise.all([
-    analyzeComment(txt, conversation.topic),
-    Promise.resolve(hasBadWords(txt)),
-  ]);
-
-  if (bad && conversation.profanity_filter) {
-    active = false;
-    classifications.push("bad");
-    logger.info("active=false because (bad && conv.profanity_filter)");
-  }
-
-  const commentToxicityThreshold = 100;
-
-  const toxicityScore = Number(polisModResponse);
-
-  if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
-    logger.debug(
-      `Polismod toxicity Score for comment "${txt}": ${toxicityScore}`
-    );
-
-    if (toxicityScore >= commentToxicityThreshold) {
-      active = false;
-      mod = -1;
-      classifications.push("bad");
-      logger.info("active=false because (Toxicity)");
-    }
-  }
-
-  return { active, mod, classifications };
 }
 
 /**
@@ -500,8 +437,6 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       mod = polisTypes.mod.ok;
       active = true;
     }
-    // The toxicity check (isProConvo, moderateComment) is off by decision;
-    // every other statement takes the conversation's own moderation setting.
 
     // 5. Detect language
     const detections = await detectLanguage(txt);

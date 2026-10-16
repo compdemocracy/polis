@@ -21,8 +21,8 @@
 // functions on thin express routes rather than importing `routes/comments.ts`
 // and `routes/votes.ts`: the changed lines live in `nextComment.ts` and
 // `server-helpers.ts`, and both route handlers are thin pass-throughs, so
-// pulling in their unrelated import graphs (auth0, csv-parse, badwords,
-// moderation, ...) would mock far more than it proves.
+// pulling in their unrelated import graphs (auth0, csv-parse, ...) would
+// mock far more than it proves.
 
 import {
   afterEach,

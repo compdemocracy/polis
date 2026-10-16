@@ -11,7 +11,6 @@ const crypto = require("node:crypto");
 const Module = require("node:module");
 const { install } = require("./snapshot-pool.cjs");
 const RUNTIME_ASSETS = Object.freeze([
-  "src/prompts/moderation/script.xml",
   "src/prompts/report_experimental/system.xml",
 ]);
 const BUILD_ROOTS = Object.freeze(["dist", "package.json", "package-lock.json", ...RUNTIME_ASSETS]);

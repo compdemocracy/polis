@@ -11,21 +11,20 @@ import { pool } from "../setup/db-test-helpers";
 import { polisTypes } from "../../src/utils/common";
 
 /**
- * The toxicity check is off on the comment path.
+ * The toxicity check is gone from the comment path.
  *
  * POST /api/v3/comments used to ask the identity provider whether the
  * conversation's owner carries the delphi-enabled role and, when so, send
- * every participant statement to Gemini for a toxicity verdict that could
- * reject it. By decision that check no longer runs: a statement takes the
- * conversation's own moderation setting, whoever owns the conversation.
+ * every participant statement to a language model for a toxicity verdict
+ * that could reject it. That check was switched off and has since been
+ * removed: a statement takes the conversation's own moderation setting,
+ * whoever owns the conversation.
  *
- * The identity provider's management client and the Gemini client are
- * stubbed so that this owner carries the role and any verdict would reject
- * the statement. Neither is reached.
+ * The identity provider's management client is stubbed so that this owner
+ * carries the role. It is not reached.
  */
 const mockGetByEmail = jest.fn();
 const mockGetRoles = jest.fn();
-const mockGenerateContent = jest.fn();
 
 jest.mock("auth0", () => ({
   ManagementClient: jest.fn().mockImplementation(() => ({
@@ -34,13 +33,7 @@ jest.mock("auth0", () => ({
   })),
 }));
 
-jest.mock("@google/genai", () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: { generateContent: mockGenerateContent },
-  })),
-}));
-
-describe("the toxicity check is off on the comment path", () => {
+describe("the toxicity check is gone from the comment path", () => {
   let owner: Agent;
   let ownerUid: number;
   let conversationId: string;
@@ -53,11 +46,6 @@ describe("the toxicity check is off on the comment path", () => {
     mockGetByEmail.mockResolvedValue({ data: [{ user_id: "owner-oidc-id" }] });
     // @ts-expect-error the stub answers with the shape the handler reads
     mockGetRoles.mockResolvedValue({ data: [{ name: "delphi-enabled" }] });
-    // A verdict at the rejection threshold.
-    // @ts-expect-error the stub answers with the shape the handler reads
-    mockGenerateContent.mockResolvedValue({
-      text: JSON.stringify({ output: { final_score: "100" } }),
-    });
 
     const user = getPooledTestUser(1);
     ({ agent: owner } = await getJwtAuthenticatedAgent({
@@ -87,7 +75,7 @@ describe("the toxicity check is off on the comment path", () => {
     mockGetRoles.mockClear();
   });
 
-  test("a participant's statement makes no identity-provider call and no Gemini call, and is stored active and unmoderated", async () => {
+  test("a participant's statement makes no identity-provider call and is stored active and unmoderated", async () => {
     const res = await submitComment(null, {
       conversation_id: conversationId,
       txt: `Participant statement ${stamp}`,
@@ -98,7 +86,6 @@ describe("the toxicity check is off on the comment path", () => {
 
     expect(mockGetByEmail).not.toHaveBeenCalled();
     expect(mockGetRoles).not.toHaveBeenCalled();
-    expect(mockGenerateContent).not.toHaveBeenCalled();
 
     const { rows } = await pool.query(
       "select mod, active, is_seed from comments where zid = $1 and tid = $2",
