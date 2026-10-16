@@ -343,6 +343,8 @@ function moderateCommentQuery(
 
 // Perform content moderation checks (Pro feature - toxicity analysis and profanity filtering)
 // Note: Seed and moderator comments bypass this function entirely
+// Dormant: handle_POST_comments no longer calls it (toxicity check off by decision).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function moderateComment(
   txt: string,
   conversation: any
@@ -497,12 +499,9 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     if (seed || is_moderator) {
       mod = polisTypes.mod.ok;
       active = true;
-    } else if (await isProConvo(conversation.owner)) {
-      // Only apply pro moderation features to non-seed comments
-      const moderationResult = await moderateComment(txt, conversation);
-      active = moderationResult.active;
-      mod = moderationResult.mod;
     }
+    // The toxicity check (isProConvo, moderateComment) is off by decision;
+    // every other statement takes the conversation's own moderation setting.
 
     // 5. Detect language
     const detections = await detectLanguage(txt);
