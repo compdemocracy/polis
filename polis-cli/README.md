@@ -681,3 +681,24 @@ resubmitting. Node may create membership before rejecting a vote; an error does
 not guarantee that membership is unchanged. Interactive quit sends no vote.
 Statement text is untrusted content and terminal control characters are removed.
 `polis vote list` continues to provide the existing separate read command.
+
+### Submit a participant statement
+
+```sh
+polis comment CONVERSATION "A statement to discuss"
+polis comment CONVERSATION "A statement to discuss" --json
+```
+
+An open conversation needs no separate join or account sign-in: the first
+requested comment creates the anonymous participant. Its token is stored
+privately for following comments and votes, scoped by profile, origin and
+conversation. An invited participant first uses `polis join` with their code;
+comments preserve their returning login secret. Account tokens are not used.
+
+The request contains only `conversation_id` and `txt`; it has no seed flag or
+author vote. Node decides access and moderation. `submitted` confirms receipt,
+not approval or visibility. An error may still have created membership. Text,
+tokens and raw receipts are never echoed; arguments can remain in local shell
+history and process listings. Lost or malformed write responses and failed
+credential saves exit 7, with no retry. Inspect the conversation before another
+submission. Empty text is rejected locally; Node enforces its text limits.

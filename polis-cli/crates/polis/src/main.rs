@@ -1,5 +1,6 @@
 mod collective;
 mod commands;
+mod commenting;
 mod highlights;
 mod invites;
 mod listing;
@@ -177,6 +178,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         | "invite list" | "invite export" | "invite status" | "conversation uuid" => {
             invites::execute(&path, m, config, site, timeout)
         }
+        "comment" => commenting::submit(m, config, site, timeout),
         "join" => participation::join(m, config, site, timeout),
         "vote" => voting::execute(
             m,
@@ -602,7 +604,9 @@ fn main() -> ExitCode {
                 );
             }
             if !display
-                && (args.iter().any(|arg| arg == "join")
+                && (args
+                    .iter()
+                    .any(|arg| matches!(arg.as_str(), "join" | "comment"))
                     || e.kind() == clap::error::ErrorKind::UnknownArgument)
             {
                 return render(
@@ -687,6 +691,15 @@ fn main() -> ExitCode {
             } else {
                 println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
             }
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode && root.subcommand_name() == Some("comment") {
+        if let Ok(value) = &result {
+            println!(
+                "Submitted statement {}. The site determines moderation and visibility.",
+                value["statement"]
+            );
             return ExitCode::SUCCESS;
         }
     }
