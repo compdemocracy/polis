@@ -201,7 +201,8 @@ Use `--json --no-interactive`. Every invocation, including help and parser error
 produces one `polis-cli/1` envelope. `polis schema [command ...]` exposes the command
 tree, implementation status, and arguments. Help/schema do not need a working profile
 file or credentials. `polis agent guide` describes the automation contract.
-Human-readable network results currently use pretty JSON too.
+Without `--json`, `conversation list` prints a table (topic, description, the
+conversation URL and its newest report URL); other network results use pretty JSON.
 
 Network waits default to 30 seconds, configurable from 1 to 300. Responses are bounded
 to 8 MiB. Redirects and **all automatic HTTP retries** are disabled. Requests cannot
@@ -280,6 +281,15 @@ defaults. `--active` and `--draft` are applied by the site; `--search` is a lite
 case-insensitive topic substring (including `%` and `_`) applied to the rows read.
 An answer that is not an array of rows with a boolean `is_owner` is refused as
 `invalid_response`, never shown as a list.
+
+Without `--json` the listing is a table: the topic and description (control and
+invisible formatting characters removed, cut with an ellipsis to fit the terminal),
+the full conversation URL on the selected site, and the URL of the conversation's
+newest report, followed by `+N` when it has N more. URLs are never truncated. The
+report column comes from a second, best-effort `GET /api/v3/reports`: if that read
+fails (permission, transport, or a site without the route), the table still prints
+with an empty column, one warning goes to stderr and the exit code stays 0. With
+`--json` only the conversations route is read and the envelope is unchanged.
 
 Moderation, report view/export and stored Delphi reads retain the previous pass's
 semantics. Plan view verifies the account and reports billing/quota unavailable.
