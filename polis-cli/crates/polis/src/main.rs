@@ -23,6 +23,7 @@ mod profiles;
 mod reads;
 mod reserve;
 mod seeds;
+mod setup;
 mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
@@ -389,6 +390,14 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 false,
             )
         }
+        "conversation new" => setup::execute(
+            m,
+            config,
+            site,
+            timeout,
+            root.get_flag("no-interactive"),
+            root.get_flag("json"),
+        ),
         "conversation create" => {
             let topic = str_arg(m, "topic");
             let description = str_arg(m, "description");
@@ -534,15 +543,17 @@ fn public_id(id: &str) -> Result<()> {
     Ok(())
 }
 fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
+    let setup_partial = result.as_ref().is_ok_and(|v| v["state"] == "setup_partial");
     let partial = result
         .as_ref()
         .is_ok_and(|v| v.get("state") == Some(&json!("partial_or_unknown")));
     let exit = match &result {
         Err(e) => e.exit,
         Ok(_) => {
-            if result
-                .as_ref()
-                .is_ok_and(|v| v["seeds"]["state"] == "unknown")
+            if setup_partial
+                || result
+                    .as_ref()
+                    .is_ok_and(|v| v["seeds"]["state"] == "unknown")
             {
                 7
             } else if partial {
@@ -554,6 +565,10 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
     };
     if json_mode {
         let mut value = envelope(site, &result);
+        if setup_partial {
+            value["ok"] = json!(false);
+            value["error"] = json!({"code":"setup_incomplete","message":"Setup stopped before every step was confirmed.","action":"Inspect data.steps and data.failed_step before retrying. Rerunning new creates another conversation.","outcome":"unknown","retryable":false,"upstream":null});
+        }
         if partial {
             value["ok"] = json!(false);
             value["error"] = json!({"code":"partial_import","message":"Some rows failed, were skipped, or were not confirmed.","action":"Save data.receipt and read back before retrying.","outcome":"unknown","retryable":false,"upstream":null});
@@ -606,7 +621,7 @@ fn main() -> ExitCode {
             if !display
                 && (args
                     .iter()
-                    .any(|arg| matches!(arg.as_str(), "join" | "comment"))
+                    .any(|arg| matches!(arg.as_str(), "join" | "comment" | "new"))
                     || e.kind() == clap::error::ErrorKind::UnknownArgument)
             {
                 return render(
