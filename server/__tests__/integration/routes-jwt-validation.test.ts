@@ -182,21 +182,6 @@ describe("JWT Route Validation Matrix", () => {
       expect(response.body).toBeDefined();
     });
 
-    test("POST /api/v3/participants - Join conversation", async () => {
-      // Create a new conversation to join
-      const { agent } = await getJwtAuthenticatedAgent(testUser);
-      const newConvId = await createConversation(agent, {
-        topic: "JWT Participant Test",
-        description: "Fresh conversation to join",
-      });
-
-      const response: Response = await agent.post("/api/v3/participants").send({
-        conversation_id: newConvId,
-      });
-
-      expect(response.status).toBe(200);
-    });
-
     test("GET /api/v3/participationInit - Initialize participation (auth optional)", async () => {
       const { agent } = await getJwtAuthenticatedAgent(testUser);
       const response: Response = await agent.get(
@@ -362,7 +347,7 @@ describe("JWT Route Validation Matrix", () => {
  * - User management: GET/PUT /api/v3/users
  * - Conversations: POST/PUT /api/v3/conversations
  * - Comments: POST/PUT /api/v3/comments
- * - Participants: GET/POST /api/v3/participants
+ * - Participants: GET /api/v3/participants
  * - Reports: GET/POST/PUT /api/v3/reports
  * - Data export: GET /api/v3/dataExport
  * - Invitations: POST /api/v3/users/invite

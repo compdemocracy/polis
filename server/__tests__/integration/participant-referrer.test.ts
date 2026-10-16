@@ -4,7 +4,6 @@ import {
   createConversation,
   generateRandomXid,
   getJwtAuthenticatedAgent,
-  initializeParticipant,
   newAgent,
   submitVote,
   wait,
@@ -16,9 +15,8 @@ import { WIRE_AGREE } from "../setup/vote-wire";
 // participants_extended.referrer records the page a participant came from.
 // For an embedded conversation that is the iframe's own URL, whose query
 // string carries the participant's xid. Only the origin and path are stored:
-// the query string and fragment are dropped at both places the column is
-// written (the participant's creation on their first vote, and
-// POST /api/v3/participants).
+// the query string and fragment are dropped where the column is written, on
+// the participant's creation at their first vote.
 describe("participants_extended.referrer is stored without the query string", () => {
   let ownerAgent: Agent;
   let conversationId: string;
@@ -97,35 +95,6 @@ describe("participants_extended.referrer is stored without the query string", ()
 
     const referrer = await storedReferrer(rows[0].uid);
     expect(referrer).toBe(`http://localhost/${conversationId}`);
-    expect(referrer).not.toContain(xid);
-  });
-
-  test("POST /api/v3/participants: the referrer parameter is stored without its query string and fragment", async () => {
-    const participant = await initializeParticipant(conversationId);
-    const vote = await submitVote(participant.agent, {
-      conversation_id: conversationId,
-      tid: commentTid,
-      vote: WIRE_AGREE,
-    });
-    expect(vote.status).toBe(200);
-
-    const xid = generateRandomXid();
-    const response: Response = await participant.agent
-      .post("/api/v3/participants")
-      .send({
-        conversation_id: conversationId,
-        referrer: `https://embed.example.com/poll?xid=${xid}&token=abc#section`,
-      });
-    expect(response.status).toBe(200);
-
-    const { rows } = await pool.query(
-      "SELECT uid FROM participants WHERE zid = $1 AND pid = $2",
-      [zid, response.body.pid]
-    );
-    expect(rows.length).toBe(1);
-
-    const referrer = await storedReferrer(rows[0].uid);
-    expect(referrer).toBe("https://embed.example.com/poll");
     expect(referrer).not.toContain(xid);
   });
 });
