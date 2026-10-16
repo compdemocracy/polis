@@ -22,6 +22,7 @@ mod profiles;
 mod reads;
 mod reserve;
 mod seeds;
+mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
 use polis_contracts::{envelope, Error, Result};
@@ -177,6 +178,14 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             invites::execute(&path, m, config, site, timeout)
         }
         "join" => participation::join(m, config, site, timeout),
+        "vote" => voting::execute(
+            m,
+            config,
+            site,
+            timeout,
+            root.get_flag("no-interactive"),
+            root.get_flag("json"),
+        ),
         "conversation reserve" => reserve::execute(config, site, timeout),
         "participant preferences" => preferences::execute(m, config, site, timeout),
         "participant locations" => locations::execute(m, config, site, timeout),
@@ -663,6 +672,21 @@ fn main() -> ExitCode {
                     "Ready, not yet enrolled. Your first vote or comment will enroll you."
                 }
             );
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode
+        && root.subcommand_name() == Some("vote")
+        && root
+            .subcommand_matches("vote")
+            .is_some_and(|m| m.subcommand_name().is_none())
+    {
+        if let Ok(value) = &result {
+            if let Some(choice) = value["choice"].as_str() {
+                println!("Recorded {choice} for statement {}.", value["statement"]);
+            } else {
+                println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
+            }
             return ExitCode::SUCCESS;
         }
     }
