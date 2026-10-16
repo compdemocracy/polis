@@ -144,7 +144,7 @@ test("a joiner that loses the pid race leaves no lock behind, still gets a parti
 // joinConversation, which retries a failed join up to ten times.
 test.each([
   ["addParticipant (votes, comments)", (zid: number, uid: number) => addParticipant(zid, uid)],
-  ["joinConversation (POST /api/v3/participants, /api/v3/joinWithInvite)", (zid: number, uid: number) => joinConversation(zid, uid)],
+  ["joinConversation (POST /api/v3/participants)", (zid: number, uid: number) => joinConversation(zid, uid)],
 ])("%s: a joiner facing a participant lock that is never released is answered, not left waiting", async (path, join) => {
   const [uid] = await newUsers(1);
   // A session that kept the lock: a server still running code that leaks it,
