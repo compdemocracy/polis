@@ -148,34 +148,36 @@ async function getXids(zid: number): Promise<XidRecord[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
+/**
+ * Whether an xid is on the allow-list that applies to a conversation.
+ *
+ * The allow-list is the owner's: an xid listed for any conversation of the
+ * owner, or for the owner alone (rows with no conversation), is allowed in
+ * every conversation of theirs, and removing it from the list refuses it
+ * everywhere. The row's zid records which conversation listed it and takes
+ * no part in the decision. One indexed read; the owner is resolved from the
+ * conversation when the caller has not passed it.
+ */
 async function isXidAllowed(
   xid: string,
   zid?: number,
   owner?: number
 ): Promise<boolean> {
-  // Try zid+xid first (preferred method)
-  if (zid !== undefined) {
+  if (owner === undefined) {
+    if (zid === undefined) {
+      return false;
+    }
     const rowsByZid = await pg.queryP(
-      "select * from xid_whitelist where zid = ($1) and xid = ($2);",
-      [zid, xid]
+      "select 1 from xid_whitelist where xid = ($1) and owner = (select owner from conversations where zid = ($2)) limit 1;",
+      [xid, zid]
     );
-    if (Array.isArray(rowsByZid) && rowsByZid.length > 0) {
-      return true;
-    }
+    return Array.isArray(rowsByZid) && rowsByZid.length > 0;
   }
-
-  // Fallback to owner+xid, but ONLY on records where zid is null
-  if (owner !== undefined) {
-    const rowsByOwner = await pg.queryP(
-      "select * from xid_whitelist where zid IS NULL and owner = ($1) and xid = ($2);",
-      [owner, xid]
-    );
-    if (Array.isArray(rowsByOwner) && rowsByOwner.length > 0) {
-      return true;
-    }
-  }
-
-  return false;
+  const rows = await pg.queryP(
+    "select 1 from xid_whitelist where xid = ($1) and owner = ($2) limit 1;",
+    [xid, owner]
+  );
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 function xidExists(xid: string, owner: number, uid?: number) {
