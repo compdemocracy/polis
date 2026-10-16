@@ -8,6 +8,39 @@ import type { ExpressRequest, ExpressResponse } from "./d";
 
 const devMode = Config.isDevMode;
 
+// Query parameters whose values identify or authenticate a person: the
+// participant xid and its metadata, e-mail addresses, bearer and OIDC tokens,
+// invite and login codes, passwords and HMAC signatures. The access log keeps
+// the path and every other parameter and replaces only these values.
+const IDENTITY_QUERY_PARAMS = [
+  "xid",
+  "x_email",
+  "x_name",
+  "x_profile_image_url",
+  "email",
+  "hname",
+  "token",
+  "access_token",
+  "id_token",
+  "refresh_token",
+  "code",
+  "login_code",
+  "invite_code",
+  "einvite",
+  "suzinvite",
+  "signature",
+  "password",
+  "webserver_pass",
+];
+const IDENTITY_QUERY_PATTERN = new RegExp(
+  `([?&](?:${IDENTITY_QUERY_PARAMS.join("|")})=)[^&#]*`,
+  "gi"
+);
+
+function redactUrlForLog(url: string): string {
+  return url.replace(IDENTITY_QUERY_PATTERN, "$1[redacted]");
+}
+
 function middleware_log_request_body(
   req: ExpressRequest,
   res: ExpressResponse,
@@ -68,7 +101,7 @@ function middleware_http_json_logger(
       env: Config.ddEnv || "prod",
       http: {
         method: req.method,
-        url: req.originalUrl,
+        url: redactUrlForLog(req.originalUrl),
         route: (req as unknown as { route?: { path?: string } }).route?.path,
         status_code: statusCode,
       },
@@ -143,7 +176,7 @@ function globalErrorHandler(
     env: Config.ddEnv || "prod",
     http: {
       method: req.method,
-      url: req.originalUrl,
+      url: redactUrlForLog(req.originalUrl),
       status_code: status,
     },
     error: { kind: err.name, stack: err.stack, message: err.message },
@@ -157,7 +190,7 @@ function globalErrorHandler(
     if (err.constraint === "oidc_user_mappings_pkey") {
       logger.warn("Global handler: OIDC mapping constraint violation", {
         constraint: err.constraint,
-        url: req.originalUrl,
+        url: redactUrlForLog(req.originalUrl),
         oidcSub: req.jwtPayload?.sub,
       });
 
@@ -170,7 +203,7 @@ function globalErrorHandler(
     } else {
       logger.warn("Global handler: Database constraint violation", {
         constraint: err.constraint,
-        url: req.originalUrl,
+        url: redactUrlForLog(req.originalUrl),
       });
 
       return res.status(409).json({
@@ -281,5 +314,6 @@ export {
   middleware_responseTime_start,
   middleware_http_json_logger,
   globalErrorHandler,
+  redactUrlForLog,
   setupGlobalProcessHandlers,
 };

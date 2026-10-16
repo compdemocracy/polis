@@ -321,6 +321,14 @@ function joinConversation(
   }, doJoin);
 }
 
+// The referrer is the URL of the page that sent the request. For an embedded
+// conversation that is the iframe's own URL, whose query string carries the
+// participant's xid and whatever else the embedding page appended. Only the
+// origin and path are stored; the query string and fragment are dropped.
+function referrerWithoutQuery(referrer: string): string {
+  return referrer.split(/[?#]/, 1)[0];
+}
+
 function addParticipantAndMetadata(
   zid: number,
   uid?: number,
@@ -336,7 +344,7 @@ function addParticipantAndMetadata(
     info.parent_url = parent_url;
   }
   if (referer) {
-    info.referrer = referer;
+    info.referrer = referrerWithoutQuery(referer);
   }
 
   // These fields only exist on the PolisWebServer deployment.
@@ -472,4 +480,5 @@ export {
   getParticipantByPermanentCookie,
   getSocialParticipants,
   joinConversation,
+  referrerWithoutQuery,
 };

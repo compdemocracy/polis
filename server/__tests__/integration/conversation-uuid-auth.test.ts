@@ -5,7 +5,6 @@ import {
   getJwtAuthenticatedAgent,
   initializeParticipant,
   initializeParticipantWithXid,
-  newAgent,
   submitVote,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
@@ -150,11 +149,10 @@ describe("GET /api/v3/conversationUuid - owner/moderator gate", () => {
     expect(uuidResponse.status).toBe(200);
     const uuid = uuidResponse.body.conversation_uuid;
 
-    // The admin XID page builds "<uuid>-xid.csv" and fetches it to download the
-    // participant export; that download must keep working for the owner. A fresh
-    // agent stands in for the download.
-    const anonymousAgent = await newAgent();
-    const xidResponse: Response = await anonymousAgent.get(
+    // The admin XID page builds "<uuid>-xid.csv" and fetches it with the
+    // owner's login to download the participant export; that download must
+    // keep working for the owner.
+    const xidResponse: Response = await ownerAgent.get(
       `/api/v3/xid/${uuid}-xid.csv`
     );
     expect(xidResponse.status).toBe(200);

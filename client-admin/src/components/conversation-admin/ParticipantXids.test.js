@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
 import { AuthContext } from 'react-oidc-context'
 import PropTypes from 'prop-types'
@@ -37,6 +37,26 @@ const renderWithProviders = (component, { authValue } = {}) => {
   )
 }
 
+// The download fetches the CSV with the admin's bearer token and hands the
+// bytes to the browser through an object URL and a programmatic anchor click.
+const CSV_BYTES = 'participant,xid\n0,"abc"\n'
+
+const mockDownload = ({ ok = true, status = 200 } = {}) => {
+  PolisNet.getAccessTokenSilentlySPA.mockResolvedValue('admin-token')
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok,
+      status,
+      blob: () => Promise.resolve(new Blob([CSV_BYTES], { type: 'text/csv' }))
+    })
+  )
+  global.URL.createObjectURL = jest.fn(() => 'blob:test-url')
+  global.URL.revokeObjectURL = jest.fn()
+  return jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+}
+
+const findDownloadButton = () => screen.findByRole('button', { name: /xid csv download:/ })
+
 describe('ParticipantXids', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -47,6 +67,7 @@ describe('ParticipantXids', () => {
 
   afterEach(() => {
     jest.useRealTimers()
+    jest.restoreAllMocks()
   })
 
   describe('Initial rendering and loading', () => {
@@ -89,55 +110,73 @@ describe('ParticipantXids', () => {
   })
 
   describe('Successful UUID fetch', () => {
-    it('displays download link with correct filename', async () => {
+    it('displays the download button with the filename', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid-456' })
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
-      await waitFor(() => {
-        const link = screen.getByText(/xid csv download:/)
-        expect(link).toBeInTheDocument()
-      })
+      const button = await findDownloadButton()
+      expect(button).toBeInTheDocument()
+      expect(button).not.toHaveAttribute('href')
     })
 
-    it('constructs correct download URL with UUID', async () => {
+    it('fetches the CSV with the admin bearer token when clicked', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid-789' })
+      mockDownload()
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
+      fireEvent.click(await findDownloadButton())
+
       await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        expect(link).toHaveAttribute('href', 'https://test.pol.is/api/v3/xid/test-uuid-789-xid.csv')
+        expect(global.fetch).toHaveBeenCalledWith(
+          'https://test.pol.is/api/v3/xid/test-uuid-789-xid.csv',
+          { headers: { Authorization: 'Bearer admin-token' } }
+        )
       })
     })
 
-    it('sets download attribute on link', async () => {
+    it('hands the bytes to the browser as a file named after the conversation', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid-789' })
+      const click = mockDownload()
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
+      fireEvent.click(await findDownloadButton())
+
       await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        expect(link).toHaveAttribute('download')
-        expect(link.getAttribute('download')).toMatch(/conv123-xid\.csv$/)
+        expect(click).toHaveBeenCalledTimes(1)
       })
+      const anchor = click.mock.instances[0]
+      expect(anchor.getAttribute('href')).toBe('blob:test-url')
+      expect(anchor.getAttribute('download')).toMatch(/conv123-xid\.csv$/)
+      expect(global.URL.createObjectURL).toHaveBeenCalledTimes(1)
+      expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url')
+      expect(screen.queryByText('Could not download the XID CSV')).not.toBeInTheDocument()
     })
 
-    it('displays curl command with correct URL', async () => {
+    it('shows an error when the download is refused', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation()
+      PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid-789' })
+      const click = mockDownload({ ok: false, status: 403 })
+      renderWithProviders(<ParticipantXids conversation_id="conv123" />)
+
+      fireEvent.click(await findDownloadButton())
+
+      await waitFor(() => {
+        expect(screen.getByText('Could not download the XID CSV')).toBeInTheDocument()
+      })
+      expect(click).not.toHaveBeenCalled()
+      expect(consoleError).toHaveBeenCalledWith('Error downloading XID CSV:', expect.any(Error))
+    })
+
+    it('displays the curl command with the authorization header and URL', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'curl-test-uuid' })
       renderWithProviders(<ParticipantXids conversation_id="conv456" />)
 
       await waitFor(() => {
         expect(
-          screen.getByText(/curl: https:\/\/test\.pol\.is\/api\/v3\/xid\/curl-test-uuid-xid\.csv/)
+          screen.getByText(
+            'curl -H "Authorization: Bearer <admin token>" https://test.pol.is/api/v3/xid/curl-test-uuid-xid.csv'
+          )
         ).toBeInTheDocument()
-      })
-    })
-
-    it('sets correct MIME type on download link', async () => {
-      PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid' })
-      renderWithProviders(<ParticipantXids conversation_id="conv123" />)
-
-      await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        expect(link).toHaveAttribute('type', 'text/csv')
       })
     })
   })
@@ -168,7 +207,7 @@ describe('ParticipantXids', () => {
       consoleError.mockRestore()
     })
 
-    it('does not show download links when there is an error', async () => {
+    it('does not show the download when there is an error', async () => {
       PolisNet.polisGet.mockRejectedValue(new Error('Network error'))
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
@@ -179,7 +218,7 @@ describe('ParticipantXids', () => {
       })
 
       expect(screen.queryByText(/xid csv download:/)).not.toBeInTheDocument()
-      expect(screen.queryByText(/curl:/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/curl/)).not.toBeInTheDocument()
     })
   })
 
@@ -189,13 +228,11 @@ describe('ParticipantXids', () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid' })
       renderWithProviders(<ParticipantXids conversation_id="my-conv-id" />)
 
-      await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        // The timestamp format is YYYY-MM-DD-HHMM
-        expect(link.getAttribute('download')).toMatch(
-          /^\d{4}-\d{2}-\d{2}-\d{4}-my-conv-id-xid\.csv$/
-        )
-      })
+      const button = await findDownloadButton()
+      // The timestamp format is YYYY-MM-DD-HHMM
+      expect(button.textContent).toMatch(
+        /^xid csv download: \d{4}-\d{2}-\d{2}-\d{4}-my-conv-id-xid\.csv$/
+      )
     })
 
     it('pads single-digit months and days with zeros', async () => {
@@ -204,12 +241,9 @@ describe('ParticipantXids', () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'test-uuid' })
       renderWithProviders(<ParticipantXids conversation_id="conv" />)
 
-      await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        const filename = link.getAttribute('download')
-        // Just verify padding format YYYY-MM-DD-HHMM (not exact time due to timezone)
-        expect(filename).toMatch(/^\d{4}-0\d-0\d-\d{4}-conv-xid\.csv$/)
-      })
+      const button = await findDownloadButton()
+      // Just verify padding format YYYY-MM-DD-HHMM (not exact time due to timezone)
+      expect(button.textContent).toMatch(/^xid csv download: \d{4}-0\d-0\d-\d{4}-conv-xid\.csv$/)
     })
   })
 
@@ -306,7 +340,7 @@ describe('ParticipantXids', () => {
       })
     })
 
-    it('does not show download links when UUID is null', async () => {
+    it('does not show the download when UUID is null', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: null })
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
@@ -334,25 +368,30 @@ describe('ParticipantXids', () => {
   describe('URL construction', () => {
     it('uses urlPrefix from utility', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'uuid-with-prefix' })
+      mockDownload()
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
+      fireEvent.click(await findDownloadButton())
+
       await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        const href = link.getAttribute('href')
-        expect(href.startsWith('https://test.pol.is/')).toBe(true)
+        expect(global.fetch).toHaveBeenCalled()
       })
+      expect(global.fetch.mock.calls[0][0].startsWith('https://test.pol.is/')).toBe(true)
     })
 
     it('constructs URL with UUID in correct format', async () => {
       PolisNet.polisGet.mockResolvedValue({ conversation_uuid: 'my-special-uuid-123' })
+      mockDownload()
       renderWithProviders(<ParticipantXids conversation_id="conv123" />)
 
+      fireEvent.click(await findDownloadButton())
+
       await waitFor(() => {
-        const link = screen.getByRole('link', { name: /xid csv download:/ })
-        expect(link.getAttribute('href')).toBe(
-          'https://test.pol.is/api/v3/xid/my-special-uuid-123-xid.csv'
-        )
+        expect(global.fetch).toHaveBeenCalled()
       })
+      expect(global.fetch.mock.calls[0][0]).toBe(
+        'https://test.pol.is/api/v3/xid/my-special-uuid-123-xid.csv'
+      )
     })
   })
 

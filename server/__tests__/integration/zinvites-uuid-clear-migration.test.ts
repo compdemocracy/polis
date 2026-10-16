@@ -4,7 +4,6 @@ import {
   generateRandomXid,
   getJwtAuthenticatedAgent,
   initializeParticipantWithXid,
-  newAgent,
   submitVote,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
@@ -103,9 +102,9 @@ describe("migration 000039 clears conversation download keys; owners re-mint und
 
   test("a saved download link stops resolving once the key is cleared", async () => {
     // The key the owner may have copied before the deploy no longer maps to a
-    // conversation, so the saved link returns not-found rather than the export.
-    const anonymousAgent = await newAgent();
-    const staleResponse: Response = await anonymousAgent.get(
+    // conversation, so the saved link returns not-found rather than the export,
+    // even to the owner.
+    const staleResponse: Response = await ownerAgent.get(
       `/api/v3/xid/${clearedUuid}-xid.csv`
     );
     expect(staleResponse.status).toBe(404);
@@ -148,10 +147,10 @@ describe("migration 000039 clears conversation download keys; owners re-mint und
     const newUuid = uuidResponse.body.conversation_uuid;
     expect(newUuid).not.toBe(clearedUuid);
 
-    // The admin XID page builds "<uuid>-xid.csv" and fetches it to download the
-    // participant export; the freshly minted key must make that work again.
-    const anonymousAgent = await newAgent();
-    const xidResponse: Response = await anonymousAgent.get(
+    // The admin XID page builds "<uuid>-xid.csv" and fetches it with the
+    // owner's login to download the participant export; the freshly minted key
+    // must make that work again.
+    const xidResponse: Response = await ownerAgent.get(
       `/api/v3/xid/${newUuid}-xid.csv`
     );
     expect(xidResponse.status).toBe(200);
