@@ -388,7 +388,6 @@ async function main() {
   };
   const { default: app, appReady } = require(path.join(SERVER, "app.ts"));
   await appReady;
-  await require(path.join(SERVER, "src/utils/moderation.ts")).moderationReady;
   const server = app.listen(APP_PORT, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
 

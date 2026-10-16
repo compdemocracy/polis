@@ -39,7 +39,6 @@ const initialFiles = files();
 const { default: app, appReady } = require("../app.ts");
 async function main() {
   await appReady;
-  await require("../src/utils/moderation.ts").moderationReady;
   if (!app.routes.get?.length) throw Error("app initialization failed");
   state.ready = true;
   const boot = {
