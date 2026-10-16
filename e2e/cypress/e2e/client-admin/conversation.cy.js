@@ -32,8 +32,15 @@ describe('Client Admin: Conversation Management', () => {
         preExistingConversationId = convId
         cy.log(`✅ Created pre-existing conversation: ${preExistingConversationId}`)
 
-        // Add some comments to make it more interesting
-        return addCommentsToConversation(preExistingConversationId, preExistingSeedComments)
+        // Add some comments to make it more interesting. A seed is approved on
+        // arrival only from a moderator of the conversation, so they are posted
+        // by the account that created it; the helper's default account is not.
+        return addCommentsToConversation(
+          preExistingConversationId,
+          preExistingSeedComments,
+          'admin@polis.test',
+          'Te$tP@ssw0rd*',
+        )
       })
   })
 

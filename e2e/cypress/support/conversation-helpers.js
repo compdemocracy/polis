@@ -146,6 +146,10 @@ export function createTestConversation(options = {}) {
 
 /**
  * Add a single comment to a conversation using API directly
+ * The comment is posted as a seed, which the server approves on arrival only
+ * from a moderator of the conversation (its owner, or an account on the
+ * owner's site); from anyone else it waits for moderation. Pass the account
+ * that created the conversation.
  * @param {string} conversationId - The conversation ID
  * @param {string} text - Comment text
  * @param {string} userEmail - Email of user to add comment (defaults to moderator)
@@ -190,6 +194,10 @@ export function addCommentToConversation(
 /**
  * Add multiple comments to a conversation using API directly
  * This is more reliable than the UI approach for test setup
+ * The comments are posted as seeds, which the server approves on arrival only
+ * from a moderator of the conversation (its owner, or an account on the
+ * owner's site); from anyone else they wait for moderation. Pass the account
+ * that created the conversation.
  * @param {string} conversationId - The conversation ID
  * @param {Array<string>} comments - Array of comment texts
  * @param {string} userEmail - Email of user to add comments (defaults to moderator)
