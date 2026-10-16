@@ -55,13 +55,13 @@ jobs:
       - name: Build generated-fixture tools and images
         run: bash scripts/prepare-polis-cli-differential.sh
       - name: Compare every command with Rust switches off and on
-        run: bash scripts/test-polis-cli-differential.sh --binary ../target/debug/polis --output ../differential-results.json
+        run: bash scripts/test-polis-cli-differential.sh --binary ../target/debug/polis --output "${{ runner.temp }}/differential-results.json"
       - name: Safe structured result (no response values or credentials)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cli-differential
-          path: ../differential-results.json
+          path: ${{ runner.temp }}/differential-results.json
           if-no-files-found: warn
           retention-days: 7
       - name: Remove owned stack on cancellation or failure
