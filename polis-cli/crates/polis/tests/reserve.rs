@@ -194,7 +194,12 @@ fn server_rejections_and_uncertain_failure_remain_distinct_and_private() {
         (403, 4, "forbidden", "rejected"),
         (404, 1, "operation_failed", "rejected"),
         (429, 6, "rate_limited", "rejected"),
-        (302, 1, "redirect_refused", "rejected"),
+        (
+            302,
+            7,
+            "conversation_reservation_outcome_unknown",
+            "unknown",
+        ),
         (
             500,
             7,

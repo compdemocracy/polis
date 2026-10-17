@@ -203,7 +203,7 @@ fn authorization_and_unknown_write_failures_stay_private_and_never_retry() {
         (403, 4, "forbidden", "rejected"),
         (404, 1, "operation_failed", "rejected"),
         (429, 6, "rate_limited", "rejected"),
-        (302, 1, "redirect_refused", "rejected"),
+        (302, 7, "participant_preference_outcome_unknown", "unknown"),
         (500, 7, "participant_preference_outcome_unknown", "unknown"),
         (200, 7, "participant_preference_outcome_unknown", "unknown"),
     ] {

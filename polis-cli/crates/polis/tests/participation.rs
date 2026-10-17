@@ -249,7 +249,7 @@ fn uncertain_invite_is_not_retried_and_correlation_secrets_are_removed() {
             )],
         );
         let (code, v) = call(d.path(), &["join", "2demo", "--invite", LOGIN], None, false);
-        assert_eq!(code, if status == 302 { 1 } else { 7 });
+        assert_eq!(code, 7);
         assert!(!v.to_string().contains(LOGIN));
         assert_eq!(t.join().unwrap().len(), 1);
         assert!(private(d.path()).is_empty());
