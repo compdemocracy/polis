@@ -408,6 +408,8 @@ fn help_and_schema_explain_effects_and_new_arguments() {
         (vec!["help", "conversation", "stats"], "epoch-millisecond"),
         (vec!["help", "conversation", "share"], "no HTTP"),
         (vec!["help", "account", "view"], "personal data"),
+        (vec!["help", "conversation", "edit"], "--invite-only"),
+        (vec!["help", "conversation", "edit"], "fixed once"),
     ] {
         let (exit, v) = call(t.path(), &args, None, false);
         assert_eq!(exit, 0);
@@ -416,4 +418,127 @@ fn help_and_schema_explain_effects_and_new_arguments() {
     let (exit, v) = call(t.path(), &["schema", "conversation", "edit"], None, false);
     assert_eq!(exit, 0);
     assert!(v.to_string().contains("strict-moderation"));
+    assert!(v.to_string().contains("external-id"));
+}
+fn admission() -> Value {
+    let mut v = settings();
+    v["xid_required"] = json!(false);
+    v["use_xid_whitelist"] = json!(false);
+    v
+}
+#[test]
+fn admission_settings_change_only_what_was_asked_and_are_read_back() {
+    for (args, invite_only, xid_required, allowlist) in [
+        (
+            vec!["--invite-only", "false", "--external-id", "allowlist"],
+            false,
+            true,
+            true,
+        ),
+        (vec!["--external-id", "required"], true, true, false),
+        (vec!["--invite-only", "false"], false, false, false),
+    ] {
+        let t = tempfile::tempdir().unwrap();
+        let mut after = admission();
+        after["treevite_enabled"] = json!(invite_only);
+        after["xid_required"] = json!(xid_required);
+        after["use_xid_whitelist"] = json!(allowlist);
+        let s = server(
+            t.path(),
+            vec![json_res(admission()), json_res(json!({})), json_res(after)],
+        );
+        let mut call_args = vec!["conversation", "edit", "convA"];
+        call_args.extend(&args);
+        let (exit, v) = parsed_call(t.path(), &call_args);
+        assert_eq!(exit, 0, "{v}");
+        assert_eq!(v["data"]["state"], "updated");
+        let requests = s.join().unwrap();
+        let body: Value =
+            serde_json::from_str(requests[1].split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(body["treevite_enabled"], invite_only);
+        if args.contains(&"--external-id") {
+            assert_eq!(body["xid_required"], xid_required);
+            assert_eq!(body["use_xid_whitelist"], allowlist);
+        } else {
+            assert!(body.get("xid_required").is_none());
+            assert!(body.get("use_xid_whitelist").is_none());
+        }
+        assert!(body.get("topic").is_none());
+    }
+    // A read-back that does not show the change is not a success.
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![
+            json_res(admission()),
+            json_res(json!({})),
+            json_res(admission()),
+        ],
+    );
+    let (exit, v) = parsed_call(
+        t.path(),
+        &["conversation", "edit", "convA", "--external-id", "required"],
+    );
+    assert_eq!(exit, 7, "{v}");
+    assert_eq!(v["error"]["outcome"], "unknown");
+    assert_eq!(s.join().unwrap().len(), 3);
+}
+#[test]
+fn allowlist_switch_after_start_is_refused_plainly_and_never_retried() {
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![
+            json_res(admission()),
+            (
+                409,
+                "application/json",
+                json!({"error":"polis_err_xid_whitelist_fixed_after_start","message":"polis_err_xid_whitelist_fixed_after_start","status":409}).to_string(),
+            ),
+        ],
+    );
+    let (exit, v) = parsed_call(
+        t.path(),
+        &[
+            "conversation",
+            "edit",
+            "convA",
+            "--external-id",
+            "allowlist",
+        ],
+    );
+    assert_eq!(exit, 5, "{v}");
+    assert_eq!(v["error"]["code"], "xid_allowlist_fixed");
+    assert_eq!(v["error"]["outcome"], "rejected");
+    assert!(v["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("fixed once participation has started"));
+    assert_eq!(s.join().unwrap().len(), 2);
+}
+#[test]
+fn admission_options_are_typed_before_network() {
+    let t = tempfile::tempdir().unwrap();
+    std::fs::write(
+        t.path().join("profiles.json"),
+        r#"{"default":"local","sites":{"local":"http://127.0.0.1:9"}}"#,
+    )
+    .unwrap();
+    for args in [
+        vec!["conversation", "edit", "convA", "--invite-only", "yes"],
+        vec!["conversation", "edit", "convA", "--external-id", "maybe"],
+    ] {
+        assert_eq!(parsed_call(t.path(), &args).0, 2);
+    }
+    // Each listed value is accepted and reaches the (closed) site.
+    for (arg, value) in [
+        ("--invite-only", "true"),
+        ("--invite-only", "false"),
+        ("--external-id", "optional"),
+        ("--external-id", "required"),
+        ("--external-id", "allowlist"),
+    ] {
+        let (exit, v) = parsed_call(t.path(), &["conversation", "edit", "convA", arg, value]);
+        assert_eq!(exit, 6, "{arg} {value}: {v}");
+    }
 }
