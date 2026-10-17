@@ -273,7 +273,7 @@ fn all_help_and_schema_commands_are_reachable() {
 #[test]
 fn planned_command_is_explicit_and_offline() {
     let t = tempfile::tempdir().unwrap();
-    let o = run(t.path(), &["delphi", "run", "--json"]);
+    let o = run(t.path(), &["node", "up", "--json"]);
     assert_eq!(o.status.code(), Some(8));
     assert_eq!(parsed(&o)["error"]["code"], "capability_unavailable");
 }
@@ -1042,4 +1042,537 @@ fn moderation_listing_uses_rejected_filter() {
     assert!(request.starts_with(
         "GET /api/v3/comments?conversation_id=generated&moderation=true&mod=-1&limit=7&offset=3 "
     ));
+}
+
+#[test]
+fn dedicated_operations_require_confirmation_before_loading_files_or_network() {
+    let declarations: Value =
+        serde_json::from_str(include_str!("../../../admin-operations.json")).unwrap();
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        tmp.path().join("profiles.json"),
+        json!({"default":"local","sites":{"local":"http://127.0.0.1:9"}}).to_string(),
+    )
+    .unwrap();
+    let mut count = 0;
+    for operation in declarations
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|o| o["effect"] == true)
+    {
+        let mut args: Vec<String> = operation["command"]
+            .as_str()
+            .unwrap()
+            .split(' ')
+            .map(str::to_owned)
+            .collect();
+        for p in operation["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|p| p["required"] == true)
+        {
+            args.push(format!("--{}", p["name"].as_str().unwrap()));
+            args.push("private-value-or-nonexistent-file".into());
+        }
+        args.push("--json".into());
+        let out = run(
+            tmp.path(),
+            &args.iter().map(String::as_str).collect::<Vec<_>>(),
+        );
+        assert_eq!(out.status.code(), Some(2), "{}", operation["command"]);
+        assert!(parsed(&out)["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("--yes"));
+        assert!(!String::from_utf8_lossy(&out.stdout).contains("private-value"));
+        count += 1;
+    }
+    assert!(count >= 25);
+}
+
+#[test]
+fn admin_report_write_resolves_its_conversation_before_mutation() {
+    let (out, requests, _) = sequence(
+        &[
+            (
+                200,
+                "application/json",
+                r#"[{"report_id":"rabc","conversation_id":"abc"}]"#,
+            ),
+            (200, "application/json", "{}"),
+        ],
+        &[
+            "report", "edit", "--report", "rabc", "--name", "New name", "--yes", "--json",
+        ],
+    );
+    assert!(out.status.success());
+    assert!(requests[0].starts_with("GET /api/v3/reports?report_id=rabc "));
+    assert!(requests[1].starts_with("PUT /api/v3/reports "));
+    let body: Value = serde_json::from_str(requests[1].split("\r\n\r\n").nth(1).unwrap()).unwrap();
+    assert_eq!(
+        body,
+        json!({"conversation_id":"abc","report_id":"rabc","report_name":"New name"})
+    );
+    assert_eq!(parsed(&out)["data"]["confirmed_by_readback"], false);
+    let (out, requests, _) = sequence(
+        &[(
+            200,
+            "application/json",
+            r#"[{"report_id":"another","conversation_id":"abc"}]"#,
+        )],
+        &[
+            "report", "edit", "--report", "rabc", "--name", "New name", "--yes", "--json",
+        ],
+    );
+    assert!(!out.status.success());
+    assert_eq!(requests.len(), 1);
+}
+
+#[test]
+fn participant_admin_defaults_to_scoped_identity_and_account_is_explicit() {
+    let args = [
+        "statement",
+        "star",
+        "--conversation",
+        "abc",
+        "--statement",
+        "3",
+        "--state",
+        "on",
+        "--yes",
+        "--json",
+    ];
+    let (out, request) = fixture(200, "application/json", "{}", &args);
+    assert!(out.status.success());
+    assert!(!request.to_lowercase().contains("authorization:"));
+    let mut account = args.to_vec();
+    account.push("--account");
+    let (out, request) = fixture(200, "application/json", "{}", &account);
+    assert!(out.status.success());
+    assert!(request
+        .to_lowercase()
+        .contains("authorization: bearer public-fixture-token"));
+    let body: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+    assert_eq!(body, json!({"conversation_id":"abc","tid":3,"starred":1}));
+}
+
+#[test]
+fn signed_receipt_never_echoes_capability_or_html() {
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("signature");
+    std::fs::write(&file, "private-generated-capability").unwrap();
+    let (out, request) = fixture(
+        200,
+        "text/html",
+        "<a href='private-return-capability'>Done</a>",
+        &[
+            "notification",
+            "subscribe",
+            "--conversation",
+            "abc",
+            "--email",
+            "generated@example.invalid",
+            "--signature-file",
+            file.to_str().unwrap(),
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    assert!(!request.to_lowercase().contains("authorization:"));
+    assert!(request.contains("signature=private-generated-capability"));
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("capability"));
+    assert_eq!(
+        parsed(&out)["data"],
+        json!({"state":"response_received","confirmed_by_readback":false})
+    );
+    let (out, _) = fixture(
+        500,
+        "application/json",
+        r#"{"error":"private-generated-capability"}"#,
+        &[
+            "notification",
+            "subscribe",
+            "--conversation",
+            "abc",
+            "--email",
+            "generated@example.invalid",
+            "--signature-file",
+            file.to_str().unwrap(),
+            "--yes",
+            "--json",
+        ],
+    );
+    assert_eq!(out.status.code(), Some(7));
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("private-generated"));
+}
+
+#[test]
+fn public_feed_download_is_private_and_sends_no_account_token() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("feed.xml");
+    let (out, request) = fixture(
+        200,
+        "application/rss+xml",
+        "<rss>Generated</rss>",
+        &[
+            "report",
+            "feed",
+            "topics",
+            "--report",
+            "rabc",
+            "--output",
+            dest.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    assert!(request.starts_with("GET /feeds/rabc/topics "));
+    assert!(!request.to_lowercase().contains("authorization:"));
+    assert_eq!(
+        std::fs::read_to_string(&dest).unwrap(),
+        "<rss>Generated</rss>"
+    );
+    assert_eq!(
+        std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let out = run(
+        tmp.path(),
+        &[
+            "report",
+            "feed",
+            "topics",
+            "--report",
+            "rabc",
+            "--output",
+            dest.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn admin_boolean_lists_and_negative_moderation_are_typed() {
+    let (out, request) = fixture(
+        200,
+        "application/json",
+        "{}",
+        &[
+            "topic",
+            "moderate",
+            "--conversation",
+            "abc",
+            "--action",
+            "accept",
+            "--statements",
+            "2,3",
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    let body: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+    assert_eq!(body["comment_ids"], json!([2, 3]));
+    let (out, request) = fixture(
+        200,
+        "application/json",
+        "{}",
+        &[
+            "participant",
+            "highlight",
+            "set",
+            "--conversation",
+            "abc",
+            "--participant",
+            "1",
+            "--moderation",
+            "-1",
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    assert!(request.contains("\"mod\":-1"));
+}
+
+#[test]
+fn admin_csv_refuses_html_and_leaves_no_output_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("ids.csv");
+    let (out, _) = fixture(
+        200,
+        "text/html",
+        "<html>not csv</html>",
+        &[
+            "participant",
+            "allowlist",
+            "export",
+            "--conversation",
+            "abc",
+            "--output",
+            dest.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(!out.status.success());
+    assert!(!dest.exists());
+}
+
+#[test]
+fn account_backed_agenda_receipts_strip_issued_authentication() {
+    let tmp = tempfile::tempdir().unwrap();
+    let file = tmp.path().join("selections.json");
+    std::fs::write(&file, "[]").unwrap();
+    let (out, _) = fixture(
+        200,
+        "application/json",
+        r#"{"count":0,"auth":{"token":"private-generated-token"}}"#,
+        &[
+            "agenda",
+            "add",
+            "--conversation",
+            "abc",
+            "--from",
+            file.to_str().unwrap(),
+            "--account",
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    assert_eq!(parsed(&out)["data"]["receipt"], json!({"count":0}));
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("private-generated-token"));
+}
+
+#[test]
+fn email_invitation_lookup_does_not_echo_the_supplied_capability() {
+    let tmp = tempfile::tempdir().unwrap();
+    let file = tmp.path().join("code");
+    std::fs::write(&file, "private-invitation-capability").unwrap();
+    let (out, request) = fixture(
+        200,
+        "application/json",
+        r#"{"einvite":"private-invitation-capability","email":"generated@example.invalid","created":0}"#,
+        &[
+            "invite",
+            "email",
+            "lookup",
+            "--code-file",
+            file.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(out.status.success());
+    assert!(request.contains("einvite=private-invitation-capability"));
+    assert_eq!(
+        parsed(&out)["data"],
+        json!({"email":"generated@example.invalid","created":0})
+    );
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("private-invitation-capability"));
+}
+
+#[test]
+fn export_capability_is_saved_privately_never_followed_or_printed() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("link.json");
+    let args = [
+        "report",
+        "export-results",
+        "--conversation",
+        "abc",
+        "--filename",
+        "polis-export-abc-1.zip",
+        "--output",
+        dest.to_str().unwrap(),
+        "--json",
+    ];
+    let url = "https://127.0.0.1:9/generated?signature=private-generated-signature";
+    let (out, request) = fixture(302, &format!("text/html\r\nLocation: {url}"), "", &args);
+    assert!(out.status.success());
+    assert!(request.starts_with("GET /api/v3/dataExport/results?"));
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("signature"));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&std::fs::read(&dest).unwrap()).unwrap(),
+        json!({"url":url,"artifact_verified":false})
+    );
+    assert_eq!(
+        std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    std::fs::remove_file(&dest).unwrap();
+    for location in [
+        "http://example.invalid/export",
+        "javascript:private-code",
+        "https://user:secret@example.invalid/file",
+    ] {
+        let (out, _) = fixture(
+            302,
+            &format!("text/html\r\nLocation: {location}"),
+            "",
+            &args,
+        );
+        assert!(!out.status.success());
+        assert!(!dest.exists());
+        assert!(!String::from_utf8_lossy(&out.stdout).contains(location));
+    }
+}
+
+#[test]
+fn unsafe_legacy_participant_join_is_absent_from_parser_and_schema() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = run(tmp.path(), &["participant", "join", "--json"]);
+    assert_eq!(out.status.code(), Some(2));
+    let out = run(tmp.path(), &["schema", "participant", "--json"]);
+    assert!(out.status.success());
+    assert!(!parsed(&out)["data"]
+        .to_string()
+        .contains("participant join"));
+}
+
+#[test]
+fn xid_map_download_sends_account_bearer_and_preserves_permission_refusal() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    let key = tmp.path().join("key");
+    let dest = tmp.path().join("map.csv");
+    std::fs::write(&key, "00000000-0000-4000-8000-000000000027").unwrap();
+    let args = [
+        "participant",
+        "xid",
+        "capability-export",
+        "--key-file",
+        key.to_str().unwrap(),
+        "--output",
+        dest.to_str().unwrap(),
+        "--json",
+    ];
+    let (out, request) = fixture(200, "text/csv", "participant,xid\n0,generated\n", &args);
+    assert!(out.status.success());
+    assert!(request.starts_with("GET /api/v3/xid/00000000-0000-4000-8000-000000000027-xid.csv "));
+    assert!(request
+        .to_lowercase()
+        .contains("authorization: bearer public-fixture-token"));
+    assert_eq!(
+        std::fs::read_to_string(&dest).unwrap(),
+        "participant,xid\n0,generated\n"
+    );
+    assert_eq!(
+        std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert!(!text(&out).contains("public-fixture-token"));
+    std::fs::remove_file(&dest).unwrap();
+    let (out, request) = fixture(
+        403,
+        "application/json",
+        r#"{"error":"owner_or_moderator_required"}"#,
+        &args,
+    );
+    assert_eq!(out.status.code(), Some(4));
+    assert!(request
+        .to_lowercase()
+        .contains("authorization: bearer public-fixture-token"));
+    assert!(!dest.exists());
+}
+
+#[test]
+fn xid_map_requires_account_sign_in_before_network_or_file_creation() {
+    let tmp = tempfile::tempdir().unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    std::fs::write(
+        tmp.path().join("profiles.json"),
+        json!({"default":"local","sites":{"local":origin}}).to_string(),
+    )
+    .unwrap();
+    let key = tmp.path().join("key");
+    let dest = tmp.path().join("map.csv");
+    std::fs::write(&key, "00000000-0000-4000-8000-000000000027").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_polis"));
+    for (key, _) in std::env::vars() {
+        if key.starts_with("POLIS_") {
+            cmd.env_remove(key);
+        }
+    }
+    let out = cmd
+        .env("POLIS_CONFIG_DIR", tmp.path())
+        .env(
+            "POLIS_KEYCHAIN_SERVICE",
+            format!(
+                "org.pol.is.cli.test.{}",
+                listener.local_addr().unwrap().port()
+            ),
+        )
+        .args([
+            "participant",
+            "xid",
+            "capability-export",
+            "--key-file",
+            key.to_str().unwrap(),
+            "--output",
+            dest.to_str().unwrap(),
+            "--json",
+            "--no-interactive",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(3), "{}", text(&out));
+    assert!(!dest.exists());
+    assert_eq!(
+        listener.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+}
+
+#[test]
+fn raw_api_cannot_use_legacy_admission_or_seed_participant_comments() {
+    let tmp = tempfile::tempdir().unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    std::fs::write(
+        tmp.path().join("profiles.json"),
+        json!({"default":"local","sites":{"local":origin}}).to_string(),
+    )
+    .unwrap();
+    for path in [
+        "/api/v3/participants",
+        "/api/v3/PARTICIPANTS/?conversation_id=abc",
+        "/api/v3/joinWithInvite",
+        "/api/v3/JOINWITHINVITE/",
+        "/api/v3/unused/../joinWithInvite",
+        "/api/v3/comments?is_seed=true",
+    ] {
+        let out = run(tmp.path(), &["api", "POST", path, "--json"]);
+        assert_eq!(out.status.code(), Some(2), "{path}: {}", text(&out));
+    }
+    let input = tmp.path().join("comment.json");
+    std::fs::write(
+        &input,
+        r#"{"conversation_id":"abc","txt":"Generated statement","is_seed":true}"#,
+    )
+    .unwrap();
+    let out = run(
+        tmp.path(),
+        &[
+            "api",
+            "POST",
+            "/api/v3/comments",
+            "--input",
+            input.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(
+        listener.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
 }

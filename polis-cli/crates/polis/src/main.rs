@@ -1,3 +1,4 @@
+mod admin;
 mod collective;
 mod commands;
 mod commenting;
@@ -129,6 +130,9 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             "Read this command's --help for its intended operation.",
             8,
         ));
+    }
+    if admin::available(&path) {
+        return admin::execute(&path, m, config, site, timeout);
     }
     match path.as_str() {
         "help" | "schema" => {

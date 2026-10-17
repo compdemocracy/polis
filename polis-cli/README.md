@@ -193,7 +193,7 @@ refresh, polling, download from signed URLs, or cleanup action is inferred.
 
 Plan view verifies the account through `/users` and reports plan, entitlements and
 quota as **unavailable**, never unlimited or zero. This API has no authoritative
-billing contract. Paid commands remain planned and return exit 8.
+billing contract. Billing mutations remain unavailable. Explicitly confirmed analysis requests use the existing site routes and may start paid provider work.
 
 ## Automation and errors
 
@@ -729,3 +729,14 @@ describe current Node behavior, including restrictions it does not enforce,
 and proposed permission improvements. Draft is a listing state, strict
 moderation controls visibility, and existing identities can bypass fresh-XID
 checks; the wizard does not present nonexistent permissions as working gates.
+
+## Existing-site administrative operations
+
+The client now includes dedicated account, metadata, participant, moderation,
+agenda, report, job, notification, invitation and operator operations. See
+[the route reconciliation and parameter types](docs/admin-operations.md), or
+`polis schema` for the current implementation census. Existing Node permissions
+and limitations still apply. Effectful operations require `--yes`; they never
+retry automatically and return receipts rather than claims of completion.
+Participant operations use conversation-scoped credentials unless `--account`
+is explicit. Download paths are private, bounded and never overwritten.

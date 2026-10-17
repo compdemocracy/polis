@@ -119,7 +119,7 @@ def main():
                 return d
             def invoke(row):
                 e=dict(child,POLIS_CONFIG_DIR=str(config(row.get('actor','owner'))))
-                if row.get('actor','owner')=='owner':e['POLIS_TOKEN_LOCAL']=tokens['owner']
+                if row.get('actor','owner') in ['owner','admin']:e['POLIS_TOKEN_LOCAL']=tokens[row.get('actor','owner')]
                 # Used only by the explicit fixture-ids CLI build. A normal
                 # binary ignores this and will fail the seed receipt comparison.
                 import uuid
@@ -151,6 +151,15 @@ def main():
                     else:item.unlink()
                 (workspace/'seeds.csv').write_text('comment_text,original_id\nGenerated imported statement,generated-import\n')
                 (workspace/'invalid-result.json').write_text('{}')
+                (workspace/'allowlist.json').write_text('["generated-external"]')
+                (workspace/'agenda.json').write_text('[{"topic_key":"generated-topic","selected":true}]')
+                (workspace/'agenda-replace.json').write_text('[{"topic_key":"generated-topic","selected":false}]')
+                (workspace/'capability.txt').write_text('00000000-0000-4000-8000-000000000027')
+                (workspace/'invalid-capability.txt').write_text('generated-invalid-capability')
+                (workspace/'verification.txt').write_text('generated-verification')
+                capabilities=json.loads(dc('exec','-T','server','node','/differential/admin-capabilities.cjs').stdout)
+                for name,signature in capabilities.items():
+                    (workspace/(name+'.txt')).write_text(signature)
                 (workspace/'setup.json').write_text(json.dumps({
                     'topic':'Generated typed setup','description':'Generated description','context':'',
                     'activity':'open','listing':'listed','join':{'invitations':{'mode':'optional','waves':[]},'external_identity':{'mode':'optional'}},
@@ -159,6 +168,8 @@ def main():
                 phase_start=time.monotonic();phase_values=[];timings=[]
                 for index,row in enumerate(rows):
                     if row['scope']=='planned':continue
+                    if row['command']=='node doctor':
+                        report[phase+'_admin_fixture']=json.loads(dc('exec','-T','server','node','/differential/admin-seed.cjs').stdout)
                     get('/begin?seed='+hashlib.sha256(row.get('scenario',row['command']).encode()).hexdigest()[:12]+'&case=cli'+str(index))
                     command_start=time.monotonic()
                     value=invoke(row)
@@ -173,6 +184,13 @@ def main():
                         except urllib.error.HTTPError:
                             if time.monotonic()>=deadline:raise RuntimeError('request effects did not drain: '+row['command']) from None
                             time.sleep(.02)
+                    if row['command'] in ['notification subscribe','notification unsubscribe','notification set','agenda add','agenda replace','agenda remove','delphi run','delphi batch','support contribute']:
+                        check='final' if row['command']=='support contribute' else row['command']
+                        verified=dc('exec','-T','server','node','/differential/admin-verify.cjs',check,check=False)
+                        if verified.returncode:
+                            print(verified.stderr,file=sys.stderr)
+                            raise RuntimeError('durable admin proof failed: '+check)
+                        report.setdefault(phase+'_admin_proof',[]).extend(json.loads(verified.stdout)['checks'])
                     expected=row['expected_exit']
                     if expected is not None and value['exit']!=expected:
                         report.setdefault('unexpected_outcomes',[]).append({'phase':phase,'command':row['command'],'expected_exit':expected,'actual_exit':value['exit'],'code':value['json'].get('error',{}).get('code') if value['json'].get('error') else None})
@@ -182,7 +200,7 @@ def main():
                         report.setdefault('unexpected_outcomes',[]).append({'phase':phase,'command':row['command'],'actual_exit':value['exit'],'reason':'not a stored-data outcome'})
                     artifacts={}
                     for f in workspace.rglob('*'):
-                        if f.is_file() and not any(a in f.relative_to(workspace).parts for a in ['owner','participant']):
+                        if f.is_file() and not any(a in f.relative_to(workspace).parts for a in ['owner','participant','admin']):
                             artifacts[str(f.relative_to(workspace))]=hashlib.sha256(f.read_bytes()).hexdigest()
                     value['artifacts']=artifacts;phase_values.append(value)
                     if row['command']=='vote':participant_id=value['json']['data']['participant_id']

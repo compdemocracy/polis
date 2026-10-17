@@ -294,6 +294,6 @@ fn focused_help_and_schema_explain_acknowledgement_limits() {
     );
     assert_eq!(
         call(t.path(), &["participant", "highlight", "set"], None, false).0,
-        8
+        2
     );
 }

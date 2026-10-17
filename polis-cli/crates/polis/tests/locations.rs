@@ -291,5 +291,5 @@ fn focused_help_and_schema_explain_the_route_limits() {
         .1["data"]["implemented"],
         true
     );
-    assert_eq!(call(t.path(), &["participant", "group"], None, false).0, 8);
+    assert_eq!(call(t.path(), &["participant", "group"], None, false).0, 2);
 }

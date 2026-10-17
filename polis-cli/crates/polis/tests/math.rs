@@ -275,6 +275,6 @@ fn help_and_schema_explain_presentation_limits_and_no_work() {
         true
     );
     for leaf in ["correlation", "refresh"] {
-        assert_eq!(call(t.path(), &["math", leaf], None, false).0, 8);
+        assert_eq!(call(t.path(), &["math", leaf], None, false).0, 2);
     }
 }

@@ -371,6 +371,6 @@ fn manuals_and_schema_expose_the_stored_read_limits() {
     }
     assert_eq!(
         call(t.path(), &["collective", "generate"], None, false).0,
-        8
+        2
     );
 }

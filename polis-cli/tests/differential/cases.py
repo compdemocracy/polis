@@ -73,5 +73,7 @@ def cases():
     add('conversation reserve')
     add('conversation create',['--topic','Generated simple creation'])
     add('conversation new',['--from','setup.json'])
+    from admin_cases import admin_cases
+    rows.extend(admin_cases())
     add('auth logout',scope='local')
     return rows

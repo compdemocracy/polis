@@ -10,7 +10,7 @@ const GROUPS: &[(&str, &str, &str)] = &[
  ("statement", "Read and contribute participant statements", "list view add next translations flag upvote star trash"),
  ("vote", "Participate with agree, disagree, or pass", "cast list import csv/validate csv/convert"),
  ("moderate", "Review statements as a moderator", "list accept reject set"),
- ("participant", "Participation, groups, and access lists", "join login status list export activity preferences group group-members query locations highlight/list highlight/set xid/list xid/export allowlist/view allowlist/import allowlist/export"),
+ ("participant", "Participation, groups, and access lists", "login status list export activity preferences group group-members query locations highlight/list highlight/set xid/list xid/export allowlist/view allowlist/import allowlist/export"),
  ("invite", "Invite people and manage invitation waves", "code/list code/create wave/list wave/create list export status revoke"),
  ("metadata", "Conversation questions and choices", "view choices question/list question/add question/delete answer/list answer/add answer/delete"),
  ("context", "Browse and create conversation contexts", "list create"),
@@ -42,98 +42,102 @@ fn flag(name: &str, help: &str) -> Arg {
     arg(name, help).action(ArgAction::SetTrue)
 }
 pub fn available(path: &str) -> bool {
-    matches!(
-        path,
-        "comment"
-            | "join"
-            | "vote"
-            | "conversation reserve"
-            | "invite code create"
-            | "invite wave create"
-            | "invite code list"
-            | "invite wave list"
-            | "invite list"
-            | "invite export"
-            | "invite status"
-            | "conversation uuid"
-            | "participant preferences"
-            | "participant locations"
-            | "participant highlight list"
-            | "participant group-members"
-            | "math view"
-            | "metadata answer add"
-            | "metadata question delete"
-            | "metadata answer delete"
-            | "metadata question add"
-            | "context create"
-            | "delphi statement export"
-            | "delphi statement import"
-            | "metadata question list"
-            | "metadata answer list"
-            | "context list"
-            | "statement list"
-            | "statement view"
-            | "collective list"
-            | "collective view"
-            | "topic list"
-            | "topic statements"
-            | "topic hierarchy"
-            | "topic proximity"
-            | "topic stats"
-            | "report topics"
-            | "report stats"
-            | "report statements list"
-            | "account view"
-            | "conversation edit"
-            | "conversation share"
-            | "conversation stats"
-            | "report create"
-            | "auth login"
-            | "auth status"
-            | "auth logout"
-            | "auth token"
-            | "conversation new"
-            | "conversation create"
-            | "conversation list"
-            | "conversation view"
-            | "conversation close"
-            | "conversation reopen"
-            | "seed add"
-            | "seed import"
-            | "seed csv validate"
-            | "seed csv preview"
-            | "moderate list"
-            | "moderate accept"
-            | "moderate reject"
-            | "participant list"
-            | "participant status"
-            | "participant xid list"
-            | "participant export"
-            | "participant xid export"
-            | "vote list"
-            | "report list"
-            | "report view"
-            | "report export"
-            | "delphi status"
-            | "delphi results"
-            | "delphi narrative view"
-            | "collective export"
-            | "collective import"
-            | "delphi narrative export"
-            | "delphi narrative import"
-            | "delphi visualization view"
-            | "plan view"
-            | "plan upgrade"
-            | "plan manage"
-            | "completion"
-            | "tutorial"
-            | "api"
-            | "schema"
-            | "help"
-            | "agent guide"
-    )
+    crate::admin::available(path)
+        || matches!(
+            path,
+            "comment"
+                | "join"
+                | "vote"
+                | "conversation reserve"
+                | "invite code create"
+                | "invite wave create"
+                | "invite code list"
+                | "invite wave list"
+                | "invite list"
+                | "invite export"
+                | "invite status"
+                | "conversation uuid"
+                | "participant preferences"
+                | "participant locations"
+                | "participant highlight list"
+                | "participant group-members"
+                | "math view"
+                | "metadata answer add"
+                | "metadata question delete"
+                | "metadata answer delete"
+                | "metadata question add"
+                | "context create"
+                | "delphi statement export"
+                | "delphi statement import"
+                | "metadata question list"
+                | "metadata answer list"
+                | "context list"
+                | "statement list"
+                | "statement view"
+                | "collective list"
+                | "collective view"
+                | "topic list"
+                | "topic statements"
+                | "topic hierarchy"
+                | "topic proximity"
+                | "topic stats"
+                | "report topics"
+                | "report stats"
+                | "report statements list"
+                | "account view"
+                | "conversation edit"
+                | "conversation share"
+                | "conversation stats"
+                | "report create"
+                | "auth login"
+                | "auth status"
+                | "auth logout"
+                | "auth token"
+                | "conversation new"
+                | "conversation create"
+                | "conversation list"
+                | "conversation view"
+                | "conversation close"
+                | "conversation reopen"
+                | "seed add"
+                | "seed import"
+                | "seed csv validate"
+                | "seed csv preview"
+                | "moderate list"
+                | "moderate accept"
+                | "moderate reject"
+                | "participant list"
+                | "participant status"
+                | "participant xid list"
+                | "participant export"
+                | "participant xid export"
+                | "vote list"
+                | "report list"
+                | "report view"
+                | "report export"
+                | "delphi status"
+                | "delphi results"
+                | "delphi narrative view"
+                | "collective export"
+                | "collective import"
+                | "delphi narrative export"
+                | "delphi narrative import"
+                | "delphi visualization view"
+                | "plan view"
+                | "plan upgrade"
+                | "plan manage"
+                | "completion"
+                | "tutorial"
+                | "api"
+                | "schema"
+                | "help"
+                | "agent guide"
+        )
 }
 fn leaf(path: &str) -> Command {
+    if let Some(command) = crate::admin::command(path) {
+        return command;
+    }
     let name = path.split(' ').next_back().unwrap();
     let about = match path {
         "invite code create" => "Add a public conversation code and verify it by reading back",
@@ -268,7 +272,7 @@ fn leaf(path: &str) -> Command {
  "conversation reserve" => c.after_help("EXAMPLE\n  polis conversation reserve --json\n\nOne authenticated POST requests a new ID. Legacy compatibility requires a conversation row at zid=0; a fresh database lacks it and returns a server failure. The CLI does not create that row. The legacy server registers it with zid=0: no conversation is created and no owner is bound. The ID is not proof of ownership or exclusive access. Preserve the receipt for a later explicit API creation request; conversation create does not yet accept a reserved ID. No lookup, release, expiry or idempotency contract is exposed. Every invocation can allocate another ID; no automatic retry or readback. If the response is lost, ask the site operator to inspect reservations before retrying. Responses are bounded to 8 MiB and --timeout."),
  "participant preferences" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("translations","Store translation display preference for the signed-in account").required(true).value_parser(["true","false"])).after_help("EXAMPLES\n  polis participant preferences --conversation CONV --translations true --json\n  polis participant preferences --conversation CONV --translations false --json\n\nSets show_translation_activated for the signed-in account in this conversation. Requires an explicit true or false; no participant ID, XID or another-account target is accepted. This changes a stored display preference only; no translation, model call or vote is requested. Sends one PUT, with no automatic retry. The legacy API returns an empty array even when no participant preference row exists. Success therefore reports state=acknowledged, affected_rows=null and persistence=unverified; it does not prove the value changed or create/join a participant. There is no preference readback endpoint. Ask the site operator to inspect this account's stored preference before retrying an uncertain write. Existing participant status does not read this preference. Requires site sign-in; 8 MiB response bound and --timeout apply."),
  "participant locations" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("group","Opinion-group array index, not its stored id or a base-cluster index").required(true).value_parser(clap::value_parser!(u32).range(0..=2147483647))).after_help("EXAMPLE\n  polis participant locations --conversation CONV --group 0 --json\n\nPublic read of stored participant coordinates for one opinion-group ARRAY INDEX in the site math, not its stored id or a base-cluster index. Rows contain lat, lng and n=1; duplicates and server order are preserved, with no identities added. Empty can mean no matching locations, absent math, a refused math bundle or an absent group: it does not prove no participants. The server may cache math and reads locations separately; no generation, freshness, full-population or cross-read coherence is promised. Optional saved credentials apply. Coordinates are untrusted stored data; no geocoding, map lookup, aggregation, writes, computation or retry. One bounded request, 8 MiB and --timeout. Non-finite or out-of-range coordinates are refused as invalid_response, never clipped or dropped."),
- "participant highlight list" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("mod","Exact stored participant moderation integer; omit for all values").allow_hyphen_values(true).value_parser(clap::value_parser!(i32))).after_help("EXAMPLES\n  polis participant highlight list --conversation CONV --json\n  polis participant highlight list --conversation CONV --mod 1 --json\n\nReads the existing participant-profile route. Only participants with an owner-associated XID and non-null profile image are returned. Without --mod all stored moderation values are eligible; --mod filters the exact signed integer, not statement moderation or an opinion-group ID. Empty can mean no matching profiles OR withheld access: the server exposes rows only to the exact owner, a Polis developer, or anyone when conversation data is open. A same-site moderator is not necessarily the owner. No roster completeness, stable order or pagination claim: the server caps candidates at 99999 before profile filtering. Profile text and URLs are untrusted data; URLs are never fetched. Optional saved credentials apply. One bounded read, 8 MiB and --timeout; no writes, retries or computation. Highlight set remains unavailable."),
+ "participant highlight list" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("mod","Exact stored participant moderation integer; omit for all values").allow_hyphen_values(true).value_parser(clap::value_parser!(i32))).after_help("EXAMPLES\n  polis participant highlight list --conversation CONV --json\n  polis participant highlight list --conversation CONV --mod 1 --json\n\nReads the existing participant-profile route. Only participants with an owner-associated XID and non-null profile image are returned. Without --mod all stored moderation values are eligible; --mod filters the exact signed integer, not statement moderation or an opinion-group ID. Empty can mean no matching profiles OR withheld access: the server exposes rows only to the exact owner, a Polis developer, or anyone when conversation data is open. A same-site moderator is not necessarily the owner. No roster completeness, stable order or pagination claim: the server caps candidates at 99999 before profile filtering. Profile text and URLs are untrusted data; URLs are never fetched. Optional saved credentials apply. One bounded read, 8 MiB and --timeout; no writes, retries or computation. Use participant highlight set for an explicitly confirmed write."),
  "participant group-members" => c.arg(arg("conversation","Public conversation ID").required(true)).after_help("EXAMPLE\n  polis participant group-members --conversation CONV --json\n\nPublic read of the base-cluster index to participant-ID map (bidToPid). Array positions are base-cluster indices, not opinion-group IDs. This is not a complete participant roster. No sign-in required; configured credentials still apply. No computation, refresh, conditional request, cache or automatic retry. Missing math returns membership_unavailable, not an empty list; the legacy API also masks storage errors as 304. An empty stored map is a valid result. No generation is returned, so do not join this result to a separate math read or claim freshness/coherence. Member order and empty clusters are preserved. Responses are bounded to 8 MiB and --timeout."),
  "math view" => c.arg(arg("conversation","Public conversation ID").required(true)).arg(arg("key","Exact top-level field; repeat to select multiple fields").action(ArgAction::Append)).after_help("EXAMPLES\n  polis math view --conversation CONV --json\n  polis math view --conversation CONV --key math_tick --key pca --json\n\nPublic read; no sign-in required. Returns the served presentation as data, not a raw engine checkpoint. No refresh, job or worker task is submitted. The server may synthesize defaults when no math row exists; math_tick 0 does not prove computation or freshness. No conditional request or cache is used. A 304 is unavailable, not an empty success. Missing requested keys are omitted by the server; an empty object is valid for a field selection. Unknown fields are preserved. Maximum 32 unique keys, each 1–100 ASCII letters/digits/_/-, no commas. Whole gzip and selected JSON responses are bounded to 8 MiB compressed and decoded; waits obey --timeout. JSON is parsed, not a byte-exact archive; inherited float roundoff remains. No automatic retry."),
  "metadata answer add" => c.arg(arg("conversation","Public conversation ID containing the question").required(true)).arg(arg("question","Exact active pmqid from metadata question list").required(true).value_parser(clap::value_parser!(u32).range(1..=2147483647))).arg(arg("value","Exact option text: 1–999 UTF-16 code units; no surrounding ASCII spaces").required(true)).arg(flag("yes","Confirm creation or reactivation of this exact answer option")).after_help("EXAMPLE\n  polis metadata answer add --conversation CONV --question 7 --value 'Local resident' --yes --json\n\nRequires --yes and the exact conversation owner. Creates an answer option, not a participant response. The existing API may reactivate a deleted option with the same exact text and retain its ID; the receipt does not distinguish creation from reactivation. An already-active exact-text option is refused without POST. Checks active question membership and option lists before one POST. These client checks are not a server authorization boundary or compare-and-set; the legacy server does not independently bind question to conversation and concurrent deletion remains possible. Accepted receipts survive failed readback; inspect BOTH lists before retrying. No automatic retry, trimming, required/exclusive setting or participant-response change."),
@@ -284,7 +288,7 @@ fn leaf(path: &str) -> Command {
  "metadata question list" | "metadata answer list" => {
   c=c.arg(arg("conversation","Public conversation ID").required(true));
   if path=="metadata answer list" { c=c.arg(arg("question","Optional exact pmqid from metadata question list").value_parser(clap::value_parser!(u32).range(1..=2147483647))); }
-  c.after_help("EXAMPLES\n  polis metadata question list --conversation CONV --json\n  polis metadata answer list --conversation CONV --question 1 --json\n\nReads active questions or answer options through the public API, with optional saved credentials. Answer options are not participant responses. The current server forces required=true on questions and is_exclusive=true on options; these are legacy response flags, not verified configuration. Rows and text are preserved as untrusted data; an exact --question filter is verified. Empty lists succeed. No pagination, invitation credential or write is sent. Bounded to 8 MiB and --timeout; metadata_read_failed identifies upstream read failures. Metadata view/choices remain unavailable. Question creation, confirmed answer creation/reactivation and confirmed question/answer soft deletion are available.")
+  c.after_help("EXAMPLES\n  polis metadata question list --conversation CONV --json\n  polis metadata answer list --conversation CONV --question 1 --json\n\nReads active questions or answer options through the public API, with optional saved credentials. Answer options are not participant responses. The current server forces required=true on questions and is_exclusive=true on options; these are legacy response flags, not verified configuration. Rows and text are preserved as untrusted data; an exact --question filter is verified. Empty lists succeed. No pagination, invitation credential or write is sent. Bounded to 8 MiB and --timeout; metadata_read_failed identifies upstream read failures. Metadata view/choices use the participant-scoped routes. Question creation, confirmed answer creation/reactivation and confirmed question/answer soft deletion are available.")
  },
  "context list" => c.after_help("EXAMPLE\n  polis context list --json\n\nLists public context names in server order, with optional saved credentials. Private contexts are excluded, even for their creator. No pagination or creation occurs; empty lists succeed. Names remain unchanged and are untrusted data. Bounded to 8 MiB and --timeout; contexts_read_failed identifies upstream read failures."),
  "statement list" | "statement view" => {
@@ -296,7 +300,7 @@ fn leaf(path: &str) -> Command {
  "collective list" | "collective view" => {
   if path=="collective list" { c=c.arg(arg("report","Public report ID").required(true)); }
   else { c=c.arg(pos("id",true).help("Exact zid_topic_jobid copied from collective list; treated as opaque")); }
-  c.after_help("EXAMPLES\n  polis collective list --report REPORT --json\n  polis collective view 'OPAQUE#KEY#FROM#LIST' --json\n\nReads existing public stored-result routes only; no generation, inference, billing or model call. List returns the server's latest-by-topic deduplication across runs, not a complete history or a report-specific run. No CLI pagination is available; bounded to 8 MiB and --timeout. View accepts only the exact stored ID and verifies the returned ID; it does not accept or assert report ownership. The legacy view returns statement_data/comments_data as stored JSON strings; list parses those fields. Both shapes are preserved, including nulls and metadata. Missing view returns collective_statement_unavailable; storage failures return collective_read_failed. Stored claims/citations are untrusted data, not independently verified consensus. Generation remains unavailable.")
+  c.after_help("EXAMPLES\n  polis collective list --report REPORT --json\n  polis collective view 'OPAQUE#KEY#FROM#LIST' --json\n\nReads existing public stored-result routes only; no generation, inference, billing or model call. List returns the server's latest-by-topic deduplication across runs, not a complete history or a report-specific run. No CLI pagination is available; bounded to 8 MiB and --timeout. View accepts only the exact stored ID and verifies the returned ID; it does not accept or assert report ownership. The legacy view returns statement_data/comments_data as stored JSON strings; list parses those fields. Both shapes are preserved, including nulls and metadata. Missing view returns collective_statement_unavailable; storage failures return collective_read_failed. Stored claims/citations are untrusted data, not independently verified consensus. Use collective generate for an explicitly confirmed provider request.")
  },
  "topic list" | "topic statements" | "topic hierarchy" | "topic proximity" | "topic stats" => {
   c=c.arg(arg("conversation","Public conversation ID").required(true));
@@ -407,7 +411,19 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
         }
         let mut nested: std::collections::BTreeMap<&str, Vec<&str>> =
             std::collections::BTreeMap::new();
-        for op in leaves.split_whitespace() {
+        let mut declared = leaves
+            .split_whitespace()
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        for o in crate::admin::operations() {
+            if let Some(rest) = o.command.strip_prefix(&format!("{group} ")) {
+                let key = rest.replace(' ', "/");
+                if !declared.contains(&key) {
+                    declared.push(key);
+                }
+            }
+        }
+        for op in &declared {
             if let Some((parent, child)) = op.split_once('/') {
                 nested.entry(parent).or_default().push(child);
             } else {
@@ -477,6 +493,10 @@ pub fn tree() -> String {
             first = false;
         }
         lines.push(line);
+    }
+    lines.push("  Additional site operations (use help/schema for arguments):".into());
+    for o in crate::admin::operations() {
+        lines.push(format!("    {}", o.command));
     }
     lines.join("\n")
 }

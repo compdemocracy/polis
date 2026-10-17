@@ -34,7 +34,7 @@ The runner refuses an existing project and removes only its own containers and
 volumes in `finally`, even on an assertion failure. No application services can
 reach external providers: Node, Rust, Postgres, DynamoDB and the OIDC simulator
 are on an internal network. A small gateway exposes loopback ports and forwards
-only to the sealed proxy/control service. No credentials or real data are used.
+only to the sealed proxy/control service. No real credentials or data are used.
 
 `cases.py` explicitly names every implemented command. The running binary's
 `schema` supplies the independent census. A new implemented command without a
@@ -80,3 +80,19 @@ request/flow at a time (unimplemented local commands run concurrently and must
 make no HTTP requests), uses only the existing Node write routes, and adds no
 production schema, pool, lock, queue, provider or Rust write. No load/isolation
 performance claim follows from this functional test.
+
+Dedicated administration cases are in `admin_cases.py`. After the existing
+missing-store cases, `admin-seed.cjs` creates empty local analysis tables and one
+generated completed-job record. The simulator's real admin claim and generated
+local developer user exercise operator reads and queue admission. No worker is
+started. Empty feeds, blocked mail, disabled operator endpoints, missing legacy
+tables and permission refusals have separate scenario labels; none claims a
+provider computation or delivery.
+
+`admin-verify.cjs` independently checks durable database effects, including
+participant attribution, subscriptions, agenda saves/removal, reports, allowlists,
+account changes and job admission. It also verifies the existing star handler's
+persisted row despite its error response. Output contains check names only.
+Run native CI before the live loop: native tests rebuild the default binary;
+rebuild `--features fixture-ids` afterwards, and keep that binary unchanged
+through both phases.
