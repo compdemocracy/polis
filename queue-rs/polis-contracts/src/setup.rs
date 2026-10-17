@@ -344,7 +344,12 @@ pub fn predict(setup: &ConversationSetup, entry: Entry, action: Action) -> Admis
             | XidTokenOtherOwner
             | XidOtherOwnerKnownXid
     );
-    if unlisted_xid && matches!(setup.join.external_identity, ExternalIdentity::Allowlist { .. }) {
+    if unlisted_xid
+        && matches!(
+            setup.join.external_identity,
+            ExternalIdentity::Allowlist { .. }
+        )
+    {
         return refuse(403, "polis_err_xid_not_allowed");
     }
     // An external ID other than the token's, one this owner has not seen, or a
@@ -582,7 +587,11 @@ mod tests {
             ids: AllowedIds::try_from(vec!["listed".to_string()]).unwrap(),
         };
         for action in [Action::Join, Action::Vote, Action::Comment] {
-            for entry in [Entry::KnownXidMember, Entry::XidTokenMember, Entry::CookieMemberXid] {
+            for entry in [
+                Entry::KnownXidMember,
+                Entry::XidTokenMember,
+                Entry::CookieMemberXid,
+            ] {
                 assert_eq!(
                     predict(&s, entry, action).code,
                     Some("polis_err_xid_not_allowed"),
