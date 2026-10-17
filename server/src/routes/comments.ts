@@ -816,8 +816,10 @@ async function handle_POST_comments_bulk(
   }
 
   try {
-    const [finalPid, is_moderator] = await Promise.all([
-      doGetPid(),
+    // Refuse a non-moderator before resolving a participant. Creating the row
+    // first left a refused caller as an existing member, and an invite-only
+    // conversation admits existing members on every later vote and comment.
+    const [is_moderator] = await Promise.all([
       isModerator(zid!, uid!),
       getConversationInfo(zid!),
     ]);
@@ -827,6 +829,7 @@ async function handle_POST_comments_bulk(
       return;
     }
 
+    const finalPid = await doGetPid();
     if (finalPid < 0) {
       failJson(res, 500, "polis_err_post_comment_bad_pid");
       return;

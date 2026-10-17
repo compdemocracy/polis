@@ -1,0 +1,18 @@
+# Overlay on server/characterization/compose.yml for the setup admission table:
+# the CLI comparison's prebuilt images and an empty developer-admin list, so the
+# site-moderator entry path stays a non-member.
+services:
+  postgres:
+    image: ${CLI_DIFF_POSTGRES_IMAGE:?build with scripts/prepare-polis-cli-differential.sh}
+  oidc-simulator:
+    image: ${CLI_DIFF_OIDC_IMAGE:?build with scripts/prepare-polis-cli-differential.sh}
+  server:
+    image: ${CLI_DIFF_NODE_IMAGE:?build with scripts/prepare-polis-cli-differential.sh}
+    ports: !reset []
+    environment:
+      P027_MARKERS: '0'
+      ADMIN_UIDS: '[]'
+  file-server:
+    profiles: [unused]
+  driver:
+    profiles: [unused]

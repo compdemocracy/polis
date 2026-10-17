@@ -264,7 +264,7 @@ fn summary(s: &ConversationSetup) -> Value {
         "allowlisted_ids":match &s.join.external_identity{ExternalIdentity::Allowlist{ids}=>ids.as_slice().len(),_=>0},
         "initial_statements":s.seeds.len(),"visibility":s.visibility,"data_access":s.data_access,
         "profanity_filter":s.profanity_filter,"short_url":s.short_url,
-        "current_behavior":"Existing identities may bypass XID checks. Draft is only a listing flag. Sign-in and separate comment permissions are not enforced. Read the setup admission table for exact paths.",
+        "current_behavior":"An external-ID allow-list is checked on every join, vote and comment, including known identities; a different external ID is a new identity. Requiring an external ID applies to new identities only. Draft is only a listing flag. Sign-in and separate comment permissions are not enforced. Read the setup admission table for exact paths.",
         "steps":["create closed with invitation gate","read back","apply settings while staged","read back","create and confirm invitation waves","write and confirm external-ID allowlist","submit and confirm initial statements","apply and confirm final participation settings"]})
 }
 pub fn execute(
@@ -438,6 +438,7 @@ fn apply(s: &ConversationSetup, c: &Client) -> Result<Value> {
                 json!(actual.len() - ids.as_slice().len());
             steps.last_mut().unwrap()["state"] = json!("confirmed");
         }
+        let mut posted = Vec::new();
         for (i, text) in s.seeds.iter().enumerate() {
             step = format!("statement_{}", i + 1);
             // The moderator endpoint authorizes the owner; no seed bypass flag.
@@ -455,23 +456,49 @@ fn apply(s: &ConversationSetup, c: &Client) -> Result<Value> {
                 .filter(|n| *n <= i32::MAX as u64)
                 .ok_or_else(incompatible)?;
             steps.push(json!({"step":step,"state":"response_received","statement":tid}));
-            step = format!("confirm_statement_{}", i + 1);
-            let r = get(
-                c,
-                "/api/v3/comments",
-                code,
-                &[("tids", tid.to_string()), ("moderation", "true".into())],
-            )?;
-            let rows = r.as_array().ok_or_else(incompatible)?;
-            if rows.len() != 1
-                || rows[0]["tid"] != tid
-                || rows[0]["txt"] != *text
-                || rows[0]["mod"] != 1
-                || rows[0]["active"] != true
-            {
-                return Err(incompatible());
+            posted.push((tid, text));
+        }
+        if !posted.is_empty() {
+            // Node's moderation list ignores `tids` and returns every statement, so
+            // one paged read confirms all of them (seeds are capped at 1,000).
+            step = "confirm_statements".into();
+            let mut seen = std::collections::HashMap::new();
+            for offset in [0, 500, 1000] {
+                let r = get(
+                    c,
+                    "/api/v3/comments",
+                    code,
+                    &[
+                        ("moderation", "true".into()),
+                        ("limit", "500".into()),
+                        ("offset", offset.to_string()),
+                    ],
+                )?;
+                for row in r["comments"].as_array().ok_or_else(incompatible)? {
+                    let tid = row["tid"].as_u64().ok_or_else(incompatible)?;
+                    seen.insert(tid, row.clone());
+                }
+                if r["pagination"]["hasMore"] == false {
+                    break;
+                }
+                if offset == 1000 {
+                    return Err(incompatible());
+                }
             }
-            steps.last_mut().unwrap()["state"] = json!("confirmed");
+            for (tid, text) in &posted {
+                let row = seen.get(tid).ok_or_else(incompatible)?;
+                if row["txt"] != **text || row["mod"] != 1 || row["active"] != true {
+                    return Err(incompatible());
+                }
+            }
+            for st in steps.iter_mut() {
+                if st["step"]
+                    .as_str()
+                    .is_some_and(|n| n.starts_with("statement_"))
+                {
+                    st["state"] = json!("confirmed");
+                }
+            }
         }
         step = "finish".into();
         let mut final_flags = flags.clone();

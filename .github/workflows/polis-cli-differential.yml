@@ -56,6 +56,10 @@ jobs:
         run: bash scripts/prepare-polis-cli-differential.sh
       - name: Compare every command with Rust switches off and on
         run: bash scripts/test-polis-cli-differential.sh --binary ../target/debug/polis --output "${{ runner.temp }}/differential-results.json"
+      - name: Setup admission table matches Node (every entry path, action and setting)
+        env:
+          COMPOSE_PROJECT_NAME: setup-admission-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash scripts/test-setup-admission.sh
       - name: Safe structured result (no response values or credentials)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -19,7 +19,7 @@ POLIS_SITE=preprod POLIS_URL_PREPROD=https://polis.example.invalid polis auth st
 `POLIS_AUTH_AUDIENCE_<PROFILE>` and `POLIS_AUTH_CALLBACK_PORT_<PROFILE>` override
 OAuth configuration. `POLIS_CA_FILE_<PROFILE>` supplies a development CA file;
 `POLIS_TOKEN_<PROFILE>` supplies an access token (the pol.is profile uses plain
-`POLIS_TOKEN`). `POLIS_KEYCHAIN_SERVICE` replaces the macOS Keychain service name
+`POLIS_TOKEN`). `POLIS_KEYCHAIN=off` keeps every credential in the owner-only file store and never calls the macOS Keychain; `.cargo/config.toml` sets it for every `cargo test` and `cargo run` here, so test runs cannot show Keychain dialogs, and the real-Keychain cases in `tests/keychain.rs` run only with `POLIS_TEST_KEYCHAIN=1`. `POLIS_KEYCHAIN_SERVICE` replaces the macOS Keychain service name
 (default `org.pol.is.cli`) so tests and experiments never touch real saved
 sign-ins. Use uppercase profile names in
 variable suffixes. Issuer/client/audience must match the selected server; never

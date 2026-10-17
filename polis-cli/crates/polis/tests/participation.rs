@@ -260,7 +260,6 @@ fn malformed_success_never_leaks_or_claims_saved_credentials() {
     for response in [
         json!({"status":"ok"}),
         json!({"status":"ok","auth":{"token":TOKEN,"token_type":"Basic"},"login_code":LOGIN}),
-        json!({"status":"ok","auth":{"token":TOKEN,"token_type":"Bearer"}}),
     ] {
         let d = tempfile::tempdir().unwrap();
         let t = server(d.path(), vec![json_res(response)]);
@@ -270,6 +269,30 @@ fn malformed_success_never_leaks_or_claims_saved_credentials() {
         assert!(!v.to_string().contains(LOGIN));
         t.join().unwrap();
         assert!(private(d.path()).is_empty());
+    }
+}
+#[test]
+fn accepted_invite_keeps_its_issued_token_when_the_login_code_is_missing() {
+    // The invite is spent once Node answers; a valid Bearer token is the only way
+    // back in, so it is saved before the rest of the receipt is checked.
+    for login in [json!(null), json!(""), json!(7)] {
+        let d = tempfile::tempdir().unwrap();
+        let t = server(
+            d.path(),
+            vec![json_res(
+                json!({"status":"ok","auth":{"token":TOKEN,"token_type":"Bearer"},"login_code":login}),
+            )],
+        );
+        let (code, v) = call(d.path(), &["join", "2demo", "--invite", LOGIN], None, false);
+        assert_eq!(code, 7, "{v}");
+        assert!(!v.to_string().contains(TOKEN));
+        t.join().unwrap();
+        let records = private(d.path());
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["token"], TOKEN);
+        assert!(records[0]
+            .get("participant_login")
+            .is_none_or(Value::is_null));
     }
 }
 #[test]

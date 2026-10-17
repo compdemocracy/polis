@@ -328,6 +328,36 @@ pub fn predict(setup: &ConversationSetup, entry: Entry, action: Action) -> Admis
     if action == Action::Join && matches!(entry, Invite | ReturningInvite) {
         return accept();
     }
+    // The allow-list is checked on every action, before any identity is resolved,
+    // for each request whose external ID is its identity (_requireXidAllowed in
+    // auth/ensure-participant.ts). Known members are rechecked too. Of these entry
+    // paths only the new allowed ID is on the list.
+    let unlisted_xid = matches!(
+        entry,
+        CookieMemberXid
+            | KnownXidMember
+            | KnownXidNonmember
+            | XidMemberChangedXid
+            | XidSameOwnerUnknownXid
+            | XidTokenMember
+            | XidTokenSameOwner
+            | XidTokenOtherOwner
+            | XidOtherOwnerKnownXid
+    );
+    if unlisted_xid
+        && matches!(
+            setup.join.external_identity,
+            ExternalIdentity::Allowlist { .. }
+        )
+    {
+        return refuse(403, "polis_err_xid_not_allowed");
+    }
+    // An external ID other than the token's, one this owner has not seen, or a
+    // token from another owner resolves to a new identity, so joining enrolls it.
+    let xid_new_identity = matches!(
+        entry,
+        XidMemberChangedXid | XidSameOwnerUnknownXid | XidTokenOtherOwner
+    );
     let fresh = matches!(
         entry,
         Anonymous | AnonymousOtherConversation | LegacyCookieMissing
@@ -367,10 +397,11 @@ pub fn predict(setup: &ConversationSetup, entry: Entry, action: Action) -> Admis
             | SignedInXid
             | XidOtherOwnerKnownXid
             | XidSameOwnerUnknownXid
+            | XidMemberChangedXid
     );
     if matches!(setup.join.invitations, Invitations::Required { .. })
         && nonmember
-        && (action != Action::Join || new_xid || xid_lookup)
+        && (action != Action::Join || new_xid || xid_lookup || xid_new_identity)
     {
         return refuse(401, "polis_err_treevite_auth_required");
     }
@@ -545,6 +576,41 @@ mod tests {
             Some("polis_err_conversation_is_closed")
         );
         assert_eq!(predict(&s, Entry::Invite, Action::Join).status, 201);
+    }
+    #[test]
+    fn allowlist_rechecks_known_ids_and_a_changed_id_is_a_new_identity() {
+        let mut s = ConversationSetup {
+            topic: "Test".into(),
+            ..ConversationSetup::default()
+        };
+        s.join.external_identity = ExternalIdentity::Allowlist {
+            ids: AllowedIds::try_from(vec!["listed".to_string()]).unwrap(),
+        };
+        for action in [Action::Join, Action::Vote, Action::Comment] {
+            for entry in [
+                Entry::KnownXidMember,
+                Entry::XidTokenMember,
+                Entry::CookieMemberXid,
+            ] {
+                assert_eq!(
+                    predict(&s, entry, action).code,
+                    Some("polis_err_xid_not_allowed"),
+                    "{entry:?} {action:?}"
+                );
+            }
+            assert_eq!(predict(&s, Entry::NewXidAllowed, action).code, None);
+            assert_eq!(predict(&s, Entry::Owner, action).code, None);
+        }
+        s.join.external_identity = ExternalIdentity::Optional;
+        s.join.invitations = Invitations::Required {
+            first_wave: Wave::new(1, 0).unwrap(),
+            later_waves: vec![],
+        };
+        assert_eq!(
+            predict(&s, Entry::XidMemberChangedXid, Action::Join).code,
+            Some("polis_err_treevite_auth_required")
+        );
+        assert_eq!(predict(&s, Entry::KnownXidMember, Action::Vote).code, None);
     }
     #[test]
     fn setup_rejects_unknown_fields_and_invalid_content_before_writes() {

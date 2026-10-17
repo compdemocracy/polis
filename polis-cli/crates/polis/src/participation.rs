@@ -92,9 +92,36 @@ pub fn join(m: &ArgMatches, config: &profiles::Config, site: &str, timeout: u64)
     }
     .map_err(safe_error)?;
     let issued = issued_token(&data, effect)?;
+    // An accepted invite is spent once Node answers. Keep any credential it issued
+    // before checking the rest of the receipt (as vote and comment do), so a
+    // malformed field cannot discard the only way back into the conversation.
+    let invite_login = invite.map(|_| secret(&data["login_code"], true));
+    let login_code = match &invite_login {
+        Some(Ok(code)) => Some(code.clone()),
+        Some(Err(_)) => None,
+        None => login
+            .cloned()
+            .or_else(|| saved.as_ref().and_then(|s| s.login_code.clone())),
+    };
+    let store = |token: &String| {
+        profiles::participant_store(site, &scope, token, login_code.clone()).map_err(|_| {
+            let mut e = Error::new("participant_credentials_not_saved", "The response arrived, but participant credentials could not be saved.",
+                "Do not blindly accept the invite again. Check the owner-only credentials directory and ask the site operator to recover access.", 7);
+            e.outcome = "unknown";
+            e
+        })
+    };
+    if effect {
+        if let Some(token) = &issued {
+            store(token)?;
+        }
+    }
     let enrolled = if effect {
         if data["status"] != "ok" || issued.is_none() {
             return Err(invalid(true));
+        }
+        if let Some(Err(e)) = invite_login {
+            return Err(e);
         }
         true
     } else {
@@ -113,20 +140,11 @@ pub fn join(m: &ArgMatches, config: &profiles::Config, site: &str, timeout: u64)
             true
         }
     };
-    let login_code = if invite.is_some() {
-        Some(secret(&data["login_code"], true)?)
-    } else if let Some(code) = login {
-        Some(code.clone())
-    } else {
-        saved.as_ref().and_then(|s| s.login_code.clone())
-    };
-    if let Some(token) = &issued {
-        profiles::participant_store(site, &scope, token, login_code).map_err(|_| {
-            let mut e = Error::new("participant_credentials_not_saved", "The response arrived, but participant credentials could not be saved.",
-                "Do not blindly accept the invite again. Check the owner-only credentials directory and ask the site operator to recover access.", 7);
-            e.outcome = "unknown";
-            e
-        })?;
+    // Readiness reads store only after the response proved it is for this conversation.
+    if !effect {
+        if let Some(token) = &issued {
+            store(token)?;
+        }
     }
     // Do not pass through user, statement, vote, token, code, or error text.
     Ok(

@@ -173,7 +173,7 @@ fn clean(text: &str) -> String {
 }
 
 /// Zero-width and bidirectional formatting characters that reorder or hide text.
-fn invisible(c: char) -> bool {
+pub(crate) fn invisible(c: char) -> bool {
     matches!(
         c,
         '\u{061C}'
@@ -184,6 +184,16 @@ fn invisible(c: char) -> bool {
             | '\u{2066}'..='\u{2069}'
             | '\u{FEFF}'
     )
+}
+
+/// Multi-line text for the terminal. Line breaks and tabs stay; every other
+/// control character (escape sequences, bells, C1 controls) and every invisible
+/// formatting character is dropped, because a passed-through response can carry
+/// text chosen by the site rather than by this program.
+pub(crate) fn terminal_text(text: &str) -> String {
+    text.chars()
+        .filter(|&c| c == '\n' || c == '\t' || !(c.is_control() || invisible(c)))
+        .collect()
 }
 
 /// Cut to `width` characters, ending in an ellipsis when anything was removed.
@@ -221,6 +231,12 @@ fn terminal_width() -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn terminal_text_keeps_lines_and_tabs_and_drops_controls_and_invisibles() {
+        let raw = "a\u{1b}[31mb\u{7}\u{9b}c\u{200b}\u{202e}\u{feff}\nd\te\r";
+        assert_eq!(terminal_text(raw), "a[31mbc\nd\te");
+    }
+
     use super::*;
     use serde_json::json;
 

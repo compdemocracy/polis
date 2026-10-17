@@ -14,6 +14,7 @@ fn run(config: &std::path::Path, args: &[&str]) -> Output {
         }
     }
     cmd.env("POLIS_CONFIG_DIR", config)
+        .env("POLIS_KEYCHAIN", "off")
         .env("POLIS_TOKEN_LOCAL", "public-fixture-token")
         .args(args)
         .output()
@@ -1503,6 +1504,7 @@ fn xid_map_requires_account_sign_in_before_network_or_file_creation() {
     }
     let out = cmd
         .env("POLIS_CONFIG_DIR", tmp.path())
+        .env("POLIS_KEYCHAIN", "off")
         .env(
             "POLIS_KEYCHAIN_SERVICE",
             format!(
@@ -1575,4 +1577,83 @@ fn raw_api_cannot_use_legacy_admission_or_seed_participant_comments() {
         listener.accept().unwrap_err().kind(),
         std::io::ErrorKind::WouldBlock
     );
+}
+#[test]
+fn input_is_validated_before_any_credential_is_read() {
+    // A credential directory that is world-writable makes every credential read
+    // refuse (exit 3) without touching the Keychain, so exit 2 proves the input
+    // was refused first.
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    let creds = tmp.path().join("credentials");
+    std::fs::create_dir(&creds).unwrap();
+    std::fs::set_permissions(&creds, std::fs::Permissions::from_mode(0o777)).unwrap();
+    let existing = tmp.path().join("existing.csv");
+    std::fs::write(&existing, "keep").unwrap();
+    let polis = |args: &[&str]| -> i32 {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_polis"));
+        for (key, _) in std::env::vars() {
+            if key.starts_with("POLIS_") {
+                cmd.env_remove(key);
+            }
+        }
+        cmd.env("POLIS_CONFIG_DIR", tmp.path())
+            .env("POLIS_KEYCHAIN", "off")
+            .args(args)
+            .args(["--json", "--no-interactive"])
+            .output()
+            .unwrap()
+            .status
+            .code()
+            .unwrap()
+    };
+    assert_eq!(
+        polis(&["auth", "status"]),
+        3,
+        "control: the store is refused"
+    );
+    assert_eq!(polis(&["api", "/api/v3/../../outside"]), 2);
+    assert_eq!(polis(&["api", "/elsewhere"]), 2);
+    let out = tmp.path().join("new.csv");
+    assert_eq!(
+        polis(&[
+            "participant",
+            "export",
+            "--conversation",
+            "bad!",
+            "--output",
+            out.to_str().unwrap()
+        ]),
+        2
+    );
+    assert_eq!(
+        polis(&[
+            "participant",
+            "export",
+            "--conversation",
+            "2demo",
+            "--output",
+            existing.to_str().unwrap()
+        ]),
+        2
+    );
+    assert_eq!(std::fs::read_to_string(&existing).unwrap(), "keep");
+    assert_eq!(polis(&["conversation", "close", "bad!"]), 2);
+}
+#[test]
+fn a_site_cannot_write_escape_sequences_through_passed_through_help_text() {
+    // Normal output prints a top-level "help" or "table" string as preformatted
+    // text; when a command passes the site's JSON through, that text is the site's.
+    let (o, _) = fixture(
+        200,
+        "application/json",
+        r#"{"help":"\u001b[2J\u001b]52;c;Zm9v\u0007shown\u009b31m\u200b\u202e line\n\tnext"}"#,
+        &["api", "/api/v3/example"],
+    );
+    let out = String::from_utf8(o.stdout).unwrap();
+    assert!(out.contains("shown"), "{out}");
+    assert!(out.contains("line\n\tnext"));
+    for bad in ['\u{1b}', '\u{7}', '\u{9b}', '\u{200b}', '\u{202e}'] {
+        assert!(!out.contains(bad), "{bad:?} reached the terminal");
+    }
 }

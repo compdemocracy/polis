@@ -67,6 +67,10 @@ fn polis(dir: &Path, env: &[(&str, String)], args: &[&str]) -> (i32, Value) {
             cmd.env_remove(key);
         }
     }
+    // Only a case with its own throwaway Keychain service may reach the Keychain.
+    if !env.iter().any(|(k, _)| *k == "POLIS_KEYCHAIN_SERVICE") {
+        cmd.env("POLIS_KEYCHAIN", "off");
+    }
     cmd.env("POLIS_CONFIG_DIR", dir)
         .envs(env.iter().map(|(k, v)| (k, v)))
         .args(args)
@@ -170,6 +174,12 @@ struct Service(String);
 impl Service {
     fn new() -> Option<Self> {
         if !cfg!(target_os = "macos") {
+            return None;
+        }
+        // Real-Keychain cases touch the login Keychain, which can show dialogs on a
+        // person's machine; they run only when asked for.
+        if std::env::var("POLIS_TEST_KEYCHAIN").as_deref() != Ok("1") {
+            eprintln!("skipping: set POLIS_TEST_KEYCHAIN=1 to run the real-Keychain cases");
             return None;
         }
         let name = format!("org.pol.is.cli.test.{}", uuid::Uuid::new_v4().simple());
