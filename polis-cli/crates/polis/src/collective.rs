@@ -24,6 +24,26 @@ fn bytes(value: &Value) -> Vec<u8> {
 fn invalid() -> Error {
     Error::input("Site returned incompatible collective statement inputs.")
 }
+/// The agent path (export the inputs, import a validated result) is optional on
+/// a site: a server without it answers 404 for its routes. Say so plainly; no
+/// file was written and nothing was imported.
+pub(crate) fn unserved(feature: &'static str) -> impl FnOnce(Error) -> Error {
+    move |e: Error| {
+        if e.upstream["status"] != 404 {
+            return e;
+        }
+        let mut unserved = Error::new(
+            "capability_unavailable",
+            format!("This site does not serve {feature}."),
+            "Ask the site operator whether the agent path is enabled. Nothing was imported and no file was written.",
+            8,
+        );
+        unserved.outcome = "rejected";
+        unserved.upstream = e.upstream;
+        unserved
+    }
+}
+
 pub fn execute(
     path: &str,
     m: &ArgMatches,
@@ -35,7 +55,6 @@ pub fn execute(
     let report = str_arg(m, "report");
     public_id(conv)?;
     public_id(report)?;
-    let c = client(config, site, timeout, true)?;
     if matches!(path, "collective import" | "delphi statement import") {
         let mut input = Vec::new();
         fs::File::open(str_arg(m, "input-file"))
@@ -55,13 +74,17 @@ pub fn execute(
                 "JSON conversation/report must match the command; never retarget an export.",
             ));
         }
-        return c.request(
-            "POST",
-            "/api/v3/delphi/collective/results",
-            &[],
-            Some(body),
-            true,
-        );
+        // Inputs are checked before any credential is read.
+        let c = client(config, site, timeout, true)?;
+        return c
+            .request(
+                "POST",
+                "/api/v3/delphi/collective/results",
+                &[],
+                Some(body),
+                true,
+            )
+            .map_err(unserved("collective-statement import"));
     }
     let output = Path::new(str_arg(m, "output"));
     if fs::symlink_metadata(output).is_ok() {
@@ -76,13 +99,16 @@ pub fn execute(
     if let Some(section) = m.get_one::<String>("topic") {
         query.push(("section".into(), section.clone()));
     }
-    let data = c.request(
-        "GET",
-        "/api/v3/delphi/collective/inputs",
-        &query,
-        None,
-        false,
-    )?;
+    let c = client(config, site, timeout, true)?;
+    let data = c
+        .request(
+            "GET",
+            "/api/v3/delphi/collective/inputs",
+            &query,
+            None,
+            false,
+        )
+        .map_err(unserved("collective-statement export"))?;
     let sections = data["sections"].as_array().ok_or_else(invalid)?;
     if sections.is_empty()
         || sections.len() > 99
