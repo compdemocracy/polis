@@ -48,10 +48,11 @@ pub fn execute(
             json!({"state":"unavailable","plan":null,"usage":null,"checkout":null,"url":url.as_str(),"browser_opened":opened,"reason":"Billing checkout is not implemented. This is the existing account page; no subscription or payment was created."}),
         );
     }
-    let c = client(config, site, timeout, true)?;
+    // Inputs are validated before the client reads any credential.
     if path.starts_with("conversation ") {
         let id = str_arg(m, "id");
         public_id(id)?;
+        let c = client(config, site, timeout, true)?;
         let active = path == "conversation reopen";
         let receipt = c.request(
             "POST",
@@ -86,6 +87,7 @@ pub fn execute(
     public_id(id)?;
     let output = Path::new(str_arg(m, "output"));
     check_output(output)?;
+    let c = client(config, site, timeout, true)?;
     let bytes = c.participant_export(id)?;
     let bytes = if str_arg(m, "format") == "json" {
         csv_json(&bytes)?

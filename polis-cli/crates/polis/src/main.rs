@@ -529,6 +529,14 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     })
                 })
                 .transpose()?;
+            // Refuse an escaping or unsafe path before any credential is read.
+            polis_client::check_request(
+                &polis_client::base_url(config.url(site)?)?,
+                str_arg(m, "method"),
+                str_arg(m, "path"),
+                &[],
+                input.as_ref(),
+            )?;
             client(config, site, timeout, false)?.request(
                 str_arg(m, "method"),
                 str_arg(m, "path"),
