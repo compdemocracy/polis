@@ -1,5 +1,6 @@
 //! Wire/import declarations only; storage conversion belongs to the server.
 //! Single Rust contract boundary for the CLI. Never infer storage signs here.
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 pub const WIRE_AGREE: i8 = -1;
 pub const WIRE_DISAGREE: i8 = 1;
@@ -42,6 +43,31 @@ mod tests {
         assert_eq!(declaration("-1"), Some(WIRE_DECLARATION));
         for invalid in ["", "1", "0", "agree"] {
             assert_eq!(declaration(invalid), None);
+        }
+    }
+}
+
+/// A participant's intention; only this boundary translates it to wire values.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum VoteChoice {
+    Agree,
+    Disagree,
+    Pass,
+}
+impl VoteChoice {
+    pub fn wire(self) -> i8 {
+        match self {
+            Self::Agree => WIRE_AGREE,
+            Self::Disagree => WIRE_DISAGREE,
+            Self::Pass => WIRE_PASS,
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Agree => "agree",
+            Self::Disagree => "disagree",
+            Self::Pass => "pass",
         }
     }
 }

@@ -273,7 +273,7 @@ fn help_schema_and_root_explain_visibility_limits() {
         "99999",
         "8 MiB",
         "never fetched",
-        "Highlight set remains unavailable",
+        "explicitly confirmed write",
     ] {
         assert!(help.contains(text), "{text}");
     }
@@ -289,7 +289,7 @@ fn help_schema_and_root_explain_visibility_limits() {
     );
     assert_eq!(
         call(t.path(), &["participant", "highlight", "set"], None, false).0,
-        8
+        2
     );
 }
 

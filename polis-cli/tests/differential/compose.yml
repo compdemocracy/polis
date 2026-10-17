@@ -1,0 +1,58 @@
+# Overlay on server/characterization/compose.yml. All paths relative to it.
+services:
+  postgres:
+    image: ${CLI_DIFF_POSTGRES_IMAGE:?build the local fixture image}
+  oidc-simulator:
+    image: ${CLI_DIFF_OIDC_IMAGE:?build the local OIDC simulator}
+  server:
+    image: ${CLI_DIFF_NODE_IMAGE:?build the local Node image}
+    ports: !reset []
+    command: [node, /differential/entry.cjs]
+    volumes:
+      - ../../polis-cli/tests/differential:/differential:ro
+    environment:
+      P027_MARKERS: '0'
+      ADMIN_UIDS: '[2]'
+      CLI_DIFFERENTIAL_FIXTURE: '1'
+  file-server:
+    profiles: [unused]
+  driver:
+    profiles: [unused]
+  polis-api:
+    image: ${CLI_DIFF_RUST_IMAGE:?build polis-api with fixture-clock}
+    networks: [sealed]
+    environment:
+      MATH_ENV: p027
+      DEV_MODE: 'true'
+      NODE_ENV: production
+      DOMAIN_OVERRIDE: localhost
+      DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_DB_TRANSPORT: docker-internal
+      POLIS_API_DB_PLAIN_HOSTS: postgres
+      POLIS_API_LISTEN: 0.0.0.0:5100
+      POLIS_API_FIXTURE_CLOCK: '1700000000000'
+    depends_on:
+      postgres: {condition: service_healthy}
+  proxy:
+    image: ${CLI_DIFF_NGINX_IMAGE:-nginx:1.21.5-alpine}
+    entrypoint: [sh, /renderer.sh, nginx, -g, 'daemon off;']
+    environment:
+      API_SERVER_PORT: '5000'
+      RUST_API_ROUTES: ${RUST_API_ROUTES:-}
+    volumes:
+      - ../../file-server/nginx/docker-entrypoint.sh:/renderer.sh:ro
+      - ../../file-server/nginx/rust-api:/etc/nginx/rust-api-templates:ro
+      - ../../polis-cli/tests/differential/nginx.conf.template:/etc/nginx/conf.d/default.conf.template:ro
+    networks: [sealed]
+    depends_on: [server, polis-api]
+  gateway:
+    image: ${CLI_DIFF_NODE_IMAGE}
+    command: [node, /differential/gateway.cjs]
+    volumes: [../../polis-cli/tests/differential:/differential:ro]
+    ports:
+      - '127.0.0.1:${P027_HTTP_PORT}:5000'
+      - '127.0.0.1:${P027_CONTROL_PORT}:5001'
+    networks: [sealed, cli]
+    depends_on: [proxy]
+networks:
+  cli: {}

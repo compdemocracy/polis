@@ -536,7 +536,6 @@ async function main() {
 
   const { default: app, appReady } = require(path.join(SERVER, "app.ts"));
   await appReady;
-  await require(path.join(SERVER, "src/utils/moderation.ts")).moderationReady;
 
   // Log capture: every server log line at info and above, per case. The
   // console transport is silenced so the run's own output stays readable.

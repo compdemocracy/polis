@@ -193,7 +193,7 @@ refresh, polling, download from signed URLs, or cleanup action is inferred.
 
 Plan view verifies the account through `/users` and reports plan, entitlements and
 quota as **unavailable**, never unlimited or zero. This API has no authoritative
-billing contract. Paid commands remain planned and return exit 8.
+billing contract. Billing mutations remain unavailable. Explicitly confirmed analysis requests use the existing site routes and may start paid provider work.
 
 ## Automation and errors
 
@@ -624,3 +624,119 @@ Inspect codes/waves before retrying: wave creation is not atomic in Node, and
 read-back confirms the wave row, not completeness of every invite row.
 The output's `invites_created` is Node's reported count. JSON output projects
 only documented fields; invitation codes are credentials.
+
+
+### Join a conversation
+
+```sh
+polis join CONVERSATION
+polis join CONVERSATION --invite CODE
+polis join CONVERSATION --login-code CODE --json
+```
+
+Plain join uses the participation bootstrap. A fresh visitor is **ready, not yet
+enrolled**: joining itself submits no vote or comment. Readiness does not promise
+that every action is allowed; Node applies the conversation's current access
+rules when an action is requested. An existing participant's token is reused.
+
+`--invite` accepts a one-time Treevite invitation. `--login-code` is a returning
+participant's reusable code; the CLI never substitutes one flow for the other or
+retries automatically. Tokens and issued login codes are saved privately and
+omitted from both human and JSON output, including errors. An uncertain effect
+or failure to save issued credentials exits 7: inspect access before retrying.
+Codes supplied on the command line may remain in shell history or process lists.
+
+Participant credentials use the owner-only credentials directory (0700), atomic
+files (0600), and a lock per profile, normalized origin, and conversation. They
+are separate from administrator sign-in, environment token overrides, and the
+Keychain. `auth logout` clears the account session; it does not erase these
+separate participant records. Keep the credentials directory private when
+backing up or removing a local profile.
+
+### Voting
+
+`polis vote CONVERSATION` shows a statement and asks you to agree, disagree,
+pass, or quit. It requires a terminal. Anonymous participation in an open
+conversation needs no account sign-in or prior join. The first requested vote
+creates the participant through Node and saves its token privately; later votes
+reuse it. Invite participants first run `polis join CONVERSATION --invite CODE`.
+
+Agents submit one explicit choice:
+
+```sh
+polis vote CONVERSATION --statement 0 --agree --json
+polis vote CONVERSATION --statement 1 --disagree --json
+polis vote CONVERSATION --statement 2 --pass --json
+```
+
+JSON and `--no-interactive` require a statement and exactly one choice. The
+receipt reports the semantic choice, statement and participant number, without
+printing tokens or login codes. Participant credentials are isolated by profile,
+normalized origin and conversation; account tokens are not used. Node enforces
+access and voting rules. Vote values come from the shared contract boundary.
+
+No request is automatically retried. A lost or incompatible response, or a
+credential-save failure after a response, exits 7: check participation before
+resubmitting. Node may create membership before rejecting a vote; an error does
+not guarantee that membership is unchanged. Interactive quit sends no vote.
+Statement text is untrusted content and terminal control characters are removed.
+`polis vote list` continues to provide the existing separate read command.
+
+### Submit a participant statement
+
+```sh
+polis comment CONVERSATION "A statement to discuss"
+polis comment CONVERSATION "A statement to discuss" --json
+```
+
+An open conversation needs no separate join or account sign-in: the first
+requested comment creates the anonymous participant. Its token is stored
+privately for following comments and votes, scoped by profile, origin and
+conversation. An invited participant first uses `polis join` with their code;
+comments preserve their returning login secret. Account tokens are not used.
+
+The request contains only `conversation_id` and `txt`; it has no seed flag or
+author vote. Node decides access and moderation. `submitted` confirms receipt,
+not approval or visibility. An error may still have created membership. Text,
+tokens and raw receipts are never echoed; arguments can remain in local shell
+history and process listings. Lost or malformed write responses and failed
+credential saves exit 7, with no retry. Inspect the conversation before another
+submission. Empty text is rejected locally; Node enforces its text limits.
+
+### Start a conversation with a typed setup
+
+```sh
+polis conversation new --save setup.json
+polis conversation new --from setup.json --dry-run --json
+polis conversation new --from setup.json --json
+```
+
+The interactive wizard asks about participation, overlapping invitation and
+external-ID policies, moderation, visibility, and initial statements, then
+shows a summary before asking to apply. Agents use the same typed JSON file.
+Dry runs make no HTTP requests. Saved files are private and never overwrite an
+existing file.
+
+Setup creates a staged conversation, confirms each settings/wave/allowlist/
+statement step, and applies final participation settings last. On partial
+failure it exits 7 with the known conversation ID and completed steps, without
+retrying. Inspect that receipt before trying again: another `new` invocation
+creates another conversation. Initial statements use moderator authority, with
+no seed bypass flag or automatic vote. No invitation code is printed.
+
+[The complete setting inventory and admission model](../docs/conversation-setup.md)
+describe current Node behavior, including restrictions it does not enforce,
+and proposed permission improvements. Draft is a listing state, strict
+moderation controls visibility, and existing identities can bypass fresh-XID
+checks; the wizard does not present nonexistent permissions as working gates.
+
+## Existing-site administrative operations
+
+The client now includes dedicated account, metadata, participant, moderation,
+agenda, report, job, notification, invitation and operator operations. See
+[the route reconciliation and parameter types](docs/admin-operations.md), or
+`polis schema` for the current implementation census. Existing Node permissions
+and limitations still apply. Effectful operations require `--yes`; they never
+retry automatically and return receipts rather than claims of completion.
+Participant operations use conversation-scoped credentials unless `--account`
+is explicit. Download paths are private, bounded and never overwritten.

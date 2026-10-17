@@ -1,5 +1,7 @@
+mod admin;
 mod collective;
 mod commands;
+mod commenting;
 mod highlights;
 mod invites;
 mod listing;
@@ -8,6 +10,7 @@ mod math;
 mod membership;
 mod narrative;
 mod oauth;
+mod participation;
 mod pass10;
 mod pass11;
 mod pass4;
@@ -21,6 +24,8 @@ mod profiles;
 mod reads;
 mod reserve;
 mod seeds;
+mod setup;
+mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
 use polis_contracts::{envelope, Error, Result};
@@ -126,6 +131,9 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             8,
         ));
     }
+    if admin::available(&path) {
+        return admin::execute(&path, m, config, site, timeout);
+    }
     match path.as_str() {
         "help" | "schema" => {
             if path == "help"
@@ -175,6 +183,16 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         | "invite list" | "invite export" | "invite status" | "conversation uuid" => {
             invites::execute(&path, m, config, site, timeout)
         }
+        "comment" => commenting::submit(m, config, site, timeout),
+        "join" => participation::join(m, config, site, timeout),
+        "vote" => voting::execute(
+            m,
+            config,
+            site,
+            timeout,
+            root.get_flag("no-interactive"),
+            root.get_flag("json"),
+        ),
         "conversation reserve" => reserve::execute(config, site, timeout),
         "participant preferences" => preferences::execute(m, config, site, timeout),
         "participant locations" => locations::execute(m, config, site, timeout),
@@ -376,6 +394,14 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 false,
             )
         }
+        "conversation new" => setup::execute(
+            m,
+            config,
+            site,
+            timeout,
+            root.get_flag("no-interactive"),
+            root.get_flag("json"),
+        ),
         "conversation create" => {
             let topic = str_arg(m, "topic");
             let description = str_arg(m, "description");
@@ -521,15 +547,17 @@ fn public_id(id: &str) -> Result<()> {
     Ok(())
 }
 fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
+    let setup_partial = result.as_ref().is_ok_and(|v| v["state"] == "setup_partial");
     let partial = result
         .as_ref()
         .is_ok_and(|v| v.get("state") == Some(&json!("partial_or_unknown")));
     let exit = match &result {
         Err(e) => e.exit,
         Ok(_) => {
-            if result
-                .as_ref()
-                .is_ok_and(|v| v["seeds"]["state"] == "unknown")
+            if setup_partial
+                || result
+                    .as_ref()
+                    .is_ok_and(|v| v["seeds"]["state"] == "unknown")
             {
                 7
             } else if partial {
@@ -541,6 +569,10 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
     };
     if json_mode {
         let mut value = envelope(site, &result);
+        if setup_partial {
+            value["ok"] = json!(false);
+            value["error"] = json!({"code":"setup_incomplete","message":"Setup stopped before every step was confirmed.","action":"Inspect data.steps and data.failed_step before retrying. Rerunning new creates another conversation.","outcome":"unknown","retryable":false,"upstream":null});
+        }
         if partial {
             value["ok"] = json!(false);
             value["error"] = json!({"code":"partial_import","message":"Some rows failed, were skipped, or were not confirmed.","action":"Save data.receipt and read back before retrying.","outcome":"unknown","retryable":false,"upstream":null});
@@ -590,11 +622,16 @@ fn main() -> ExitCode {
                     true,
                 );
             }
-            if e.kind() == clap::error::ErrorKind::UnknownArgument {
+            if !display
+                && (args
+                    .iter()
+                    .any(|arg| matches!(arg.as_str(), "join" | "comment" | "new"))
+                    || e.kind() == clap::error::ErrorKind::UnknownArgument)
+            {
                 return render(
                     "unresolved",
                     Err(Error::input(
-                        "Unknown command option. Run polis help for usage.",
+                        "Invalid command arguments. Run polis help for usage.",
                     )),
                     false,
                 );
@@ -645,6 +682,43 @@ fn main() -> ExitCode {
     {
         if let Ok(value) = &result {
             println!("{}", value["conversation_uuid"].as_str().unwrap());
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode && root.subcommand_name() == Some("join") {
+        if let Ok(value) = &result {
+            println!(
+                "{}",
+                if value["enrolled"] == true {
+                    "Joined. Participant credentials are saved privately."
+                } else {
+                    "Ready, not yet enrolled. Your first vote or comment will enroll you."
+                }
+            );
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode
+        && root.subcommand_name() == Some("vote")
+        && root
+            .subcommand_matches("vote")
+            .is_some_and(|m| m.subcommand_name().is_none())
+    {
+        if let Ok(value) = &result {
+            if let Some(choice) = value["choice"].as_str() {
+                println!("Recorded {choice} for statement {}.", value["statement"]);
+            } else {
+                println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
+            }
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode && root.subcommand_name() == Some("comment") {
+        if let Ok(value) = &result {
+            println!(
+                "Submitted statement {}. The site determines moderation and visibility.",
+                value["statement"]
+            );
             return ExitCode::SUCCESS;
         }
     }

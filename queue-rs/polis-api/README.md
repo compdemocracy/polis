@@ -218,3 +218,15 @@ vendored Node zlib come from there. This crate moves it into the `queue-rs`
 workspace, onto the shared database transport, and up to the route's current
 behaviour on `edge` (labelled entity tags, the comment backfill, the reshaping
 guards).
+
+## Client-data proof for route changes
+
+Every route change also runs the independent CLI differential workflow. It
+executes the real command census on identical generated inputs with the Rust
+switches off and on, compares complete JSON data and exits, and requires
+positive serving evidence rather than counting Node fallback as Rust coverage.
+Add each new switch and its CLI scenarios to
+`polis-cli/tests/differential/routes.json`; the route-template and command
+censuses refuse omissions. Run `scripts/test-polis-cli-differential.sh` after
+iteration; build instructions and scope are in
+`polis-cli/tests/differential/README.md`. This does not replace the byte replay.

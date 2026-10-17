@@ -1,12 +1,6 @@
 import _ from "underscore";
 
-import {
-  addExtendedParticipantInfo,
-  joinConversation,
-  referrerWithoutQuery,
-} from "../participant";
 import { failJson } from "../utils/fail";
-import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
 import { getPca } from "../utils/pca";
 import { presentPca } from "../utils/pcaPresentation";
@@ -16,16 +10,11 @@ import { getXidRecord } from "../xids";
 import { getXids } from "./xids";
 import { isConversationOwner, isOwner } from "../utils/common";
 import { MPromise } from "../utils/metered";
-import { ParticipantFields, ParticipantInfo, ExpressResponse } from "../d";
+import { ParticipantFields, ExpressResponse } from "../d";
 import { sql_participants_extended } from "../db/sql";
-import { userHasAnsweredZeQuestions } from "../server-helpers";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
-import {
-  doFamousQuery,
-  updateLastInteractionTimeForConversation,
-  getOneConversation,
-} from "../server-helpers";
+import { doFamousQuery, getOneConversation } from "../server-helpers";
 
 // basic defaultdict implementation
 function DD(this: any, f: () => { votes: number; comments: number }) {
@@ -107,91 +96,6 @@ function handle_GET_participants(
     })
     .catch(function (err: any) {
       failJson(res, 500, "polis_err_get_participant", err);
-    });
-}
-
-function handle_POST_participants(
-  req: {
-    p: {
-      zid: number;
-      uid?: number;
-      answers: any;
-      parent_url: any;
-      referrer: any;
-    };
-  },
-  res: ExpressResponse
-) {
-  const zid = req.p.zid;
-  const uid = req.p.uid;
-  const answers = req.p.answers;
-  const info: ParticipantInfo = {};
-
-  // Use direct parameters - no cookie fallback
-  const parent_url = req.p.parent_url;
-  const referrer = req.p.referrer;
-
-  if (parent_url) {
-    info.parent_url = parent_url;
-  }
-  if (referrer) {
-    info.referrer = referrerWithoutQuery(referrer);
-  }
-
-  function finish(ptpt: any) {
-    setTimeout(function () {
-      updateLastInteractionTimeForConversation(zid, uid);
-    }, 0);
-    res.status(200).json(ptpt);
-  }
-
-  function doJoin() {
-    userHasAnsweredZeQuestions(zid, answers).then(
-      function () {
-        joinConversation(zid, uid, info, answers).then(
-          function (ptpt: any) {
-            finish(ptpt);
-          },
-          function (err: any) {
-            failJson(res, 500, "polis_err_add_participant", err);
-          }
-        );
-      },
-      function (err: { message: any }) {
-        failJson(res, 400, err.message, err);
-      }
-    );
-  }
-
-  // Check if already in the conversation
-  _getParticipant(zid, req.p.uid)
-    .then(
-      function (ptpt: { pid: number }) {
-        if (ptpt) {
-          finish(ptpt);
-          addExtendedParticipantInfo(zid, req.p.uid, info);
-          return;
-        }
-
-        getConversationInfo(zid)
-          .then(function () {
-            doJoin();
-          })
-          .catch(function (err: any) {
-            failJson(
-              res,
-              500,
-              "polis_err_post_participants_need_uid_to_check_lti_users_4",
-              err
-            );
-          });
-      },
-      function (err: any) {
-        failJson(res, 500, "polis_err_post_participants_db_err", err);
-      }
-    )
-    .catch(function (err: any) {
-      failJson(res, 500, "polis_err_post_participants_misc", err);
     });
 }
 
@@ -544,7 +448,6 @@ export {
   handle_GET_participants,
   handle_GET_participation,
   handle_GET_participationInit,
-  handle_POST_participants,
   handle_POST_query_participants_by_metadata,
   handle_PUT_participants_extended,
 };

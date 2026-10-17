@@ -75,3 +75,5 @@ impl Pca2ErrorCode {
 
 /// Explicit vote wire declarations shared with CLI consumers.
 pub mod votes;
+
+pub mod setup;
