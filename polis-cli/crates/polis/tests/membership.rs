@@ -236,5 +236,5 @@ fn help_schema_and_root_explain_membership_limits() {
         .1["data"]["implemented"],
         true
     );
-    assert_eq!(call(t.path(), &["participant", "group"], None, false).0, 8);
+    assert_eq!(call(t.path(), &["participant", "group"], None, false).0, 2);
 }

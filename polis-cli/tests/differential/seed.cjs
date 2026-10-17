@@ -21,6 +21,9 @@ const {Pool}=require('/app/node_modules/pg');
  }
  await p.query("INSERT INTO math_main(zid,math_env,data,last_vote_timestamp,math_tick) VALUES(1,'p027',$1,1700000000000,1700000000000)",[JSON.stringify({math_tick:1700000000000,pca:{},'group-clusters':[],'base-clusters':{id:[],members:[]},tids:[0,1],n:3,'n-cmts':2})]);
  await p.query("INSERT INTO math_bidtopid(zid,math_env,math_tick,data) VALUES(1,'p027',1700000000000,$1)",[JSON.stringify({bidToPid:[]})]);
+ await p.query("INSERT INTO einvites(einvite,email) VALUES('generated-verification','owner@example.invalid')");
+ await p.query("INSERT INTO participants_extended(zid,uid) VALUES(1,1)");
+ await p.query("INSERT INTO conversations(zid,owner,topic,is_active) VALUES(2,1,'Generated account enrollment',true); INSERT INTO zinvites(zid,zinvite) VALUES(2,'2generatedjoin'); SELECT setval('conversations_zid_seq',2,true)");
  await p.end();
  console.log('generated fixture installed');
 })().catch(error=>{console.error(JSON.stringify({stage:'generated-fixture',code:error.code,table:error.table,column:error.column}));process.exit(1)});

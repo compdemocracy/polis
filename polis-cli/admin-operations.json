@@ -1,0 +1,1661 @@
+[
+  {
+    "command": "node doctor",
+    "method": "GET",
+    "path": "/api/v3/testConnection",
+    "parameters": [],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Check this site’s API connection"
+  },
+  {
+    "command": "node database",
+    "method": "GET",
+    "path": "/api/v3/testDatabase",
+    "parameters": [],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Ask this site to check its database connection"
+  },
+  {
+    "command": "account domain list",
+    "method": "GET",
+    "path": "/api/v3/domainWhitelist",
+    "parameters": [],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read the account embedding-domain list"
+  },
+  {
+    "command": "account domain replace",
+    "method": "POST",
+    "path": "/api/v3/domainWhitelist",
+    "parameters": [
+      {
+        "name": "domains",
+        "wire": "domain_whitelist",
+        "kind": "text",
+        "required": true,
+        "max": 999
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Replace the account embedding-domain string"
+  },
+  {
+    "command": "metadata view",
+    "method": "GET",
+    "path": "/api/v3/metadata",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read metadata for this participant"
+  },
+  {
+    "command": "metadata choices",
+    "method": "GET",
+    "path": "/api/v3/metadata/choices",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read this participant’s metadata choices"
+  },
+  {
+    "command": "conversation started",
+    "method": "GET",
+    "path": "/api/v3/conversations/recently_started",
+    "parameters": [
+      {
+        "name": "since",
+        "wire": "sinceUnixTimestamp",
+        "kind": "text",
+        "required": false,
+        "max": 99
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read the developer-authorized site conversation activity feed"
+  },
+  {
+    "command": "conversation activity",
+    "method": "GET",
+    "path": "/api/v3/conversations/recent_activity",
+    "parameters": [
+      {
+        "name": "since",
+        "wire": "sinceUnixTimestamp",
+        "kind": "text",
+        "required": false,
+        "max": 99
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read the developer-authorized site conversation activity feed"
+  },
+  {
+    "command": "conversation preload",
+    "method": "GET",
+    "path": "/api/v3/conversations/preload",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Read the public conversation preload projection"
+  },
+  {
+    "command": "participant activity",
+    "method": "GET",
+    "path": "/api/v3/participation",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "strict",
+        "wire": "strict",
+        "kind": "bool",
+        "required": false
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read owner-authorized participation event counts"
+  },
+  {
+    "command": "ops conversations list",
+    "method": "GET",
+    "path": "/api/v3/all_conversations",
+    "parameters": [
+      {
+        "name": "limit",
+        "wire": "limit",
+        "kind": "uint",
+        "required": false,
+        "max": 9999
+      },
+      {
+        "name": "offset",
+        "wire": "offset",
+        "kind": "uint",
+        "required": false,
+        "max": 99999999
+      },
+      {
+        "name": "sort-by",
+        "wire": "sort_by",
+        "kind": "text",
+        "required": false,
+        "max": 50
+      },
+      {
+        "name": "sort-dir",
+        "wire": "sort_dir",
+        "kind": "text",
+        "required": false,
+        "choices": [
+          "asc",
+          "desc"
+        ]
+      },
+      {
+        "name": "owner-email",
+        "wire": "owner_email",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "active",
+        "wire": "is_active",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "recently-updated-days",
+        "wire": "recently_updated_days",
+        "kind": "uint",
+        "required": false,
+        "max": 36500
+      },
+      {
+        "name": "recently-created-days",
+        "wire": "recently_created_days",
+        "kind": "uint",
+        "required": false,
+        "max": 36500
+      },
+      {
+        "name": "min-comment-count",
+        "wire": "min_comment_count",
+        "kind": "uint",
+        "required": false,
+        "max": 100000000
+      },
+      {
+        "name": "min-participant-count",
+        "wire": "min_participant_count",
+        "kind": "uint",
+        "required": false,
+        "max": 100000000
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read the site-authorized conversation administration list"
+  },
+  {
+    "command": "participant group",
+    "method": "GET",
+    "path": "/api/v3/bid",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read this participant’s current opinion group"
+  },
+  {
+    "command": "vote mine",
+    "method": "GET",
+    "path": "/api/v3/votes/me",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "wire_votes": true,
+    "about": "Read this participant’s latest wire votes"
+  },
+  {
+    "command": "vote famous",
+    "method": "GET",
+    "path": "/api/v3/votes/famous",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "wire_votes": true,
+    "about": "Read the site’s social-profile vote projection"
+  },
+  {
+    "command": "agenda list",
+    "method": "GET",
+    "path": "/api/v3/topicAgenda/selections",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read this participant’s topic selections"
+  },
+  {
+    "command": "agenda priorities",
+    "method": "GET",
+    "path": "/api/v3/participation/topicPrioritize",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Read the public topic-priority projection"
+  },
+  {
+    "command": "invite mine list",
+    "method": "GET",
+    "path": "/api/v3/treevite/myInvites",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read this participant’s Treevite invitations or membership"
+  },
+  {
+    "command": "participant invitation-status",
+    "method": "GET",
+    "path": "/api/v3/treevite/me",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read this participant’s Treevite invitations or membership"
+  },
+  {
+    "command": "invite mine export",
+    "method": "GET",
+    "path": "/api/v3/treevite/myInvites/csv",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "download",
+    "about": "Read this participant’s Treevite invitations or membership"
+  },
+  {
+    "command": "participant xid capability-export",
+    "method": "GET",
+    "path": "/api/v3/xid/{key}-xid.csv",
+    "parameters": [
+      {
+        "name": "key-file",
+        "wire": "key",
+        "kind": "uuid_file",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "download",
+    "about": "Download the participant-to-XID map as a signed-in owner or moderator"
+  },
+  {
+    "command": "participant allowlist view",
+    "method": "GET",
+    "path": "/api/v3/xidAllowList",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "limit",
+        "wire": "limit",
+        "kind": "uint",
+        "required": false,
+        "max": 1000
+      },
+      {
+        "name": "offset",
+        "wire": "offset",
+        "kind": "uint",
+        "required": false
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read the owner-global external-ID allowlist visible through this conversation"
+  },
+  {
+    "command": "participant allowlist export",
+    "method": "GET",
+    "path": "/api/v3/xidAllowList/csv",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "download",
+    "about": "Save the external-ID allowlist as a new private CSV"
+  },
+  {
+    "command": "participant allowlist import",
+    "method": "POST",
+    "path": "/api/v3/xidAllowList",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "from",
+        "wire": "xid_allow_list",
+        "kind": "strings_file",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Add external IDs from a JSON string array; this does not replace the owner-global list"
+  },
+  {
+    "command": "invite email lookup",
+    "method": "GET",
+    "path": "/api/v3/einvites",
+    "parameters": [
+      {
+        "name": "code-file",
+        "wire": "einvite",
+        "kind": "secret_file",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Inspect an explicitly supplied email-invitation capability"
+  },
+  {
+    "command": "report export-results",
+    "method": "GET",
+    "path": "/api/v3/dataExport/results",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "filename",
+        "wire": "filename",
+        "kind": "text",
+        "required": true,
+        "max": 1000
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "capability",
+    "about": "Save the site-issued export download URL privately; does not verify or fetch the artifact"
+  },
+  {
+    "command": "delphi overview",
+    "method": "GET",
+    "path": "/api/v3/delphi",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Read stored topic-name runs for a report"
+  },
+  {
+    "command": "delphi logs",
+    "method": "GET",
+    "path": "/api/v3/delphi/logs",
+    "parameters": [
+      {
+        "name": "job",
+        "wire": "job_id",
+        "kind": "opaque",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read owner-authorized logs for one existing job"
+  },
+  {
+    "command": "report topic-stats",
+    "method": "GET",
+    "path": "/api/v3/topicStats",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "json",
+    "about": "Read report topic statement counts"
+  },
+  {
+    "command": "report feed list",
+    "method": "GET",
+    "path": "/feeds/{report}",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "document",
+    "about": "Save the report’s public feed document to a new private file"
+  },
+  {
+    "command": "report feed consensus",
+    "method": "GET",
+    "path": "/feeds/{report}/consensus",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "document",
+    "about": "Save the report’s public feed document to a new private file"
+  },
+  {
+    "command": "report feed topics",
+    "method": "GET",
+    "path": "/feeds/{report}/topics",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": false,
+    "response": "document",
+    "about": "Save the report’s public feed document to a new private file"
+  },
+  {
+    "command": "ops status",
+    "method": "GET",
+    "path": "/api/v3/ops/whoami",
+    "parameters": [],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Discover this site’s operator authority; disabled sites refuse access"
+  },
+  {
+    "command": "ops page",
+    "method": "GET",
+    "path": "/api/v3/ops/page/{page}",
+    "parameters": [
+      {
+        "name": "page",
+        "wire": "page",
+        "kind": "opaque",
+        "required": true,
+        "max": 100
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Read a named operator page through the site’s existing gate"
+  },
+  {
+    "command": "ops performance",
+    "method": "GET",
+    "path": "/perfStats_9182738127",
+    "parameters": [],
+    "auth": "public",
+    "effect": false,
+    "response": "public_json",
+    "about": "Read legacy public in-process performance counters"
+  },
+  {
+    "command": "participant query",
+    "method": "POST",
+    "path": "/api/v3/query_participants_by_metadata",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "answers",
+        "wire": "pmaids",
+        "kind": "uints",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": false,
+    "response": "json",
+    "about": "Query participants matching metadata answer IDs"
+  },
+  {
+    "command": "math correlation",
+    "method": "GET",
+    "path": "/api/v3/math/correlationMatrix",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": true,
+    "response": "json",
+    "about": "Request the legacy correlation matrix; may schedule math"
+  },
+  {
+    "command": "report export-start",
+    "method": "GET",
+    "path": "/api/v3/dataExport",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "format",
+        "wire": "format",
+        "kind": "text",
+        "required": false,
+        "max": 100
+      },
+      {
+        "name": "timestamp",
+        "wire": "unixTimestamp",
+        "kind": "text",
+        "required": false,
+        "max": 99
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Request a queued data export; does not claim it has completed"
+  },
+  {
+    "command": "notification subscribe",
+    "method": "GET",
+    "path": "/api/v3/notifications/subscribe",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "email",
+        "wire": "email",
+        "kind": "text",
+        "required": true,
+        "max": 999
+      },
+      {
+        "name": "signature-file",
+        "wire": "signature",
+        "kind": "secret_file",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": true,
+    "response": "receipt",
+    "about": "Apply an existing signed email subscription capability"
+  },
+  {
+    "command": "notification unsubscribe",
+    "method": "GET",
+    "path": "/api/v3/notifications/unsubscribe",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "email",
+        "wire": "email",
+        "kind": "text",
+        "required": true,
+        "max": 999
+      },
+      {
+        "name": "signature-file",
+        "wire": "signature",
+        "kind": "secret_file",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": true,
+    "response": "receipt",
+    "about": "Apply an existing signed email subscription capability"
+  },
+  {
+    "command": "notification set",
+    "method": "POST",
+    "path": "/api/v3/convSubscriptions",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "state",
+        "wire": "type",
+        "kind": "mapped",
+        "required": true,
+        "mapping": {
+          "subscribe": 1,
+          "unsubscribe": 0
+        }
+      },
+      {
+        "name": "email",
+        "wire": "email",
+        "kind": "text",
+        "required": true,
+        "max": 999
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Set this account’s conversation notification preference"
+  },
+  {
+    "command": "statement translations",
+    "method": "GET",
+    "path": "/api/v3/comments/translations",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "statement",
+        "wire": "tid",
+        "kind": "uint",
+        "required": false
+      },
+      {
+        "name": "language",
+        "wire": "lang",
+        "kind": "text",
+        "required": false,
+        "max": 10
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Read or request stored statement translations"
+  },
+  {
+    "command": "statement next",
+    "method": "GET",
+    "path": "/api/v3/nextComment",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": false,
+    "response": "json",
+    "about": "Read the next participant-scoped statement without casting a vote"
+  },
+  {
+    "command": "delphi narrative run",
+    "method": "GET",
+    "path": "/api/v3/reportNarrative",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Request on-demand report narrative generation; may invoke a paid provider"
+  },
+  {
+    "command": "account verify",
+    "method": "GET",
+    "path": "/api/v3/verify",
+    "parameters": [
+      {
+        "name": "code-file",
+        "wire": "e",
+        "kind": "secret_file",
+        "required": true
+      }
+    ],
+    "auth": "public",
+    "effect": true,
+    "response": "receipt",
+    "about": "Apply an explicitly supplied legacy email-verification capability"
+  },
+  {
+    "command": "participant tutorial",
+    "method": "POST",
+    "path": "/api/v3/tutorial",
+    "parameters": [
+      {
+        "name": "step",
+        "wire": "step",
+        "kind": "uint",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Record this account’s tutorial progress"
+  },
+  {
+    "command": "delphi run",
+    "method": "POST",
+    "path": "/api/v3/delphi/jobs",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "type",
+        "wire": "job_type",
+        "kind": "text",
+        "required": false,
+        "choices": [
+          "FULL_PIPELINE",
+          "CREATE_NARRATIVE_BATCH",
+          "AWAITING_NARRATIVE_BATCH"
+        ]
+      },
+      {
+        "name": "priority",
+        "wire": "priority",
+        "kind": "uint",
+        "required": false,
+        "max": 100
+      },
+      {
+        "name": "include-moderation",
+        "wire": "include_moderation",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "idempotency-key",
+        "wire": "idempotency_key",
+        "kind": "text",
+        "required": false,
+        "max": 300
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Queue a report analysis job; may start paid provider work"
+  },
+  {
+    "command": "delphi batch",
+    "method": "POST",
+    "path": "/api/v3/delphi/batchReports",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "model",
+        "wire": "model",
+        "kind": "text",
+        "required": true,
+        "max": 300
+      },
+      {
+        "name": "max-batch-size",
+        "wire": "max_batch_size",
+        "kind": "uint",
+        "required": false,
+        "max": 1000
+      },
+      {
+        "name": "no-cache",
+        "wire": "no_cache",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "include-moderation",
+        "wire": "include_moderation",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "idempotency-key",
+        "wire": "idempotency_key",
+        "kind": "text",
+        "required": false,
+        "max": 300
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Queue batch narratives with an explicit model; may start paid provider work"
+  },
+  {
+    "command": "topic moderate",
+    "method": "POST",
+    "path": "/api/v3/topicMod/moderate",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "action",
+        "wire": "action",
+        "kind": "text",
+        "required": true,
+        "choices": [
+          "accept",
+          "reject",
+          "meta"
+        ]
+      },
+      {
+        "name": "statements",
+        "wire": "comment_ids",
+        "kind": "uints",
+        "required": false
+      },
+      {
+        "name": "topic",
+        "wire": "topic_key",
+        "kind": "text",
+        "required": false,
+        "max": 1024
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Moderate explicit statement IDs and/or a stored topic; inspect partial outcomes"
+  },
+  {
+    "command": "collective generate",
+    "method": "POST",
+    "path": "/api/v3/collectiveStatement",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "topic",
+        "wire": "topic_key",
+        "kind": "text",
+        "required": true,
+        "max": 1024
+      },
+      {
+        "name": "name",
+        "wire": "topic_name",
+        "kind": "text",
+        "required": true,
+        "max": 1000
+      },
+      {
+        "name": "statements",
+        "wire": "qualifying_tids",
+        "kind": "uints",
+        "required": false
+      },
+      {
+        "name": "group-consensus",
+        "wire": "group_consensus",
+        "kind": "json_file",
+        "required": false
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Generate a collective statement through the site; may invoke a paid provider"
+  },
+  {
+    "command": "agenda add",
+    "method": "POST",
+    "path": "/api/v3/topicAgenda/selections",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "from",
+        "wire": "selections",
+        "kind": "array_file",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": true,
+    "response": "json",
+    "about": "Save this participant’s entire selection array; not an append operation"
+  },
+  {
+    "command": "agenda replace",
+    "method": "PUT",
+    "path": "/api/v3/topicAgenda/selections",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "from",
+        "wire": "selections",
+        "kind": "array_file",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": true,
+    "response": "json",
+    "about": "Save this participant’s entire selection array; not an append operation"
+  },
+  {
+    "command": "agenda remove",
+    "method": "DELETE",
+    "path": "/api/v3/topicAgenda/selections",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "participant",
+    "effect": true,
+    "response": "json",
+    "about": "Delete all of this participant’s selections"
+  },
+  {
+    "command": "statement flag",
+    "method": "POST",
+    "path": "/api/v3/ptptCommentMod",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "statement",
+        "wire": "tid",
+        "kind": "uint",
+        "required": true
+      },
+      {
+        "name": "as-abusive",
+        "wire": "as_abusive",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-factual",
+        "wire": "as_factual",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-feeling",
+        "wire": "as_feeling",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-important",
+        "wire": "as_important",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-notfact",
+        "wire": "as_notfact",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-notgoodidea",
+        "wire": "as_notgoodidea",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-notmyfeeling",
+        "wire": "as_notmyfeeling",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-offtopic",
+        "wire": "as_offtopic",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-spam",
+        "wire": "as_spam",
+        "kind": "bool",
+        "required": false
+      },
+      {
+        "name": "as-unsure",
+        "wire": "as_unsure",
+        "kind": "bool",
+        "required": false
+      }
+    ],
+    "auth": "participant",
+    "effect": true,
+    "response": "json",
+    "about": "Submit explicit participant moderation flags; repeated submissions may be refused"
+  },
+  {
+    "command": "conversation upvote",
+    "method": "POST",
+    "path": "/api/v3/upvotes",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Upvote the conversation once; this is not a statement vote"
+  },
+  {
+    "command": "statement star",
+    "method": "POST",
+    "path": "/api/v3/stars",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "statement",
+        "wire": "tid",
+        "kind": "uint",
+        "required": true
+      },
+      {
+        "name": "state",
+        "wire": "starred",
+        "kind": "mapped",
+        "required": true,
+        "mapping": {
+          "on": 1,
+          "off": 0
+        }
+      }
+    ],
+    "auth": "participant",
+    "effect": true,
+    "response": "json",
+    "about": "Set this participant’s statement star flag"
+  },
+  {
+    "command": "statement trash",
+    "method": "POST",
+    "path": "/api/v3/trashes",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "statement",
+        "wire": "tid",
+        "kind": "uint",
+        "required": true
+      },
+      {
+        "name": "state",
+        "wire": "trashed",
+        "kind": "mapped",
+        "required": true,
+        "mapping": {
+          "on": 1,
+          "off": 0
+        }
+      }
+    ],
+    "auth": "participant",
+    "effect": true,
+    "response": "json",
+    "about": "Set this participant’s statement trash flag"
+  },
+  {
+    "command": "report statements select",
+    "method": "POST",
+    "path": "/api/v3/reportCommentSelections",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "statement",
+        "wire": "tid",
+        "kind": "uint",
+        "required": true
+      },
+      {
+        "name": "include",
+        "wire": "include",
+        "kind": "bool",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "resolve_report": true,
+    "about": "Set statement inclusion using the report’s own conversation"
+  },
+  {
+    "command": "account edit",
+    "method": "PUT",
+    "path": "/api/v3/users",
+    "parameters": [
+      {
+        "name": "email",
+        "wire": "email",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "name",
+        "wire": "hname",
+        "kind": "text",
+        "required": false,
+        "max": 9999
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Edit this signed-in account’s email or display name"
+  },
+  {
+    "command": "math refresh",
+    "method": "POST",
+    "path": "/api/v3/mathUpdate",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "type",
+        "wire": "math_update_type",
+        "kind": "text",
+        "required": true,
+        "choices": [
+          "recompute",
+          "update"
+        ]
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Explicitly request math recomputation or an update"
+  },
+  {
+    "command": "report edit",
+    "method": "PUT",
+    "path": "/api/v3/reports",
+    "parameters": [
+      {
+        "name": "report",
+        "wire": "report_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "name",
+        "wire": "report_name",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-x-neg",
+        "wire": "label_x_neg",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-x-pos",
+        "wire": "label_x_pos",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-y-neg",
+        "wire": "label_y_neg",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-y-pos",
+        "wire": "label_y_pos",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-0",
+        "wire": "label_group_0",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-1",
+        "wire": "label_group_1",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-2",
+        "wire": "label_group_2",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-3",
+        "wire": "label_group_3",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-4",
+        "wire": "label_group_4",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-5",
+        "wire": "label_group_5",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-6",
+        "wire": "label_group_6",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-7",
+        "wire": "label_group_7",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-8",
+        "wire": "label_group_8",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      },
+      {
+        "name": "label-group-9",
+        "wire": "label_group_9",
+        "kind": "text",
+        "required": false,
+        "max": 999
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "resolve_report": true,
+    "about": "Edit report labels using the report’s own conversation"
+  },
+  {
+    "command": "conversation email-link",
+    "method": "POST",
+    "path": "/api/v3/sendCreatedLinkToEmail",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Send the existing created-conversation link to this account’s email"
+  },
+  {
+    "command": "participant highlight set",
+    "method": "PUT",
+    "path": "/api/v3/ptptois",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "participant",
+        "wire": "pid",
+        "kind": "uint",
+        "required": true
+      },
+      {
+        "name": "moderation",
+        "wire": "mod",
+        "kind": "int",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Set a participant-profile moderation value as authorized by the site"
+  },
+  {
+    "command": "invite email send",
+    "method": "POST",
+    "path": "/api/v3/einvites",
+    "parameters": [
+      {
+        "name": "email",
+        "wire": "email",
+        "kind": "text",
+        "required": true,
+        "max": 999
+      }
+    ],
+    "auth": "public",
+    "effect": true,
+    "response": "json",
+    "about": "Request a legacy email invitation; sends mail if the site supports it"
+  },
+  {
+    "command": "account invite",
+    "method": "POST",
+    "path": "/api/v3/users/invite",
+    "parameters": [
+      {
+        "name": "conversation",
+        "wire": "conversation_id",
+        "kind": "id",
+        "required": true
+      },
+      {
+        "name": "emails",
+        "wire": "emails",
+        "kind": "strings",
+        "required": true
+      }
+    ],
+    "auth": "account",
+    "effect": true,
+    "response": "json",
+    "about": "Send conversation invitations to the explicit email list"
+  },
+  {
+    "command": "support contribute",
+    "method": "POST",
+    "path": "/api/v3/contributors",
+    "parameters": [
+      {
+        "name": "agreement-version",
+        "wire": "agreement_version",
+        "kind": "uint",
+        "required": true,
+        "max": 999999
+      },
+      {
+        "name": "name",
+        "wire": "name",
+        "kind": "text",
+        "required": true,
+        "max": 746
+      },
+      {
+        "name": "email",
+        "wire": "email",
+        "kind": "text",
+        "required": true,
+        "max": 256
+      },
+      {
+        "name": "github-id",
+        "wire": "github_id",
+        "kind": "text",
+        "required": true,
+        "max": 256
+      },
+      {
+        "name": "company-name",
+        "wire": "company_name",
+        "kind": "text",
+        "required": true,
+        "max": 746
+      }
+    ],
+    "auth": "public",
+    "effect": true,
+    "response": "json",
+    "about": "Submit the named contributor agreement version and identity"
+  }
+]

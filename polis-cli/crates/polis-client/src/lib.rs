@@ -87,6 +87,124 @@ impl Client {
         serde_json::from_slice(&bytes)
             .map_err(|_| protocol(effect, "Site returned malformed JSON."))
     }
+    /// Bounded bytes for dedicated existing API operations (CSV or an HTML
+    /// success receipt). Error bodies still use the normal safe error mapping.
+    pub fn operation_bytes(
+        &self,
+        method: &str,
+        path: &str,
+        query: &[(String, String)],
+        body: Option<Value>,
+        effect: bool,
+    ) -> Result<Vec<u8>> {
+        self.exchange(method, path, query, body, effect, false)
+            .map(|(_, _, bytes)| bytes)
+    }
+    /// This existing export route issues a signed redirect, not artifact bytes.
+    /// Return the capability only to the private-file caller; never follow it.
+    pub fn export_capability(&self, query: &[(String, String)]) -> Result<String> {
+        let url = self
+            .base
+            .join("/api/v3/dataExport/results")
+            .expect("fixed API path");
+        let mut request = self
+            .http
+            .get(url)
+            .query(query)
+            .header("User-Agent", "polis-cli/0.1.0");
+        if let Some(token) = &self.token {
+            request = request.bearer_auth(token);
+        }
+        let response = request
+            .send()
+            .map_err(|e| transport(false, e.is_connect()))?;
+        let status = response.status().as_u16();
+        let unavailable = || {
+            let mut e = Error::new("export_capability_unavailable", "The site did not issue a valid export download capability.", "Check the conversation, export filename and account permissions; no redirect was followed.", match status {401=>3,403=>4,500..=599=>6,_=>1});
+            e.upstream = json!({"status":status});
+            e
+        };
+        if status != 302 {
+            return Err(unavailable());
+        }
+        let location = response
+            .headers()
+            .get("location")
+            .and_then(|v| v.to_str().ok())
+            .filter(|v| v.len() <= 8192)
+            .ok_or_else(unavailable)?;
+        let target = Url::parse(location).map_err(|_| unavailable())?;
+        if target.scheme() != "https"
+            || target.host_str().is_none()
+            || !target.username().is_empty()
+            || target.password().is_some()
+            || target.fragment().is_some()
+        {
+            return Err(unavailable());
+        }
+        Ok(location.to_owned())
+    }
+    /// CSV operations reject HTML or JSON success pages before saving a file.
+    pub fn operation_csv(&self, path: &str, query: &[(String, String)]) -> Result<Vec<u8>> {
+        let (status, content_type, bytes) =
+            self.exchange("GET", path, query, None, false, false)?;
+        if status != 200
+            || !matches!(
+                content_type.split(';').next().map(str::trim),
+                Some("text/csv" | "application/csv")
+            )
+        {
+            return Err(protocol(false, "Expected a CSV response."));
+        }
+        Ok(bytes)
+    }
+    /// Public documents outside the API prefix. These exact paths never receive
+    /// credentials, follow redirects, evaluate HTML, or open a browser.
+    pub fn public_document(&self, path: &str) -> Result<Vec<u8>> {
+        let parts = path.split('/').collect::<Vec<_>>();
+        let feed = matches!(parts.len(), 3 | 4)
+            && parts.get(1) == Some(&"feeds")
+            && parts[2].len() <= 300
+            && !parts[2].is_empty()
+            && parts[2].bytes().all(|b| b.is_ascii_alphanumeric())
+            && (parts.len() == 3 || matches!(parts[3], "consensus" | "topics"));
+        if !feed && path != "/perfStats_9182738127" {
+            return Err(Error::input("Unsupported public document path."));
+        }
+        let url = self
+            .base
+            .join(path)
+            .map_err(|_| Error::input("Invalid public document path."))?;
+        if url.origin() != self.base.origin() {
+            return Err(Error::input("Public document must stay on this site."));
+        }
+        let response = self
+            .http
+            .get(url)
+            .header("User-Agent", "polis-cli/0.1.0")
+            .send()
+            .map_err(|e| transport(false, e.is_connect()))?;
+        let status = response.status().as_u16();
+        if !(200..300).contains(&status) {
+            let mut e = Error::new(
+                "document_unavailable",
+                "The site did not return the requested public document.",
+                "Check this report and site; no redirects or retries were followed.",
+                if status >= 500 { 6 } else { 1 },
+            );
+            e.upstream = json!({"status":status});
+            return Err(e);
+        }
+        let mut bytes = Vec::new();
+        response
+            .take(MAX_BODY + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| transport(false, false))?;
+        if bytes.len() as u64 > MAX_BODY {
+            return Err(protocol(false, "Public document exceeds the 8 MiB limit."));
+        }
+        Ok(bytes)
+    }
     /// Allocate an ID; the legacy route does not create a conversation or bind an owner.
     pub fn reserve_conversation(&self) -> Result<Value> {
         let (status, content_type, bytes) = self.exchange(
@@ -304,6 +422,24 @@ impl Client {
         if url.origin() != self.base.origin() || !url.path().starts_with("/api/v3/") {
             return Err(Error::input(
                 "API path must remain inside the selected site's /api/v3/ prefix.",
+            ));
+        }
+        let route = url.path().trim_end_matches('/');
+        if route.eq_ignore_ascii_case("/api/v3/joinWithInvite")
+            || (method.eq_ignore_ascii_case("POST")
+                && route.eq_ignore_ascii_case("/api/v3/participants"))
+        {
+            return Err(Error::input(
+                "Unsafe legacy admission route is unavailable. Use join, vote or comment.",
+            ));
+        }
+        if route.eq_ignore_ascii_case("/api/v3/comments")
+            && (body.as_ref().is_some_and(|b| b.get("is_seed").is_some())
+                || query.iter().any(|(key, _)| key == "is_seed")
+                || url.query_pairs().any(|(key, _)| key == "is_seed"))
+        {
+            return Err(Error::input(
+                "Participant comments cannot send is_seed. Use the administrator seed commands for seed imports.",
             ));
         }
         let method = Method::from_bytes(method.as_bytes())
@@ -685,5 +821,24 @@ mod math_gzip_tests {
             read(bytes, Some("gzip"), true).unwrap_err().code,
             "invalid_response"
         );
+    }
+}
+
+#[cfg(test)]
+mod document_scope_tests {
+    use super::*;
+    #[test]
+    fn public_document_whitelist_rejects_escapes_before_network() {
+        let c = Client::new("http://127.0.0.1:9", Some("generated-token".into()), 1).unwrap();
+        for path in [
+            "//example.invalid/feeds/rabc",
+            "/feeds/../users",
+            "/feeds/rabc?token=x",
+            "/feeds/rabc/other",
+            "/api/v3/users",
+            "/feeds/%2e%2e/topics",
+        ] {
+            assert_eq!(c.public_document(path).unwrap_err().exit, 2, "{path}");
+        }
     }
 }

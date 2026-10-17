@@ -12,7 +12,7 @@ services:
       - ../../polis-cli/tests/differential:/differential:ro
     environment:
       P027_MARKERS: '0'
-      ADMIN_UIDS: '[]'
+      ADMIN_UIDS: '[2]'
       CLI_DIFFERENTIAL_FIXTURE: '1'
   file-server:
     profiles: [unused]
