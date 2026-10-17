@@ -42,6 +42,10 @@ describe("math generation cache keyed by the committed tick", () => {
   let tick = 0;
 
   const url = () => `/api/v3/math/pca2?conversation_id=${conversationId}`;
+  // One agent per concurrent request, as in concurrent-same-participant.test.ts:
+  // ten requests on one agent's connections can be reset under CI load.
+  const concurrentAgents = () =>
+    Promise.all(Array.from({ length: 10 }, () => newAgent()));
   const tag = (t: number) => `"${mathEnv}-${t}"`;
 
   function expireCaches() {
@@ -145,12 +149,13 @@ describe("math generation cache keyed by the committed tick", () => {
 
   test("concurrent polls after the window share one row read", async () => {
     await publishAndServe();
+    const agents = await concurrentAgents();
 
     await publish(++tick);
     expireCaches();
     reads.mockClear();
     const responses = await Promise.all(
-      Array.from({ length: 10 }, () => api.get(url()))
+      agents.map((agent) => agent.get(url()))
     );
     for (const res of responses) {
       expect(res.status).toBe(200);
@@ -162,11 +167,12 @@ describe("math generation cache keyed by the committed tick", () => {
 
   test("concurrent polls of an unchanged generation read only its tick", async () => {
     const warm = await publishAndServe();
+    const agents = await concurrentAgents();
 
     expireCaches();
     reads.mockClear();
     const responses = await Promise.all(
-      Array.from({ length: 10 }, () => api.get(url()))
+      agents.map((agent) => agent.get(url()))
     );
     for (const res of responses) {
       expect(res.status).toBe(200);

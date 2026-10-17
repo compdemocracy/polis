@@ -147,6 +147,10 @@ type LatestRow =
 // tick is the one it was built from.
 type CommittedTick = { mathTick: number | null; entry?: PcaCacheItem };
 
+// A row whose generation is not committed yet: `math_main.math_tick` is
+// `NOT NULL DEFAULT -1` until a writer stores one (migrations/000000_initial.sql).
+const isUncommittedTick = (mathTick: number) => mathTick <= -1;
+
 // One in-flight row read and one in-flight tick read per [math_env, zid], so
 // concurrent misses share a single statement.
 const pendingRowReads = new Map<string, Promise<LatestRow>>();
@@ -639,7 +643,7 @@ function selectLatestRow(mathEnv: string, zid: number): Promise<LatestRow> {
         item.math_tick = Number(rowsArray[0].math_tick);
       }
       const mathTick = item.math_tick;
-      if (mathTick <= -1) {
+      if (isUncommittedTick(mathTick)) {
         return { present: true, mathTick, data: item };
       }
       // A blob without a usable lastVoteTimestamp is given the template's
@@ -724,7 +728,7 @@ export function getLatestPcaTick(zid: number): Promise<number | undefined> {
     );
   }
   return readCommittedTick(mathEnv, zid).then(({ mathTick }) =>
-    mathTick === null || mathTick <= -1 ? undefined : mathTick
+    mathTick === null || isUncommittedTick(mathTick) ? undefined : mathTick
   );
 }
 
