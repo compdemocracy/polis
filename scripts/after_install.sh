@@ -148,6 +148,30 @@ for image in migrate $ROLE_IMAGES; do
   pull_image "$image"
 done
 
+# Readiness identity (P-072), for every box that runs the math poller or its
+# queue child (the Delphi box's math-python; the large box's math_rebuild
+# jobs, P-073 r2): the poller logs the source commit and a digest of this
+# instance's id in its readiness lines, so the operator's readiness record
+# names the holder, and the queue child's version-skew guard compares the
+# commit with the one the small poller put on the job.
+# Never fatal here: a missing commit makes the collector refuse to build a
+# record, and a missing instance id makes the poller itself refuse to start
+# (exit 2; the heartbeat alarm then fires) rather than name the holder by
+# container hostname.
+poller_identity() {
+  POLLER_COMMIT=$(sudo git rev-parse HEAD 2>/dev/null || true)
+  POLLER_INSTANCE=""
+  for attempt in 1 2 3; do
+    IMDS_TOKEN=$(curl -s -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
+    POLLER_INSTANCE=$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id || true)
+    case "$POLLER_INSTANCE" in i-*) break ;; *) POLLER_INSTANCE=""; sleep 1 ;; esac
+  done
+  if [ -z "$POLLER_INSTANCE" ]; then
+    echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
+  fi
+  printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
+}
+
 # client-participation-alpha bakes four public settings (its build args in
 # docker-compose.yml) into its bundle at build time. The build box got them
 # from the workflow, not from this box's env document, so refuse an image built
@@ -185,30 +209,6 @@ if [ -f "/etc/app-info/log_group_name.txt" ]; then
   export AWS_LOG_GROUP_NAME=$LOG_GROUP_NAME
   printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
 fi
-
-# Readiness identity (P-072), for every box that runs the math poller or its
-# queue child (the Delphi box's math-python; the large box's math_rebuild
-# jobs, P-073 r2): the poller logs the source commit and a digest of this
-# instance's id in its readiness lines, so the operator's readiness record
-# names the holder, and the queue child's version-skew guard compares the
-# commit with the one the small poller put on the job.
-# Never fatal here: a missing commit makes the collector refuse to build a
-# record, and a missing instance id makes the poller itself refuse to start
-# (exit 2; the heartbeat alarm then fires) rather than name the holder by
-# container hostname.
-poller_identity() {
-  POLLER_COMMIT=$(sudo git rev-parse HEAD 2>/dev/null || true)
-  POLLER_INSTANCE=""
-  for attempt in 1 2 3; do
-    IMDS_TOKEN=$(curl -s -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
-    POLLER_INSTANCE=$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id || true)
-    case "$POLLER_INSTANCE" in i-*) break ;; *) POLLER_INSTANCE=""; sleep 1 ;; esac
-  done
-  if [ -z "$POLLER_INSTANCE" ]; then
-    echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
-  fi
-  printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
-}
 
 # A queue worker box (service types delphi-large and delphi-worker, written by
 # the worker launch templates, cdk/workerClasses.ts) runs ONE thing: the
