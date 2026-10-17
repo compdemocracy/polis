@@ -1,0 +1,14 @@
+log_format backend '$request_method $uri $upstream_addr $upstream_status';
+access_log /var/log/nginx/differential.log backend;
+include /etc/nginx/rust-api/upstreams.conf;
+server {
+ listen 80;
+ server_name localhost;
+ include /etc/nginx/rust-api/locations.conf;
+ location / {
+  proxy_pass http://server:${API_SERVER_PORT};
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header Host $host;
+  proxy_buffering off;
+ }
+}

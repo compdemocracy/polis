@@ -1,0 +1,82 @@
+# CLI differential loop
+
+Run the real CLI against one generated database with Node routing, reset the
+fixture and local credential/files state, then run it again with every merged
+Rust route enabled. This is independent of the byte replays: it neither starts
+those runners nor reads a recording archive. Byte replays remain the wire gate.
+
+Build the CLI and four local images from the source being tested:
+
+```sh
+(cd polis-cli && cargo build --locked -p polis --features fixture-ids)
+docker build --target prod --build-arg NODE_ENV=production -t cli-diff-node -f server/Dockerfile server
+docker build --build-context queue-rs=queue-rs -t cli-diff-postgres -f server/Dockerfile-db server
+docker build -t cli-diff-oidc oidc-simulator
+docker build --build-arg FEATURES=fixture-clock -t cli-diff-rust -f queue-rs/polis-api/Dockerfile queue-rs
+```
+
+Choose an unused project and three unused ports. The images are explicit and
+`up --pull never` prevents a test from silently changing them. The nginx image
+is the same pinned tag used by the existing routing tests.
+
+```sh
+export COMPOSE_PROJECT_NAME=p027cli-diff-local
+export P027_PORT_MIN=56201 P027_PORT_MAX=56203
+export POLIS_RECOVERY_PG_PORT=56201 RECOVERY_PG_PORT=56201
+export P027_HTTP_PORT=56202 P027_CONTROL_PORT=56203
+export CLI_DIFF_NODE_IMAGE=cli-diff-node CLI_DIFF_POSTGRES_IMAGE=cli-diff-postgres
+export CLI_DIFF_OIDC_IMAGE=cli-diff-oidc CLI_DIFF_RUST_IMAGE=cli-diff-rust
+bash scripts/test-polis-cli-differential.sh \
+  --binary polis-cli/target/debug/polis --output /tmp/cli-differential.json
+```
+
+The runner refuses an existing project and removes only its own containers and
+volumes in `finally`, even on an assertion failure. No application services can
+reach external providers: Node, Rust, Postgres, DynamoDB and the OIDC simulator
+are on an internal network. A small gateway exposes loopback ports and forwards
+only to the sealed proxy/control service. No credentials or real data are used.
+
+`cases.py` explicitly names every implemented command. The running binary's
+`schema` supplies the independent census. A new implemented command without a
+scenario fails the run; planned leaf commands must still return exit 8 in both
+modes. Parent commands that also perform an operation (such as `vote`) are
+included. Local discovery, authentication, file operations and mounted-router
+commands are included even when absent from a server registration inventory.
+This is one scenario per command, not exhaustive option/identity coverage.
+
+The comparator ignores JSON object key order only. It retains all data/error
+fields, types, arrays, IDs, timestamps, status/exit codes and downloaded file
+hashes. It never drops fields, replaces IDs, sorts arrays, retries writes or
+accepts a mismatch. The output lists differing JSON paths without secret values
+or submitted text. `auth token` is compared privately in memory, never logged.
+
+Generated test clocks, SQL timestamp defaults and server-generated identity
+entropy are fixed *before* execution, not erased from results. They live only
+in the test entry point and disposable database; the real handlers, access
+checks and credential signing run unchanged. The explicit CLI `fixture-ids` feature similarly accepts a generated statement
+UUID from `POLIS_CLI_FIXTURE_UUID` before a seed write. Default production builds
+have no such override. This does not change OAuth randomness, authentication,
+receipts, or the comparison. Using a normal binary deliberately fails the seed
+receipt comparison; build the documented test variant.
+
+Some commands need stored analysis artifacts absent from this small fixture.
+Their rows are marked `missing-store`, and malformed external-result imports
+are marked `invalid-input`. Those rows verify empty/availability/refusal behavior only; they are
+not successful export/import, provider, analysis or backend coverage. Planned
+commands and local commands are likewise reported separately. Never turn a
+connectivity/parser/authentication failure into a successful live scenario.
+
+The real nginx renderer receives `RUST_API_ROUTES` empty and then `pca2`, the
+only merged switch at this source version. Access logs must show both whole-presentation and selected-key
+math requests served 200 by port 5100, with no Rust
+fallback. Other paths continue to use Node; their equality is client-flow
+regression evidence, not a Rust implementation claim. A separate route-template census refuses an unaccounted new switch. When adding
+a Rust route, extend `routes.json`, add its command scenarios and require its
+own positive serving evidence.
+Do not count a 502 fallback as Rust parity.
+
+The participation path stays unchanged. The fixture runs one bounded live CLI
+request/flow at a time (unimplemented local commands run concurrently and must
+make no HTTP requests), uses only the existing Node write routes, and adds no
+production schema, pool, lock, queue, provider or Rust write. No load/isolation
+performance claim follows from this functional test.

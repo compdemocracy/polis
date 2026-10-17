@@ -66,6 +66,24 @@ pub fn validate(raw: &str) -> Result<Vec<Value>> {
     }
     Ok(rows)
 }
+// The normal binary has no environment-controlled identity generation. The
+// dedicated test build accepts a declared generated UUID so two live executions
+// receive the same input; no receipt field is removed from the comparison.
+#[cfg(feature = "fixture-ids")]
+fn fixture_id(value: &str) -> Result<uuid::Uuid> {
+    uuid::Uuid::parse_str(value).map_err(|_| Error::input("Invalid fixture statement UUID."))
+}
+fn statement_id() -> Result<uuid::Uuid> {
+    #[cfg(feature = "fixture-ids")]
+    if let Some(value) = std::env::var_os("POLIS_CLI_FIXTURE_UUID") {
+        return fixture_id(
+            value
+                .to_str()
+                .ok_or_else(|| Error::input("Invalid fixture statement UUID."))?,
+        );
+    }
+    Ok(uuid::Uuid::new_v4())
+}
 pub fn single(value: &str) -> Result<String> {
     text(value)?;
     let mut writer = csv::Writer::from_writer(Vec::new());
@@ -73,7 +91,7 @@ pub fn single(value: &str) -> Result<String> {
         .write_record(["comment_text", "original_id"])
         .map_err(|_| Error::input("Cannot encode statement."))?;
     writer
-        .write_record([value, &uuid::Uuid::new_v4().to_string()])
+        .write_record([value, &statement_id()?.to_string()])
         .map_err(|_| Error::input("Cannot encode statement."))?;
     Ok(String::from_utf8(writer.into_inner().unwrap()).unwrap())
 }
@@ -205,5 +223,19 @@ mod tests {
             ))
             .is_err());
         }
+    }
+}
+
+#[cfg(all(test, feature = "fixture-ids"))]
+mod fixture_tests {
+    use super::*;
+    #[test]
+    fn declared_id_is_preserved() {
+        let id = "00000000-0000-4000-8000-000000000027";
+        assert_eq!(fixture_id(id).unwrap().to_string(), id);
+    }
+    #[test]
+    fn malformed_id_is_rejected() {
+        assert!(fixture_id("not-a-uuid").is_err());
     }
 }
