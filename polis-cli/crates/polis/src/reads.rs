@@ -27,9 +27,10 @@ pub fn execute(
             | "delphi narrative view"
             | "delphi visualization view"
     );
-    let c = client(config, site, timeout, !public)?;
+    // Each branch validates its arguments before the client reads any credential.
+    let connect = || client(config, site, timeout, !public);
     if path == "plan view" {
-        c.request("GET", "/api/v3/users", &[], None, false)?;
+        connect()?.request("GET", "/api/v3/users", &[], None, false)?;
         return Ok(
             json!({"state":"unavailable","account_verified":true,"plan":null,"entitlements":null,"usage":null,"reason":"This API has no authoritative billing/plan/usage endpoint. Authentication is not a paid entitlement.","paid_runs_enabled":false}),
         );
@@ -56,7 +57,7 @@ pub fn execute(
         } else {
             "/api/v3/delphi/visualizations"
         };
-        let data = c.request("GET", endpoint, &query, None, false)?;
+        let data = connect()?.request("GET", endpoint, &query, None, false)?;
         if path == "delphi status" {
             let jobs = data
                 .get("jobs")
@@ -77,7 +78,7 @@ pub fn execute(
         let id = str_arg(m, "id");
         public_id(id)?;
         if path == "report view" {
-            return c.request(
+            return connect()?.request(
                 "GET",
                 "/api/v3/reports",
                 &[("report_id".into(), id.into())],
@@ -91,7 +92,7 @@ pub fn execute(
         if std::fs::symlink_metadata(output).is_ok() {
             return Err(Error::input("Output already exists; choose a new path."));
         }
-        let bytes = c.report_export(id, kind)?;
+        let bytes = connect()?.report_export(id, kind)?;
         let bytes = if str_arg(m, "format") == "json" && kind != "format.json" {
             crate::pass4::csv_json(&bytes)?
         } else {
@@ -115,6 +116,7 @@ pub fn execute(
     }
     let conversation = str_arg(m, "conversation");
     public_id(conversation)?;
+    let c = connect()?;
     let mut query = vec![("conversation_id".into(), conversation.into())];
     match path {
         "moderate list" => {

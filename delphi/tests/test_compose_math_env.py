@@ -253,6 +253,15 @@ requires_after_install = pytest.mark.skipif(
 _ROLE_BRANCH = re.compile(r'^(?:if|elif) \[ "\$SERVICE_FROM_FILE" == "(?P<role>[a-z-]+)" \]; then$')
 
 
+# The hook runs compose through one array that carries the image override files
+# ("${COMPOSE[@]}"); the bare binary is still recognized.
+_COMPOSE_CALLS = ('"${COMPOSE[@]}"', "sudo /usr/local/bin/docker-compose")
+
+
+def _is_compose(token: str) -> bool:
+    return token == '"${COMPOSE[@]}"' or token.endswith("docker-compose")
+
+
 def _role_up_lines() -> dict:
     """{role: [compose `up` command tokens, ...]} for each top-level role branch
     of the deploy hook; comments are ignored."""
@@ -268,7 +277,7 @@ def _role_up_lines() -> dict:
             continue
         code = line.split("#", 1)[0].split()
         command = code[1:] if code[:1] == ["sudo"] else code
-        if current and command[:1] and command[0].endswith("docker-compose") and "up" in command:
+        if current and command[:1] and _is_compose(command[0]) and "up" in command:
             roles[current].append(code)
     return roles
 
@@ -286,11 +295,12 @@ def test_delphi_role_starts_delphi_and_the_shadow_poller():
     assert _services_named(line) == {"delphi", "math-python"}
     assert {"-d", "--no-build", "--force-recreate"} <= set(line)
     assert "--build" not in line
-    # Release A builds while the old services still serve, then replaces them.
+    # Images are pulled by digest before this branch; nothing is built on the
+    # box, and the old services serve until they are replaced.
     body = _role_bodies()["delphi"]
-    build = "sudo /usr/local/bin/docker-compose build delphi math-python"
-    down = "sudo /usr/local/bin/docker-compose down"
-    assert body.index(build) < body.index(down) < body.index(" ".join(line))
+    assert not [l for l in body if l.startswith(_COMPOSE_CALLS) and " build" in l]
+    down = next(i for i, l in enumerate(body) if l.startswith(_COMPOSE_CALLS) and l.split()[-1] == "down")
+    assert down < body.index(" ".join(line))
 
 
 @requires_after_install
@@ -696,7 +706,7 @@ def test_no_role_starts_a_large_poller():
 def test_the_delphi_box_writes_the_readiness_identity_before_starting():
     body = _role_bodies()["delphi"]
     assert "poller_identity" in body
-    up = next(i for i, line in enumerate(body) if line.startswith("sudo /usr/local/bin/docker-compose up"))
+    up = next(i for i, line in enumerate(body) if line.startswith(tuple(c + " up" for c in _COMPOSE_CALLS)))
     assert body.index("poller_identity") < up
     text = AFTER_INSTALL_PATH.read_text()
     assert text.index("poller_identity() {") < text.index('"$SERVICE_FROM_FILE" == "server"')
@@ -707,7 +717,7 @@ def test_the_large_box_still_writes_the_readiness_identity():
     # The queue child's version-skew guard reads MATH_POLLER_SOURCE_COMMIT.
     body = _role_bodies()["delphi-large"]
     assert "poller_identity" in body
-    assert not any(line.startswith("sudo /usr/local/bin/docker-compose") for line in body)
+    assert not any(line.startswith(_COMPOSE_CALLS) for line in body)
 
 
 def _find_stop_hook():

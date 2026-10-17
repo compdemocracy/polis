@@ -1,6 +1,6 @@
 use crate::{client, profiles, public_id, str_arg};
 use clap::ArgMatches;
-use polis_contracts::{Error, Result};
+use polis_contracts::{setup::ExternalIdentityMode, Error, Result};
 use serde_json::{json, Map, Value};
 
 // app.ts applies false defaults even to omitted fields on PUT conversations.
@@ -76,13 +76,23 @@ pub fn execute(
             ("draft", "is_draft"),
             ("data-open", "is_data_open"),
             ("strict-moderation", "strict_moderation"),
+            ("invite-only", "treevite_enabled"),
         ] {
             if let Some(value) = m.get_one::<String>(arg) {
                 changes.insert(field.into(), json!(value == "true"));
             }
         }
+        if let Some(name) = m.get_one::<String>("external-id") {
+            // Both Node flags come from the one typed mapping, never set apart.
+            let mode = ExternalIdentityMode::from_name(name).ok_or_else(|| {
+                Error::input("--external-id must be optional, required or allowlist.")
+            })?;
+            if let Value::Object(flags) = mode.node_flags() {
+                changes.extend(flags);
+            }
+        }
         if changes.is_empty() {
-            return Err(Error::input("Choose at least one setting: --topic, --description, --draft, --data-open or --strict-moderation. Use --description '' to clear it."));
+            return Err(Error::input("Choose at least one setting: --topic, --description, --draft, --data-open, --strict-moderation, --invite-only or --external-id. Use --description '' to clear it."));
         }
     }
     let c = client(config, site, timeout, true)?;

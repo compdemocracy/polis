@@ -224,3 +224,107 @@ fn collective_export_refuses_existing_symlink() {
     assert_eq!(code, 2);
     assert!(output.symlink_metadata().unwrap().file_type().is_symlink());
 }
+#[test]
+fn a_site_without_the_agent_path_says_so_and_writes_nothing() {
+    // A server without these routes answers 404 for them.
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("input.json");
+    std::fs::write(
+        &file,
+        json!({"conversation_id":"demo","report_id":"rdemo"}).to_string(),
+    )
+    .unwrap();
+    let out = dir.path().join("export");
+    let narrative = dir.path().join("narrative");
+    let handle = server(
+        dir.path(),
+        vec![(404, json!({})), (404, json!({})), (404, json!({}))],
+    );
+    let cases: [(Vec<&str>, &str); 3] = [
+        (
+            vec![
+                "collective",
+                "import",
+                "demo",
+                file.to_str().unwrap(),
+                "--report",
+                "rdemo",
+            ],
+            "collective-statement import",
+        ),
+        (
+            vec![
+                "collective",
+                "export",
+                "demo",
+                "--report",
+                "rdemo",
+                "--topic",
+                "t#0#1",
+                "--output",
+                out.to_str().unwrap(),
+            ],
+            "collective-statement export",
+        ),
+        (
+            vec![
+                "delphi",
+                "narrative",
+                "export",
+                "demo",
+                "--report",
+                "rdemo",
+                "--output",
+                narrative.to_str().unwrap(),
+            ],
+            "narrative export",
+        ),
+    ];
+    for (args, feature) in cases {
+        let (code, v) = call(dir.path(), &args, None, true);
+        assert_eq!(code, 8, "{v}");
+        assert_eq!(v["error"]["code"], "capability_unavailable");
+        assert!(
+            v["error"]["message"].as_str().unwrap().contains(feature),
+            "{v}"
+        );
+    }
+    handle.join().unwrap();
+    assert!(
+        !out.exists() && !narrative.exists(),
+        "no export directory is created"
+    );
+}
+#[test]
+fn import_input_is_checked_before_any_credential_is_read() {
+    // A world-writable credential directory makes every credential read refuse
+    // (exit 3) without the Keychain, so exit 2 shows the input was refused first.
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("profiles.json"),
+        json!({"default":"local","sites":{"local":"http://127.0.0.1:1"}}).to_string(),
+    )
+    .unwrap();
+    let creds = dir.path().join("credentials");
+    std::fs::create_dir(&creds).unwrap();
+    std::fs::set_permissions(&creds, std::fs::Permissions::from_mode(0o777)).unwrap();
+    let bad = dir.path().join("bad.json");
+    std::fs::write(&bad, "not json").unwrap();
+    let bad = bad.to_str().unwrap();
+    for args in [
+        vec!["collective", "import", "demo", bad, "--report", "rdemo"],
+        vec![
+            "delphi",
+            "narrative",
+            "import",
+            "demo",
+            bad,
+            "--report",
+            "rdemo",
+        ],
+    ] {
+        let (code, v) = call(dir.path(), &args, None, false);
+        assert_eq!(code, 2, "{v}");
+    }
+}

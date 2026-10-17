@@ -205,7 +205,8 @@ Without `--json`, `conversation list` prints a table (topic, description, the
 conversation URL and its newest report URL); other network results use pretty JSON.
 
 Network waits default to 30 seconds, configurable from 1 to 300. Responses are bounded
-to 8 MiB. Redirects and **all automatic HTTP retries** are disabled. Requests cannot
+to 8 MiB. Redirects and **all automatic HTTP retries** are disabled; a redirected
+write reports outcome `unknown` (exit 7), since the site may have stored it. Requests cannot
 escape the selected origin's `/api/v3/` prefix. Non-JSON responses, malformed JSON,
 HTTP-200 error envelopes, partial seed imports, and 304 responses are not successes.
 Arbitrary upstream error bodies and credential-store errors are not echoed into
@@ -340,7 +341,22 @@ Bash, Zsh, Fish, PowerShell or Elvish scripts from the same command tree. See
 topic, description, draft, public-data and strict-moderation settings, with explicit
 booleans. It requires a complete moderator read, preserves five legacy defaulted
 flags, and verifies the requested and preserved settings. There is no server
-compare-and-set; coordinate concurrent edits. `conversation share ID` returns
+compare-and-set; coordinate concurrent edits.
+
+Admission settings change the same way after creation:
+`--invite-only true|false` requires invitation membership, and
+`--external-id optional|required|allowlist` uses the setup file's external-ID
+model (an allow-list also requires an external ID). `allowlist` switches the
+list check on without changing the listed IDs, which `conversation new` sets.
+Node fixes the allow-list setting once a participant from outside the owner's
+site has joined; a later change is refused with exit 5 (`xid_allowlist_fixed`)
+and never retried.
+
+```sh
+polis conversation edit CONV --invite-only false --external-id required
+```
+
+`conversation share ID` returns
 unverified links without a request or message. `conversation stats ID [--until MS]`
 reads moderator event statistics, bounded to 8 MiB, without a report-ID fallback.
 
@@ -720,8 +736,14 @@ existing file.
 Setup creates a staged conversation, confirms each settings/wave/allowlist/
 statement step, and applies final participation settings last. On partial
 failure it exits 7 with the known conversation ID and completed steps, without
-retrying. Inspect that receipt before trying again: another `new` invocation
-creates another conversation. Initial statements use moderator authority, with
+retrying. The error says that the conversation exists, closed and invite-only,
+and `data.finish` lists the commands that finish it with the requested
+settings, for example `polis conversation edit ID --invite-only false
+--external-id optional`, then `polis conversation reopen ID`. Inspect that
+receipt before trying again: another `new` invocation creates another
+conversation. If the site refuses the first create request, nothing was created
+and the command exits with that refusal's own code (for example 4, forbidden).
+Initial statements use moderator authority, with
 no seed bypass flag or automatic vote. No invitation code is printed.
 
 [The complete setting inventory and admission model](../docs/conversation-setup.md)
