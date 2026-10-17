@@ -112,28 +112,41 @@ case "$SERVICE_FROM_FILE" in
   *) echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"; exit 1 ;;
 esac
 
-# Apply the release schema before stopping/replacing any healthy service.
-# All roles use the same database lock; a second box waits, then applies nothing.
-# The migration runner image is built once by the deploy workflow for exactly this
-# commit and pushed to the registry; a box only pulls it. Compiling it here filled
-# the 8 GB root disks and failed deploys. A missing image fails the deploy before
-# any service is replaced, so the healthy revision keeps serving.
+# Every image this box runs (and the migration runner) was built once, for
+# exactly this commit, on the deploy workflow's build box (cdk/buildBox.ts,
+# deploy/build-images.sh) and pushed to the registry; the workflow wrote the
+# digests into the bundle (scripts/deploy-images.txt) next to this hook. A box
+# only pulls, by digest: building here competed with live traffic for CPU and
+# filled the 8 GB root disks. Every pull, and every check below, happens before
+# the migration and before any service is replaced, so a missing or mismatched
+# image fails the deploy while the healthy revision keeps serving.
 ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com"
-MIGRATE_IMAGE="${ECR_REGISTRY}/polis:migrate-${DEPLOY_REVISION}"
-aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
-sudo docker pull "$MIGRATE_IMAGE"
-sudo docker tag "$MIGRATE_IMAGE" polis-migrate:deploy
-sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
-
-# Validate configuration before replacing any running container. Compose replaces
-# only this Compose project below; never remove unrelated containers or prune here.
-sudo /usr/local/bin/docker-compose config --quiet
-
-if [ -f "/etc/app-info/log_group_name.txt" ]; then
-  LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
-  export AWS_LOG_GROUP_NAME=$LOG_GROUP_NAME
-  printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
+DEPLOY_IMAGES="$HOOK_DIR/deploy-images.txt"
+image_ref() { sed -n "s/^$1=//p" "$DEPLOY_IMAGES" 2>/dev/null | head -n 1; }
+if [ "$(image_ref revision)" != "$DEPLOY_REVISION" ]; then
+  echo "Error: this deployment bundle has no image manifest for commit $DEPLOY_REVISION (scripts/deploy-images.txt); refusing to deploy"
+  exit 1
 fi
+pull_image() {
+  local ref
+  ref="$(image_ref "$1")"
+  case "$ref" in "$ECR_REGISTRY"/*) ;; *) ref="" ;; esac
+  if ! printf '%s\n' "$ref" | grep -Eqx '[0-9]{12}\.dkr\.ecr\.us-east-1\.amazonaws\.com/polis(/[a-z-]+)?@sha256:[0-9a-f]{64}'; then
+    echo "Error: the image manifest names no digest in this registry for '$1'; refusing to deploy"
+    exit 1
+  fi
+  sudo docker pull "$ref"
+}
+case "$SERVICE_FROM_FILE" in
+  server) ROLE_IMAGES="server nginx-proxy client-participation-alpha" ;;
+  delphi) ROLE_IMAGES="delphi math-python" ;;
+  delphi-large|delphi-worker) ROLE_IMAGES="delphi" ;;
+  *) ROLE_IMAGES="" ;;
+esac
+aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
+for image in migrate $ROLE_IMAGES; do
+  pull_image "$image"
+done
 
 # Readiness identity (P-072), for every box that runs the math poller or its
 # queue child (the Delphi box's math-python; the large box's math_rebuild
@@ -159,11 +172,49 @@ poller_identity() {
   printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
 }
 
+# client-participation-alpha bakes four public settings (its build args in
+# docker-compose.yml) into its bundle at build time. The build box got them
+# from the workflow, not from this box's env document, so refuse an image built
+# with other values than this box would have built it with.
+if [ "$SERVICE_FROM_FILE" == "server" ]; then
+  WEB_ARGS_SHA256=$(sudo /usr/local/bin/docker-compose config --format json | jq -cS '.services["client-participation-alpha"].build.args' | sha256sum | cut -d' ' -f1)
+  if [ "$WEB_ARGS_SHA256" != "$(image_ref web-build-args-sha256)" ]; then
+    echo "Error: client-participation-alpha was built with other public settings (PUBLIC_SERVICE_URL, AUTH_NAMESPACE, OIDC_CACHE_KEY_PREFIX, OIDC_CACHE_KEY_ID_TOKEN_SUFFIX) than this box's env document gives it; refusing to deploy"
+    exit 1
+  fi
+fi
+
+# Apply the release schema before stopping/replacing any healthy service.
+# All roles use the same database lock; a second box waits, then applies nothing.
+sudo docker tag "$(image_ref migrate)" polis-migrate:deploy
+sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
+
+# Compose runs the pulled digests: this override sets each service's image, and
+# every `up` below passes --no-build, so nothing is built on this box.
+if [ -n "$ROLE_IMAGES" ]; then
+  { echo "services:"
+    for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
+  } | sudo tee docker-compose.images.yml > /dev/null
+else
+  echo "services: {}" | sudo tee docker-compose.images.yml > /dev/null
+fi
+COMPOSE=(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml)
+
+# Validate configuration before replacing any running container. Compose replaces
+# only this Compose project below; never remove unrelated containers or prune here.
+"${COMPOSE[@]}" config --quiet
+
+if [ -f "/etc/app-info/log_group_name.txt" ]; then
+  LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
+  export AWS_LOG_GROUP_NAME=$LOG_GROUP_NAME
+  printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
+fi
+
 # A queue worker box (service types delphi-large and delphi-worker, written by
 # the worker launch templates, cdk/workerClasses.ts) runs ONE thing: the
 # polis-jobs daemon of its class, as the systemd unit polis-jobs.service that
-# its user data installed (cdk/launchTemplates.ts). The deploy builds the
-# image that unit runs (the Delphi image, which carries the daemon) and
+# its user data installed (cdk/launchTemplates.ts). The deploy tags the pulled
+# Delphi image (it carries the daemon) as the image that unit runs and
 # restarts that unit only; it starts no compose service. The restart is queued
 # (--no-block): the unit's stop drains the running job (docker stop -t 900),
 # which can outlast this hook, and then starts the new image. Refuses, failing
@@ -179,24 +230,29 @@ worker_daemon() {
     echo "Error: service type '$SERVICE_FROM_FILE' runs the polis-jobs daemon, but /etc/systemd/system/polis-jobs.service is missing (the worker launch template installs it)"
     exit 1
   fi
-  echo "Building the Delphi image (it carries polis-jobs) and restarting polis-jobs.service for worker class '$want_class'"
-  sudo /usr/local/bin/docker-compose build delphi
-  sudo /usr/local/bin/docker-compose down
+  local jobs_image
+  jobs_image=$(sed -n 's/^POLIS_JOBS_IMAGE=//p' /etc/app-info/polis-jobs.env 2>/dev/null | head -n 1)
+  if [ -z "$jobs_image" ]; then
+    echo "Error: service type '$SERVICE_FROM_FILE' runs the polis-jobs daemon, but /etc/app-info/polis-jobs.env names no POLIS_JOBS_IMAGE (the worker launch template writes it)"
+    exit 1
+  fi
+  echo "Tagging the pulled Delphi image (it carries polis-jobs) as $jobs_image and restarting polis-jobs.service for worker class '$want_class'"
+  sudo docker tag "$(image_ref delphi)" "$jobs_image"
+  "${COMPOSE[@]}" down
   sudo systemctl restart --no-block polis-jobs.service
 }
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
-  echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
-  sudo /usr/local/bin/docker-compose build server nginx-proxy client-participation-alpha
-  sudo /usr/local/bin/docker-compose down
-  sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --no-build --force-recreate
+  echo "Starting the pulled 'server', 'nginx-proxy', and 'client-participation-alpha' images"
+  "${COMPOSE[@]}" down
+  "${COMPOSE[@]}" up -d server nginx-proxy client-participation-alpha --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   # The Clojure math engine is retired; the Python engine (math-python) runs on
   # the Delphi role. A box still tagged `math` (the math-worker ASG until it is
   # scaled to zero) starts nothing. This branch must stay until no such box is
   # left: without it the box would fall through to the catch-all below and
   # start every service, including a second Delphi job poller.
-  sudo /usr/local/bin/docker-compose down
+  "${COMPOSE[@]}" down
   echo "Service type 'math' is retired (the Clojure engine was removed); starting no services on this box"
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' and 'math-python' (math engine) services"
@@ -319,9 +375,8 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #   5. Make it durable (remove `math-python` here and redeploy) before
   #      resuming deploys or ASG launches.
   poller_identity
-  sudo /usr/local/bin/docker-compose build delphi math-python
-  sudo /usr/local/bin/docker-compose down
-  sudo /usr/local/bin/docker-compose up -d delphi math-python --no-build --force-recreate
+  "${COMPOSE[@]}" down
+  "${COMPOSE[@]}" up -d delphi math-python --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`
@@ -343,3 +398,13 @@ else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"
   exit 1
 fi
+
+# Free the disk the previous deployment's images held, now replaced. Only the
+# digests the previous manifest named, never forced: an image a container still
+# uses (a polis-jobs drain in progress) stays.
+if [ -f /opt/polis/deployed-images.txt ]; then
+  for ref in $(sed -n 's/^[a-z-]*=\(.*@sha256:[0-9a-f]*\)$/\1/p' /opt/polis/deployed-images.txt); do
+    grep -qF "=$ref" "$DEPLOY_IMAGES" || sudo docker image rm "$ref" > /dev/null 2>&1 || true
+  done
+fi
+sudo cp "$DEPLOY_IMAGES" /opt/polis/deployed-images.txt

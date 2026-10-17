@@ -46,6 +46,7 @@ import createWorkerClasses, {
 import createOpsDashboardsAccess, { opsDashboardsEnabled } from '../opsDashboards';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
+import { BuildBox } from '../buildBox';
 import { CoordinatorInactiveService } from '../coordinator';
 
 interface PolisStackProps extends cdk.StackProps {
@@ -297,6 +298,22 @@ export class CdkStack extends cdk.Stack {
       codeDeployRole,
       workerWiring
     );
+
+    // --- Image build box (OFF unless `-c enableBuildBox=true`). The deploy
+    // workflow builds every image there; production boxes only pull by digest.
+    // See cdk/buildBox.ts.
+    if ([true, 'true'].includes(this.node.tryGetContext('enableBuildBox'))) {
+      new BuildBox(this, 'BuildBox', {
+        vpc,
+        deploymentBucket,
+        codeDeployApplicationName: application.applicationName,
+        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        githubRepo: (this.node.tryGetContext('buildBoxGithubRepo') as string | undefined) ?? 'compdemocracy/polis',
+        // Must equal the `environment:` and branch of the deploy workflow's jobs.
+        githubEnvironment: 'production',
+        githubRefs: ['refs/heads/stable'],
+      });
+    }
 
     // --- Ollama Network Load Balancer + service-URL secret (only when enabled)
     let ollamaNlb: elbv2.NetworkLoadBalancer | undefined;
