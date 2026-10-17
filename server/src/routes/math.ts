@@ -1,5 +1,10 @@
 import _ from "underscore";
-import { getPca, isSynthesizedPca, PcaCacheItem } from "../utils/pca";
+import {
+  getLatestPcaTick,
+  getPca,
+  isSynthesizedPca,
+  PcaCacheItem,
+} from "../utils/pca";
 import { presentPca } from "../utils/pcaPresentation";
 import { failJson } from "../utils/fail";
 import pg from "../db/pg-query";
@@ -119,69 +124,90 @@ function handle_GET_math_pca2(
     }
   }
 
+  // The client already holds exactly this label's generation.
+  function finishWith304ForTag(etag: string) {
+    res.set({ "Content-Type": "application/json", Etag: etag });
+    res.status(304).end();
+  }
+
   // Whether the served entry is the empty presentation synthesized for a
   // conversation with no committed row. It gets no generation tag: its
   // math_tick 0 is a placeholder, and giving it the tag of a real generation 0
   // would answer 304 to the first real publication. Without an explicit tag,
   // express derives a weak validator from the body itself.
   let synthesized = false;
-  getPca(zid, math_tick)
-    .then((data: PcaCacheItem | undefined) => {
-      synthesized = isSynthesizedPca(data);
-      // Serve the presentation, not the raw blob: an empty math result still puts
-      // the conversation's comment defaults on the wire (see utils/pcaPresentation).
-      return presentPca(zid, data);
-    })
-    .then(function (data: PcaCacheItem | undefined) {
-      const etag =
-        data && !synthesized ? pca2EntityTag(data.asPOJO.math_tick) : undefined;
-      if (
-        etag !== undefined &&
-        heldTags !== undefined &&
-        heldTags.includes(etag)
-      ) {
-        // The client already holds exactly this label's generation.
-        res.set({ "Content-Type": "application/json", Etag: etag });
-        res.status(304).end();
-        return;
-      }
-      if (data) {
-        // If keys are specified and non-empty, filter the response
-        if (keys && keys.length > 0) {
-          // Filter to only include requested keys that exist in the POJO
-          // _.pick will gracefully ignore keys that don't exist
-          const filtered = _.pick(data.asPOJO, keys);
-          res.set({
-            "Content-Type": "application/json",
-            ...(etag !== undefined ? { Etag: etag } : {}),
-          });
-          res.json(filtered);
+  function serveCurrentGeneration() {
+    return getPca(zid, math_tick)
+      .then((data: PcaCacheItem | undefined) => {
+        synthesized = isSynthesizedPca(data);
+        // Serve the presentation, not the raw blob: an empty math result still puts
+        // the conversation's comment defaults on the wire (see utils/pcaPresentation).
+        return presentPca(zid, data);
+      })
+      .then(function (data: PcaCacheItem | undefined) {
+        const etag =
+          data && !synthesized ? pca2EntityTag(data.asPOJO.math_tick) : undefined;
+        if (
+          etag !== undefined &&
+          heldTags !== undefined &&
+          heldTags.includes(etag)
+        ) {
+          finishWith304ForTag(etag);
           return;
         }
-        // The buffer is gzipped beforehand to cut down on server effort in re-gzipping
-        // the same json string for each response.
-        // We can't cache this endpoint on Cloudflare because the response changes too freqently,
-        // so it seems like the best way is to cache the gzipped json'd buffer here on the server.
-        res.set({
-          "Content-Type": "application/json",
-          "Content-Encoding": "gzip",
-          ...(etag !== undefined ? { Etag: etag } : {}),
-        });
-        res.send(data.asBufferOfGzippedJson);
-      } else {
-        // check whether we should return a 304 or a 404
-        if (pcaResultsExistForZid[cacheKey] === undefined) {
-          // This server doesn't know yet if there are any PCA results in the DB
-          // So try querying from -1
-          return getPca(zid, -1).then(function (data: any) {
-            const exists = !!data;
-            pcaResultsExistForZid[cacheKey] = exists;
-            finishWith304or404();
+        if (data) {
+          // If keys are specified and non-empty, filter the response
+          if (keys && keys.length > 0) {
+            // Filter to only include requested keys that exist in the POJO
+            // _.pick will gracefully ignore keys that don't exist
+            const filtered = _.pick(data.asPOJO, keys);
+            res.set({
+              "Content-Type": "application/json",
+              ...(etag !== undefined ? { Etag: etag } : {}),
+            });
+            res.json(filtered);
+            return;
+          }
+          // The buffer is gzipped beforehand to cut down on server effort in re-gzipping
+          // the same json string for each response.
+          // We can't cache this endpoint on Cloudflare because the response changes too freqently,
+          // so it seems like the best way is to cache the gzipped json'd buffer here on the server.
+          res.set({
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
+            ...(etag !== undefined ? { Etag: etag } : {}),
           });
+          res.send(data.asBufferOfGzippedJson);
         } else {
-          finishWith304or404();
+          // check whether we should return a 304 or a 404
+          if (pcaResultsExistForZid[cacheKey] === undefined) {
+            // This server doesn't know yet if there are any PCA results in the DB
+            // So try querying from -1
+            return getPca(zid, -1).then(function (data: any) {
+              const exists = !!data;
+              pcaResultsExistForZid[cacheKey] = exists;
+              finishWith304or404();
+            });
+          } else {
+            finishWith304or404();
+          }
         }
+      });
+  }
+
+  // A held tag is compared first, with the generation getPca would serve,
+  // learned without reading or compressing the blob (getLatestPcaTick). A
+  // match answers exactly the 304 above; anything else is served as before.
+  const heldTick: Promise<number | undefined> =
+    heldTags === undefined ? Promise.resolve(undefined) : getLatestPcaTick(zid);
+  heldTick
+    .then((tick) => {
+      const etag = tick === undefined ? undefined : pca2EntityTag(tick);
+      if (etag !== undefined && heldTags.includes(etag)) {
+        finishWith304ForTag(etag);
+        return;
       }
+      return serveCurrentGeneration();
     })
     .catch(function (err: any) {
       failJson(res, 500, err);
