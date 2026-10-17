@@ -314,7 +314,7 @@ fn upstream_write_errors_preserve_outcome_and_never_retry() {
             (403, 4, "rejected"),
             (422, 1, "rejected"),
             (429, 6, "rejected"),
-            (302, 1, "rejected"),
+            (302, 7, "unknown"),
             (500, 7, "unknown"),
             (200, 7, "unknown"),
         ] {

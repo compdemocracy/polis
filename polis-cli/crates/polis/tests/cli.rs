@@ -1639,6 +1639,28 @@ fn input_is_validated_before_any_credential_is_read() {
     );
     assert_eq!(std::fs::read_to_string(&existing).unwrap(), "keep");
     assert_eq!(polis(&["conversation", "close", "bad!"]), 2);
+    for args in [
+        &["delphi", "status", "--report", "bad!"][..],
+        &["delphi", "results", "--report", "2demo", "--job", "bad/job"],
+        &["report", "view", "bad!"],
+        &["moderate", "list", "--conversation", "bad!"],
+        &["vote", "list", "--conversation", "bad!"],
+    ] {
+        assert_eq!(polis(args), 2, "{args:?}");
+    }
+    assert_eq!(
+        polis(&[
+            "report",
+            "export",
+            "2demo",
+            "--type",
+            "summary.csv",
+            "--output",
+            existing.to_str().unwrap()
+        ]),
+        2
+    );
+    assert_eq!(std::fs::read_to_string(&existing).unwrap(), "keep");
 }
 #[test]
 fn a_site_cannot_write_escape_sequences_through_passed_through_help_text() {

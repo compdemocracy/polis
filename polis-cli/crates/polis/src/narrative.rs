@@ -1,3 +1,4 @@
+use crate::collective::unserved;
 use crate::{client, profiles, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
@@ -35,7 +36,6 @@ pub fn execute(
     let report = str_arg(m, "report");
     public_id(conv)?;
     public_id(report)?;
-    let c = client(config, site, timeout, true)?;
     if path == "delphi narrative import" {
         let mut input = Vec::new();
         fs::File::open(str_arg(m, "input-file"))
@@ -55,13 +55,17 @@ pub fn execute(
                 "JSON conversation/report must match the command; never retarget an export.",
             ));
         }
-        return c.request(
-            "POST",
-            "/api/v3/delphi/narrative/results",
-            &[],
-            Some(body),
-            true,
-        );
+        // Inputs are checked before any credential is read.
+        let c = client(config, site, timeout, true)?;
+        return c
+            .request(
+                "POST",
+                "/api/v3/delphi/narrative/results",
+                &[],
+                Some(body),
+                true,
+            )
+            .map_err(unserved("narrative import"));
     }
     let output = Path::new(str_arg(m, "output"));
     if fs::symlink_metadata(output).is_ok() {
@@ -76,13 +80,16 @@ pub fn execute(
     if let Some(section) = m.get_one::<String>("section") {
         query.push(("section".into(), section.clone()));
     }
-    let data = c.request(
-        "GET",
-        "/api/v3/delphi/narrative/inputs",
-        &query,
-        None,
-        false,
-    )?;
+    let c = client(config, site, timeout, true)?;
+    let data = c
+        .request(
+            "GET",
+            "/api/v3/delphi/narrative/inputs",
+            &query,
+            None,
+            false,
+        )
+        .map_err(unserved("narrative export"))?;
     let sections = data["sections"].as_array().ok_or_else(invalid)?;
     if sections.is_empty()
         || sections.len() > 99
