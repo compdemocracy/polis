@@ -1,0 +1,5 @@
+# Every process cargo starts here (tests and `cargo run`) keeps credentials in the
+# owner-only file store and never calls the macOS Keychain, so test runs cannot show
+# Keychain dialogs. The real-Keychain tests opt in with POLIS_TEST_KEYCHAIN=1.
+[env]
+POLIS_KEYCHAIN = "off"

@@ -3,8 +3,10 @@
 # polis-client library) and the contracts crate it shares with queue-rs
 # (queue-rs/polis-contracts, a member of the polis-cli workspace).
 # The hosted CI and local entry point. No network services, Docker or
-# credentials are needed; the macOS Keychain tests use a throwaway service and
-# skip when no login Keychain is usable (for example on a Linux runner).
+# credentials are needed. Tests never call the macOS Keychain (POLIS_KEYCHAIN=off
+# from polis-cli/.cargo/config.toml); the real-Keychain cases use a throwaway
+# service and run only with POLIS_TEST_KEYCHAIN=1 on a Mac with a usable login
+# Keychain.
 set -euo pipefail
 cd "$(dirname "$0")/../polis-cli"
 

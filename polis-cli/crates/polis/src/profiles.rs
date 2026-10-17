@@ -169,8 +169,10 @@ fn keychain_service() -> Result<String> {
         Err(std::env::VarError::NotPresent) => Ok(DEFAULT_KEYCHAIN_SERVICE.into()),
     }
 }
+/// POLIS_KEYCHAIN=off keeps every credential in the owner-only file store and
+/// never calls the Keychain; the CLI's own tests and headless agents run this way.
 fn keychain_supported() -> bool {
-    cfg!(target_os = "macos")
+    cfg!(target_os = "macos") && std::env::var_os("POLIS_KEYCHAIN").is_none_or(|v| v != "off")
 }
 
 #[cfg(target_os = "macos")]

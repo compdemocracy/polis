@@ -12,6 +12,55 @@ pub struct Client {
     token: Option<String>,
 }
 
+/// The checks every request path passes, before any credential is used: the
+/// /api/v3/ prefix on the selected origin, no fragment or control characters, no
+/// unsafe legacy admission route, no participant seed flag. Returns the URL.
+pub fn check_request(
+    base: &Url,
+    method: &str,
+    path: &str,
+    query: &[(String, String)],
+    body: Option<&Value>,
+) -> Result<Url> {
+    // Never allow an escape hatch to route credentials to another origin.
+    if !path.starts_with("/api/v3/")
+        || path.contains('#')
+        || path.contains('\\')
+        || path.chars().any(char::is_control)
+    {
+        return Err(Error::input(
+            "API path must start with /api/v3/ and contain no fragment or control characters.",
+        ));
+    }
+    let url = base
+        .join(path)
+        .map_err(|_| Error::input("Invalid API path."))?;
+    if url.origin() != base.origin() || !url.path().starts_with("/api/v3/") {
+        return Err(Error::input(
+            "API path must remain inside the selected site's /api/v3/ prefix.",
+        ));
+    }
+    let route = url.path().trim_end_matches('/');
+    if route.eq_ignore_ascii_case("/api/v3/joinWithInvite")
+        || (method.eq_ignore_ascii_case("POST")
+            && route.eq_ignore_ascii_case("/api/v3/participants"))
+    {
+        return Err(Error::input(
+            "Unsafe legacy admission route is unavailable. Use join, vote or comment.",
+        ));
+    }
+    if route.eq_ignore_ascii_case("/api/v3/comments")
+        && (body.is_some_and(|b| b.get("is_seed").is_some())
+            || query.iter().any(|(key, _)| key == "is_seed")
+            || url.query_pairs().any(|(key, _)| key == "is_seed"))
+    {
+        return Err(Error::input(
+            "Participant comments cannot send is_seed. Use the administrator seed commands for seed imports.",
+        ));
+    }
+    Ok(url)
+}
+
 pub fn base_url(raw: &str) -> Result<Url> {
     let u = Url::parse(raw).map_err(|_| Error::input("Invalid site URL."))?;
     let local = matches!(u.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
@@ -405,43 +454,7 @@ impl Client {
         effect: bool,
         decode_math_gzip: bool,
     ) -> Result<(u16, String, Vec<u8>)> {
-        // Never allow an escape hatch to route credentials to another origin.
-        if !path.starts_with("/api/v3/")
-            || path.contains('#')
-            || path.contains('\\')
-            || path.chars().any(char::is_control)
-        {
-            return Err(Error::input(
-                "API path must start with /api/v3/ and contain no fragment or control characters.",
-            ));
-        }
-        let url = self
-            .base
-            .join(path)
-            .map_err(|_| Error::input("Invalid API path."))?;
-        if url.origin() != self.base.origin() || !url.path().starts_with("/api/v3/") {
-            return Err(Error::input(
-                "API path must remain inside the selected site's /api/v3/ prefix.",
-            ));
-        }
-        let route = url.path().trim_end_matches('/');
-        if route.eq_ignore_ascii_case("/api/v3/joinWithInvite")
-            || (method.eq_ignore_ascii_case("POST")
-                && route.eq_ignore_ascii_case("/api/v3/participants"))
-        {
-            return Err(Error::input(
-                "Unsafe legacy admission route is unavailable. Use join, vote or comment.",
-            ));
-        }
-        if route.eq_ignore_ascii_case("/api/v3/comments")
-            && (body.as_ref().is_some_and(|b| b.get("is_seed").is_some())
-                || query.iter().any(|(key, _)| key == "is_seed")
-                || url.query_pairs().any(|(key, _)| key == "is_seed"))
-        {
-            return Err(Error::input(
-                "Participant comments cannot send is_seed. Use the administrator seed commands for seed imports.",
-            ));
-        }
+        let url = check_request(&self.base, method, path, query, body.as_ref())?;
         let method = Method::from_bytes(method.as_bytes())
             .map_err(|_| Error::input("Invalid HTTP method."))?;
         let mut request = self
