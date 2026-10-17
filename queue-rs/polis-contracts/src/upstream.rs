@@ -75,6 +75,8 @@ pub fn guidance(code: &'static str) -> Guidance {
             ("conversation_update_failed", "The site could not confirm the conversation edit.", "Run polis conversation view <id> and compare settings before retrying; ask the operator if the failure persists."),
         "polis_err_post_reports_misc" =>
             ("report_write_failed", "The site could not confirm the report write.", "Run polis report list --conversation <id> before retrying; creation has no idempotency key and repeating it can create duplicates."),
+        "polis_err_xid_whitelist_fixed_after_start" =>
+            ("xid_allowlist_fixed", "The external-ID allow-list setting is fixed once participation has started.", "No change was made and none will be retried. Keep the current --external-id setting for this conversation, or start a new conversation for a different one."),
         "polis_err_conversationStats_misc" =>
             ("conversation_stats_unavailable", "The site could not read participation statistics.", "Check the conversation ID and moderator account; ask the operator to inspect statistics reads if this persists."),
         "polis_err_topicMod_comments_store_missing" => ("topic_statements_unavailable", "Per-topic statement listing is unavailable on this site.", "Use report statements list for visible conversation statements, or ask the operator about topic storage. An empty topic was not returned; retrying will not create the store."),

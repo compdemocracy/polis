@@ -579,7 +579,8 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
         let mut value = envelope(site, &result);
         if setup_partial {
             value["ok"] = json!(false);
-            value["error"] = json!({"code":"setup_incomplete","message":"Setup stopped before every step was confirmed.","action":"Inspect data.steps and data.failed_step before retrying. Rerunning new creates another conversation.","outcome":"unknown","retryable":false,"upstream":null});
+            // setup::apply says what the stopped setup left and how to finish it.
+            value["error"] = json!({"code":"setup_incomplete","message":value["data"]["message"],"action":value["data"]["action"],"outcome":"unknown","retryable":false,"upstream":null});
         }
         if partial {
             value["ok"] = json!(false);

@@ -522,11 +522,51 @@ fn apply(s: &ConversationSetup, c: &Client) -> Result<Value> {
         Ok(()) => {
             Ok(json!({"state":"created","conversation_id":id,"steps":steps,"summary":summary(s)}))
         }
-        Err(e) => Ok(
-            json!({"state":"setup_partial","conversation_id":id,"steps":steps,"failed_step":step,
-            "error":safe(e),"action":"Inspect this conversation and the confirmed steps before retrying. No automatic retry was made; rerunning new creates another conversation."}),
-        ),
+        // A refused create has no response to any step: nothing was created.
+        Err(e) if steps.is_empty() && e.outcome == "rejected" => Err(safe(e)),
+        Err(e) => {
+            let (message, action, finish) = left_behind(s, id.as_deref(), &step);
+            Ok(
+                json!({"state":"setup_partial","conversation_id":id,"steps":steps,"failed_step":step,
+                "error":safe(e),"message":message,"action":action,"finish":finish}),
+            )
+        }
     }
+}
+/// What a stopped setup left on the site, and the commands that finish it with
+/// the requested settings. Until the final step, the staged conversation is
+/// closed and invite-only.
+fn left_behind(
+    s: &ConversationSetup,
+    id: Option<&str>,
+    step: &str,
+) -> (String, String, Vec<String>) {
+    let never = "Never rerun new: it creates another conversation. No automatic retry was made.";
+    let Some(id) = id else {
+        return (
+            format!("Setup stopped at {step} before the site confirmed a conversation ID. A conversation may exist, closed and invite-only."),
+            format!("{never} Run polis conversation list to look for it before doing anything else."),
+            vec![],
+        );
+    };
+    let state = if step.ends_with("finish") {
+        "may still be closed and invite-only"
+    } else {
+        "is closed and invite-only"
+    };
+    let mut finish = vec![format!(
+        "polis conversation edit {id} --invite-only {} --external-id {}",
+        matches!(s.join.invitations, Invitations::Required { .. }),
+        s.join.external_identity.mode().name()
+    )];
+    if s.activity == Activity::Open {
+        finish.push(format!("polis conversation reopen {id}"));
+    }
+    (
+        format!("Setup stopped at {step}. Conversation {id} exists and {state}."),
+        format!("{never} Inspect data.steps first: invitation waves, allow-list IDs and initial statements not confirmed there may be missing. Then finish it with: {}", finish.join(", then ")),
+        finish,
+    )
 }
 
 #[cfg(test)]
