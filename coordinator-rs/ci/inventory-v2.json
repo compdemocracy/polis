@@ -1610,6 +1610,10 @@
     ],
     [
       "__tests__/unit/mathBundle.test.ts",
+      "the accessors are pure and exact bidsForPids refuses a malformed mapping entry instead of throwing"
+    ],
+    [
+      "__tests__/unit/mathBundle.test.ts",
       "the accessors are pure and exact pidsForGid joins through the Bundle's own mapping"
     ],
     [
