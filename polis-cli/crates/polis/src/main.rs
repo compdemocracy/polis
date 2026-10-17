@@ -596,7 +596,7 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
                     .or_else(|| v.get("table"))
                     .and_then(Value::as_str)
                 {
-                    print!("{text}")
+                    print!("{}", listing::terminal_text(text))
                 } else {
                     println!("{}", serde_json::to_string_pretty(&v).unwrap())
                 }
