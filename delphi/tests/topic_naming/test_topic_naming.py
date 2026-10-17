@@ -262,3 +262,17 @@ def test_name_topics_false_returns_conventional():
         name_topics=False,
     )
     assert all("Keywords" in v for v in labels.values())
+
+
+# --- the real Ollama provider ------------------------------------------------
+
+def test_real_ollama_provider_binds_a_non_default_endpoint():
+    """The fakes above never construct OllamaProvider; a compose stack always
+    passes a non-default endpoint (http://ollama:11434). Constructing it must
+    not raise and must bind a client to that host, without any request."""
+    ollama = pytest.importorskip("ollama")
+    from umap_narrative.llm_factory_constructor.model_provider import OllamaProvider
+
+    provider = OllamaProvider(model_name="qwen2.5:1.5b", endpoint="http://ollama:11434")
+    assert isinstance(provider.ollama, ollama.Client)
+    assert str(provider.ollama._client.base_url).rstrip("/") == "http://ollama:11434"

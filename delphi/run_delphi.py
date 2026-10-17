@@ -187,8 +187,12 @@ def main():
 
     # Run the math pipeline
     print(f"{GREEN}Running math pipeline...{NC}")
+    # -P: run_math_pipeline.py lives inside the polismath package, and running a
+    # script puts its own folder first on sys.path. polismath/types.py and
+    # polismath/queue/ would then shadow the standard library's `types` and
+    # `queue`, and the first stdlib import of either fails (a circular import).
     math_command = [
-        "python", f"{app_path}/polismath/run_math_pipeline.py",
+        "python", "-P", f"{app_path}/polismath/run_math_pipeline.py",
         f"--zid={zid}",
     ]
     if max_votes_arg:

@@ -144,10 +144,10 @@ class OllamaProvider(ModelProvider):
         # Import ollama here to allow for optional dependency
         try:
             import ollama
-            self.ollama = ollama
-            # Configure endpoint if specified
-            if endpoint != "http://localhost:11434":
-                self.ollama.client.api_base = endpoint
+            # A client bound to the endpoint. The package has no module-level
+            # `client.api_base`; setting it raised AttributeError for any
+            # non-default endpoint, so every call fell back to keyword labels.
+            self.ollama = ollama.Client(host=endpoint)
         except ImportError:
             logger.warning("Ollama package not installed. Using direct HTTP requests instead.")
             self.ollama = None
