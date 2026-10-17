@@ -246,3 +246,119 @@ fn setup_is_discoverable_without_credentials() {
     assert_eq!(exit, 0);
     assert_eq!(v["data"]["implemented"], true);
 }
+/// A mock that answers by route, as Node does: the moderation list ignores `tids`
+/// and returns every statement. `drop` leaves one statement out of that list.
+fn seeded_server(
+    dir: &Path,
+    s: ConversationSetup,
+    drop: Option<usize>,
+) -> std::thread::JoinHandle<Vec<String>> {
+    let l = TcpListener::bind("127.0.0.1:0").unwrap();
+    config(dir, &format!("http://{}", l.local_addr().unwrap()));
+    std::thread::spawn(move || {
+        let mut requests = Vec::new();
+        let mut fields = s.node_flags();
+        fields["is_active"] = json!(false);
+        fields["treevite_enabled"] = json!(true);
+        fields.as_object_mut().unwrap().remove("xid_required");
+        fields.as_object_mut().unwrap().remove("use_xid_whitelist");
+        let mut posted = 0usize;
+        loop {
+            let (mut sock, _) = l.accept().unwrap();
+            sock.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let mut buf = [0; 8192];
+            let end = loop {
+                let n = sock.read(&mut buf).unwrap();
+                assert!(n > 0);
+                bytes.extend_from_slice(&buf[..n]);
+                if let Some(end) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let head = String::from_utf8_lossy(&bytes[..end]).to_ascii_lowercase();
+                    let len = head
+                        .lines()
+                        .find_map(|l| {
+                            l.strip_prefix("content-length: ")
+                                .and_then(|s| s.parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if bytes.len() >= end + 4 + len {
+                        break end;
+                    }
+                }
+            };
+            let request = String::from_utf8(bytes.clone()).unwrap();
+            let line = request.lines().next().unwrap().to_string();
+            let data = if line.starts_with("POST /api/v3/conversations ") {
+                json!({"conversation_id":"2setup"})
+            } else if line.starts_with("PUT /api/v3/conversations ") {
+                fields = serde_json::from_slice(&bytes[end + 4..]).unwrap();
+                json!({})
+            } else if line.starts_with("GET /api/v3/conversations") {
+                fields.clone()
+            } else if line.starts_with("POST /api/v3/comments-bulk ") {
+                posted += 1;
+                json!({"results":[{"status":"success","tid":posted - 1}]})
+            } else if line.starts_with("GET /api/v3/comments?") {
+                let rows: Vec<Value> = s
+                    .seeds
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| Some(*i) != drop)
+                    .map(|(i, t)| json!({"tid":i,"txt":t,"mod":1,"active":true}))
+                    .collect();
+                json!({"comments":rows,"pagination":{"hasMore":false,"total":rows.len()}})
+            } else {
+                panic!("unexpected request {line}");
+            };
+            let body = data.to_string();
+            write!(sock,"HTTP/1.1 200 Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            let done = line.starts_with("GET /api/v3/comments?") && drop.is_some()
+                || (line.starts_with("GET /api/v3/conversations")
+                    && fields["is_active"] == json!(true));
+            requests.push(request);
+            if done {
+                break;
+            }
+        }
+        requests
+    })
+}
+#[test]
+fn several_seeds_are_confirmed_by_one_moderation_list_read() {
+    let mut s = setup();
+    s.seeds = vec![
+        "First seed".into(),
+        "Second seed".into(),
+        "Third seed".into(),
+    ];
+    let d = tempfile::tempdir().unwrap();
+    let src = input(d.path(), &s);
+    let t = seeded_server(d.path(), s.clone(), None);
+    let (exit, v) = call(d.path(), &["conversation", "new", "--from", &src]);
+    assert_eq!(exit, 0, "{v}");
+    assert_eq!(v["data"]["state"], "created");
+    let requests = t.join().unwrap();
+    let reads: Vec<_> = requests
+        .iter()
+        .filter(|r| r.starts_with("GET /api/v3/comments?"))
+        .collect();
+    assert_eq!(reads.len(), 1, "one paged read confirms every statement");
+    assert!(reads[0].contains("moderation=true") && !reads[0].contains("tids="));
+    let statements: Vec<_> = v["data"]["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["step"].as_str().unwrap().starts_with("statement_"))
+        .collect();
+    assert_eq!(statements.len(), 3);
+    assert!(statements.iter().all(|r| r["state"] == "confirmed"));
+
+    let d = tempfile::tempdir().unwrap();
+    let src = input(d.path(), &s);
+    let t = seeded_server(d.path(), s, Some(1));
+    let (exit, v) = call(d.path(), &["conversation", "new", "--from", &src]);
+    assert_eq!(exit, 7, "{v}");
+    assert_eq!(v["data"]["state"], "setup_partial");
+    t.join().unwrap();
+}

@@ -51,7 +51,7 @@ def main():
     def basic():
         return {'topic':'Generated setup '+secrets.token_hex(8),'description':'Generated description','context':'generated-context','activity':'open','listing':'listed',
                 'join':{'invitations':{'mode':'required','first_wave':{'owner_invites':2,'per_participant':0},'later_waves':[]},'external_identity':{'mode':'optional'}},
-                'moderation':'before_visibility','visibility':'hide_social_list','data_access':'owner','profanity_filter':False,'short_url':False,'seeds':['Generated initial statement '+secrets.token_hex(8)]}
+                'moderation':'before_visibility','visibility':'hide_social_list','data_access':'owner','profanity_filter':False,'short_url':False,'seeds':['Generated initial statement '+secrets.token_hex(8) for _ in range(3)]}
     with tempfile.TemporaryDirectory(prefix='polis-setup-live-') as temp:
         temp=Path(temp)
         def config(name,url=origin):
