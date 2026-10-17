@@ -104,8 +104,9 @@ def test_failure_gauges_respect_candidate_scope(db, launch, tmp_path):
 
 def test_actual_pca2_route_serves_generation_zero(db, launch, tmp_path):
     """R2-F3, updated for the merged #2732. The route supplies math_tick = -1 and
-    serves a committed generation of zero with 200 and ETag "0"; a matching
-    conditional gets 304. The cold `getPca(zid, undefined)` miss this control once
+    serves a committed generation of zero with 200 and ETag "rustproto-0" (the
+    label-bound tag 7d452d41c introduced); echoing it gets 304, and the legacy
+    numeric tag "0" gets 200. The cold `getPca(zid, undefined)` miss this control once
     pinned was the server-owner reader defect #2732 named; #2732 is now merged to
     edge (`pca.ts` guards the column override with `row.math_tick != null`, not a
     falsy check), so this rebased tree serves generation zero on the cold call as
@@ -135,12 +136,14 @@ def test_actual_pca2_route_serves_generation_zero(db, launch, tmp_path):
     }, indent=2, sort_keys=True))
     assert evidence["pgTickType"] == "string"
     assert evidence["whole"]["status"] == 200
-    assert evidence["whole"]["etag"] == '"0"'
+    assert evidence["whole"]["etag"] == '"rustproto-0"'
     assert evidence["whole"]["bodyTick"] == 0
     assert evidence["whole"]["contentEncoding"] == "gzip"
     assert evidence["subset"]["status"] == 200
     assert evidence["subset"]["bodyTick"] == 0
     assert evidence["conditional"]["status"] == 304
+    assert evidence["conditional"]["etag"] == '"rustproto-0"'
+    assert evidence["legacyConditional"]["status"] == 200
     # #2732 (merged) fixed the cold getPca(zid, undefined) generation-zero miss:
     # the cold call now finds it, so this rebased tree reports True, not the
     # pre-#2732 False this control once pinned. warm has always found it.

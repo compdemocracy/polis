@@ -28,6 +28,7 @@ fn pg_type(name: &str) -> Result<Type> {
         "jsonb" => Type::JSONB,
         "timestamptz" => Type::TIMESTAMPTZ,
         "_text" => Type::TEXT_ARRAY,
+        "_float4" => Type::FLOAT4_ARRAY,
         "job_status" => Type::new(
             "job_status".into(),
             99999,
@@ -57,6 +58,7 @@ fn sample(kind: &str) -> Result<Value> {
         "json" | "jsonb" => json!({"text":"{\"nested\":[1,null,\"x\"]}"}),
         "timestamptz" => json!(i64::MAX),
         "_text" => json!(["x", null, ""]),
+        "_float4" => json!([f32::NAN.to_bits(), null, (-0.0_f32).to_bits()]),
         "job_status" => json!("pending"),
         _ => anyhow::bail!("missing sample for {kind}"),
     })
@@ -166,7 +168,7 @@ fn schema_all_columns_types_nullability_and_serde() -> Result<()> {
         value.insert("unreviewed_column".into(), json!(1));
         assert!((row.roundtrip)(Value::Object(value)).is_err());
     }
-    assert_eq!(total, 603);
+    assert_eq!(total, 766);
     Ok(())
 }
 
