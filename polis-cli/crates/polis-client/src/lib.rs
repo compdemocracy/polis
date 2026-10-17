@@ -566,6 +566,12 @@ impl Client {
                     "No representation returned. Request again without conditional headers.",
                     1,
                 ),
+                // The site may have stored a write before redirecting.
+                300..=399 if effect => (
+                    "redirect_outcome_unknown",
+                    "Read back before retrying; the site may have stored this change before redirecting. The redirect was not followed and credentials were not forwarded.",
+                    7,
+                ),
                 300..=399 => (
                     "redirect_refused",
                     "Check the site's configured API origin; credentials were not forwarded.",
@@ -597,7 +603,8 @@ impl Client {
                 err.action = advice.action;
                 err.upstream["code"] = json!(advice.upstream_code);
             }
-            err.outcome = if effect && (status >= 500 || (200..300).contains(&status)) {
+            let redirect = (300..400).contains(&status) && status != 304;
+            err.outcome = if effect && (status >= 500 || (200..300).contains(&status) || redirect) {
                 err.exit = 7;
                 "unknown"
             } else {

@@ -216,7 +216,7 @@ fn comment_errors_never_echo_body_or_correlation_header_or_retry() {
         (401, 3),
         (409, 5),
         (400, 1),
-        (302, 1),
+        (302, 7),
     ] {
         let d = tempfile::tempdir().unwrap();
         let t = server(

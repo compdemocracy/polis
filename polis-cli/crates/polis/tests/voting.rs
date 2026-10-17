@@ -292,7 +292,7 @@ fn malformed_receipts_are_unknown_but_valid_issued_tokens_are_retained() {
 }
 #[test]
 fn failed_votes_do_not_retry_or_echo_upstream_credentials() {
-    for (status, exit) in [(0, 7), (500, 7), (403, 4), (401, 3), (406, 1), (302, 1)] {
+    for (status, exit) in [(0, 7), (500, 7), (403, 4), (401, 3), (406, 1), (302, 7)] {
         let d = tempfile::tempdir().unwrap();
         let t = server(
             d.path(),
@@ -312,6 +312,48 @@ fn failed_votes_do_not_retry_or_echo_upstream_credentials() {
         assert!(!v.to_string().contains(TOKEN));
         assert_eq!(t.join().unwrap().len(), 1);
     }
+}
+#[test]
+fn a_redirected_vote_is_unknown_and_not_retried_but_a_redirected_read_is_refused() {
+    // The site may store a vote before redirecting, so only a read-back can tell.
+    let redirect = || {
+        vec![(
+            302,
+            "application/json\r\nLocation: https://elsewhere.example/api/v3/votes",
+            "{}".to_string(),
+        )]
+    };
+    let d = tempfile::tempdir().unwrap();
+    let t = server(d.path(), redirect());
+    let (code, v) = call(
+        d.path(),
+        &["vote", "2demo", "--statement", "0", "--agree"],
+        None,
+        false,
+    );
+    assert_eq!(code, 7, "{v}");
+    assert_eq!(v["error"]["code"], "redirect_outcome_unknown");
+    assert_eq!(v["error"]["outcome"], "unknown");
+    assert_eq!(v["error"]["upstream"]["status"], 302);
+    assert!(v["error"]["action"]
+        .as_str()
+        .unwrap()
+        .starts_with("Read back before retrying"));
+    assert_eq!(t.join().unwrap().len(), 1);
+    assert!(private(d.path()).is_empty());
+
+    let d = tempfile::tempdir().unwrap();
+    let t = server(d.path(), redirect());
+    let (code, v) = call(
+        d.path(),
+        &["vote", "list", "--conversation", "2demo", "--pid", "0"],
+        None,
+        true,
+    );
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["error"]["code"], "redirect_refused");
+    assert_eq!(v["error"]["outcome"], "rejected");
+    assert_eq!(t.join().unwrap().len(), 1);
 }
 #[test]
 fn invalid_noninteractive_choices_fail_before_any_request() {

@@ -205,7 +205,8 @@ Without `--json`, `conversation list` prints a table (topic, description, the
 conversation URL and its newest report URL); other network results use pretty JSON.
 
 Network waits default to 30 seconds, configurable from 1 to 300. Responses are bounded
-to 8 MiB. Redirects and **all automatic HTTP retries** are disabled. Requests cannot
+to 8 MiB. Redirects and **all automatic HTTP retries** are disabled; a redirected
+write reports outcome `unknown` (exit 7), since the site may have stored it. Requests cannot
 escape the selected origin's `/api/v3/` prefix. Non-JSON responses, malformed JSON,
 HTTP-200 error envelopes, partial seed imports, and 304 responses are not successes.
 Arbitrary upstream error bodies and credential-store errors are not echoed into

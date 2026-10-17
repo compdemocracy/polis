@@ -356,7 +356,7 @@ fn upstream_failures_keep_conservative_outcome_without_retry() {
         (403, 4, "rejected"),
         (422, 1, "rejected"),
         (429, 6, "rejected"),
-        (302, 1, "rejected"),
+        (302, 7, "unknown"),
         (500, 7, "unknown"),
         (200, 7, "unknown"),
     ] {
