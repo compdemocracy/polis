@@ -438,6 +438,7 @@ fn apply(s: &ConversationSetup, c: &Client) -> Result<Value> {
                 json!(actual.len() - ids.as_slice().len());
             steps.last_mut().unwrap()["state"] = json!("confirmed");
         }
+        let mut posted = Vec::new();
         for (i, text) in s.seeds.iter().enumerate() {
             step = format!("statement_{}", i + 1);
             // The moderator endpoint authorizes the owner; no seed bypass flag.
@@ -455,23 +456,49 @@ fn apply(s: &ConversationSetup, c: &Client) -> Result<Value> {
                 .filter(|n| *n <= i32::MAX as u64)
                 .ok_or_else(incompatible)?;
             steps.push(json!({"step":step,"state":"response_received","statement":tid}));
-            step = format!("confirm_statement_{}", i + 1);
-            let r = get(
-                c,
-                "/api/v3/comments",
-                code,
-                &[("tids", tid.to_string()), ("moderation", "true".into())],
-            )?;
-            let rows = r.as_array().ok_or_else(incompatible)?;
-            if rows.len() != 1
-                || rows[0]["tid"] != tid
-                || rows[0]["txt"] != *text
-                || rows[0]["mod"] != 1
-                || rows[0]["active"] != true
-            {
-                return Err(incompatible());
+            posted.push((tid, text));
+        }
+        if !posted.is_empty() {
+            // Node's moderation list ignores `tids` and returns every statement, so
+            // one paged read confirms all of them (seeds are capped at 1,000).
+            step = "confirm_statements".into();
+            let mut seen = std::collections::HashMap::new();
+            for offset in [0, 500, 1000] {
+                let r = get(
+                    c,
+                    "/api/v3/comments",
+                    code,
+                    &[
+                        ("moderation", "true".into()),
+                        ("limit", "500".into()),
+                        ("offset", offset.to_string()),
+                    ],
+                )?;
+                for row in r["comments"].as_array().ok_or_else(incompatible)? {
+                    let tid = row["tid"].as_u64().ok_or_else(incompatible)?;
+                    seen.insert(tid, row.clone());
+                }
+                if r["pagination"]["hasMore"] == false {
+                    break;
+                }
+                if offset == 1000 {
+                    return Err(incompatible());
+                }
             }
-            steps.last_mut().unwrap()["state"] = json!("confirmed");
+            for (tid, text) in &posted {
+                let row = seen.get(tid).ok_or_else(incompatible)?;
+                if row["txt"] != **text || row["mod"] != 1 || row["active"] != true {
+                    return Err(incompatible());
+                }
+            }
+            for st in steps.iter_mut() {
+                if st["step"]
+                    .as_str()
+                    .is_some_and(|n| n.starts_with("statement_"))
+                {
+                    st["state"] = json!("confirmed");
+                }
+            }
         }
         step = "finish".into();
         let mut final_flags = flags.clone();
