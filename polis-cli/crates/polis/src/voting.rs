@@ -190,9 +190,7 @@ fn prompt(
     let text: String = stmt
         .text
         .chars()
-        .filter(|c| {
-            !c.is_control() && !matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-        })
+        .filter(|&c| !c.is_control() && !crate::listing::invisible(c))
         .collect();
     writeln!(output, "\nStatement {}: {text}", stmt.tid).map_err(io_error)?;
     loop {
@@ -226,7 +224,7 @@ mod tests {
     fn prompt_requires_an_explicit_choice_and_strips_terminal_controls() {
         let stmt = Statement {
             tid: 2,
-            text: "Text\x1b[31m\u{202e}".into(),
+            text: "Text\x1b[31m\u{202e}\u{200b}\u{feff}".into(),
         };
         for (input, want) in [
             ("\na\n", Some(VoteChoice::Agree)),
@@ -241,7 +239,12 @@ mod tests {
                 want
             );
             assert!(!output.contains(&0x1b));
-            assert!(!String::from_utf8(output).unwrap().contains('\u{202e}'));
+            let shown = String::from_utf8(output).unwrap();
+            assert!(
+                !shown.contains('\u{202e}')
+                    && !shown.contains('\u{200b}')
+                    && !shown.contains('\u{feff}')
+            );
         }
         assert!(prompt(
             &mut io::Cursor::new("a".repeat(130)),

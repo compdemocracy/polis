@@ -1640,3 +1640,20 @@ fn input_is_validated_before_any_credential_is_read() {
     assert_eq!(std::fs::read_to_string(&existing).unwrap(), "keep");
     assert_eq!(polis(&["conversation", "close", "bad!"]), 2);
 }
+#[test]
+fn a_site_cannot_write_escape_sequences_through_passed_through_help_text() {
+    // Normal output prints a top-level "help" or "table" string as preformatted
+    // text; when a command passes the site's JSON through, that text is the site's.
+    let (o, _) = fixture(
+        200,
+        "application/json",
+        r#"{"help":"\u001b[2J\u001b]52;c;Zm9v\u0007shown\u009b31m\u200b\u202e line\n\tnext"}"#,
+        &["api", "/api/v3/example"],
+    );
+    let out = String::from_utf8(o.stdout).unwrap();
+    assert!(out.contains("shown"), "{out}");
+    assert!(out.contains("line\n\tnext"));
+    for bad in ['\u{1b}', '\u{7}', '\u{9b}', '\u{200b}', '\u{202e}'] {
+        assert!(!out.contains(bad), "{bad:?} reached the terminal");
+    }
+}
