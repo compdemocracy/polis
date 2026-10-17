@@ -13,16 +13,21 @@ systemd units are touched, and which containers the cleanup removes:
 
   server, delphi, math, an unknown type: exactly as before (no systemctl; the
       cleanup removes every container);
-  delphi-large, delphi-worker: no compose service starts; the Delphi image is
-      built; polis-jobs.service alone is restarted (queued); the cleanup
-      spares the polis-jobs container so the restart can drain its job; a box
-      whose worker class or unit does not match its service type fails the
-      deploy before anything is built or restarted.
+  delphi-large, delphi-worker: no compose service starts; the pulled Delphi
+      image is tagged as the unit's image; polis-jobs.service alone is
+      restarted (queued); the cleanup spares the polis-jobs container so the
+      restart can drain its job; a box whose worker class or unit does not
+      match its service type fails the deploy before anything is restarted.
+
+Nothing is built on any box: every image is pulled by the digest the bundle's
+manifest (scripts/deploy-images.txt) names, before the migration runs, and a
+bundle without a well-formed manifest for its commit deploys nothing.
 
 The hooks are located like ``test_compose_math_env.py`` locates them:
 $POLIS_CHECKOUT_DIR, else an ancestor of this file.
 """
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -105,6 +110,7 @@ def _box(tmp_path, service_type, worker_class=None, unit=True):
     (root / "etc/app-info/service_type.txt").write_text(service_type + "\n")
     if worker_class is not None:
         (root / "etc/app-info/worker_class.txt").write_text(worker_class + "\n")
+    (root / "etc/app-info/polis-jobs.env").write_text(f"POLIS_JOBS_IMAGE={JOBS_IMAGE}\n")
     if unit:
         (root / "etc/systemd/system/polis-jobs.service").write_text("[Service]\n")
     bin_dir = tmp_path / "bin"
@@ -130,17 +136,42 @@ def _run(tmp_path, script_path, rules, root, env):
 
 REVISION = "89abcdef0123456789abcdef0123456789abcdef"
 REGISTRY = "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+JOBS_IMAGE = f"{REGISTRY}/polis/delphi:latest"
+REPOS = {"server": "polis/server", "nginx-proxy": "polis/nginx-proxy",
+         "client-participation-alpha": "polis/client-participation-alpha",
+         "delphi": "polis/delphi", "math-python": "polis/delphi", "migrate": "polis"}
+# math-python runs the delphi image (deploy/build-images.sh).
+IMAGES = {name: f"{REGISTRY}/{repo}@sha256:"
+                + hashlib.sha256(("delphi" if name == "math-python" else name).encode()).hexdigest()
+          for name, repo in REPOS.items()}
+# The fake jq prints "value"; the hook hashes what jq prints.
+WEB_ARGS_SHA256 = hashlib.sha256(b"value\n").hexdigest()
+ROLE_IMAGES = {"server": ["server", "nginx-proxy", "client-participation-alpha"],
+               "delphi": ["delphi", "math-python"], "math": [],
+               "delphi-large": ["delphi"], "delphi-worker": ["delphi"]}
+COMPOSE_FILES = "-f docker-compose.yml -f docker-compose.images.yml "
+
+
+def _manifest(revision=REVISION, changes=None):
+    """The image manifest the deploy workflow writes; a None value drops a line."""
+    lines = {"revision": revision, **IMAGES, "web-build-args-sha256": WEB_ARGS_SHA256, **(changes or {})}
+    return "".join(f"{k}={v}\n" for k, v in lines.items() if v is not None)
 
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
-            not_on_branch=False, **kw):
+            not_on_branch=False, images="default", previous=None, **kw):
     root, env = _box(tmp_path, service_type, **kw)
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
     env["FAKE_NOT_ON_BRANCH"] = "1" if not_on_branch else ""
-    # The deploy workflow writes the bundle's commit next to the hook.
+    # The deploy workflow writes the bundle's commit and image manifest next to the hook.
     if revision is not None:
         (tmp_path / "deploy-revision.txt").write_text(revision + "\n")
-    rules = [("/usr/local/bin/docker-compose", "docker-compose", 3),
+    if images is not None:
+        (tmp_path / "deploy-images.txt").write_text(_manifest() if images == "default" else images)
+    if previous is not None:
+        (root / "opt/polis").mkdir()
+        (root / "opt/polis/deployed-images.txt").write_text(previous)
+    rules = [("/usr/local/bin/docker-compose", "docker-compose", 2),
              ("/etc/app-info/", f"{root}/etc/app-info/", 2),
              ("/etc/systemd/system/", f"{root}/etc/systemd/system/", 0),
              ("/opt/polis", f"{root}/opt/polis", 2)]
@@ -149,6 +180,11 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
 
 def _calls(log, tool):
     return [line[len(tool) + 1:] for line in log if line.split(" ", 1)[0] == tool]
+
+
+def _compose(log):
+    """docker-compose calls, without the image override every replacement carries."""
+    return [c[len(COMPOSE_FILES):] if c.startswith(COMPOSE_FILES) else c for c in _calls(log, "docker-compose")]
 
 
 def _removed(log):
@@ -170,12 +206,11 @@ UNCHANGED = {
 def test_the_other_service_types_behave_as_before(tmp_path, service_type):
     proc, log = _deploy(tmp_path, service_type)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    compose = _calls(log, "docker-compose")
+    compose = _compose(log)
     assert [c for c in compose if c.startswith("up")] == UNCHANGED[service_type]
-    builds = [c for c in compose if c.startswith("build")]
-    assert builds == {"server": ["build server nginx-proxy client-participation-alpha"], "delphi": ["build delphi math-python"], "math": []}[service_type]
-    if builds:
-        assert compose.index(builds[0]) < compose.index("down") < compose.index(UNCHANGED[service_type][0])
+    assert not [c for c in compose if c.startswith("build")]
+    if UNCHANGED[service_type]:
+        assert compose.index("down") < compose.index(UNCHANGED[service_type][0])
     assert _calls(log, "systemctl") == []
     assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
 
@@ -185,12 +220,12 @@ def test_the_other_service_types_behave_as_before(tmp_path, service_type):
 def test_a_worker_box_restarts_only_its_daemon_unit(tmp_path, service_type, worker_class):
     proc, log = _deploy(tmp_path, service_type, worker_class=worker_class)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    compose = _calls(log, "docker-compose")
+    compose = _compose(log)
     assert not [c for c in compose if c.startswith("up")], "a worker box starts no compose service"
-    assert [c for c in compose if c.startswith("build")] == ["build delphi"]
+    assert not [c for c in compose if c.startswith("build")]
     assert _calls(log, "systemctl") == ["restart --no-block polis-jobs.service"]
-    # Built before the unit is restarted, so the restart runs the new image.
-    assert log.index("docker-compose build delphi") < log.index(
+    # Tagged as the unit's image before the restart, so the restart runs it.
+    assert log.index(f"docker tag {IMAGES['delphi']} {JOBS_IMAGE}") < log.index(
         "systemctl restart --no-block polis-jobs.service")
     # The cleanup spares the running daemon; the restart drains it.
     assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
@@ -219,7 +254,7 @@ def test_a_worker_box_that_does_not_match_fails_the_deploy(tmp_path, service_typ
     proc, log = _deploy(tmp_path, service_type, worker_class=worker_class, unit=unit)
     assert proc.returncode != 0
     assert reason in proc.stdout
-    assert not [c for c in _calls(log, "docker-compose") if c.startswith(("build", "up"))]
+    assert not [c for c in _compose(log) if c.startswith(("build", "up"))]
     assert _calls(log, "systemctl") == []
 
 
@@ -240,12 +275,16 @@ def test_the_stop_hook_leaves_every_service_running(tmp_path, service_type):
 def test_migration_succeeds_before_any_service_replacement(tmp_path, service_type, worker_class):
     proc, log = _deploy(tmp_path, service_type, worker_class=worker_class)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    pull = f"docker pull {REGISTRY}/polis:migrate-{REVISION}"
+    pull = f"docker pull {IMAGES['migrate']}"
     apply = "docker run --rm --network host --env-file .env polis-migrate:deploy deploy"
     assert log.count(pull) == log.count(apply) == 1
     assert log.index(pull) < log.index(apply)
     assert not [c for c in log if c.startswith("docker build")]
-    replacements = [i for i, call in enumerate(log) if call.startswith((
+    for name in ROLE_IMAGES[service_type]:
+        assert log.index(f"docker pull {IMAGES[name]}") < log.index(apply)
+    # Compose calls carry the image override files; compare their subcommands.
+    unprefixed = [call.replace(f"docker-compose {COMPOSE_FILES}", "docker-compose ", 1) for call in log]
+    replacements = [i for i, call in enumerate(unprefixed) if call.startswith((
         "docker-compose down", "docker rm ", "docker system prune",
         "docker-compose up", "systemctl restart"))]
     assert replacements or service_type == "math"
@@ -261,10 +300,11 @@ def test_migration_failure_preserves_every_running_service(tmp_path, service_typ
     proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
                         migration_failure=failure)
     assert proc.returncode == 17, proc.stdout + proc.stderr
-    assert _calls(log, "docker-compose") == []
+    assert [c for c in _compose(log) if c != "config --format json"] == []
     assert _calls(log, "systemctl") == []
     docker = _calls(log, "docker")
-    assert [call.split()[0] for call in docker] == (["login", "pull"] if failure == "pull" else ["login", "pull", "tag", "run"])
+    pulls = ["pull"] * (1 + len(ROLE_IMAGES[service_type]))
+    assert [call.split()[0] for call in docker] == (["login", "pull"] if failure == "pull" else ["login", *pulls, "tag", "run"])
 
 
 def test_the_checkout_is_the_bundle_commit_not_the_branch_head(tmp_path):
@@ -275,7 +315,7 @@ def test_the_checkout_is_the_bundle_commit_not_the_branch_head(tmp_path):
     assert not [c for c in git if c.startswith(("pull", "reset --hard origin/"))]
     assert git.index(f"merge-base --is-ancestor {REVISION} origin/stable") < git.index(f"reset --hard {REVISION}")
     # Checked out before the runner image for this commit is pulled.
-    assert log.index(f"git reset --hard {REVISION}") < log.index(f"docker pull {REGISTRY}/polis:migrate-{REVISION}")
+    assert log.index(f"git reset --hard {REVISION}") < log.index(f"docker pull {IMAGES['migrate']}")
 
 
 @pytest.mark.parametrize("revision,not_on_branch,reason", [
@@ -290,3 +330,55 @@ def test_a_bundle_without_an_on_branch_commit_deploys_nothing(tmp_path, revision
     assert reason in proc.stdout
     assert not [c for c in _calls(log, "git") if c.startswith("reset")]
     assert _calls(log, "docker") == [] and _calls(log, "docker-compose") == []
+
+
+@pytest.mark.parametrize("service_type,worker_class", [
+    ("server", None), ("delphi", None), ("math", None),
+    ("delphi-large", "large"), ("delphi-worker", "delphi"),
+])
+def test_every_image_is_pulled_by_digest_and_nothing_is_built(tmp_path, service_type, worker_class):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    pulls = [c.split()[1] for c in _calls(log, "docker") if c.startswith("pull")]
+    assert pulls == [IMAGES["migrate"]] + [IMAGES[name] for name in ROLE_IMAGES[service_type]]
+    assert not [c for c in _compose(log) if c.startswith("build")]
+    # Every replacement runs the override, which names the pulled digests.
+    assert all(c.startswith(COMPOSE_FILES) for c in _calls(log, "docker-compose") if c != "config --format json")
+    override = (tmp_path / "root/opt/polis/polis/docker-compose.images.yml").read_text()
+    for name in ROLE_IMAGES[service_type]:
+        assert f"  {name}:\n    image: {IMAGES[name]}\n" in override
+    assert ROLE_IMAGES[service_type] or override == "services: {}\n"
+
+
+@pytest.mark.parametrize("images,reason", [
+    (None, "has no image manifest for commit"),
+    (_manifest(revision="0" * 40), "has no image manifest for commit"),
+    (_manifest(changes={"server": None}), "no digest in this registry for 'server'"),
+    (_manifest(changes={"server": f"{REGISTRY}/polis/server:{REVISION}"}), "no digest in this registry for 'server'"),
+    (_manifest(changes={"server": IMAGES["server"].replace("123456789012", "999999999999")}),
+     "no digest in this registry for 'server'"),
+])
+def test_a_bundle_without_its_images_deploys_nothing(tmp_path, images, reason):
+    proc, log = _deploy(tmp_path, "server", images=images)
+    assert proc.returncode != 0
+    assert reason in proc.stdout
+    assert not [c for c in _calls(log, "docker") if c.startswith("run")]
+    assert _calls(log, "docker-compose") == []
+
+
+def test_a_web_image_built_with_other_public_settings_is_refused(tmp_path):
+    proc, log = _deploy(tmp_path, "server", images=_manifest(changes={"web-build-args-sha256": "0" * 64}))
+    assert proc.returncode != 0
+    assert "other public settings" in proc.stdout
+    assert not [c for c in _calls(log, "docker") if c.startswith("run")]
+    assert _compose(log) == ["config --format json"]
+
+
+def test_the_previous_deployments_replaced_images_are_removed(tmp_path):
+    old = IMAGES["server"][:-64] + "c" * 64
+    proc, log = _deploy(tmp_path, "server", previous=_manifest(changes={"server": old}))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert [c for c in _calls(log, "docker") if c.startswith("image rm")] == [f"image rm {old}"]
+    assert log.index(f"docker image rm {old}") > log.index(
+        f"docker-compose {COMPOSE_FILES}{UNCHANGED['server'][0]}")
+    assert (tmp_path / "root/opt/polis/deployed-images.txt").read_text() == _manifest()
