@@ -285,6 +285,7 @@ pub const CATALOG: &[&str] = &[
     "polis_err_votes_get",
     "polis_err_xid_not_allowed",
     "polis_err_xid_required",
+    "polis_err_xid_whitelist_fixed_after_start",
     "polis_err_zid_missing_for_answer",
     "polis_err_zid_missing_for_question",
     "polis_err_zinvite_create",

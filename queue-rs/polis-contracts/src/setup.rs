@@ -228,14 +228,23 @@ impl ConversationSetup {
     }
     /// The only mapping of the typed setup into Node conversation flags.
     pub fn node_flags(&self) -> Value {
+        let xid = self.join.external_identity.mode().node_flags();
         json!({"topic":self.topic,"description":self.description,"context":self.context,
             "is_active":self.activity==Activity::Open,"is_draft":self.listing==DraftListing::Draft,
             "is_anon":self.visibility==Visibility::HideSocialList,"is_data_open":self.data_access==DataAccess::Public,
             "strict_moderation":self.moderation==Moderation::BeforeVisibility,
             "treevite_enabled":matches!(self.join.invitations,Invitations::Required{..}),
-            "xid_required":!matches!(self.join.external_identity,ExternalIdentity::Optional),
-            "use_xid_whitelist":matches!(self.join.external_identity,ExternalIdentity::Allowlist{..}),
+            "xid_required":xid["xid_required"],"use_xid_whitelist":xid["use_xid_whitelist"],
             "profanity_filter":self.profanity_filter,"short_url":self.short_url})
+    }
+}
+impl ExternalIdentity {
+    pub fn mode(&self) -> ExternalIdentityMode {
+        match self {
+            Self::Optional => ExternalIdentityMode::Optional,
+            Self::Required => ExternalIdentityMode::Required,
+            Self::Allowlist { .. } => ExternalIdentityMode::Allowlist,
+        }
     }
 }
 
@@ -421,6 +430,30 @@ pub enum ExternalIdentityMode {
     Optional,
     Required,
     Allowlist,
+}
+impl ExternalIdentityMode {
+    /// Command-line names, in option order.
+    pub const NAMES: [&'static str; 3] = ["optional", "required", "allowlist"];
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "optional" => Some(Self::Optional),
+            "required" => Some(Self::Required),
+            "allowlist" => Some(Self::Allowlist),
+            _ => None,
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Optional => "optional",
+            Self::Required => "required",
+            Self::Allowlist => "allowlist",
+        }
+    }
+    /// The only mapping of an external-ID mode into Node's two flags: an
+    /// allow-list also requires an external ID.
+    pub fn node_flags(self) -> Value {
+        json!({"xid_required":!matches!(self,Self::Optional),"use_xid_whitelist":matches!(self,Self::Allowlist)})
+    }
 }
 pub fn activity_options() -> [(&'static str, Activity); 2] {
     [

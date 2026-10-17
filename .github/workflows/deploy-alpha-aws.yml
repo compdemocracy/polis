@@ -2,45 +2,74 @@ name: Deploy to AWS on Push
 
 on: workflow_dispatch
 
+# One production deploy at a time; a second dispatch waits for the first.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  # cdk/buildBox.ts (cdk deploy -c enableBuildBox=true). Assumed through GitHub
+  # OIDC; no stored AWS keys.
+  DEPLOY_ROLE_ARN: arn:aws:iam::050917022930:role/polis-deploy-github
+  DEPLOY_BUCKET: polis-deployment-packages-050917022930-us-east-1
+  BUILD_BOX_TEMPLATE: polis-build-box
+  # Spot in this order, then on-demand. The same list as
+  # BUILD_BOX_INSTANCE_TYPES in cdk/buildBox.ts, which IAM enforces.
+  BUILD_BOX_TYPES: c7i.4xlarge c6i.4xlarge c6a.4xlarge m7i.4xlarge
+
 jobs:
   # ==========================================================
-  # ==      JOB 1: BUILD & PUSH DOCKER IMAGES (US ONLY)     ==
+  # ==  JOB 1: BUILD & PUSH EVERY IMAGE ON THE BUILD BOX    ==
   # ==========================================================
-  build-and-push-images:
+  # No production box builds anything (scripts/after_install.sh pulls by
+  # digest). If this job fails, no deployment is created.
+  build-images:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     environment: production
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      manifest: ${{ steps.build.outputs.manifest }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (for US ECR)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          role-session-name: polis-deploy-build-${{ github.run_id }}
+          role-duration-seconds: 7200
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Install Docker Compose
+      - name: Upload this commit's source for the build box
         run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
+          git archive --format=tar.gz -o build-source.tar.gz "$GITHUB_SHA"
+          aws s3 cp --only-show-errors build-source.tar.gz "s3://$DEPLOY_BUCKET/build-source/$GITHUB_SHA.tar.gz"
 
-      - name: Build and push Docker images
+      - name: Build and push every image on the build box
+        id: build
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # client-participation-alpha's public build args. They must equal the
+          # values in the production env document (polis-web-app-env-vars); the
+          # web box refuses an image built with others.
+          PUBLIC_SERVICE_URL: ${{ vars.PUBLIC_SERVICE_URL }}
+          AUTH_NAMESPACE: ${{ vars.AUTH_NAMESPACE }}
+          OIDC_CACHE_KEY_PREFIX: ${{ vars.OIDC_CACHE_KEY_PREFIX }}
+          OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${{ vars.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX }}
+        run: bash deploy/build-on-box.sh
+
+      # The script terminates its box on exit; this covers a cancelled run.
+      - name: Terminate the build box
+        if: always()
         run: |
-          docker-compose build server
-          docker push $ECR_REGISTRY/polis/server:latest
-          # The migration runner is built once here, for exactly the commit the
-          # bundle deploys, and pulled by every box instead of compiled on it.
-          docker build -t "$ECR_REGISTRY/polis:migrate-$GITHUB_SHA" -f queue-rs/polis-migrate/Dockerfile .
-          docker push "$ECR_REGISTRY/polis:migrate-$GITHUB_SHA"
+          ids=$(tr '\n' ' ' < build-box-instances.txt 2>/dev/null || true)
+          if [ -n "${ids// /}" ]; then aws ec2 terminate-instances --instance-ids $ids > /dev/null || true; fi
 
   # =====================================================
   # ==      JOB 2: DEPLOY TO PRODUCTION (US)           ==
@@ -48,34 +77,42 @@ jobs:
   deploy-us:
     name: Deploy to Production (US)
     runs-on: ubuntu-latest
-    needs: build-and-push-images
+    needs: build-images
     environment: production
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials for US
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          role-session-name: polis-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Create US deployment package
         # The hooks deploy exactly this commit (scripts/after_install.sh), not
-        # whatever stable is when each box's turn comes.
+        # whatever stable is when each box's turn comes, and pull exactly the
+        # image digests the build box reported for it.
+        env:
+          IMAGE_MANIFEST: ${{ needs.build-images.outputs.manifest }}
         run: |
           git rev-parse HEAD > scripts/deploy-revision.txt
+          printf '%s\n' "$IMAGE_MANIFEST" > scripts/deploy-images.txt
+          grep -qx "revision=$(cat scripts/deploy-revision.txt)" scripts/deploy-images.txt
           zip -r deployment-us.zip appspec.yml scripts/* docker-compose.yml
 
       - name: Upload US deployment package to S3
-        run: aws s3 cp deployment-us.zip s3://polis-deployment-packages-050917022930-us-east-1/deployments/deployment.zip
+        run: aws s3 cp deployment-us.zip "s3://$DEPLOY_BUCKET/deployments/deployment.zip"
 
       - name: Create US CodeDeploy deployment
         run: |
           aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisDeploymentGroup \
-            --revision revisionType=S3,s3Location="{bucket=polis-deployment-packages-050917022930-us-east-1,key=deployments/deployment.zip,bundleType=zip}" \
+            --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
             --region us-east-1

@@ -240,6 +240,86 @@ fn failure_at_each_write_or_confirmation_reports_steps_and_never_retries() {
     }
 }
 #[test]
+fn a_partial_setup_says_what_it_left_and_how_to_finish_it() {
+    let mut s = setup();
+    s.join.external_identity = ExternalIdentity::Required;
+    let d = tempfile::tempdir().unwrap();
+    let src = input(d.path(), &s);
+    // The staged settings write fails after the conversation was created.
+    let t = server(d.path(), s.clone(), Some(2));
+    let (exit, v) = call(d.path(), &["conversation", "new", "--from", &src]);
+    assert_eq!(exit, 7, "{v}");
+    t.join().unwrap();
+    let message = v["error"]["message"].as_str().unwrap();
+    let action = v["error"]["action"].as_str().unwrap();
+    assert!(
+        message.contains("2setup exists") && message.contains("closed and invite-only"),
+        "{message}"
+    );
+    assert!(action.contains("Never rerun new"), "{action}");
+    let finish = [
+        "polis conversation edit 2setup --invite-only false --external-id required",
+        "polis conversation reopen 2setup",
+    ];
+    assert_eq!(v["data"]["finish"], json!(finish));
+    for command in finish {
+        assert!(action.contains(command), "{action}");
+    }
+    assert!(action.find(finish[0]) < action.find(finish[1]));
+
+    // A setup that asked to stay closed is not told to reopen.
+    s.activity = Activity::Closed;
+    s.join.invitations = Invitations::Required {
+        first_wave: Wave::new(1, 0).unwrap(),
+        later_waves: vec![],
+    };
+    let d = tempfile::tempdir().unwrap();
+    let src = input(d.path(), &s);
+    let t = server(d.path(), s, Some(2));
+    let (exit, v) = call(d.path(), &["conversation", "new", "--from", &src]);
+    assert_eq!(exit, 7, "{v}");
+    t.join().unwrap();
+    assert_eq!(
+        v["data"]["finish"],
+        json!(["polis conversation edit 2setup --invite-only true --external-id required"])
+    );
+    assert!(!v["error"]["action"].as_str().unwrap().contains("reopen"));
+}
+#[test]
+fn a_refused_create_reports_its_own_error_because_nothing_was_created() {
+    let d = tempfile::tempdir().unwrap();
+    let src = input(d.path(), &setup());
+    let l = TcpListener::bind("127.0.0.1:0").unwrap();
+    config(d.path(), &format!("http://{}", l.local_addr().unwrap()));
+    let t = std::thread::spawn(move || {
+        let (mut sock, _) = l.accept().unwrap();
+        sock.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        let mut bytes = Vec::new();
+        let mut buf = [0; 8192];
+        while !bytes.windows(4).any(|w| w == b"\r\n\r\n") {
+            let n = sock.read(&mut buf).unwrap();
+            assert!(n > 0);
+            bytes.extend_from_slice(&buf[..n]);
+        }
+        let body = json!({"error":"private-error-text"}).to_string();
+        write!(sock,"HTTP/1.1 403 Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+        // Any further request would be a retry or a later setup step.
+        l.set_nonblocking(true).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert!(l.accept().is_err(), "nothing follows a refused create");
+        String::from_utf8(bytes).unwrap()
+    });
+    let (exit, v) = call(d.path(), &["conversation", "new", "--from", &src]);
+    assert_eq!(exit, 4, "{v}");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["error"]["code"], "forbidden");
+    assert_eq!(v["error"]["outcome"], "rejected");
+    assert!(!v.to_string().contains("setup_partial"));
+    assert!(!v.to_string().contains("private-error-text"));
+    assert!(t.join().unwrap().starts_with("POST /api/v3/conversations "));
+}
+#[test]
 fn setup_is_discoverable_without_credentials() {
     let d = tempfile::tempdir().unwrap();
     let (exit, v) = call(d.path(), &["schema", "conversation", "new"]);

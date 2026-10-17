@@ -227,7 +227,7 @@ fn auth_permission_duplicate_rate_redirect_and_unknown_errors_do_not_retry() {
             (403, 4, "rejected"),
             (422, 1, "rejected"),
             (429, 6, "rejected"),
-            (302, 1, "rejected"),
+            (302, 7, "unknown"),
             (500, 7, "unknown"),
             (200, 7, "unknown"),
         ] {
