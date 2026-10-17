@@ -264,7 +264,7 @@ fn summary(s: &ConversationSetup) -> Value {
         "allowlisted_ids":match &s.join.external_identity{ExternalIdentity::Allowlist{ids}=>ids.as_slice().len(),_=>0},
         "initial_statements":s.seeds.len(),"visibility":s.visibility,"data_access":s.data_access,
         "profanity_filter":s.profanity_filter,"short_url":s.short_url,
-        "current_behavior":"Existing identities may bypass XID checks. Draft is only a listing flag. Sign-in and separate comment permissions are not enforced. Read the setup admission table for exact paths.",
+        "current_behavior":"An external-ID allow-list is checked on every join, vote and comment, including known identities; a different external ID is a new identity. Requiring an external ID applies to new identities only. Draft is only a listing flag. Sign-in and separate comment permissions are not enforced. Read the setup admission table for exact paths.",
         "steps":["create closed with invitation gate","read back","apply settings while staged","read back","create and confirm invitation waves","write and confirm external-ID allowlist","submit and confirm initial statements","apply and confirm final participation settings"]})
 }
 pub fn execute(

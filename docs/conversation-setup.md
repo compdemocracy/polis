@@ -15,7 +15,7 @@ All **33 distinct named parameters** parsed by POST and PUT `/api/v3/conversatio
 | `profanity_filter` | Moderation; Boolean | POST:1699, PUT:1422 | routes/comments.ts:371 filters profanity only inside the pro-conversation moderation branch (:496). Non-pro conversations are unaffected. | profanity_filter | Independent, predictable profanity filtering without a synchronous external model dependency. |
 | `short_url` | Identifier; Boolean | POST:1700, PUT:1423 | routes/conversations.ts:1169 invokes generateAndRegisterZinvite; PUT :954 can replace the code. | short_url (creation only) | Code replacement must be explicit; setup never rotates a code on PUT. |
 | `spam_filter` | Legacy; Boolean | POST:1701, PUT:1424 | Stored by routes/conversations.ts:864; no consumer enforces spam filtering. | excluded | Either implement a documented filter or retire the flag. |
-| `strict_moderation` | Moderation; After submission / before visibility | POST:1702, PUT:1425 | comment.ts:381 only serves approved comments when strict. comments.ts:493 auto-approves moderators and any seed flag. | moderation | Keep participant seed bypass unavailable; server must restrict seed authority. |
+| `strict_moderation` | Moderation; After submission / before visibility | POST:1702, PUT:1425 | comment.ts:381 only serves approved comments when strict. routes/comments.ts:431-439 approves owner and moderator statements on arrival and honours the seed flag only from them; from anyone else it is ignored. | moderation | Keep participant seed bypass unavailable. |
 | `context` | Discovery; String, at most 999 UTF-16 units | POST:1703, PUT:1442 | POST stores context at routes/conversations.ts:1133; GET listing filters it at :108. PUT parses but never copies it. | context (creation only) | Make update behavior explicit or implement it. |
 | `topic` | Content; String, at most 1000 UTF-16 units | POST:1704, PUT:1426 | Stored by routes/conversations.ts:1123 / :870 and returned in conversation reads. | topic | Keep one shared length rule across clients. |
 | `description` | Content; String, at most 50000 UTF-16 units | POST:1705, PUT:1427 | Stored by routes/conversations.ts:1124 / :873 and returned in conversation reads. | description | Keep one shared length rule across clients. |
@@ -39,7 +39,7 @@ All **33 distinct named parameters** parsed by POST and PUT `/api/v3/conversatio
 | `send_created_email` | Operation; Boolean | PUT:1441 | routes/conversations.ts:960 sends an owner notification after update. Not a persisted setting. | excluded from automated setup | Provide an explicit notify action rather than hiding an email in settings updates. |
 | `link_url` | Legacy client presentation; String 1–9999 | PUT:1443 | Stored routes/conversations.ts:924; echoed conversation.ts:109, no server access enforcement. | excluded | Version display/link behavior separately. |
 | `subscribe_type` | Legacy client presentation; Integer | PUT:1444 | Stored routes/conversations.ts:927; no participant route enforces subscriptions. | excluded | Define subscription consent behavior before enabling a client promise. |
-| `use_xid_whitelist` | Admission; Allowlisted external ID | PUT:1447 | auth/ensure-participant.ts:211 checks only new identities; owner-scoped known XIDs bypass rechecking. | join.external_identity.allowlist | Recheck against the current conversation list, including previously known identities. |
+| `use_xid_whitelist` | Admission; Allowlisted external ID | PUT:1447 | auth/ensure-participant.ts:182-200 checks every request whose external ID is its identity, on join, vote and comment, before identity is resolved; known identities are rechecked. | join.external_identity.allowlist | Decide whether lists are per owner or per conversation, and whether removal from the list ends existing participation. |
 | `xid_required` | Admission; Optional / required external ID | PUT:1448 | auth/ensure-participant.ts:220 checks only new identities. Existing members and OIDC users bypass it. | join.external_identity | State whether sign-in is an alternative or an additional requirement and enforce that choice. |
 
 ## Entry paths and overlapping policies
@@ -71,6 +71,14 @@ A mismatch between model and live behavior remains evidence to investigate. Poli
 
 
 ## Live result
+
+Re-run after the external-ID identity and seed-authority changes: the previous
+model predicted that known identities bypass the allow-list and that a changed
+external ID kept its participant, and 472 of 2,400 cells no longer matched. With
+the allow-list checked on every action and a changed or unknown external ID
+treated as a new identity, all 2,400 cells match again.
+`scripts/test-setup-admission.sh` runs the table and fails on any mismatch; CI
+runs it with the CLI comparison.
 
 The 2,400-cell generated-data Node table matched every model prediction (HTTP
 status and refusal code), including 25 entry paths and the redundant raw
