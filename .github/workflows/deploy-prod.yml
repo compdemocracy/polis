@@ -5,7 +5,7 @@ name: Deploy Prod Assets
 # deploy finishes and only the newest queued commit deploys afterwards.
 concurrency:
   group: deploy-prod-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 on:
   push:
