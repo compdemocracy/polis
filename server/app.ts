@@ -331,7 +331,15 @@ export const appReady = helpersInitialized.then(
     app.use(redirectIfNotHttps);
     // Bounds the collective-statement import body before the shared parser.
     app.use(collectiveBody);
-    app.use(express.bodyParser({ limit: "50mb" }));
+    // JSON and urlencoded bodies only: the parsers express.bodyParser runs,
+    // with the same options, minus its multipart step. No route reads
+    // multipart, and that step threw before routing on every multipart
+    // request (multiparty 3 calls os.tmpDir(), which Node no longer has), so
+    // such a request answered 500 on any path. Now it reaches the router like
+    // any other unparsed body: an unknown path answers 404, a known route
+    // validates an empty body.
+    app.use(express.json({ limit: "50mb" }));
+    app.use(express.urlencoded({ limit: "50mb" }));
     app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
 
