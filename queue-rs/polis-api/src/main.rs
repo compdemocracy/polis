@@ -8,6 +8,7 @@ mod clock;
 mod comments;
 mod compress;
 mod config;
+mod connection;
 mod cors;
 mod db;
 mod http;
@@ -39,6 +40,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "participantFallback",
         js::Js::Num(app.participant_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "connectionServed",
+        js::Js::Num(app.connection_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "connectionFallback",
+        js::Js::Num(app.connection_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
@@ -76,7 +85,9 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
             Some(owner) => owner.handle(req).await,
             None => owner::error(503, "owner_list_unavailable"),
         },
-        route::PATH | comments::PATH | next_comment::PATH => route::handle(app, req).await,
+        route::PATH | comments::PATH | next_comment::PATH | connection::PATH => {
+            route::handle(app, req).await
+        }
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -144,6 +155,8 @@ async fn main() -> Result<()> {
             .context("invalid participant verifier configuration")?,
         ));
     }
+    state.connection_reads =
+        std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
