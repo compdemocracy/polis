@@ -551,3 +551,21 @@ with a 75 ms whole-route deadline; no participation pool is borrowed.
 `metadataQuestionsServed`/`metadataQuestionsFallback` report outcomes.
 Run `queue-rs/polis-api/conformance/metadata-questions-run.sh result.json` for
 raw HTTP comparisons, including populated-row and cross-conversation handoffs.
+
+### Empty metadata answers
+
+`GET`/`HEAD /api/v3/metadata/answers?conversation_id=...` stages empty results
+behind `POLIS_API_METADATA_ANSWERS_READS=1` and nginx route `metadataAnswers`,
+both off by default. `polis-contracts::metadata_answers` shares request and
+response types. A canonical integer `pmqid` filter is supported; zero retains
+Node's unfiltered semantics. Duplicate/malformed/unsupported parameters hand
+back. Populated responses remain Node work because of cached conversation-ID
+enrichment; this is not a complete replacement of the legacy route.
+
+The scoped hybrid verifier and existing identities are reused. Independent
+primary auth/ID and replica-capable metadata pools are configured by
+`POLIS_API_METADATA_ANSWERS_DATABASE_URL` and optional READ_ONLY_DATABASE_URL.
+Each has one read-only connection, 15 ms acquire/50 ms statement limits; the
+whole route has a 75 ms deadline. No participation pool is borrowed.
+`metadataAnswersServed`/`metadataAnswersFallback` count outcomes. Replay:
+`queue-rs/polis-api/conformance/metadata-answers-run.sh result.json`.
