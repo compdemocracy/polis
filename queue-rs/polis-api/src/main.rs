@@ -19,6 +19,7 @@ mod next_comment;
 mod owner;
 mod params;
 mod pca;
+mod robots;
 mod route;
 
 use anyhow::{Context, Result};
@@ -48,6 +49,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "connectionFallback",
         js::Js::Num(app.connection_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "robotsServed",
+        js::Js::Num(app.robots_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "robotsFallback",
+        js::Js::Num(app.robots_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
@@ -85,7 +94,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
             Some(owner) => owner.handle(req).await,
             None => owner::error(503, "owner_list_unavailable"),
         },
-        route::PATH | comments::PATH | next_comment::PATH | connection::PATH => {
+        route::PATH | comments::PATH | next_comment::PATH | connection::PATH | robots::PATH => {
             route::handle(app, req).await
         }
         "/health" if req.method == "GET" => health(&app).await,
@@ -157,6 +166,7 @@ async fn main() -> Result<()> {
     }
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
+    state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
