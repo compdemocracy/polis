@@ -11,6 +11,7 @@ pub mod create_page;
 pub mod database;
 pub mod delphi_job_result;
 pub mod delphi_read;
+pub mod delphi_reports;
 pub mod delphi_run;
 pub mod domain_whitelist;
 pub mod einvites_read;

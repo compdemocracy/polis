@@ -1077,3 +1077,23 @@ finishes. `delphiReadServed` and `delphiReadFallback` count the outcomes.
 Run `queue-rs/polis-api/conformance/delphi-read-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
 serve topics or claim DynamoDB/provider parity.
+
+
+### Delphi narrative report validation
+
+`GET`/`HEAD /api/v3/delphi/reports` is staged behind `POLIS_API_DELPHI_REPORTS_READS=1`
+and nginx `RUST_API_ROUTES=delphiReports`, both off by default. Set
+`POLIS_API_DELPHI_REPORTS_DATABASE_URL` to Node's read replica. Only missing/empty
+report IDs and absent reports (both HTTP 200, matching Node) are served, using the shared
+`polis-contracts::delphi_reports` request/response types. Existing reports and
+DynamoDB responses remain Node, as do identity, body, duplicate/structured
+query, section/topic/job-filter and unsupported report-ID shapes. Accepted nonempty IDs
+are at most 100 ASCII alphanumeric, underscore or hyphen characters.
+The uncached report lookup has its own one-slot read-only pool: 15 ms acquire,
+50 ms statement and 75 ms caller deadline. It never borrows a participation
+pool or holds a connection over a remote service call. Database errors and
+contention hand back to Node; cancellation retains the slot until the query
+finishes. `delphiReportsServed` and `delphiReportsFallback` count the outcomes.
+Run `queue-rs/polis-api/conformance/delphi-reports-run.sh result.json` for raw
+Node/Rust byte replay on the generated fixture stack. This slice does not
+serve narrative reports or claim DynamoDB/provider parity.
