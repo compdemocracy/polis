@@ -40,6 +40,9 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub about_reads: bool,
+    pub about_served: AtomicU64,
+    pub about_fallback: AtomicU64,
     pub robots_reads: bool,
     pub robots_served: AtomicU64,
     pub robots_fallback: AtomicU64,
@@ -67,6 +70,9 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            about_reads: false,
+            about_served: AtomicU64::new(0),
+            about_fallback: AtomicU64::new(0),
             robots_reads: false,
             robots_served: AtomicU64::new(0),
             robots_fallback: AtomicU64::new(0),
@@ -386,6 +392,13 @@ pub(crate) fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
     send(req, res, Payload::Text(js::stringify(value)))
 }
 
+/// writeHead(302, {Location}) followed by end, after normal middleware.
+pub(crate) fn redirect(req: &Request, mut res: Res, location: &str) -> Outgoing {
+    res.status = 302;
+    res.set("Location", location);
+    finish(req, res, Ending::WriteHeadThenEnd, true)
+}
+
 /// Express text send, retaining the headers installed by writeDefaultHead.
 pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
     send(req, res, Payload::Text(value.into()))
@@ -599,6 +612,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
+    if req.path() == crate::about::PATH {
+        if out.status == 502 {
+            app.about_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.about_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::robots::PATH {
         if out.status == 502 {
             app.robots_fallback.fetch_add(1, Ordering::Relaxed);
@@ -669,6 +689,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::about::PATH && crate::about::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::robots::PATH && crate::robots::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -726,7 +749,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         }
     };
     // writeDefaultHead, compress, addCorsHeader.
-    let origin = match if req.path() == crate::robots::PATH {
+    let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH) {
         Ok(None)
     } else {
         app.cors.resolve(&req.headers)
@@ -749,6 +772,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::next_comment::PATH {
         return crate::next_comment::handle(app, req, res).await;
+    }
+    if req.path() == crate::about::PATH {
+        return crate::about::handle(app, req, res);
     }
     if req.path() == crate::robots::PATH {
         return crate::robots::handle(app, req, res);
@@ -1152,6 +1178,59 @@ mod tests {
         }
         assert_eq!(state.robots_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.robots_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn about_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::about::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().about_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 302); // No DB wait.
+        assert_eq!(header(&out, "Location"), Some("http://localhost/home"));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 302);
+        assert_eq!(state.about_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.about_fallback.load(Ordering::Relaxed), 1);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().about_reads = true;
+        assert_eq!(handle(secure.clone(), probe("GET")).await.status, 302);
+        let mut req = probe("GET");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn about_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().about_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::about::PATH, vec![]),
+            ("OPTIONS", crate::about::PATH, vec![]),
+            ("GET", "/about?unknown=1", vec![]),
+            (
+                "GET",
+                crate::about::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", crate::about::PATH, vec![("cookie", "fixture=1")]),
+            ("GET", crate::about::PATH, vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.about_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.about_fallback.load(Ordering::Relaxed), 6);
     }
 
     fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {

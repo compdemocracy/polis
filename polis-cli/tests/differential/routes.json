@@ -49,5 +49,13 @@
     "scope": "No CLI request reaches this route; no serving coverage claimed.",
     "expected_requests": 0,
     "expected_node_handoffs": 0
+  },
+  "about": {
+    "path": "/about",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "scope": "No CLI request reaches this route; no serving coverage claimed.",
+    "expected_requests": 0,
+    "expected_node_handoffs": 0
   }
 }
