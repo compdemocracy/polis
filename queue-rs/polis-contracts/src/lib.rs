@@ -26,6 +26,7 @@ pub mod treevite_invites;
 pub mod treevite_me;
 pub mod treevite_my_invites;
 pub mod treevite_waves;
+pub mod xid_report;
 
 use serde::Serialize;
 use serde_json::{json, Value};
