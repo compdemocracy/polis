@@ -40,6 +40,9 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub database_db: Option<Arc<Pool>>,
+    pub database_served: AtomicU64,
+    pub database_fallback: AtomicU64,
     pub about_reads: bool,
     pub about_served: AtomicU64,
     pub about_fallback: AtomicU64,
@@ -70,6 +73,9 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            database_db: None,
+            database_served: AtomicU64::new(0),
+            database_fallback: AtomicU64::new(0),
             about_reads: false,
             about_served: AtomicU64::new(0),
             about_fallback: AtomicU64::new(0),
@@ -612,6 +618,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
+    if req.path() == crate::database::PATH {
+        if out.status == 502 {
+            app.database_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.database_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::about::PATH {
         if out.status == 502 {
             app.about_fallback.fetch_add(1, Ordering::Relaxed);
@@ -689,6 +702,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::database::PATH && crate::database::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::about::PATH && crate::about::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -781,6 +797,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
+    }
+    if req.path() == crate::database::PATH {
+        return crate::database::handle(app, req, res).await;
     }
     if req.path() == crate::comments::PATH {
         return crate::comments::handle(app, req, &body, res).await;
@@ -1076,6 +1095,149 @@ mod tests {
             cfg.pool.clone(),
         );
         Arc::new(App::new(&cfg, pool))
+    }
+
+    #[tokio::test]
+    async fn database_probe_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::database::PATH.into();
+            req
+        };
+        assert!(state.database_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().database_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.database_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.database_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().database_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn database_probe_reads_empty_and_populated_tables_and_sheds_contention() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("database_probe_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.users (uid integer);"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::database::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().database_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::database::PATH.into();
+            req
+        };
+        let out = handle(state.clone(), probe()).await;
+        assert_eq!(out.status, 200);
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"status":"ok"}"#));
+        let update_url = url.clone();
+        let update_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&update_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("INSERT INTO {update_schema}.users VALUES (1)"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+        assert_eq!(handle(state.clone(), probe()).await.status, 200);
+        // Hold the probe's users table exclusively, then prove its stalled query
+        // sheds itself while the separate next-statement pool can still answer.
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.users IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        let stalled_state = state.clone();
+        let stalled = tokio::spawn(async move {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::database::PATH.into();
+            handle(stalled_state, req).await
+        });
+        assert!(participant_pool.ping().await);
+        assert_eq!(stalled.await.unwrap().status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), probe()).await.status, 200);
+        assert_eq!(state.database_served.load(Ordering::Relaxed), 3);
+        assert_eq!(state.database_fallback.load(Ordering::Relaxed), 1);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO users VALUES (2)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn database_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().database_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::database::PATH, vec![]),
+            ("OPTIONS", crate::database::PATH, vec![]),
+            ("GET", "/api/v3/testDatabase?unknown=1", vec![]),
+            (
+                "GET",
+                crate::database::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", crate::database::PATH, vec![("cookie", "fixture=1")]),
+            ("GET", crate::database::PATH, vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.database_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.database_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]
