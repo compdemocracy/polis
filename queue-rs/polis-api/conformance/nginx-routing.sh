@@ -777,3 +777,25 @@ expect /api/v3/conversations node "legacyConversations handoff"
 echo "ok 39 legacyConversations off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/treevite/me node "treeviteMe off"
+start treeviteMe,treeviteMe
+expect /api/v3/treevite/me rust "treeviteMe on"
+expect /api/v3/comments node "treeviteMe leaves comments alone"
+expect /api/v3/votes node "treeviteMe leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/treevite/me') == 1 ]] || fail "treeviteMe duplicated"
+expect_upstream polis-api GET /api/v3/treevite/me
+expect_upstream polis-api HEAD /api/v3/treevite/me
+expect_upstream server OPTIONS /api/v3/treevite/me
+expect_upstream server POST /api/v3/treevite/me $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/treevite/me $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/treevite/me node "treeviteMe handoff"
+echo "ok 40 treeviteMe off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
