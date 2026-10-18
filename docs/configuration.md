@@ -100,16 +100,12 @@ The API server opens three pools per process ([pg-query.ts](../server/src/db/pg-
 a read-write pool (vote and comment writes, next-statement candidate selection)
 and a read pool (the math blob read, `GET /votes`, participation aggregates),
 each `max` 12 in production (2 in dev, 3 when a read replica is configured); and
-a results pool (`RESULT_SNAPSHOT_POOL_MAX`, 8 in production). Every wait on the
-read-write and read pools is bounded, so slow work holding their connections can
-make a vote or comment fail promptly but never hang:
-
-- **`SERVER_DB_ACQUIRE_TIMEOUT_MS`** how long a query waits for a read-write or read pool connection before it fails. Default `3000`. The request then gets the route's ordinary database error (for a participant already in the conversation, `POST /votes` answers `500 polis_err_vote` and `POST /comments` `500 polis_err_post_comment`), with nothing stored when the wait came before the write, so the participation client shows its failure message, keeps the statement or the comment text, and the participant can submit again. A timeout after a vote is written (while the next statement is chosen) answers the same error for a stored vote, as any database error at that point already does; voting again stores the same vote again. Measured on a local stack, a vote takes 4.6 ms at the median and 15.3 ms at p99 (the next statement 3.0 / 9.3 ms), so 3 s is about 200 times the vote p99. A queue that long only forms when connections are held or the database has stalled, and the request still fails well inside the participation client's 10 s request timeout.
-- **`SERVER_DB_STATEMENT_TIMEOUT_MS`** per-statement cap on those connections, enforced by Postgres (SQLSTATE `57014`) and sent as a session setting when each connection opens. Default `10000`. It stops a runaway statement from occupying a participation connection; it cannot end a hold by work that is idle while holding a connection, which is what the acquire bound is for. It is above the participant insert's 5 s `lock_timeout`, so that lock wait still fails as a lock timeout; transactions that need a tighter bound set their own with `SET LOCAL`. Statements on these pools other than participation (the math blob read, admin moderation lists, the import worker's batches) share the cap; raise it if a deployment has a legitimate statement there that runs longer.
-
-`0` turns either bound off. Reports, data exports and heavy admin reads run on a
-fourth, deliberately small pool with their own, longer bounds, so they can never
-grow into the other three:
+a results pool (`RESULT_SNAPSHOT_POOL_MAX`, 8 in production). The read-write
+and read pools have no acquire timeout and no statement timeout, on purpose:
+votes and comments run there, and a vote or comment that has to wait for a
+connection waits and is stored; it is never refused. Reports, data
+exports and heavy admin reads run on a fourth, deliberately small pool so they
+can never grow into the other three:
 
 - **`REPORT_EXPORT_POOL_MAX`** maximum connections for the report/export/heavy-admin-read pool. Default `1`: reports, exports and heavy admin reads run one at a time, and the rest wait up to the acquire timeout. Reports, the `/api/v3/dataExport` CSV routes ([report.ts](../server/src/report.ts)), the comment-clusters export, `conversationStats` and the moderator participant query run here; participant-facing reads never do.
 - **`REPORT_EXPORT_ACQUIRE_TIMEOUT_MS`** how long a report/export waits for one of those connections before it is rejected. Default `30000`. When the pool is full a new report/export fails here (it degrades itself) rather than waiting on, or spilling into, a participant-facing connection.

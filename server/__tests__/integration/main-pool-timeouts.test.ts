@@ -1,34 +1,32 @@
 /**
- * Votes and comments must answer, never hang, when slow work holds the API
- * server's main pools.
+ * Where the database bounds sit: none on the pools the participation path
+ * shares, and their own on the pools only slow work uses.
  *
- * Votes, comments and the next statement run on the read-write and read pools
- * (src/db/pg-query.ts). Work that takes one of their connections and then waits
- * on something else (a model call, a network fetch, a stalled client) holds it
- * without running a statement, so no statement timeout can end the hold. With
- * every connection held like that, a vote or comment used to queue for a
- * connection until one was released: the participant saw nothing until the
- * client gave up. The acquire bound makes the request fail at that bound with
- * the route's ordinary database error, and store nothing, so the participant
- * can submit it again; once the holders let go, it succeeds.
+ * Votes, comments, the next statement and participationInit run on the API
+ * server's read-write and read pools (src/db/pg-query.ts). A vote or a comment
+ * that has to wait for one of their connections must wait and be stored; it is
+ * never refused. So those two pools have no acquire timeout and no statement
+ * timeout. With an acquire timeout, a vote held behind slow work answered 500
+ * and was not stored; this file and ./participation-under-load.test.ts hold
+ * that it waits instead.
  *
- * The statement bound is the other half: a runaway statement on these pools is
- * cancelled by Postgres at the bound and its connection returns, so it cannot
- * occupy a participation connection indefinitely.
+ * Slow work keeps its bounds on pools of its own and degrades itself first:
+ * reports and exports on the report/export pool (its acquire bound is held by
+ * ../participation-pg/export-budget.pgtest.ts), and the collective-statement
+ * agent exchange on its own pool.
  *
  * Same shape as the participation-path guards in ../participation-pg/ and
  * ../delphi-results-pg/concurrency.pgtest.ts: hold the shared resource, then
- * measure the participation request. A failure is read as possible
- * starvation of the participation path first; the bounds are never widened to
- * make it pass.
+ * measure the participation request. A failure is read as possible refusal or
+ * starvation of the participation path first.
  */
 import { afterAll, beforeAll, describe, expect, test } from "@jest/globals";
 import type { PoolClient } from "pg";
 import pg, {
-  MAIN_POOL_ACQUIRE_TIMEOUT_MS,
+  AGENT_EXCHANGE_POOL_MAX,
   MAIN_POOL_MAX,
-  MAIN_POOL_STATEMENT_TIMEOUT_MS,
 } from "../../src/db/pg-query";
+import Config from "../../src/config";
 import {
   initializeParticipant,
   setupAuthAndConvo,
@@ -39,9 +37,14 @@ import {
 import { pool, closePool } from "../setup/db-test-helpers";
 import { toWire } from "../setup/vote-wire";
 
-// Time allowed past a bound for the error to travel back through the route.
-// Generous for a loaded runner; the lower edge of each window shows the bound,
-// not some earlier failure, is what answered.
+/** How long the main pools stay held: longer than the participation budget
+ * (5 s) and than the 3 s acquire timeout these pools used to have, after which
+ * a held vote answered 500 and was not stored. */
+const HELD_MS = 5000;
+/** The agent exchange pool's acquire timeout (src/db/pg-query.ts). */
+const AGENT_EXCHANGE_ACQUIRE_MS = 5000;
+// Time allowed past a bound for the error to travel back. Generous for a
+// loaded runner; the lower edge of the window shows the bound answered.
 const SLACK_MS = 2500;
 
 type Outcome<T> = { ms: number; value?: T; error?: any };
@@ -59,6 +62,17 @@ function within<T>(work: Promise<T>, ms: number): Promise<T | "waiting"> {
     timer = setTimeout(() => resolve("waiting"), ms);
   });
   return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
+/** The statement timeout a pool's connections run with, in ms ("0": none). */
+async function statementTimeout(
+  run: (sql: string, params: unknown[]) => Promise<unknown>
+): Promise<string> {
+  const rows = (await run(
+    "SELECT setting FROM pg_settings WHERE name = 'statement_timeout'",
+    []
+  )) as { setting: string }[];
+  return rows[0].setting;
 }
 
 describe("main pool bounds", () => {
@@ -111,8 +125,7 @@ describe("main pool bounds", () => {
     await closePool();
   });
 
-  test("a vote and a comment answer within the acquire bound while every main-pool connection is held, then succeed once released", async () => {
-    expect(MAIN_POOL_ACQUIRE_TIMEOUT_MS).toBeGreaterThan(0);
+  test("a vote and a comment wait while every main-pool connection is held, and are stored once the holders release", async () => {
     const txt = `held-pool comment ${Date.now()}`;
 
     // Slow work takes every connection of both pools and keeps it.
@@ -136,21 +149,16 @@ describe("main pool bounds", () => {
     );
     let seen: unknown;
     try {
-      seen = await within(
-        Promise.all([vote, comment]),
-        MAIN_POOL_ACQUIRE_TIMEOUT_MS + SLACK_MS
-      );
+      seen = await within(Promise.all([vote, comment]), HELD_MS);
     } finally {
       releaseHolders();
     }
-    // On a pool with no acquire bound the requests are still queued here; they
-    // finish once the holders let go, so the test reports instead of hanging.
     const [voteOut, commentOut] = await Promise.all([vote, comment]);
     process.stdout.write(
       `${JSON.stringify({
         pool_max: MAIN_POOL_MAX,
-        acquire_timeout_ms: MAIN_POOL_ACQUIRE_TIMEOUT_MS,
-        within_bound: seen !== "waiting",
+        held_ms: HELD_MS,
+        waited_while_held: seen === "waiting",
         vote_ms: voteOut.ms,
         vote_status: voteOut.value?.status,
         vote_body: voteOut.value?.text?.slice(0, 120),
@@ -160,74 +168,46 @@ describe("main pool bounds", () => {
       })}\n`
     );
 
-    expect(seen).not.toBe("waiting");
+    // Neither was answered while the pools were held: both waited, and
+    // neither was refused.
+    expect(seen).toBe("waiting");
     for (const out of [voteOut, commentOut]) {
       expect(out.error).toBeUndefined();
-      expect(out.ms).toBeGreaterThanOrEqual(MAIN_POOL_ACQUIRE_TIMEOUT_MS - 250);
-      expect(out.ms).toBeLessThan(MAIN_POOL_ACQUIRE_TIMEOUT_MS + SLACK_MS);
+      expect(out.ms).toBeGreaterThanOrEqual(HELD_MS);
     }
-    // The route's ordinary answer for a database failure, given promptly.
-    expect(voteOut.value!.status).toBe(500);
-    expect(voteOut.value!.body).toMatchObject({ error: "polis_err_vote" });
-    expect(commentOut.value!.status).toBe(500);
-    expect(commentOut.value!.body).toMatchObject({
-      error: "polis_err_post_comment",
-    });
-    // An error answer stored nothing: submitting again is the only write.
-    expect(await storedVotes(tids[1])).toBe(0);
-    expect(await storedComments(txt)).toBe(0);
-
-    // Once the holders have released their connections, the same vote and
-    // comment succeed.
-    const retriedVote = await submitVote(agent, {
-      conversation_id: conversationId,
-      tid: tids[1],
-      vote: toWire("disagree"),
-    });
-    expect(retriedVote.status).toBe(200);
+    // Once the holders let go, both are answered and stored.
+    expect(voteOut.value!.status).toBe(200);
+    expect(commentOut.value!.status).toBe(200);
     expect(await storedVotes(tids[1])).toBe(1);
-    const retriedComment = await submitComment(agent, {
-      conversation_id: conversationId,
-      txt,
-    });
-    expect(retriedComment.status).toBe(200);
     expect(await storedComments(txt)).toBe(1);
   }, 60000);
 
-  test("a runaway statement on either main pool is cancelled at the statement bound, and the next vote is served", async () => {
-    expect(MAIN_POOL_STATEMENT_TIMEOUT_MS).toBeGreaterThan(0);
-    const sleepSeconds = Math.ceil(MAIN_POOL_STATEMENT_TIMEOUT_MS / 1000) + 5;
+  test("the read-write and read pools run with no statement timeout", async () => {
+    expect(await statementTimeout(pg.queryP)).toBe("0");
+    expect(await statementTimeout(pg.queryP_readOnly)).toBe("0");
+  });
 
-    const [readWrite, read] = await Promise.all([
-      timed(pg.queryP("SELECT pg_sleep($1)", [sleepSeconds])),
-      timed(pg.queryP_readOnly("SELECT pg_sleep($1)", [sleepSeconds])),
-    ]);
-    process.stdout.write(
-      `${JSON.stringify({
-        statement_timeout_ms: MAIN_POOL_STATEMENT_TIMEOUT_MS,
-        read_write: { ms: readWrite.ms, code: readWrite.error?.code ?? null },
-        read: { ms: read.ms, code: read.error?.code ?? null },
-      })}\n`
+  test("the pools only slow work uses keep their statement timeouts", async () => {
+    expect(await statementTimeout(pg.queryP_reportExport)).toBe(
+      String(Config.reportExportStatementTimeoutMs)
     );
-    for (const out of [readWrite, read]) {
-      // 57014 query_canceled: the server's statement_timeout fired.
-      expect(out.error?.code).toBe("57014");
-      expect(out.ms).toBeGreaterThanOrEqual(
-        MAIN_POOL_STATEMENT_TIMEOUT_MS - 250
-      );
-      expect(out.ms).toBeLessThan(MAIN_POOL_STATEMENT_TIMEOUT_MS + SLACK_MS);
+    expect(await statementTimeout(pg.queryP_agentExchange)).toBe("60000");
+  });
+
+  test("the agent exchange pool refuses at its acquire timeout when it is full", async () => {
+    const held: PoolClient[] = [];
+    for (let i = 0; i < AGENT_EXCHANGE_POOL_MAX; i++)
+      held.push(await pg.connectAgentExchange());
+    let out: Outcome<unknown>;
+    try {
+      out = await timed(pg.queryP_agentExchange("SELECT 1", []));
+    } finally {
+      while (held.length) held.pop()!.release();
     }
-
-    const next = await timed(
-      submitVote(agent, {
-        conversation_id: conversationId,
-        tid: tids[2],
-        vote: toWire("pass"),
-      })
+    expect(String(out.error?.message ?? out.error)).toMatch(
+      /timeout exceeded when trying to connect/
     );
-    expect(next.error).toBeUndefined();
-    expect(next.value!.status).toBe(200);
-    expect(next.ms).toBeLessThan(MAIN_POOL_ACQUIRE_TIMEOUT_MS);
-    expect(await storedVotes(tids[2])).toBe(1);
+    expect(out.ms).toBeGreaterThanOrEqual(AGENT_EXCHANGE_ACQUIRE_MS - 250);
+    expect(out.ms).toBeLessThan(AGENT_EXCHANGE_ACQUIRE_MS + SLACK_MS);
   }, 60000);
 });
