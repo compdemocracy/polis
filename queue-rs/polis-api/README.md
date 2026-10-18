@@ -1171,3 +1171,15 @@ Enabled operations, authenticated/cookie requests, bodies and nonempty query
 strings stay counted Node handoffs. No OIDC verification, policy evaluation,
 page registry, database, pool, cache or provider is consulted in Rust.
 The shared contract is in `polis-contracts/src/ops_whoami.rs`.
+
+
+### Disabled operations pages
+
+`POLIS_API_OPS_PAGE_READS=1` and nginx `RUST_API_ROUTES=opsPage` stage
+GET/HEAD `/api/v3/ops/page/:id` disabled-policy 404 responses. Both default off.
+Rust requires literal `OPS_ENABLED=false`, kept synchronized with Node.
+Only nonempty ASCII alphanumeric, underscore or hyphen IDs of at most 128 bytes
+are admitted. Other IDs, identity/cookies, bodies, queries and methods hand back.
+The Node private/no-store, Vary and nosniff envelope is preserved. Enabled ops
+and page/provider/registry evaluation remain Node. No DB or participation
+resources are acquired. The shared contract is `polis-contracts/src/ops_page.rs`.

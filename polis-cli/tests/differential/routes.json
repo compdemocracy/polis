@@ -396,5 +396,15 @@
       "ops status"
     ],
     "scope": "Disabled operations 404 only with matching explicit OPS_ENABLED=false. CLI sends account authorization and hands to Node; raw replay proves anonymous serving."
+  },
+  "opsPage": {
+    "path": "^/api/v3/ops/page/",
+    "minimum_rust_successes": 0,
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "ops page"
+    ],
+    "scope": "Disabled operations 404 only with matching explicit OPS_ENABLED=false. CLI sends account authorization and hands to Node; raw replay proves anonymous serving."
   }
 }
