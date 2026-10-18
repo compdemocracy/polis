@@ -902,3 +902,31 @@ Node work. OIDC/PID-cache lookup,XIDs,Treevite credentials or enabled
 conversations,and unsupported requests also hand back. No participant or
 invitation allocation occurs. Counters `treeviteMeServed` and
 `treeviteMeFallback` expose this boundary.
+
+### Participant XID CSV downloads
+
+`POLIS_API_XID_REPORT_READS=1` and nginx `RUST_API_ROUTES=xidReport` stage
+GET/HEAD `/api/v3/xid/<uuid>-xid.csv`; both default off. Set
+`POLIS_API_XID_REPORT_DATABASE_URL` to the primary identity database and
+`READ_ONLY_DATABASE_URL` to Node's replica (defaults to the route database).
+Separate read-only identity and replica pools each have one connection,
+15 ms acquisition and 50 ms statement limits, under one 75 ms route deadline.
+The identity connection is released before replica work. Participation pools
+remain separate; no writes or external provider calls occur.
+
+Required verified hybrid identity precedes a fresh canonical UUID lookup.
+Only existing mapped OIDC accounts or verified existing participant identities
+are admitted. Configure the existing static read JWKS/participant verifier;
+missing, invalid and unsupported credentials hand back to Node. Possessing a
+UUID alone never authorizes a download. A resolved UUID then uses Node's exact
+site-moderator and numeric `ADMIN_UIDS` rule; a verified nonmoderator gets its
+403 refusal before any XID query. Unknown UUIDs remain Node's 404. Owner status
+alone does not bypass a NULL site id, matching Node's moderator predicate.
+
+CSV keeps participant ordering, quoted XIDs, doubled quotes and final newline.
+Empty exports are supported. Duplicate participant IDs, missing or ambiguous
+UUIDs, more than 256 rows, XIDs over 4096 bytes or aggregate XID text over
+32768 bytes, unsupported request shapes and read failures hand back to Node.
+No forward/reverse CID cache is consulted for the UUID. Existing participant
+identity resolution retains its separate membership checks.
+Counters: `xidReportServed`, `xidReportFallback`.
