@@ -14,6 +14,7 @@ pub mod metadata_read;
 pub mod participation_read;
 pub mod recent_activity;
 pub mod recent_started;
+pub mod reports_read;
 pub mod robots;
 pub mod treevite_csv;
 pub mod treevite_invites;
