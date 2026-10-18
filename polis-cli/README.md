@@ -18,7 +18,7 @@ cargo fmt --all --check
 
 The tested release target is macOS arm64. Rust 1.99 built the delivered binary.
 `Cargo.lock` pins the reviewed build inputs. Other platforms and older toolchains
-have not been verified; credentials use macOS Keychain with an owner-only file fallback.
+have not been verified; credentials use an owner-only file store by default on every supported platform.
 
 ## Start here
 
@@ -82,27 +82,35 @@ The CLI does not retry an API mutation after a 401 or decode JWTs for authorizat
 Credential reads refuse symlinks, nonregular/multiply linked files, other owners,
 group/world permissions and mismatched bindings. Keep the credential directory
 out of repositories and shared backups. Profiles contain configuration only.
-On macOS an interactive sign-in (browser, device or `--token-stdin`) saves the
-credential record in the login Keychain; the credential file then holds only a
-secret-free pointer, the lock and logout tombstones. The owner-only file holds the
-record itself only as a fallback: when the Keychain cannot be written, under
-`--no-interactive`, on other platforms, and for an older file sign-in until the next
-interactive sign-in moves it. A refresh rotation stays in the backend that holds the
-session, falling back to the file if the Keychain write fails. `login` reports the
-backend used in `storage`. `--with-token` explicitly uses the file backend;
-`--token-stdin --no-store` validates without persistence. Manual access tokens have
-no issuer refresh credential or tracked lifetime.
+Every saved sign-in (OAuth access and refresh tokens, or a manual token) uses the
+owner-only file store by default on every supported platform: `credentials/` under
+`~/.config/polis/`, or under `POLIS_CONFIG_DIR` when set. The directory is 0700 and
+credential files are 0600. Refresh rotation replaces the saved session atomically.
+`login` reports the backend used in `storage`.
 
-`--no-interactive` never shows browser or Keychain dialogs; it still reads and
-rotates a Keychain sign-in when macOS needs no unlock or access approval, and
-otherwise fails with `credential_store_unavailable`. Device login still needs
+The CLI never calls the Keychain by default, including reads, migration, replacement
+and logout. A sign-in saved only in the Keychain appears **not signed in**: run
+`polis auth login` once to save a new session in the file store. Existing Keychain
+entries are left alone. No local signing setup or Keychain approval is needed.
+
+`POLIS_KEYCHAIN=on` explicitly opts into the macOS Keychain. Keep it set for commands
+that use that sign-in. Unset, `off`, or any other value uses the file store. Opted-in
+calls also suppress Keychain dialogs; inaccessible reads return
+`credential_store_unavailable`, and failed writes fall back to the file store.
+`--with-token` always writes to the file; new `--no-interactive` sign-ins also use
+it. Refresh stays in the current backend when opted in, with file fallback if a
+Keychain write fails. `--token-stdin --no-store` validates without persistence.
+Manual access tokens have no issuer refresh credential or tracked lifetime.
+
+`--no-interactive` never shows browser or Keychain dialogs.
+Device login still needs
 approval in another browser. `--no-browser` prints the PKCE URL for opening on the
 same machine. `POLIS_TOKEN` overrides saved access tokens for pol.is (the older
 `POLIS_TOKEN_PROD` still works; `POLIS_TOKEN` wins if both are set), and
 `POLIS_TOKEN_<UPPERCASE_PROFILE>` does so for developer profiles;
 unset it separately after logout. Logout clears local access/refresh credentials
 and leaves a token-free tombstone suppressing older Keychain entries; Keychain
-deletion is best effort. It does **not** revoke the issuer grant or end the provider
+deletion occurs only with `POLIS_KEYCHAIN=on` and is best effort without dialogs. It does **not** revoke the issuer grant or end the provider
 browser session. No provider logout/revocation request is sent.
 
 Run the local-only OAuth acceptance suite after building:

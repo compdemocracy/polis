@@ -153,12 +153,9 @@ macro_rules! token_env_help {
 pub const STORAGE_KEYCHAIN: &str = "macOS Keychain";
 pub const STORAGE_FILE: &str = "owner-only file (0600)";
 
-// Credential backends. On macOS an interactive sign-in stores the credential record
-// in the login Keychain and leaves a secret-free pointer in the credential file. The
-// file then still carries the lock, the binding and logout tombstones, so a pointer
-// or tombstone decides which backend is current and stale Keychain items stay
-// suppressed. The owner-only file holds the record itself when the Keychain is not
-// available, under --no-interactive, with --with-token, and on other platforms.
+// Credentials use the owner-only file by default. POLIS_KEYCHAIN=on explicitly
+// opts into the macOS Keychain. A file record or tombstone suppresses stale
+// Keychain items; an old pointer is signed out unless the user opts in.
 const DEFAULT_KEYCHAIN_SERVICE: &str = "org.pol.is.cli";
 fn keychain_service() -> Result<String> {
     match std::env::var("POLIS_KEYCHAIN_SERVICE") {
@@ -169,10 +166,13 @@ fn keychain_service() -> Result<String> {
         Err(std::env::VarError::NotPresent) => Ok(DEFAULT_KEYCHAIN_SERVICE.into()),
     }
 }
-/// POLIS_KEYCHAIN=off keeps every credential in the owner-only file store and
-/// never calls the Keychain; the CLI's own tests and headless agents run this way.
+/// Only the exact opt-in value enables Keychain access; unset, off and unknown
+/// values all keep reads, writes and cleanup in the owner-only file store.
+fn keychain_opted_in(value: Option<&std::ffi::OsStr>) -> bool {
+    value == Some(std::ffi::OsStr::new("on"))
+}
 fn keychain_supported() -> bool {
-    cfg!(target_os = "macos") && std::env::var_os("POLIS_KEYCHAIN").is_none_or(|v| v != "off")
+    keychain_opted_in(std::env::var_os("POLIS_KEYCHAIN").as_deref()) && cfg!(target_os = "macos")
 }
 
 #[cfg(target_os = "macos")]
@@ -205,40 +205,26 @@ mod no_ui {
 }
 
 fn store_error() -> Error {
-    if keychain_allowed() {
-        Error::new(
-            "credential_store_unavailable",
-            "Cannot access the macOS Keychain.",
-            concat!(
-                "Unlock your login Keychain and allow polis access, or use ",
-                token_env_help!(),
-                "."
-            ),
-            3,
-        )
-    } else {
-        Error::new(
-            "credential_store_unavailable",
-            "The saved sign-in is in the macOS Keychain, which needs an unlock or access approval; --no-interactive does not show that dialog.",
-            concat!("Run polis auth status once in a terminal and allow access, or use ", token_env_help!(), "."),
-            3,
-        )
-    }
+    Error::new(
+        "credential_store_unavailable",
+        "Cannot access the opted-in macOS Keychain without a dialog.",
+        "Unset POLIS_KEYCHAIN and run polis auth login once to save the sign-in in the owner-only file store.",
+        3,
+    )
 }
-/// Runs one Keychain call; under --no-interactive it fails rather than prompting.
+/// Every opted-in call suppresses dialogs, including interactive commands.
 fn with_keychain<T>(
     site: &str,
     url: &str,
     f: impl FnOnce(&keyring::Entry) -> keyring::Result<T>,
 ) -> Result<keyring::Result<T>> {
+    // Unit tests exercise the file lifecycle and must never reach a Keychain API.
+    #[cfg(test)]
+    file_store_tests::forbid_keychain();
     if !keychain_supported() {
         return Err(store_error());
     }
-    let _guard = if keychain_allowed() {
-        None
-    } else {
-        Some(no_ui::guard().ok_or_else(store_error)?)
-    };
+    let _guard = no_ui::guard().ok_or_else(store_error)?;
     let entry = keyring::Entry::new(&keychain_service()?, &format!("{site}@{url}"))
         .map_err(|_| store_error())?;
     Ok(f(&entry))
@@ -264,6 +250,11 @@ fn load(site: &str, url: &str) -> Result<Option<SavedToken>> {
     };
     if !file.keychain {
         return Ok(Some(file));
+    }
+    // Never inspect or migrate an old pointer without explicit opt-in. Leave it
+    // untouched so a user may opt in later or replace it with a fresh file login.
+    if !keychain_supported() {
+        return Ok(None);
     }
     // A pointer whose Keychain item was removed reads as signed out.
     let Some(raw) = keychain_get(site, url)? else {
@@ -293,7 +284,7 @@ fn persist(site: &str, url: &str, record: &SavedToken, keychain: bool) -> Result
     write_record(site, url, record)?;
     // The file record now wins over any older Keychain item. Remove the copy this
     // record replaces (best effort, never prompting under --no-interactive).
-    if previous.is_some_and(|p| p.keychain) {
+    if keychain_supported() && previous.is_some_and(|p| p.keychain) {
         keychain_delete(site, url);
     }
     Ok(STORAGE_FILE)
@@ -330,8 +321,8 @@ pub fn validate_token(token: &str) -> Result<()> {
     Ok(())
 }
 
-/// Saves a manual access token: the Keychain for an interactive run on macOS,
-/// otherwise the owner-only file.
+/// Saves a manual access token in the file store, or the explicitly opted-in
+/// Keychain for an interactive run on macOS.
 pub fn store(site: &str, url: &str, token: &str) -> Result<&'static str> {
     let _lock = credential_lock(site, url)?;
     validate_token(token)?;
@@ -608,7 +599,7 @@ pub fn session(site: &str, url: &str) -> Result<Option<(String, Session)>> {
     }
 }
 /// Caller holds credential_lock through read, exchange and replacement. A new sign-in
-/// goes to the Keychain when interactive on macOS; a refresh rotation stays in the
+/// uses the file unless Keychain is explicitly opted in; a refresh stays in the
 /// backend that holds the current record, falling back to the file if the Keychain
 /// cannot be written (the issuer may already have consumed the old refresh token).
 pub fn store_session(
@@ -685,4 +676,121 @@ pub fn participant_store(
     record.participant_login = login_code;
     file_read(site, scope)?;
     write_record(site, scope, &record)
+}
+
+#[cfg(test)]
+mod file_store_tests {
+    use super::*;
+    use std::{ffi::OsStr, os::unix::fs::PermissionsExt, process::Command};
+
+    pub(super) fn forbid_keychain() {
+        panic!("file-store test reached the Keychain boundary");
+    }
+
+    #[test]
+    fn keychain_requires_exact_opt_in() {
+        assert!(!keychain_opted_in(None));
+        for value in ["off", "", "ON", "true", "1", " on"] {
+            assert!(!keychain_opted_in(Some(OsStr::new(value))));
+        }
+        assert!(keychain_opted_in(Some(OsStr::new("on"))));
+    }
+
+    #[test]
+    fn file_lifecycle_never_reaches_keychain() {
+        // Each child has an isolated environment and config directory. The
+        // with_keychain boundary panics in unit tests before any native API.
+        if std::env::var_os("POLIS_FILE_STORE_TEST_CHILD").is_none() {
+            for setting in [None, Some("off"), Some("ON"), Some("")] {
+                let dir = tempfile::tempdir().unwrap();
+                let mut child = Command::new(std::env::current_exe().unwrap());
+                for (key, _) in std::env::vars_os() {
+                    if key.to_string_lossy().starts_with("POLIS_") {
+                        child.env_remove(key);
+                    }
+                }
+                child
+                    .env("POLIS_CONFIG_DIR", dir.path())
+                    .env("POLIS_FILE_STORE_TEST_CHILD", "1")
+                    .args([
+                        "--exact",
+                        "profiles::file_store_tests::file_lifecycle_never_reaches_keychain",
+                        "--nocapture",
+                    ]);
+                if let Some(value) = setting {
+                    child.env("POLIS_KEYCHAIN", value);
+                }
+                let output = child.output().unwrap();
+                assert!(
+                    output.status.success(),
+                    "setting={setting:?}: {} {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            return;
+        }
+        let site = "local";
+        let url = "http://127.0.0.1:12345/";
+        for headless in [false, true] {
+            noninteractive(headless);
+            // Includes the pre-pointer legacy-token lookup and logout cleanup.
+            assert!(token(site, url).unwrap().is_none());
+            assert!(session(site, url).unwrap().is_none());
+            logout(site, url).unwrap();
+            assert_eq!(store(site, url, "fixture-manual").unwrap(), STORAGE_FILE);
+            assert_eq!(token(site, url).unwrap().as_deref(), Some("fixture-manual"));
+            for rotation in [false, true] {
+                // An old Keychain pointer must neither trigger a read nor be
+                // deleted through the Keychain when a new file record replaces it.
+                write_record(site, url, &SavedToken::pointer(site, url)).unwrap();
+                assert!(token(site, url).unwrap().is_none());
+                assert!(session(site, url).unwrap().is_none());
+                assert!(file_read(site, url).unwrap().unwrap().keychain);
+                let _lock = credential_lock(site, url).unwrap();
+                assert_eq!(
+                    store_session(
+                        site,
+                        url,
+                        "fixture-access",
+                        Session {
+                            issuer: "http://127.0.0.1:12345/".into(),
+                            client_id: "fixture-client".into(),
+                            audience: "users".into(),
+                            expires_at: 123456,
+                            refresh_token: Some("fixture-refresh".into()),
+                        },
+                        rotation,
+                    )
+                    .unwrap(),
+                    STORAGE_FILE
+                );
+                let (access, saved) = session(site, url).unwrap().unwrap();
+                assert_eq!(access, "fixture-access");
+                assert_eq!(saved.refresh_token.as_deref(), Some("fixture-refresh"));
+                let path = credential_path(site, url).unwrap();
+                assert_eq!(
+                    std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                    0o600
+                );
+                assert_eq!(
+                    std::fs::metadata(path.parent().unwrap())
+                        .unwrap()
+                        .permissions()
+                        .mode()
+                        & 0o777,
+                    0o700
+                );
+                assert!(!file_read(site, url).unwrap().unwrap().keychain);
+            }
+            write_record(site, url, &SavedToken::pointer(site, url)).unwrap();
+            store_file(site, url, "fixture-file").unwrap();
+            assert_eq!(token(site, url).unwrap().as_deref(), Some("fixture-file"));
+            write_record(site, url, &SavedToken::pointer(site, url)).unwrap();
+            logout(site, url).unwrap();
+            assert!(token(site, url).unwrap().is_none());
+            assert!(session(site, url).unwrap().is_none());
+            std::fs::remove_file(credential_path(site, url).unwrap()).unwrap();
+        }
+    }
 }

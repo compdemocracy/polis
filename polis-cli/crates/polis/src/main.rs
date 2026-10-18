@@ -60,7 +60,7 @@ fn client(config: &profiles::Config, site: &str, timeout: u64, required: bool) -
         return Err(Error::new(
             "auth_required",
             "Not signed in.",
-            "Run polis auth login.",
+            "Run polis auth login once to save a sign-in in the owner-only file store.",
             3,
         ));
     }
@@ -312,7 +312,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 Error::new(
                     "auth_required",
                     "Not signed in.",
-                    "Run polis auth login.",
+                    "Run polis auth login once to save a sign-in in the owner-only file store.",
                     3,
                 )
             })?;
@@ -333,7 +333,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "auth logout" => {
             profiles::logout(site, config.url(site)?)?;
             Ok(
-                json!({"state":"logged_out","keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Access and refresh credentials erased; a tombstone suppresses older Keychain values. Keychain deletion may be deferred in headless mode. Unset {} separately if present.", profiles::token_env(site))}),
+                json!({"state":"logged_out","keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Saved file credentials cleared; a tombstone suppresses older Keychain values. Keychain entries are left alone unless POLIS_KEYCHAIN=on; opted-in deletion is best effort without dialogs. Unset {} separately if present.", profiles::token_env(site))}),
             )
         }
         "conversation list" => {
