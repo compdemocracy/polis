@@ -18,7 +18,7 @@ this avoids the confusion of having anything called a "cid", the joke was "conve
 
 ## helpful background
 
-this was built in two parts, the PCA/k-means/representativeness and the umap/narrative, and these are combined in the run_delphi.py script.
+this was built in two parts, the PCA/k-means/representativeness and the umap/narrative. `run_delphi.py` now runs only the umap/narrative part (reset, embeddings, UMAP, EVoC clustering, keywords, topic names, datamapplot). The math engine's `math_main` is the one source of PCA, k-means and representativeness; `polismath/run_math_pipeline.py` (Delphi's own copy of that math) and the old extremity (501) and priority (502) stages are no longer run.
 
 ## Local Python Environment
 
@@ -87,8 +87,8 @@ Always use the commands above to determine the most substantial conversation whe
     this, an unreachable DB causes the process to hang for the kernel default
     (~60–120s+). Honored by:
     - `polismath/database/postgres.py` — SQLAlchemy `PostgresClient`.
-    - `polismath/run_math_pipeline.py` — psycopg2 `connect()` (the production
-      math worker invoked from `run_delphi.py`).
+    - `polismath/run_math_pipeline.py` — psycopg2 `connect()` (the legacy
+      DynamoDB math export; `run_delphi.py` no longer invokes it).
 
     Note that SQLAlchemy's `pool_pre_ping` does NOT replace this: pre-ping
     only acts on already-pooled connections, not on the initial socket connect.
@@ -227,6 +227,8 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 ### Key Tables
 
 #### Polis Math Tables (Now with Delphi\_ prefix)
+
+A Delphi run no longer writes these six tables (nor `Delphi_CommentExtremity`); they remain for legacy rows and the importer.
 
 - `Delphi_PCAConversationConfig` - Conversation metadata (formerly `PolisMathConversations`)
 - `Delphi_PCAResults` - PCA and cluster data (formerly `PolisMathAnalysis`)

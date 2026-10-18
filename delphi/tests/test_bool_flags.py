@@ -63,22 +63,6 @@ def test_run_pipeline_main(monkeypatch, flags, include_moderation, exclude_selec
 
 
 @pytest.mark.parametrize("flags, include_moderation, exclude_selections", FLAG_CASES)
-def test_extremity_main(monkeypatch, flags, include_moderation, exclude_selections):
-    module = importlib.import_module("501_calculate_comment_extremity")
-    seen = {}
-
-    def record(zid, force, include, exclude):
-        seen.update(include=include, exclude=exclude)
-        return {}
-
-    monkeypatch.setattr(module, "calculate_and_store_extremity", record)
-    monkeypatch.setattr(sys, "argv", ["501.py", "--zid=1", *flags])
-    module.main()
-    assert seen["include"] is include_moderation
-    assert seen["exclude"] is exclude_selections
-
-
-@pytest.mark.parametrize("flags, include_moderation, exclude_selections", FLAG_CASES)
 def test_narrative_batch_main(monkeypatch, flags, include_moderation, exclude_selections):
     module = importlib.import_module("801_narrative_report_batch")
     seen = {}
@@ -101,24 +85,23 @@ def test_narrative_batch_main(monkeypatch, flags, include_moderation, exclude_se
 
 @pytest.mark.parametrize("flags, include_moderation, exclude_selections", FLAG_CASES)
 def test_run_delphi_forwards_parsed_flags(app_dir, monkeypatch, flags, include_moderation, exclude_selections):
-    """run_delphi.py re-emits the parsed value to the UMAP and extremity stages."""
+    """run_delphi.py re-emits the parsed value to the UMAP stage, the one stage that takes it."""
     import subprocess
 
     argv_log = Path(os.environ["STAGE_LOG"]).with_name("argv.log")
     monkeypatch.setenv("ARGV_LOG", str(argv_log))
-    for rel in ("umap_narrative/run_pipeline.py", "umap_narrative/501_calculate_comment_extremity.py"):
-        stub = app_dir / rel
-        stub.write_text(
-            "import json, os, sys\n"
-            "open(os.environ['ARGV_LOG'], 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
-        )
+    stub = app_dir / "umap_narrative/run_pipeline.py"
+    stub.write_text(
+        "import json, os, sys\n"
+        "open(os.environ['ARGV_LOG'], 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+    )
     result = subprocess.run(
         [sys.executable, str(app_dir / "run_delphi.py"), "--zid=1", *flags],
         cwd=app_dir, capture_output=True, text=True, timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     calls = [json.loads(line) for line in argv_log.read_text().splitlines()]
-    assert len(calls) == 2
+    assert len(calls) == 1
     for argv in calls:
         assert f"--include_moderation={include_moderation}" in argv
         assert f"--exclude_comment_selections={exclude_selections}" in argv
