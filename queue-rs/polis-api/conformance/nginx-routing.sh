@@ -328,3 +328,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/contexts node "contexts handoff"
 echo "ok 18 contexts off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/domainWhitelist node "domainWhitelist off"
+start domainWhitelist,domainWhitelist
+expect /api/v3/domainWhitelist rust "domainWhitelist on"
+expect /api/v3/comments node "domainWhitelist leaves comments alone"
+expect /api/v3/votes node "domainWhitelist leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/domainWhitelist') == 1 ]] || fail "domainWhitelist duplicated"
+expect_upstream polis-api GET /api/v3/domainWhitelist
+expect_upstream polis-api HEAD /api/v3/domainWhitelist
+expect_upstream server OPTIONS /api/v3/domainWhitelist
+expect_upstream server POST /api/v3/domainWhitelist $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/domainWhitelist $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/domainWhitelist node "domainWhitelist handoff"
+echo "ok 19 domainWhitelist off/on/deduplicated; method/body guards; 502 hands back to Node"

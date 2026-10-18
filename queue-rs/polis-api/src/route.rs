@@ -40,6 +40,10 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub domain_whitelist_db: Option<Arc<Pool>>,
+    pub domain_whitelist_auth_db: Option<Arc<Pool>>,
+    pub domain_whitelist_served: AtomicU64,
+    pub domain_whitelist_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -78,6 +82,10 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            domain_whitelist_db: None,
+            domain_whitelist_auth_db: None,
+            domain_whitelist_served: AtomicU64::new(0),
+            domain_whitelist_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -628,6 +636,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
+    if req.path() == crate::domain_whitelist::PATH {
+        if out.status == 502 {
+            app.domain_whitelist_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.domain_whitelist_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -719,6 +735,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::domain_whitelist::PATH
+        && crate::domain_whitelist::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::contexts::PATH && crate::contexts::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -823,6 +844,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::domain_whitelist::PATH {
+        return crate::domain_whitelist::handle(app, req, res).await;
     }
     if req.path() == crate::comments::PATH {
         return crate::comments::handle(app, req, &body, res).await;
@@ -1409,6 +1433,61 @@ mod tests {
         }
         assert_eq!(state.contexts_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.contexts_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn domain_whitelist_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::domain_whitelist::PATH.into();
+            req
+        };
+        assert!(state.domain_whitelist_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().domain_whitelist_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.domain_whitelist_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.domain_whitelist_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().domain_whitelist_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn domain_whitelist_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().domain_whitelist_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::domain_whitelist::PATH, vec![]),
+            ("OPTIONS", crate::domain_whitelist::PATH, vec![]),
+            ("GET", "/api/v3/domainWhitelist?unknown=1", vec![]),
+            (
+                "GET",
+                crate::domain_whitelist::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::domain_whitelist::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::domain_whitelist::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.domain_whitelist_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.domain_whitelist_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]
