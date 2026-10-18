@@ -7,14 +7,22 @@
     "conditional": {
       "bodyTick": null,
       "contentEncoding": "identity",
+      "etag": "\"rustproto-0\"",
       "n": null,
       "status": 304
+    },
+    "legacyConditional": {
+      "bodyTick": 0,
+      "contentEncoding": "gzip",
+      "etag": "\"rustproto-0\"",
+      "n": 6,
+      "status": 200
     },
     "pgTickType": "string",
     "subset": {
       "bodyTick": 0,
       "contentEncoding": "identity",
-      "etag": "\"0\"",
+      "etag": "\"rustproto-0\"",
       "n": 6,
       "status": 200
     },
@@ -22,7 +30,7 @@
     "whole": {
       "bodyTick": 0,
       "contentEncoding": "gzip",
-      "etag": "\"0\"",
+      "etag": "\"rustproto-0\"",
       "n": 6,
       "status": 200
     }

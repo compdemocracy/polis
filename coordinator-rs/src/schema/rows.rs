@@ -177,6 +177,240 @@ row! {
 }
 
 row! {
+    DelphiArtifactsRow, "delphi_artifacts", "server/postgres/migrations/000027_create_sealed_job_graphs.sql:75";
+    env: String => ("env", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:76"),
+    artifact_id: PgUuid => ("artifact_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:76"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:76"),
+    run_id: PgUuid => ("run_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:77"),
+    attempt_id: PgUuid => ("attempt_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:77"),
+    output_role: String => ("output_role", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:77"),
+    schema_version: String => ("schema_version", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:78"),
+    payload: String => ("payload", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:78"),
+    content_sha: String => ("content_sha", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:79"),
+    byte_count: i32 => ("byte_count", "int4", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:80"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:80"),
+}
+
+row! {
+    DelphiCommentEmbeddingsRow, "delphi_comment_embeddings", "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:63";
+    env: String => ("env", "text", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:64"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:65"),
+    model_id: i16 => ("model_id", "int2", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:66"),
+    tid: i32 => ("tid", "int4", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:67"),
+    seq: i64 => ("seq", "int8", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:68"),
+    text_sha: Vec<u8> => ("text_sha", "bytea", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:69"),
+    embedding: Vec<Option<PgFloat4>> => ("embedding", "_float4", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:70"),
+    batch_id: PgUuid => ("batch_id", "uuid", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:73"),
+}
+
+row! {
+    DelphiCurrentRow, "delphi_current", "server/postgres/migrations/000023_create_delphi_foundation.sql:265";
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:266"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:266"),
+    scope: String => ("scope", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:267"),
+    job_id: Option<PgUuid> => ("job_id", "uuid", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:268"),
+    requested_generation: i64 => ("requested_generation", "int8", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:268"),
+    published_generation: i64 => ("published_generation", "int8", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:269"),
+}
+
+row! {
+    DelphiEmbeddingModelsRow, "delphi_embedding_models", "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:49";
+    model_id: i16 => ("model_id", "int2", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:50"),
+    name: String => ("name", "text", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:51"),
+    dims: i16 => ("dims", "int2", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:52"),
+}
+
+row! {
+    DelphiEmbeddingSetsRow, "delphi_embedding_sets", "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:86";
+    env: String => ("env", "text", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:87"),
+    batch_id: PgUuid => ("batch_id", "uuid", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:87"),
+    model_id: i16 => ("model_id", "int2", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:88"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:89"),
+    seq_mark: i64 => ("seq_mark", "int8", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:90"),
+    row_count: i32 => ("row_count", "int4", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:91"),
+    max_tid: Option<i32> => ("max_tid", "int4", true, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:92"),
+    content_sha: String => ("content_sha", "text", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:93"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:94"),
+}
+
+row! {
+    DelphiFoundationInstallRow, "delphi_foundation_install", "server/postgres/migrations/000023_create_delphi_foundation.sql:819";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
+}
+
+row! {
+    DelphiGraphEdgesRow, "delphi_graph_edges", "server/postgres/migrations/000027_create_sealed_job_graphs.sql:88";
+    env: String => ("env", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"),
+    consumer: PgUuid => ("consumer", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"),
+    producer: PgUuid => ("producer", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"),
+    input_role: String => ("input_role", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"),
+    expected_sha: Option<String> => ("expected_sha", "text", true, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:90"),
+    artifact_id: Option<PgUuid> => ("artifact_id", "uuid", true, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:90"),
+}
+
+row! {
+    DelphiGraphInstallRow, "delphi_graph_install", "server/postgres/migrations/000027_create_sealed_job_graphs.sql:41";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:41"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:41"),
+}
+
+row! {
+    DelphiGraphNodesRow, "delphi_graph_nodes", "server/postgres/migrations/000027_create_sealed_job_graphs.sql:65";
+    env: String => ("env", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"),
+    graph_id: PgUuid => ("graph_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"),
+    run_id: PgUuid => ("run_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:67"),
+    node_key: String => ("node_key", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:67"),
+    declared: PgJson => ("declared", "jsonb", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:68"),
+    resolved: Option<PgJson> => ("resolved", "jsonb", true, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:68"),
+    resolved_sha: Option<String> => ("resolved_sha", "text", true, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:68"),
+}
+
+row! {
+    DelphiGraphServedRow, "delphi_graph_served", "server/postgres/migrations/000027_create_sealed_job_graphs.sql:97";
+    env: String => ("env", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:98"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:98"),
+    scope_key: String => ("scope_key", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:98"),
+    generation: i64 => ("generation", "int8", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:99"),
+    artifact_id: PgUuid => ("artifact_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:99"),
+}
+
+row! {
+    DelphiGraphsRow, "delphi_graphs", "server/postgres/migrations/000027_create_sealed_job_graphs.sql:57";
+    env: String => ("env", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:58"),
+    graph_id: PgUuid => ("graph_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:58"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:58"),
+    scope_key: String => ("scope_key", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:59"),
+    request_key: String => ("request_key", "text", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:59"),
+    request: PgJson => ("request", "jsonb", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:60"),
+    root_job_id: PgUuid => ("root_job_id", "uuid", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:60"),
+    sealed: bool => ("sealed", "bool", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:60"),
+    supersedes: Option<PgUuid> => ("supersedes", "uuid", true, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:61"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000027_create_sealed_job_graphs.sql:61"),
+}
+
+row! {
+    DelphiJobAliasesRow, "delphi_job_aliases", "server/postgres/migrations/000023_create_delphi_foundation.sql:249";
+    public_id: String => ("public_id", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:250"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:251"),
+    source: String => ("source", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:252"),
+}
+
+row! {
+    DelphiJobGuardsRow, "delphi_job_guards", "server/postgres/migrations/000023_create_delphi_foundation.sql:275";
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:276"),
+    scope_key: String => ("scope_key", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:276"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:276"),
+    root_job_id: PgUuid => ("root_job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:277"),
+    request_sha256: String => ("request_sha256", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:277"),
+}
+
+row! {
+    DelphiJobInputsRow, "delphi_job_inputs", "server/postgres/migrations/000023_create_delphi_foundation.sql:255";
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:256"),
+    consumer_job_id: PgUuid => ("consumer_job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:256"),
+    input_role: String => ("input_role", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:257"),
+    ordinal: i32 => ("ordinal", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:257"),
+    producer_job_id: PgUuid => ("producer_job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:258"),
+    producer_output_digest: Vec<u8> => ("producer_output_digest", "bytea", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:258"),
+}
+
+row! {
+    DelphiJobsRow, "delphi_jobs", "server/postgres/migrations/000023_create_delphi_foundation.sql:221";
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:222"),
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:222"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:223"),
+    report_id: Option<String> => ("report_id", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:223"),
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:224"),
+    parent_job_id: Option<PgUuid> => ("parent_job_id", "uuid", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:226"),
+    run_id: Option<PgUuid> => ("run_id", "uuid", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:226"),
+    origin: String => ("origin", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:227"),
+    replayable: bool => ("replayable", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:228"),
+    reuse_eligible: bool => ("reuse_eligible", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:228"),
+    status: String => ("status", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:229"),
+    inputs_digest: Option<Vec<u8>> => ("inputs_digest", "bytea", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:230"),
+    math_env: Option<String> => ("math_env", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:230"),
+    math_tick: Option<i64> => ("math_tick", "int8", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:230"),
+    math_caching_tick: Option<i64> => ("math_caching_tick", "int8", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:231"),
+    math_snapshot_key: Option<Vec<u8>> => ("math_snapshot_key", "bytea", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:231"),
+    config_effective: PgJson => ("config_effective", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:232"),
+    code_version: Option<String> => ("code_version", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:233"),
+    model_versions: PgJson => ("model_versions", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:233"),
+    cost: PgJson => ("cost", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:234"),
+    output_manifest_digest: Option<Vec<u8>> => ("output_manifest_digest", "bytea", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:235"),
+    pinned: bool => ("pinned", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:236"),
+    label: Option<String> => ("label", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:236"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:237"),
+    completed_at: Option<PgTimestamp> => ("completed_at", "timestamptz", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:237"),
+    error: Option<String> => ("error", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:237"),
+}
+
+row! {
+    DelphiProviderRequestsRow, "delphi_provider_requests", "server/postgres/migrations/000023_create_delphi_foundation.sql:280";
+    request_id: PgUuid => ("request_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    attempt_id: PgUuid => ("attempt_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
+    provider: String => ("provider", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:282"),
+    provider_batch_id: Option<String> => ("provider_batch_id", "text", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:282"),
+    state: String => ("state", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:283"),
+    request_digest: Vec<u8> => ("request_digest", "bytea", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:284"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:285"),
+    updated_at: PgTimestamp => ("updated_at", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:285"),
+}
+
+row! {
+    DelphiResultBatchesRow, "delphi_result_batches", "server/postgres/migrations/000028_create_delphi_results.sql:28";
+    env: String => ("env", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:29"),
+    batch_id: PgUuid => ("batch_id", "uuid", false, "server/postgres/migrations/000028_create_delphi_results.sql:29"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000028_create_delphi_results.sql:29"),
+    run_id: PgUuid => ("run_id", "uuid", false, "server/postgres/migrations/000028_create_delphi_results.sql:29"),
+    sealed_sha: Option<String> => ("sealed_sha", "text", true, "server/postgres/migrations/000028_create_delphi_results.sql:30"),
+    artifact_id: Option<PgUuid> => ("artifact_id", "uuid", true, "server/postgres/migrations/000028_create_delphi_results.sql:30"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000028_create_delphi_results.sql:30"),
+}
+
+row! {
+    DelphiResultCatalogRow, "delphi_result_catalog", "server/postgres/migrations/000028_create_delphi_results.sql:8";
+    family: String => ("family", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:8"),
+    key_spec: PgJson => ("key_spec", "jsonb", false, "server/postgres/migrations/000028_create_delphi_results.sql:8"),
+}
+
+row! {
+    DelphiResultFamiliesRow, "delphi_result_families", "server/postgres/migrations/000028_create_delphi_results.sql:36";
+    env: String => ("env", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:37"),
+    batch_id: PgUuid => ("batch_id", "uuid", false, "server/postgres/migrations/000028_create_delphi_results.sql:37"),
+    family: String => ("family", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:37"),
+    codec_wire: String => ("codec_wire", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:38"),
+    content_sha: String => ("content_sha", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:38"),
+    row_count: i32 => ("row_count", "int4", false, "server/postgres/migrations/000028_create_delphi_results.sql:38"),
+}
+
+row! {
+    DelphiResultRowsRow, "delphi_result_rows", "server/postgres/migrations/000028_create_delphi_results.sql:42";
+    env: String => ("env", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:43"),
+    batch_id: PgUuid => ("batch_id", "uuid", false, "server/postgres/migrations/000028_create_delphi_results.sql:43"),
+    family: String => ("family", "text", false, "server/postgres/migrations/000028_create_delphi_results.sql:43"),
+    item_key: PgJson => ("item_key", "jsonb", false, "server/postgres/migrations/000028_create_delphi_results.sql:43"),
+    ordinal: i32 => ("ordinal", "int4", false, "server/postgres/migrations/000028_create_delphi_results.sql:44"),
+    item: PgJson => ("item", "jsonb", false, "server/postgres/migrations/000028_create_delphi_results.sql:44"),
+}
+
+row! {
+    DelphiWriterRunsRow, "delphi_writer_runs", "server/postgres/migrations/000030_create_delphi_writers.sql:7";
+    env: String => ("env", "text", false, "server/postgres/migrations/000030_create_delphi_writers.sql:8"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000030_create_delphi_writers.sql:8"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000030_create_delphi_writers.sql:8"),
+    scope_key: String => ("scope_key", "text", false, "server/postgres/migrations/000030_create_delphi_writers.sql:8"),
+    base_generation: i64 => ("base_generation", "int8", false, "server/postgres/migrations/000030_create_delphi_writers.sql:9"),
+    base_artifact: Option<PgUuid> => ("base_artifact", "uuid", true, "server/postgres/migrations/000030_create_delphi_writers.sql:9"),
+    actor: String => ("actor", "text", false, "server/postgres/migrations/000030_create_delphi_writers.sql:9"),
+}
+
+row! {
     DemographicDataRow, "demographic_data", "server/postgres/migrations/000000_initial.sql:949";
     uid: Option<i32> => ("uid", "int4", true, "server/postgres/migrations/000000_initial.sql:950"),
     fb_gender: Option<i32> => ("fb_gender", "int4", true, "server/postgres/migrations/000000_initial.sql:951"),
@@ -620,6 +854,7 @@ row! {
     outcome: String => ("outcome", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:302"),
     error_code: Option<String> => ("error_code", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:303"),
     output_sha256: Option<String> => ("output_sha256", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:303"),
+    process_exit_confirmed_at: Option<PgTimestamp> => ("process_exit_confirmed_at", "timestamptz", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:217"),
 }
 
 row! {
@@ -643,6 +878,7 @@ row! {
     added_grants: PgJson => ("added_grants", "jsonb", false, "server/postgres/migrations/000019_create_polis_queue.sql:336"),
     applied_at: PgTimestamp => ("applied_at", "timestamptz", false, "server/postgres/migrations/000019_create_polis_queue.sql:337"),
     catalog_fingerprint: String => ("catalog_fingerprint", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:338"),
+    contract_version: String => ("contract_version", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:205"),
 }
 
 row! {
@@ -670,6 +906,24 @@ row! {
     first_parked_at: Option<PgTimestamp> => ("first_parked_at", "timestamptz", true, "server/postgres/migrations/000019_create_polis_queue.sql:291"),
     last_error_code: Option<String> => ("last_error_code", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:292"),
     output_sha256: Option<String> => ("output_sha256", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:292"),
+    worker_class: String => ("worker_class", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:213"),
+}
+
+row! {
+    PolisQueueLargeClassInstallRow, "polis_queue_large_class_install", "server/postgres/migrations/000024_create_polis_queue_large_class.sql:368";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+}
+
+row! {
+    PolisQueueLogsRow, "polis_queue_logs", "server/postgres/migrations/000023_create_delphi_foundation.sql:292";
+    env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
+    attempt_id: PgUuid => ("attempt_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
+    seq: i64 => ("seq", "int8", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
+    ts: PgTimestamp => ("ts", "timestamptz", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:294"),
+    stream: String => ("stream", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:295"),
+    line: String => ("line", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:296"),
 }
 
 row! {
@@ -682,6 +936,7 @@ row! {
     run_id: PgUuid => ("run_id", "uuid", false, "server/postgres/migrations/000019_create_polis_queue.sql:310"),
     job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000019_create_polis_queue.sql:310"),
     created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000019_create_polis_queue.sql:310"),
+    binding_expires_at: Option<PgTimestamp> => ("binding_expires_at", "timestamptz", true, "server/postgres/migrations/000023_create_delphi_foundation.sql:219"),
 }
 
 row! {
@@ -1014,6 +1269,132 @@ pub const TABLES: &[Table] = &[
         decode: decode::<CrowdModRow>,
     },
     Table {
+        name: "delphi_artifacts",
+        columns: DelphiArtifactsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiArtifactsRow>,
+        decode: decode::<DelphiArtifactsRow>,
+    },
+    Table {
+        name: "delphi_comment_embeddings",
+        columns: DelphiCommentEmbeddingsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiCommentEmbeddingsRow>,
+        decode: decode::<DelphiCommentEmbeddingsRow>,
+    },
+    Table {
+        name: "delphi_current",
+        columns: DelphiCurrentRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiCurrentRow>,
+        decode: decode::<DelphiCurrentRow>,
+    },
+    Table {
+        name: "delphi_embedding_models",
+        columns: DelphiEmbeddingModelsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiEmbeddingModelsRow>,
+        decode: decode::<DelphiEmbeddingModelsRow>,
+    },
+    Table {
+        name: "delphi_embedding_sets",
+        columns: DelphiEmbeddingSetsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiEmbeddingSetsRow>,
+        decode: decode::<DelphiEmbeddingSetsRow>,
+    },
+    Table {
+        name: "delphi_foundation_install",
+        columns: DelphiFoundationInstallRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiFoundationInstallRow>,
+        decode: decode::<DelphiFoundationInstallRow>,
+    },
+    Table {
+        name: "delphi_graph_edges",
+        columns: DelphiGraphEdgesRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiGraphEdgesRow>,
+        decode: decode::<DelphiGraphEdgesRow>,
+    },
+    Table {
+        name: "delphi_graph_install",
+        columns: DelphiGraphInstallRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiGraphInstallRow>,
+        decode: decode::<DelphiGraphInstallRow>,
+    },
+    Table {
+        name: "delphi_graph_nodes",
+        columns: DelphiGraphNodesRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiGraphNodesRow>,
+        decode: decode::<DelphiGraphNodesRow>,
+    },
+    Table {
+        name: "delphi_graph_served",
+        columns: DelphiGraphServedRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiGraphServedRow>,
+        decode: decode::<DelphiGraphServedRow>,
+    },
+    Table {
+        name: "delphi_graphs",
+        columns: DelphiGraphsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiGraphsRow>,
+        decode: decode::<DelphiGraphsRow>,
+    },
+    Table {
+        name: "delphi_job_aliases",
+        columns: DelphiJobAliasesRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobAliasesRow>,
+        decode: decode::<DelphiJobAliasesRow>,
+    },
+    Table {
+        name: "delphi_job_guards",
+        columns: DelphiJobGuardsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobGuardsRow>,
+        decode: decode::<DelphiJobGuardsRow>,
+    },
+    Table {
+        name: "delphi_job_inputs",
+        columns: DelphiJobInputsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobInputsRow>,
+        decode: decode::<DelphiJobInputsRow>,
+    },
+    Table {
+        name: "delphi_jobs",
+        columns: DelphiJobsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiJobsRow>,
+        decode: decode::<DelphiJobsRow>,
+    },
+    Table {
+        name: "delphi_provider_requests",
+        columns: DelphiProviderRequestsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiProviderRequestsRow>,
+        decode: decode::<DelphiProviderRequestsRow>,
+    },
+    Table {
+        name: "delphi_result_batches",
+        columns: DelphiResultBatchesRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiResultBatchesRow>,
+        decode: decode::<DelphiResultBatchesRow>,
+    },
+    Table {
+        name: "delphi_result_catalog",
+        columns: DelphiResultCatalogRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiResultCatalogRow>,
+        decode: decode::<DelphiResultCatalogRow>,
+    },
+    Table {
+        name: "delphi_result_families",
+        columns: DelphiResultFamiliesRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiResultFamiliesRow>,
+        decode: decode::<DelphiResultFamiliesRow>,
+    },
+    Table {
+        name: "delphi_result_rows",
+        columns: DelphiResultRowsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiResultRowsRow>,
+        decode: decode::<DelphiResultRowsRow>,
+    },
+    Table {
+        name: "delphi_writer_runs",
+        columns: DelphiWriterRunsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiWriterRunsRow>,
+        decode: decode::<DelphiWriterRunsRow>,
+    },
+    Table {
         name: "demographic_data",
         columns: DemographicDataRow::COLUMNS,
         roundtrip: roundtrip::<DemographicDataRow>,
@@ -1306,6 +1687,18 @@ pub const TABLES: &[Table] = &[
         columns: PolisQueueJobsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueJobsRow>,
         decode: decode::<PolisQueueJobsRow>,
+    },
+    Table {
+        name: "polis_queue_large_class_install",
+        columns: PolisQueueLargeClassInstallRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueLargeClassInstallRow>,
+        decode: decode::<PolisQueueLargeClassInstallRow>,
+    },
+    Table {
+        name: "polis_queue_logs",
+        columns: PolisQueueLogsRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueLogsRow>,
+        decode: decode::<PolisQueueLogsRow>,
     },
     Table {
         name: "polis_queue_requests",

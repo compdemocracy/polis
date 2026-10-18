@@ -1724,6 +1724,2736 @@
       "constraints": []
     },
     {
+      "table": "delphi_artifacts",
+      "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:75",
+      "columns": [
+        {
+          "table": "delphi_artifacts",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:76"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "artifact_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": "gen_random_uuid()",
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:76"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:76"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "run_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:77"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "attempt_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:77"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "output_role",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:77"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "schema_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:78"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "payload",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:78"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "content_sha",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:79"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "byte_count",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 10,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:80"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 11,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:80"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_env_job_id_output_role_key",
+          "definition": "CREATE UNIQUE INDEX delphi_artifacts_env_job_id_output_role_key ON public.delphi_artifacts USING btree (env, job_id, output_role)"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_artifacts_pkey ON public.delphi_artifacts USING btree (env, artifact_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_byte_count_check",
+          "definition": "CHECK ((byte_count >= 0))"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_check",
+          "definition": "CHECK ((content_sha = encode(sha256(convert_to(payload, 'UTF8'::name)), 'hex'::text)))"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_check1",
+          "definition": "CHECK ((byte_count = octet_length(payload)))"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_content_sha_check",
+          "definition": "CHECK ((content_sha ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_env_job_id_attempt_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id, attempt_id) REFERENCES polis_queue_attempts(env, job_id, attempt_id)"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_env_job_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id) REFERENCES delphi_graph_nodes(env, job_id)"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_env_job_id_output_role_key",
+          "definition": "UNIQUE (env, job_id, output_role)"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_env_job_id_run_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id, run_id) REFERENCES delphi_graph_nodes(env, job_id, run_id)"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_output_role_check",
+          "definition": "CHECK ((output_role = 'result'::text))"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_payload_check",
+          "definition": "CHECK ((octet_length(payload) <= 524288))"
+        },
+        {
+          "table": "delphi_artifacts",
+          "name": "delphi_artifacts_pkey",
+          "definition": "PRIMARY KEY (env, artifact_id)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_comment_embeddings",
+      "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:63",
+      "columns": [
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:64"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:65"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "model_id",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:66"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "tid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:67"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "seq",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:68"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "text_sha",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:69"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "embedding",
+          "sql_type": "ARRAY",
+          "udt": "_float4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "real[]",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:70"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "batch_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:73"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_env_zid_model_id_seq_key",
+          "definition": "CREATE UNIQUE INDEX delphi_comment_embeddings_env_zid_model_id_seq_key ON public.delphi_comment_embeddings USING btree (env, zid, model_id, seq)"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_comment_embeddings_pkey ON public.delphi_comment_embeddings USING btree (env, zid, model_id, tid)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_embedding_check",
+          "definition": "CHECK (((array_ndims(embedding) = 1) AND (array_lower(embedding, 1) = 1) AND ((cardinality(embedding) >= 1) AND (cardinality(embedding) <= 2000)) AND (array_position(embedding, NULL::real) IS NULL) AND (NOT (embedding && ARRAY['NaN'::real, 'Infinity'::real, '-Infinity'::real]))))"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_env_zid_model_id_seq_key",
+          "definition": "UNIQUE (env, zid, model_id, seq)"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_model_id_fkey",
+          "definition": "FOREIGN KEY (model_id) REFERENCES delphi_embedding_models(model_id)"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_pkey",
+          "definition": "PRIMARY KEY (env, zid, model_id, tid)"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_text_sha_check",
+          "definition": "CHECK ((octet_length(text_sha) = 32))"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_tid_check",
+          "definition": "CHECK ((tid >= 0))"
+        },
+        {
+          "table": "delphi_comment_embeddings",
+          "name": "delphi_comment_embeddings_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_current",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:265",
+      "columns": [
+        {
+          "table": "delphi_current",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:266"
+        },
+        {
+          "table": "delphi_current",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:266"
+        },
+        {
+          "table": "delphi_current",
+          "name": "scope",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:267"
+        },
+        {
+          "table": "delphi_current",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:268"
+        },
+        {
+          "table": "delphi_current",
+          "name": "requested_generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 5,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:268"
+        },
+        {
+          "table": "delphi_current",
+          "name": "published_generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 6,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:269"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_current_pkey ON public.delphi_current USING btree (env, zid, scope)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_check",
+          "definition": "CHECK ((published_generation <= requested_generation))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_check1",
+          "definition": "CHECK (((job_id IS NOT NULL) OR (published_generation = 0)))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_env_zid_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, job_id) REFERENCES delphi_jobs(env, zid, job_id) ON DELETE RESTRICT"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_pkey",
+          "definition": "PRIMARY KEY (env, zid, scope)"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_published_generation_check",
+          "definition": "CHECK ((published_generation >= 0))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_requested_generation_check",
+          "definition": "CHECK ((requested_generation >= 0))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_scope_check",
+          "definition": "CHECK (((scope = 'pipeline'::text) OR (scope ~ '^narrative:.+'::text)))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_embedding_models",
+      "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:49",
+      "columns": [
+        {
+          "table": "delphi_embedding_models",
+          "name": "model_id",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:50"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "name",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:51"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "dims",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:52"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_name_key",
+          "definition": "CREATE UNIQUE INDEX delphi_embedding_models_name_key ON public.delphi_embedding_models USING btree (name)"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_embedding_models_pkey ON public.delphi_embedding_models USING btree (model_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_dims_check",
+          "definition": "CHECK (((dims >= 1) AND (dims <= 2000)))"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_model_id_check",
+          "definition": "CHECK ((model_id > 0))"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_name_check",
+          "definition": "CHECK (((length(name) >= 1) AND (length(name) <= 200)))"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_name_key",
+          "definition": "UNIQUE (name)"
+        },
+        {
+          "table": "delphi_embedding_models",
+          "name": "delphi_embedding_models_pkey",
+          "definition": "PRIMARY KEY (model_id)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_embedding_sets",
+      "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:86",
+      "columns": [
+        {
+          "table": "delphi_embedding_sets",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:87"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "batch_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:87"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "model_id",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:88"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:89"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "seq_mark",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:90"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "row_count",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:91"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "max_tid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:92"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "content_sha",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:93"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 9,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql:94"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_embedding_sets_pkey ON public.delphi_embedding_sets USING btree (env, batch_id, model_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_check",
+          "definition": "CHECK (((row_count = 0) = (max_tid IS NULL)))"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_content_sha_check",
+          "definition": "CHECK ((content_sha ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_env_batch_id_fkey",
+          "definition": "FOREIGN KEY (env, batch_id) REFERENCES delphi_result_batches(env, batch_id)"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_max_tid_check",
+          "definition": "CHECK ((max_tid >= 0))"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_model_id_fkey",
+          "definition": "FOREIGN KEY (model_id) REFERENCES delphi_embedding_models(model_id)"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_pkey",
+          "definition": "PRIMARY KEY (env, batch_id, model_id)"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_row_count_check",
+          "definition": "CHECK ((row_count >= 0))"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_seq_mark_check",
+          "definition": "CHECK ((seq_mark >= 0))"
+        },
+        {
+          "table": "delphi_embedding_sets",
+          "name": "delphi_embedding_sets_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_foundation_install",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:819",
+      "columns": [
+        {
+          "table": "delphi_foundation_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:820"
+        },
+        {
+          "table": "delphi_foundation_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:820"
+        },
+        {
+          "table": "delphi_foundation_install",
+          "name": "installed",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:820"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_foundation_install",
+          "name": "delphi_foundation_install_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_foundation_install_pkey ON public.delphi_foundation_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_foundation_install",
+          "name": "delphi_foundation_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "delphi_foundation_install",
+          "name": "delphi_foundation_install_singleton_check",
+          "definition": "CHECK (singleton)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_graph_edges",
+      "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:88",
+      "columns": [
+        {
+          "table": "delphi_graph_edges",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "consumer",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "producer",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "input_role",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:89"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "expected_sha",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:90"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "artifact_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:90"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_edges_pkey ON public.delphi_graph_edges USING btree (env, consumer, input_role)"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_producer",
+          "definition": "CREATE INDEX delphi_graph_edges_producer ON public.delphi_graph_edges USING btree (env, producer)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_check",
+          "definition": "CHECK ((consumer <> producer))"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_env_artifact_id_fkey",
+          "definition": "FOREIGN KEY (env, artifact_id) REFERENCES delphi_artifacts(env, artifact_id)"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_env_consumer_fkey",
+          "definition": "FOREIGN KEY (env, consumer) REFERENCES delphi_graph_nodes(env, job_id)"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_env_producer_fkey",
+          "definition": "FOREIGN KEY (env, producer) REFERENCES delphi_graph_nodes(env, job_id)"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_expected_sha_check",
+          "definition": "CHECK ((expected_sha ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_graph_edges",
+          "name": "delphi_graph_edges_pkey",
+          "definition": "PRIMARY KEY (env, consumer, input_role)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_graph_install",
+      "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:41",
+      "columns": [
+        {
+          "table": "delphi_graph_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:41"
+        },
+        {
+          "table": "delphi_graph_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:41"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_graph_install",
+          "name": "delphi_graph_install_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_install_pkey ON public.delphi_graph_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_graph_install",
+          "name": "delphi_graph_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "delphi_graph_install",
+          "name": "delphi_graph_install_singleton_check",
+          "definition": "CHECK (singleton)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_graph_nodes",
+      "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:65",
+      "columns": [
+        {
+          "table": "delphi_graph_nodes",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "graph_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:66"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "run_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:67"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "node_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:67"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "declared",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:68"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "resolved",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:68"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "resolved_sha",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:68"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_graph_id_node_key_key",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_nodes_env_graph_id_node_key_key ON public.delphi_graph_nodes USING btree (env, graph_id, node_key)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_job_id_run_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_nodes_env_job_id_run_id_key ON public.delphi_graph_nodes USING btree (env, job_id, run_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_run_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_nodes_env_run_id_key ON public.delphi_graph_nodes USING btree (env, run_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_nodes_pkey ON public.delphi_graph_nodes USING btree (env, job_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_check",
+          "definition": "CHECK (((resolved IS NULL) = (resolved_sha IS NULL)))"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_graph_id_node_key_key",
+          "definition": "UNIQUE (env, graph_id, node_key)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_job_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id) REFERENCES delphi_jobs(env, job_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_job_id_run_id_key",
+          "definition": "UNIQUE (env, job_id, run_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_run_id_fkey",
+          "definition": "FOREIGN KEY (env, run_id) REFERENCES polis_queue_runs(env, run_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_run_id_key",
+          "definition": "UNIQUE (env, run_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_env_zid_graph_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, graph_id) REFERENCES delphi_graphs(env, zid, graph_id)"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_node_key_check",
+          "definition": "CHECK ((node_key ~ '^[a-z][a-z0-9_]{0,31}$'::text))"
+        },
+        {
+          "table": "delphi_graph_nodes",
+          "name": "delphi_graph_nodes_pkey",
+          "definition": "PRIMARY KEY (env, job_id)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_graph_served",
+      "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:97",
+      "columns": [
+        {
+          "table": "delphi_graph_served",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:98"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:98"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "scope_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:98"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:99"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "artifact_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:99"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_graph_served",
+          "name": "delphi_graph_served_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_graph_served_pkey ON public.delphi_graph_served USING btree (env, zid, scope_key)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_graph_served",
+          "name": "delphi_graph_served_env_artifact_id_fkey",
+          "definition": "FOREIGN KEY (env, artifact_id) REFERENCES delphi_artifacts(env, artifact_id)"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "delphi_graph_served_generation_check",
+          "definition": "CHECK ((generation > 0))"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "delphi_graph_served_pkey",
+          "definition": "PRIMARY KEY (env, zid, scope_key)"
+        },
+        {
+          "table": "delphi_graph_served",
+          "name": "delphi_graph_served_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_graphs",
+      "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:57",
+      "columns": [
+        {
+          "table": "delphi_graphs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:58"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "graph_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:58"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:58"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "scope_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:59"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "request_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:59"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "request",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:60"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "root_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:60"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "sealed",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 8,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:60"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "supersedes",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:61"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 10,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000027_create_sealed_job_graphs.sql:61"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_env_scope_key_request_key_key",
+          "definition": "CREATE UNIQUE INDEX delphi_graphs_env_scope_key_request_key_key ON public.delphi_graphs USING btree (env, scope_key, request_key)"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_env_zid_graph_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_graphs_env_zid_graph_id_key ON public.delphi_graphs USING btree (env, zid, graph_id)"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_graphs_pkey ON public.delphi_graphs USING btree (env, graph_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_env_scope_key_request_key_key",
+          "definition": "UNIQUE (env, scope_key, request_key)"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_env_supersedes_fkey",
+          "definition": "FOREIGN KEY (env, supersedes) REFERENCES delphi_graphs(env, graph_id)"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_env_zid_graph_id_key",
+          "definition": "UNIQUE (env, zid, graph_id)"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_pkey",
+          "definition": "PRIMARY KEY (env, graph_id)"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_scope_key_check",
+          "definition": "CHECK (((length(scope_key) >= 1) AND (length(scope_key) <= 128)))"
+        },
+        {
+          "table": "delphi_graphs",
+          "name": "delphi_graphs_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_job_aliases",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:249",
+      "columns": [
+        {
+          "table": "delphi_job_aliases",
+          "name": "public_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:250"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:251"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "source",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:252"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_job_aliases_pkey ON public.delphi_job_aliases USING btree (public_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_job_id_fkey",
+          "definition": "FOREIGN KEY (job_id) REFERENCES delphi_jobs(job_id) ON DELETE RESTRICT"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_pkey",
+          "definition": "PRIMARY KEY (public_id)"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_public_id_check",
+          "definition": "CHECK (((length(public_id) >= 1) AND (length(public_id) <= 512)))"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_public_id_check1",
+          "definition": "CHECK ((public_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text))"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_source_check",
+          "definition": "CHECK ((source <> ''::text))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_job_guards",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:275",
+      "columns": [
+        {
+          "table": "delphi_job_guards",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:276"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "scope_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:276"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:276"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "root_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:277"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "request_sha256",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:277"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_job_guards_pkey ON public.delphi_job_guards USING btree (env, scope_key)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_env_zid_root_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, root_job_id) REFERENCES delphi_jobs(env, zid, job_id)"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_pkey",
+          "definition": "PRIMARY KEY (env, scope_key)"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_request_sha256_check",
+          "definition": "CHECK ((request_sha256 ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_scope_key_check",
+          "definition": "CHECK ((scope_key <> ''::text))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_job_inputs",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:255",
+      "columns": [
+        {
+          "table": "delphi_job_inputs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:256"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "consumer_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:256"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "input_role",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:257"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "ordinal",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:257"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "producer_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:258"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "producer_output_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:258"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_job_inputs_pkey ON public.delphi_job_inputs USING btree (zid, consumer_job_id, input_role, ordinal)"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_producer",
+          "definition": "CREATE INDEX delphi_job_inputs_producer ON public.delphi_job_inputs USING btree (zid, producer_job_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_check",
+          "definition": "CHECK ((consumer_job_id <> producer_job_id))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_input_role_check",
+          "definition": "CHECK ((input_role <> ''::text))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_ordinal_check",
+          "definition": "CHECK ((ordinal >= 0))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_pkey",
+          "definition": "PRIMARY KEY (zid, consumer_job_id, input_role, ordinal)"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_producer_output_digest_check",
+          "definition": "CHECK ((octet_length(producer_output_digest) = 32))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_zid_consumer_job_id_fkey",
+          "definition": "FOREIGN KEY (zid, consumer_job_id) REFERENCES delphi_jobs(zid, job_id) ON DELETE CASCADE"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_zid_producer_job_id_fkey",
+          "definition": "FOREIGN KEY (zid, producer_job_id) REFERENCES delphi_jobs(zid, job_id) ON DELETE RESTRICT"
+        }
+      ]
+    },
+    {
+      "table": "delphi_jobs",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:221",
+      "columns": [
+        {
+          "table": "delphi_jobs",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:222"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:222"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:223"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "report_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:223"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "kind",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:224"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "parent_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:226"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "run_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:226"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "origin",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:227"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "replayable",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 9,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:228"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "reuse_eligible",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 10,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:228"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "status",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 11,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:229"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "inputs_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 12,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:230"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 13,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:230"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_tick",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 14,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:230"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_caching_tick",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 15,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:231"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_snapshot_key",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 16,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:231"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "config_effective",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 17,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:232"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "code_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 18,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:233"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "model_versions",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 19,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:233"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "cost",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 20,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:234"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "output_manifest_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 21,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:235"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "pinned",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 22,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:236"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "label",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 23,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:236"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 24,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:237"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "completed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 25,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:237"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "error",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 26,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:237"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_job_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_env_job_id_key ON public.delphi_jobs USING btree (env, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_job_text",
+          "definition": "CREATE INDEX delphi_jobs_env_job_text ON public.delphi_jobs USING btree (env, ((job_id)::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_job_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_env_zid_job_id_key ON public.delphi_jobs USING btree (env, zid, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_text",
+          "definition": "CREATE INDEX delphi_jobs_env_zid_text ON public.delphi_jobs USING btree (env, ((zid)::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_history",
+          "definition": "CREATE INDEX delphi_jobs_history ON public.delphi_jobs USING btree (env, zid, created_at, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_parent",
+          "definition": "CREATE INDEX delphi_jobs_parent ON public.delphi_jobs USING btree (parent_job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_pkey ON public.delphi_jobs USING btree (job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_zid_job_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_zid_job_id_key ON public.delphi_jobs USING btree (zid, job_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_check",
+          "definition": "CHECK ((parent_job_id IS DISTINCT FROM job_id))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_check1",
+          "definition": "CHECK (((origin <> 'legacy_import'::text) OR ((NOT replayable) AND (NOT reuse_eligible) AND (run_id IS NULL) AND (status = ANY (ARRAY['succeeded'::text, 'dead'::text, 'cancelled'::text])))))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_config_effective_check",
+          "definition": "CHECK ((jsonb_typeof(config_effective) = 'object'::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_cost_check",
+          "definition": "CHECK ((jsonb_typeof(cost) = 'object'::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_check",
+          "definition": "CHECK ((env <> ''::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_job_id_key",
+          "definition": "UNIQUE (env, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_run_id_fkey",
+          "definition": "FOREIGN KEY (env, run_id) REFERENCES polis_queue_runs(env, run_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_job_id_key",
+          "definition": "UNIQUE (env, zid, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_parent_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, parent_job_id) REFERENCES delphi_jobs(env, zid, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_inputs_digest_check",
+          "definition": "CHECK ((octet_length(inputs_digest) = 32))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_kind_check",
+          "definition": "CHECK ((kind = ANY (ARRAY['full_pipeline'::text, 'embed'::text, 'snapshot'::text, 'umap'::text, 'cluster'::text, 'keywords'::text, 'topics'::text, 'topic_name'::text, 'narrative'::text, 'collective_statement'::text, 'visualize'::text, 'math_rebuild'::text, 'legacy_import'::text, 'legacy_queue_record'::text])))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_math_snapshot_key_check",
+          "definition": "CHECK ((octet_length(math_snapshot_key) = 32))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_model_versions_check",
+          "definition": "CHECK ((jsonb_typeof(model_versions) = 'object'::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_origin_check",
+          "definition": "CHECK ((origin = ANY (ARRAY['queued'::text, 'legacy_import'::text])))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_output_manifest_digest_check",
+          "definition": "CHECK ((octet_length(output_manifest_digest) = 32))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_pkey",
+          "definition": "PRIMARY KEY (job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_status_check",
+          "definition": "CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'retry_wait'::text, 'parked'::text, 'succeeded'::text, 'dead'::text, 'cancelled'::text])))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_zid_job_id_key",
+          "definition": "UNIQUE (zid, job_id)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_provider_requests",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:280",
+      "columns": [
+        {
+          "table": "delphi_provider_requests",
+          "name": "request_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "attempt_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "provider",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:282"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "provider_batch_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:282"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "state",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:283"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "request_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:284"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 9,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:285"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "updated_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 10,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:285"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_open",
+          "definition": "CREATE INDEX delphi_provider_open ON public.delphi_provider_requests USING btree (env, job_id) WHERE (state = ANY (ARRAY['intent'::text, 'submission_unknown'::text, 'submitted'::text]))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_provider_requests_pkey ON public.delphi_provider_requests USING btree (request_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_provider_provider_batch_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_provider_requests_provider_provider_batch_id_key ON public.delphi_provider_requests USING btree (provider, provider_batch_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_check",
+          "definition": "CHECK (((state <> ALL (ARRAY['submitted'::text, 'completed'::text])) OR (provider_batch_id IS NOT NULL)))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_env_job_id_attempt_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id, attempt_id) REFERENCES polis_queue_attempts(env, job_id, attempt_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_env_job_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id) REFERENCES delphi_jobs(env, job_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_pkey",
+          "definition": "PRIMARY KEY (request_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_provider_check",
+          "definition": "CHECK ((provider <> ''::text))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_provider_provider_batch_id_key",
+          "definition": "UNIQUE (provider, provider_batch_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_request_digest_check",
+          "definition": "CHECK ((octet_length(request_digest) = 32))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_state_check",
+          "definition": "CHECK ((state = ANY (ARRAY['intent'::text, 'submission_unknown'::text, 'submitted'::text, 'completed'::text, 'failed'::text])))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_result_batches",
+      "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:28",
+      "columns": [
+        {
+          "table": "delphi_result_batches",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:29"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "batch_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:29"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:29"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "run_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:29"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "sealed_sha",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:30"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "artifact_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:30"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 7,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:30"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_env_artifact_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_result_batches_env_artifact_id_key ON public.delphi_result_batches USING btree (env, artifact_id)"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_result_batches_pkey ON public.delphi_result_batches USING btree (env, batch_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_env_artifact_id_fkey",
+          "definition": "FOREIGN KEY (env, artifact_id) REFERENCES delphi_artifacts(env, artifact_id)"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_env_artifact_id_key",
+          "definition": "UNIQUE (env, artifact_id)"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_env_job_id_batch_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id, batch_id) REFERENCES polis_queue_attempts(env, job_id, attempt_id)"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_env_job_id_run_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id, run_id) REFERENCES delphi_graph_nodes(env, job_id, run_id)"
+        },
+        {
+          "table": "delphi_result_batches",
+          "name": "delphi_result_batches_pkey",
+          "definition": "PRIMARY KEY (env, batch_id)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_result_catalog",
+      "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:8",
+      "columns": [
+        {
+          "table": "delphi_result_catalog",
+          "name": "family",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:8"
+        },
+        {
+          "table": "delphi_result_catalog",
+          "name": "key_spec",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:8"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_result_catalog",
+          "name": "delphi_result_catalog_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_result_catalog_pkey ON public.delphi_result_catalog USING btree (family)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_result_catalog",
+          "name": "delphi_result_catalog_pkey",
+          "definition": "PRIMARY KEY (family)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_result_families",
+      "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:36",
+      "columns": [
+        {
+          "table": "delphi_result_families",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:37"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "batch_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:37"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "family",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:37"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "codec_wire",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:38"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "content_sha",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:38"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "row_count",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:38"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_result_families",
+          "name": "delphi_result_families_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_result_families_pkey ON public.delphi_result_families USING btree (env, batch_id, family)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_result_families",
+          "name": "delphi_result_families_check",
+          "definition": "CHECK ((content_sha = encode(sha256(convert_to(codec_wire, 'UTF8'::name)), 'hex'::text)))"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "delphi_result_families_env_batch_id_fkey",
+          "definition": "FOREIGN KEY (env, batch_id) REFERENCES delphi_result_batches(env, batch_id)"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "delphi_result_families_family_fkey",
+          "definition": "FOREIGN KEY (family) REFERENCES delphi_result_catalog(family)"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "delphi_result_families_pkey",
+          "definition": "PRIMARY KEY (env, batch_id, family)"
+        },
+        {
+          "table": "delphi_result_families",
+          "name": "delphi_result_families_row_count_check",
+          "definition": "CHECK ((row_count >= 0))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_result_rows",
+      "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:42",
+      "columns": [
+        {
+          "table": "delphi_result_rows",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:43"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "batch_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:43"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "family",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:43"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "item_key",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:43"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "ordinal",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:44"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "item",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000028_create_delphi_results.sql:44"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_env_batch_id_family_ordinal_key",
+          "definition": "CREATE UNIQUE INDEX delphi_result_rows_env_batch_id_family_ordinal_key ON public.delphi_result_rows USING btree (env, batch_id, family, ordinal)"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_key_order",
+          "definition": "CREATE INDEX delphi_result_rows_key_order ON public.delphi_result_rows USING btree (env, batch_id, family, COALESCE((((item_key -> '-1'::integer) ->> 'N'::text))::numeric, (0)::numeric), COALESCE(((item_key -> '-1'::integer) ->> 'S'::text), ''::text) COLLATE \"C\")"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_result_rows_pkey ON public.delphi_result_rows USING btree (env, batch_id, family, item_key)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_env_batch_id_family_fkey",
+          "definition": "FOREIGN KEY (env, batch_id, family) REFERENCES delphi_result_families(env, batch_id, family)"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_env_batch_id_family_ordinal_key",
+          "definition": "UNIQUE (env, batch_id, family, ordinal)"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_item_check",
+          "definition": "CHECK ((jsonb_typeof(item) = 'object'::text))"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_ordinal_check",
+          "definition": "CHECK ((ordinal > 0))"
+        },
+        {
+          "table": "delphi_result_rows",
+          "name": "delphi_result_rows_pkey",
+          "definition": "PRIMARY KEY (env, batch_id, family, item_key)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_writer_runs",
+      "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:7",
+      "columns": [
+        {
+          "table": "delphi_writer_runs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:8"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:8"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:8"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "scope_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:8"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "base_generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:9"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "base_artifact",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:9"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "actor",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000030_create_delphi_writers.sql:9"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_writer_runs",
+          "name": "delphi_writer_runs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_writer_runs_pkey ON public.delphi_writer_runs USING btree (env, job_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_writer_runs",
+          "name": "delphi_writer_runs_env_base_artifact_fkey",
+          "definition": "FOREIGN KEY (env, base_artifact) REFERENCES delphi_artifacts(env, artifact_id)"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "delphi_writer_runs_env_job_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id) REFERENCES delphi_graph_nodes(env, job_id)"
+        },
+        {
+          "table": "delphi_writer_runs",
+          "name": "delphi_writer_runs_pkey",
+          "definition": "PRIMARY KEY (env, job_id)"
+        }
+      ]
+    },
+    {
       "table": "demographic_data",
       "introduced": "server/postgres/migrations/000000_initial.sql:949",
       "columns": [
@@ -6178,6 +8908,17 @@
           "ordinal": 10,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:303"
+        },
+        {
+          "table": "polis_queue_attempts",
+          "name": "process_exit_confirmed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 11,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:217"
         }
       ],
       "indexes": [
@@ -6190,6 +8931,11 @@
           "table": "polis_queue_attempts",
           "name": "polis_queue_attempts_pkey",
           "definition": "CREATE UNIQUE INDEX polis_queue_attempts_pkey ON public.polis_queue_attempts USING btree (env, attempt_id)"
+        },
+        {
+          "table": "polis_queue_attempts",
+          "name": "pq_attempt_binding",
+          "definition": "CREATE UNIQUE INDEX pq_attempt_binding ON public.polis_queue_attempts USING btree (env, job_id, attempt_id)"
         }
       ],
       "constraints": [
@@ -6217,6 +8963,11 @@
           "table": "polis_queue_attempts",
           "name": "polis_queue_attempts_pkey",
           "definition": "PRIMARY KEY (env, attempt_id)"
+        },
+        {
+          "table": "polis_queue_attempts",
+          "name": "pq_attempt_binding",
+          "definition": "UNIQUE (env, job_id, attempt_id)"
         }
       ]
     },
@@ -6448,6 +9199,17 @@
           "ordinal": 6,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:338"
+        },
+        {
+          "table": "polis_queue_install",
+          "name": "contract_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "'polis-queue/5'::text",
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:205"
         }
       ],
       "indexes": [
@@ -6458,6 +9220,11 @@
         }
       ],
       "constraints": [
+        {
+          "table": "polis_queue_install",
+          "name": "polis_queue_install_contract_version_check",
+          "definition": "CHECK ((contract_version = 'polis-queue/5'::text))"
+        },
         {
           "table": "polis_queue_install",
           "name": "polis_queue_install_pkey",
@@ -6726,6 +9493,17 @@
           "ordinal": 23,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:292"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "worker_class",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "'noop'::text",
+          "ordinal": 24,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:213"
         }
       ],
       "indexes": [
@@ -6761,6 +9539,11 @@
         }
       ],
       "constraints": [
+        {
+          "table": "polis_queue_jobs",
+          "name": "pd_queue_binding",
+          "definition": "TRIGGER DEFERRABLE INITIALLY DEFERRED"
+        },
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_attempt_count_check",
@@ -6819,7 +9602,7 @@
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_stage_check",
-          "definition": "CHECK ((stage = 'noop'::text))"
+          "definition": "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text, 'graph_embed'::text, 'graph_cluster'::text, 'graph_topics'::text, 'graph_narrative'::text])))"
         },
         {
           "table": "polis_queue_jobs",
@@ -6830,6 +9613,185 @@
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_version_check",
           "definition": "CHECK ((version >= 0))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "polis_queue_jobs_worker_class_check",
+          "definition": "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text])))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "pq_stage_large",
+          "definition": "CHECK ((((stage = 'math_rebuild'::text) AND (worker_class = 'large'::text)) OR ((stage = 'graph_cluster'::text) AND (worker_class = ANY (ARRAY['delphi'::text, 'large'::text]))) OR ((stage <> ALL (ARRAY['math_rebuild'::text, 'graph_cluster'::text])) AND (worker_class <> 'large'::text))))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "pq_stage_worker",
+          "definition": "CHECK (((stage = 'noop'::text) = (worker_class = 'noop'::text)))"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_large_class_install",
+      "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:368",
+      "columns": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "installed",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_large_class_install_pkey ON public.polis_queue_large_class_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_singleton_check",
+          "definition": "CHECK (singleton)"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_logs",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:292",
+      "columns": [
+        {
+          "table": "polis_queue_logs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:293"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "attempt_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:293"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "seq",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:293"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "ts",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 4,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:294"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "stream",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:295"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "line",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:296"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_logs_pkey ON public.polis_queue_logs USING btree (env, attempt_id, seq)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_env_attempt_id_fkey",
+          "definition": "FOREIGN KEY (env, attempt_id) REFERENCES polis_queue_attempts(env, attempt_id)"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_line_check",
+          "definition": "CHECK ((octet_length(line) <= 1048576))"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_pkey",
+          "definition": "PRIMARY KEY (env, attempt_id, seq)"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_seq_check",
+          "definition": "CHECK ((seq >= 0))"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_stream_check",
+          "definition": "CHECK ((stream = ANY (ARRAY['stdout'::text, 'stderr'::text, 'manifest'::text, 'truncated'::text])))"
         }
       ]
     },
@@ -6924,6 +9886,17 @@
           "ordinal": 8,
           "definition_type": "timestamp with time zone",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:310"
+        },
+        {
+          "table": "polis_queue_requests",
+          "name": "binding_expires_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:219"
         }
       ],
       "indexes": [
@@ -7177,7 +10150,7 @@
         {
           "table": "polis_queue_runs",
           "name": "polis_queue_runs_contract_version_check",
-          "definition": "CHECK ((contract_version = 'polis-queue/1'::text))"
+          "definition": "CHECK ((contract_version = ANY (ARRAY['polis-queue/1'::text, 'polis-queue/2'::text, 'polis-queue/3'::text, 'polis-queue/5'::text])))"
         },
         {
           "table": "polis_queue_runs",
@@ -9778,6 +12751,42 @@
     {
       "path": "server/postgres/migrations/000022_add_poll_timestamp_indexes.sql",
       "sha256": "14efc95b14787b52d70680ea06cfef020cd2224e82495258fd8eb324501b7b3e"
+    },
+    {
+      "path": "server/postgres/migrations/000023_create_delphi_foundation.sql",
+      "sha256": "97437ea57d90c51cc664385ebb6e8ec3d8684ac0f8e7b0c60e84df1a010531f7"
+    },
+    {
+      "path": "server/postgres/migrations/000024_create_polis_queue_large_class.sql",
+      "sha256": "68261afb81f286bed45fdff6ab52e052392d1dd32abdb1e78579f72644116697"
+    },
+    {
+      "path": "server/postgres/migrations/000027_create_sealed_job_graphs.sql",
+      "sha256": "fbbf948e4316010dd96344ae91542006c38299e52e0a0eb281371c039ab37775"
+    },
+    {
+      "path": "server/postgres/migrations/000028_create_delphi_results.sql",
+      "sha256": "0f90d8c7c6f9a440b2d9901dcf7a00f17222d01e48f38fb1c8c7d22be05156c8"
+    },
+    {
+      "path": "server/postgres/migrations/000029_extend_delphi_graph_stages.sql",
+      "sha256": "b4dd41790639184c40418effd290ecd86d15cb8d9f46a1a77b616f37a63d5906"
+    },
+    {
+      "path": "server/postgres/migrations/000030_create_delphi_writers.sql",
+      "sha256": "14581a3a77c6e5cf73305a45f6635f8869a26a5674ea423b7d4fd2a146b653ce"
+    },
+    {
+      "path": "server/postgres/migrations/000031_scope_delphi_result_reads.sql",
+      "sha256": "fe132110ebcb89e0a3f90c9321b6e47ad4da37179defeb88894abc93bd42f53f"
+    },
+    {
+      "path": "server/postgres/migrations/000038_create_delphi_comment_embeddings.sql",
+      "sha256": "9db37506a1bb21602a2ccba4941202a7cbd73713f805d05e4eb1857f31fa7eda"
+    },
+    {
+      "path": "server/postgres/migrations/000039_clear_zinvites_uuid.sql",
+      "sha256": "48ae309832ed67f280965915f0adc44109c082ef5da62c2bae830b3793bd124f"
     }
   ]
 }

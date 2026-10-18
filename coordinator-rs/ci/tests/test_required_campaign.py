@@ -336,7 +336,12 @@ def test_bridge_inventory_preserves_every_baseline_identity():
     }
     assert schema_tests <= set(extended["rust_tests"])
     assert len(extended["rust_tests"])==34+len(schema_tests)
-    assert extended["jest_cases"]==INV["jest_cases"]
+    # 89c48c205 added one mathBundle case; every baseline case is kept.
+    assert all(case in extended["jest_cases"] for case in INV["jest_cases"])
+    assert [case for case in extended["jest_cases"] if case not in INV["jest_cases"]]==[[
+        "__tests__/unit/mathBundle.test.ts",
+        "the accessors are pure and exact bidsForPids refuses a malformed mapping entry instead of throwing"]]
+    assert len(extended["jest_cases"])==len(INV["jest_cases"])+1
     assert extended["stages"]==INV["stages"]
 
 
