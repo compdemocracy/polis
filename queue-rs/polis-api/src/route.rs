@@ -44,6 +44,10 @@ pub struct App {
     pub domain_whitelist_auth_db: Option<Arc<Pool>>,
     pub domain_whitelist_served: AtomicU64,
     pub domain_whitelist_fallback: AtomicU64,
+    pub metadata_questions_db: Option<Arc<Pool>>,
+    pub metadata_questions_auth_db: Option<Arc<Pool>>,
+    pub metadata_questions_served: AtomicU64,
+    pub metadata_questions_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -86,6 +90,10 @@ impl App {
             domain_whitelist_auth_db: None,
             domain_whitelist_served: AtomicU64::new(0),
             domain_whitelist_fallback: AtomicU64::new(0),
+            metadata_questions_db: None,
+            metadata_questions_auth_db: None,
+            metadata_questions_served: AtomicU64::new(0),
+            metadata_questions_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -644,6 +652,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.domain_whitelist_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::metadata_questions::PATH {
+        if out.status == 502 {
+            app.metadata_questions_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_questions_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -735,6 +752,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::metadata_questions::PATH
+        && crate::metadata_questions::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::domain_whitelist::PATH
         && crate::domain_whitelist::parse(app, req).is_none()
     {
@@ -844,6 +866,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::metadata_questions::PATH {
+        return crate::metadata_questions::handle(app, req, res).await;
     }
     if req.path() == crate::domain_whitelist::PATH {
         return crate::domain_whitelist::handle(app, req, res).await;
@@ -1488,6 +1513,64 @@ mod tests {
         }
         assert_eq!(state.domain_whitelist_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.domain_whitelist_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn metadata_questions_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::metadata_questions::PATH
+            );
+            req
+        };
+        assert!(state.metadata_questions_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().metadata_questions_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.metadata_questions_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_questions_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().metadata_questions_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn metadata_questions_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_questions_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::metadata_questions::PATH, vec![]),
+            ("OPTIONS", crate::metadata_questions::PATH, vec![]),
+            ("GET", "/api/v3/metadata/questions?unknown=1", vec![]),
+            (
+                "GET",
+                crate::metadata_questions::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::metadata_questions::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::metadata_questions::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.metadata_questions_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_questions_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]

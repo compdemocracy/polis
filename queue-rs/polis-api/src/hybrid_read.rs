@@ -73,6 +73,16 @@ pub async fn resolve(
     oidc: Option<&Oidc>,
     pool: &Arc<db::Pool>,
 ) -> Option<Identity> {
+    resolve_scoped(raw, participant, oidc, pool, None).await
+}
+
+pub async fn resolve_scoped(
+    raw: Option<&str>,
+    participant: Option<&polis_auth::participant::Verifier>,
+    oidc: Option<&Oidc>,
+    pool: &Arc<db::Pool>,
+    conversation: Option<&str>,
+) -> Option<Identity> {
     let Some(raw) = raw else {
         return Some(Identity::Anonymous);
     };
@@ -87,6 +97,9 @@ pub async fn resolve(
         || payload.get("standard_user_participant").is_some()
     {
         let cid = payload.get("conversation_id").and_then(Value::as_str)?;
+        if conversation.is_some_and(|requested| requested != cid) {
+            return None;
+        }
         let identity = participant.and_then(|v| v.verify(raw, cid, now))?;
         let cid = cid.to_owned();
         return pool
@@ -230,6 +243,28 @@ mod tests {
                 .await
                 .and_then(Identity::uid),
             Some(polis_auth::Uid(3))
+        );
+        assert!(
+            resolve_scoped(
+                Some(&sign(&anon)),
+                Some(&participant),
+                Some(&oidc),
+                &pool,
+                Some("fixture")
+            )
+            .await
+            .is_some()
+        );
+        assert!(
+            resolve_scoped(
+                Some(&sign(&anon)),
+                Some(&participant),
+                Some(&oidc),
+                &pool,
+                Some("other")
+            )
+            .await
+            .is_none()
         );
         let mut standard = anon.clone();
         standard

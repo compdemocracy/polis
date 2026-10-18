@@ -81,5 +81,13 @@
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
     "expected_requests": 2,
     "expected_node_handoffs": 0
+  },
+  "metadataQuestions": {
+    "path": "/api/v3/metadata/questions",
+    "minimum_rust_successes": 2,
+    "commands": [],
+    "scope": "The staged route serves empty questions only; populated question sets remain Node.",
+    "expected_requests": 8,
+    "expected_node_handoffs": 5
   }
 }

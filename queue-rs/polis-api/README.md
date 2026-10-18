@@ -529,3 +529,25 @@ Node's unordered first-row choice is not a deterministic contract.
 `domainWhitelistServed` and `domainWhitelistFallback` count route outcomes.
 Run `queue-rs/polis-api/conformance/domain-whitelist-run.sh result.json` for
 complete HTTP byte replay with participant/OIDC and policy boundary cases.
+
+### Empty metadata questions
+
+`GET`/`HEAD /api/v3/metadata/questions?conversation_id=...` stages only the
+empty result behind `POLIS_API_METADATA_QUESTIONS_READS=1` and nginx route
+`metadataQuestions`, both off by default. Shared request/question/response types
+are in `polis-contracts::metadata_questions`. Populated rows hand back to Node,
+which owns their cached conversation-ID enrichment. Invite-code parameters,
+unknown/duplicate parameters and unsupported auth also hand back and are counted.
+
+The existing hybrid verifier now accepts an optional requested conversation;
+participant tokens must match it exactly before resolving membership. OIDC still
+requires an existing user mapping, with no creation. Anonymous reads are allowed
+as Node's optional middleware permits. Missing conversations hand back.
+
+`POLIS_API_METADATA_QUESTIONS_DATABASE_URL` supplies an independent primary auth
+and ID-resolution pool. Data uses a second pool on READ_ONLY_DATABASE_URL when
+configured. Each is one read-only connection, 15 ms acquire/50 ms statement,
+with a 75 ms whole-route deadline; no participation pool is borrowed.
+`metadataQuestionsServed`/`metadataQuestionsFallback` report outcomes.
+Run `queue-rs/polis-api/conformance/metadata-questions-run.sh result.json` for
+raw HTTP comparisons, including populated-row and cross-conversation handoffs.
