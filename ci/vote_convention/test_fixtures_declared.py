@@ -292,13 +292,24 @@ class PlusOnePins(unittest.TestCase):
     def test_committed_plus_one_set_is_the_generated_one(self):
         self.assertEqual(self.rpc.main(["--check"]), 0)
 
+    def runtime_fixture(self, key):
+        pins = json.loads(self.rpc.pins_path(-1).read_text())["pins"]
+        matches = [p for p in pins if (p["system"], p["machine"], p["forced_kernel"]) == key]
+        self.assertEqual(len(matches), 1)
+        runtime = dict(system=key[0], machine=key[1], forced_kernel=key[2], blas=[
+            dict(prefix=p, internal_api="openblas", architecture="Haswell", num_threads=1)
+            for p in ("libopenblas", "libscipy_openblas")])
+        # The manufactured platform fixture uses the reviewed build identity, not the
+        # host running this unit test. Live campaigns observe their own Node.
+        if "compressor" in matches[0]:
+            runtime["compressor"] = dict(matches[0]["compressor"])
+        return runtime
+
     def test_both_sets_select_on_every_admitted_platform(self):
         from replay_pins import select_pin
 
         for key in (("Darwin", "arm64", "not-forced"), ("Linux", "x86_64", "Haswell")):
-            runtime = dict(system=key[0], machine=key[1], forced_kernel=key[2], blas=[
-                dict(prefix=p, internal_api="openblas", architecture="Haswell", num_threads=1)
-                for p in ("libopenblas", "libscipy_openblas")])
+            runtime = self.runtime_fixture(key)
             minus, plus = (select_pin(runtime, self.rpc.pins_path(s))["pin"] for s in (-1, 1))
             self.assertEqual(minus["id"], plus["id"])
             self.assertEqual(minus["checkpoints"], plus["checkpoints"])  # convention-invariant, carried
@@ -314,6 +325,30 @@ class PlusOnePins(unittest.TestCase):
             self.assertEqual(tie_p["mirrored_digest"], tie_m["declared"]["algorithm_digest"])
             for name, witness in pw.items():
                 self.assertEqual(plus["witness_sha256"][name], self.rpc.witness_sha256(witness))
+
+    def test_both_sets_require_the_reviewed_compressor(self):
+        from compressor import FIELDS
+        from replay_pins import select_pin
+
+        runtime = self.runtime_fixture(("Darwin", "arm64", "not-forced"))
+        compressor = runtime["compressor"]
+        self.assertEqual(set(compressor), set(FIELDS))
+        for sign in (-1, 1):
+            path = self.rpc.pins_path(sign)
+            self.assertEqual(select_pin(runtime, path)["pin"]["compressor"], compressor)
+            missing = {k: v for k, v in runtime.items() if k != "compressor"}
+            with self.subTest(sign=sign, observation="absent"):
+                with self.assertRaisesRegex(ValueError, "REPLAY_COMPRESSOR_UNADMITTED"):
+                    select_pin(missing, path)
+            for observation in (None, {}, *(
+                altered
+                for field in FIELDS
+                for altered in ({**compressor, field: "unreviewed"},
+                                {k: v for k, v in compressor.items() if k != field})
+            )):
+                with self.subTest(sign=sign, observation=observation):
+                    with self.assertRaisesRegex(ValueError, "REPLAY_COMPRESSOR_UNADMITTED"):
+                        select_pin({**runtime, "compressor": observation}, path)
 
     def test_pins_path_refuses_a_non_convention(self):
         for bad in (0, True, "1"):
