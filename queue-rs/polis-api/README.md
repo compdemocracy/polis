@@ -627,3 +627,24 @@ one read-only connection each, 15 ms acquire/50 ms statement limits and a 75 ms
 route deadline. No participation pool is borrowed. Outcomes are counted by
 `recentStartedServed`/`recentStartedFallback`. Run
 `queue-rs/polis-api/conformance/recent-started-run.sh result.json` for raw proof.
+
+### Recent conversation activity: empty results and developer refusals
+
+`GET`/`HEAD /api/v3/conversations/recent_activity` uses required hybrid auth and
+Node's numeric `ADMIN_UIDS` allowlist. A verified user outside that list receives
+the same 403 JSON. String IDs in the allowlist never confer numeric authority.
+Missing/empty ADMIN_UIDS means no developers. Unsupported auth stays with Node.
+Both `POLIS_API_RECENT_ACTIVITY_READS=1` and nginx `recentActivity` default off.
+
+The shared `polis-contracts::recent_activity` contract covers canonical nonnegative
+integer `sinceUnixTimestamp` seconds within JavaScript's exact millisecond range,
+or the default last seven days, and empty arrays. The inclusive modified boundary
+matches Node. Populated SELECT * rows remain Node work until their complete schema
+wire representation is staged; this is not a full route replacement.
+
+Independent primary auth and replica-capable read pools use
+`POLIS_API_RECENT_ACTIVITY_DATABASE_URL`, with optional READ_ONLY_DATABASE_URL,
+one read-only connection each, 15 ms acquire/50 ms statement limits and a 75 ms
+route deadline. No participation pool is borrowed. Outcomes are counted by
+`recentActivityServed`/`recentActivityFallback`. Run
+`queue-rs/polis-api/conformance/recent-activity-run.sh result.json` for raw proof.
