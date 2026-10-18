@@ -82,6 +82,12 @@ impl Headers {
         Self(out)
     }
 
+    pub fn only(&self, names: &[&str]) -> bool {
+        self.0
+            .iter()
+            .all(|(name, _)| names.contains(&name.as_str()))
+    }
+
     /// `req.headers[name]` (`name` lower-case).
     pub fn get(&self, name: &str) -> Option<&str> {
         self.0

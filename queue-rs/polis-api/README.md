@@ -1001,3 +1001,23 @@ slice does not log out a user or change a session. Modern HTML, unsupported
 browsers, query/body/auth/cookie requests and unusual path/host bytes remain
 Node handoffs. No database pool, identity provider or file service is used;
 participation resources are untouched.
+
+### Admin conversation HTML
+
+`POLIS_API_ADMIN_PAGE_READS=1` and nginx `RUST_API_ROUTES=adminPage` opt into
+GET/HEAD `/m/` paths beginning with a digit and another alphanumeric character.
+Both switches default off. The fixed upstream comes from `STATIC_FILES_HOST`
+and `STATIC_FILES_ADMIN_PORT` (or `STATIC_FILES_PORT`, default 8080).
+The transport has four independent slots, no wait queue, a 75 ms whole-request
+deadline, an 8 KiB response-header cap and a 16 KiB ASCII-document cap. It uses
+no database, identity provider, participation pool or shared lock. DNS is resolved
+once before listening, with a 75 ms startup bound; restart after an upstream
+address change. Failed startup resolution leaves this route on Node while other
+API routes remain available. There is no per-request resolver work. Only complete
+200 responses with one Content-Length and no content/transfer encoding qualify.
+GET bodies must arrive in one body-bearing read; fragmented bodies stay on Node.
+Unsupported headers, authentication, query/body bytes, compression requests,
+upstream failures and saturation hand back to Node before response emission.
+The shared contract carries the request and rendered HTML. The renderer matches
+the static stream's metadata replacement and retained suffix; this staged slice
+is characterized against the small admin build, not arbitrary streamed content.

@@ -5,6 +5,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod about;
+mod admin_page;
 mod all_conversations;
 mod bid_to_pid;
 mod clock;
@@ -317,6 +318,14 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.settings_page_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "adminPageServed",
+        js::Js::Num(app.admin_page_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "adminPageFallback",
+        js::Js::Num(app.admin_page_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
         "userLogoutPageServed",
         js::Js::Num(app.user_logout_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -416,6 +425,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if settings_page::matches(path) => route::handle(app, req).await,
+        path if admin_page::matches(path) => route::handle(app, req).await,
         path if user_logout_page::matches(path) => route::handle(app, req).await,
         path if user_login_page::matches(path) => route::handle(app, req).await,
         path if user_create_page::matches(path) => route::handle(app, req).await,
@@ -1024,6 +1034,7 @@ async fn main() -> Result<()> {
             einvites_read::pool_limits(),
         ));
     }
+    state.admin_page = admin_page::Client::from_env().await?;
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
