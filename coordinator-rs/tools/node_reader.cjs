@@ -29,6 +29,7 @@
 
 const crypto = require("crypto");
 const path = require("path");
+const { assertGzipJson } = require("./gzip_contract.cjs");
 const { createRequire } = require("module");
 
 const server = path.resolve(__dirname, "../../server");
@@ -75,6 +76,8 @@ async function readNamespace(zid, mathEnv, keys, gids) {
       joins[gid] = { error: String(error && error.message ? error.message : error) };
     }
   }
+  assertGzipJson(raw);
+  assertGzipJson(item);
   const projection = JSON.stringify(_.pick(item.asPOJO, keys));
   return {
     math_env: mathEnv,

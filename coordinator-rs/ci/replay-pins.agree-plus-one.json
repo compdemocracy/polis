@@ -4,7 +4,7 @@
     "storage_agree_value": 1,
     "generated_by": "coordinator-rs/ci/replay_pins_convention.py",
     "generated_from": {
-      "replay-pins.json": "27b67f84c39683409f4f6c474f5992074d95cc7c23d812cd643ff93e8a6b93c2"
+      "replay-pins.json": "106ce86494aa6af91e0994f24a256367ca8d18dcd12112ca6ba14ee0e4ac61c1"
     },
     "paired_with": "replay-pins.json (storage_agree_value -1, declared in replay-pins.sign.json)",
     "about": "The replay pins at agree = +1, generated from the same semantic data as the -1 set: recorded +1 values swapped into place, convention-invariant values carried, per convention_provenance. Never edited by hand; regenerate with --write."
@@ -318,7 +318,7 @@
               },
               "etag_math_tick": 1,
               "gzip_bytes": 352,
-              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -336,7 +336,7 @@
               "present": true,
               "raw": {
                 "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -365,7 +365,7 @@
               },
               "etag_math_tick": 1,
               "gzip_bytes": 352,
-              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -383,7 +383,7 @@
               "present": true,
               "raw": {
                 "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -407,7 +407,7 @@
         }
       },
       "witness_sha256": {
-        "d4-node-reader-empty.json": "18de4bb4dd6ef86231b6d8ec27aa5615b012959162fb0e792cb1fccd251303b0",
+        "d4-node-reader-empty.json": "0a0ff5839a413fb4f4783c071212939284b8662aa6665ac5b4cf771237d4cfdc",
         "d4-node-reader.json": "1f127bec5c41b261ad99b865d20782eda06e6b3ac580a7a2d4617d4190ba864b",
         "polarity-biodiversity.json": "f16146d44e98fe3a5db75355e4bc7c9f0ea0c2249b80a22686bfc6e4b54cf856",
         "polarity-public-fixture.json": "82b469384621e344ff55b4fced672c36cd43c6ce76f91d92d29a194335e35f49",
@@ -416,6 +416,13 @@
         "semantic-tie-key.json": "8e7904410e76ed7527b0823f094b905973493d753fd312a9c8e0d47d6b02c70b"
       },
       "forced_kernel": "not-forced",
+      "compressor": {
+        "arch": "arm64",
+        "executable_sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "zlib": "1.3.2.1-motley-8002e91"
+      },
       "convention_provenance": {
         "recorded_at_plus_one": [
           "witnesses/polarity-*.json a (the -1 registry's b), b (its a)",
