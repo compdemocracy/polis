@@ -225,5 +225,13 @@
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
     "expected_requests": 1,
     "expected_node_handoffs": 0
+  },
+  "topicPrioritize": {
+    "path": "/api/v3/participation/topicPrioritize",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "scope": "Authenticated or cookie-bearing requests remain Node; the staged route admits unauthenticated requests only.",
+    "expected_requests": 1,
+    "expected_node_handoffs": 1
   }
 }
