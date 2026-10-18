@@ -91,6 +91,10 @@ pub struct App {
     pub participation_read_auth_db: Option<Arc<Pool>>,
     pub participation_read_served: AtomicU64,
     pub participation_read_fallback: AtomicU64,
+    pub all_conversations_db: Option<Arc<Pool>>,
+    pub all_conversations_auth_db: Option<Arc<Pool>>,
+    pub all_conversations_served: AtomicU64,
+    pub all_conversations_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -180,6 +184,10 @@ impl App {
             participation_read_auth_db: None,
             participation_read_served: AtomicU64::new(0),
             participation_read_fallback: AtomicU64::new(0),
+            all_conversations_db: None,
+            all_conversations_auth_db: None,
+            all_conversations_served: AtomicU64::new(0),
+            all_conversations_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -837,6 +845,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
                 .fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::all_conversations::PATH {
+        if out.status == 502 {
+            app.all_conversations_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.all_conversations_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -928,6 +944,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::all_conversations::PATH
+        && crate::all_conversations::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::participation_read::PATH
         && crate::participation_read::parse(app, req).is_none()
     {
@@ -1089,6 +1110,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::all_conversations::PATH {
+        return crate::all_conversations::handle(app, req, res).await;
     }
     if req.path() == crate::participation_read::PATH {
         return crate::participation_read::handle(app, req, res).await;
@@ -2249,6 +2273,80 @@ mod tests {
         }
         assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn all_conversations_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?owner_email=fixtureAbsentMarker",
+                crate::all_conversations::PATH
+            );
+            req
+        };
+        assert!(state.all_conversations_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().all_conversations_db = Some(pool);
+        let mut parsed = probe();
+        parsed.target="/api/v3/all_conversations?owner_email=++Owner%40fixture.invalid++&limit=9999&offset=99999999".into();
+        let query = crate::all_conversations::parse(&state, &parsed).unwrap();
+        assert_eq!(query.owner_email.as_deref(), Some("Owner@fixture.invalid"));
+        assert_eq!((query.limit, query.offset), (500, 99_999_999));
+        parsed.target = "/api/v3/all_conversations?owner_email=+++".into();
+        assert_eq!(
+            crate::all_conversations::parse(&state, &parsed)
+                .unwrap()
+                .owner_email
+                .as_deref(),
+            Some("")
+        );
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.all_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.all_conversations_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().all_conversations_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn all_conversations_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().all_conversations_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::all_conversations::PATH, vec![]),
+            ("OPTIONS", crate::all_conversations::PATH, vec![]),
+            ("GET", "/api/v3/all_conversations?unknown=1", vec![]),
+            (
+                "GET",
+                crate::all_conversations::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::all_conversations::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::all_conversations::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.all_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.all_conversations_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]

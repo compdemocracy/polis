@@ -5,6 +5,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod about;
+mod all_conversations;
 mod clock;
 mod comments;
 mod compress;
@@ -204,6 +205,14 @@ async fn health(app: &route::App) -> Outgoing {
         "participationReadFallback",
         js::Js::Num(app.participation_read_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "allConversationsServed",
+        js::Js::Num(app.all_conversations_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "allConversationsFallback",
+        js::Js::Num(app.all_conversations_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -258,6 +267,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | treevite_invites::PATH
         | metadata_choices::PATH
         | recent_started::PATH
+        | all_conversations::PATH
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
@@ -618,6 +628,32 @@ async fn main() -> Result<()> {
             participation_read::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_ALL_CONVERSATIONS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_ALL_CONVERSATIONS_DATABASE_URL")
+            .context("POLIS_API_ALL_CONVERSATIONS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.all_conversations_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-all-conversations/1")?,
+            all_conversations::pool_limits(),
+        ));
+        state.all_conversations_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-all-conversations-auth/1")?,
+            all_conversations::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
