@@ -749,3 +749,22 @@ more than1000 PIDs,unsupported request/auth shapes and failures hand back to
 Node. Canonical strict=true/false is accepted; no product writes or vote-value
 changes. `participationReadServed` / `participationReadFallback` count the staged
 boundary. No complete XID/report or voting endpoint replacement is claimed.
+
+### Global conversation listings: empty developer results
+
+`POLIS_API_ALL_CONVERSATIONS_READS=1` and nginx `RUST_API_ROUTES=allConversations`
+stage GET/HEAD `/api/v3/all_conversations`; both default off. Set
+`POLIS_API_ALL_CONVERSATIONS_DATABASE_URL` for primary hybrid identity reads.
+The independent data pool uses `READ_ONLY_DATABASE_URL` when configured. Both
+pools are read-only, one connection each, with 15 ms acquisition and 50 ms
+statement limits; the configured route timeout is 75 ms. Participation pools
+remain separate.
+
+Verified hybrid identity and numeric `ADMIN_UIDS` preserve the developer gate.
+Nondevelopers receive the matching403. Developer results are served only when
+no conversation matches the optional ASCII owner_email filter; populated sets,
+including empty pages of nonempty sets, remain Node work. Canonical limit and
+offset preserve the default50, maximum500 and zero offset pagination metadata.
+Other filters, unsupported shapes and failures hand back to Node. Counters
+`allConversationsServed` and `allConversationsFallback` expose this boundary.
+No product writes or complete populated-list replacement is claimed.
