@@ -308,3 +308,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/testDatabase node "database probe handoff"
 echo "ok 17 database probe off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/contexts node "contexts off"
+start contexts,contexts
+expect /api/v3/contexts rust "contexts on"
+expect /api/v3/comments node "contexts leaves comments alone"
+expect /api/v3/votes node "contexts leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/contexts') == 1 ]] || fail "contexts duplicated"
+expect_upstream polis-api GET /api/v3/contexts
+expect_upstream polis-api HEAD /api/v3/contexts
+expect_upstream server OPTIONS /api/v3/contexts
+expect_upstream server POST /api/v3/contexts $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/contexts $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/contexts node "contexts handoff"
+echo "ok 18 contexts off/on/deduplicated; method/body guards; 502 hands back to Node"

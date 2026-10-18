@@ -10,10 +10,12 @@ mod comments;
 mod compress;
 mod config;
 mod connection;
+mod contexts;
 mod cors;
 mod database;
 mod db;
 mod http;
+mod hybrid_read;
 mod js;
 mod lru;
 mod negotiate;
@@ -76,6 +78,14 @@ async fn health(app: &route::App) -> Outgoing {
         "databaseFallback",
         js::Js::Num(app.database_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "contextsServed",
+        js::Js::Num(app.contexts_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "contextsFallback",
+        js::Js::Num(app.contexts_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -118,7 +128,8 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | connection::PATH
         | robots::PATH
         | about::PATH
-        | database::PATH => route::handle(app, req).await,
+        | database::PATH
+        | contexts::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -197,6 +208,23 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-database-probe/1")?,
             database::pool_limits(),
         ));
+    }
+    if std::env::var("POLIS_API_CONTEXTS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_CONTEXTS_DATABASE_URL")
+            .context("POLIS_API_CONTEXTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.contexts_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-contexts/1")?,
+            contexts::pool_limits(),
+        ));
+        state.contexts_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-contexts-auth/1")?,
+            contexts::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

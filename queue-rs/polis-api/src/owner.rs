@@ -108,12 +108,12 @@ struct Claims {
 fn numeric_nbf<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u64>, D::Error> {
     u64::deserialize(d).map(Some)
 }
-struct Verifier {
+pub(crate) struct Verifier {
     keys: JwkSet,
     validation: Validation,
 }
 impl Verifier {
-    fn new(keys: JwkSet, issuer: &str, audience: &str) -> Result<Self> {
+    pub(crate) fn new(keys: JwkSet, issuer: &str, audience: &str) -> Result<Self> {
         if issuer.is_empty() || audience.is_empty() || keys.keys.is_empty() || keys.keys.len() > 32
         {
             bail!("invalid OIDC configuration");
@@ -142,7 +142,7 @@ impl Verifier {
             .as_secs();
         self.subject_at(authorization, now)
     }
-    fn subject_at(&self, authorization: Option<&str>, now: u64) -> Result<String> {
+    pub(crate) fn subject_at(&self, authorization: Option<&str>, now: u64) -> Result<String> {
         let raw = authorization.context("missing bearer")?;
         let (scheme, token) = raw.split_once(' ').context("invalid bearer")?;
         if !scheme.eq_ignore_ascii_case("Bearer") || token.len() > 16384 || token.is_empty() {
