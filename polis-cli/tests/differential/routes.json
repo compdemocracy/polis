@@ -209,5 +209,13 @@
     "scope": "Authorized statistics remain Node; the staged Rust slice implements moderator refusals.",
     "expected_requests": 2,
     "expected_node_handoffs": 2
+  },
+  "topicSelections": {
+    "path": "/api/v3/topicAgenda/selections",
+    "minimum_rust_successes": 1,
+    "commands": [],
+    "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
+    "expected_requests": 4,
+    "expected_node_handoffs": 0
   }
 }

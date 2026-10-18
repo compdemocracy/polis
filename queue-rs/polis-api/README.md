@@ -819,3 +819,20 @@ and unsupported shapes stay counted Node work. Canonical safe-integer until is
 accepted without changing the permission decision. This slice reads no event or
 vote values and performs no product writes. Counters are
 `conversationStatsServed` and `conversationStatsFallback`.
+
+### Topic agenda selections: empty results
+
+`POLIS_API_TOPIC_SELECTIONS_READS=1` and nginx `RUST_API_ROUTES=topicSelections`
+stage GET/HEAD `/api/v3/topicAgenda/selections`;both default off. Set
+`POLIS_API_TOPIC_SELECTIONS_DATABASE_URL` to primary for code,membership and
+selection reads. Its dedicated read-only pool has one connection,15 ms
+acquisition/50 ms statement limits and a75 ms configured route deadline.
+Participation pools remain separate.
+
+Cookieless anonymous requests receive the matching no-selections object.
+With the existing participant verifier enabled,scoped anonymous/standard
+participant tokens must resolve exact existing membership before an empty
+selection set is served. Populated selections,OIDC identity/PID cache lookup,
+XIDs,Treevite credentials and unsupported requests remain counted Node work.
+This read path never allocates participants,mints credentials or writes selections.
+Counters `topicSelectionsServed` and `topicSelectionsFallback` expose its boundary.

@@ -39,6 +39,7 @@ mod recent_started;
 mod reports_read;
 mod robots;
 mod route;
+mod topic_selections;
 mod treevite_csv;
 mod treevite_invites;
 mod treevite_read;
@@ -240,6 +241,14 @@ async fn health(app: &route::App) -> Outgoing {
         "conversationStatsFallback",
         js::Js::Num(app.conversation_stats_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "topicSelectionsServed",
+        js::Js::Num(app.topic_selections_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "topicSelectionsFallback",
+        js::Js::Num(app.topic_selections_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -294,6 +303,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | treevite_invites::PATH
         | metadata_choices::PATH
         | recent_started::PATH
+        | topic_selections::PATH
         | conversation_stats::PATH
         | bid_to_pid::PATH
         | reports_read::PATH
@@ -753,6 +763,18 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_TOPIC_SELECTIONS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_TOPIC_SELECTIONS_DATABASE_URL")
+            .context("POLIS_API_TOPIC_SELECTIONS_DATABASE_URL required")?;
+        state.topic_selections_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-topic-selections/1")?,
+            topic_selections::pool_limits(),
+        ));
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
