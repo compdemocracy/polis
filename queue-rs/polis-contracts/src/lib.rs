@@ -11,6 +11,7 @@ pub mod create_page;
 pub mod database;
 pub mod domain_whitelist;
 pub mod einvites_read;
+pub mod integrate_page;
 pub mod legacy_conversations;
 pub mod legacy_pca;
 pub mod metadata_answers;
