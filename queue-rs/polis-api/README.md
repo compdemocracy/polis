@@ -230,3 +230,77 @@ Add each new switch and its CLI scenarios to
 censuses refuse omissions. Run `scripts/test-polis-cli-differential.sh` after
 iteration; build instructions and scope are in
 `polis-cli/tests/differential/README.md`. This does not replace the byte replay.
+
+
+## Owner conversation list (opt-in)
+
+`GET /api/v3/owner/conversations` is a **new contract**, separate from Node's
+`/api/v3/conversations`. It lists only conversations whose exact owner is the
+verified OIDC user's local UID. Site moderators and administrators receive no
+ownership bypass. There is no user or participant creation, token minting,
+participant-token support, or cookie authentication in this endpoint.
+
+Both gates are off by default. Set `POLIS_API_OWNER_LIST=1` in the Rust process,
+and add `owner-conversations` to nginx's `RUST_API_ROUTES` only after configuring:
+
+- `AUTH_ISSUER` and `AUTH_AUDIENCE`, matching the OIDC access-token configuration.
+- `POLIS_API_OWNER_JWKS_FILE`: a mounted, operator-reviewed public JWKS snapshot,
+  at most 64 KiB and 32 keys, with unique nonempty key IDs. RS256 signatures,
+  issuer, audience, required expiry, optional not-before and subject are checked.
+  No URL or UID supplied in the token is trusted. Unknown keys fail closed.
+  This snapshot is read once; rotate it and restart before switching issuer
+  keys. The process makes no network calls to an identity provider.
+- `POLIS_API_OWNER_DATABASE_URL`: an explicit read database DSN, using the same
+  transport/CA/host allowlist settings as the math pool. Provision the mounted
+  JWKS and DSN through a deployment-specific compose override or service config;
+  the default compose file does not enable or supply them.
+
+An existing `oidc_user_mappings` row joined to a user is required. Sign in through
+Node first if the identity has not yet been mapped. Verified but unmapped users
+receive 403. Invalid/missing credentials receive 401. Database failures and busy
+admission receive 503 with no internal diagnostics. nginx never falls back to
+Node for this new endpoint; an unavailable route cannot silently return an
+older unfiltered list. Only bodyless GET/HEAD requests are routed; other methods
+receive 405. HEAD has the GET headers with no wire body. Responses are JSON with
+`Cache-Control: no-store` and `Vary: Authorization`.
+
+Query parameters (duplicates and unknown parameters are errors):
+
+| Parameter | Contract |
+| --- | --- |
+| `sort` | `newest` (default) or `oldest`, ordered by creation milliseconds then internal ID, both in the same direction |
+| `min_participants` | Nonnegative signed 32-bit integer, default 0; filters the stored conversation counter |
+| `search` | Case-insensitive literal topic substring, at most 200 Unicode characters; `%` and `_` are literal |
+| `is_active`, `is_draft` | Optional exact `true` or `false` |
+| `limit` | 1–500, default 100 |
+| `cursor` | Opaque `next_cursor` from the prior page with the same owner and filters; page size may change |
+
+The response has `scope: "owner"`, `sort`, `conversations`, and
+`pagination: {limit, has_more, next_cursor}`. Each row contains
+`conversation_id`, `topic`, `description`, `created`, `modified`,
+`participant_count`, `is_active` and `is_draft`. Nullable stored values stay null,
+except missing creation time and participant count become zero. Each conversation
+appears once using its earliest-created public code (lexical code breaks ties);
+conversations without a code are omitted. Rows omit owner identities and download keys. The cursor encodes an
+owner-bound position and is not encrypted. Page selection uses a tuple cursor and fetches one extra row, without
+an offset scan or full count. The cursor is an encoded position, not a signed
+capability: every page independently verifies identity and applies owner filters.
+Do not edit it. Pagination is not a frozen snapshot; concurrent ownership or
+filter changes can change membership. Participant count is the stored counter,
+not a freshly recomputed count of distinct people.
+
+The owner list has its own two-connection read-only pool, 250 ms acquire limit,
+1 s statement timeout and two admitted requests. Excess work sheds with 503;
+cancellation does not release running database/signature work early. It never
+borrows the participation or math pool, writes rows, or holds a connection over
+an external call. This bounds the new process's work; it is not a claim that
+sharing a database server or host has zero resource cost. Use a read replica
+when sizing that cost. The PostgreSQL contract test parks every owner-pool slot,
+proves another pool still answers, and verifies self-shedding and recovery.
+
+The existing CI commands (`cargo test --locked -p polis-api --features db-tests`
+and `conformance/nginx-routing.sh`) cover this contract, signed-token failures,
+exact owner filtering, tied-time traversal, literal search, cursor binding,
+read-only sessions, pool saturation, and switch off/on behavior. Node byte
+recordings are not applicable to this new endpoint; existing pca2 parity remains
+a separate check.

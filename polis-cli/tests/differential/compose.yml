@@ -21,7 +21,13 @@ services:
   polis-api:
     image: ${CLI_DIFF_RUST_IMAGE:?build polis-api with fixture-clock}
     networks: [sealed]
+    volumes: ["./artifacts:/artifacts:ro"]
     environment:
+      POLIS_API_OWNER_LIST: "1"
+      POLIS_API_OWNER_JWKS_FILE: /artifacts/read-jwks.json
+      POLIS_API_OWNER_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      AUTH_ISSUER: https://oidc-simulator:3000/
+      AUTH_AUDIENCE: users
       MATH_ENV: p027
       DEV_MODE: 'true'
       NODE_ENV: production

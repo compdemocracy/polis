@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,6 +56,16 @@ def check_census(nodes,rows):
     if missing or extra:raise RuntimeError(f'command census mismatch: missing={sorted(missing)}, extra={sorted(extra)}')
 
 
+def route_lines(log, contract):
+    path = contract['path']
+    def matches(line):
+        fields = line.split()
+        if len(fields) < 4:
+            return False
+        return bool(re.search(path, fields[1])) if path.startswith('^') else fields[1] == path
+    return [line for line in log.splitlines() if matches(line)]
+
+
 def routing_counts(lines):
     served = fallback = 0
     for line in lines:
@@ -67,6 +78,42 @@ def routing_counts(lines):
         served += sole_rust and fields[3] == '200'
         fallback += ':5100' in line and not sole_rust
     return {'requests': len(lines), 'rust_200': served, 'rust_fallbacks': fallback}
+
+
+RUST_ONLY = {
+    'owner-list': {
+        'route': 'owner-conversations',
+        'reason': 'Cursor-based owner listing is a new Rust contract with no Node counterpart.',
+        'node_exit': 8,
+        'node_code': 'capability_unavailable',
+        'node_message': 'This site does not serve the owner-list feature.',
+        'tests': ['polis-cli/crates/polis/tests/owner_conversations.rs',
+                  'queue-rs/polis-api/src/owner.rs'],
+    },
+}
+
+
+def rust_only_checks(row, node, rust):
+    contract = RUST_ONLY[row['contract']]
+    error = node['json'].get('error') or {}
+    checks = {
+        'node_exit': node['exit'] == contract['node_exit'],
+        'node_refusal': node['json'].get('ok') is False and node['json'].get('data') is None,
+        'node_code': error.get('code') == contract['node_code'],
+        'node_message': error.get('message') == contract['node_message'],
+        'rust_exit': rust['exit'] == 0,
+        'rust_success': rust['json'].get('ok') is True and rust['json'].get('error') is None,
+        'artifacts_unchanged': node['artifacts'] == rust['artifacts'],
+    }
+    # The binary enforces the owner response type, bounds and cursor shape.
+    # Its unit/integration contract suites are the semantic oracle, not Node.
+    return checks
+
+
+def serving_matches(counts, contract):
+    return (counts['rust_200'] >= contract['minimum_rust_successes']
+            and counts['rust_fallbacks'] == contract.get('expected_node_handoffs', 0)
+            and counts['requests'] == contract['expected_requests'])
 
 
 def main():
@@ -101,12 +148,16 @@ def main():
             except (OSError,ValueError):pass
             time.sleep(.5)
         raise RuntimeError('readiness deadline')
-    report={'schema':'polis-cli-differential/1','rows':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'merged routing switches; other routes are Node','complete':False}
+    report={'schema':'polis-cli-differential/1','rows':[],'rust_only':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'pca2 equality plus the new owner-list contract; Rust-only scenarios reported separately','complete':False}
     started=time.monotonic()
     # Same URL, profile, paths, inputs and credentials in both phases. We reset
     # generated database state and CLI files, never rewrite captured responses.
     try:
-        dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server','polis-api','proxy','gateway')
+        dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server')
+        def publish_keys():
+            dc('exec','-T','server','node','-e', "(async()=>{const fs=require('fs');let response;for(let i=0;i<60;i++){try{response=await fetch('http://localhost:5001/public-key');if(response.ok)break;}catch{}await new Promise(r=>setTimeout(r,500));}if(!response?.ok)throw Error('key readiness');const jwks=await fetch('https://oidc-simulator:3000/.well-known/jwks.json');if(!jwks.ok)throw Error('jwks readiness');fs.writeFileSync('/artifacts/read-jwks.json',JSON.stringify(await jwks.json()));})().catch(()=>process.exit(1))")
+        publish_keys()
+        dc('up','-d','--pull','never','polis-api','proxy','gateway')
         ready();tokens=get('/tokens')
         with tempfile.TemporaryDirectory(prefix='polis-cli-diff-') as directory:
             workspace=Path(directory)
@@ -132,6 +183,8 @@ def main():
             nodes=census(invoke({'command':'schema','args':['schema']})['json']['data'])
             rows=cases();check_census(nodes,rows)
             rows.insert(18,dict(command='math view',scenario='math view subset',args=['math','view','--conversation','2p027generated','--key','math_tick'],expected_exit=0,scope='live',actor='owner'))
+            rows.insert(19,dict(command='conversation list',scenario='conversation list owner pagination',args=['conversation','list','--sort','newest','--limit','10'],expected_exit=0,scope='rust-only',contract='owner-list',actor='owner'))
+            rows.insert(20,dict(command='conversation list',scenario='conversation list owner minimum',args=['conversation','list','--min-participants','1','--limit','10'],expected_exit=0,scope='rust-only',contract='owner-list',actor='owner'))
             rows += [dict(command=name,args=name.split(),expected_exit=8,scope='planned',actor='owner') for name,implemented in sorted(nodes.items()) if not implemented]
             captured={}
             for phase,switch in [('node',''),('rust',','.join(sorted(routes)))]:
@@ -139,7 +192,7 @@ def main():
                 # Recreate proxy with the real renderer. Fresh backend caches
                 # and generated rows keep phases independent after writes.
                 if phase=='rust':
-                    dc('restart','-t','1','server','polis-api','dynamodb');ready()
+                    dc('restart','-t','1','server','dynamodb');ready();publish_keys();dc('restart','-t','1','polis-api')
                 dc('up','-d','--no-deps','--force-recreate','--pull','never','proxy')
                 fixture=dc('exec','-T','server','node','/differential/seed.cjs',input=json.dumps(tokens),check=False)
                 if fixture.returncode:
@@ -191,7 +244,7 @@ def main():
                             print(verified.stderr,file=sys.stderr)
                             raise RuntimeError('durable admin proof failed: '+check)
                         report.setdefault(phase+'_admin_proof',[]).extend(json.loads(verified.stdout)['checks'])
-                    expected=row['expected_exit']
+                    expected=RUST_ONLY[row['contract']]['node_exit'] if row['scope']=='rust-only' and phase=='node' else row['expected_exit']
                     if expected is not None and value['exit']!=expected:
                         report.setdefault('unexpected_outcomes',[]).append({'phase':phase,'command':row['command'],'expected_exit':expected,'actual_exit':value['exit'],'code':value['json'].get('error',{}).get('code') if value['json'].get('error') else None})
                     # A missing-store scenario may exercise a server refusal,
@@ -225,18 +278,26 @@ def main():
                 report[phase+'_slowest']=sorted(timings,key=lambda r:r['seconds'],reverse=True)[:5]
                 log=dc('exec','-T','proxy','cat','/var/log/nginx/differential.log').stdout
                 report[phase+'_routing']={}
+                serving_failures=[]
                 for route,contract in routes.items():
-                    route_lines=[line for line in log.splitlines() if ' '+contract['path']+' ' in line]
-                    counts=routing_counts(route_lines)
+                    matched_lines=route_lines(log,contract)
+                    counts=routing_counts(matched_lines)
                     served=counts['rust_200'];fallback=counts['rust_fallbacks']
                     report[phase+'_routing'][route]=counts
-                    if phase=='rust' and (served<contract['minimum_rust_successes'] or fallback):raise RuntimeError('Rust serving proof failed: '+route)
+                    if phase=='rust' and not serving_matches(counts, contract):serving_failures.append(route)
                     if phase=='node' and served:raise RuntimeError('off switch still served Rust: '+route)
+                if serving_failures:report['serving_failures']=serving_failures
             for row,a,b in zip(rows,captured['node'],captured['rust']):
+                if row['scope']=='rust-only':
+                    checks=rust_only_checks(row,a,b)
+                    report['rust_only'].append({'scenario':row['scenario'],'contract':row['contract'],**RUST_ONLY[row['contract']],'node_actual_exit':a['exit'],'rust_actual_exit':b['exit'],'checks':checks,'passed':all(checks.values())})
+                    continue
                 diff=differences(a,b)
-                report['rows'].append({'command':row['command'],'scenario':row.get('scenario',row['command']),'scope':row['scope'],'node_exit':a['exit'],'rust_exit':b['exit'],'equal':not diff,'different_paths':diff,'node_error':(a['json'].get('error') or {}).get('code'),'rust_error':(b['json'].get('error') or {}).get('code')})
+                report['rows'].append({'command':row['command'],'scenario':row.get('scenario',row['command']),'scope':row['scope'],'node_exit':a['exit'],'rust_exit':b['exit'],'equal':not diff,'different_paths':diff,'node_error':(a['json'].get('error') or {}).get('code'),'node_status':((a['json'].get('error') or {}).get('upstream') or {}).get('status'),'rust_status':((b['json'].get('error') or {}).get('upstream') or {}).get('status'),'rust_error':(b['json'].get('error') or {}).get('code')})
             report['scenarios']=len(rows);report['commands']=len(nodes);report['implemented']=sum(nodes.values())
             report['planned']=sum(not v for v in nodes.values())
+            report['rust_only_failures']=sum(not row['passed'] for row in report['rust_only'])
+            report['equality_scenarios']=len(report['rows'])
             report['mismatches']=sum(not row['equal'] for row in report['rows'])
             report['complete']=True
     except subprocess.TimeoutExpired:
@@ -250,7 +311,7 @@ def main():
         report['elapsed_seconds']=round(time.monotonic()-started,3)
         output.parent.mkdir(parents=True,exist_ok=True)
         output.write_text(json.dumps(report,indent=2)+'\n')
-    print(json.dumps({k:v for k,v in report.items() if k!='rows'},indent=2))
-    return 0 if report['complete'] and not report['mismatches'] and not report.get('unexpected_outcomes') and report['cleanup_passed'] else 1
+    print(json.dumps({k:v for k,v in report.items() if k not in ['rows','rust_only']},indent=2))
+    return 0 if report['complete'] and not report['mismatches'] and not report.get('rust_only_failures') and not report.get('unexpected_outcomes') and report['cleanup_passed'] and not report.get('serving_failures') else 1
 
 if __name__=='__main__':sys.exit(main())

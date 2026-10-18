@@ -13,6 +13,7 @@ mod http;
 mod js;
 mod lru;
 mod negotiate;
+mod owner;
 mod params;
 mod pca;
 mod route;
@@ -51,8 +52,12 @@ async fn health(app: &route::App) -> Outgoing {
     }
 }
 
-async fn dispatch(app: Arc<route::App>, req: Request) -> Outgoing {
+async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Request) -> Outgoing {
     match req.path() {
+        owner::PATH => match owner {
+            Some(owner) => owner.handle(req).await,
+            None => owner::error(503, "owner_list_unavailable"),
+        },
         route::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
@@ -66,6 +71,7 @@ async fn main() -> Result<()> {
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let app = Arc::new(route::App::new(&cfg, pool));
+    let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
         .await
         .with_context(|| format!("bind {}", cfg.listen))?;
@@ -74,7 +80,7 @@ async fn main() -> Result<()> {
         listener.local_addr()?,
         cfg.math_env
     );
-    let handler = Arc::new(move |req: Request| dispatch(app.clone(), req));
+    let handler = Arc::new(move |req: Request| dispatch(app.clone(), owner.clone(), req));
     tokio::select! {
         r = http::serve(listener, handler) => r,
         _ = tokio::signal::ctrl_c() => Ok(()),

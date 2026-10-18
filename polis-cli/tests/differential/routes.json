@@ -2,6 +2,20 @@
   "pca2": {
     "path": "/api/v3/math/pca2",
     "minimum_rust_successes": 2,
-    "commands": ["math view", "math view subset"]
+    "commands": [
+      "math view",
+      "math view subset"
+    ],
+    "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
+    "expected_requests": 2,
+    "expected_node_handoffs": 0
+  },
+  "owner-conversations": {
+    "path": "/api/v3/owner/conversations",
+    "minimum_rust_successes": 2,
+    "commands": [],
+    "scope": "Rust-only owner-list contract; Node-off must return capability_unavailable, exit 8.",
+    "expected_requests": 2,
+    "expected_node_handoffs": 0
   }
 }

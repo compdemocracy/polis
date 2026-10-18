@@ -166,3 +166,20 @@ sleep 1
 partial=$(docker exec "$p-proxy" sh -c 'wget -qO- http://127.0.0.1/api/v3/math/pca2 2>/dev/null; echo " exit=$?"')
 [[ $partial == "1234567 exit=1" ]] || fail "partial response: got '$partial'"
 echo "ok 10 documented limit: a reply cut short after its headers reaches the client truncated (wget fails), not node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/owner/conversations node "owner list off"
+start owner-conversations,owner-conversations
+expect /api/v3/owner/conversations rust "owner list on"
+expect /api/v3/math/pca2 node "owner switch leaves pca2 alone"
+expect /api/v3/comments node "owner switch leaves participation alone"
+[[ $(included | grep -c 'location = /api/v3/owner/conversations') == 1 ]] || fail "owner route duplicated"
+expect_upstream polis-api GET /api/v3/owner/conversations
+expect_upstream polis-api HEAD /api/v3/owner/conversations
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 503 busy
+sleep 6
+[[ $(get /api/v3/owner/conversations) != node ]] || fail "owner unavailable fell back to Node"
+echo "ok 11 owner contract off/on/deduplicated; unrelated routes unchanged; unavailable never falls back to Node"
