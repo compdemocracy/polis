@@ -802,3 +802,20 @@ behavior. Table math_tick is not substituted. Typed nested integer PID arrays
 retain order,up to1000 clusters/10000 entries/1MiB blob. Unsupported shapes,
 credentials,queries and failures hand back to Node. No participant or math writes.
 Counters `bidToPidServed` and `bidToPidFallback` expose the staged boundary.
+
+### Conversation statistics: moderator refusals
+
+`POLIS_API_CONVERSATION_STATS_READS=1` and nginx
+`RUST_API_ROUTES=conversationStats` stage GET/HEAD `/api/v3/conversationStats`;
+both default off. Set `POLIS_API_CONVERSATION_STATS_DATABASE_URL` for primary
+identity/code reads;the independent authority pool uses `READ_ONLY_DATABASE_URL`
+when configured. Both read-only pools have one connection,15 ms acquisition and
+50 ms statement limits;the configured route deadline is75 ms. Participation
+pools remain separate,and authorized statistics stay on Node's report/export pool.
+
+Verified scoped hybrid identity and the shared moderator policy admit only exact
+403 refusals. Authorized statistics,report_id capabilities,anonymous requests
+and unsupported shapes stay counted Node work. Canonical safe-integer until is
+accepted without changing the permission decision. This slice reads no event or
+vote values and performs no product writes. Counters are
+`conversationStatsServed` and `conversationStatsFallback`.
