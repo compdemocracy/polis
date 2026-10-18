@@ -193,20 +193,7 @@ fn provider(auth: &profiles::AuthConfig, timeout: u64) -> Result<Provider> {
             "Issuer must not contain a query.",
         ));
     }
-    let mut builder = Client::builder()
-        .timeout(Duration::from_secs(timeout))
-        .redirect(reqwest::redirect::Policy::none())
-        .retry(reqwest::retry::never());
-    if let Some(path) = &auth.ca_file {
-        let bytes = std::fs::read(path)
-            .map_err(|_| failure("oauth_configuration", "Cannot read CA file."))?;
-        let cert = reqwest::Certificate::from_pem(&bytes)
-            .map_err(|_| failure("oauth_configuration", "Invalid CA file."))?;
-        builder = builder.add_root_certificate(cert);
-    }
-    let http = builder
-        .build()
-        .map_err(|_| failure("oauth_transport", "Cannot initialize TLS."))?;
+    let http = http_client(auth, timeout)?;
     let metadata_url = format!(
         "{}/.well-known/openid-configuration",
         auth.issuer.trim_end_matches('/')
@@ -224,6 +211,67 @@ fn provider(auth: &profiles::AuthConfig, timeout: u64) -> Result<Provider> {
     }
     Ok(Provider { http, metadata })
 }
+fn http_client(auth: &profiles::AuthConfig, timeout: u64) -> Result<Client> {
+    let mut builder = Client::builder()
+        .timeout(Duration::from_secs(timeout))
+        .redirect(reqwest::redirect::Policy::none())
+        .retry(reqwest::retry::never());
+    if let Some(path) = &auth.ca_file {
+        let bytes = std::fs::read(path)
+            .map_err(|_| failure("oauth_configuration", "Cannot read CA file."))?;
+        let cert = reqwest::Certificate::from_pem(&bytes)
+            .map_err(|_| failure("oauth_configuration", "Invalid CA file."))?;
+        builder = builder.add_root_certificate(cert);
+    }
+    builder
+        .build()
+        .map_err(|_| failure("oauth_transport", "Cannot initialize TLS."))
+}
+
+/// Revoke the saved refresh token at its issuing client, even if the profile's
+/// current issuer/client settings changed. Discover the revocation endpoint from
+/// that saved issuer; never refresh the token or call the Polis API.
+pub fn logout(config: &Config, site: &str, timeout: u64) -> Result<bool> {
+    profiles::logout(site, config.url(site)?, |session| {
+        let mut auth = config.auth(site)?;
+        auth.issuer = session.issuer;
+        auth.client_id = session.client_id;
+        let Provider { http, metadata } = provider(&auth, timeout)?;
+        let Some(raw_endpoint) = metadata.get("revocation_endpoint") else {
+            return Ok(false);
+        };
+        let revocation_endpoint = endpoint(raw_endpoint.as_str().ok_or_else(|| {
+            failure(
+                "oauth_configuration",
+                "Invalid revocation endpoint metadata.",
+            )
+        })?)?;
+        let response = http
+            .post(revocation_endpoint)
+            .form(&[
+                ("client_id", auth.client_id.as_str()),
+                (
+                    "token",
+                    session
+                        .refresh_token
+                        .as_deref()
+                        .expect("refresh token checked"),
+                ),
+            ])
+            .send()
+            .map_err(|_| failure("oauth_transport", "Revocation request failed."))?;
+        // RFC 7009 acknowledges revocation with HTTP 200. Never parse or reflect an issuer
+        // error body, which may contain credentials. Redirects/retries are off.
+        if response.status() != reqwest::StatusCode::OK {
+            return Err(failure(
+                "oauth_rejected",
+                "Issuer did not acknowledge revocation.",
+            ));
+        }
+        Ok(true)
+    })
+}
+
 pub fn login(config: &Config, site: &str, timeout: u64, no_browser: bool) -> Result<Value> {
     let auth = config.auth(site)?;
     let Provider { http, metadata } = provider(&auth, timeout)?;

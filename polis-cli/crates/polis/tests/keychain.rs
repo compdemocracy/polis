@@ -251,6 +251,7 @@ fn issuer_env(origin: &str, service: &Service) -> Vec<(&'static str, String)> {
 fn discovery(origin: &str) -> Value {
     json!({"issuer":format!("{origin}/"),"authorization_endpoint":format!("{origin}/authorize"),
         "token_endpoint":format!("{origin}/oauth/token"),
+        "revocation_endpoint":format!("{origin}/session/revoke"),
         "device_authorization_endpoint":format!("{origin}/oauth/device/code"),
         "code_challenge_methods_supported":["S256"]})
 }
@@ -283,6 +284,8 @@ fn interactive_sign_in_is_saved_in_keychain_and_readable_without_prompts() {
     responses.push((200, discovery(&origin)));
     responses.push((200, json!({"token_type":"Bearer","access_token":"fixture-access-2","expires_in":3600,"refresh_token":"fixture-refresh-2"})));
     responses.push((200, json!({"uid":1})));
+    responses.push((200, discovery(&origin))); // Logout discovers the saved issuer.
+    responses.push((200, json!({}))); // Refresh-token revocation on logout.
     let s = serve(listener, responses);
     let env = issuer_env(&origin, &service);
 
@@ -331,6 +334,8 @@ fn noninteractive_sign_in_keeps_the_file_backend_and_a_later_sign_in_moves_it() 
         "fixture-refresh-2",
         3600,
     ));
+    responses.push((200, discovery(&origin))); // Logout discovers the saved issuer.
+    responses.push((200, json!({}))); // Refresh-token revocation on logout.
     let s = serve(listener, responses);
     let env = issuer_env(&origin, &service);
 
@@ -422,6 +427,8 @@ fn default_oauth_session_and_refresh_use_owner_only_files() {
     responses.push((200, discovery(&origin)));
     responses.push((200, json!({"token_type":"Bearer","access_token":"fixture-access-2","expires_in":3600,"refresh_token":"fixture-refresh-2"})));
     responses.push((200, json!({"uid":1})));
+    responses.push((200, discovery(&origin))); // Logout discovers the saved issuer.
+    responses.push((200, json!({}))); // Refresh-token revocation on logout.
     let s = serve(listener, responses);
     let env = vec![
         ("POLIS_SITE", "local".into()),
@@ -463,7 +470,10 @@ fn default_oauth_session_and_refresh_use_owner_only_files() {
     assert_eq!(polis(t.path(), &env, &["auth", "logout"]).0, 0);
     assert!(!credential_file(t.path()).contains("fixture-"));
     let requests = s.join().unwrap();
-    assert_eq!(requests.len(), 7);
+    assert_eq!(requests.len(), 9);
+    assert!(requests[7].starts_with("GET /.well-known/openid-configuration "));
+    assert!(requests[8].starts_with("POST /session/revoke "));
+    assert!(requests[8].contains("token=fixture-refresh-2"));
     assert!(requests[5].contains("refresh_token=fixture-refresh-1"));
     assert!(requests[6].contains("Bearer fixture-access-2"));
 }
