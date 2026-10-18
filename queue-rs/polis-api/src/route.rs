@@ -129,6 +129,9 @@ pub struct App {
     pub xid_report_auth_db: Option<Arc<Pool>>,
     pub xid_report_served: AtomicU64,
     pub xid_report_fallback: AtomicU64,
+    pub einvites_read_db: Option<Arc<Pool>>,
+    pub einvites_read_served: AtomicU64,
+    pub einvites_read_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -256,6 +259,9 @@ impl App {
             xid_report_auth_db: None,
             xid_report_served: AtomicU64::new(0),
             xid_report_fallback: AtomicU64::new(0),
+            einvites_read_db: None,
+            einvites_read_served: AtomicU64::new(0),
+            einvites_read_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -998,6 +1004,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.xid_report_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::einvites_read::PATH {
+        if out.status == 502 {
+            app.einvites_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.einvites_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1089,6 +1102,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::einvites_read::PATH && crate::einvites_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if crate::xid_report::matches(req.path()) && crate::xid_report::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1292,6 +1308,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::einvites_read::PATH {
+        return crate::einvites_read::handle(app, req, res).await;
     }
     if crate::xid_report::matches(req.path()) {
         return crate::xid_report::handle(app, req, res).await;
@@ -2828,6 +2847,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn einvites_read_parameter_and_method_boundaries() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().einvites_read_db = Some(pool);
+        for code in [
+            "a".to_string(),
+            "a".repeat(100),
+            "fixture_1-2".into(),
+            "%66ixture".into(),
+        ] {
+            let mut req = request("GET", &[]);
+            req.target = format!("/api/v3/einvites?einvite={code}");
+            assert!(crate::einvites_read::parse(&state, &req).is_some());
+        }
+        for (method, query, headers) in [
+            ("POST", "einvite=fixture".into(), vec![]),
+            ("OPTIONS", "einvite=fixture".into(), vec![]),
+            ("GET", "einvite=".into(), vec![]),
+            ("GET", format!("einvite={}", "a".repeat(101)), vec![]),
+            ("GET", "einvite=x&einvite=y".into(), vec![]),
+            ("GET", "einvite[]=x".into(), vec![]),
+            ("GET", "einvite=fixture&unknown=1".into(), vec![]),
+            ("GET", "einvite=%FF".into(), vec![]),
+            (
+                "GET",
+                "einvite=fixture".into(),
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                "einvite=fixture".into(),
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                "einvite=fixture".into(),
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/einvites?{query}");
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.einvites_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.einvites_read_fallback.load(Ordering::Relaxed), 11);
+    }
+
+    #[tokio::test]
     async fn xid_report_gate_and_missing_auth_configuration_hand_back() {
         let mut state = app(true);
         let probe = || {
@@ -2859,6 +2926,28 @@ mod tests {
         admitted.target = probe().target;
         let redirect = handle(secure, admitted).await;
         assert_eq!(redirect.status, 302);
+    }
+
+    #[tokio::test]
+    async fn einvites_read_gate_and_unreachable_database_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = "/api/v3/einvites?einvite=fixture".into();
+            req
+        };
+        assert!(state.einvites_read_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().einvites_read_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.einvites_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.einvites_read_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().einvites_read_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
     }
 
     #[tokio::test]

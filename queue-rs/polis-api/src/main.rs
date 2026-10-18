@@ -19,6 +19,7 @@ mod cors;
 mod database;
 mod db;
 mod domain_whitelist;
+mod einvites_read;
 mod http;
 mod hybrid_read;
 mod js;
@@ -294,6 +295,14 @@ async fn health(app: &route::App) -> Outgoing {
         "xidReportFallback",
         js::Js::Num(app.xid_report_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "einvitesReadServed",
+        js::Js::Num(app.einvites_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "einvitesReadFallback",
+        js::Js::Num(app.einvites_read_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -351,6 +360,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | treevite_me::PATH
         | treevite_my_invites::PATH
         | legacy_conversations::PATH
+        | einvites_read::PATH
         | topic_prioritize::PATH
         | topic_selections::PATH
         | conversation_stats::PATH
@@ -933,6 +943,18 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_EINVITES_READ_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_EINVITES_READ_DATABASE_URL")
+            .context("POLIS_API_EINVITES_READ_DATABASE_URL required")?;
+        state.einvites_read_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-einvites-read/1")?,
+            einvites_read::pool_limits(),
+        ));
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

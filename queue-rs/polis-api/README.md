@@ -930,3 +930,20 @@ UUIDs, more than 256 rows, XIDs over 4096 bytes or aggregate XID text over
 No forward/reverse CID cache is consulted for the UUID. Existing participant
 identity resolution retains its separate membership checks.
 Counters: `xidReportServed`, `xidReportFallback`.
+
+### Existing email-invite reads
+
+`POLIS_API_EINVITES_READ_READS=1` and nginx `RUST_API_ROUTES=einvitesRead` stage
+GET/HEAD `/api/v3/einvites?einvite=<code>`; both default off. Set
+`POLIS_API_EINVITES_READ_DATABASE_URL` to Node's primary database. Its separate
+read-only pool has one slot, 15 ms acquisition, 50 ms statement limits and a
+75 ms configured handler deadline; it never borrows participation connections.
+This route performs no writes, minting, email delivery or external calls.
+
+The code is the existing legacy capability. A single 1–100 character ASCII
+alphanumeric/underscore/hyphen code admits an exact existing row. JSON preserves
+column order, nullable email/created, and BIGINT created as a string. Unknown or
+ambiguous codes, oversized email text, cookies/auth headers, bodies, duplicate
+or unknown query keys and unsupported shapes hand back to Node and are counted.
+Lookup is fresh on each request; there is no CID, PID or math cache dependency.
+Counters: `einvitesReadServed`, `einvitesReadFallback`.
