@@ -42,6 +42,7 @@ mod route;
 mod topic_selections;
 mod treevite_csv;
 mod treevite_invites;
+mod treevite_my_invites;
 mod treevite_read;
 mod treevite_waves;
 
@@ -249,6 +250,14 @@ async fn health(app: &route::App) -> Outgoing {
         "topicSelectionsFallback",
         js::Js::Num(app.topic_selections_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "treeviteMyInvitesServed",
+        js::Js::Num(app.treevite_my_invites_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "treeviteMyInvitesFallback",
+        js::Js::Num(app.treevite_my_invites_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -303,6 +312,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | treevite_invites::PATH
         | metadata_choices::PATH
         | recent_started::PATH
+        | treevite_my_invites::PATH
         | topic_selections::PATH
         | conversation_stats::PATH
         | bid_to_pid::PATH
@@ -775,6 +785,32 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-topic-selections/1")?,
             topic_selections::pool_limits(),
         ));
+    }
+    if std::env::var("POLIS_API_TREEVITE_MY_INVITES_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_TREEVITE_MY_INVITES_DATABASE_URL")
+            .context("POLIS_API_TREEVITE_MY_INVITES_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.treevite_my_invites_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-treevite-my-invites/1")?,
+            treevite_my_invites::pool_limits(),
+        ));
+        state.treevite_my_invites_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-treevite-my-invites-auth/1")?,
+            treevite_my_invites::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

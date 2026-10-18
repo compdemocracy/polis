@@ -110,6 +110,10 @@ pub struct App {
     pub topic_selections_db: Option<Arc<Pool>>,
     pub topic_selections_served: AtomicU64,
     pub topic_selections_fallback: AtomicU64,
+    pub treevite_my_invites_db: Option<Arc<Pool>>,
+    pub treevite_my_invites_auth_db: Option<Arc<Pool>>,
+    pub treevite_my_invites_served: AtomicU64,
+    pub treevite_my_invites_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -218,6 +222,10 @@ impl App {
             topic_selections_db: None,
             topic_selections_served: AtomicU64::new(0),
             topic_selections_fallback: AtomicU64::new(0),
+            treevite_my_invites_db: None,
+            treevite_my_invites_auth_db: None,
+            treevite_my_invites_served: AtomicU64::new(0),
+            treevite_my_invites_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -914,6 +922,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.topic_selections_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::treevite_my_invites::PATH {
+        if out.status == 502 {
+            app.treevite_my_invites_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_my_invites_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1005,6 +1022,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::treevite_my_invites::PATH
+        && crate::treevite_my_invites::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::topic_selections::PATH
         && crate::topic_selections::parse(app, req).is_none()
     {
@@ -1187,6 +1209,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_my_invites::PATH {
+        return crate::treevite_my_invites::handle(app, req, res).await;
     }
     if req.path() == crate::topic_selections::PATH {
         return crate::topic_selections::handle(app, req, res).await;
@@ -2362,6 +2387,73 @@ mod tests {
         }
         assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn treevite_my_invites_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::treevite_my_invites::PATH
+            );
+            req
+        };
+        assert!(state.treevite_my_invites_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_my_invites_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_my_invites_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.treevite_my_invites_fallback.load(Ordering::Relaxed),
+            2
+        );
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_my_invites_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_my_invites_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_my_invites_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_my_invites::PATH, vec![]),
+            ("OPTIONS", crate::treevite_my_invites::PATH, vec![]),
+            ("GET", "/api/v3/treevite/myInvites?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_my_invites::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_my_invites::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_my_invites::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_my_invites_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.treevite_my_invites_fallback.load(Ordering::Relaxed),
+            6
+        );
     }
 
     #[tokio::test]
