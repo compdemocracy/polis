@@ -39,6 +39,7 @@ mod metadata_questions;
 mod metadata_read;
 mod negotiate;
 mod next_comment;
+mod ops_whoami;
 mod other_conversations_page;
 mod owner;
 mod params;
@@ -99,6 +100,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "robotsFallback",
         js::Js::Num(app.robots_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "opsWhoamiServed",
+        js::Js::Num(app.ops_whoami_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "opsWhoamiFallback",
+        js::Js::Num(app.ops_whoami_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "aboutServed",
@@ -465,6 +474,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | connection::PATH
         | robots::PATH
         | about::PATH
+        | ops_whoami::PATH
         | legacy_pca::PATH
         | delphi_read::PATH
         | collective_statement::PATH
@@ -593,6 +603,10 @@ async fn main() -> Result<()> {
     state.create_page_reads =
         std::env::var("POLIS_API_CREATE_PAGE_READS").ok().as_deref() == Some("1");
     state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
+    state.ops_whoami_reads = ops_whoami::configured(
+        std::env::var("POLIS_API_OPS_WHOAMI_READS").ok().as_deref(),
+        std::env::var("OPS_ENABLED").ok().as_deref(),
+    );
     if std::env::var("POLIS_API_DELPHI_REPORTS_READS")
         .ok()
         .as_deref()

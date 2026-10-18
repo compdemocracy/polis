@@ -1157,3 +1157,17 @@ finishes. `collectiveStatementServed` and `collectiveStatementFallback` count th
 Run `queue-rs/polis-api/conformance/collective-statement-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
 serve collective statements or claim DynamoDB/provider parity.
+
+
+### Disabled operations identity
+
+`POLIS_API_OPS_WHOAMI_READS=1` and nginx `RUST_API_ROUTES=opsWhoami`
+stage GET/HEAD `/api/v3/ops/whoami`. Both switches default off. Serving also
+requires `OPS_ENABLED=false` explicitly on the Rust process, matching Node.
+Keep that setting synchronized with Node; missing, enabled or other values
+hand every request back. The slice returns the existing disabled-policy 404
+JSON and private/no-store, Vary: Authorization and nosniff headers.
+Enabled operations, authenticated/cookie requests, bodies and nonempty query
+strings stay counted Node handoffs. No OIDC verification, policy evaluation,
+page registry, database, pool, cache or provider is consulted in Rust.
+The shared contract is in `polis-contracts/src/ops_whoami.rs`.
