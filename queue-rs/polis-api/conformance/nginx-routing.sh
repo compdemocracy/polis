@@ -823,3 +823,26 @@ expect /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv node "xidReport 
 echo "ok 41 xidReport off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/einvites node "einvitesRead off"
+start einvitesRead,einvitesRead
+expect /api/v3/einvites rust "einvitesRead on"
+expect /api/v3/comments node "einvitesRead leaves comments alone"
+expect /api/v3/votes node "einvitesRead leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/einvites') == 1 ]] || fail "einvitesRead duplicated"
+expect_upstream polis-api GET /api/v3/einvites
+expect_upstream polis-api HEAD /api/v3/einvites
+expect_upstream server OPTIONS /api/v3/einvites
+expect_upstream server POST /api/v3/einvites $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/einvites $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/einvites node "einvitesRead handoff"
+echo "ok 42 einvitesRead off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+
