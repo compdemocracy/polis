@@ -1,7 +1,7 @@
 {
   "fixture": "biodiversity",
-  "a": "50a50a0b1c119463e0c5bca139babbfc21aaf412bffcb6b2a05b802d64eed0cc",
-  "b": "50a50a0b1c119463e0c5bca139babbfc21aaf412bffcb6b2a05b802d64eed0cc",
-  "negative": "6fbd8cf04653c42e4b973c35fcc8abc2fbe67f9330bc7e8887dc98ee8ef56483",
+  "a": "6d8a1c03f92bcafaf45b51dafc776c23f0fe4f1a4a6ebcf9e0cf8bf4feca4682",
+  "b": "6d8a1c03f92bcafaf45b51dafc776c23f0fe4f1a4a6ebcf9e0cf8bf4feca4682",
+  "negative": "f4ee9493fd186f7a2ff40756e058bc6ba76e90ccd944de13e999682e87d21b14",
   "deltas": []
 }

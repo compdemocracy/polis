@@ -1,7 +1,7 @@
 {
   "schema": "declared-vote-sign/1",
   "fixture": "replay-pins.json",
-  "fixture_sha256": "106ce86494aa6af91e0994f24a256367ca8d18dcd12112ca6ba14ee0e4ac61c1",
+  "fixture_sha256": "bdf83fbdedea75b756002876c7fa81bc38b831fac7657370a2ef70588f7ae7b1",
   "storage_agree_value": -1,
   "vote_field": "none stored: every pinned digest was recorded against a database storing agree = -1 (each polarity witness's a/positive run; semantic-tie-key.json declared.storage_agree_value)",
   "paired_set": "replay-pins.agree-plus-one.json",

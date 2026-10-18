@@ -22,8 +22,8 @@
   "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
   "served": {
     "python": {
-      "asJSON_bytes": 6500,
-      "asJSON_sha256": "fca1a669ba11a2c0ecb64f6079c10d3c45086db18861b735f7f1e13844650ed8",
+      "asJSON_bytes": 6476,
+      "asJSON_sha256": "8be0d0d8366017a6a432a5627bc4f12e8ed9067f0520c838e16d63810a1c529a",
       "bid_to_pid": [
         [
           0
@@ -51,8 +51,8 @@
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 1765,
-      "gzip_sha256": "e4fc8a772a00eaa699fb03e833c26a9805c500e9f2c2d2b559d48b2e7ce56121",
+      "gzip_bytes": 1756,
+      "gzip_sha256": "a7ef00bd57dbe30a9b4e1088e8caff27121f8825be47e3f60969b97d54732244",
       "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -88,8 +88,8 @@
       ]
     },
     "rustproto": {
-      "asJSON_bytes": 6500,
-      "asJSON_sha256": "fca1a669ba11a2c0ecb64f6079c10d3c45086db18861b735f7f1e13844650ed8",
+      "asJSON_bytes": 6476,
+      "asJSON_sha256": "8be0d0d8366017a6a432a5627bc4f12e8ed9067f0520c838e16d63810a1c529a",
       "bid_to_pid": [
         [
           0
@@ -117,8 +117,8 @@
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 1765,
-      "gzip_sha256": "e4fc8a772a00eaa699fb03e833c26a9805c500e9f2c2d2b559d48b2e7ce56121",
+      "gzip_bytes": 1756,
+      "gzip_sha256": "a7ef00bd57dbe30a9b4e1088e8caff27121f8825be47e3f60969b97d54732244",
       "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
