@@ -689,3 +689,25 @@ expect /api/v3/conversationStats node "conversationStats handoff"
 echo "ok 35 conversationStats off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/topicAgenda/selections node "topicSelections off"
+start topicSelections,topicSelections
+expect /api/v3/topicAgenda/selections rust "topicSelections on"
+expect /api/v3/comments node "topicSelections leaves comments alone"
+expect /api/v3/votes node "topicSelections leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/topicAgenda/selections') == 1 ]] || fail "topicSelections duplicated"
+expect_upstream polis-api GET /api/v3/topicAgenda/selections
+expect_upstream polis-api HEAD /api/v3/topicAgenda/selections
+expect_upstream server OPTIONS /api/v3/topicAgenda/selections
+expect_upstream server POST /api/v3/topicAgenda/selections $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/topicAgenda/selections $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/topicAgenda/selections node "topicSelections handoff"
+echo "ok 36 topicSelections off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+

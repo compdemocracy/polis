@@ -107,6 +107,9 @@ pub struct App {
     pub conversation_stats_auth_db: Option<Arc<Pool>>,
     pub conversation_stats_served: AtomicU64,
     pub conversation_stats_fallback: AtomicU64,
+    pub topic_selections_db: Option<Arc<Pool>>,
+    pub topic_selections_served: AtomicU64,
+    pub topic_selections_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -212,6 +215,9 @@ impl App {
             conversation_stats_auth_db: None,
             conversation_stats_served: AtomicU64::new(0),
             conversation_stats_fallback: AtomicU64::new(0),
+            topic_selections_db: None,
+            topic_selections_served: AtomicU64::new(0),
+            topic_selections_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -900,6 +906,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
                 .fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::topic_selections::PATH {
+        if out.status == 502 {
+            app.topic_selections_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.topic_selections_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -991,6 +1005,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::topic_selections::PATH
+        && crate::topic_selections::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::conversation_stats::PATH
         && crate::conversation_stats::parse(app, req).is_none()
     {
@@ -1168,6 +1187,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::topic_selections::PATH {
+        return crate::topic_selections::handle(app, req, res).await;
     }
     if req.path() == crate::conversation_stats::PATH {
         return crate::conversation_stats::handle(app, req, res).await;
@@ -2340,6 +2362,64 @@ mod tests {
         }
         assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn topic_selections_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::topic_selections::PATH);
+            req
+        };
+        assert!(state.topic_selections_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().topic_selections_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.topic_selections_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.topic_selections_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().topic_selections_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn topic_selections_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().topic_selections_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::topic_selections::PATH, vec![]),
+            ("OPTIONS", crate::topic_selections::PATH, vec![]),
+            ("GET", "/api/v3/topicAgenda/selections?unknown=1", vec![]),
+            (
+                "GET",
+                crate::topic_selections::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::topic_selections::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::topic_selections::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.topic_selections_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.topic_selections_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]
