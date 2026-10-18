@@ -1692,6 +1692,22 @@ fn schema_invalid_manifests_never_finalize() {
             .unwrap()
             .get(0);
         assert!(digest.is_none(), "{mode}: no manifest receipt");
+        // The transition reason stays `manifest_invalid`, but a separate log line
+        // now names which check refused this attempt, so a rejection is
+        // diagnosable from the daemon's log alone.
+        let rejected: Vec<Value> = d
+            .log()
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| v["schema"] == "polis_jobs.manifest_reject/1")
+            .collect();
+        assert!(
+            rejected
+                .iter()
+                .any(|v| v["job_id"].as_str() == Some(job.to_string().as_str())
+                    && v["check"].as_str().is_some_and(|c| !c.is_empty())),
+            "{mode}: the refused manifest names a check in the log: {rejected:?}"
+        );
         assert_eq!(d.stop(), Some(0));
     }
 }
