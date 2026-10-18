@@ -96,6 +96,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} reportsRead"
       ;;
+    bidToPid)
+      case " $rust_api_locations " in *" bidToPid "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/bidToPid ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} bidToPid"
+      ;;
     recentStarted)
       case " $rust_api_locations " in *" recentStarted "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/conversations/recently_started ${RUST_API_UPSTREAM};
@@ -175,7 +181,7 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 done
 export RUST_API_RESOLVER=${RUST_API_RESOLVER:-127.0.0.11}
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment testConnection testDatabase contexts domainWhitelist metadataQuestions metadataAnswers metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead robots about). Every route stays on Node." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment testConnection testDatabase contexts domainWhitelist metadataQuestions metadataAnswers metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid robots about). Every route stays on Node." >&2
 elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then
   echo "ERROR RUST_API_UPSTREAM: '${RUST_API_UPSTREAM}' is not host:port. Every route stays on Node." >&2

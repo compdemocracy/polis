@@ -1,6 +1,7 @@
 //! Versioned CLI envelopes. No server, database, or credential dependencies.
 pub mod about;
 pub mod all_conversations;
+pub mod bid_to_pid;
 pub mod connection;
 pub mod contexts;
 pub mod conversation_preload;

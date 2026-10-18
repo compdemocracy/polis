@@ -785,3 +785,20 @@ results are served. Populated rows,report_id capabilities,combined filters and
 unsupported requests stay counted Node work. Authority connections are released
 before primary report reads. No report writes or full report-result replacement.
 Counters are `reportsReadServed` and `reportsReadFallback`.
+
+### Bucket-to-participant mappings
+
+`POLIS_API_BID_TO_PID_READS=1` and nginx `RUST_API_ROUTES=bidToPid` stage GET/HEAD
+`/api/v3/bidToPid`; both default off. `POLIS_API_BID_TO_PID_DATABASE_URL` supplies
+primary identity/code reads; a separate map pool uses `READ_ONLY_DATABASE_URL`
+when configured. Each read-only pool has one connection,15 ms acquisition and
+50 ms statement limits;the configured route timeout is75 ms. Existing
+participation pools remain separate.
+
+Optional hybrid credentials are verified and participant tokens scoped to the
+conversation. Missing or stale mapping rows return the existing304; freshness
+uses the embedded data.math_tick,including Node's zero/latest and absent-field
+behavior. Table math_tick is not substituted. Typed nested integer PID arrays
+retain order,up to1000 clusters/10000 entries/1MiB blob. Unsupported shapes,
+credentials,queries and failures hand back to Node. No participant or math writes.
+Counters `bidToPidServed` and `bidToPidFallback` expose the staged boundary.
