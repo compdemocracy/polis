@@ -950,3 +950,29 @@ echo "ok 46 settingsPage off/on/deduplicated; method/body guards; 502 hands back
 
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /user/logout node "userLogoutPage off"
+start userLogoutPage,userLogoutPage
+expect /user/logout rust "userLogoutPage on"
+expect /user/logout/step rust "userLogoutPage nested path"
+expect /user/logoutSuffix node "userLogoutPage anchored neighbor"
+expect /user/logou node "userLogoutPage neighbor"
+expect /api/v3/comments node "userLogoutPage leaves comments alone"
+expect /api/v3/votes node "userLogoutPage leaves voting alone"
+[[ $(included | grep -c 'location ~ ^/user/logout') == 1 ]] || fail "userLogoutPage duplicated"
+expect_upstream polis-api GET /user/logout
+expect_upstream polis-api HEAD /user/logout
+expect_upstream server OPTIONS /user/logout
+expect_upstream server POST /user/logout $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /user/logout $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /user/logout node "userLogoutPage handoff"
+echo "ok 47 userLogoutPage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+

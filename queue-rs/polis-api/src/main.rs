@@ -53,6 +53,7 @@ mod treevite_read;
 mod treevite_waves;
 mod user_create_page;
 mod user_login_page;
+mod user_logout_page;
 mod xid_report;
 
 use anyhow::{Context, Result};
@@ -316,6 +317,14 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.settings_page_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "userLogoutPageServed",
+        js::Js::Num(app.user_logout_page_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "userLogoutPageFallback",
+        js::Js::Num(app.user_logout_page_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
         "userLoginPageServed",
         js::Js::Num(app.user_login_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -407,6 +416,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if settings_page::matches(path) => route::handle(app, req).await,
+        path if user_logout_page::matches(path) => route::handle(app, req).await,
         path if user_login_page::matches(path) => route::handle(app, req).await,
         path if user_create_page::matches(path) => route::handle(app, req).await,
         path if create_page::matches(path) => route::handle(app, req).await,
@@ -482,6 +492,10 @@ async fn main() -> Result<()> {
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
     state.settings_page_reads = std::env::var("POLIS_API_SETTINGS_PAGE_READS")
+        .ok()
+        .as_deref()
+        == Some("1");
+    state.user_logout_page_reads = std::env::var("POLIS_API_USER_LOGOUT_PAGE_READS")
         .ok()
         .as_deref()
         == Some("1");

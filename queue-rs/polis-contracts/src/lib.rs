@@ -31,6 +31,7 @@ pub mod treevite_my_invites;
 pub mod treevite_waves;
 pub mod user_create_page;
 pub mod user_login_page;
+pub mod user_logout_page;
 pub mod xid_report;
 
 use serde::Serialize;
