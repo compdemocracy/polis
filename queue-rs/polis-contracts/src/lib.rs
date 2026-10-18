@@ -9,6 +9,8 @@ pub mod conversation_preload;
 pub mod conversation_stats;
 pub mod create_page;
 pub mod database;
+pub mod delphi_job_result;
+pub mod delphi_run;
 pub mod domain_whitelist;
 pub mod einvites_read;
 pub mod integrate_page;
@@ -24,6 +26,7 @@ pub mod recent_activity;
 pub mod recent_started;
 pub mod reports_read;
 pub mod robots;
+pub mod schema;
 pub mod settings_page;
 pub mod topic_prioritize;
 pub mod topic_selections;
@@ -35,6 +38,8 @@ pub mod treevite_waves;
 pub mod user_create_page;
 pub mod user_login_page;
 pub mod user_logout_page;
+/// Byte-stable JSON shared by the Delphi contracts.
+pub mod wire;
 pub mod xid_report;
 
 use serde::Serialize;

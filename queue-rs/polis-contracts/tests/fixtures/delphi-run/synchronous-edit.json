@@ -1,0 +1,85 @@
+{
+  "contract_version": "delphi-run/1",
+  "job_id": "0000d001-0000-4000-8000-000000000007",
+  "run_id": "0000d001-0000-4000-8000-0000000000a7",
+  "root_job_id": "0000d001-0000-4000-8000-000000000007",
+  "parent_job_id": null,
+  "graph_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "origin": "queued",
+  "kind": "full_pipeline",
+  "stage": "delphi_full_pipeline",
+  "state": "succeeded",
+  "attempt": {
+    "attempt_id": "0000d001-0000-4000-8000-0000000000b7",
+    "number": 1,
+    "lease_epoch": 1,
+    "max_attempts": 3,
+    "outcome": "succeeded",
+    "started_at": "2026-10-18T20:30:00.000000+00:00",
+    "ended_at": "2026-10-18T20:30:00.040000+00:00",
+    "process_exit_confirmed_at": "2026-10-18T20:30:00.000000+00:00"
+  },
+  "nodes": [],
+  "math_snapshot": null,
+  "inputs": null,
+  "config_effective": {
+    "synchronous": true,
+    "result_scope": "pipeline",
+    "result_backend": "postgres"
+  },
+  "code_version": "505f63a4240c112b6441b58491d32e1231939293616aa420a3b91de73d06dc5b",
+  "models": {
+    "embedding": null,
+    "cluster": null,
+    "cluster_seed": null,
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "prompt_versions": {
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "outputs": {
+    "manifest_sha256": null,
+    "families": [
+      {
+        "family": "Delphi_CollectiveStatement",
+        "state": "superseded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000007",
+          "run_id": "0000d001-0000-4000-8000-0000000000a7"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentClustersLLMTopicNames",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000b7",
+          "content_sha256": "fbe515c119822c53d8168e311c92c29228ec6f5d2c7c1fcd60d47a000b384945",
+          "row_count": 4
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 8
+        }
+      }
+    ]
+  },
+  "cost": {
+    "llm_tokens_in": null,
+    "llm_tokens_out": null,
+    "provider_requests": []
+  },
+  "pinned": false,
+  "label": null,
+  "created_at": "2026-10-18T19:59:58.000000+00:00",
+  "completed_at": "2026-10-18T20:30:00.050000+00:00",
+  "failure": null
+}

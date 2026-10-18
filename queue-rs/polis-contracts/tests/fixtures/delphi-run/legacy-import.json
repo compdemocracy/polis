@@ -1,0 +1,119 @@
+{
+  "contract_version": "delphi-run/1",
+  "job_id": "0000d001-0000-4000-8000-000000000010",
+  "run_id": null,
+  "root_job_id": "0000d001-0000-4000-8000-000000000010",
+  "parent_job_id": null,
+  "graph_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "origin": "legacy_import",
+  "kind": "legacy_import",
+  "stage": null,
+  "state": "succeeded",
+  "attempt": null,
+  "nodes": [],
+  "math_snapshot": null,
+  "inputs": null,
+  "config_effective": {},
+  "code_version": null,
+  "models": {
+    "embedding": null,
+    "cluster": null,
+    "cluster_seed": null,
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "prompt_versions": {
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "outputs": {
+    "manifest_sha256": null,
+    "families": [
+      {
+        "family": "Delphi_CommentClustersLLMTopicNames",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000010",
+          "run_id": null
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentHierarchicalClusterAssignments",
+            "job_id": "0000d001-0000-4000-8000-000000000010",
+            "run_id": null
+          },
+          {
+            "family": "Delphi_UMAPGraph",
+            "job_id": "0000d001-0000-4000-8000-000000000010",
+            "run_id": null
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-000000000b10",
+          "content_sha256": "6c9009bf85b7895e0705aaf94b0d41a8fc424ea9a8478a346bdd5ab59c63f62c",
+          "row_count": 18
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 1
+        }
+      },
+      {
+        "family": "Delphi_NarrativeReports",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000010",
+          "run_id": null
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentClustersLLMTopicNames",
+            "job_id": "0000d001-0000-4000-8000-000000000010",
+            "run_id": null
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-000000000b10",
+          "content_sha256": "36c7038084ed3af9aab27765325be68ed2238e7972efb9b2125d713ef672ca89",
+          "row_count": 6
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 1
+        }
+      },
+      {
+        "family": "Delphi_CommentExtremity",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000010",
+          "run_id": null
+        },
+        "upstream": [],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-000000000b10",
+          "content_sha256": "815d40ac5ff9910837d30068b177d01b3460fe816b9900b8e4c25453b9e18e01",
+          "row_count": 40
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 1
+        }
+      }
+    ]
+  },
+  "cost": {
+    "llm_tokens_in": null,
+    "llm_tokens_out": null,
+    "provider_requests": []
+  },
+  "pinned": false,
+  "label": null,
+  "created_at": "2026-10-18T08:00:00.000000+00:00",
+  "completed_at": "2026-10-18T08:00:00.000000+00:00",
+  "failure": null
+}

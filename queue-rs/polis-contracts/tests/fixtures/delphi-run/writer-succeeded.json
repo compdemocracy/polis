@@ -1,0 +1,240 @@
+{
+  "contract_version": "delphi-run/1",
+  "job_id": "0000d001-0000-4000-8000-000000000001",
+  "run_id": "0000d001-0000-4000-8000-0000000000a1",
+  "root_job_id": "0000d001-0000-4000-8000-000000000001",
+  "parent_job_id": null,
+  "graph_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "origin": "queued",
+  "kind": "full_pipeline",
+  "stage": "delphi_full_pipeline",
+  "state": "succeeded",
+  "attempt": {
+    "attempt_id": "0000d001-0000-4000-8000-0000000000b1",
+    "number": 1,
+    "lease_epoch": 1,
+    "max_attempts": 3,
+    "outcome": "succeeded",
+    "started_at": "2026-10-18T20:00:00.000000+00:00",
+    "ended_at": "2026-10-18T20:07:12.123456+00:00",
+    "process_exit_confirmed_at": "2026-10-18T20:07:12.200000+00:00"
+  },
+  "nodes": [],
+  "math_snapshot": {
+    "math_env": "prod",
+    "math_tick": 4242,
+    "caching_tick": 4242,
+    "data_sha256": "59965ff33cbb8b2629d46f3eeec8dc7621d33c244dea46b51ea2a64ffb466cfc"
+  },
+  "inputs": {
+    "math_env": "prod",
+    "math_tick": 4242,
+    "math_caching_tick": 4242,
+    "comment_set_sha256": "451db3e2612860c30d2163befe571dbbd8809f286f0511a651ea4d9978310436",
+    "vote_hwm": 1760817600000,
+    "inputs_sha256": "fea75d2815a7a6dcfcf41a611f638ef95313363637945b21dce2cc87d73b619f"
+  },
+  "config_effective": {
+    "batch_size": 20,
+    "result_scope": "pipeline",
+    "result_backend": "postgres",
+    "include_moderation": true
+  },
+  "code_version": "0123456789abcdef0123456789abcdef01234567",
+  "models": {
+    "embedding": "sentence-transformers/all-MiniLM-L6-v2",
+    "cluster": "delphi-umap-evoc/1",
+    "cluster_seed": null,
+    "topic_names": "claude-haiku-4-5-20251001",
+    "narrative": null,
+    "statement": null
+  },
+  "prompt_versions": {
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "outputs": {
+    "manifest_sha256": "396c00555fb67668f7c41d51f3d03277dd3d8084b862af6d35abdd0705c35980",
+    "families": [
+      {
+        "family": "Delphi_CommentEmbeddings",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000001",
+          "run_id": "0000d001-0000-4000-8000-0000000000a1"
+        },
+        "upstream": [],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000b1",
+          "content_sha256": "b15965eb7395a254f3f13ae1f5a25e3b41196430a53a386a59d3dbbd7a81ecf9",
+          "row_count": 412
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 7
+        }
+      },
+      {
+        "family": "Delphi_CommentHierarchicalClusterAssignments",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000001",
+          "run_id": "0000d001-0000-4000-8000-0000000000a1"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentEmbeddings",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000b1",
+          "content_sha256": "e343d6096338e5f813688da923dd93f89a883e3a52cf11d5657f5f55c766e439",
+          "row_count": 412
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 7
+        }
+      },
+      {
+        "family": "Delphi_UMAPGraph",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000001",
+          "run_id": "0000d001-0000-4000-8000-0000000000a1"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentEmbeddings",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000b1",
+          "content_sha256": "addae434449fc553b307ef0ad299722d77eca587485bc4de45c0579e6f066add",
+          "row_count": 3896
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 7
+        }
+      },
+      {
+        "family": "Delphi_CommentClustersLLMTopicNames",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000001",
+          "run_id": "0000d001-0000-4000-8000-0000000000a1"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentHierarchicalClusterAssignments",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          },
+          {
+            "family": "Delphi_UMAPGraph",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000b1",
+          "content_sha256": "f45a8d505c34de28401d364c2b4a8906f5e0d37e4819b4f5df4d501c06105102",
+          "row_count": 23
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 7
+        }
+      },
+      {
+        "family": "topic_stats",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000001",
+          "run_id": "0000d001-0000-4000-8000-0000000000a1"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentClustersLLMTopicNames",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          },
+          {
+            "family": "Delphi_CommentHierarchicalClusterAssignments",
+            "job_id": "0000d001-0000-4000-8000-000000000001",
+            "run_id": "0000d001-0000-4000-8000-0000000000a1"
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000b1",
+          "content_sha256": "0425f38f6fefdedff90376ba9dcbe34e96d559670bd8b6b73876019a770e9c58",
+          "row_count": 23
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 7
+        }
+      },
+      {
+        "family": "Delphi_NarrativeReports",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-00000000000f",
+          "run_id": "0000d001-0000-4000-8000-0000000000af"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentClustersLLMTopicNames",
+            "job_id": "0000d001-0000-4000-8000-00000000000e",
+            "run_id": "0000d001-0000-4000-8000-0000000000ae"
+          }
+        ],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-0000000000bf",
+          "content_sha256": "cd18ecc9ac7e0061017cdde3cc537f14a41767514f1080905c52682c7ae899c5",
+          "row_count": 9
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 6
+        }
+      },
+      {
+        "family": "Delphi_KMeansClusters",
+        "state": "succeeded",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000010",
+          "run_id": null
+        },
+        "upstream": [],
+        "batch": {
+          "batch_id": "0000d001-0000-4000-8000-000000000b10",
+          "content_sha256": "cbccfd4e9b9a995dcf260b3c562cf76800a4d13839db0f0ec98043d0ef589409",
+          "row_count": 3
+        },
+        "publication": {
+          "scope": "pipeline",
+          "generation": 1
+        }
+      }
+    ]
+  },
+  "cost": {
+    "llm_tokens_in": null,
+    "llm_tokens_out": null,
+    "provider_requests": []
+  },
+  "pinned": true,
+  "label": "Before the town hall",
+  "created_at": "2026-10-18T19:59:58.000000+00:00",
+  "completed_at": "2026-10-18T20:07:12.300000+00:00",
+  "failure": null
+}
