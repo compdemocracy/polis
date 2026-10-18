@@ -341,5 +341,16 @@
       "delphi overview"
     ],
     "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+  },
+  "delphiReports": {
+    "path": "/api/v3/delphi/reports",
+    "minimum_rust_successes": 0,
+    "expected_requests": 2,
+    "expected_node_handoffs": 2,
+    "commands": [
+      "delphi results",
+      "delphi narrative view"
+    ],
+    "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
   }
 }

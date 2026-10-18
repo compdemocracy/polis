@@ -1072,3 +1072,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/delphi node "Delphi report validation handoff"
 echo "ok 51 Delphi report validation off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/reports node "Delphi narrative report validation off"
+start delphiReports,delphiReports
+expect /api/v3/delphi/reports rust "Delphi narrative report validation on"
+expect /api/v3/comments node "Delphi narrative report validation leaves comments alone"
+expect /api/v3/votes node "Delphi narrative report validation leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/delphi/reports') == 1 ]] || fail "Delphi narrative report validation duplicated"
+expect_upstream polis-api GET /api/v3/delphi/reports
+expect_upstream polis-api HEAD /api/v3/delphi/reports
+expect_upstream server OPTIONS /api/v3/delphi/reports
+expect_upstream server POST /api/v3/delphi/reports $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/reports $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/delphi/reports node "Delphi narrative report validation handoff"
+echo "ok 52 Delphi narrative report validation off/on/deduplicated; method/body guards; 502 hands back to Node"
