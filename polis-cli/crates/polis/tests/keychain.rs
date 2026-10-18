@@ -245,6 +245,7 @@ fn issuer_env(origin: &str, service: &Service) -> Vec<(&'static str, String)> {
         ("POLIS_AUTH_CLIENT_ID_LOCAL", "fixture-client".into()),
         ("POLIS_AUTH_AUDIENCE_LOCAL", "users".into()),
         ("POLIS_KEYCHAIN_SERVICE", service.0.clone()),
+        ("POLIS_KEYCHAIN", "on".into()),
     ]
 }
 fn discovery(origin: &str) -> Value {
@@ -373,6 +374,7 @@ fn manual_token_after_logout_uses_keychain() {
         ("POLIS_SITE", "local".into()),
         ("POLIS_URL_LOCAL", origin),
         ("POLIS_KEYCHAIN_SERVICE", service.0.clone()),
+        ("POLIS_KEYCHAIN", "on".into()),
     ];
     // A logout tombstone used to pin later manual tokens to the file backend.
     assert_eq!(polis(t.path(), &env, &["auth", "logout"]).0, 0);
@@ -408,4 +410,99 @@ fn manual_token_after_logout_uses_keychain() {
     assert!(!service.has_item());
     let requests = s.join().unwrap();
     assert!(requests[1].contains("Bearer fixture-manual"));
+}
+
+#[test]
+fn default_oauth_session_and_refresh_use_owner_only_files() {
+    use std::os::unix::fs::PermissionsExt;
+    let t = tempfile::tempdir().unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let mut responses = device_login(&origin, "fixture-access-1", "fixture-refresh-1", 1);
+    responses.push((200, discovery(&origin)));
+    responses.push((200, json!({"token_type":"Bearer","access_token":"fixture-access-2","expires_in":3600,"refresh_token":"fixture-refresh-2"})));
+    responses.push((200, json!({"uid":1})));
+    let s = serve(listener, responses);
+    let env = vec![
+        ("POLIS_SITE", "local".into()),
+        ("POLIS_URL_LOCAL", origin.clone()),
+        ("POLIS_AUTH_ISSUER_LOCAL", format!("{origin}/")),
+        ("POLIS_AUTH_CLIENT_ID_LOCAL", "fixture-client".into()),
+        ("POLIS_AUTH_AUDIENCE_LOCAL", "users".into()),
+        // This bypasses the helper's explicit off setting, leaving POLIS_KEYCHAIN
+        // absent. It is deliberately invalid: default storage must not read it.
+        ("POLIS_KEYCHAIN_SERVICE", "".into()),
+    ];
+    let (exit, v) = polis(t.path(), &env, &["auth", "login", "--device"]);
+    assert_eq!(exit, 0, "{v}");
+    assert_eq!(v["data"]["storage"], "owner-only file (0600)");
+    let before = credential_file(t.path());
+    assert!(before.contains("fixture-access-1") && before.contains("fixture-refresh-1"));
+    let (exit, v) = polis(t.path(), &env, &["auth", "token", "--no-interactive"]);
+    assert_eq!(exit, 0, "{v}");
+    assert_eq!(v["data"]["access_token"], "fixture-access-2");
+    let after = credential_file(t.path());
+    assert!(after.contains("fixture-access-2") && after.contains("fixture-refresh-2"));
+    assert!(!after.contains("fixture-refresh-1"));
+    assert_eq!(polis(t.path(), &env, &["auth", "status"]).0, 0);
+    let credentials = t.path().join("credentials");
+    assert_eq!(
+        std::fs::metadata(&credentials)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
+    for entry in std::fs::read_dir(credentials).unwrap() {
+        assert_eq!(
+            entry.unwrap().metadata().unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+    assert_eq!(polis(t.path(), &env, &["auth", "logout"]).0, 0);
+    assert!(!credential_file(t.path()).contains("fixture-"));
+    let requests = s.join().unwrap();
+    assert_eq!(requests.len(), 7);
+    assert!(requests[5].contains("refresh_token=fixture-refresh-1"));
+    assert!(requests[6].contains("Bearer fixture-access-2"));
+}
+
+#[test]
+fn default_keychain_pointer_is_signed_out_without_migration() {
+    use std::os::unix::fs::PermissionsExt;
+    let t = tempfile::tempdir().unwrap();
+    let origin = "http://127.0.0.1:12345/";
+    let credentials = t.path().join("credentials");
+    std::fs::create_dir(&credentials).unwrap();
+    std::fs::set_permissions(&credentials, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let key = serde_json::to_vec(&("local", origin)).unwrap();
+    let file = credentials.join(format!(
+        "{}.json",
+        uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_URL, &key)
+    ));
+    let pointer = json!({"site":"local","origin":origin,"token":null,"keychain":true}).to_string();
+    std::fs::write(&file, &pointer).unwrap();
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let env = vec![
+        ("POLIS_SITE", "local".into()),
+        ("POLIS_URL_LOCAL", origin.into()),
+        ("POLIS_KEYCHAIN_SERVICE", "".into()),
+    ];
+    for command in ["status", "token"] {
+        for headless in [false, true] {
+            let mut args = vec!["auth", command];
+            if headless {
+                args.push("--no-interactive");
+            }
+            let (exit, v) = polis(t.path(), &env, &args);
+            assert_eq!(exit, 3, "{v}");
+            assert_eq!(v["error"]["code"], "auth_required", "{v}");
+            assert!(v.to_string().contains("polis auth login once"), "{v}");
+            assert!(!v.to_string().contains("Unlock"), "{v}");
+            assert_eq!(std::fs::read_to_string(&file).unwrap(), pointer);
+        }
+    }
+    assert_eq!(polis(t.path(), &env, &["auth", "logout"]).0, 0);
+    assert!(!credential_file(t.path()).contains("\"keychain\":true"));
 }
