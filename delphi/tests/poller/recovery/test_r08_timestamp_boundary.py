@@ -10,12 +10,19 @@ P-022 §C required matrix:
     proven bound or a repair path for older commits.
 
 The poll queries are ``WHERE created > :since`` / ``WHERE modified > :since``
-(``polismath/database/postgres.py:572``, ``:606``) and the watermark advances to
-``max(created)`` (``polismath/poller/service.py:40``).  Two real connections are
-used so the "committed later, timestamped earlier" case is a genuine commit-order
-event and not a Python-side reordering: ``votes.created`` defaults to
-``now_as_millis()`` but is explicitly supplied here, which is exactly what a
-client-supplied or clock-skewed timestamp looks like.
+(``PostgresClient.poll_votes_since`` / ``poll_moderation_since``) and each
+watermark advances to the max timestamp polled (``advance_watermark``).  The
+vote poll reads ``POLL_VOTE_OVERLAP_MS`` below its watermark and drops the rows
+it already handled (``VoteWindow``); ``vote_overlap_ms=0`` is the strict
+cursor, kept here as the control.  The moderation poll is still strict.
+
+Two real connections are used so the "committed later, timestamped earlier"
+case is a genuine commit-order event and not a Python-side reordering.
+``votes.created`` defaults to ``now_as_millis()``, the inserting transaction's
+start time; most tests here supply it explicitly, which is what a
+client-supplied or clock-skewed timestamp looks like, and
+``test_vote_committed_after_a_later_started_vote_is_represented`` leaves it to
+the default, as the server's vote route does.
 """
 
 import time
@@ -32,6 +39,7 @@ from .conftest import (
     tables_are_coherent,
 )
 from . import fold as F
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.recovery
 
@@ -65,28 +73,11 @@ def test_watermark_advances_to_exactly_the_max_created(engine, pg_url,
     assert rows == 0, "the strict > boundary excludes the row it advanced onto"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (predicted by P-022 §C): a vote committed with created EXACTLY "
-        "equal to the current watermark is never delivered. "
-        "polismath/database/postgres.py:572 polls `WHERE created > :since` and "
-        "polismath/poller/service.py:40 advances the watermark to max(created) "
-        "of the rows it just saw, so the boundary row is skipped by the very "
-        "poll that moved onto it. Nothing repairs it: the parked-zid "
-        "reconciler (polismath/poller/service.py:393) only visits zids that "
-        "FAILED, and a never-polled late commit creates no parked marker. "
-        "Without a later vote on the same conversation the input is silently "
-        "absent from math_main indefinitely. P-022 §C: 'Without a later vote, "
-        "all committed input must eventually be represented. Strict > plus max "
-        "timestamp is insufficient.' The fix is an overlap/dedup window or a "
-        "durable scan; that is a separate decision."
-    ),
-)
 def test_equal_timestamp_commit_is_eventually_represented(engine, pg_url,
                                                           make_service):
     """Commit A at t, poll (watermark -> t), then commit B with created == t on
-    ANOTHER connection.  With no later vote, B must still be represented."""
+    ANOTHER connection.  With no later vote, B must still be represented: the
+    strict ``created > t`` never reads it, the overlap does."""
     seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
     svc.poll_once()
@@ -104,19 +95,6 @@ def test_equal_timestamp_commit_is_eventually_represented(engine, pg_url,
     assert problems == [], problems
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (same root cause, clock-skew / late-commit variant): a vote "
-        "COMMITTED after the poll but TIMESTAMPED before the watermark is never "
-        "delivered either. votes.created is a client/server-supplied bigint "
-        "(server/postgres/migrations/000000_initial.sql: `created bigint "
-        "default now_as_millis()`), so commit order and timestamp order are "
-        "independent; polismath/database/postgres.py:572's `created > :since` "
-        "keys on the timestamp alone. There is no repair path for a "
-        "never-polled commit — see the equal-timestamp case above."
-    ),
-)
 def test_late_commit_with_earlier_timestamp_is_eventually_represented(
     engine, pg_url, make_service
 ):
@@ -144,6 +122,86 @@ def test_late_commit_with_earlier_timestamp_is_eventually_represented(
 
     problems, _tables, _fold = _published_fold_problems(engine, 1)
     assert problems == [], problems
+
+
+def _insert_vote_at_transaction_start(conn, zid, pid, tid, raw_vote):
+    """INSERT one vote the way the server's vote route does: ``created`` is
+    left to its column default, ``now_as_millis()``, which reads ``now()``,
+    the START time of the inserting transaction. ``raw_vote`` is the stored
+    value, taken from ``tests.vote_fixtures.seed_vote``. Returns the stored
+    ``created``."""
+    return conn.execute(
+        sa.text("INSERT INTO votes (zid, pid, tid, vote) "
+                "VALUES (:zid, :pid, :tid, :vote) RETURNING created"),
+        {"zid": zid, "pid": pid, "tid": tid, "vote": raw_vote},
+    ).scalar_one()
+
+
+@pytest.mark.parametrize("strict", [False, True], ids=["overlap", "strict-control"])
+def test_vote_committed_after_a_later_started_vote_is_represented(
+    engine, pg_url, make_service, strict
+):
+    """The production interleaving, with no timestamp supplied by the test.
+
+    Session A opens a transaction and inserts a vote; its ``created`` is A's
+    start time. Session B starts later, so its vote's ``created`` is larger,
+    and B commits first. The poller polls, sees only B, and its global
+    watermark moves past A's ``created``. Then A commits. A is a committed vote
+    on a conversation the poller holds warm, and the next poll must deliver it.
+
+    ``strict-control`` runs the same schedule on the strict cursor
+    (``vote_overlap_ms=0``) and asserts that A is missing, so the overlap is
+    what delivers it.
+    """
+    seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
+    seed_conversation(engine, zid=2, n_ptpts=4, n_cmts=3)
+    overlap = {"vote_overlap_ms": 0} if strict else {}
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1, **overlap)
+    svc.poll_once()
+    assert svc.is_cached(1), "precondition: conversation 1 is warm"
+
+    session_a = sa.create_engine(pg_url, poolclass=sa.pool.NullPool)
+    session_b = sa.create_engine(pg_url, poolclass=sa.pool.NullPool,
+                                 isolation_level="AUTOCOMMIT")
+    try:
+        with session_a.connect() as a, session_b.connect() as b:
+            a.begin()
+            a_created = _insert_vote_at_transaction_start(
+                a, 1, 0, 0, seed_vote(DISAGREE))
+
+            # B's statements autocommit, so each runs in its own transaction
+            # and reads a fresh now(). Wait for the database clock to pass A's
+            # start; B's vote is then stamped strictly later than A's.
+            deadline = time.monotonic() + 5.0
+            while b.execute(sa.text("SELECT now_as_millis()")).scalar_one() <= a_created:
+                assert time.monotonic() < deadline, "database clock did not advance"
+            b_created = _insert_vote_at_transaction_start(
+                b, 2, 1, 1, seed_vote(AGREE))
+            assert b_created > a_created
+
+            svc.poll_once()     # sees B only: A is not committed yet
+            assert svc._vote_wm >= b_created > a_created, (
+                "precondition: the watermark has moved past A's created"
+            )
+            a.commit()
+
+        svc.poll_once()
+    finally:
+        session_a.dispose()
+        session_b.dispose()
+
+    problems, _tables, fold = _published_fold_problems(engine, 1)
+    assert fold.cell_created[(0, 0)] == a_created, "A is the cell's newest vote"
+    if strict:
+        assert problems != [], (
+            "control: the strict cursor delivered A; the schedule did not "
+            "reproduce the skip"
+        )
+        return
+    assert problems == [], (
+        "a committed vote whose transaction began before a polled vote was "
+        f"never delivered to the warm conversation: {problems}"
+    )
 
 
 @pytest.mark.xfail(
@@ -203,13 +261,14 @@ def test_equal_timestamp_moderation_change_is_eventually_represented(
 
 def test_a_later_vote_repairs_the_skipped_boundary_row(engine, pg_url,
                                                        make_service):
-    """The bound on the damage: ANY later vote on the same conversation wakes
-    it, and the per-zid worker's full-history rebuild subsumes the skipped row.
-    So the defect is 'no repair without further traffic', not 'lost forever
-    under traffic' — asserted so the xfails above are correctly scoped."""
+    """On the strict cursor (``vote_overlap_ms=0``), the bound on the damage:
+    ANY later vote on the same conversation wakes it, and the per-zid worker's
+    full-history rebuild subsumes the skipped row. A vote older than the
+    overlap is still skipped by the overlapping cursor, and this is how it is
+    recovered."""
     seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1,
-                       conv_cache_cap=0)
+                       conv_cache_cap=0, vote_overlap_ms=0)
     svc.poll_once()
     t = svc._vote_wm
 
@@ -236,13 +295,15 @@ def test_a_later_vote_repairs_the_skipped_boundary_row(engine, pg_url,
 def test_a_warm_cached_conversation_does_not_recover_the_skipped_row(
     engine, pg_url, make_service
 ):
-    """Scope the repair claim honestly: with a WARM cache the later vote is
-    applied incrementally, so the skipped boundary row stays missing even under
+    """Scope the repair claim honestly, on the strict cursor
+    (``vote_overlap_ms=0``): with a WARM cache the later vote is applied
+    incrementally, so the skipped boundary row stays missing even under
     traffic.  Only a full-history rebuild (eviction, restart, reconcile)
-    recovers it."""
+    recovers it.  The overlapping cursor delivers this row
+    (``test_equal_timestamp_commit_is_eventually_represented``)."""
     seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1,
-                       conv_cache_cap=0)
+                       conv_cache_cap=0, vote_overlap_ms=0)
     svc.poll_once()
     t = svc._vote_wm
 
@@ -254,8 +315,9 @@ def test_a_warm_cached_conversation_does_not_recover_the_skipped_row(
 
     problems, _tables, _fold = _published_fold_problems(engine, 1)
     assert problems != [], (
-        "a warm incremental update cannot recover a row the poll never "
-        "delivered; if this passes, the scoping of the R08 xfails is wrong"
+        "a warm incremental update cannot recover a row the strict poll never "
+        "delivered; if this passes, the control is not exercising the strict "
+        "cursor"
     )
 
 
@@ -265,13 +327,13 @@ def test_a_warm_cached_conversation_does_not_recover_the_skipped_row(
 class TestNegativeControl:
     def test_an_inclusive_boundary_would_deliver_the_row(self, engine, pg_url,
                                                          make_service):
-        """Intentionally 'fixed' variant: poll with an OVERLAP window
-        (``created > watermark - overlap``).  The same scenario then passes,
-        proving the xfails above are caused by the strict boundary and not by
-        the fixture."""
+        """The strict cursor (``vote_overlap_ms=0``) with its read widened by
+        hand to ``created > watermark - 1``: the boundary row is delivered,
+        proving the strict-cursor failures here are caused by the strict
+        boundary and not by the fixture."""
         seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
         svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1,
-                           conv_cache_cap=0)
+                           conv_cache_cap=0, vote_overlap_ms=0)
         svc.poll_once()
         t = svc._vote_wm
 
@@ -292,8 +354,8 @@ class TestNegativeControl:
         )
 
     def test_the_row_really_is_committed(self, engine, pg_url, make_service):
-        """Guard against a vacuous xfail: the boundary row must actually be in
-        the votes table."""
+        """Guard against a vacuous control: the boundary row must actually be
+        in the votes table."""
         seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
         svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
         svc.poll_once()
@@ -304,6 +366,6 @@ class TestNegativeControl:
         events = read_vote_events(engine, 1)
         assert any(e["created"] == t and e["pid"] == 0 and e["tid"] == 0
                    and e["vote"] == F.RAW_DISAGREE for e in events), (
-            "the boundary vote was never committed; the R08 xfails would be "
-            "vacuous"
+            "the boundary vote was never committed; the boundary tests would "
+            "be vacuous"
         )
