@@ -868,3 +868,20 @@ query is performed. Equal newest created values (including NULL ties),ambiguous
 codes,headers/queries outside the staged subset and read failures remain counted
 Node work. No report or participant writes. Counters are `topicPrioritizeServed`
 and `topicPrioritizeFallback`.
+
+### Legacy conversation lists: empty matching sets
+
+`POLIS_API_LEGACY_CONVERSATIONS_READS=1` and nginx `RUST_API_ROUTES=legacyConversations`
+stage GET/HEAD `/api/v3/conversations`;both default off. Set
+`POLIS_API_LEGACY_CONVERSATIONS_DATABASE_URL` for primary hybrid identity reads.
+The separate data pool uses `READ_ONLY_DATABASE_URL` when configured. Each pool
+is read-only,size one,with15 ms acquisition and50 ms statement limits;the
+configured route deadline is75 ms. Participation pools remain separate.
+
+Optional verified hybrid identity preserves the anonymous403. Signed-in empty
+matching sets preserve direct owner,same-site and optional participant visibility,
+plus canonical limit and active/draft booleans. There is no administrator bypass.
+Populated sets,context and conversation-ID queries,unsupported auth and request
+shapes remain counted Node work. Counters `legacyConversationsServed` and
+`legacyConversationsFallback` expose the boundary. The separate owner cursor
+contract is unchanged. No writes or complete populated-list replacement.

@@ -755,3 +755,25 @@ expect /api/v3/participation/topicPrioritize node "topicPrioritize handoff"
 echo "ok 38 topicPrioritize off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/conversations node "legacyConversations off"
+start legacyConversations,legacyConversations
+expect /api/v3/conversations rust "legacyConversations on"
+expect /api/v3/comments node "legacyConversations leaves comments alone"
+expect /api/v3/votes node "legacyConversations leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/conversations') == 1 ]] || fail "legacyConversations duplicated"
+expect_upstream polis-api GET /api/v3/conversations
+expect_upstream polis-api HEAD /api/v3/conversations
+expect_upstream server OPTIONS /api/v3/conversations
+expect_upstream server POST /api/v3/conversations $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/conversations $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/conversations node "legacyConversations handoff"
+echo "ok 39 legacyConversations off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
