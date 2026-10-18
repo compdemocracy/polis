@@ -1002,3 +1002,28 @@ echo "ok 48 adminPage off/on/deduplicated; method/body guards; 502 hands back to
 
 
 
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /integrate node "integratePage off"
+start integratePage,integratePage
+expect /integrate rust "integratePage on"
+expect /integrate/step rust "integratePage nested path"
+expect /integrateSuffix rust "integratePage prefix suffix"
+expect /integrat node "integratePage neighbor"
+expect /api/v3/comments node "integratePage leaves comments alone"
+expect /api/v3/votes node "integratePage leaves voting alone"
+[[ $(included | grep -Fc 'location ~ ^/integrate') == 1 ]] || fail "integratePage duplicated"
+expect_upstream polis-api GET /integrate
+expect_upstream polis-api HEAD /integrate
+expect_upstream server OPTIONS /integrate
+expect_upstream server POST /integrate $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /integrate $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /integrate node "integratePage handoff"
+echo "ok 49 integratePage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+

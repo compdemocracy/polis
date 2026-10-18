@@ -1021,3 +1021,21 @@ upstream failures and saturation hand back to Node before response emission.
 The shared contract carries the request and rendered HTML. The renderer matches
 the static stream's metadata replacement and retained suffix; this staged slice
 is characterized against the small admin build, not arbitrary streamed content.
+
+
+### Integration admin page
+
+`POLIS_API_INTEGRATE_PAGE_READS=1` and nginx `RUST_API_ROUTES=integratePage`
+opt into GET/HEAD paths beginning with `/integrate`, including suffixes without
+an intervening slash, matching Express. Both switches default off. The route
+uses the shared typed `integrate_page` contract and the fixed `/index_admin.html`
+upstream. It applies the admin-page transport's existing ASCII, size, framing,
+header and single-body-read limits. Identity, compression, query/body, unknown
+headers, oversized or fragmented replies and upstream failures hand back to Node.
+
+Its client has a separate four-slot semaphore, no queue, a 75ms request limit,
+and startup-only bounded DNS. Failure affects only this client. It acquires no
+database or participation connections. Neither static route enables the other.
+`conformance/integrate-page-run.sh` proves raw Node byte equality and inherited
+matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
+CLI requests; the CLI differential makes no positive serving claim for it.
