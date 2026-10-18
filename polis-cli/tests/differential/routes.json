@@ -89,5 +89,13 @@
     "scope": "The staged route serves empty questions only; populated question sets remain Node.",
     "expected_requests": 8,
     "expected_node_handoffs": 5
+  },
+  "metadataAnswers": {
+    "path": "/api/v3/metadata/answers",
+    "minimum_rust_successes": 5,
+    "commands": [],
+    "scope": "The staged route serves empty answers only; populated answer sets remain Node.",
+    "expected_requests": 8,
+    "expected_node_handoffs": 2
   }
 }
