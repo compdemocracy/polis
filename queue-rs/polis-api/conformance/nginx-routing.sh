@@ -246,3 +246,24 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/testConnection node "connection probe handoff"
 echo "ok 14 connection probe off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /robots.txt node "robots off"
+start robots,robots
+expect /robots.txt rust "robots on"
+expect /api/v3/comments node "robots leaves comments alone"
+expect /api/v3/votes node "robots leaves voting alone"
+[[ $(included | grep -c 'location = /robots.txt') == 1 ]] || fail "robots duplicated"
+expect_upstream polis-api GET /robots.txt
+expect_upstream polis-api HEAD /robots.txt
+expect_upstream server OPTIONS /robots.txt
+expect_upstream server POST /robots.txt $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /robots.txt $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /robots.txt node "robots handoff"
+echo "ok 15 robots off/on/deduplicated; method/body guards; 502 hands back to Node"
