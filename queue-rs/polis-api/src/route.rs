@@ -146,6 +146,9 @@ pub struct App {
     pub topic_stats_db: Option<Arc<Pool>>,
     pub topic_stats_served: AtomicU64,
     pub topic_stats_fallback: AtomicU64,
+    pub collective_statement_db: Option<Arc<Pool>>,
+    pub collective_statement_served: AtomicU64,
+    pub collective_statement_fallback: AtomicU64,
     pub delphi_read_db: Option<Arc<Pool>>,
     pub delphi_read_served: AtomicU64,
     pub delphi_read_fallback: AtomicU64,
@@ -312,6 +315,9 @@ impl App {
             topic_stats_db: None,
             topic_stats_served: AtomicU64::new(0),
             topic_stats_fallback: AtomicU64::new(0),
+            collective_statement_db: None,
+            collective_statement_served: AtomicU64::new(0),
+            collective_statement_fallback: AtomicU64::new(0),
             delphi_read_db: None,
             delphi_read_served: AtomicU64::new(0),
             delphi_read_fallback: AtomicU64::new(0),
@@ -1127,6 +1133,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.topic_stats_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::collective_statement::PATH {
+        if out.status == 502 {
+            app.collective_statement_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.collective_statement_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::delphi_read::PATH {
         if out.status == 502 {
             app.delphi_read_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1430,6 +1445,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::topic_stats::PATH && crate::topic_stats::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::collective_statement::PATH
+        && crate::collective_statement::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::delphi_read::PATH && crate::delphi_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1570,6 +1590,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::topic_stats::PATH {
         return crate::topic_stats::handle(app, req, res).await;
+    }
+    if req.path() == crate::collective_statement::PATH {
+        return crate::collective_statement::handle(app, req, res).await;
     }
     if req.path() == crate::delphi_read::PATH {
         return crate::delphi_read::handle(app, req, res).await;
@@ -5393,6 +5416,146 @@ mod tests {
         assert_eq!(out.status, 404);
         assert!(
             matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find conversation for report_id","report_id":"missing"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 404);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn collective_statement_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/collectiveStatement"))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().collective_statement_db = Some(pool);
+        for target in [
+            "/api/v3/collectiveStatement",
+            "/api/v3/collectiveStatement?",
+            "/api/v3/collectiveStatement?report_id=",
+            "/api/v3/collectiveStatement?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 400);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"statement_id or report_id is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/collectiveStatement?report_id=fixture",
+            "/api/v3/collectiveStatement?unknown=1",
+            "/api/v3/collectiveStatement?report_id=a&report_id=b",
+            "/api/v3/collectiveStatement?report_id[]=a",
+            "/api/v3/collectiveStatement?report_id[x]=a",
+            "/api/v3/collectiveStatement?report_id=%E9%9B%AA",
+            "/api/v3/collectiveStatement?job_id=x",
+            "/api/v3/collectiveStatement?statement_id=generated",
+            "/api/v3/collectiveStatement?statement_id=",
+            "/api/v3/collectiveStatement?report_id=missing&statement_id=generated",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/collectiveStatement".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/collectiveStatement");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(state.collective_statement_served.load(Ordering::Relaxed), 4);
+        assert_eq!(
+            state.collective_statement_fallback.load(Ordering::Relaxed),
+            17
+        );
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn collective_statement_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!(
+            "collective_statement_validation_test_{}",
+            std::process::id()
+        );
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::collective_statement::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().collective_statement_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/collectiveStatement?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 404);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find conversation for report_id"}"#)
         );
         for id in ["exists", "zero", "null", "duplicate"] {
             assert_eq!(handle(state.clone(), req(id)).await.status, 502);

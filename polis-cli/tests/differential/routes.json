@@ -373,5 +373,18 @@
       "report topic-stats"
     ],
     "scope": "Existing-report topic statistics and DynamoDB/Postgres results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+  },
+  "collectiveStatement": {
+    "path": "/api/v3/collectiveStatement",
+    "minimum_rust_successes": 0,
+    "expected_requests": 4,
+    "expected_node_handoffs": 3,
+    "commands": [
+      "collective statements",
+      "collective list",
+      "collective view",
+      "collective generate"
+    ],
+    "scope": "Existing-report list, statements and statement-ID GETs hand to Node three times; collective generate POST bypasses Rust. Only missing/unknown report validation is staged; raw replay provides positive serving proof."
   }
 }
