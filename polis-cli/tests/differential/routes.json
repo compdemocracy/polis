@@ -145,5 +145,13 @@
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
     "expected_requests": 4,
     "expected_node_handoffs": 0
+  },
+  "treeviteInvites": {
+    "path": "/api/v3/treevite/invites",
+    "minimum_rust_successes": 5,
+    "commands": [],
+    "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
+    "expected_requests": 5,
+    "expected_node_handoffs": 0
   }
 }
