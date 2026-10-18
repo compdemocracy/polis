@@ -976,3 +976,29 @@ echo "ok 47 userLogoutPage off/on/deduplicated; method/body guards; 502 hands ba
 
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /m/2fixture node "adminPage off"
+start adminPage,adminPage
+expect /m/2fixture rust "adminPage on"
+expect /m/2fixture/step rust "adminPage nested path"
+expect /m/2fixtureSuffix rust "adminPage prefix suffix"
+expect /m/2 node "adminPage neighbor"
+expect /api/v3/comments node "adminPage leaves comments alone"
+expect /api/v3/votes node "adminPage leaves voting alone"
+[[ $(included | grep -Fc 'location ~ ^/m/[0-9]') == 1 ]] || fail "adminPage duplicated"
+expect_upstream polis-api GET /m/2fixture
+expect_upstream polis-api HEAD /m/2fixture
+expect_upstream server OPTIONS /m/2fixture
+expect_upstream server POST /m/2fixture $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /m/2fixture $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /m/2fixture node "adminPage handoff"
+echo "ok 48 adminPage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+
