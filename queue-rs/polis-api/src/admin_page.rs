@@ -29,7 +29,10 @@ pub struct Client {
 }
 impl Client {
     pub async fn from_env() -> Result<Option<Self>> {
-        if std::env::var("POLIS_API_ADMIN_PAGE_READS").ok().as_deref() != Some("1") {
+        Self::from_env_for("POLIS_API_ADMIN_PAGE_READS").await
+    }
+    pub(crate) async fn from_env_for(switch: &str) -> Result<Option<Self>> {
+        if std::env::var(switch).ok().as_deref() != Some("1") {
             return Ok(None);
         }
         let host = std::env::var("STATIC_FILES_HOST").context("STATIC_FILES_HOST required")?;
@@ -168,9 +171,16 @@ pub fn matches(path: &str) -> bool {
     b.len() >= 2 && b[0].is_ascii_digit() && b[1].is_ascii_alphanumeric()
 }
 pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
-    if app.admin_page.is_none()
-        || !matches(req.path())
-        || !matches!(req.method.as_str(), "GET" | "HEAD")
+    if app.admin_page.is_none() || !matches(req.path()) || !admitted(req) {
+        return None;
+    }
+    Some(contract::Request {
+        path: req.path().into(),
+        head_only: req.method == "HEAD",
+    })
+}
+pub(crate) fn admitted(req: &Request) -> bool {
+    if !matches!(req.method.as_str(), "GET" | "HEAD")
         || req.query().is_some_and(|q| !q.is_empty())
         || !req.body.is_empty()
         || req.headers.get("content-length").is_some_and(|v| v != "0")
@@ -185,7 +195,7 @@ pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
             "x-forwarded-proto",
         ])
     {
-        return None;
+        return false;
     }
     if req.path().len() > 2048
         || !req
@@ -197,12 +207,14 @@ pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
             .get("accept-encoding")
             .is_some_and(|v| v != "identity")
     {
-        return None;
+        return false;
     }
-    Some(contract::Request {
-        path: req.path().into(),
-        head_only: req.method == "HEAD",
-    })
+    true
+}
+pub(crate) async fn html(client: &Client, req: &Request) -> Result<(String, Vec<Vec<u8>>)> {
+    let body = client.fetch(req).await?;
+    let (response, chunks) = rewrite(&body).context("unsupported static HTML")?;
+    Ok((response.html, chunks))
 }
 // Replacestream retains one marker-length suffix until flush. The admitted
 // ASCII document uses the same case-insensitive replacement and two writes.
