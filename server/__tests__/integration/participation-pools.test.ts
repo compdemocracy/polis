@@ -348,7 +348,7 @@ describe("requests", () => {
     // An xid participant: first visit, then the first vote.
     const xid = `pools-xid-${Date.now()}`;
     await participation("participationInit, new xid", () =>
-      init(`conversation_id=${conversationId}&xid=${xid}&pid=-1&lang=en`)
+      init(`conversation_id=${conversationId}&xid=${xid}&pid=mypid&lang=en`)
     );
     await participation("vote, new xid participant", () =>
       request(app)
