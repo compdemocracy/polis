@@ -60,7 +60,7 @@ docker run --rm --name "${COMPOSE_PROJECT_NAME}-proof" --network "container:$pg"
  "$image" python tests/dynamo_writers/prove.py 2>&1 | tee "$proof/writers.log"
 docker run --rm --network "container:$pg" -v "$repo/server:/candidate:ro" -v "$repo/delphi:/delphi:ro" \
  -e DATABASE_URL=postgresql://postgres@127.0.0.1/writerproof -e DATABASE_SSL=false -e DELPHI_WRITER_PROOF=1 \
- --entrypoint sh "$server_image" -c 'cp -a /candidate/. /app/; cd /app; npx jest --config characterization/delphi/jest.codec.config.json --runInBand --forceExit delphi-postgres-writers' \
+ --entrypoint sh "$server_image" -c 'cp -a /candidate/. /app/; cd /app; npx jest --config characterization/delphi/jest.codec.config.json --runInBand --forceExit delphi-postgres-writers delphi-postgres-exchange' \
  2>&1 | tee "$proof/server-db.log"
 test "$(docker inspect "${COMPOSE_PROJECT_NAME}-dynamo" --format '{{.State.Running}}')" = false
 docker inspect "${COMPOSE_PROJECT_NAME}-dynamo" --format '{{json .State}}' > "$proof/dynamo-stopped.json"

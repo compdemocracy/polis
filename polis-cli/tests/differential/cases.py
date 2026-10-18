@@ -48,12 +48,15 @@ def cases():
     # not claim a successful provider result import or replace its own suite.
     for path in ['collective import','delphi statement import','delphi narrative import']:
         add(path,[C,'invalid-result.json','--report',R],exit=2,scope='invalid-input')
-    # The agent-path routes (/api/v3/delphi/{collective,narrative}/{inputs,results})
-    # are not served by this server version: these rows record the refusal of an
-    # unserved route, not an empty store. A server that answers 404 makes the
-    # CLI report capability_unavailable (exit 8).
+    # The collective-statement export route is served; this fixture has no
+    # stored topics behind it, so these rows record the store's refusal, not a
+    # successful export (the server suite covers that). The narrative routes
+    # (/api/v3/delphi/narrative/{inputs,results}) are not served by this server
+    # version: that row records the refusal of an unserved route, not an empty
+    # store. A server that answers 404 makes the CLI report
+    # capability_unavailable (exit 8).
     for path in ['collective export','delphi statement export']:
-        add(path,[C,'--report',R,'--topic','generated#0#1','--output',path.replace(' ','-')],exit=6,scope='unserved')
+        add(path,[C,'--report',R,'--topic','generated#0#1','--output',path.replace(' ','-')],exit=6,scope='missing-store')
     add('delphi narrative export',[C,'--report',R,'--output','narrative'],exit=6,scope='unserved')
     add('vote',[C,'--statement','0','--agree'],actor='participant')
     add('comment',[C,'Generated participant statement'],actor='participant')

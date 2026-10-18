@@ -42,6 +42,12 @@ import { handle_GET_delphi_visualizations } from "./src/routes/delphi/visualizat
 import { handle_POST_delphi_jobs } from "./src/routes/delphi/jobs";
 import { handle_GET_delphi_reports } from "./src/routes/delphi/reports";
 import { handle_POST_delphi_batch_reports } from "./src/routes/delphi/batchReports";
+import { collectiveBody } from "./src/routes/delphi/collectiveBody";
+import {
+  handle_GET_collective_inputs,
+  handle_GET_collective_results,
+  handle_POST_collective_results,
+} from "./src/routes/delphi/collectiveExchange";
 import { handle_GET_participation_topicPrioritize } from "./src/routes/participation/topicPrioritize";
 
 import {
@@ -323,6 +329,8 @@ export const appReady = helpersInitialized.then(
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
+    // Bounds the collective-statement import body before the shared parser.
+    app.use(collectiveBody);
     app.use(express.bodyParser({ limit: "50mb" }));
     app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
@@ -915,6 +923,28 @@ export const appReady = helpersInitialized.then(
           });
         }
       }
+    );
+
+    // The agent path for collective statements: the conversation owner exports
+    // a topic's inputs, an outside agent writes the statement, the owner
+    // imports it with its provenance. No model is called here.
+    app.get(
+      "/api/v3/delphi/collective/inputs",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_GET_collective_inputs
+    );
+    app.post(
+      "/api/v3/delphi/collective/results",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_POST_collective_results
+    );
+    // Every stored version for a report (optionally one topic), newest first.
+    app.get(
+      "/api/v3/delphi/collective/results",
+      moveToBody,
+      handle_GET_collective_results
     );
 
     // Add GET endpoint for Delphi reports
