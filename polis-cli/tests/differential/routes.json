@@ -331,5 +331,15 @@
     "expected_node_handoffs": 0,
     "commands": [],
     "scope": "Browser-only HTML route; no CLI serving coverage. Raw replay and nginx gates supply positive serving proof."
+  },
+  "delphiRead": {
+    "path": "/api/v3/delphi",
+    "minimum_rust_successes": 0,
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "delphi overview"
+    ],
+    "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
   }
 }
