@@ -352,5 +352,16 @@
       "delphi narrative view"
     ],
     "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+  },
+  "delphiVisualizations": {
+    "path": "/api/v3/delphi/visualizations",
+    "minimum_rust_successes": 0,
+    "expected_requests": 2,
+    "expected_node_handoffs": 2,
+    "commands": [
+      "delphi status",
+      "delphi visualization view"
+    ],
+    "scope": "Existing-report visualizations and DynamoDB/S3 results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
   }
 }

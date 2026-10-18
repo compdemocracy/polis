@@ -1092,3 +1092,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/delphi/reports node "Delphi narrative report validation handoff"
 echo "ok 52 Delphi narrative report validation off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/visualizations node "Delphi visualization validation off"
+start delphiVisualizations,delphiVisualizations
+expect /api/v3/delphi/visualizations rust "Delphi visualization validation on"
+expect /api/v3/comments node "Delphi visualization validation leaves comments alone"
+expect /api/v3/votes node "Delphi visualization validation leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/delphi/visualizations') == 1 ]] || fail "Delphi visualization validation duplicated"
+expect_upstream polis-api GET /api/v3/delphi/visualizations
+expect_upstream polis-api HEAD /api/v3/delphi/visualizations
+expect_upstream server OPTIONS /api/v3/delphi/visualizations
+expect_upstream server POST /api/v3/delphi/visualizations $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/visualizations $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/delphi/visualizations node "Delphi visualization validation handoff"
+echo "ok 53 Delphi visualization validation off/on/deduplicated; method/body guards; 502 hands back to Node"

@@ -1097,3 +1097,23 @@ finishes. `delphiReportsServed` and `delphiReportsFallback` count the outcomes.
 Run `queue-rs/polis-api/conformance/delphi-reports-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
 serve narrative reports or claim DynamoDB/provider parity.
+
+
+### Delphi visualization validation
+
+`GET`/`HEAD /api/v3/delphi/visualizations` is staged behind `POLIS_API_DELPHI_VISUALIZATIONS_READS=1`
+and nginx `RUST_API_ROUTES=delphiVisualizations`, both off by default. Set
+`POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL` to Node's read replica. Only missing/empty
+report IDs (HTTP 400) and absent reports (HTTP 404) are served, using the shared
+`polis-contracts::delphi_visualizations` request/response types. Existing reports and
+DynamoDB responses remain Node, as do identity, body, duplicate/structured
+query, job-filter and unsupported report-ID shapes. Accepted nonempty IDs
+are at most 100 ASCII alphanumeric, underscore or hyphen characters.
+The uncached report lookup has its own one-slot read-only pool: 15 ms acquire,
+50 ms statement and 75 ms caller deadline. It never borrows a participation
+pool or holds a connection over a remote service call. Database errors and
+contention hand back to Node; cancellation retains the slot until the query
+finishes. `delphiVisualizationsServed` and `delphiVisualizationsFallback` count the outcomes.
+Run `queue-rs/polis-api/conformance/delphi-visualizations-run.sh result.json` for raw
+Node/Rust byte replay on the generated fixture stack. This slice does not
+serve visualizations or claim DynamoDB/S3/provider parity.

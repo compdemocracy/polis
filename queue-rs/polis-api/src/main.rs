@@ -22,6 +22,7 @@ mod database;
 mod db;
 mod delphi_read;
 mod delphi_reports;
+mod delphi_visualizations;
 mod domain_whitelist;
 mod einvites_read;
 mod http;
@@ -112,6 +113,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "delphiReportsFallback",
         js::Js::Num(app.delphi_reports_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiVisualizationsServed",
+        js::Js::Num(app.delphi_visualizations_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiVisualizationsFallback",
+        js::Js::Num(app.delphi_visualizations_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "delphiReadServed",
@@ -440,6 +449,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | about::PATH
         | legacy_pca::PATH
         | delphi_read::PATH
+        | delphi_visualizations::PATH
         | delphi_reports::PATH
         | database::PATH
         | contexts::PATH
@@ -574,6 +584,19 @@ async fn main() -> Result<()> {
         state.delphi_reports_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-delphi-reports/1")?,
             delphi_reports::pool_limits(),
+        ));
+    }
+    if std::env::var("POLIS_API_DELPHI_VISUALIZATIONS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL").context(
+            "POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL is required for Delphi visualization validation reads",
+        )?;
+        state.delphi_visualizations_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-visualizations/1")?,
+            delphi_visualizations::pool_limits(),
         ));
     }
     if std::env::var("POLIS_API_DELPHI_READS").ok().as_deref() == Some("1") {
