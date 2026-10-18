@@ -31,7 +31,7 @@ pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
         match key.as_ref() {
             "conversation_id" if cid.is_none() => {
                 if value.is_empty()
-                    || value.len() > 300
+                    || value.len() > 100
                     || !value.bytes().all(|b| b.is_ascii_alphanumeric())
                 {
                     return None;
