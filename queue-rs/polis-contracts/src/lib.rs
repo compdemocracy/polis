@@ -5,6 +5,7 @@ pub mod bid_to_pid;
 pub mod connection;
 pub mod contexts;
 pub mod conversation_preload;
+pub mod conversation_stats;
 pub mod database;
 pub mod domain_whitelist;
 pub mod legacy_pca;

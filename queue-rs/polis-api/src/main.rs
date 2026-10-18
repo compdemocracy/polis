@@ -14,6 +14,7 @@ mod config;
 mod connection;
 mod contexts;
 mod conversation_preload;
+mod conversation_stats;
 mod cors;
 mod database;
 mod db;
@@ -231,6 +232,14 @@ async fn health(app: &route::App) -> Outgoing {
         "bidToPidFallback",
         js::Js::Num(app.bid_to_pid_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "conversationStatsServed",
+        js::Js::Num(app.conversation_stats_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "conversationStatsFallback",
+        js::Js::Num(app.conversation_stats_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -285,6 +294,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | treevite_invites::PATH
         | metadata_choices::PATH
         | recent_started::PATH
+        | conversation_stats::PATH
         | bid_to_pid::PATH
         | reports_read::PATH
         | all_conversations::PATH
@@ -717,6 +727,32 @@ async fn main() -> Result<()> {
             bid_to_pid::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_CONVERSATION_STATS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_CONVERSATION_STATS_DATABASE_URL")
+            .context("POLIS_API_CONVERSATION_STATS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.conversation_stats_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-conversation-stats/1")?,
+            conversation_stats::pool_limits(),
+        ));
+        state.conversation_stats_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-conversation-stats-auth/1")?,
+            conversation_stats::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

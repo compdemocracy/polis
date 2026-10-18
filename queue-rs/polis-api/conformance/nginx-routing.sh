@@ -667,3 +667,25 @@ expect /api/v3/bidToPid node "bidToPid handoff"
 echo "ok 34 bidToPid off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/conversationStats node "conversationStats off"
+start conversationStats,conversationStats
+expect /api/v3/conversationStats rust "conversationStats on"
+expect /api/v3/comments node "conversationStats leaves comments alone"
+expect /api/v3/votes node "conversationStats leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/conversationStats') == 1 ]] || fail "conversationStats duplicated"
+expect_upstream polis-api GET /api/v3/conversationStats
+expect_upstream polis-api HEAD /api/v3/conversationStats
+expect_upstream server OPTIONS /api/v3/conversationStats
+expect_upstream server POST /api/v3/conversationStats $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/conversationStats $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/conversationStats node "conversationStats handoff"
+echo "ok 35 conversationStats off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
