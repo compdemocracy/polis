@@ -386,5 +386,15 @@
       "collective generate"
     ],
     "scope": "Existing-report list, statements and statement-ID GETs hand to Node three times; collective generate POST bypasses Rust. Only missing/unknown report validation is staged; raw replay provides positive serving proof."
+  },
+  "opsWhoami": {
+    "path": "/api/v3/ops/whoami",
+    "minimum_rust_successes": 0,
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "ops status"
+    ],
+    "scope": "Disabled operations 404 only with matching explicit OPS_ENABLED=false. CLI sends account authorization and hands to Node; raw replay proves anonymous serving."
   }
 }

@@ -1152,3 +1152,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/collectiveStatement node "Collective statement validation handoff"
 echo "ok 55 Collective statement validation off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/ops/whoami node "Disabled operations identity off"
+start opsWhoami,opsWhoami
+expect /api/v3/ops/whoami rust "Disabled operations identity on"
+expect /api/v3/comments node "Disabled operations identity leaves comments alone"
+expect /api/v3/votes node "Disabled operations identity leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/ops/whoami') == 1 ]] || fail "Disabled operations identity duplicated"
+expect_upstream polis-api GET /api/v3/ops/whoami
+expect_upstream polis-api HEAD /api/v3/ops/whoami
+expect_upstream server OPTIONS /api/v3/ops/whoami
+expect_upstream server POST /api/v3/ops/whoami $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/ops/whoami $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/ops/whoami node "Disabled operations identity handoff"
+echo "ok 56 Disabled operations identity off/on/deduplicated; method/body guards; 502 hands back to Node"

@@ -179,6 +179,9 @@ pub struct App {
     pub create_page_reads: bool,
     pub create_page_served: AtomicU64,
     pub create_page_fallback: AtomicU64,
+    pub ops_whoami_reads: bool,
+    pub ops_whoami_served: AtomicU64,
+    pub ops_whoami_fallback: AtomicU64,
     pub about_reads: bool,
     pub about_served: AtomicU64,
     pub about_fallback: AtomicU64,
@@ -348,6 +351,9 @@ impl App {
             create_page_reads: false,
             create_page_served: AtomicU64::new(0),
             create_page_fallback: AtomicU64::new(0),
+            ops_whoami_reads: false,
+            ops_whoami_served: AtomicU64::new(0),
+            ops_whoami_fallback: AtomicU64::new(0),
             about_reads: false,
             about_served: AtomicU64::new(0),
             about_fallback: AtomicU64::new(0),
@@ -689,6 +695,14 @@ pub(crate) fn admin_html(req: &Request, mut res: Res, chunks: Vec<Vec<u8>>) -> O
 pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) -> Outgoing {
     res.status = status;
     json(req, res, value)
+}
+
+/// Operations refusals use private cache headers before Express JSON encoding.
+pub(crate) fn ops_not_found(req: &Request, mut res: Res, value: &Js) -> Outgoing {
+    res.set("Cache-Control", "private, no-store");
+    res.set("Vary", "Authorization");
+    res.set("X-Content-Type-Options", "nosniff");
+    json_status(req, res, 404, value)
 }
 
 /// Express status(...).end() without a response body.
@@ -1216,6 +1230,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.create_page_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::ops_whoami::PATH {
+        if out.status == 502 {
+            app.ops_whoami_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.ops_whoami_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::about::PATH {
         if out.status == 502 {
             app.about_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1456,6 +1477,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::database::PATH && crate::database::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::ops_whoami::PATH && crate::ops_whoami::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::about::PATH && crate::about::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1572,6 +1596,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::create_page::matches(req.path()) {
         return crate::create_page::handle(app, req, res);
+    }
+    if req.path() == crate::ops_whoami::PATH {
+        return crate::ops_whoami::handle(app, req, res);
     }
     if req.path() == crate::about::PATH {
         return crate::about::handle(app, req, res);
@@ -5597,5 +5624,60 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+    #[tokio::test]
+    async fn ops_whoami_disabled_response_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::ops_whoami::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().ops_whoami_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 404);
+        assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
+        assert_eq!(header(&out, "X-Content-Type-Options"), Some("nosniff"));
+        assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"error":"not_found"}"#));
+        let head = handle(state.clone(), probe("HEAD")).await;
+        assert_eq!(head.status, 404);
+        let wire = crate::http::write_response(&head, true, false, "D").unwrap();
+        assert!(wire.ends_with(b"\r\n\r\n"));
+        assert!(!wire.windows(9).any(|w| w == b"not_found"));
+        assert_eq!(state.ops_whoami_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.ops_whoami_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn ops_whoami_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().ops_whoami_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::ops_whoami::PATH, vec![]),
+            ("OPTIONS", crate::ops_whoami::PATH, vec![]),
+            ("GET", "/api/v3/ops/whoami?unknown=1", vec![]),
+            (
+                "GET",
+                crate::ops_whoami::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::ops_whoami::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::ops_whoami::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.ops_whoami_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.ops_whoami_fallback.load(Ordering::Relaxed), 6);
     }
 }
