@@ -16,6 +16,10 @@
  * available. Do not use these in any other suite.
  */
 export const RESERVED_POOLED_USER_INDEXES = {
+  /** server/__tests__/integration/xid-list-moderators-only.test.ts (conversation owner) */
+  xidListOwner: 38,
+  /** server/__tests__/integration/xid-list-moderators-only.test.ts (site moderator; its site_id is aligned to the owner's) */
+  xidListModerator: 39,
   /** server/__tests__/integration/domain-whitelist.test.ts */
   domainWhitelist: 40,
   /** server/__tests__/integration/vote-path-recordings.test.ts */
