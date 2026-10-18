@@ -18,6 +18,7 @@ mod domain_whitelist;
 mod http;
 mod hybrid_read;
 mod js;
+mod legacy_pca;
 mod lru;
 mod metadata_answers;
 mod metadata_choices;
@@ -149,6 +150,14 @@ async fn health(app: &route::App) -> Outgoing {
         "recentActivityFallback",
         js::Js::Num(app.recent_activity_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "legacyPcaServed",
+        js::Js::Num(app.legacy_pca_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "legacyPcaFallback",
+        js::Js::Num(app.legacy_pca_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -191,6 +200,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | connection::PATH
         | robots::PATH
         | about::PATH
+        | legacy_pca::PATH
         | database::PATH
         | contexts::PATH
         | domain_whitelist::PATH
@@ -445,6 +455,8 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
+    state.legacy_pca_reads =
+        std::env::var("POLIS_API_LEGACY_PCA_READS").ok().as_deref() == Some("1");
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
