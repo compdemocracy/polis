@@ -1,5 +1,6 @@
 //! Versioned CLI envelopes. No server, database, or credential dependencies.
 pub mod about;
+pub mod admin_page;
 pub mod all_conversations;
 pub mod bid_to_pid;
 pub mod connection;
