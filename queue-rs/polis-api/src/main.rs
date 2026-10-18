@@ -19,6 +19,7 @@ mod http;
 mod hybrid_read;
 mod js;
 mod lru;
+mod metadata_questions;
 mod negotiate;
 mod next_comment;
 mod owner;
@@ -95,6 +96,14 @@ async fn health(app: &route::App) -> Outgoing {
         "domainWhitelistFallback",
         js::Js::Num(app.domain_whitelist_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "metadataQuestionsServed",
+        js::Js::Num(app.metadata_questions_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "metadataQuestionsFallback",
+        js::Js::Num(app.metadata_questions_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -139,7 +148,8 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | about::PATH
         | database::PATH
         | contexts::PATH
-        | domain_whitelist::PATH => route::handle(app, req).await,
+        | domain_whitelist::PATH
+        | metadata_questions::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -250,6 +260,27 @@ async fn main() -> Result<()> {
         state.domain_whitelist_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-domain-whitelist-auth/1")?,
             domain_whitelist::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_METADATA_QUESTIONS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_METADATA_QUESTIONS_DATABASE_URL")
+            .context("POLIS_API_METADATA_QUESTIONS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.metadata_questions_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-metadata-questions/1")?,
+            metadata_questions::pool_limits(),
+        ));
+        state.metadata_questions_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-metadata-questions-auth/1")?,
+            metadata_questions::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
