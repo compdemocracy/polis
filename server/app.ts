@@ -231,6 +231,7 @@ import {
   wantHeader,
 } from "./src/utils/parameter";
 import { WIRE_VOTE_MAX, WIRE_VOTE_MIN } from "./src/votes/convention";
+import { onParticipationPools } from "./src/db/participation-scope";
 
 const app = express();
 const devMode = Config.isDevMode;
@@ -792,8 +793,12 @@ export const appReady = helpersInitialized.then(
       handle_GET_comments
     );
 
+    // Votes, comments, the next statement and participationInit enter the
+    // participation pools first, so every query they make runs there and no
+    // other work can hold the connections they need (src/db/pg-query.ts).
     app.post(
       "/api/v3/comments",
+      onParticipationPools,
       hybridAuthOptional(assignToP),
       need(
         "conversation_id",
@@ -878,6 +883,7 @@ export const appReady = helpersInitialized.then(
 
     app.get(
       "/api/v3/nextComment",
+      onParticipationPools,
       timeout(15000),
       moveToBody,
       hybridAuthOptional(assignToP),
@@ -1221,6 +1227,7 @@ export const appReady = helpersInitialized.then(
 
     app.get(
       "/api/v3/participationInit",
+      onParticipationPools,
       moveToBody,
       hybridAuthOptional(assignToP),
       want("ptptoiLimit", getInt, assignToP),
@@ -1262,6 +1269,7 @@ export const appReady = helpersInitialized.then(
 
     app.post(
       "/api/v3/votes",
+      onParticipationPools,
       hybridAuthOptional(assignToP),
       need(
         "conversation_id",

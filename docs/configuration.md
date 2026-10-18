@@ -96,16 +96,42 @@ never take the database connections that path needs. There is no read replica;
 the isolation is the connection count per workload, not a separate host. Keep the
 sum of the caps below comfortably under the database's `max_connections`.
 
-The API server opens three pools per process ([pg-query.ts](../server/src/db/pg-query.ts)):
-a read-write pool (vote and comment writes, next-statement candidate selection)
-and a read pool (the math blob read, `GET /votes`, participation aggregates),
-each `max` 12 in production (2 in dev, 3 when a read replica is configured); and
-a results pool (`RESULT_SNAPSHOT_POOL_MAX`, 8 in production). The read-write
-and read pools have no acquire timeout and no statement timeout, on purpose:
-votes and comments run there, and a vote or comment that has to wait for a
-connection waits and is stored; it is never refused. Reports, data
-exports and heavy admin reads run on a fourth, deliberately small pool so they
-can never grow into the other three:
+The API server opens these pools per process ([pg-query.ts](../server/src/db/pg-query.ts)):
+
+- **The participation pools**, a read-write pool and a read pool, used by the
+  participation routes and nothing else: `POST /votes`, `POST /comments`,
+  `GET /nextComment` and `GET /participationInit`, from their first middleware
+  to the bookkeeping they schedule. Each route enters them first
+  ([app.ts](../server/app.ts)), and every query made while serving it runs
+  there, so no other work can hold the connections a vote needs. A
+  participation query waits for a connection and is never refused under load.
+  The read pool reads the replica when `READ_ONLY_DATABASE_URL` names one, as
+  the read pool below does; otherwise the primary. They are created on the first
+  participation request, so a process that serves none (the import worker) never
+  opens them.
+- **The read-write and read pools**, for everything else: the other requests a
+  participant makes (the opinion map `GET /math/pca2`, the comment list,
+  `GET /votes`, topic selection), admin views, report page tallies, imports.
+  They have no acquire timeout and no statement timeout, on purpose: a
+  participant's request that has to wait for a connection waits and is
+  answered; it is never refused.
+- **A results pool** for Delphi result reads (`RESULT_SNAPSHOT_POOL_MAX`, 8 in
+  production), created only under the Postgres result backend. The topical
+  routing of the next statement reads results on the participation read-write
+  pool instead.
+- **The report/export pool** and **the agent exchange pool** (2 connections,
+  5 s acquire, 60 s statement), below.
+
+The participation pools and the read-write and read pools are each `max` 12 in
+production (2 in dev, 3 when a read replica is configured); the participation
+pools can be set:
+
+- **`PARTICIPATION_POOL_MAX`** maximum connections for the participation read-write pool. Default: as above (12 in production).
+- **`PARTICIPATION_READ_POOL_MAX`** maximum connections for the participation read pool. Default: as above (12 in production). With no read replica it is a second pool on the primary, like the read pool.
+- **`PARTICIPATION_ACQUIRE_TIMEOUT_MS`** how long a participation query waits for one of those connections. Default `60000`; `0` waits without limit. Only participation work holds these connections, each for milliseconds (a vote takes 4.6 ms at the median and 15.3 ms at p99 on a local stack), so no load of votes and comments comes near this: a wait this long, six times the participation client's 10 s request timeout, means the database has stopped answering, and the request then fails instead of joining a queue that grows without end. It is not a load-shedding bound; do not lower it to one. These pools have no statement timeout; the transactions that need one set it with `SET LOCAL`.
+
+Reports, data exports and heavy admin reads run on a deliberately small pool of
+their own, with their own, longer bounds:
 
 - **`REPORT_EXPORT_POOL_MAX`** maximum connections for the report/export/heavy-admin-read pool. Default `1`: reports, exports and heavy admin reads run one at a time, and the rest wait up to the acquire timeout. Reports, the `/api/v3/dataExport` CSV routes ([report.ts](../server/src/report.ts)), the comment-clusters export, `conversationStats` and the moderator participant query run here; participant-facing reads never do.
 - **`REPORT_EXPORT_ACQUIRE_TIMEOUT_MS`** how long a report/export waits for one of those connections before it is rejected. Default `30000`. When the pool is full a new report/export fails here (it degrades itself) rather than waiting on, or spilling into, a participant-facing connection.
@@ -116,15 +142,25 @@ The other workloads cap themselves through their own pool settings, each a membe
 - **Math engines** read `DATABASE_POOL_SIZE` (the Clojure engine's HikariCP pool, default 3; the Python engine's pool, default 5) and the Python engine also reads **`DATABASE_MAX_OVERFLOW`** (default 10), so one Python engine process uses at most 5 + 10 = 15 pooled connections plus one dedicated writer-lock connection. One process per shard.
 - **`POLIS_JOBS_CONCURRENCY`** the queue daemon's worker count (default 1); each daemon uses two connections plus one per running job.
 - **`POLIS_API_DB_POOL`** the typed read API server's pool (default 8), with **`POLIS_API_DB_ACQUIRE_TIMEOUT_MS`** (2000) and **`POLIS_API_DB_STATEMENT_TIMEOUT_MS`** (3000).
-- The import worker reuses the API server's pools, so it carries the same per-process budget; it scales to a small number of tasks on queue depth.
+- The import worker reuses the API server's read-write and read pools (never the participation pools), so it carries those pools' per-process budget; it scales to a small number of tasks on queue depth.
 
-Illustrative production total against a single primary: two API servers at
-12 + 12 + 8 + 1 = 33 each, plus one analysis box at ~16 for the Python engine and
-~3 for the queue daemon, is roughly 85 connections at the default desired counts
-— well under a connection alarm set at 500. At maximum autoscale the API servers
-and import workers dominate, which is why their pools, not the exports, are the
-largest line; size `max_connections` and any per-login limits against the sum of
-all the caps above.
+Production total against its single primary (no read replica; the RDS
+instance uses the default parameter group, so `max_connections` is RDS's
+default for a db.t3.large, its memory divided by 9531392, about 900;
+`SHOW max_connections` gives the exact value). One API server's pools hold at
+most 12 + 12 (participation) + 12 + 12 (read-write, read) + 1 (report/export)
++ 2 (agent exchange) = 51 connections, up from 27 before the participation
+pools, plus 8 for the results pool under the Postgres result backend only
+(59, up from 35). Idle connections close after 10 s, so these are ceilings,
+not the usual count. The fleet as deployed runs 2 API servers (the web group's
+desired and minimum count), so the API servers reach at most 102 (118 with the
+results pool), and with ~16 for the Python math engine on the analysis box the
+total is about 120-135, well under `max_connections` and the connection alarm
+at 500. The import worker (0 tasks normally, at most 5 on queue depth) opens
+only the read-write, read and report/export pools, up to 25 each. If the web
+group scales out, each further server adds at most 51-59; size
+`max_connections`, the alarm and any per-login limits against the sum of all
+the caps above.
 
 ### Docker Concerns
 

@@ -6,6 +6,7 @@ import zlib, { InputType } from "zlib";
 import _ from "underscore";
 import LruCache from "lru-cache";
 import pg from "../db/pg-query";
+import { onParticipationPath } from "../db/participation-scope";
 import Config from "../config";
 import logger from "./logger";
 import { addInRamMetric } from "./metered";
@@ -155,6 +156,14 @@ const isUncommittedTick = (mathTick: number) => mathTick <= -1;
 // concurrent misses share a single statement.
 const pendingRowReads = new Map<string, Promise<LatestRow>>();
 const pendingTickReads = new Map<string, Promise<CommittedTick>>();
+
+// An in-flight read is shared only by work on the same pools
+// (db/pg-query.ts): a participation request never waits on a read issued on
+// the other pools, which slow work may be holding, and the other way round.
+// Only the in-flight reads are kept apart; what they cache is shared.
+function pendingKey(key: string): string {
+  return onParticipationPath() ? `participation:${key}` : key;
+}
 
 // Each namespace has an independent publication cursor and cache entries.
 const lastPrefetchedMathTicks = new Map<string, number>();
@@ -589,7 +598,8 @@ export function getPca(
  */
 function readLatestRow(mathEnv: string, zid: number): Promise<LatestRow> {
   const key = pcaCacheKey(mathEnv, zid);
-  const pending = pendingRowReads.get(key);
+  const inFlight = pendingKey(key);
+  const pending = pendingRowReads.get(inFlight);
   if (pending) {
     return pending;
   }
@@ -603,9 +613,9 @@ function readLatestRow(mathEnv: string, zid: number): Promise<LatestRow> {
         : selectLatestRow(mathEnv, zid)
     )
     .finally(() => {
-      pendingRowReads.delete(key);
+      pendingRowReads.delete(inFlight);
     });
-  pendingRowReads.set(key, read);
+  pendingRowReads.set(inFlight, read);
   return read;
 }
 
@@ -675,7 +685,8 @@ function readCommittedTick(
   zid: number
 ): Promise<CommittedTick> {
   const key = pcaCacheKey(mathEnv, zid);
-  const pending = pendingTickReads.get(key);
+  const inFlight = pendingKey(key);
+  const pending = pendingTickReads.get(inFlight);
   if (pending) {
     return pending;
   }
@@ -705,9 +716,9 @@ function readCommittedTick(
       return { mathTick, entry };
     })
     .finally(() => {
-      pendingTickReads.delete(key);
+      pendingTickReads.delete(inFlight);
     });
-  pendingTickReads.set(key, read);
+  pendingTickReads.set(inFlight, read);
   return read;
 }
 
@@ -817,7 +828,8 @@ function readLatestPriorities(
   zid: number
 ): Promise<PrioritiesEntry | undefined> {
   const key = pcaCacheKey(mathEnv, zid);
-  const pending = pendingPriorityReads.get(key);
+  const inFlight = pendingKey(key);
+  const pending = pendingPriorityReads.get(inFlight);
   if (pending) {
     return pending;
   }
@@ -838,9 +850,9 @@ function readLatestPriorities(
       return selectLatestPriorities(mathEnv, zid);
     })
     .finally(() => {
-      pendingPriorityReads.delete(key);
+      pendingPriorityReads.delete(inFlight);
     });
-  pendingPriorityReads.set(key, read);
+  pendingPriorityReads.set(inFlight, read);
   return read;
 }
 

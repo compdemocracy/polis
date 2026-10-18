@@ -19,7 +19,12 @@
  *     API, the topic lookup behind topic-agenda routing, and the language
  *     provider (translation is switched on in this file, with a stand-in
  *     provider, so the language step is on the path as it is wherever
- *     translation is enabled).
+ *     translation is enabled);
+ *   - every connection of every pool other work uses, taken and kept: the
+ *     read-write and read pools, the report/export pool, the agent exchange
+ *     pool and the Delphi results pool. The participation path has pools of
+ *     its own (src/db/pg-query.ts), so this is the case that shows slow work
+ *     holding the connections it can reach cannot delay a vote.
  *
  * The conversation is small. What makes an export or a tally slow here is a
  * database-side hold on exactly those statements: each one first waits on an
@@ -58,7 +63,7 @@ import {
 import request from "supertest";
 import type { Server } from "http";
 import type { AddressInfo } from "net";
-import { Client } from "pg";
+import { Client, PoolClient } from "pg";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { getApp } from "../app-loader";
 import {
@@ -67,7 +72,12 @@ import {
   setupAuthAndConvo,
   submitVote,
 } from "../setup/api-test-helpers";
-import { REPORT_EXPORT_POOL_MAX } from "../../src/db/pg-query";
+import pg, {
+  AGENT_EXCHANGE_POOL_MAX,
+  MAIN_POOL_MAX,
+  REPORT_EXPORT_POOL_MAX,
+  RESULT_SNAPSHOT_POOL_MAX,
+} from "../../src/db/pg-query";
 import { polisTypes } from "../../src/utils/common";
 import { semanticToWire } from "../../src/votes/convention";
 import type { VoteData } from "../../types/test-helpers";
@@ -431,9 +441,12 @@ type Load = {
   identity?: boolean;
   topics?: boolean;
   language?: boolean;
+  otherPools?: boolean;
 };
 
 type Evidence = {
+  otherPoolConnectionsHeld: number;
+  otherPoolQueryWaited: number;
   heldExportsBefore: number;
   heldExportsAfter: number;
   heldTalliesBefore: number;
@@ -569,8 +582,57 @@ async function runScenario(name: string, load: Load): Promise<Result> {
       REPORT_LOADS
     );
   }
-  if (load.exports || load.reportTallies) {
+  if (load.exports || load.reportTallies || load.otherPools) {
     await admin.query("SELECT pg_advisory_lock($1, $2)", HOLD_LOCK);
+  }
+  // Every connection of every pool other work uses, taken and kept for the
+  // whole window. The report/export pool has no raw client to take, so each of
+  // its connections is kept by a read that waits on the test's lock (its
+  // statement timeout is far longer than the window).
+  const otherPoolClients: PoolClient[] = [];
+  let otherPoolConnectionsHeld = 0;
+  let otherPoolProbe: Promise<string> | undefined;
+  if (load.otherPools) {
+    const take = async (n: number, connect: () => Promise<PoolClient>) => {
+      for (let i = 0; i < n; i++) otherPoolClients.push(await connect());
+    };
+    await take(MAIN_POOL_MAX, () => pg.connect());
+    await take(MAIN_POOL_MAX, () => pg.connectReadOnly());
+    await take(AGENT_EXCHANGE_POOL_MAX, () => pg.connectAgentExchange());
+    await take(RESULT_SNAPSHOT_POOL_MAX, () => pg.connectResultSnapshot());
+    for (let k = 0; k < REPORT_EXPORT_POOL_MAX; k++) {
+      slowWork.push(
+        pg
+          .queryP_reportExport(
+            `SELECT pg_advisory_xact_lock_shared($1, $2) /* ${HOLD_TAG}: other pools */`,
+            HOLD_LOCK
+          )
+          .then(
+            () => "released",
+            (err) => String(err)
+          )
+      );
+    }
+    const reportExportHeld = await settled(
+      async () =>
+        (
+          await admin.query(
+            `SELECT count(*)::int AS n FROM pg_stat_activity
+             WHERE datname = current_database() AND query LIKE $1
+             AND wait_event_type = 'Lock'`,
+            [`%${HOLD_TAG}: other pools%`]
+          )
+        ).rows[0].n,
+      REPORT_EXPORT_POOL_MAX
+    );
+    otherPoolConnectionsHeld = otherPoolClients.length + reportExportHeld;
+    // While they are held, a query from other work on the read pool waits:
+    // the pools are exhausted. It is answered once they are released.
+    otherPoolProbe = pg.queryP_readOnly("SELECT 1", []).then(
+      () => "answered",
+      (err) => String(err)
+    );
+    slowWork.push(otherPoolProbe);
   }
   let heldExportsBefore = 0;
   if (load.exports) {
@@ -630,6 +692,15 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   for (const op of OPS)
     outcomes[op] = await Promise.all(sent.map((s) => s[op]));
 
+  // Every participant has been answered; the other work is still waiting.
+  const otherPoolQueryWaited = otherPoolProbe
+    ? Number(
+        (await Promise.race([
+          otherPoolProbe,
+          sleep(0).then(() => "waiting"),
+        ])) === "waiting"
+      )
+    : 0;
   const heldExportsAfter = load.exports ? await heldNow("export") : 0;
   const heldTalliesAfter = load.reportTallies
     ? await heldNow("report tally")
@@ -644,7 +715,8 @@ async function runScenario(name: string, load: Load): Promise<Result> {
 
   // Release everything and let it finish.
   heldKinds.clear();
-  if (load.exports || load.reportTallies) {
+  while (otherPoolClients.length) otherPoolClients.pop()!.release();
+  if (load.exports || load.reportTallies || load.otherPools) {
     await admin.query("SELECT pg_advisory_unlock($1, $2)", HOLD_LOCK);
   }
   for (const stall of Object.values(mockStalls)) stall.release();
@@ -664,6 +736,8 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   await sleep(1000);
 
   const evidence: Evidence = {
+    otherPoolConnectionsHeld,
+    otherPoolQueryWaited,
     heldExportsBefore,
     heldExportsAfter,
     heldTalliesBefore,
@@ -751,13 +825,23 @@ function guard(
         checks.push(["identityWaitingBefore", "at least", 1]);
         checks.push(["identityWaitingAfter", "at least", 1]);
       }
+      if (load.otherPools) {
+        checks.push([
+          "otherPoolConnectionsHeld",
+          "exactly",
+          2 * MAIN_POOL_MAX +
+            AGENT_EXCHANGE_POOL_MAX +
+            RESULT_SNAPSHOT_POOL_MAX +
+            REPORT_EXPORT_POOL_MAX,
+        ]);
+        checks.push(["otherPoolQueryWaited", "exactly", 1]);
+      }
       // Topic lookups and language detection are reached only by the
-      // participants' own requests; while report tallies hold the read pool,
-      // those requests stop before they get there.
-      if (load.topics && !load.reportTallies) {
+      // participants' own requests.
+      if (load.topics) {
         checks.push(["topicLookupCalls", "at least", 1]);
       }
-      if (load.language && !load.reportTallies) {
+      if (load.language) {
         checks.push(["languageCalls", "at least", PARTICIPANTS]);
       }
       checks.push(["votesStored", "exactly", PARTICIPANTS]);
@@ -788,12 +872,6 @@ function guard(
 // The scenarios.
 
 // What today's server waits on, named once for the expected failures below.
-// Report tallies (GET /api/v3/comments with include_voting_patterns, in
-// src/comment.ts) run on the read pool that votes, comments and statement
-// selection share, and that pool has no acquire timeout and no statement
-// timeout (src/db/pg-query.ts), so a participant waits as long as the tallies do.
-const READ_POOL_SHARED_WITH_TALLIES =
-  "report tallies hold the read pool it shares, with no acquire or statement timeout";
 // A vote is answered only after the next statement is chosen
 // (handle_POST_votes in src/routes/votes.ts), and topic-agenda routing sends
 // one lookup per selected topic with no deadline and waits for all of them
@@ -818,17 +896,12 @@ guard(
   { vote: "prompt", comment: "prompt", nextComment: "prompt" }
 );
 
+// The tallies (src/comment.ts) run on the read pool, which the participation
+// path no longer uses: it has pools of its own (src/db/pg-query.ts).
 guard(
   "report page tallies held in the database",
   { reportTallies: true },
-  {
-    // votesPost reads the conversation from the read pool (src/routes/votes.ts).
-    vote: `the vote waits before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
-    // isModerator reads from the read pool (src/utils/common.ts).
-    comment: `the comment waits before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
-    // The remaining-statement count (src/comment.ts) and the math read.
-    nextComment: `statement selection waits: ${READ_POOL_SHARED_WITH_TALLIES}`,
-  }
+  { vote: "prompt", comment: "prompt", nextComment: "prompt" }
 );
 
 guard(
@@ -863,10 +936,16 @@ guard(
     language: true,
   },
   {
-    vote: `${READ_POOL_SHARED_WITH_TALLIES}; ${TOPIC_LOOKUPS_WITHOUT_DEADLINE}`,
-    comment: `${READ_POOL_SHARED_WITH_TALLIES}; ${DETECTION_BEFORE_INSERT}`,
-    nextComment: `${READ_POOL_SHARED_WITH_TALLIES}; ${TOPIC_LOOKUPS_WITHOUT_DEADLINE}`,
+    vote: `the stored vote is answered only after ${TOPIC_LOOKUPS_WITHOUT_DEADLINE}`,
+    comment: DETECTION_BEFORE_INSERT,
+    nextComment: TOPIC_LOOKUPS_WITHOUT_DEADLINE,
   }
+);
+
+guard(
+  "every connection of every pool other work uses, held",
+  { otherPools: true },
+  { vote: "prompt", comment: "prompt", nextComment: "prompt" }
 );
 
 // ---------------------------------------------------------------------------
