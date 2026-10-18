@@ -28,6 +28,7 @@ mod next_comment;
 mod owner;
 mod params;
 mod pca;
+mod recent_activity;
 mod recent_started;
 mod robots;
 mod route;
@@ -140,6 +141,14 @@ async fn health(app: &route::App) -> Outgoing {
         "recentStartedFallback",
         js::Js::Num(app.recent_started_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "recentActivityServed",
+        js::Js::Num(app.recent_activity_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "recentActivityFallback",
+        js::Js::Num(app.recent_activity_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -188,6 +197,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | metadata_questions::PATH
         | metadata_choices::PATH
         | recent_started::PATH
+        | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
@@ -401,6 +411,32 @@ async fn main() -> Result<()> {
         state.recent_started_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-recent-started-auth/1")?,
             recent_started::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_RECENT_ACTIVITY_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_RECENT_ACTIVITY_DATABASE_URL")
+            .context("POLIS_API_RECENT_ACTIVITY_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.recent_activity_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-recent-activity/1")?,
+            recent_activity::pool_limits(),
+        ));
+        state.recent_activity_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-recent-activity-auth/1")?,
+            recent_activity::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")

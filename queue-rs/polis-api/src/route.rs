@@ -65,6 +65,10 @@ pub struct App {
     pub recent_started_auth_db: Option<Arc<Pool>>,
     pub recent_started_served: AtomicU64,
     pub recent_started_fallback: AtomicU64,
+    pub recent_activity_db: Option<Arc<Pool>>,
+    pub recent_activity_auth_db: Option<Arc<Pool>>,
+    pub recent_activity_served: AtomicU64,
+    pub recent_activity_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -128,6 +132,10 @@ impl App {
             recent_started_auth_db: None,
             recent_started_served: AtomicU64::new(0),
             recent_started_fallback: AtomicU64::new(0),
+            recent_activity_db: None,
+            recent_activity_auth_db: None,
+            recent_activity_served: AtomicU64::new(0),
+            recent_activity_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -725,6 +733,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.recent_started_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::recent_activity::PATH {
+        if out.status == 502 {
+            app.recent_activity_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.recent_activity_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -816,6 +831,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::recent_activity::PATH
+        && crate::recent_activity::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::recent_started::PATH && crate::recent_started::parse(app, req).is_none()
     {
         return bad_gateway();
@@ -947,6 +967,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::recent_activity::PATH {
+        return crate::recent_activity::handle(app, req, res).await;
     }
     if req.path() == crate::recent_started::PATH {
         return crate::recent_started::handle(app, req, res).await;
@@ -1787,6 +1810,71 @@ mod tests {
         }
         assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn recent_activity_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?sinceUnixTimestamp=9007199254740",
+                crate::recent_activity::PATH
+            );
+            req
+        };
+        assert!(state.recent_activity_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().recent_activity_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.recent_activity_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_activity_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().recent_activity_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn recent_activity_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().recent_activity_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::recent_activity::PATH, vec![]),
+            ("OPTIONS", crate::recent_activity::PATH, vec![]),
+            (
+                "GET",
+                "/api/v3/conversations/recent_activity?unknown=1",
+                vec![],
+            ),
+            (
+                "GET",
+                crate::recent_activity::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::recent_activity::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::recent_activity::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.recent_activity_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_activity_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]
