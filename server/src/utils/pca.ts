@@ -732,6 +732,157 @@ export function getLatestPcaTick(zid: number): Promise<number | undefined> {
   );
 }
 
+/** A generation's `comment-priorities`: tid -> selection weight. */
+export type CommentPriorities = Record<string | number, number>;
+
+type PrioritiesEntry = {
+  mathTick: number;
+  priorities: CommentPriorities;
+  expiration: number;
+};
+
+/**
+ * The `comment-priorities` of the latest committed generation, per
+ * [math_env, zid], for next-statement selection. Bounded like the math cache.
+ *
+ * An entry is used for 3 s, like a math cache entry. After that the committed
+ * tick is read (`readCommittedTick`, shared with the math cache) and an
+ * unchanged generation is re-stamped. Only a new generation reads the map,
+ * and then only that field of the row (`selectLatestPriorities`).
+ */
+const prioritiesEntries = new LruCache<string, PrioritiesEntry>({
+  max: pcaCacheSize,
+});
+// One in-flight priorities read per [math_env, zid].
+const pendingPriorityReads = new Map<
+  string,
+  Promise<PrioritiesEntry | undefined>
+>();
+
+const PRIORITIES_WINDOW_MS = 3000;
+
+/**
+ * The `comment-priorities` that `getLatestExistingPca(zid)` would hand the
+ * next-statement draw, without reading the whole math result.
+ *
+ * - A live math cache entry is what `getLatestExistingPca` would serve, so its
+ *   map is used, and remembered under its generation.
+ * - Otherwise a live priorities entry is used.
+ * - Otherwise the committed tick decides: the same generation is re-stamped;
+ *   a new one reads `data->'comment-priorities'` only. Concurrent callers
+ *   share one read.
+ *
+ * `undefined` when there is no committed generation (no row, or a row whose
+ * tick is not committed yet), where `getLatestExistingPca` gives no math. A
+ * failed read rejects, as the whole-row read did.
+ */
+export function getLatestCommentPriorities(
+  zid: number
+): Promise<CommentPriorities | undefined> {
+  const mathEnv = Config.mathEnv;
+  const key = pcaCacheKey(mathEnv, zid);
+  const now = Date.now();
+  const cached = pcaCache.get(key);
+  if (
+    cached &&
+    cached.expiration > now &&
+    cached.asPOJO &&
+    !synthesizedEntries.has(cached)
+  ) {
+    const priorities = cached.asPOJO["comment-priorities"];
+    const mathTick = cached.asPOJO.math_tick;
+    const current = prioritiesEntries.get(key);
+    if (
+      typeof mathTick === "number" &&
+      !isUncommittedTick(mathTick) &&
+      (!current || current.expiration < cached.expiration)
+    ) {
+      prioritiesEntries.set(key, {
+        mathTick,
+        priorities: completePriorities(priorities),
+        expiration: cached.expiration,
+      });
+    }
+    return Promise.resolve(priorities);
+  }
+  const entry = prioritiesEntries.get(key);
+  if (entry && entry.expiration > now) {
+    return Promise.resolve(entry.priorities);
+  }
+  return readLatestPriorities(mathEnv, zid).then((read) => read?.priorities);
+}
+
+function readLatestPriorities(
+  mathEnv: string,
+  zid: number
+): Promise<PrioritiesEntry | undefined> {
+  const key = pcaCacheKey(mathEnv, zid);
+  const pending = pendingPriorityReads.get(key);
+  if (pending) {
+    return pending;
+  }
+  const revalidated: Promise<CommittedTick> = prioritiesEntries.has(key)
+    ? readCommittedTick(mathEnv, zid)
+    : Promise.resolve({ mathTick: null });
+  const read = revalidated
+    .then(({ mathTick }) => {
+      const remembered = prioritiesEntries.get(key);
+      if (remembered && mathTick !== null && remembered.mathTick === mathTick) {
+        const entry = {
+          ...remembered,
+          expiration: Date.now() + PRIORITIES_WINDOW_MS,
+        };
+        prioritiesEntries.set(key, entry);
+        return entry;
+      }
+      return selectLatestPriorities(mathEnv, zid);
+    })
+    .finally(() => {
+      pendingPriorityReads.delete(key);
+    });
+  pendingPriorityReads.set(key, read);
+  return read;
+}
+
+/**
+ * The committed tick and `comment-priorities` of [math_env, zid]. Only that
+ * field of `data` leaves the database: no blob crosses the wire, and nothing
+ * is normalized or compressed in this process.
+ */
+function selectLatestPriorities(
+  mathEnv: string,
+  zid: number
+): Promise<PrioritiesEntry | undefined> {
+  const key = pcaCacheKey(mathEnv, zid);
+  return pg
+    .queryP_readOnly<Array<{ math_tick: any; priorities: any }>>(
+      "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
+      [zid, mathEnv]
+    )
+    .then((rows) => {
+      const rowsArray = rows as Array<{ math_tick: any; priorities: any }>;
+      const row = rowsArray && rowsArray.length ? rowsArray[0] : undefined;
+      // `math_main.math_tick` is NOT NULL (migrations/000000_initial.sql).
+      const mathTick = row ? Number(row.math_tick) : null;
+      if (mathTick === null || isUncommittedTick(mathTick)) {
+        prioritiesEntries.del(key);
+        return undefined;
+      }
+      const entry = {
+        mathTick,
+        priorities: completePriorities(row.priorities),
+        expiration: Date.now() + PRIORITIES_WINDOW_MS,
+      };
+      prioritiesEntries.set(key, entry);
+      return entry;
+    });
+}
+
+// The normalization `ensureCompletePcaStructure` gives the field.
+function completePriorities(value: unknown): CommentPriorities {
+  return value && typeof value === "object" ? (value as CommentPriorities) : {};
+}
+
 /**
  * Normalize one owned `math_main.data` blob and cache its engine-facing shape.
  *
