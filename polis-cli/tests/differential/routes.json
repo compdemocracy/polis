@@ -283,5 +283,13 @@
     "scope": "No CLI request reaches this route; no serving coverage claimed.",
     "expected_requests": 0,
     "expected_node_handoffs": 0
+  },
+  "userLoginPage": {
+    "path": "^/user/login(/.*)?$",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Browser-only route; no CLI command reaches this redirect. No CLI serving coverage claimed; raw replay and nginx switch tests provide positive serving proof."
   }
 }
