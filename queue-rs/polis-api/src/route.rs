@@ -137,6 +137,9 @@ pub struct App {
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
     pub contexts_served: AtomicU64,
     pub contexts_fallback: AtomicU64,
+    pub delphi_reports_db: Option<Arc<Pool>>,
+    pub delphi_reports_served: AtomicU64,
+    pub delphi_reports_fallback: AtomicU64,
     pub delphi_read_db: Option<Arc<Pool>>,
     pub delphi_read_served: AtomicU64,
     pub delphi_read_fallback: AtomicU64,
@@ -294,6 +297,9 @@ impl App {
             read_oidc: None,
             contexts_served: AtomicU64::new(0),
             contexts_fallback: AtomicU64::new(0),
+            delphi_reports_db: None,
+            delphi_reports_served: AtomicU64::new(0),
+            delphi_reports_fallback: AtomicU64::new(0),
             delphi_read_db: None,
             delphi_read_served: AtomicU64::new(0),
             delphi_read_fallback: AtomicU64::new(0),
@@ -1086,6 +1092,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.contexts_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::delphi_reports::PATH {
+        if out.status == 502 {
+            app.delphi_reports_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_reports_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::delphi_read::PATH {
         if out.status == 502 {
             app.delphi_read_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1377,6 +1390,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::contexts::PATH && crate::contexts::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::delphi_reports::PATH && crate::delphi_reports::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::delphi_read::PATH && crate::delphi_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1508,6 +1525,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
+    }
+    if req.path() == crate::delphi_reports::PATH {
+        return crate::delphi_reports::handle(app, req, res).await;
     }
     if req.path() == crate::delphi_read::PATH {
         return crate::delphi_read::handle(app, req, res).await;
@@ -4955,6 +4975,137 @@ mod tests {
         release_tx.send(()).unwrap();
         lock.await.unwrap();
         assert_eq!(handle(state.clone(), req("missing")).await.status, 404);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn delphi_reports_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/delphi/reports"))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().delphi_reports_db = Some(pool);
+        for target in [
+            "/api/v3/delphi/reports",
+            "/api/v3/delphi/reports?",
+            "/api/v3/delphi/reports?report_id=",
+            "/api/v3/delphi/reports?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 200);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"report_id (requestReportId) is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/delphi/reports?report_id=fixture",
+            "/api/v3/delphi/reports?unknown=1",
+            "/api/v3/delphi/reports?report_id=a&report_id=b",
+            "/api/v3/delphi/reports?report_id[]=a",
+            "/api/v3/delphi/reports?report_id[x]=a",
+            "/api/v3/delphi/reports?report_id=%E9%9B%AA",
+            "/api/v3/delphi/reports?job_id=x",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/delphi/reports".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/delphi/reports");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(state.delphi_reports_served.load(Ordering::Relaxed), 4);
+        assert_eq!(state.delphi_reports_fallback.load(Ordering::Relaxed), 14);
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn delphi_reports_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("delphi_reports_validation_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::delphi_reports::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().delphi_reports_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/delphi/reports?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 200);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find a valid identifier for the report_id to query DynamoDB.","request_report_id":"missing"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 200);
         let err = probe_pool
             .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
             .await
