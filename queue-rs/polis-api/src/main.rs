@@ -11,6 +11,7 @@ mod compress;
 mod config;
 mod connection;
 mod cors;
+mod database;
 mod db;
 mod http;
 mod js;
@@ -67,6 +68,14 @@ async fn health(app: &route::App) -> Outgoing {
         "aboutFallback",
         js::Js::Num(app.about_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "databaseServed",
+        js::Js::Num(app.database_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "databaseFallback",
+        js::Js::Num(app.database_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -108,7 +117,8 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | next_comment::PATH
         | connection::PATH
         | robots::PATH
-        | about::PATH => route::handle(app, req).await,
+        | about::PATH
+        | database::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -180,6 +190,14 @@ async fn main() -> Result<()> {
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
     state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
+    if std::env::var("POLIS_API_DATABASE_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_DATABASE_PROBE_URL")
+            .context("POLIS_API_DATABASE_PROBE_URL is required for database probe reads")?;
+        state.database_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-database-probe/1")?,
+            database::pool_limits(),
+        ));
+    }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)

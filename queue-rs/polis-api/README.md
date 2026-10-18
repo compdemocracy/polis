@@ -464,3 +464,19 @@ credentials, cookies, bodies and other methods hand back to Node and are counted
 in `aboutServed`/`aboutFallback`. No database/provider or participation work occurs.
 `conformance/about-run.sh` records full response bytes and replays the crawler
 policy and connection probe as regressions on the same isolated fixture stack.
+
+### Database probe
+
+`GET`/`HEAD /api/v3/testDatabase` is staged behind `POLIS_API_DATABASE_READS=1`
+and nginx's `RUST_API_ROUTES=testDatabase`, both off by default. Set
+`POLIS_API_DATABASE_PROBE_URL` to the same primary database Node probes.
+The route runs Node's `select uid from users limit 1` before answering with
+`polis-contracts::database::Response`. An empty users table still succeeds.
+It has a separate one-connection read-only pool (15 ms acquire, 50 ms statement,
+75 ms caller deadline), never the comments or next-statement pool. Cancelled
+queries retain their pool slot until the blocking operation finishes.
+Database errors/timeouts and unsupported credentials/cookies/query/body/method
+shapes hand back to Node and increment `databaseFallback`; served responses
+increment `databaseServed`. Node retains its own database-error contract.
+Run `queue-rs/polis-api/conformance/database-run.sh result.json` against the
+isolated fixture stack to record and compare complete Node/Rust HTTP bytes.
