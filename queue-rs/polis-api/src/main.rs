@@ -16,6 +16,7 @@ mod contexts;
 mod conversation_preload;
 mod conversation_stats;
 mod cors;
+mod create_page;
 mod database;
 mod db;
 mod domain_whitelist;
@@ -303,6 +304,14 @@ async fn health(app: &route::App) -> Outgoing {
         "einvitesReadFallback",
         js::Js::Num(app.einvites_read_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "createPageServed",
+        js::Js::Num(app.create_page_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "createPageFallback",
+        js::Js::Num(app.create_page_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -370,6 +379,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if create_page::matches(path) => route::handle(app, req).await,
         path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
@@ -441,6 +451,8 @@ async fn main() -> Result<()> {
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
+    state.create_page_reads =
+        std::env::var("POLIS_API_CREATE_PAGE_READS").ok().as_deref() == Some("1");
     state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
     if std::env::var("POLIS_API_DATABASE_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_DATABASE_PROBE_URL")

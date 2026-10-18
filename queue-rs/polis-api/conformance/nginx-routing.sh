@@ -846,3 +846,29 @@ echo "ok 42 einvitesRead off/on/deduplicated; method/body guards; 502 hands back
 
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /conversation/create node "createPage off"
+start createPage,createPage
+expect /conversation/create rust "createPage on"
+expect /conversation/create/step rust "createPage nested path"
+expect /conversation/createSuffix rust "createPage prefix semantics"
+expect /conversation/creat node "createPage neighbor"
+expect /api/v3/comments node "createPage leaves comments alone"
+expect /api/v3/votes node "createPage leaves voting alone"
+[[ $(included | grep -c 'location ~ ^/conversation/create') == 1 ]] || fail "createPage duplicated"
+expect_upstream polis-api GET /conversation/create
+expect_upstream polis-api HEAD /conversation/create
+expect_upstream server OPTIONS /conversation/create
+expect_upstream server POST /conversation/create $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /conversation/create $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /conversation/create node "createPage handoff"
+echo "ok 43 createPage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+
