@@ -589,3 +589,20 @@ one read-only connection, 15 ms acquire and 50 ms statement limits, under a 75 m
 whole-route deadline. No participation pool is borrowed. Outcomes are counted by
 `metadataReadServed`/`metadataReadFallback`. The isolated proof command is
 `queue-rs/polis-api/conformance/metadata-read-run.sh result.json`.
+
+### Empty metadata choices
+
+`GET`/`HEAD /api/v3/metadata/choices?conversation_id=...` stages empty results
+behind `POLIS_API_METADATA_CHOICES_READS=1` and nginx route `metadataChoices`,
+both off by default. Shared types are in `polis-contracts::metadata_choices`.
+Required hybrid auth reuses verified participant membership scoped to the
+conversation or an existing OIDC mapping. Unsupported auth/requests hand back.
+Populated rows remain Node work because of cached conversation-ID enrichment;
+this is not a complete route replacement. Inactive-only choices return `[]`.
+
+`POLIS_API_METADATA_CHOICES_DATABASE_URL` configures independent primary auth/ID
+and replica-capable read pools, each with one read-only connection, 15 ms acquire
+and 50 ms statement limits under a 75 ms route deadline. No participation pool is
+borrowed. `metadataChoicesServed`/`metadataChoicesFallback` count outcomes.
+Run `queue-rs/polis-api/conformance/metadata-choices-run.sh result.json` for the
+raw HTTP proof and regressions of earlier routes.
