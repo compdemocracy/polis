@@ -42,6 +42,7 @@ mod recent_started;
 mod reports_read;
 mod robots;
 mod route;
+mod settings_page;
 mod topic_prioritize;
 mod topic_selections;
 mod treevite_csv;
@@ -307,6 +308,14 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.einvites_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "settingsPageServed",
+        js::Js::Num(app.settings_page_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "settingsPageFallback",
+        js::Js::Num(app.settings_page_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
         "userLoginPageServed",
         js::Js::Num(app.user_login_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -397,6 +406,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if settings_page::matches(path) => route::handle(app, req).await,
         path if user_login_page::matches(path) => route::handle(app, req).await,
         path if user_create_page::matches(path) => route::handle(app, req).await,
         path if create_page::matches(path) => route::handle(app, req).await,
@@ -471,6 +481,10 @@ async fn main() -> Result<()> {
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
+    state.settings_page_reads = std::env::var("POLIS_API_SETTINGS_PAGE_READS")
+        .ok()
+        .as_deref()
+        == Some("1");
     state.user_login_page_reads = std::env::var("POLIS_API_USER_LOGIN_PAGE_READS")
         .ok()
         .as_deref()

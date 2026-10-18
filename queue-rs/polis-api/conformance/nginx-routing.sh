@@ -924,3 +924,29 @@ echo "ok 45 userLoginPage off/on/deduplicated; method/body guards; 502 hands bac
 
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /settings node "settingsPage off"
+start settingsPage,settingsPage
+expect /settings rust "settingsPage on"
+expect /settings/step rust "settingsPage nested path"
+expect /settingsSuffix node "settingsPage anchored neighbor"
+expect /setting node "settingsPage neighbor"
+expect /api/v3/comments node "settingsPage leaves comments alone"
+expect /api/v3/votes node "settingsPage leaves voting alone"
+[[ $(included | grep -c 'location ~ ^/settings') == 1 ]] || fail "settingsPage duplicated"
+expect_upstream polis-api GET /settings
+expect_upstream polis-api HEAD /settings
+expect_upstream server OPTIONS /settings
+expect_upstream server POST /settings $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /settings $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /settings node "settingsPage handoff"
+echo "ok 46 settingsPage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+
