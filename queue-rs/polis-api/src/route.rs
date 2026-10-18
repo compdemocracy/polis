@@ -69,6 +69,9 @@ pub struct App {
     pub recent_activity_auth_db: Option<Arc<Pool>>,
     pub recent_activity_served: AtomicU64,
     pub recent_activity_fallback: AtomicU64,
+    pub legacy_pca_reads: bool,
+    pub legacy_pca_served: AtomicU64,
+    pub legacy_pca_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -136,6 +139,9 @@ impl App {
             recent_activity_auth_db: None,
             recent_activity_served: AtomicU64::new(0),
             recent_activity_fallback: AtomicU64::new(0),
+            legacy_pca_reads: false,
+            legacy_pca_served: AtomicU64::new(0),
+            legacy_pca_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -473,6 +479,12 @@ pub(crate) fn redirect(req: &Request, mut res: Res, location: &str) -> Outgoing 
     finish(req, res, Ending::WriteHeadThenEnd, true)
 }
 
+/// Express status(...).end() without a response body.
+pub(crate) fn empty_end(req: &Request, mut res: Res, status: u16) -> Outgoing {
+    res.status = status;
+    finish(req, res, Ending::End(Vec::new()), true)
+}
+
 /// Express text send, retaining the headers installed by writeDefaultHead.
 pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
     send(req, res, Payload::Text(value.into()))
@@ -740,6 +752,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.recent_activity_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::legacy_pca::PATH {
+        if out.status == 502 {
+            app.legacy_pca_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.legacy_pca_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -831,6 +850,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::legacy_pca::PATH && crate::legacy_pca::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::recent_activity::PATH
         && crate::recent_activity::parse(app, req).is_none()
     {
@@ -967,6 +989,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::legacy_pca::PATH {
+        return crate::legacy_pca::handle(app, req, res);
     }
     if req.path() == crate::recent_activity::PATH {
         return crate::recent_activity::handle(app, req, res).await;
@@ -2090,6 +2115,55 @@ mod tests {
         }
         assert_eq!(state.robots_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.robots_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn legacy_pca_has_no_database_work_and_preserves_304_end() {
+        let mut state = app(true);
+        let probe = |method: &str| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = format!(
+                "{}?conversation_id=fixture&math_tick=7",
+                crate::legacy_pca::PATH
+            );
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
+        for method in ["GET", "HEAD"] {
+            let out = handle(state.clone(), probe(method)).await;
+            assert_eq!(out.status, 304);
+            assert!(matches!(out.body, Body::Empty));
+            assert!(out.headers.iter().any(|(k,v)|k.eq_ignore_ascii_case("content-type") && v=="application/json"));
+            assert!(
+                !out.headers
+                    .iter()
+                    .any(|(k, _)| k.eq_ignore_ascii_case("etag"))
+            );
+        }
+        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 1);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().legacy_pca_reads = true;
+        assert_eq!(handle(secure, probe("GET")).await.status, 302);
+    }
+    #[tokio::test]
+    async fn legacy_pca_boundaries_are_counted_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
+        for (method, headers) in [
+            ("POST", vec![]),
+            ("OPTIONS", vec![]),
+            ("GET", vec![("authorization", "Bearer fixture")]),
+            ("GET", vec![("cookie", "fixture=1")]),
+            ("GET", vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = crate::legacy_pca::PATH.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 5);
     }
 
     #[tokio::test]

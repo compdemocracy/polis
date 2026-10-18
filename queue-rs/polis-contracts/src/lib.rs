@@ -4,6 +4,7 @@ pub mod connection;
 pub mod contexts;
 pub mod database;
 pub mod domain_whitelist;
+pub mod legacy_pca;
 pub mod metadata_answers;
 pub mod metadata_choices;
 pub mod metadata_questions;
