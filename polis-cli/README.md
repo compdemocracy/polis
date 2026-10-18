@@ -776,3 +776,20 @@ The text view includes topic and paragraph headings, sentences and citation IDs.
 The JSON view preserves the full server response, including metadata and nulls.
 This read uses the server's latest statement per topic; it does not generate
 statements or call a model.
+
+
+### Cursor-based owner listing
+
+Use `polis conversation list --sort newest --min-participants 10 --search 'town'`
+to call the opt-in Rust owner-list endpoint. `--sort oldest` reverses creation
+order. Pass `--cursor` from `data.pagination.next_cursor` and repeat the filters
+for the next page. The route requires an OIDC access token, an existing local
+user mapping, and both Rust owner-list switches enabled. An unavailable route
+never falls back to an unfiltered list.
+
+Supplying `--sort`, `--min-participants` or `--cursor` selects this mode. Its limit
+is at most 500; filtering is server-side and pagination uses opaque cursors.
+Participant counts are stored counters; pages are not a frozen snapshot.
+Without these options, the existing Node list and its owner filtering, local
+search, truncation reporting and limit up to 9999 remain unchanged. Neither mode
+accepts `--offset`.

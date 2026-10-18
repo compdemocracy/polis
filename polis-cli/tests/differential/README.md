@@ -67,14 +67,19 @@ not successful export/import, provider, analysis or backend coverage. Planned
 commands and local commands are likewise reported separately. Never turn a
 connectivity/parser/authentication failure into a successful live scenario.
 
-The real nginx renderer receives `RUST_API_ROUTES` empty and then `pca2`, the
-only merged switch at this source version. Access logs must show both whole-presentation and selected-key
-math requests served 200 by port 5100, with no Rust
-fallback. Other paths continue to use Node; their equality is client-flow
-regression evidence, not a Rust implementation claim. A separate route-template census refuses an unaccounted new switch. When adding
-a Rust route, extend `routes.json`, add its command scenarios and require its
-own positive serving evidence.
-Do not count a 502 fallback as Rust parity.
+The real nginx renderer receives `RUST_API_ROUTES` empty and then `pca2,owner-conversations`.
+Access logs must show exactly two requests served 200 by Rust for each route,
+with no fallback. Other paths continue to use Node; their equality is client-flow
+regression evidence. The route-template census refuses an unaccounted switch.
+
+Cursor-based owner listing is a new contract without a Node counterpart. Its two
+scenarios are reported separately in `rust_only`, never counted as byte or JSON
+equality. With switches off they must return exit 8, `capability_unavailable`,
+and the exact documented message; with switches on they must succeed and leave
+the same downloaded artifacts. The owner CLI and PostgreSQL contract tests check
+response shape, filtering, authorization and cursors. Authentication and other
+server failures remain distinct. All existing Node-vs-Rust equality comparisons
+and durable participation/administration assertions are retained.
 
 The participation path stays unchanged. The fixture runs one bounded live CLI
 request/flow at a time (unimplemented local commands run concurrently and must

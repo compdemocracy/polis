@@ -11,6 +11,7 @@ mod math;
 mod membership;
 mod narrative;
 mod oauth;
+mod owner_conversations;
 mod participation;
 mod pass10;
 mod pass11;
@@ -336,6 +337,12 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             )
         }
         "conversation list" => {
+            if m.get_one::<String>("sort").is_some()
+                || m.get_one::<u32>("min-participants").is_some()
+                || m.get_one::<String>("cursor").is_some()
+            {
+                return owner_conversations::list(m, || client(config, site, timeout, true));
+            }
             let limit = *m.get_one::<u16>("limit").unwrap();
             // Only parameters the current API reads: limit, is_active, is_draft.
             let mut query = vec![("limit".into(), limit.to_string())];

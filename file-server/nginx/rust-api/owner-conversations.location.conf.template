@@ -1,0 +1,15 @@
+# A new contract with no Node equivalent. Never fall back to an older list.
+location = /api/v3/owner/conversations {
+    if ($polis_api_plain = 0) {
+        return 405;
+    }
+    proxy_pass http://$polis_api_target;
+    proxy_intercept_errors off;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_connect_timeout 2s;
+    proxy_send_timeout 3s;
+    proxy_read_timeout 3s;
+    proxy_buffering off;
+    proxy_request_buffering off;
+}

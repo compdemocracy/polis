@@ -107,8 +107,11 @@ pub fn db_connector() -> Result<Connector> {
         .or_else(|| env("READ_ONLY_DATABASE_URL"))
         .or_else(|| env("DATABASE_URL"))
         .context("POLIS_API_DATABASE_URL, READ_ONLY_DATABASE_URL or DATABASE_URL is required")?;
+    connector_for_dsn(&dsn, "polis-api/1")
+}
+
+pub fn connector_for_dsn(dsn: &str, name: &str) -> Result<Connector> {
     let password_file = env("POLIS_API_DB_PASSWORD_FILE").map(PathBuf::from);
-    let name = "polis-api/1";
     let list = |var: &str| -> Vec<String> {
         env(var)
             .unwrap_or_default()
@@ -138,13 +141,13 @@ pub fn db_connector() -> Result<Connector> {
             if hosts.is_empty() {
                 bail!("POLIS_API_DB_PLAIN_HOSTS is required for docker-internal");
             }
-            return docker_internal(&dsn, &hosts, password_file, name);
+            return docker_internal(dsn, &hosts, password_file, name);
         }
         other => {
             bail!("POLIS_API_DB_TRANSPORT {other:?} is not tls, local, loopback or docker-internal")
         }
     };
-    Connector::from_parts(&dsn, &shared, password_file.as_deref(), name)
+    Connector::from_parts(dsn, &shared, password_file.as_deref(), name)
 }
 
 fn docker_internal(
