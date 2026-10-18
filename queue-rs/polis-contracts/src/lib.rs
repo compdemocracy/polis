@@ -33,6 +33,7 @@ pub mod schema;
 pub mod settings_page;
 pub mod topic_prioritize;
 pub mod topic_selections;
+pub mod topic_stats;
 pub mod treevite_csv;
 pub mod treevite_invites;
 pub mod treevite_me;

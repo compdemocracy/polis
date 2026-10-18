@@ -1112,3 +1112,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/delphi/visualizations node "Delphi visualization validation handoff"
 echo "ok 53 Delphi visualization validation off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/topicStats node "Topic statistics validation off"
+start topicStats,topicStats
+expect /api/v3/topicStats rust "Topic statistics validation on"
+expect /api/v3/comments node "Topic statistics validation leaves comments alone"
+expect /api/v3/votes node "Topic statistics validation leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/topicStats') == 1 ]] || fail "Topic statistics validation duplicated"
+expect_upstream polis-api GET /api/v3/topicStats
+expect_upstream polis-api HEAD /api/v3/topicStats
+expect_upstream server OPTIONS /api/v3/topicStats
+expect_upstream server POST /api/v3/topicStats $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/topicStats $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/topicStats node "Topic statistics validation handoff"
+echo "ok 54 Topic statistics validation off/on/deduplicated; method/body guards; 502 hands back to Node"

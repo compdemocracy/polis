@@ -1117,3 +1117,23 @@ finishes. `delphiVisualizationsServed` and `delphiVisualizationsFallback` count 
 Run `queue-rs/polis-api/conformance/delphi-visualizations-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
 serve visualizations or claim DynamoDB/S3/provider parity.
+
+
+### Topic statistics validation
+
+`GET`/`HEAD /api/v3/topicStats` is staged behind `POLIS_API_TOPIC_STATS_READS=1`
+and nginx `RUST_API_ROUTES=topicStats`, both off by default. Set
+`POLIS_API_TOPIC_STATS_DATABASE_URL` to Node's read replica. Only missing/empty
+report IDs (HTTP 400) and absent reports (HTTP 404) are served, using the shared
+`polis-contracts::topic_stats` request/response types. Existing reports and
+DynamoDB/Postgres results remain Node, as do identity, body, duplicate/structured
+query, extra filters and unsupported report-ID shapes. Accepted nonempty IDs
+are at most 100 ASCII alphanumeric, underscore or hyphen characters.
+The uncached report lookup has its own one-slot read-only pool: 15 ms acquire,
+50 ms statement and 75 ms caller deadline. It never borrows a participation
+pool or holds a connection over a remote service call. Database errors and
+contention hand back to Node; cancellation retains the slot until the query
+finishes. `topicStatsServed` and `topicStatsFallback` count the outcomes.
+Run `queue-rs/polis-api/conformance/topic-stats-run.sh result.json` for raw
+Node/Rust byte replay on the generated fixture stack. This slice does not
+serve topic statistics or claim DynamoDB/Postgres/provider parity.

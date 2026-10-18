@@ -51,6 +51,7 @@ mod route;
 mod settings_page;
 mod topic_prioritize;
 mod topic_selections;
+mod topic_stats;
 mod treevite_csv;
 mod treevite_invites;
 mod treevite_me;
@@ -121,6 +122,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "delphiVisualizationsFallback",
         js::Js::Num(app.delphi_visualizations_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "topicStatsServed",
+        js::Js::Num(app.topic_stats_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "topicStatsFallback",
+        js::Js::Num(app.topic_stats_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "delphiReadServed",
@@ -449,6 +458,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | about::PATH
         | legacy_pca::PATH
         | delphi_read::PATH
+        | topic_stats::PATH
         | delphi_visualizations::PATH
         | delphi_reports::PATH
         | database::PATH
@@ -597,6 +607,15 @@ async fn main() -> Result<()> {
         state.delphi_visualizations_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-delphi-visualizations/1")?,
             delphi_visualizations::pool_limits(),
+        ));
+    }
+    if std::env::var("POLIS_API_TOPIC_STATS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_TOPIC_STATS_DATABASE_URL").context(
+            "POLIS_API_TOPIC_STATS_DATABASE_URL is required for Topic statistics validation reads",
+        )?;
+        state.topic_stats_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-topic-stats/1")?,
+            topic_stats::pool_limits(),
         ));
     }
     if std::env::var("POLIS_API_DELPHI_READS").ok().as_deref() == Some("1") {
