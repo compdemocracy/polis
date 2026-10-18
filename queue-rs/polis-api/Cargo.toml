@@ -26,6 +26,7 @@ jsonwebtoken = "9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 url = "2"
+uuid = "1"
 polis-queue-adapter = { path = ".." }
 postgres = "0.19"
 ryu-js = "1"

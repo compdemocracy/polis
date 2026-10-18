@@ -17,5 +17,13 @@
     "scope": "Rust-only owner-list contract; Node-off must return capability_unavailable, exit 8.",
     "expected_requests": 2,
     "expected_node_handoffs": 0
+  },
+  "comments": {
+    "path": "/api/v3/comments",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "expected_requests": 10,
+    "expected_node_handoffs": 7,
+    "scope": "Credentialed/moderation GETs hand back to Node; writes stay on Node. Public success is proved by the raw comments suite."
   }
 }

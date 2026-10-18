@@ -40,6 +40,8 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub comments_db: Option<Arc<Pool>>,
+    pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
     zids: Mutex<Lru<String, i32>>,
     pub served: AtomicU64,
@@ -51,6 +53,8 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            comments_db: None,
+            comments_count_db: None,
             math_env: cfg.math_env.clone(),
             dev_mode: cfg.dev_mode,
             use_network_host: cfg.use_network_host,
@@ -73,7 +77,7 @@ impl App {
 
 /// The headers a Node `ServerResponse` holds, in Node's order: a header keeps
 /// the position of its first `setHeader` and the casing of its last.
-struct Res {
+pub(crate) struct Res {
     status: u16,
     headers: Vec<(String, String)>,
 }
@@ -347,7 +351,7 @@ fn send_in(req: &Request, mut res: Res, payload: Payload, installed: bool) -> Ou
 }
 
 /// Express 3 `res.json(value)`.
-fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
+pub(crate) fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
     if res.get("Content-Type").is_none() {
         res.set("Content-Type", "application/json");
     }
@@ -441,7 +445,7 @@ fn js_trim(s: &str) -> &str {
 }
 
 /// `_integerOrUndefined` + `getInt` (utils/parameter.ts).
-fn get_int(value: &Js) -> Option<f64> {
+pub(crate) fn get_int(value: &Js) -> Option<f64> {
     match value {
         Js::Str(s) if !js_trim(s).is_empty() => {
             // parseInt(s, 10): optional sign, then the longest digit prefix.
@@ -583,7 +587,7 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
     let mut http = Obj::new();
     http.set("method", Js::Str(req.method.clone()));
     http.set("url", Js::Str(req.path().to_string()));
-    http.set("route", Js::Str(PATH.into()));
+    http.set("route", Js::Str(req.path().into()));
     http.set("status_code", Js::Num(f64::from(status)));
     let mut line = Obj::new();
     line.set("level", Js::Str(level.into()));
@@ -664,6 +668,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.method != "GET" && req.method != "HEAD" {
         return final_handler(app, req, res, None, true);
+    }
+    if req.path() == crate::comments::PATH {
+        return crate::comments::handle(app, req, &body, res).await;
     }
     match pca2(app, req, &body, res).await {
         Ok(out) => out,
