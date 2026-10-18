@@ -11,6 +11,7 @@ mod compress;
 mod config;
 mod connection;
 mod contexts;
+mod conversation_preload;
 mod cors;
 mod database;
 mod db;
@@ -186,6 +187,14 @@ async fn health(app: &route::App) -> Outgoing {
         "treeviteCsvFallback",
         js::Js::Num(app.treevite_csv_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "conversationPreloadServed",
+        js::Js::Num(app.conversation_preload_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "conversationPreloadFallback",
+        js::Js::Num(app.conversation_preload_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -231,6 +240,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | legacy_pca::PATH
         | database::PATH
         | contexts::PATH
+        | conversation_preload::PATH
         | domain_whitelist::PATH
         | metadata_questions::PATH
         | treevite_waves::PATH
@@ -565,6 +575,18 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_CONVERSATION_PRELOAD_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_CONVERSATION_PRELOAD_DATABASE_URL")
+            .context("POLIS_API_CONVERSATION_PRELOAD_DATABASE_URL required")?;
+        state.conversation_preload_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-conversation-preload/1")?,
+            conversation_preload::pool_limits(),
+        ));
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

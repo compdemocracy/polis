@@ -714,3 +714,20 @@ conversation ID and dates depend on its local timezone. No CSV result or full
 route replacement is claimed. Unsupported auth/requests and database failures
 also hand back; no creation path or writes. `treeviteCsvServed` and
 `treeviteCsvFallback` expose this boundary.
+
+### Conversation preload: public presentation fields
+
+`POLIS_API_CONVERSATION_PRELOAD_READS=1` and nginx
+`RUST_API_ROUTES=conversationPreload` stage GET/HEAD
+`/api/v3/conversations/preload`; both default off. Set
+`POLIS_API_CONVERSATION_PRELOAD_DATABASE_URL` for a dedicated primary read-only
+pool,matching Node's conversation-data read. It has one connection,15 ms
+acquisition/50 ms statement limits and a75 ms configured whole-route timeout.
+Participation pools are separate;no writes or identity creation are performed.
+
+A single ASCII alphanumeric conversation_id up to300 bytes is admitted. The
+public projection preserves nullable text and auth flags,bigint creation time
+as a string,and the two fixed false auth-needed fields. Unknown/ambiguous IDs,
+cookies,Authorization headers and unsupported requests remain counted Node
+work. `conversationPreloadServed` / `conversationPreloadFallback` expose the
+boundary;no full middleware or arbitrary-query replacement is claimed.
