@@ -2,7 +2,7 @@
 const ANONYMOUS_PID = -1;
 
 const mockComments = jest.fn();
-const mockMath = jest.fn();
+const mockPriorities = jest.fn();
 const mockQuery = jest.fn();
 const mockCounts = jest.fn();
 jest.mock("../../src/comment", () => ({
@@ -10,7 +10,9 @@ jest.mock("../../src/comment", () => ({
   getNumberOfCommentsRemaining: mockCounts,
   translateAndStoreComment: jest.fn(),
 }));
-jest.mock("../../src/utils/pca", () => ({ getLatestExistingPca: mockMath }));
+jest.mock("../../src/utils/pca", () => ({
+  getLatestCommentPriorities: mockPriorities,
+}));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
   default: { queryP: mockQuery },
@@ -44,9 +46,7 @@ beforeEach(() => {
   mockComments.mockImplementation(async (params) =>
     rows.filter((r) => !params.tids || params.tids.includes(r.tid))
   );
-  mockMath.mockResolvedValue({
-    asPOJO: { "comment-priorities": { 0: 0.2, 2: 0.9, 3: 0.3 } },
-  });
+  mockPriorities.mockResolvedValue({ 0: 0.2, 2: 0.9, 3: 0.3 });
   mockCounts.mockResolvedValue([{ total: 3, remaining: 3 }]);
   mockQuery.mockResolvedValue([]);
 });
@@ -80,7 +80,7 @@ test("unvoted SSR choice is retained even when current math ranks another higher
     status: "eligible",
     comment: { tid: 0 },
   });
-  expect(mockMath).not.toHaveBeenCalled();
+  expect(mockPriorities).not.toHaveBeenCalled();
   expect(mockComments).toHaveBeenCalledWith({
     zid: 7,
     tids: [0],

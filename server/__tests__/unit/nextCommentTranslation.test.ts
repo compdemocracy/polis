@@ -31,7 +31,7 @@ jest.mock("../../src/utils/logger", () => ({
   },
 }));
 jest.mock("../../src/utils/pca", () => ({
-  getLatestExistingPca: async () => null,
+  getLatestCommentPriorities: async () => undefined,
 }));
 jest.mock("../../src/utils/commentClusters", () => ({
   getCommentIdsForClusters: async () => [3],
