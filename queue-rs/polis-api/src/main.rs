@@ -4,6 +4,7 @@
 //! `RUST_API_ROUTES` names it (see README).
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+mod about;
 mod clock;
 mod comments;
 mod compress;
@@ -58,6 +59,14 @@ async fn health(app: &route::App) -> Outgoing {
         "robotsFallback",
         js::Js::Num(app.robots_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "aboutServed",
+        js::Js::Num(app.about_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "aboutFallback",
+        js::Js::Num(app.about_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -94,9 +103,12 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
             Some(owner) => owner.handle(req).await,
             None => owner::error(503, "owner_list_unavailable"),
         },
-        route::PATH | comments::PATH | next_comment::PATH | connection::PATH | robots::PATH => {
-            route::handle(app, req).await
-        }
+        route::PATH
+        | comments::PATH
+        | next_comment::PATH
+        | connection::PATH
+        | robots::PATH
+        | about::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -167,6 +179,7 @@ async fn main() -> Result<()> {
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
+    state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)

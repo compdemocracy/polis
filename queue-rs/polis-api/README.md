@@ -452,3 +452,15 @@ bodies and unsupported methods use counted Node handoffs. Health exposes
 `robotsServed` and `robotsFallback`. The handler performs no database/provider
 work and adds no participation pool. `conformance/robots-run.sh` records complete
 Node/Rust response pairs, separately counting Date-only retries and Node work.
+
+### About redirect
+
+`POLIS_API_ABOUT_READS=1` and nginx `RUST_API_ROUTES=about` opt into GET/HEAD
+`/about`. Both default off. `polis-contracts::about` supplies shared request and
+redirect-response types. The 302 points to `/home` using the request Host and
+Node's development/production scheme selection, with the existing normal HTTPS
+redirect before it. No API CORS headers are added. Missing Host, query parameters,
+credentials, cookies, bodies and other methods hand back to Node and are counted
+in `aboutServed`/`aboutFallback`. No database/provider or participation work occurs.
+`conformance/about-run.sh` records full response bytes and replays the crawler
+policy and connection probe as regressions on the same isolated fixture stack.

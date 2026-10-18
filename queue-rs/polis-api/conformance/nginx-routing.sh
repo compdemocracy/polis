@@ -267,3 +267,24 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /robots.txt node "robots handoff"
 echo "ok 15 robots off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /about node "about off"
+start about,about
+expect /about rust "about on"
+expect /api/v3/comments node "about leaves comments alone"
+expect /api/v3/votes node "about leaves voting alone"
+[[ $(included | grep -c 'location = /about') == 1 ]] || fail "about duplicated"
+expect_upstream polis-api GET /about
+expect_upstream polis-api HEAD /about
+expect_upstream server OPTIONS /about
+expect_upstream server POST /about $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /about $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /about node "about handoff"
+echo "ok 16 about off/on/deduplicated; method/body guards; 502 hands back to Node"

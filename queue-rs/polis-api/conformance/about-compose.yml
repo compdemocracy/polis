@@ -1,0 +1,7 @@
+# Test-only opt-in, used together with the base conformance compose file.
+services:
+  polis-api:
+    environment:
+      POLIS_API_ABOUT_READS: "1"
+      POLIS_API_ROBOTS_READS: "1"
+      POLIS_API_CONNECTION_READS: "1"
