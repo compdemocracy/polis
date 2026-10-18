@@ -4,6 +4,7 @@ pub mod connection;
 pub mod contexts;
 pub mod database;
 pub mod domain_whitelist;
+pub mod metadata_questions;
 pub mod robots;
 
 use serde::Serialize;
