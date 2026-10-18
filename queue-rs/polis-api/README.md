@@ -648,3 +648,15 @@ one read-only connection each, 15 ms acquire/50 ms statement limits and a 75 ms
 route deadline. No participation pool is borrowed. Outcomes are counted by
 `recentActivityServed`/`recentActivityFallback`. Run
 `queue-rs/polis-api/conformance/recent-activity-run.sh result.json` for raw proof.
+
+### Retired math poll
+
+`GET`/`HEAD /api/v3/math/pca` returns Node's empty 304 response, including normal
+middleware headers, behind `POLIS_API_LEGACY_PCA_READS=1` and nginx `legacyPca`,
+both off by default. Shared HTTP request/response types are in
+`polis-contracts::legacy_pca`. The retired handler ignores query parameters;
+queries up to 4 KiB are accepted. Unsupported methods, bodies, credentials or
+cookies hand back to Node and are counted. No database, auth provider, math
+engine, pool or participation work runs on this handler.
+`legacyPcaServed`/`legacyPcaFallback` count outcomes. Run
+`queue-rs/polis-api/conformance/legacy-pca-run.sh result.json` for raw HTTP proof.
