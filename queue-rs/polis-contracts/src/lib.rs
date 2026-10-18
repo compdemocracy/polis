@@ -9,6 +9,7 @@ pub mod conversation_preload;
 pub mod conversation_stats;
 pub mod create_page;
 pub mod database;
+pub mod delphi_read;
 pub mod domain_whitelist;
 pub mod einvites_read;
 pub mod integrate_page;
