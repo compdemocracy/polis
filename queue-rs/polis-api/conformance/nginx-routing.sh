@@ -388,3 +388,24 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/metadata/answers node "metadataAnswers handoff"
 echo "ok 21 metadataAnswers off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/metadata node "metadataRead off"
+start metadataRead,metadataRead
+expect /api/v3/metadata rust "metadataRead on"
+expect /api/v3/comments node "metadataRead leaves comments alone"
+expect /api/v3/votes node "metadataRead leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/metadata') == 1 ]] || fail "metadataRead duplicated"
+expect_upstream polis-api GET /api/v3/metadata
+expect_upstream polis-api HEAD /api/v3/metadata
+expect_upstream server OPTIONS /api/v3/metadata
+expect_upstream server POST /api/v3/metadata $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/metadata $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/metadata node "metadataRead handoff"
+echo "ok 22 metadataRead off/on/deduplicated; method/body guards; 502 hands back to Node"
+

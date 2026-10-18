@@ -569,3 +569,23 @@ Each has one read-only connection, 15 ms acquire/50 ms statement limits; the
 whole route has a 75 ms deadline. No participation pool is borrowed.
 `metadataAnswersServed`/`metadataAnswersFallback` count outcomes. Replay:
 `queue-rs/polis-api/conformance/metadata-answers-run.sh result.json`.
+
+### Aggregate metadata
+
+`GET`/`HEAD /api/v3/metadata?conversation_id=...` uses required hybrid auth,
+reusing verified participant membership or existing OIDC mappings. Both
+`POLIS_API_METADATA_READS=1` and nginx route `metadataRead` default off.
+Request/response types live in `polis-contracts::metadata_read`.
+
+Empty questions return `{}`. Populated results preserve numeric property order,
+nullable labels, inactive rows, unselected arrays and Node's scalar participant
+assignment. Duplicate choices, orphaned/malformed data, nonpositive IDs and more
+than 1,000 rows in any input table hand back to Node, as do invite parameters,
+unsupported auth and request shapes. No cache or user/participant creation occurs.
+
+`POLIS_API_METADATA_DATABASE_URL` configures a separate primary auth/ID pool;
+metadata uses an independent pool with optional READ_ONLY_DATABASE_URL. Both use
+one read-only connection, 15 ms acquire and 50 ms statement limits, under a 75 ms
+whole-route deadline. No participation pool is borrowed. Outcomes are counted by
+`metadataReadServed`/`metadataReadFallback`. The isolated proof command is
+`queue-rs/polis-api/conformance/metadata-read-run.sh result.json`.
