@@ -338,3 +338,57 @@ may be retried and is counted. `conformance/nginx-routing.sh` checks the
 independent switch, body/method guards and failure handoff. Authentication,
 moderation/report equivalence and concurrent participation-load acceptance
 remain outside this partial implementation's evidence.
+
+## Anonymous next-statement reads
+
+`POLIS_API_NEXT_COMMENT_READS=1` and nginx's `RUST_API_ROUTES=nextComment`
+are separate gates, both off by default. The process requires an explicit
+`POLIS_API_NEXT_COMMENT_DATABASE_URL` primary read DSN. Bodyless GET/HEAD
+requests may carry only `conversation_id`, `without`, and `initial_tid`.
+Authorization, cookies, language and identity parameters, unknown parameters,
+other methods and request bodies stay with Node. No participant resolution,
+translation, topical-storage call or write is performed by this Rust branch.
+
+Normal weighted selection requires `TOPICAL_COMMENT_RATIO=0` in both Node and
+Rust. Preserve the same value when configuring the processes. Any other Rust
+value hands normal selection to Node. `initial_tid` bypasses topical selection
+in Node and can be served independently of that setting. The response retains
+Node's visibility rules, created-only ordering, 999-candidate cap, zero-weight
+fallback, `randomN`, initial status, count semantics and empty translations.
+The initial branch retains Node's negative participant sentinel in eligibility
+reads; it never resolves or creates a participant. Committed math priorities
+have a bounded three-second process-local cache. Independent process caches
+and concurrent database publications can observe different generations; static
+fixture byte proof is not a concurrent-publication equivalence claim.
+
+This participation route has its own two-connection read-only pool, a 1 ms
+acquisition budget, 50 ms statement limit and 75 ms total database-work deadline.
+It does not borrow math, owner-list or comment-list slots. Cancelled callers
+retain their slot until the blocking operation finishes. Unsupported requests
+hand back before pool admission; errors, saturation and deadlines return 502
+for nginx's Node fallback. Nginx connect/send/read timeouts are each 100 ms;
+these are per-operation bounds, not one combined end-to-end timeout. Once
+response headers have been sent, the general mid-response fallback limitation
+still applies. `/health` exposes `nextCommentServed` and `nextCommentFallback`
+separately; a fallback counts as Node work, never a Rust implementation.
+
+The existing CI format, lint, database-test, build, image and nginx checks cover
+this branch. Database tests occupy all slower-route pool slots before checking
+that nextComment answers, then fill its dedicated pool and verify prompt
+handoff. These checks do not establish zero shared-host or database contention.
+
+`conformance/next-comment-run.sh` records unchanged Node and Rust raw HTTP bytes
+against the existing generated SQL and real-engine fixtures. It rejects an
+eligible successful request falling back, counts all boundary handoffs, and
+writes both raw recordings and a result summary. A fixture-clock build accepts
+`X-Polis-Fixture-Seed` to match the recorder's seeded entropy; production builds
+ignore it and use the normal random generator. No response bytes are normalized;
+Date-only differences trigger a counted repeat of the same pair.
+
+The same entry point runs paired nginx-off/on latency measurements with fresh
+connections, alternating order, 20 warmups and 200 measurements per boundary.
+It also checks a peer that accepts but sends no headers, proving the 100 ms read
+timeout hands back to Node. Set `POLIS_API_NGINX_IMAGE` to a locally built image
+from `file-server/nginx.Dockerfile`; both proxies use that exact image and route
+configuration. The report describes local fixture-network latency, not deployed
+network latency or a live participation-load campaign.

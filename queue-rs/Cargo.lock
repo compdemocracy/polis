@@ -777,6 +777,7 @@ dependencies = [
  "openssl",
  "polis-queue-adapter",
  "postgres",
+ "rand",
  "ryu-js",
  "serde",
  "serde_json",

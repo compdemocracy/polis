@@ -8,7 +8,7 @@ export API_SERVER_PORT=${API_SERVER_PORT:-5000}
 envsubst '${API_SERVER_PORT}' </etc/nginx/conf.d/default.conf.template >/etc/nginx/conf.d/default.conf
 
 # Rust API routes. RUST_API_ROUTES is a comma-separated list of routes that
-# polis-api serves instead of Node ("pca2", "owner-conversations" and "comments"). Unset or empty, both
+# polis-api serves instead of Node ("pca2", "owner-conversations", "comments" and "nextComment"). Unset or empty, both
 # include files below stay empty and the rendered config routes everything to
 # Node exactly as before. No value of these settings can take the proxy down:
 # a name that is not a known route, an upstream or resolver that is not a
@@ -42,6 +42,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} comments"
       ;;
+    nextComment)
+      case " $rust_api_locations " in *" nextComment "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/nextComment ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} nextComment"
+      ;;
     *)
       rust_api_unknown="${rust_api_unknown} ${route}"
       ;;
@@ -49,7 +55,7 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 done
 export RUST_API_RESOLVER=${RUST_API_RESOLVER:-127.0.0.11}
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments). Every route stays on Node." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment). Every route stays on Node." >&2
 elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then
   echo "ERROR RUST_API_UPSTREAM: '${RUST_API_UPSTREAM}' is not host:port. Every route stays on Node." >&2

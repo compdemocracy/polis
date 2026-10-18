@@ -1,0 +1,22 @@
+# Only used by next-comment-run.sh in the isolated fixture network.
+services:
+  next-proxy-on:
+    image: ${POLIS_API_NGINX_IMAGE:-polis-api-nginx:conformance}
+    networks: [sealed]
+    environment:
+      RUST_API_ROUTES: nextComment
+    depends_on: [server, polis-api, client-participation-alpha]
+  next-proxy-off:
+    image: ${POLIS_API_NGINX_IMAGE:-polis-api-nginx:conformance}
+    networks: [sealed]
+    depends_on: [server, client-participation-alpha]
+  next-proxy-stall:
+    image: ${POLIS_API_NGINX_IMAGE:-polis-api-nginx:conformance}
+    networks: [sealed]
+    environment:
+      RUST_API_ROUTES: nextComment
+      RUST_API_UPSTREAM: driver:5101
+    depends_on: [server, driver, client-participation-alpha]
+  client-participation-alpha:
+    image: nginx:1.21.5-alpine
+    networks: [sealed]

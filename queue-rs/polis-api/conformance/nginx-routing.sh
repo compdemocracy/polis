@@ -204,3 +204,24 @@ stub "$p-rust" polis-api 5100 502 unavailable
 sleep 6
 expect /api/v3/comments node "comments boundary or unavailable"
 echo "ok 12 public comments off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/nextComment node "next comment off"
+start nextComment,nextComment
+expect /api/v3/nextComment rust "next comment on"
+expect /api/v3/comments node "next comment leaves comments alone"
+expect /api/v3/votes node "next comment leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/nextComment') == 1 ]] || fail "next comment duplicated"
+expect_upstream polis-api GET /api/v3/nextComment
+expect_upstream polis-api HEAD /api/v3/nextComment
+expect_upstream server OPTIONS /api/v3/nextComment
+expect_upstream server POST /api/v3/nextComment $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/nextComment $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/nextComment node "next comment handoff"
+echo "ok 13 next comment off/on/deduplicated; method/body guards; 502 hands back to Node"
