@@ -660,3 +660,22 @@ cookies hand back to Node and are counted. No database, auth provider, math
 engine, pool or participation work runs on this handler.
 `legacyPcaServed`/`legacyPcaFallback` count outcomes. Run
 `queue-rs/polis-api/conformance/legacy-pca-run.sh result.json` for raw HTTP proof.
+
+### Tree-invitation waves: bounded moderator reads
+
+`POLIS_API_TREEVITE_WAVES_READS=1` stages GET/HEAD `/api/v3/treevite/waves`.
+The API and nginx `RUST_API_ROUTES=treeviteWaves` switches default off.
+Set `POLIS_API_TREEVITE_WAVES_DATABASE_URL` for primary identity reads; the
+separate data/authority pool uses `READ_ONLY_DATABASE_URL` when configured.
+Each read-only pool has one connection, 15 ms acquisition and 50 ms statement
+limits; the entire route has a 75 ms deadline. Participation pools are separate.
+
+Existing scoped participant membership or verified OIDC mappings establish the
+UID; the shared authority library applies Node's site-moderator predicate and
+numeric `ADMIN_UIDS` bypass. Owners with NULL site IDs are denied, as in Node.
+The exact 403, populated/empty arrays, bigint strings, nullable fields and
+millisecond UTC dates are supported. Canonical optional integer `wave` filters
+are accepted; more than 500 rows, unusual dates, cookies, creation-dependent
+authentication and unsupported requests remain counted Node work. No writes.
+`treeviteWavesServed` / `treeviteWavesFallback` expose the boundary. The generated
+live replay covers roles, site changes, filters, compression and HTTP caching.

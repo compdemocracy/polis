@@ -72,6 +72,10 @@ pub struct App {
     pub legacy_pca_reads: bool,
     pub legacy_pca_served: AtomicU64,
     pub legacy_pca_fallback: AtomicU64,
+    pub treevite_waves_db: Option<Arc<Pool>>,
+    pub treevite_waves_auth_db: Option<Arc<Pool>>,
+    pub treevite_waves_served: AtomicU64,
+    pub treevite_waves_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -142,6 +146,10 @@ impl App {
             legacy_pca_reads: false,
             legacy_pca_served: AtomicU64::new(0),
             legacy_pca_fallback: AtomicU64::new(0),
+            treevite_waves_db: None,
+            treevite_waves_auth_db: None,
+            treevite_waves_served: AtomicU64::new(0),
+            treevite_waves_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -759,6 +767,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.legacy_pca_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::treevite_waves::PATH {
+        if out.status == 502 {
+            app.treevite_waves_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_waves_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -850,6 +865,10 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::treevite_waves::PATH && crate::treevite_waves::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::legacy_pca::PATH && crate::legacy_pca::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -989,6 +1008,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_waves::PATH {
+        return crate::treevite_waves::handle(app, req, res).await;
     }
     if req.path() == crate::legacy_pca::PATH {
         return crate::legacy_pca::handle(app, req, res);
@@ -1712,6 +1734,64 @@ mod tests {
         }
         assert_eq!(state.metadata_questions_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.metadata_questions_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn treevite_waves_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::treevite_waves::PATH);
+            req
+        };
+        assert!(state.treevite_waves_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_waves_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_waves_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_waves_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_waves_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_waves_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_waves_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_waves::PATH, vec![]),
+            ("OPTIONS", crate::treevite_waves::PATH, vec![]),
+            ("GET", "/api/v3/treevite/waves?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_waves::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_waves::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_waves::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_waves_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_waves_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]

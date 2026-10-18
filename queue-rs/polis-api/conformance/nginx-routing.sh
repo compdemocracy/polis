@@ -493,3 +493,24 @@ sleep 6
 expect /api/v3/math/pca node "legacyPca handoff"
 echo "ok 26 legacyPca off/on/deduplicated; method/body guards; 502 hands back to Node"
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/treevite/waves node "treeviteWaves off"
+start treeviteWaves,treeviteWaves
+expect /api/v3/treevite/waves rust "treeviteWaves on"
+expect /api/v3/comments node "treeviteWaves leaves comments alone"
+expect /api/v3/votes node "treeviteWaves leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/treevite/waves') == 1 ]] || fail "treeviteWaves duplicated"
+expect_upstream polis-api GET /api/v3/treevite/waves
+expect_upstream polis-api HEAD /api/v3/treevite/waves
+expect_upstream server OPTIONS /api/v3/treevite/waves
+expect_upstream server POST /api/v3/treevite/waves $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/treevite/waves $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/treevite/waves node "treeviteWaves handoff"
+echo "ok 27 treeviteWaves off/on/deduplicated; method/body guards; 502 hands back to Node"
+
