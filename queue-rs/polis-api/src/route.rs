@@ -60,6 +60,11 @@ pub struct App {
     pub metadata_choices_auth_db: Option<Arc<Pool>>,
     pub metadata_choices_served: AtomicU64,
     pub metadata_choices_fallback: AtomicU64,
+    pub legacy_admin_uids: Vec<i32>,
+    pub recent_started_db: Option<Arc<Pool>>,
+    pub recent_started_auth_db: Option<Arc<Pool>>,
+    pub recent_started_served: AtomicU64,
+    pub recent_started_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -118,6 +123,11 @@ impl App {
             metadata_choices_auth_db: None,
             metadata_choices_served: AtomicU64::new(0),
             metadata_choices_fallback: AtomicU64::new(0),
+            legacy_admin_uids: Vec::new(),
+            recent_started_db: None,
+            recent_started_auth_db: None,
+            recent_started_served: AtomicU64::new(0),
+            recent_started_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -461,7 +471,7 @@ pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
 }
 
 /// `failJson(res, status, message)` (utils/fail.ts).
-fn fail_json(req: &Request, mut res: Res, status: u16, message: Js) -> Outgoing {
+pub(crate) fn fail_json(req: &Request, mut res: Res, status: u16, message: Js) -> Outgoing {
     let mut body = Obj::new();
     body.set("error", message.clone());
     body.set("message", message);
@@ -708,6 +718,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.metadata_choices_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::recent_started::PATH {
+        if out.status == 502 {
+            app.recent_started_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.recent_started_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -799,6 +816,10 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::recent_started::PATH && crate::recent_started::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::metadata_choices::PATH
         && crate::metadata_choices::parse(app, req).is_none()
     {
@@ -926,6 +947,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::recent_started::PATH {
+        return crate::recent_started::handle(app, req, res).await;
     }
     if req.path() == crate::metadata_choices::PATH {
         return crate::metadata_choices::handle(app, req, res).await;
@@ -1698,6 +1722,71 @@ mod tests {
         }
         assert_eq!(state.metadata_choices_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.metadata_choices_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn recent_started_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?sinceUnixTimestamp=9007199254740",
+                crate::recent_started::PATH
+            );
+            req
+        };
+        assert!(state.recent_started_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().recent_started_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().recent_started_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn recent_started_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().recent_started_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::recent_started::PATH, vec![]),
+            ("OPTIONS", crate::recent_started::PATH, vec![]),
+            (
+                "GET",
+                "/api/v3/conversations/recently_started?unknown=1",
+                vec![],
+            ),
+            (
+                "GET",
+                crate::recent_started::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::recent_started::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::recent_started::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]
