@@ -816,3 +816,9 @@ Participant counts are stored counters; pages are not a frozen snapshot.
 Without these options, the existing Node list and its owner filtering, local
 search, truncation reporting and limit up to 9999 remain unchanged. Neither mode
 accepts `--offset`.
+
+If an older or disabled site returns 404 or 502 for the owner-list endpoint,
+the CLI returns `capability_unavailable` (exit 8). Authentication, permission
+and other server failures retain their existing errors. A gateway outage
+returning 502 also means the feature is currently unavailable; this does not
+prove it is permanently absent. No unfiltered-list fallback occurs.

@@ -46,7 +46,7 @@ def main():
     binary=str(Path(args.binary).resolve());output=Path(args.output).resolve()
     routes=load_routes()
     stack=Stack()
-    report={'schema':'polis-cli-differential/1','rows':[],'rust_only':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'pca2 equality plus the new owner-list contract; Rust-only scenarios reported separately','complete':False}
+    report={'schema':'polis-cli-differential/1','rows':[],'rust_only':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'all inventoried staged switches; Rust-only contracts reported separately; scoped Node handoffs counted','complete':False}
     started=time.monotonic()
     try:
         stack.up()
