@@ -48,6 +48,7 @@ mod treevite_me;
 mod treevite_my_invites;
 mod treevite_read;
 mod treevite_waves;
+mod xid_report;
 
 use anyhow::{Context, Result};
 use http::{Body, Outgoing, Request};
@@ -285,6 +286,14 @@ async fn health(app: &route::App) -> Outgoing {
         "treeviteMeFallback",
         js::Js::Num(app.treevite_me_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "xidReportServed",
+        js::Js::Num(app.xid_report_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "xidReportFallback",
+        js::Js::Num(app.xid_report_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -351,6 +360,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -894,6 +904,28 @@ async fn main() -> Result<()> {
         state.treevite_me_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-treevite-me-auth/1")?,
             treevite_me::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_XID_REPORT_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_XID_REPORT_DATABASE_URL")
+            .context("POLIS_API_XID_REPORT_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.xid_report_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-xid-report/1")?,
+            xid_report::pool_limits(),
+        ));
+        state.xid_report_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-xid-report-auth/1")?,
+            xid_report::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")

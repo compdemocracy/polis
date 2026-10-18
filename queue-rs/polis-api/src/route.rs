@@ -125,6 +125,10 @@ pub struct App {
     pub treevite_me_auth_db: Option<Arc<Pool>>,
     pub treevite_me_served: AtomicU64,
     pub treevite_me_fallback: AtomicU64,
+    pub xid_report_db: Option<Arc<Pool>>,
+    pub xid_report_auth_db: Option<Arc<Pool>>,
+    pub xid_report_served: AtomicU64,
+    pub xid_report_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -248,6 +252,10 @@ impl App {
             treevite_me_auth_db: None,
             treevite_me_served: AtomicU64::new(0),
             treevite_me_fallback: AtomicU64::new(0),
+            xid_report_db: None,
+            xid_report_auth_db: None,
+            xid_report_served: AtomicU64::new(0),
+            xid_report_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -593,6 +601,12 @@ pub(crate) fn empty_end(req: &Request, mut res: Res, status: u16) -> Outgoing {
 
 /// Express text send, retaining the headers installed by writeDefaultHead.
 pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
+    send(req, res, Payload::Text(value.into()))
+}
+
+/// Express CSV send with its normal ETag, freshness and compression envelope.
+pub(crate) fn csv(req: &Request, mut res: Res, value: &str) -> Outgoing {
+    res.set("Content-Type", "text/csv");
     send(req, res, Payload::Text(value.into()))
 }
 
@@ -977,6 +991,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.treevite_me_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::xid_report::matches(req.path()) {
+        if out.status == 502 {
+            app.xid_report_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.xid_report_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1068,6 +1089,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if crate::xid_report::matches(req.path()) && crate::xid_report::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::treevite_me::PATH && crate::treevite_me::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1268,6 +1292,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::contexts::PATH {
         return crate::contexts::handle(app, req, res).await;
+    }
+    if crate::xid_report::matches(req.path()) {
+        return crate::xid_report::handle(app, req, res).await;
     }
     if req.path() == crate::treevite_me::PATH {
         return crate::treevite_me::handle(app, req, res).await;
@@ -2732,6 +2759,52 @@ mod tests {
         );
     }
 
+    #[test]
+    fn xid_report_requires_auth_before_admission() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().xid_report_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().xid_report_auth_db = Some(pool);
+        for method in ["GET", "HEAD"] {
+            let mut signed = request(method, &[("authorization", "Bearer fixture.invalid")]);
+            signed.target = "/api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv".into();
+            assert!(crate::xid_report::parse(&state, &signed).is_some());
+            let mut unsigned = request(method, &[]);
+            unsigned.target = signed.target;
+            assert!(crate::xid_report::parse(&state, &unsigned).is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn xid_report_boundaries_are_counted_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().xid_report_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().xid_report_auth_db = Some(pool);
+        let base = "/api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv";
+        for (method, target, headers) in [
+            ("POST", base.to_string(), vec![]),
+            ("OPTIONS", base.to_string(), vec![]),
+            ("GET", format!("{base}?xid_report=override"), vec![]),
+            (
+                "GET",
+                base.to_string(),
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", base.to_string(), vec![("cookie", "fixture=1")]),
+            ("GET", base.to_string(), vec![("content-length", "1")]),
+            ("GET", base.replace("12345678", "%312345678"), vec![]),
+            ("GET", base.replace("12345678", "x2345678"), vec![]),
+            ("GET", format!("{base}-xid.csv"), vec![]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target;
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.xid_report_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.xid_report_fallback.load(Ordering::Relaxed), 9);
+    }
+
     #[tokio::test]
     async fn topic_prioritize_gate_and_missing_auth_configuration_hand_back() {
         let mut state = app(true);
@@ -2752,6 +2825,40 @@ mod tests {
         Arc::get_mut(&mut secure).unwrap().topic_prioritize_db = Some(pool);
         let redirect = handle(secure, probe()).await;
         assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn xid_report_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = "/api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv".into();
+            req
+        };
+        assert!(state.xid_report_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().xid_report_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.xid_report_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.xid_report_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().xid_report_db = Some(pool);
+        // Unsupported requests hand back before HTTPS middleware.
+        assert_eq!(handle(secure.clone(), probe()).await.status, 502);
+        assert_eq!(secure.xid_report_served.load(Ordering::Relaxed), 0);
+        assert_eq!(secure.xid_report_fallback.load(Ordering::Relaxed), 1);
+        // Eligible requests retain the ordinary HTTPS redirect.
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().xid_report_auth_db = Some(pool);
+        let mut admitted = request(
+            "GET",
+            &[("host", "localhost"), ("authorization", "Bearer fixture")],
+        );
+        admitted.target = probe().target;
+        let redirect = handle(secure, admitted).await;
+        assert_eq!(redirect.status, 302);
     }
 
     #[tokio::test]

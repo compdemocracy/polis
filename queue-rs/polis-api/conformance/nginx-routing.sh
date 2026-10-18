@@ -799,3 +799,27 @@ expect /api/v3/treevite/me node "treeviteMe handoff"
 echo "ok 40 treeviteMe off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv node "xidReport off"
+start xidReport,xidReport
+expect /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv rust "xidReport on"
+expect /api/v3/comments node "xidReport leaves comments alone"
+expect /api/v3/xids node "xidReport leaves plural route alone"
+expect /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv/extra node "xidReport regex is anchored"
+expect /api/v3/votes node "xidReport leaves voting alone"
+[[ $(included | grep -F -c 'location ~ ^/api/v3/xid/[^/]+$') == 1 ]] || fail "xidReport duplicated"
+expect_upstream polis-api GET /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv
+expect_upstream polis-api HEAD /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv
+expect_upstream server OPTIONS /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv
+expect_upstream server POST /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv node "xidReport handoff"
+echo "ok 41 xidReport off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
