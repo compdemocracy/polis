@@ -233,5 +233,13 @@
     "scope": "Authenticated or cookie-bearing requests remain Node; the staged route admits unauthenticated requests only.",
     "expected_requests": 1,
     "expected_node_handoffs": 1
+  },
+  "legacyConversations": {
+    "path": "/api/v3/conversations",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "scope": "Populated listings and unsupported filters remain Node; staged Rust serves empty matching sets.",
+    "expected_requests": 16,
+    "expected_node_handoffs": 11
   }
 }

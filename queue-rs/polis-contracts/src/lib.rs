@@ -8,6 +8,7 @@ pub mod conversation_preload;
 pub mod conversation_stats;
 pub mod database;
 pub mod domain_whitelist;
+pub mod legacy_conversations;
 pub mod legacy_pca;
 pub mod metadata_answers;
 pub mod metadata_choices;

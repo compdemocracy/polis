@@ -22,6 +22,7 @@ mod domain_whitelist;
 mod http;
 mod hybrid_read;
 mod js;
+mod legacy_conversations;
 mod legacy_pca;
 mod lru;
 mod metadata_answers;
@@ -267,6 +268,14 @@ async fn health(app: &route::App) -> Outgoing {
         "topicPrioritizeFallback",
         js::Js::Num(app.topic_prioritize_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "legacyConversationsServed",
+        js::Js::Num(app.legacy_conversations_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "legacyConversationsFallback",
+        js::Js::Num(app.legacy_conversations_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -322,6 +331,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | metadata_choices::PATH
         | recent_started::PATH
         | treevite_my_invites::PATH
+        | legacy_conversations::PATH
         | topic_prioritize::PATH
         | topic_selections::PATH
         | conversation_stats::PATH
@@ -833,6 +843,32 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-topic-prioritize/1")?,
             topic_prioritize::pool_limits(),
         ));
+    }
+    if std::env::var("POLIS_API_LEGACY_CONVERSATIONS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_LEGACY_CONVERSATIONS_DATABASE_URL")
+            .context("POLIS_API_LEGACY_CONVERSATIONS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.legacy_conversations_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-legacy-conversations/1")?,
+            legacy_conversations::pool_limits(),
+        ));
+        state.legacy_conversations_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-legacy-conversations-auth/1")?,
+            legacy_conversations::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

@@ -117,6 +117,10 @@ pub struct App {
     pub topic_prioritize_db: Option<Arc<Pool>>,
     pub topic_prioritize_served: AtomicU64,
     pub topic_prioritize_fallback: AtomicU64,
+    pub legacy_conversations_db: Option<Arc<Pool>>,
+    pub legacy_conversations_auth_db: Option<Arc<Pool>>,
+    pub legacy_conversations_served: AtomicU64,
+    pub legacy_conversations_fallback: AtomicU64,
     pub contexts_db: Option<Arc<Pool>>,
     pub contexts_auth_db: Option<Arc<Pool>>,
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
@@ -232,6 +236,10 @@ impl App {
             topic_prioritize_db: None,
             topic_prioritize_served: AtomicU64::new(0),
             topic_prioritize_fallback: AtomicU64::new(0),
+            legacy_conversations_db: None,
+            legacy_conversations_auth_db: None,
+            legacy_conversations_served: AtomicU64::new(0),
+            legacy_conversations_fallback: AtomicU64::new(0),
             contexts_db: None,
             contexts_auth_db: None,
             read_oidc: None,
@@ -945,6 +953,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.topic_prioritize_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::legacy_conversations::PATH {
+        if out.status == 502 {
+            app.legacy_conversations_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.legacy_conversations_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::contexts::PATH {
         if out.status == 502 {
             app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1038,6 +1055,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::treevite_my_invites::PATH
         && crate::treevite_my_invites::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::legacy_conversations::PATH
+        && crate::legacy_conversations::parse(app, req).is_none()
     {
         return bad_gateway();
     }
@@ -1231,6 +1253,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::treevite_my_invites::PATH {
         return crate::treevite_my_invites::handle(app, req, res).await;
+    }
+    if req.path() == crate::legacy_conversations::PATH {
+        return crate::legacy_conversations::handle(app, req, res).await;
     }
     if req.path() == crate::topic_prioritize::PATH {
         return crate::topic_prioritize::handle(app, req, res).await;
@@ -2474,6 +2499,70 @@ mod tests {
         assert_eq!(state.treevite_my_invites_served.load(Ordering::Relaxed), 0);
         assert_eq!(
             state.treevite_my_invites_fallback.load(Ordering::Relaxed),
+            6
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_conversations_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?limit=9999", crate::legacy_conversations::PATH);
+            req
+        };
+        assert!(state.legacy_conversations_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().legacy_conversations_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.legacy_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.legacy_conversations_fallback.load(Ordering::Relaxed),
+            2
+        );
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().legacy_conversations_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn legacy_conversations_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().legacy_conversations_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::legacy_conversations::PATH, vec![]),
+            ("OPTIONS", crate::legacy_conversations::PATH, vec![]),
+            ("GET", "/api/v3/conversations?unknown=1", vec![]),
+            (
+                "GET",
+                crate::legacy_conversations::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::legacy_conversations::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::legacy_conversations::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.legacy_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.legacy_conversations_fallback.load(Ordering::Relaxed),
             6
         );
     }
