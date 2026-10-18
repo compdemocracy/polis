@@ -480,3 +480,32 @@ shapes hand back to Node and increment `databaseFallback`; served responses
 increment `databaseServed`. Node retains its own database-error contract.
 Run `queue-rs/polis-api/conformance/database-run.sh result.json` against the
 isolated fixture stack to record and compare complete Node/Rust HTTP bytes.
+
+### Context names
+
+`GET`/`HEAD /api/v3/contexts` is staged behind `POLIS_API_CONTEXTS_READS=1`
+and nginx's `RUST_API_ROUTES=contexts`, both off by default. Shared types are
+`polis-contracts::contexts::{Request, Context, Response}`; nullable names and
+Postgres ordering are preserved. Only public contexts are selected.
+
+`POLIS_API_CONTEXTS_DATABASE_URL` supplies an independent primary auth pool;
+context reads use a second pool on `READ_ONLY_DATABASE_URL` when configured,
+otherwise that primary. Each pool has one read-only connection, a 15 ms acquire
+limit and a 50 ms statement limit; the full route has a 75 ms caller deadline.
+Neither uses participation pools. All failures hand back to Node and increment
+`contextsFallback`; responses increment `contextsServed`.
+
+Requests without credentials use Node's optional-auth behavior. Signed-in reads
+reuse the participant verifier and existing exact membership resolution, with
+no XID/treevite/creation path. OIDC reads reuse the owner-list RS256 verifier,
+configured with `POLIS_API_READ_JWKS_FILE`, `AUTH_ISSUER`, `AUTH_AUDIENCE` and
+`AUTH_NAMESPACE`. Only an existing user mapping with a required email claim is
+admitted; unmapped identities and unsupported credentials go to Node, which
+retains its user-creation and auth-error behavior. Non-exact Bearer schemes,
+cookies, query parameters, bodies and unsupported methods also go to Node.
+
+The generated-fixture replay is
+`queue-rs/polis-api/conformance/contexts-run.sh result.json`; it retains complete
+Node/Rust response bytes for anonymous, participant and OIDC reads and fallback
+boundaries. Authentication never downgrades an invalid supplied token to an
+anonymous Rust response.
