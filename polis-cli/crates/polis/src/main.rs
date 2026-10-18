@@ -331,9 +331,9 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             )
         }
         "auth logout" => {
-            profiles::logout(site, config.url(site)?)?;
+            let revoked = oauth::logout(config, site, timeout)?;
             Ok(
-                json!({"state":"logged_out","keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Saved file credentials cleared; a tombstone suppresses older Keychain values. Keychain entries are left alone unless POLIS_KEYCHAIN=on; opted-in deletion is best effort without dialogs. Unset {} separately if present.", profiles::token_env(site))}),
+                json!({"state":"logged_out","refresh_token_revocation":if revoked {"acknowledged"} else {"not_available"},"keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Saved file credentials cleared; a tombstone suppresses older Keychain values. Keychain entries are left alone unless POLIS_KEYCHAIN=on; opted-in deletion is best effort without dialogs. Unset {} separately if present.", profiles::token_env(site))}),
             )
         }
         "conversation list" => {

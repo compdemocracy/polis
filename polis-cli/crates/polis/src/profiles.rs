@@ -333,9 +333,27 @@ pub fn store(site: &str, url: &str, token: &str) -> Result<&'static str> {
         keychain_allowed(),
     )
 }
-pub fn logout(site: &str, url: &str) -> Result<()> {
+/// Keep refresh rotation and sign-in replacement serialized through revocation
+/// and local cleanup. Never refresh the token or consult environment overrides.
+pub fn logout(site: &str, url: &str, revoke: impl FnOnce(Session) -> Result<bool>) -> Result<bool> {
     let _lock = credential_lock(site, url)?;
-    clear_session(site, url)
+    let revocation = session(site, url).and_then(|saved| match saved {
+        Some((_, session)) if session.refresh_token.is_some() => revoke(session),
+        _ => Ok(false),
+    });
+    // A failed read, configuration, transport or issuer response must not keep
+    // the local sign-in alive. If cleanup itself fails, report that error first.
+    clear_session(site, url)?;
+    revocation.map_err(|_| {
+        let mut e = Error::new(
+            "oauth_revoke_failed",
+            "Saved local credentials were cleared, but refresh-token revocation could not be confirmed.",
+            "The refresh token may still be valid. Revoke the application's access in your identity provider account or contact its administrator. The provider browser session is unchanged.",
+            7,
+        );
+        e.outcome = "unknown";
+        e
+    })
 }
 pub fn clear_session(site: &str, url: &str) -> Result<()> {
     // A tombstone suppresses any older Keychain value, even in a headless session.
@@ -737,7 +755,7 @@ mod file_store_tests {
             // Includes the pre-pointer legacy-token lookup and logout cleanup.
             assert!(token(site, url).unwrap().is_none());
             assert!(session(site, url).unwrap().is_none());
-            logout(site, url).unwrap();
+            logout(site, url, |_| panic!("no refresh token expected")).unwrap();
             assert_eq!(store(site, url, "fixture-manual").unwrap(), STORAGE_FILE);
             assert_eq!(token(site, url).unwrap().as_deref(), Some("fixture-manual"));
             for rotation in [false, true] {
@@ -787,7 +805,7 @@ mod file_store_tests {
             store_file(site, url, "fixture-file").unwrap();
             assert_eq!(token(site, url).unwrap().as_deref(), Some("fixture-file"));
             write_record(site, url, &SavedToken::pointer(site, url)).unwrap();
-            logout(site, url).unwrap();
+            logout(site, url, |_| panic!("no refresh token expected")).unwrap();
             assert!(token(site, url).unwrap().is_none());
             assert!(session(site, url).unwrap().is_none());
             std::fs::remove_file(credential_path(site, url).unwrap()).unwrap();

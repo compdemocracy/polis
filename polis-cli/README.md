@@ -51,7 +51,7 @@ polis auth login                    # browser PKCE on this machine
 polis auth login --device           # approve in a browser on another device
 polis auth status                   # server-verified status, no secret output
 polis auth token                    # prints the ACCESS TOKEN: treat stdout as secret
-polis auth logout                   # erase local access and refresh credentials
+polis auth logout                   # revoke the refresh token, then clear local credentials
 ```
 
 Browser login uses Authorization Code + S256 PKCE with a state-bound loopback
@@ -108,10 +108,25 @@ approval in another browser. `--no-browser` prints the PKCE URL for opening on t
 same machine. `POLIS_TOKEN` overrides saved access tokens for pol.is (the older
 `POLIS_TOKEN_PROD` still works; `POLIS_TOKEN` wins if both are set), and
 `POLIS_TOKEN_<UPPERCASE_PROFILE>` does so for developer profiles;
-unset it separately after logout. Logout clears local access/refresh credentials
-and leaves a token-free tombstone suppressing older Keychain entries; Keychain
-deletion occurs only with `POLIS_KEYCHAIN=on` and is best effort without dialogs. It does **not** revoke the issuer grant or end the provider
-browser session. No provider logout/revocation request is sent.
+unset it separately after logout. Logout sends the saved refresh token and the
+client ID that obtained it to the `revocation_endpoint` advertised by the saved
+issuer's discovery document (after checking the metadata issuer matches exactly),
+then clears local access/refresh credentials and writes a tombstone suppressing
+stale Keychain values. It uses the saved session even when a token environment
+override is set or the profile's issuer/client settings have changed. No access
+token refresh or Polis API request is needed. Discovery and revocation requests each obey `--timeout`,
+with no redirect or automatic retry, and never print tokens or provider responses.
+
+If revocation fails, local cleanup still runs and the command reports
+`oauth_revoke_failed` (exit 7, outcome unknown): the refresh token may still be valid, so revoke the
+application's access through your identity provider account or its administrator.
+A local storage failure is reported separately and does not claim cleanup succeeded.
+Successful JSON reports `refresh_token_revocation: "acknowledged"`, or
+`"not_available"` (exit 0) when the issuer advertises no revocation endpoint, or for
+a manual token, missing refresh token or absent saved session.
+Keychain-only sign-ins remain unread unless explicitly opted in; Keychain deletion
+occurs only with `POLIS_KEYCHAIN=on` and is best effort without dialogs. Logout does
+not end the provider browser session or revoke an already-issued access token.
 
 Run the local-only OAuth acceptance suite after building:
 `python3 tests/oidc_flows.py target/debug/polis`. The simulator covers PKCE, device
