@@ -8,7 +8,8 @@ the manifest records what was there when the run began.
 Outputs are counted after the stages finish, one DynamoDB partition at a time
 (a Query with Select=COUNT, paged). Every family a FULL_PIPELINE run writes is
 listed, including families that ended with zero rows. S3 visualisations are not
-a DynamoDB family and are not listed in output-manifest/1.
+a DynamoDB family and are not listed in output-manifest/1. The families of the
+retired stages (RETIRED_FAMILIES) are not written by a run and not listed.
 
 Both sides take their I/O as arguments (``pg_query``, ``dynamodb``) so the
 tests can pass recorded fakes; ``default_pg_query`` and ``default_dynamodb``
@@ -25,7 +26,7 @@ PgQuery = Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]
 
 COMMENT_SET_FORMAT = "polis-jobs.comment-set/1"
 
-# FULL_PIPELINE families keyed by conversation_id = str(zid).
+# The families a FULL_PIPELINE run writes, all keyed by conversation_id = str(zid).
 CONVERSATION_FAMILIES = (
     "Delphi_UMAPConversationConfig",
     "Delphi_CommentEmbeddings",
@@ -34,12 +35,21 @@ CONVERSATION_FAMILIES = (
     "Delphi_UMAPGraph",
     "Delphi_CommentClustersFeatures",
     "Delphi_CommentClustersLLMTopicNames",
+)
+# Families only the retired stages wrote: Delphi's own PCA, k-means,
+# representativeness, participant projections and comment routing
+# (polismath/run_math_pipeline.py, with 502's priorities on the routing rows) and
+# 501's group extremity. A run no longer writes them; their tables, codec entries
+# and legacy rows stay readable.
+RETIRED_FAMILIES = (
+    "Delphi_PCAConversationConfig",
+    "Delphi_PCAResults",
+    "Delphi_KMeansClusters",
+    "Delphi_CommentRouting",
+    "Delphi_RepresentativeComments",
+    "Delphi_PCAParticipantProjections",
     "Delphi_CommentExtremity",
 )
-# The math export, keyed by zid or "zid:tick" (polismath/database/dynamodb.py).
-ZID_FAMILIES = ("Delphi_PCAConversationConfig", "Delphi_PCAResults")
-ZID_TICK_FAMILIES = ("Delphi_KMeansClusters", "Delphi_CommentRouting", "Delphi_PCAParticipantProjections")
-GROUP_FAMILY = "Delphi_RepresentativeComments"
 
 
 class CensusError(Exception):
@@ -108,58 +118,16 @@ def _descriptor(family: str, partitions: List[Dict[str, str]], rows: int) -> Dic
     return out
 
 
-def _empty(family: str) -> Dict[str, Any]:
-    """A family the run writes but for which no partition exists (no math tick, no groups)."""
-    return {"store": "dynamodb", "family": family, "table": family, "keys": [], "rows": 0}
-
-
 def count_full_pipeline_outputs(zid: Any, dynamodb) -> List[Dict[str, Any]]:
-    """One descriptor per family a FULL_PIPELINE run writes, with its partition keys and row count."""
+    """One descriptor per family a FULL_PIPELINE run writes, with its partition key and row count."""
     z = str(zid)
     try:
-        outputs: List[Dict[str, Any]] = []
-        meta = dynamodb.Table("Delphi_PCAConversationConfig").get_item(Key={"zid": z}).get("Item") or {}
-        tick = meta.get("latest_math_tick")
-        for family in ZID_FAMILIES:
-            outputs.append(_descriptor(family, [{"zid": z}], _count(dynamodb.Table(family), "zid", z)))
-        zid_tick = None if tick is None else f"{z}:{int(tick)}"
-        for family in ZID_TICK_FAMILIES:
-            if zid_tick is None:
-                outputs.append(_empty(family))
-            else:
-                outputs.append(_descriptor(family, [{"zid_tick": zid_tick}],
-                                           _count(dynamodb.Table(family), "zid_tick", zid_tick)))
-        group_ids = [] if zid_tick is None else _group_ids(dynamodb.Table("Delphi_KMeansClusters"), zid_tick)
-        partitions = [{"zid_tick_gid": f"{zid_tick}:{g}"} for g in group_ids]
-        rows = sum(_count(dynamodb.Table(GROUP_FAMILY), "zid_tick_gid", p["zid_tick_gid"]) for p in partitions)
-        outputs.append(_descriptor(GROUP_FAMILY, partitions, rows) if partitions else _empty(GROUP_FAMILY))
-        for family in CONVERSATION_FAMILIES:
-            outputs.append(_descriptor(family, [{"conversation_id": z}],
-                                       _count(dynamodb.Table(family), "conversation_id", z)))
-        return outputs
+        return [_descriptor(family, [{"conversation_id": z}], _count(dynamodb.Table(family), "conversation_id", z))
+                for family in CONVERSATION_FAMILIES]
     except CensusError:
         raise
     except Exception as e:  # noqa: BLE001
         raise CensusError(f"could not count the run's DynamoDB outputs: {e}") from e
-
-
-def _group_ids(table, zid_tick: str) -> List[int]:
-    from boto3.dynamodb.conditions import Key
-
-    ids = set()
-    kwargs: Dict[str, Any] = {
-        "KeyConditionExpression": Key("zid_tick").eq(zid_tick),
-        "ProjectionExpression": "group_id",
-    }
-    while True:
-        resp = table.query(**kwargs)
-        for item in resp.get("Items", []):
-            if item.get("group_id") is not None:
-                ids.add(int(item["group_id"]))
-        last = resp.get("LastEvaluatedKey")
-        if not last:
-            return sorted(ids)
-        kwargs["ExclusiveStartKey"] = last
 
 
 def default_pg_query() -> PgQuery:

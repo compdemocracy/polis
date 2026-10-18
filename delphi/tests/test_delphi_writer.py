@@ -142,6 +142,8 @@ def test_actual_pipeline_orchestration_uses_private_reset_and_v2_manifest(writer
     for key,value in {'DELPHI_LEASE_EPOCH':'1','DELPHI_STAGE':'delphi_full_pipeline','DELPHI_PHASE':'run'}.items():monkeypatch.setenv(key,value)
     writer.Table('Delphi_CollectiveStatement').put_item(Item={'zid_topic_jobid':'1#old#report','text':'preserved'})
     writer.Table('Delphi_CommentEmbeddings').put_item(Item={'conversation_id':'1','comment_id':999})
+    # A row a run before the retirement wrote: the reset clears it and no stage writes it again.
+    writer.Table('Delphi_PCAResults').put_item(Item={'zid':'1','math_tick':1})
     monkeypatch.setattr(census,'default_pg_query',lambda:None)
     monkeypatch.setattr(census,'observe_inputs',lambda *a:{'math_env':'proof','math_tick':None,'math_caching_tick':None,'comment_set_sha256':None,'vote_hwm':None})
     scripts=[]
@@ -149,19 +151,23 @@ def test_actual_pipeline_orchestration_uses_private_reset_and_v2_manifest(writer
         scripts.append(command[1])
         assert 'reset_conversation' not in command[1]
         resource=result_resource()
-        if command[1].endswith('run_math_pipeline.py'):
-            resource.Table('Delphi_PCAConversationConfig').put_item(Item={'zid':'1','math_tick':1})
         if command[1].endswith('run_pipeline.py'):
             resource.Table('Delphi_CommentEmbeddings').put_item(Item={'conversation_id':'1','comment_id':0})
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(run_delphi.subprocess,'run',stage)
     monkeypatch.setattr(sys,'argv',['run_delphi.py','--zid=1'])
     with pytest.raises(SystemExit) as done:run_delphi.main()
-    assert done.value.code==0 and len(scripts)>=4
+    assert done.value.code==0
+    assert [Path(script).name for script in scripts]==['run_pipeline.py','700_datamapplot_for_layer.py']
     manifest=json.loads(Path(os.environ['DELPHI_OUTPUT_MANIFEST']).read_text())
     assert manifest['schema']=='polis-jobs.output-manifest/2'
     assert all(o['store']=='postgres' for o in manifest['outputs'])
+    assert [o['family'] for o in manifest['outputs']]==list(census.CONVERSATION_FAMILIES)
     resource=result_resource()
+    for family in census.RETIRED_FAMILIES:
+        assert resource.Table(family).scan()['Items']==[]
+        spooled=Path(os.environ['DELPHI_OUTPUT_MANIFEST']).parent/manifest['family_spool'][family]['file']
+        assert len(spooled.read_bytes().splitlines())==1  # the codec header only: published empty
     assert [i['comment_id'] for i in resource.Table('Delphi_CommentEmbeddings').scan()['Items']]==[0]
     assert resource.Table('Delphi_CollectiveStatement').scan()['Items'][0]['text']=='preserved'
 
