@@ -679,3 +679,21 @@ are accepted; more than 500 rows, unusual dates, cookies, creation-dependent
 authentication and unsupported requests remain counted Node work. No writes.
 `treeviteWavesServed` / `treeviteWavesFallback` expose the boundary. The generated
 live replay covers roles, site changes, filters, compression and HTTP caching.
+
+### Tree-invitation listing: bounded pagination
+
+`POLIS_API_TREEVITE_INVITES_READS=1` and nginx `RUST_API_ROUTES=treeviteInvites`
+stage GET/HEAD `/api/v3/treevite/invites`; both default off. Set
+`POLIS_API_TREEVITE_INVITES_DATABASE_URL` for primary identity reads. The separate
+read-only data/authority pool uses `READ_ONLY_DATABASE_URL` when configured.
+Each pool has one connection, 15 ms acquisition and 50 ms statements; the whole
+route has a 75 ms deadline. Participation resources remain separate.
+
+Scoped hybrid identity and the shared site-moderator rule match the waves route.
+Canonical integer wave_id/status filters and limit/offset match Node's defaults,
+clamping and nonpositive handling. Only owner-controlled invites are returned.
+At most 1,000 matching rows are admitted; equal creation timestamps, unusual
+dates, count/read disagreement and unsupported authentication hand back to Node.
+Unique descending ordering, bigint strings, nullable fields and pagination
+metadata are preserved. `treeviteInvitesServed` / `treeviteInvitesFallback` count
+the boundary; no database writes or authentication creation paths are added.

@@ -12,6 +12,7 @@ pub mod metadata_read;
 pub mod recent_activity;
 pub mod recent_started;
 pub mod robots;
+pub mod treevite_invites;
 pub mod treevite_waves;
 
 use serde::Serialize;

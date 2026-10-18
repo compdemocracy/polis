@@ -514,3 +514,24 @@ sleep 6
 expect /api/v3/treevite/waves node "treeviteWaves handoff"
 echo "ok 27 treeviteWaves off/on/deduplicated; method/body guards; 502 hands back to Node"
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/treevite/invites node "treeviteInvites off"
+start treeviteInvites,treeviteInvites
+expect /api/v3/treevite/invites rust "treeviteInvites on"
+expect /api/v3/comments node "treeviteInvites leaves comments alone"
+expect /api/v3/votes node "treeviteInvites leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/treevite/invites') == 1 ]] || fail "treeviteInvites duplicated"
+expect_upstream polis-api GET /api/v3/treevite/invites
+expect_upstream polis-api HEAD /api/v3/treevite/invites
+expect_upstream server OPTIONS /api/v3/treevite/invites
+expect_upstream server POST /api/v3/treevite/invites $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/treevite/invites $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/treevite/invites node "treeviteInvites handoff"
+echo "ok 28 treeviteInvites off/on/deduplicated; method/body guards; 502 hands back to Node"
+
