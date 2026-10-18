@@ -979,3 +979,14 @@ slice does not authenticate or change a session. Modern HTML, unsupported
 browsers, query/body/auth/cookie requests and unusual path/host bytes remain
 Node handoffs. No database pool, identity provider or file service is used;
 participation resources are untouched.
+
+### Settings legacy-browser redirect
+
+`POLIS_API_SETTINGS_PAGE_READS=1` and nginx `RUST_API_ROUTES=settingsPage`
+opt into GET/HEAD legacy-browser hash redirects at `/settings` and slash
+suffixes. Both switches default off. Shared request/response types preserve
+Node's case-sensitive browser checks, anchored path and HTTPS location. This
+slice does not read or change user settings. Modern HTML, unsupported
+browsers, query/body/auth/cookie requests and unusual path/host bytes remain
+Node handoffs. No database pool, identity provider or file service is used;
+participation resources are untouched.

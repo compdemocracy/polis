@@ -21,6 +21,7 @@ pub mod recent_activity;
 pub mod recent_started;
 pub mod reports_read;
 pub mod robots;
+pub mod settings_page;
 pub mod topic_prioritize;
 pub mod topic_selections;
 pub mod treevite_csv;
