@@ -2862,13 +2862,14 @@ class TestD11D12Serialization:
 
         result = conv.to_dict()
 
-        # The to_dict key uses underscore form (see line ~1706); no rename
-        # happens on the way out, unlike most Clojure-format fields.
-        assert 'comment_priorities' in result, (
-            "to_dict() must emit 'comment_priorities' when "
+        # The legacy engine's key, which the server's next-statement draw
+        # reads; one spelling only (no underscore twin).
+        assert 'comment-priorities' in result, (
+            "to_dict() must emit 'comment-priorities' when "
             "self.comment_priorities is populated; keys = "
             + repr(sorted(result.keys())))
-        assert result['comment_priorities'] == priorities
+        assert 'comment_priorities' not in result
+        assert result['comment-priorities'] == priorities
 
     def test_to_dynamo_dict_surfaces_both(self):
         """``to_dynamo_dict()`` must surface BOTH consensus comments (D11) and

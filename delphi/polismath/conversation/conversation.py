@@ -2241,10 +2241,12 @@ class Conversation:
         if self.participant_info:
             result['participant_info'] = self.participant_info
             
-        # Add comment priorities if available
+        # Comment priorities, under the legacy engine's key: the server's
+        # next-statement draw reads data["comment-priorities"] and weighs a
+        # statement it finds no number for as 1 (server/src/nextComment.ts).
         if hasattr(self, 'comment_priorities') and self.comment_priorities:
-            result['comment_priorities'] = self.comment_priorities
-            
+            result['comment-priorities'] = self.comment_priorities
+
         logger.info(f"Base data setup: {time.time() - base_start:.4f}s")
         
         # Now add the Clojure-specific format data
@@ -2835,9 +2837,12 @@ class Conversation:
         # Restore participant info
         conv.participant_info = data.get('participant_info', {})
         
-        # Restore comment priorities if available
-        if 'comment_priorities' in data:
-            conv.comment_priorities = data.get('comment_priorities', {})
+        # Restore comment priorities if available. Blobs written before the
+        # key matched the legacy engine's carry the underscore spelling.
+        if 'comment-priorities' in data:
+            conv.comment_priorities = data.get('comment-priorities') or {}
+        elif 'comment_priorities' in data:
+            conv.comment_priorities = data.get('comment_priorities') or {}
         
         return conv
         
