@@ -28,6 +28,7 @@ pub mod treevite_invites;
 pub mod treevite_me;
 pub mod treevite_my_invites;
 pub mod treevite_waves;
+pub mod user_create_page;
 pub mod xid_report;
 
 use serde::Serialize;

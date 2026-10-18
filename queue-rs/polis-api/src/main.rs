@@ -50,6 +50,7 @@ mod treevite_me;
 mod treevite_my_invites;
 mod treevite_read;
 mod treevite_waves;
+mod user_create_page;
 mod xid_report;
 
 use anyhow::{Context, Result};
@@ -305,6 +306,14 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.einvites_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "userCreatePageServed",
+        js::Js::Num(app.user_create_page_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "userCreatePageFallback",
+        js::Js::Num(app.user_create_page_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
         "createPageServed",
         js::Js::Num(app.create_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -379,6 +388,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if user_create_page::matches(path) => route::handle(app, req).await,
         path if create_page::matches(path) => route::handle(app, req).await,
         path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
@@ -451,6 +461,10 @@ async fn main() -> Result<()> {
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
+    state.user_create_page_reads = std::env::var("POLIS_API_USER_CREATE_PAGE_READS")
+        .ok()
+        .as_deref()
+        == Some("1");
     state.create_page_reads =
         std::env::var("POLIS_API_CREATE_PAGE_READS").ok().as_deref() == Some("1");
     state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
