@@ -25,8 +25,12 @@
  * database-side hold on exactly those statements: each one first waits on an
  * advisory lock the test holds, on the same pooled connection, so it keeps that
  * connection for as long as the test says (a large conversation's export or
- * tally takes seconds; here it takes the whole window). The hold is keyed to
- * the statement text, not to a pool, so the scenario still applies when a
+ * tally takes seconds; here it takes the whole window). No single wait outlives
+ * the connection's statement timeout: on the main pools Postgres ends a wait at
+ * that bound (src/db/pg-query.ts), and the wait is issued again at once on the
+ * same connection, so the connection is held across a window longer than the
+ * bound, as slow statements run back to back would hold it. The hold is keyed
+ * to the statement text, not to a pool, so the scenario still applies when a
  * statement moves to another pool. Outside services are stand-ins that never
  * answer until the test releases them.
  *
@@ -173,6 +177,10 @@ const HELD_STATEMENTS: Record<HeldKind, RegExp> = {
 const HOLD_LOCK: [number, number] = [70411, 3];
 const HOLD_TAG = "participation-under-load hold";
 const heldKinds = new Set<HeldKind>();
+/** Postgres ended a statement at the connection's statement timeout. */
+const STATEMENT_TIMEOUT = "57014";
+/** Waits that the statement timeout ended and that were issued again. */
+const holdsRenewed: Record<HeldKind, number> = { export: 0, "report tally": 0 };
 
 function heldKind(text: string): HeldKind | undefined {
   for (const kind of heldKinds) {
@@ -196,6 +204,33 @@ const realDynamoSend = DynamoDBDocumentClient.prototype
 const COMMENT_INSERT = /^\s*INSERT INTO COMMENTS\b/i;
 let serializeCommentInserts = true;
 let commentInsertsDone: Promise<void> = Promise.resolve();
+
+const holdText = (kind: HeldKind) =>
+  `SELECT pg_advisory_xact_lock_shared($1, $2) /* ${HOLD_TAG}: ${kind} */`;
+
+/** Wait on this connection until the test releases its lock. A wait the
+ * connection's statement timeout ends is issued again at once on the same
+ * connection while the test still holds this kind, so the connection is never
+ * given back in between. */
+function holdOn(client: Client, kind: HeldKind): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const wait = () =>
+      realQuery.call(
+        client,
+        holdText(kind),
+        HOLD_LOCK,
+        (err: { code?: string } | null) => {
+          if (err?.code === STATEMENT_TIMEOUT && heldKinds.has(kind)) {
+            holdsRenewed[kind]++;
+            wait();
+          } else {
+            resolve();
+          }
+        }
+      );
+    wait();
+  });
+}
 
 /** Every pooled connection is a pg Client. A held statement first waits on the
  * test's advisory lock on its own connection, then runs unchanged. */
@@ -234,21 +269,19 @@ function holdNamedStatements(): void {
         typeof first === "string" ? first : first?.text ?? first?.cursor?.text;
       const kind = typeof text === "string" ? heldKind(text) : undefined;
       if (!kind) return realQuery.apply(this, args);
-      const hold = `SELECT pg_advisory_xact_lock_shared($1, $2) /* ${HOLD_TAG}: ${kind} */`;
       if (typeof first !== "string") {
-        // A streamed read: queue the hold ahead of it on the same connection.
-        realQuery.call(this, hold, HOLD_LOCK, () => undefined);
+        // A streamed read: queue one wait ahead of it on the same connection.
+        // Streamed reads run on the report and export pool, whose statement
+        // timeout is far longer than any window here.
+        realQuery.call(this, holdText(kind), HOLD_LOCK, () => undefined);
         return realQuery.apply(this, args);
       }
+      const held = holdOn(this, kind);
       if (typeof last === "function") {
-        realQuery.call(this, hold, HOLD_LOCK, () =>
-          realQuery.apply(this, args)
-        );
+        held.then(() => realQuery.apply(this, args));
         return undefined;
       }
-      return realQuery
-        .call(this, hold, HOLD_LOCK)
-        .then(() => realQuery.apply(this, args));
+      return held.then(() => realQuery.apply(this, args));
     });
 }
 
@@ -405,6 +438,7 @@ type Evidence = {
   heldExportsAfter: number;
   heldTalliesBefore: number;
   heldTalliesAfter: number;
+  holdsRenewed: number;
   identityWaitingBefore: number;
   identityWaitingAfter: number;
   topicLookupCalls: number;
@@ -443,13 +477,16 @@ async function timed(
   }
 }
 
-/** Statements of this kind waiting on the test's hold right now. */
+/** Connections the test's hold keeps for statements of this kind right now:
+ * waiting on the test's lock, or idle for the moment between a wait the
+ * statement timeout ended and the same wait issued again (a held connection's
+ * last statement is a wait until the test releases its lock). */
 async function heldNow(kind: HeldKind): Promise<number> {
   return (
     await admin.query(
       `SELECT count(*)::int AS n FROM pg_stat_activity
        WHERE datname = current_database() AND pid <> pg_backend_pid()
-       AND wait_event_type = 'Lock' AND query LIKE $1`,
+       AND query LIKE $1 AND (wait_event_type = 'Lock' OR state = 'idle')`,
       [`%${HOLD_TAG}: ${kind}%`]
     )
   ).rows[0].n;
@@ -500,6 +537,8 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   });
 
   // Start the slow work.
+  holdsRenewed.export = 0;
+  holdsRenewed["report tally"] = 0;
   const slowWork: Array<Promise<unknown>> = [];
   const slow = (url: string) =>
     slowWork.push(
@@ -595,6 +634,7 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   const heldTalliesAfter = load.reportTallies
     ? await heldNow("report tally")
     : 0;
+  const renewed = holdsRenewed.export + holdsRenewed["report tally"];
   const identityWaitingAfter = mockStalls.identity.pending;
   const topicLookupCalls = mockStalls.topics.calls;
   const languageCalls = mockStalls.language.calls;
@@ -628,6 +668,7 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     heldExportsAfter,
     heldTalliesBefore,
     heldTalliesAfter,
+    holdsRenewed: renewed,
     identityWaitingBefore,
     identityWaitingAfter,
     topicLookupCalls,
@@ -692,30 +733,41 @@ function guard(
 
     test("the slow work held for the whole window, and every vote and comment sent was stored", () => {
       const e = result.evidence;
+      // Every check names the evidence it reads, and all that fall short are
+      // reported together, so a failure says whether the slow work did not
+      // hold, or what the participants sent was not stored, or both.
+      type Check = [keyof Evidence, "exactly" | "at least", number];
+      const checks: Check[] = [];
       if (load.exports) {
         const pool = Math.min(EXPORT_DOWNLOADS, REPORT_EXPORT_POOL_MAX);
-        expect(e.heldExportsBefore).toBe(pool);
-        expect(e.heldExportsAfter).toBe(pool);
+        checks.push(["heldExportsBefore", "exactly", pool]);
+        checks.push(["heldExportsAfter", "exactly", pool]);
       }
       if (load.reportTallies) {
-        expect(e.heldTalliesBefore).toBeGreaterThanOrEqual(1);
-        expect(e.heldTalliesAfter).toBeGreaterThanOrEqual(1);
+        checks.push(["heldTalliesBefore", "at least", 1]);
+        checks.push(["heldTalliesAfter", "at least", 1]);
       }
       if (load.identity) {
-        expect(e.identityWaitingBefore).toBeGreaterThanOrEqual(1);
-        expect(e.identityWaitingAfter).toBeGreaterThanOrEqual(1);
+        checks.push(["identityWaitingBefore", "at least", 1]);
+        checks.push(["identityWaitingAfter", "at least", 1]);
       }
       // Topic lookups and language detection are reached only by the
       // participants' own requests; while report tallies hold the read pool,
       // those requests stop before they get there.
       if (load.topics && !load.reportTallies) {
-        expect(e.topicLookupCalls).toBeGreaterThanOrEqual(1);
+        checks.push(["topicLookupCalls", "at least", 1]);
       }
       if (load.language && !load.reportTallies) {
-        expect(e.languageCalls).toBeGreaterThanOrEqual(PARTICIPANTS);
+        checks.push(["languageCalls", "at least", PARTICIPANTS]);
       }
-      expect(e.votesStored).toBe(PARTICIPANTS);
-      expect(e.commentsStored).toBe(PARTICIPANTS);
+      checks.push(["votesStored", "exactly", PARTICIPANTS]);
+      checks.push(["commentsStored", "exactly", PARTICIPANTS]);
+      const short = checks
+        .filter(([key, how, n]) =>
+          how === "exactly" ? e[key] !== n : e[key] < n
+        )
+        .map(([key, how, n]) => `${key} ${e[key]}, expected ${how} ${n}`);
+      expect(short).toEqual([]);
     });
 
     for (const op of OPS) {
@@ -738,10 +790,12 @@ function guard(
 // What today's server waits on, named once for the expected failures below.
 // Report tallies (GET /api/v3/comments with include_voting_patterns, in
 // src/comment.ts) run on the read pool that votes, comments and statement
-// selection share, and that pool has no acquire timeout and no statement
-// timeout (src/db/pg-query.ts), so a participant waits as long as the tallies do.
+// selection share (src/db/pg-query.ts). While the tallies hold every connection
+// of it, a participant's request waits the pool's acquire timeout
+// (SERVER_DB_ACQUIRE_TIMEOUT_MS) and then answers 500, with nothing it sent
+// stored.
 const READ_POOL_SHARED_WITH_TALLIES =
-  "report tallies hold the read pool it shares, with no acquire or statement timeout";
+  "report tallies hold the read pool it shares, and it is refused at that pool's acquire timeout";
 // A vote is answered only after the next statement is chosen
 // (handle_POST_votes in src/routes/votes.ts), and topic-agenda routing sends
 // one lookup per selected topic with no deadline and waits for all of them
@@ -771,11 +825,11 @@ guard(
   { reportTallies: true },
   {
     // votesPost reads the conversation from the read pool (src/routes/votes.ts).
-    vote: `the vote waits before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
+    vote: `the vote is refused before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
     // isModerator reads from the read pool (src/utils/common.ts).
-    comment: `the comment waits before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
+    comment: `the comment is refused before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
     // The remaining-statement count (src/comment.ts) and the math read.
-    nextComment: `statement selection waits: ${READ_POOL_SHARED_WITH_TALLIES}`,
+    nextComment: `statement selection is refused: ${READ_POOL_SHARED_WITH_TALLIES}`,
   }
 );
 
