@@ -193,5 +193,13 @@
     "scope": "Populated report results and capability requests remain Node; staged Rust serves empty scoped lists/refusals.",
     "expected_requests": 10,
     "expected_node_handoffs": 8
+  },
+  "bidToPid": {
+    "path": "/api/v3/bidToPid",
+    "minimum_rust_successes": 1,
+    "commands": [],
+    "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
+    "expected_requests": 1,
+    "expected_node_handoffs": 0
   }
 }
