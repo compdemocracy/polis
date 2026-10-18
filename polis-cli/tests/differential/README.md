@@ -102,3 +102,9 @@ persisted row despite its error response. Output contains check names only.
 Run native CI before the live loop: native tests rebuild the default binary;
 rebuild `--features fixture-ids` afterwards, and keep that binary unchanged
 through both phases.
+
+The stack lifecycle, the per-actor CLI invocation, the comparator, the routing
+counts and the phase loop live in `harness.py`. `run.py` holds the fixed
+scenarios; `polis-cli/tests/fuzz/run.py` runs seeded generated sequences on the
+same stack in three phases (Node, switches on, Node again as the A/A control)
+through `scripts/test-polis-cli-fuzz.sh`.

@@ -1,0 +1,107 @@
+{
+  "schema": "polis-cli-fuzz-known-differences/1",
+  "source": "queue-rs/polis-api/README.md, section \"Known differences from Node\"",
+  "rule": "A difference that matches an entry is counted and listed in the report, never dropped. A run fails when an entry's count exceeds its bound. An entry with no cli_match cannot be reached by a CLI step through nginx; it is listed so later probe and failure-injection runs inherit it.",
+  "entries": [
+    {
+      "id": "pca2-math-cache-not-shared",
+      "route": "pca2",
+      "summary": "Node's math cache is shared with participationInit, reports and nextComment; polis-api's own cache sees only pca2 requests. Each serves the presentation it cached when it last filled, so the comment-derived fields (n-cmts, tids, pca.comment-extremity, which Node fills from the comments table when no math row backs them) can differ for one cache window. The fixture clocks are frozen, so every cache window lasts the whole phase: after a moderation change or a new statement, Node can keep serving what a join or vote cached while polis-api serves what its first pca2 request cached.",
+      "cli_match": {
+        "command": "math view",
+        "paths_regex": "^\\$\\.json\\.data\\.(n-cmts|tids(\\.length|\\[[0-9]+\\])?|pca\\.comment-extremity(\\.length|\\[[0-9]+\\])?)$"
+      },
+      "bound": 0
+    },
+    {
+      "id": "odd-paths",
+      "route": "pca2",
+      "summary": "nginx matches the normalised path (//pca2, %70ca2) but forwards the raw one; polis-api answers 502 and nginx asks Node. Only a client talking to polis-api directly sees the 502.",
+      "cli_match": null,
+      "bound": 0
+    },
+    {
+      "id": "javascript-whitespace",
+      "route": "all",
+      "summary": "Trimming follows JavaScript's whitespace (U+FEFF counts, U+0085 does not), as Node's trim() and parseInt do. Listed because the generator's text classes include U+FEFF.",
+      "cli_match": null,
+      "bound": 0
+    },
+    {
+      "id": "database-failure-text",
+      "route": "all",
+      "summary": "Database failures are 502s in polis-api, so nginx asks Node, which prints the Postgres error's fields in a 500 body; polis-api never prints database error text.",
+      "cli_match": null,
+      "bound": 0
+    },
+    {
+      "id": "non-production-json-errors",
+      "route": "all",
+      "summary": "With NODE_ENV other than production, an unparseable JSON body gets Node's stack trace on Node and a plain message in polis-api. The stack runs with NODE_ENV=production.",
+      "cli_match": null,
+      "bound": 0
+    },
+    {
+      "id": "math-data-not-object",
+      "route": "pca2",
+      "summary": "A math_main.data value that is not a JSON object (no writer produces one) is answered 500 by polis-api.",
+      "cli_match": null,
+      "bound": 0
+    },
+    {
+      "id": "request-bodies",
+      "route": "all",
+      "summary": "Bodies over 1 MB, chunked, multipart, content-encoded or non-UTF-8 request bodies are refused, ignored or answered 502 by polis-api. nginx sends polis-api no request with a body.",
+      "cli_match": null,
+      "bound": 0
+    }
+  ],
+  "harness_residuals_rule": "Node or Postgres nondeterminism the fixture does not fix, found by the A/A control or by a database digest. A difference covered by an entry (a listed database column, or a listed CLI path of a listed command) is reported by entry and phase pair with its count, never dropped and never counted as a switch difference. Anything else, including a row-count difference, is not covered. An entry is removed when the harness pins its source.",
+  "harness_residuals": [
+    {
+      "id": "users-site-id-random",
+      "database_columns": [
+        "users.site_id"
+      ],
+      "cli_match": null,
+      "source": "server/postgres/migrations/000000_initial.sql: users.site_id DEFAULT random_polis_site_id(), which draws Postgres random()",
+      "effect": "each user a sequence creates (every enrolled anonymous participant) has a different site_id in each phase"
+    },
+    {
+      "id": "zinvites-uuid-random",
+      "database_columns": [
+        "zinvites.uuid"
+      ],
+      "cli_match": null,
+      "source": "server/src/auth/create-user.ts: INSERT INTO zinvites ... gen_random_uuid()",
+      "effect": "each conversation a sequence creates has a different zinvites.uuid in each phase"
+    },
+    {
+      "id": "treevite-sql-now",
+      "database_columns": [
+        "treevite_invites.invite_used_at",
+        "treevite_invites.updated_at",
+        "treevite_login_codes.last_used_at",
+        "treevite_login_codes.updated_at"
+      ],
+      "cli_match": {
+        "command": "invite list",
+        "paths_regex": "^\\$\\.json\\.data\\.invites\\[[0-9]+\\]\\.used_at$"
+      },
+      "source": "server/src/invites/treevites.ts: invite acceptance and login-code use write now() in SQL, which the fixture clock does not reach (it pins Node's Date, now_as_millis() and the treevite column defaults)",
+      "effect": "wall-clock timestamps on used invites and login codes"
+    },
+    {
+      "id": "conversation-modified-race",
+      "database_columns": [
+        "conversations.modified"
+      ],
+      "cli_match": {
+        "command": "conversation view",
+        "paths_regex": "^\\$\\.json\\.data\\.modified$"
+      },
+      "source": "server/src/routes/comments.ts: the bulk statement route updates conversations.modified in a 100 ms setTimeout, conditionally (modified < value); server/src/routes/conversations.ts: the settings PUT sets it to now_as_millis(). conversation new sends its seeds and then its final settings PUT within one step, so the stored value is whichever write lands last; the barrier waits for both but cannot order them",
+      "effect": "a created conversation with seed statements stores one of two values for modified, depending on request timing; phase B's timing differs, so this can look like a switch difference"
+    }
+  ]
+}
