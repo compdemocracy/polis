@@ -557,3 +557,25 @@ expect /api/v3/treevite/invites/csv node "treeviteCsv handoff"
 echo "ok 29 treeviteCsv off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/conversations/preload node "conversationPreload off"
+start conversationPreload,conversationPreload
+expect /api/v3/conversations/preload rust "conversationPreload on"
+expect /api/v3/comments node "conversationPreload leaves comments alone"
+expect /api/v3/votes node "conversationPreload leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/conversations/preload') == 1 ]] || fail "conversationPreload duplicated"
+expect_upstream polis-api GET /api/v3/conversations/preload
+expect_upstream polis-api HEAD /api/v3/conversations/preload
+expect_upstream server OPTIONS /api/v3/conversations/preload
+expect_upstream server POST /api/v3/conversations/preload $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/conversations/preload $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/conversations/preload node "conversationPreload handoff"
+echo "ok 30 conversationPreload off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+

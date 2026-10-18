@@ -2,6 +2,7 @@
 pub mod about;
 pub mod connection;
 pub mod contexts;
+pub mod conversation_preload;
 pub mod database;
 pub mod domain_whitelist;
 pub mod legacy_pca;
