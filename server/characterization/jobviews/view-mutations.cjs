@@ -7,13 +7,12 @@ const mutations=[
  ['viz-count-run',c+'topicsVizReport/TopicsVizReport.jsx','delphiTopics[runKeys[0]]','delphiTopics[runKeys[runKeys.length-1]]'],
  ['alpha-run',a+'hooks/useTopicData.ts','data.runs[runKeys[0]]','data.runs[runKeys[runKeys.length-1]]'],
  ['section-key',c+'topicPage/TopicPage.jsx','section: topic_key\n','section: topic_key.replace(/#/g, "_")\n'],
- ['paid-payload',c+'topicPage/TopicPage.jsx','topic_name: topicData?.topic_name || ""','topic_name: "changed"'],
- ['paid-auto-eligibility',c+'topicPage/TopicPage.jsx','if (!statementCheck.canGenerate) {','if (false) {'],
  ['image-job-status',c+'commentsReport/CommentsReport.jsx','job.status === "COMPLETED" && ','true && '],
  ['pending-label',c+'commentsReport/CommentsReport.jsx',' (pending narrative)"),\n',' (no narrative)"),\n'],
- ['paid-token',c+'topicPage/TopicPage.jsx','}, token);','}, undefined);'],
  ['statement-order',c+'topicPage/TopicPage.jsx','new Date(b.created_at).getTime() - new Date(a.created_at).getTime()','new Date(a.created_at).getTime() - new Date(b.created_at).getTime()'],
 ];
+// No mutation targets TopicPage's paid generation request: the topic page is
+// moving to stored statements only, which removes that request.
 // The review's section reduce comparison is equivalent on this legacy corpus:
 // run.created_at is absent. It remains documented, not counted as a killed mutant.
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'job-view-mutations-'));
