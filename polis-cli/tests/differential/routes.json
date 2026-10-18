@@ -185,5 +185,13 @@
     "scope": "The generated operator fixture has populated results; only empty lists and refusals are staged.",
     "expected_requests": 1,
     "expected_node_handoffs": 1
+  },
+  "reportsRead": {
+    "path": "/api/v3/reports",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "scope": "Populated report results and capability requests remain Node; staged Rust serves empty scoped lists/refusals.",
+    "expected_requests": 10,
+    "expected_node_handoffs": 8
   }
 }
