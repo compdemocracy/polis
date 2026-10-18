@@ -2393,6 +2393,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn legacy_cid_parameters_preserve_node_length_boundaries() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_questions_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_answers_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_choices_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_waves_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_invites_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_csv_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().participation_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().reports_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().bid_to_pid_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().conversation_stats_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().topic_selections_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().topic_prioritize_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_my_invites_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_me_db = Some(pool.clone());
+        let mut mismatches = Vec::<String>::new();
+        macro_rules! check {
+            ($module:ident,$auth:expr) => {
+                for (length, encoded, accepted) in [
+                    (100, false, true),
+                    (100, true, true),
+                    (101, false, false),
+                    (101, true, false),
+                    (300, false, false),
+                ] {
+                    let headers = if $auth {
+                        vec![("host", "localhost"), ("authorization", "Bearer fixture")]
+                    } else {
+                        vec![("host", "localhost")]
+                    };
+                    let mut req = request("GET", &headers);
+                    let cid = if encoded {
+                        "%61".repeat(length)
+                    } else {
+                        "a".repeat(length)
+                    };
+                    req.target = format!("{}?conversation_id={cid}", crate::$module::PATH);
+                    if crate::$module::parse(&state, &req).is_some() != accepted {
+                        mismatches.push(format!(
+                            "{}:{length}:encoded={encoded}",
+                            stringify!($module)
+                        ));
+                    }
+                }
+            };
+        }
+        check!(metadata_questions, true);
+        check!(metadata_answers, true);
+        check!(metadata_read, true);
+        check!(metadata_choices, true);
+        check!(treevite_waves, true);
+        check!(treevite_invites, true);
+        check!(treevite_csv, true);
+        check!(participation_read, true);
+        check!(reports_read, true);
+        check!(bid_to_pid, true);
+        check!(conversation_stats, true);
+        check!(topic_selections, true);
+        check!(topic_prioritize, false);
+        check!(treevite_my_invites, true);
+        check!(treevite_me, true);
+        assert_eq!(mismatches, Vec::<String>::new());
+    }
+
+    #[tokio::test]
     async fn recent_started_gate_and_missing_auth_configuration_hand_back() {
         let mut state = app(true);
         let probe = || {

@@ -30,7 +30,7 @@ pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
         return None;
     }
     let cid = pairs[0].1.as_ref();
-    if cid.is_empty() || cid.len() > 300 || !cid.bytes().all(|b| b.is_ascii_alphanumeric()) {
+    if cid.is_empty() || cid.len() > 100 || !cid.bytes().all(|b| b.is_ascii_alphanumeric()) {
         return None;
     }
     Some(contract::Request {
