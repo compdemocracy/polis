@@ -45,43 +45,62 @@ fn hints(raw: &str) -> Option<Value> {
     serde_json::from_slice(&bytes).ok()
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Identity {
+    Anonymous,
+    User(polis_auth::Uid),
+}
+impl Identity {
+    pub fn uid(self) -> Option<polis_auth::Uid> {
+        match self {
+            Self::Anonymous => None,
+            Self::User(uid) => Some(uid),
+        }
+    }
+}
 pub async fn optional(
     raw: Option<&str>,
     participant: Option<&polis_auth::participant::Verifier>,
     oidc: Option<&Oidc>,
     pool: &Arc<db::Pool>,
 ) -> bool {
+    resolve(raw, participant, oidc, pool).await.is_some()
+}
+
+pub async fn resolve(
+    raw: Option<&str>,
+    participant: Option<&polis_auth::participant::Verifier>,
+    oidc: Option<&Oidc>,
+    pool: &Arc<db::Pool>,
+) -> Option<Identity> {
     let Some(raw) = raw else {
-        return true;
+        return Some(Identity::Anonymous);
     };
     // Unlike Node's optional-auth path, non-Bearer headers are conservatively
     // handed back. They must never gain signed-in authority in this process.
-    let Some(payload) = hints(raw) else {
-        return false;
-    };
+    let payload = hints(raw)?;
     if payload.get("nbf").is_some_and(|v| v.as_u64().is_none()) {
-        return false;
+        return None;
     }
     let now = (crate::clock::now_ms() / 1000.0) as u64;
     if payload.get("anonymous_participant").is_some()
         || payload.get("standard_user_participant").is_some()
     {
-        let Some(cid) = payload.get("conversation_id").and_then(Value::as_str) else {
-            return false;
-        };
-        let Some(identity) = participant.and_then(|v| v.verify(raw, cid, now)) else {
-            return false;
-        };
+        let cid = payload.get("conversation_id").and_then(Value::as_str)?;
+        let identity = participant.and_then(|v| v.verify(raw, cid, now))?;
         let cid = cid.to_owned();
         return pool
             .with(move |c| {
                 let Some(zid) = db::zid_for_conversation_id(c, &cid)? else {
-                    return Ok(false);
+                    return Ok(None);
                 };
-                Ok(polis_auth::participant::resolve(c, polis_auth::Zid(zid), &identity)?.is_some())
+                Ok(
+                    polis_auth::participant::resolve(c, polis_auth::Zid(zid), &identity)?
+                        .map(|_| Identity::User(identity.uid())),
+                )
             })
             .await
-            .unwrap_or(false);
+            .unwrap_or(None);
     }
     // Preserve Node's token-kind priority. Unsupported XID or mixed shapes
     // never fall through to the OIDC path, even with an OIDC signature.
@@ -89,13 +108,11 @@ pub async fn optional(
         .iter()
         .any(|k| payload.get(k).is_some())
     {
-        return false;
+        return None;
     }
-    let Some(oidc) = oidc else {
-        return false;
-    };
+    let oidc = oidc?;
     let Ok(sub) = oidc.verifier.subject_at(Some(raw), now) else {
-        return false;
+        return None;
     };
     // Node requires email before looking up even an existing mapping. Refuse
     // non-string/empty shapes here; let Node own its error and creation paths.
@@ -103,19 +120,21 @@ pub async fn optional(
         .get("email")
         .is_some_and(|v| !v.is_null() && !v.is_string())
     {
-        return false;
+        return None;
     }
     let email = payload
         .get("email")
         .filter(|v| v.as_str().is_some_and(|s| !s.is_empty()))
         .or_else(|| payload.get(format!("{}email", oidc.namespace)));
     if !email.and_then(Value::as_str).is_some_and(|s| !s.is_empty()) {
-        return false;
+        return None;
     }
     pool.with(move |c| {
         let rows=c.query("select m.uid from oidc_user_mappings m join users u on u.uid=m.uid where m.oidc_sub=$1", &[&sub])?;
-        Ok(rows.len()==1 && rows[0].try_get::<_,i32>(0)? > 0)
-    }).await.unwrap_or(false)
+        if rows.len()!=1 { return Ok(None); }
+        let uid=rows[0].try_get::<_,i32>(0)?;
+        Ok((uid>0).then_some(Identity::User(polis_auth::Uid(uid))))
+    }).await.unwrap_or(None)
 }
 
 #[cfg(all(test, feature = "db-tests"))]
@@ -167,6 +186,18 @@ mod tests {
             format!("Bearer {}", encode(&h, v, &key).unwrap())
         };
         assert!(optional(None, None, None, &pool).await);
+        assert_eq!(
+            resolve(None, None, None, &pool).await,
+            Some(Identity::Anonymous)
+        );
+        let mut forged_uid = claims.clone();
+        forged_uid["uid"] = json!(999);
+        assert_eq!(
+            resolve(Some(&sign(&forged_uid)), None, Some(&oidc), &pool)
+                .await
+                .and_then(Identity::uid),
+            Some(polis_auth::Uid(3))
+        );
         assert!(optional(Some(&sign(&claims)), None, Some(&oidc), &pool).await);
         for (field, value) in [
             ("sub", json!("missing")),
@@ -194,6 +225,12 @@ mod tests {
         assert!(!optional(Some(&sign(&namespaced)), None, Some(&oidc), &pool).await);
         let anon = json!({"uid":3,"pid":0,"sub":"anon:3","conversation_id":"fixture","iss":"participants","aud":"participants","exp":now+300,"iat":now,"anonymous_participant":true});
         assert!(optional(Some(&sign(&anon)), Some(&participant), Some(&oidc), &pool).await);
+        assert_eq!(
+            resolve(Some(&sign(&anon)), Some(&participant), Some(&oidc), &pool)
+                .await
+                .and_then(Identity::uid),
+            Some(polis_auth::Uid(3))
+        );
         let mut standard = anon.clone();
         standard
             .as_object_mut()

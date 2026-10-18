@@ -3,6 +3,7 @@ pub mod about;
 pub mod connection;
 pub mod contexts;
 pub mod database;
+pub mod domain_whitelist;
 pub mod robots;
 
 use serde::Serialize;

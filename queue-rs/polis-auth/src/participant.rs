@@ -16,6 +16,12 @@ pub struct Verified {
     pid: Pid,
     pub kind: Kind,
 }
+impl Verified {
+    /// The UID from a verified token; callers still resolve exact membership.
+    pub fn uid(&self) -> Uid {
+        self.uid
+    }
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Claims {
@@ -141,6 +147,7 @@ mod tests {
         let (v, k) = keys();
         let a = v.verify(&sign(&claims(), &k), "2fixture", 150).unwrap();
         assert_eq!(a.pid, Pid(0));
+        assert_eq!(a.uid(), Uid(3));
         assert_eq!(a.kind, Kind::Anonymous);
         let mut standard = claims();
         standard
