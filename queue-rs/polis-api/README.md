@@ -885,3 +885,20 @@ Populated sets,context and conversation-ID queries,unsupported auth and request
 shapes remain counted Node work. Counters `legacyConversationsServed` and
 `legacyConversationsFallback` expose the boundary. The separate owner cursor
 contract is unchanged. No writes or complete populated-list replacement.
+
+### Participant Treevite context: no wave or invites
+
+`POLIS_API_TREEVITE_ME_READS=1` and nginx `RUST_API_ROUTES=treeviteMe` stage
+GET/HEAD `/api/v3/treevite/me`;both default off. Set
+`POLIS_API_TREEVITE_ME_DATABASE_URL` for primary code/membership reads.
+The independent context pool uses `READ_ONLY_DATABASE_URL` when configured.
+Both pools are read-only,size one,15 ms acquisition/50 ms statement limits,
+with a75 ms configured route deadline. Participation pools remain separate.
+
+Scoped anonymous/standard participant tokens must resolve exact existing
+membership. Only the no-wave/no-owned-invites context is served,preserving
+participant PID/ZID and null wave. Any joined wave or owned invitation remains
+Node work. OIDC/PID-cache lookup,XIDs,Treevite credentials or enabled
+conversations,and unsupported requests also hand back. No participant or
+invitation allocation occurs. Counters `treeviteMeServed` and
+`treeviteMeFallback` expose this boundary.

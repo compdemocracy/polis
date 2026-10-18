@@ -44,6 +44,7 @@ mod topic_prioritize;
 mod topic_selections;
 mod treevite_csv;
 mod treevite_invites;
+mod treevite_me;
 mod treevite_my_invites;
 mod treevite_read;
 mod treevite_waves;
@@ -276,6 +277,14 @@ async fn health(app: &route::App) -> Outgoing {
         "legacyConversationsFallback",
         js::Js::Num(app.legacy_conversations_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "treeviteMeServed",
+        js::Js::Num(app.treevite_me_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "treeviteMeFallback",
+        js::Js::Num(app.treevite_me_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -330,6 +339,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | treevite_invites::PATH
         | metadata_choices::PATH
         | recent_started::PATH
+        | treevite_me::PATH
         | treevite_my_invites::PATH
         | legacy_conversations::PATH
         | topic_prioritize::PATH
@@ -862,6 +872,28 @@ async fn main() -> Result<()> {
         state.legacy_conversations_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-legacy-conversations-auth/1")?,
             legacy_conversations::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_TREEVITE_ME_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_TREEVITE_ME_DATABASE_URL")
+            .context("POLIS_API_TREEVITE_ME_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.treevite_me_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-treevite-me/1")?,
+            treevite_me::pool_limits(),
+        ));
+        state.treevite_me_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-treevite-me-auth/1")?,
+            treevite_me::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")
