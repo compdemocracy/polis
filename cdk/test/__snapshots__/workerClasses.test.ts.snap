@@ -2977,18 +2977,24 @@ rm -fr $TMP_DIR",
           {
             "Ref": "AsgASGD1D7B4E2",
           },
-          {
-            "Ref": "AsgMathWorkerASGC7389B6C",
-          },
-          {
-            "Ref": "AsgDelphiSmallASG326FEBA5",
-          },
-          {
-            "Ref": "AsgDelphiLargeASG487476CC",
-          },
         ],
         "DeploymentConfigName": "CodeDeployDefault.OneAtATime",
         "DeploymentGroupName": "PolisDeploymentGroup",
+        "DeploymentStyle": {
+          "DeploymentOption": "WITH_TRAFFIC_CONTROL",
+        },
+        "LoadBalancerInfo": {
+          "TargetGroupInfoList": [
+            {
+              "Name": {
+                "Fn::GetAtt": [
+                  "WebAppTargetGroup8E9DEC21",
+                  "TargetGroupName",
+                ],
+              },
+            },
+          ],
+        },
         "ServiceRoleArn": {
           "Fn::GetAtt": [
             "CodeDeployRole12BEECBE",
@@ -5050,17 +5056,24 @@ rm -fr $TMP_DIR",
     },
     "WebAppTargetGroup8E9DEC21": {
       "Properties": {
-        "HealthCheckIntervalSeconds": 300,
+        "HealthCheckIntervalSeconds": 10,
         "HealthCheckPath": "/api/v3/testConnection",
+        "HealthCheckTimeoutSeconds": 5,
+        "HealthyThresholdCount": 2,
         "Port": 80,
         "Protocol": "HTTP",
         "TargetGroupAttributes": [
+          {
+            "Key": "deregistration_delay.timeout_seconds",
+            "Value": "60",
+          },
           {
             "Key": "stickiness.enabled",
             "Value": "false",
           },
         ],
         "TargetType": "instance",
+        "UnhealthyThresholdCount": 3,
         "VpcId": {
           "Ref": "Vpc8378EB38",
         },
@@ -5290,6 +5303,39 @@ rm -fr $TMP_DIR",
         "ToPort": 80,
       },
       "Type": "AWS::EC2::SecurityGroupIngress",
+    },
+    "WorkersDeploymentGroupB6D82B36": {
+      "Properties": {
+        "ApplicationName": {
+          "Ref": "CodeDeployApplicationE587C27C",
+        },
+        "AutoRollbackConfiguration": {
+          "Enabled": true,
+          "Events": [
+            "DEPLOYMENT_FAILURE",
+          ],
+        },
+        "AutoScalingGroups": [
+          {
+            "Ref": "AsgMathWorkerASGC7389B6C",
+          },
+          {
+            "Ref": "AsgDelphiSmallASG326FEBA5",
+          },
+          {
+            "Ref": "AsgDelphiLargeASG487476CC",
+          },
+        ],
+        "DeploymentConfigName": "CodeDeployDefault.OneAtATime",
+        "DeploymentGroupName": "PolisWorkersDeploymentGroup",
+        "ServiceRoleArn": {
+          "Fn::GetAtt": [
+            "CodeDeployRole12BEECBE",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::CodeDeploy::DeploymentGroup",
     },
   },
   "Rules": {

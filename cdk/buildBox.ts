@@ -27,7 +27,8 @@
  *   3. `polis-deploy-github` role, assumed by the deploy workflow through
  *      GitHub OIDC (one environment, one ref): launch the template at an
  *      allowed type, command and terminate tagged build boxes, upload the
- *      source and the bundle, create the deployment. No stored keys.
+ *      source and the bundle, create one deployment per deployment group
+ *      (web, then the worker tiers). No stored keys.
  *   4. ECR repositories polis/nginx-proxy and polis/client-participation-alpha
  *      (polis/server, polis/delphi and polis already exist).
  *
@@ -63,7 +64,9 @@ export interface BuildBoxProps {
   /** The CodeDeploy bundle bucket (cdk/codedeploy.ts); build sources go under build-source/. */
   readonly deploymentBucket: s3.Bucket;
   readonly codeDeployApplicationName: string;
-  readonly codeDeployDeploymentGroupName: string;
+  /** Every deployment group the workflow creates a deployment in: the web group and the
+   *  worker tiers' group (cdk/codedeploy.ts). Each is granted by its exact ARN. */
+  readonly codeDeployDeploymentGroupNames: string[];
   /** `owner/repo` allowed to assume the deploy role. */
   readonly githubRepo: string;
   /** The `environment:` the deploy jobs declare. */
@@ -82,6 +85,9 @@ export class BuildBox extends Construct {
     // An empty list renders as no condition at all; refuse it (cdk/ciEc2.ts).
     if (!props.githubRefs.length || props.githubRefs.some((r) => !r.startsWith('refs/heads/'))) {
       throw new Error('BuildBox githubRefs must be a non-empty list of full branch refs');
+    }
+    if (!props.codeDeployDeploymentGroupNames.length) {
+      throw new Error('BuildBox codeDeployDeploymentGroupNames must name at least one deployment group');
     }
     const { account, region, partition } = cdk.Stack.of(this);
     const instanceArns = `arn:${partition}:ec2:${region}:${account}:instance/*`;
@@ -317,8 +323,9 @@ export class BuildBox extends Construct {
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'CreateTheDeployment',
       actions: ['codedeploy:CreateDeployment', 'codedeploy:GetDeployment'],
-      resources: [codedeployArn(
-        `deploymentgroup:${props.codeDeployApplicationName}/${props.codeDeployDeploymentGroupName}`)],
+      // One deployment per group (cdk/codedeploy.ts), each group by its exact ARN.
+      resources: props.codeDeployDeploymentGroupNames.map((group) =>
+        codedeployArn(`deploymentgroup:${props.codeDeployApplicationName}/${group}`)),
     }));
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'RegisterTheRevision',
