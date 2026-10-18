@@ -121,5 +121,13 @@
     "scope": "Populated developer results remain Node; staged Rust serves empty results and refusals.",
     "expected_requests": 1,
     "expected_node_handoffs": 1
+  },
+  "recentActivity": {
+    "path": "/api/v3/conversations/recent_activity",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "scope": "Populated developer results remain Node; staged Rust serves empty results and refusals.",
+    "expected_requests": 1,
+    "expected_node_handoffs": 1
   }
 }

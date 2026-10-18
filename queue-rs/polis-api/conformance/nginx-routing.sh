@@ -451,3 +451,24 @@ sleep 6
 expect /api/v3/conversations/recently_started node "recentStarted handoff"
 echo "ok 24 recentStarted off/on/deduplicated; method/body guards; 502 hands back to Node"
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/conversations/recent_activity node "recentActivity off"
+start recentActivity,recentActivity
+expect /api/v3/conversations/recent_activity rust "recentActivity on"
+expect /api/v3/comments node "recentActivity leaves comments alone"
+expect /api/v3/votes node "recentActivity leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/conversations/recent_activity') == 1 ]] || fail "recentActivity duplicated"
+expect_upstream polis-api GET /api/v3/conversations/recent_activity
+expect_upstream polis-api HEAD /api/v3/conversations/recent_activity
+expect_upstream server OPTIONS /api/v3/conversations/recent_activity
+expect_upstream server POST /api/v3/conversations/recent_activity $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/conversations/recent_activity $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/conversations/recent_activity node "recentActivity handoff"
+echo "ok 25 recentActivity off/on/deduplicated; method/body guards; 502 hands back to Node"
+
