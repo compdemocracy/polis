@@ -1,5 +1,6 @@
 mod admin;
 mod collective;
+mod collective_read;
 mod commands;
 mod commenting;
 mod highlights;
@@ -206,9 +207,11 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "metadata question add" | "context create" => {
             pass9::execute(&path, m, config, site, timeout)
         }
-        "statement list" | "statement view" | "collective list" | "collective view" => {
-            pass7::execute(&path, m, config, site, timeout)
-        }
+        "statement list"
+        | "statement view"
+        | "collective list"
+        | "collective view"
+        | "collective statements" => pass7::execute(&path, m, config, site, timeout),
         "topic list"
         | "topic statements"
         | "topic hierarchy"
@@ -674,6 +677,16 @@ fn main() -> ExitCode {
         return render(&site, Err(e), json_mode);
     }
     let result = execute(&root, &mut config, &site);
+    if !json_mode
+        && root
+            .subcommand_matches("collective")
+            .is_some_and(|m| m.subcommand_name() == Some("statements"))
+    {
+        if let Ok(value) = &result {
+            print!("{}", listing::terminal_text(&collective_read::text(value)));
+            return ExitCode::SUCCESS;
+        }
+    }
     if !json_mode
         && root
             .subcommand_matches("auth")

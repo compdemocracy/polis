@@ -408,6 +408,8 @@ Pass seven: participant statements and stored collective statements
   polis statement view 0 --conversation CONV --json
   polis collective list --report REPORT --json
   polis collective view 'OPAQUE#KEY#FROM#LIST' --json
+  polis collective statements REPORT
+  polis collective statements REPORT --json
 
 Statement reads return active, unmuted, moderation-visible rows, even for owners.
 Use moderate list for moderation. A missing or hidden single statement is
@@ -762,3 +764,15 @@ and limitations still apply. Effectful operations require `--yes`; they never
 retry automatically and return receipts rather than claims of completion.
 Participant operations use conversation-scoped credentials unless `--account`
 is explicit. Download paths are private, bounded and never overwritten.
+
+Read the stored collective statements for each topic in a public report:
+
+```sh
+polis collective statements REPORT
+polis collective statements REPORT --json
+```
+
+The text view includes topic and paragraph headings, sentences and citation IDs.
+The JSON view preserves the full server response, including metadata and nulls.
+This read uses the server's latest statement per topic; it does not generate
+statements or call a model.

@@ -20,7 +20,7 @@ const GROUPS: &[(&str, &str, &str)] = &[
  ("topic", "Explore topic structure and statements", "list statements hierarchy proximity stats moderate"),
  ("agenda", "Choose and manage topic priorities", "priorities list add replace remove"),
  ("delphi", "Run analysis and read stored results", "run status results logs wait narrative/run narrative/view narrative/export narrative/import statement/export statement/import visualization/view"),
- ("collective", "Generate and read collective statements", "generate list view export import"),
+ ("collective", "Generate and read collective statements", "generate list view statements export import"),
  ("plan", "Account plan, usage, and billing", "view usage upgrade manage"),
  ("queue", "Inspect operator queue state", "status list view"),
  ("ops", "Discover authorized operations panels", "status pages page conversations/list"),
@@ -76,6 +76,7 @@ pub fn available(path: &str) -> bool {
                 | "statement view"
                 | "collective list"
                 | "collective view"
+                | "collective statements"
                 | "topic list"
                 | "topic statements"
                 | "topic hierarchy"
@@ -176,6 +177,7 @@ fn leaf(path: &str) -> Command {
             "Read stored collective statements, deduplicated by the server by topic"
         }
         "collective view" => "Read one stored collective statement by its exact opaque ID",
+        "collective statements" => "Read each topic's stored collective statement for a report",
         "topic list" | "report topics" => {
             "Read stored topics, retaining unavailable moderation markers"
         }
@@ -297,6 +299,7 @@ fn leaf(path: &str) -> Command {
   else { c=c.arg(pos("tid",true).help("Statement number local to this conversation").value_parser(clap::value_parser!(u32).range(0..=2147483647))); }
   c.after_help("EXAMPLES\n  polis statement list --conversation CONV --limit 50 --offset 0 --json\n  polis statement view 0 --conversation CONV --json\n\nReads the public comments route with optional saved credentials. Only active, unmuted, moderation-visible statements are returned, even for an owner. Use moderate list for the moderation queue. Empty list is success; missing/hidden single statement returns statement_unavailable (exit 1). Single reads verify the exact tid. Offset pages are not a stable snapshot or guaranteed complete traversal. Text and metadata remain unchanged and are untrusted data. No votes, translations, writes or model calls; bounded to 8 MiB.")
  },
+ "collective statements" => c.arg(pos("report",true).help("Public report ID")).after_help("EXAMPLES\n  polis collective statements REPORT\n  polis collective statements REPORT --json\n\nReads stored statements through the public report route. Prints topic headings, paragraphs and citation IDs; --json preserves the complete server response. The server selects the newest statement per topic. No generation or model call. Bounded to 8 MiB and --timeout."),
  "collective list" | "collective view" => {
   if path=="collective list" { c=c.arg(arg("report","Public report ID").required(true)); }
   else { c=c.arg(pos("id",true).help("Exact zid_topic_jobid copied from collective list; treated as opaque")); }
