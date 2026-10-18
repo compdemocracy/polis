@@ -148,7 +148,7 @@ def main():
             except (OSError,ValueError):pass
             time.sleep(.5)
         raise RuntimeError('readiness deadline')
-    report={'schema':'polis-cli-differential/1','rows':[],'rust_only':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'pca2 equality plus the new owner-list contract; Rust-only scenarios reported separately','complete':False}
+    report={'schema':'polis-cli-differential/1','rows':[],'rust_only':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'all inventoried staged switches; Rust-only contracts reported separately; scoped Node handoffs counted','complete':False}
     started=time.monotonic()
     # Same URL, profile, paths, inputs and credentials in both phases. We reset
     # generated database state and CLI files, never rewrite captured responses.

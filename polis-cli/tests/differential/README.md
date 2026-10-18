@@ -1,8 +1,8 @@
 # CLI differential loop
 
 Run the real CLI against one generated database with Node routing, reset the
-fixture and local credential/files state, then run it again with every merged
-Rust route enabled. This is independent of the byte replays: it neither starts
+fixture and local credential/files state, then run it again with every inventoried
+staged Rust route enabled. This is independent of the byte replays: it neither starts
 those runners nor reads a recording archive. Byte replays remain the wire gate.
 
 Build the CLI and four local images from the source being tested:
@@ -67,10 +67,14 @@ not successful export/import, provider, analysis or backend coverage. Planned
 commands and local commands are likewise reported separately. Never turn a
 connectivity/parser/authentication failure into a successful live scenario.
 
-The real nginx renderer receives `RUST_API_ROUTES` empty and then `pca2,owner-conversations`.
-Access logs must show exactly two requests served 200 by Rust for each route,
-with no fallback. Other paths continue to use Node; their equality is client-flow
-regression evidence. The route-template census refuses an unaccounted switch.
+The real nginx renderer receives `RUST_API_ROUTES` empty and then every
+switch in `routes.json`. The route-template census rejects missing entries.
+Each entry requires an exact request count, a minimum number of sole Rust
+HTTP200 responses, and an exact count of scoped Node handoffs with a reason.
+These counts cover this generated fixture only. Unexercised routes explicitly
+claim no CLI coverage. Named-location and retry chains are always handoffs,
+never Rust successes. Added handoffs or lost positive coverage fail the run.
+The raw byte replays remain the per-route behavioral oracle.
 
 Cursor-based owner listing is a new contract without a Node counterpart. Its two
 scenarios are reported separately in `rust_only`, never counted as byte or JSON
