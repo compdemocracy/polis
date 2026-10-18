@@ -1052,3 +1052,23 @@ echo "ok 50 otherConversationsPage off/on/deduplicated; method/body guards; 502 
 
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi node "Delphi report validation off"
+start delphiRead,delphiRead
+expect /api/v3/delphi rust "Delphi report validation on"
+expect /api/v3/comments node "Delphi report validation leaves comments alone"
+expect /api/v3/votes node "Delphi report validation leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/delphi') == 1 ]] || fail "Delphi report validation duplicated"
+expect_upstream polis-api GET /api/v3/delphi
+expect_upstream polis-api HEAD /api/v3/delphi
+expect_upstream server OPTIONS /api/v3/delphi
+expect_upstream server POST /api/v3/delphi $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/delphi node "Delphi report validation handoff"
+echo "ok 51 Delphi report validation off/on/deduplicated; method/body guards; 502 hands back to Node"

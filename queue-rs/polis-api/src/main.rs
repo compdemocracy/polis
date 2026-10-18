@@ -20,6 +20,7 @@ mod cors;
 mod create_page;
 mod database;
 mod db;
+mod delphi_read;
 mod domain_whitelist;
 mod einvites_read;
 mod http;
@@ -102,6 +103,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "aboutFallback",
         js::Js::Num(app.about_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiReadServed",
+        js::Js::Num(app.delphi_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiReadFallback",
+        js::Js::Num(app.delphi_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "databaseServed",
@@ -421,6 +430,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | robots::PATH
         | about::PATH
         | legacy_pca::PATH
+        | delphi_read::PATH
         | database::PATH
         | contexts::PATH
         | conversation_preload::PATH
@@ -543,6 +553,15 @@ async fn main() -> Result<()> {
     state.create_page_reads =
         std::env::var("POLIS_API_CREATE_PAGE_READS").ok().as_deref() == Some("1");
     state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
+    if std::env::var("POLIS_API_DELPHI_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_DELPHI_DATABASE_URL").context(
+            "POLIS_API_DELPHI_DATABASE_URL is required for Delphi report validation reads",
+        )?;
+        state.delphi_read_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-read/1")?,
+            delphi_read::pool_limits(),
+        ));
+    }
     if std::env::var("POLIS_API_DATABASE_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_DATABASE_PROBE_URL")
             .context("POLIS_API_DATABASE_PROBE_URL is required for database probe reads")?;
