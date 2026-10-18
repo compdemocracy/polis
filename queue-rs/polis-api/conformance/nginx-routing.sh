@@ -872,3 +872,29 @@ echo "ok 43 createPage off/on/deduplicated; method/body guards; 502 hands back t
 
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /user/create node "userCreatePage off"
+start userCreatePage,userCreatePage
+expect /user/create rust "userCreatePage on"
+expect /user/create/step rust "userCreatePage nested path"
+expect /user/createSuffix node "userCreatePage anchored neighbor"
+expect /user/creat node "userCreatePage neighbor"
+expect /api/v3/comments node "userCreatePage leaves comments alone"
+expect /api/v3/votes node "userCreatePage leaves voting alone"
+[[ $(included | grep -c 'location ~ ^/user/create') == 1 ]] || fail "userCreatePage duplicated"
+expect_upstream polis-api GET /user/create
+expect_upstream polis-api HEAD /user/create
+expect_upstream server OPTIONS /user/create
+expect_upstream server POST /user/create $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /user/create $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /user/create node "userCreatePage handoff"
+echo "ok 44 userCreatePage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+

@@ -140,6 +140,9 @@ pub struct App {
     pub database_db: Option<Arc<Pool>>,
     pub database_served: AtomicU64,
     pub database_fallback: AtomicU64,
+    pub user_create_page_reads: bool,
+    pub user_create_page_served: AtomicU64,
+    pub user_create_page_fallback: AtomicU64,
     pub create_page_reads: bool,
     pub create_page_served: AtomicU64,
     pub create_page_fallback: AtomicU64,
@@ -273,6 +276,9 @@ impl App {
             database_db: None,
             database_served: AtomicU64::new(0),
             database_fallback: AtomicU64::new(0),
+            user_create_page_reads: false,
+            user_create_page_served: AtomicU64::new(0),
+            user_create_page_fallback: AtomicU64::new(0),
             create_page_reads: false,
             create_page_served: AtomicU64::new(0),
             create_page_fallback: AtomicU64::new(0),
@@ -1031,6 +1037,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.database_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::user_create_page::matches(req.path()) {
+        if out.status == 502 {
+            app.user_create_page_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.user_create_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if crate::create_page::matches(req.path()) {
         if out.status == 502 {
             app.create_page_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1115,6 +1129,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if crate::user_create_page::matches(req.path())
+        && crate::user_create_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if crate::create_page::matches(req.path()) && crate::create_page::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1288,6 +1307,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     // writeDefaultHead, compress, addCorsHeader.
     let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
         || crate::create_page::matches(req.path())
+        || crate::user_create_page::matches(req.path())
     {
         Ok(None)
     } else {
@@ -1311,6 +1331,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::next_comment::PATH {
         return crate::next_comment::handle(app, req, res).await;
+    }
+    if crate::user_create_page::matches(req.path()) {
+        return crate::user_create_page::handle(app, req, res);
     }
     if crate::create_page::matches(req.path()) {
         return crate::create_page::handle(app, req, res);
@@ -3802,6 +3825,107 @@ mod tests {
         req.body = vec![b'x'];
         assert_eq!(handle(state.clone(), req).await.status, 502);
         assert_eq!(state.create_page_fallback.load(Ordering::Relaxed), 5);
+    }
+    #[tokio::test]
+    async fn user_create_page_redirect_gate_and_wire() {
+        assert!(crate::user_create_page::matches("/user/create"));
+        assert!(crate::user_create_page::matches("/user/create/step"));
+        assert!(!crate::user_create_page::matches("/user/createSuffix"));
+        assert!(!crate::user_create_page::matches("/user/creat"));
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(state.clone(), probe("GET", "/user/create", "MSIE 8.0"))
+                .await
+                .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().user_create_page_reads = true;
+        for path in ["/user/create", "/user/create/step", "/user/create/"] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.user_create_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/user/create", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/user/create"),
+            ("OPTIONS", "/user/create"),
+            ("GET", "/user/create?x=1"),
+            ("GET", "/user/create/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.user_create_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().user_create_page_reads = true;
+        let mut req = probe("GET", "/user/create", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/user/create")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn user_create_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().user_create_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/user/create".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/user/create".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.user_create_page_fallback.load(Ordering::Relaxed), 5);
     }
     fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {
         out.headers
