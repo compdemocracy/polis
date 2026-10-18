@@ -6,6 +6,7 @@ pub mod database;
 pub mod domain_whitelist;
 pub mod metadata_answers;
 pub mod metadata_questions;
+pub mod metadata_read;
 pub mod robots;
 
 use serde::Serialize;

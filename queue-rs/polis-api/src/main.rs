@@ -21,6 +21,7 @@ mod js;
 mod lru;
 mod metadata_answers;
 mod metadata_questions;
+mod metadata_read;
 mod negotiate;
 mod next_comment;
 mod owner;
@@ -113,6 +114,14 @@ async fn health(app: &route::App) -> Outgoing {
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "metadataReadServed",
+        js::Js::Num(app.metadata_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "metadataReadFallback",
+        js::Js::Num(app.metadata_read_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -159,6 +168,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | contexts::PATH
         | domain_whitelist::PATH
         | metadata_questions::PATH
+        | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
@@ -312,6 +322,23 @@ async fn main() -> Result<()> {
         state.metadata_answers_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-metadata-answers-auth/1")?,
             metadata_answers::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_METADATA_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_METADATA_DATABASE_URL")
+            .context("POLIS_API_METADATA_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.metadata_read_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-metadata-read/1")?,
+            metadata_read::pool_limits(),
+        ));
+        state.metadata_read_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-metadata-read-auth/1")?,
+            metadata_read::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
