@@ -1,4 +1,4 @@
-//! Anonymous next-statement reads; all identity, topical and translation work
+//! Anonymous and existing-participant next-statement reads; unsupported identity, topical and translation work
 //! hands back to Node before admission. A separate pool and a short total
 //! deadline keep this hop from queuing behind slower API routes.
 use crate::{
@@ -64,14 +64,9 @@ struct Query {
 impl Query {
     fn parse(req: &Request) -> Option<Self> {
         if !matches!(req.method.as_str(), "GET" | "HEAD")
-            || [
-                "authorization",
-                "cookie",
-                "content-length",
-                "transfer-encoding",
-            ]
-            .iter()
-            .any(|h| req.headers.get(h).is_some())
+            || ["cookie", "content-length", "transfer-encoding"]
+                .iter()
+                .any(|h| req.headers.get(h).is_some())
         {
             return None;
         }
@@ -116,7 +111,8 @@ impl Query {
     }
 }
 pub(crate) fn eligible(app: &App, req: &Request) -> bool {
-    app.next_comment_db.is_some()
+    (req.headers.get("authorization").is_none() || app.participant_verifier.is_some())
+        && app.next_comment_db.is_some()
         && Query::parse(req).is_some_and(|q| q.initial.is_some() || app.next_comment_plain)
 }
 fn draw(req: &Request) -> f64 {
@@ -172,6 +168,7 @@ fn read(
     math_env: &str,
     unit: f64,
     cache: &Priorities,
+    identity: Option<polis_auth::participant::Verified>,
 ) -> Result<Option<Js>> {
     let Some(zid) = db::zid_for_conversation_id(c, &q.cid)? else {
         return Ok(None);
@@ -184,6 +181,27 @@ fn read(
         return Ok(None);
     };
     let strict = conv.try_get::<_, Option<bool>>(0)?.unwrap_or(false);
+    let pid = if let Some(identity) = identity {
+        let Some(pid) = polis_auth::participant::resolve(c, polis_auth::Zid(zid), &identity)?
+        else {
+            return Ok(None);
+        };
+        Some(pid.0 as i32)
+    } else {
+        None
+    };
+    // A voted initial statement follows Node's normal-selection branch. Keep
+    // that branch on Node until its initialStatus and fallback are certified.
+    if let (Some(pid), Some(tid)) = (pid, q.initial)
+        && !c
+            .query(
+                "select 1 from votes_latest_unique where zid=$1 and pid=$2 and tid=$3 limit 1",
+                &[&zid, &pid, &tid],
+            )?
+            .is_empty()
+    {
+        return Ok(None);
+    }
     let without = if q.initial.is_some() {
         vec![]
     } else {
@@ -192,7 +210,7 @@ fn read(
     // Preserve Node's created-only order, cap, and comment projection. No
     // participant resolution runs here; initial eligibility retains Node's
     // negative participant sentinel when reading existing votes.
-    let rows = c.query(&format!("select * from comments where zid=$1 AND active=true AND velocity>0 AND (($2::boolean AND mod=1) OR (NOT $2::boolean AND mod != {REJECTED_COMMENT_MOD})) AND NOT(tid=ANY($3::integer[])) AND ($4::integer IS NULL OR (tid=$4 AND tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid={ANONYMOUS_PARTICIPANT_ID}))) order by created limit 999"), &[&zid,&strict,&without,&q.initial])?;
+    let rows = c.query(&format!("select * from comments where zid=$1 AND active=true AND velocity>0 AND (($2::boolean AND mod=1) OR (NOT $2::boolean AND mod != {REJECTED_COMMENT_MOD})) AND NOT(tid=ANY($3::integer[])) AND ($4::integer IS NULL OR (tid=$4 AND tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid=$5))) AND ($6::integer IS NULL OR tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid=$6)) order by created limit 999"), &[&zid,&strict,&without,&q.initial,&pid.unwrap_or(ANONYMOUS_PARTICIPANT_ID),&pid])?;
     let rows = rows
         .iter()
         .map(comments::project)
@@ -205,13 +223,16 @@ fn read(
         None
     };
     let counts = if q.initial.is_none() || !rows.is_empty() {
-        let counts = c.query_one("WITH v AS (select * from votes_latest_unique where zid=$1 AND pid=$2), c AS (select * from get_visible_comments($1)), remaining AS (select count(*) AS n from c LEFT JOIN v ON c.tid=v.tid WHERE v.vote IS NULL), total AS (select count(*) AS n from c) SELECT remaining.n::integer,total.n::integer FROM remaining,total", &[&zid,&q.initial.map(|_| ANONYMOUS_PARTICIPANT_ID)])?;
+        let counts = c.query_one("WITH v AS (select * from votes_latest_unique where zid=$1 AND pid=$2), c AS (select * from get_visible_comments($1)), remaining AS (select count(*) AS n from c LEFT JOIN v ON c.tid=v.tid WHERE v.vote IS NULL), total AS (select count(*) AS n from c) SELECT remaining.n::integer,total.n::integer FROM remaining,total", &[&zid,&pid.or_else(|| q.initial.map(|_| ANONYMOUS_PARTICIPANT_ID))])?;
         Some((counts.try_get::<_, i32>(0)?, counts.try_get::<_, i32>(1)?))
     } else {
         None
     };
     let mut empty = Obj::new();
     if rows.is_empty() {
+        if let Some(pid) = pid {
+            empty.set("currentPid", Js::Num(f64::from(pid)));
+        }
         if q.initial.is_some() {
             empty.set("initialStatus", Js::Str("unavailable".into()));
         }
@@ -249,6 +270,9 @@ fn read(
     selected.set("remaining", Js::Num(f64::from(remaining)));
     selected.set("total", Js::Num(f64::from(total)));
     selected.set("translations", Js::Arr(vec![]));
+    if let Some(pid) = pid {
+        selected.set("currentPid", Js::Num(f64::from(pid)));
+    }
     if q.initial.is_some() {
         selected.set("initialStatus", Js::Str("eligible".into()));
     }
@@ -258,12 +282,25 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let (Some(pool), Some(q)) = (&app.next_comment_db, Query::parse(req)) else {
         return route::bad_gateway();
     };
+    let identity = match req.headers.get("authorization") {
+        None => None,
+        Some(raw) => {
+            let Some(identity) = app
+                .participant_verifier
+                .as_ref()
+                .and_then(|v| v.verify(raw, &q.cid, (crate::clock::now_ms() / 1000.0) as u64))
+            else {
+                return route::bad_gateway();
+            };
+            Some(identity)
+        }
+    };
     let math_env = app.math_env.clone();
     let unit = draw(req);
     let cache = app.next_comment_priorities.clone();
     match tokio::time::timeout(
         DEADLINE,
-        pool.with(move |c| read(c, q, &math_env, unit, &cache)),
+        pool.with(move |c| read(c, q, &math_env, unit, &cache, identity)),
     )
     .await
     {
@@ -300,12 +337,7 @@ mod tests {
         ] {
             assert!(Query::parse(&request(q)).is_none(), "{q}");
         }
-        for h in [
-            "authorization",
-            "cookie",
-            "content-length",
-            "transfer-encoding",
-        ] {
+        for h in ["cookie", "content-length", "transfer-encoding"] {
             let mut r = request("conversation_id=a");
             r.headers = Headers::from_raw([(h, "value")]);
             assert!(Query::parse(&r).is_none());
@@ -350,6 +382,7 @@ mod tests {
             "test",
             0.25,
             &Priorities::new(10),
+            None,
         )
         .unwrap()
         .unwrap();
@@ -365,6 +398,7 @@ mod tests {
             "test",
             0.9,
             &Priorities::new(10),
+            None,
         )
         .unwrap()
         .unwrap();
@@ -378,7 +412,8 @@ mod tests {
                 q("conversation_id=a&initial_tid=3"),
                 "test",
                 0.0,
-                &Priorities::new(10)
+                &Priorities::new(10),
+                None,
             )
             .unwrap()
             .unwrap(),
@@ -390,7 +425,8 @@ mod tests {
                 q("conversation_id=a&without=0,1"),
                 "test",
                 0.0,
-                &Priorities::new(10)
+                &Priorities::new(10),
+                None,
             )
             .unwrap()
             .unwrap(),
@@ -430,7 +466,8 @@ mod tests {
                 q("conversation_id=a&without=0,1"),
                 "test",
                 0.0,
-                &Priorities::new(10)
+                &Priorities::new(10),
+                None,
             )
             .is_err(),
             "empty normal reads must preserve dependency failures"

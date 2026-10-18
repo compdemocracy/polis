@@ -32,6 +32,14 @@ async fn health(app: &route::App) -> Outgoing {
         "status",
         js::Js::Str(if reachable { "ok" } else { "degraded" }.into()),
     );
+    body.set(
+        "participantServed",
+        js::Js::Num(app.participant_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participantFallback",
+        js::Js::Num(app.participant_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -122,6 +130,19 @@ async fn main() -> Result<()> {
         // disables topical routing; the initial-statement branch bypasses it.
         state.next_comment_plain =
             std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0");
+    }
+    if std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1") {
+        let path = std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")
+            .context("participant public key file required")?;
+        let key = std::fs::read(path).context("read participant public key")?;
+        state.participant_verifier = Some(Arc::new(
+            polis_auth::participant::Verifier::new(
+                &key,
+                &std::env::var("POLIS_JWT_ISSUER")?,
+                &std::env::var("POLIS_JWT_AUDIENCE")?,
+            )
+            .context("invalid participant verifier configuration")?,
+        ));
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

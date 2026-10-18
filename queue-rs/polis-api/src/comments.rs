@@ -1,4 +1,4 @@
-//! Bodyless public comment reads. Authentication, moderation and report views
+//! Bodyless public and existing-participant comment reads. Moderation and report views
 //! stay on Node through the existing 502 handoff until their contracts move.
 use crate::{
     db,
@@ -43,14 +43,23 @@ fn integer(v: &Js) -> Option<i32> {
 impl Query {
     fn parse(req: &Request, body: &Js) -> Option<Self> {
         // Even a malformed credential belongs to Node's optional auth chain.
-        if req.headers.get("authorization").is_some()
-            || req.headers.get("cookie").is_some()
+        if req.headers.get("cookie").is_some()
             || req.headers.get("content-length").is_some()
             || req.headers.get("transfer-encoding").is_some()
         {
             return None;
         }
         let p = params::merged(body, &params::parse_query(req.query().unwrap_or_default()));
+        if req.headers.get("authorization").is_some()
+            && p.iter().any(|(k, _)| {
+                !matches!(
+                    k.as_str(),
+                    "conversation_id" | "tids" | "mod" | "moderation" | "limit" | "offset"
+                )
+            })
+        {
+            return None;
+        }
         let present = |k: &str| p.get(k).filter(|v| !matches!(v, Js::Null));
         if present("report_id").is_some() {
             return None;
@@ -220,8 +229,31 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
     ) else {
         return route::bad_gateway();
     };
+    let identity = match req.headers.get("authorization") {
+        None => None,
+        Some(raw) => {
+            let Some(v) = app
+                .participant_verifier
+                .as_ref()
+                .and_then(|v| v.verify(raw, &q.cid, (crate::clock::now_ms() / 1000.0) as u64))
+            else {
+                return route::bad_gateway();
+            };
+            Some(v)
+        }
+    };
     let cid = q.cid.clone();
-    let ctx = pool.with(move |c| context(c, &cid)).await;
+    let ctx = pool
+        .with(move |c| {
+            let ctx = context(c, &cid)?;
+            if let (Some(identity), Some((zid, _))) = (&identity, ctx)
+                && polis_auth::participant::resolve(c, polis_auth::Zid(zid), identity)?.is_none()
+            {
+                return Ok(None);
+            }
+            Ok(ctx)
+        })
+        .await;
     let Ok(Some((zid, strict))) = ctx else {
         return route::bad_gateway();
     };
@@ -305,12 +337,7 @@ mod tests {
                 "{query}"
             );
         }
-        for name in [
-            "authorization",
-            "cookie",
-            "content-length",
-            "transfer-encoding",
-        ] {
+        for name in ["cookie", "content-length", "transfer-encoding"] {
             let mut req = request("conversation_id=abc");
             req.headers = Headers::from_raw([(name, "value")]);
             assert!(Query::parse(&req, &Js::Null).is_none(), "{name}");
