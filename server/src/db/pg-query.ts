@@ -58,10 +58,39 @@ const readsPgConnection = Object.assign(
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
 
+// Votes, comments, the next statement and participationInit run on these two
+// pools, so every wait on them is bounded (docs/configuration.md "Connection
+// budget"):
+//   - acquire: a query that cannot get a connection within
+//     MAIN_POOL_ACQUIRE_TIMEOUT_MS fails with pg-pool's "timeout exceeded when
+//     trying to connect", and its route answers the error it gives for any
+//     other database failure, instead of queueing until a connection frees;
+//   - statement: Postgres cancels any statement on these connections that
+//     runs longer than MAIN_POOL_STATEMENT_TIMEOUT_MS (SQLSTATE 57014). It is
+//     sent as a session setting when each connection opens, so it also covers
+//     raw clients from connect(); a transaction that needs a tighter bound sets
+//     its own with SET LOCAL (withTransaction below, the participant insert's
+//     lock_timeout in participant.ts).
+// 0 turns either bound off. Reports and exports, and Delphi result reads, run
+// on their own pools below with their own, longer bounds.
+export const MAIN_POOL_MAX = poolSize;
+export const MAIN_POOL_ACQUIRE_TIMEOUT_MS = Config.serverDbAcquireTimeoutMs;
+export const MAIN_POOL_STATEMENT_TIMEOUT_MS = Config.serverDbStatementTimeoutMs;
+const mainPoolBounds = {
+  connectionTimeoutMillis: MAIN_POOL_ACQUIRE_TIMEOUT_MS,
+  statement_timeout: MAIN_POOL_STATEMENT_TIMEOUT_MS,
+};
+
 // const PoolConstructor = pgnative?.Pool ?? Pool;
 // Cast to unknown first to avoid type errors with port being string vs number
-const readWritePool: Pool = new Pool(pgConnection as unknown as PoolConfig);
-const readPool: Pool = new Pool(readsPgConnection as unknown as PoolConfig);
+const readWritePool: Pool = new Pool({
+  ...pgConnection,
+  ...mainPoolBounds,
+} as unknown as PoolConfig);
+const readPool: Pool = new Pool({
+  ...readsPgConnection,
+  ...mainPoolBounds,
+} as unknown as PoolConfig);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
