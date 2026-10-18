@@ -768,3 +768,20 @@ offset preserve the default50, maximum500 and zero offset pagination metadata.
 Other filters, unsupported shapes and failures hand back to Node. Counters
 `allConversationsServed` and `allConversationsFallback` expose this boundary.
 No product writes or complete populated-list replacement is claimed.
+
+### Report listings: empty results and moderator refusals
+
+`POLIS_API_REPORTS_READ_READS=1` and nginx `RUST_API_ROUTES=reportsRead` stage
+GET/HEAD `/api/v3/reports`; both default off. Set
+`POLIS_API_REPORTS_READ_DATABASE_URL` for the primary identity/report data pool.
+A separate authority pool uses `READ_ONLY_DATABASE_URL` when configured. Each
+read-only pool has one connection,15 ms acquisition/50 ms statement limits;
+the configured route timeout is 75 ms. Participation pools remain separate.
+
+Optional verified hybrid identity preserves anonymous no-filter empty results.
+A conversation filter requires a verified scoped identity and the shared
+moderator policy; refusals match403. Empty owned-report or authorized conversation
+results are served. Populated rows,report_id capabilities,combined filters and
+unsupported requests stay counted Node work. Authority connections are released
+before primary report reads. No report writes or full report-result replacement.
+Counters are `reportsReadServed` and `reportsReadFallback`.
