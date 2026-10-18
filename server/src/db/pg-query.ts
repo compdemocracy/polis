@@ -413,6 +413,46 @@ function stream_queryP_reportExport(
   });
 }
 
+// The collective-statement agent path (an owner exporting a topic's inputs and
+// importing a statement written outside the server) runs on its own small
+// primary pool, so it can never take a connection the participation path
+// needs (vote and comment writes and nextComment on readWritePool, the
+// participation reads on readPool). When both connections are busy a new
+// request is refused after AGENT_EXCHANGE_ACQUIRE_TIMEOUT_MS instead of waiting
+// on, or spilling into, a participation connection, and every statement is
+// capped at AGENT_EXCHANGE_STATEMENT_TIMEOUT_MS. It is the primary, not the
+// replica: an import re-derives the inputs its export saw, checks ownership
+// and publishes in one transaction. Result-family reads still go through the
+// per-call result snapshots of utils/delphiResultSnapshot.ts.
+export const AGENT_EXCHANGE_POOL_MAX = 2;
+const AGENT_EXCHANGE_ACQUIRE_TIMEOUT_MS = 5000;
+const AGENT_EXCHANGE_STATEMENT_TIMEOUT_MS = 60000;
+let agentExchangePool: Pool | undefined;
+function agentExchangePoolInstance(): Pool {
+  if (!agentExchangePool) {
+    const pool = new Pool({
+      ...pgConnection,
+      max: AGENT_EXCHANGE_POOL_MAX,
+      connectionTimeoutMillis: AGENT_EXCHANGE_ACQUIRE_TIMEOUT_MS,
+    } as unknown as PoolConfig);
+    pool.on("connect", client => {
+      client
+        .query(`SET statement_timeout = ${AGENT_EXCHANGE_STATEMENT_TIMEOUT_MS}`)
+        .catch(error => logger.error("pg_agent_exchange_statement_timeout", error));
+    });
+    pool.on("error", error => logger.error("pg_agent_exchange_pool", error));
+    agentExchangePool = pool;
+  }
+  return agentExchangePool;
+}
+function queryP_agentExchange<T>(queryString: string, ...args: any[]) {
+  return queryP_impl<T>(agentExchangePoolInstance(), queryString, ...args);
+}
+// A raw client from the agent-exchange pool. The caller must release it.
+function connectAgentExchange(): Promise<PoolClient> {
+  return agentExchangePoolInstance().connect();
+}
+
 // Session policy applied immediately after BEGIN, taken from the queue
 // substrate's design. These are declared initial
 // bounds for the queue substrate, not a general-purpose transaction profile;
@@ -526,10 +566,12 @@ export default {
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
   queryP_reportExport,
+  queryP_agentExchange,
   stream_queryP_readOnly,
   stream_queryP_reportExport,
   connect,
   connectReadOnly,
   connectResultSnapshot,
+  connectAgentExchange,
   withTransaction,
 };

@@ -60,8 +60,9 @@ receipts, or the comparison. Using a normal binary deliberately fails the seed
 receipt comparison; build the documented test variant.
 
 Some commands need stored analysis artifacts absent from this small fixture.
-Their rows are marked `missing-store`; the agent-path exports, whose routes this server
-version does not serve, are marked `unserved`; malformed external-result imports
+Their rows are marked `missing-store`, the collective-statement exports among them;
+the narrative export, whose routes this server version does not serve, is marked
+`unserved`; malformed external-result imports
 are marked `invalid-input`. Those rows verify empty/availability/refusal behavior only; they are
 not successful export/import, provider, analysis or backend coverage. Planned
 commands and local commands are likewise reported separately. Never turn a
