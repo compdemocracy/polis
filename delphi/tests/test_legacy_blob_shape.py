@@ -616,4 +616,4 @@ def test_legacy_n_by_one_matches_clojure_reference(legacy):
     assert bc["members"] == [[10, 11, 12]]
     # Q16 collapse: all-zero projections -> single coincident base cluster
     assert bc["x"] == [0.0] and bc["y"] == [0.0]
-    assert d["comment_priorities"] == {0: 5.0625}
+    assert d["comment-priorities"] == {0: 5.0625}
