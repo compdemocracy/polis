@@ -1,6 +1,7 @@
 //! Versioned CLI envelopes. No server, database, or credential dependencies.
 pub mod about;
 pub mod connection;
+pub mod contexts;
 pub mod database;
 pub mod robots;
 

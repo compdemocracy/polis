@@ -37,6 +37,10 @@ services:
       TOPICAL_COMMENT_RATIO: "0"
       POLIS_API_CONNECTION_READS: "1"
       POLIS_API_ROBOTS_READS: "1"
+      POLIS_API_CONTEXTS_READS: "1"
+      POLIS_API_CONTEXTS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      AUTH_NAMESPACE: https://pol.is/
       POLIS_API_DATABASE_READS: "1"
       POLIS_API_DATABASE_PROBE_URL: postgres://postgres@postgres:5432/p027
       POLIS_API_ABOUT_READS: "1"
