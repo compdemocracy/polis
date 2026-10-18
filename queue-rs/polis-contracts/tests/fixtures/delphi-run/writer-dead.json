@@ -1,0 +1,111 @@
+{
+  "contract_version": "delphi-run/1",
+  "job_id": "0000d001-0000-4000-8000-000000000004",
+  "run_id": "0000d001-0000-4000-8000-0000000000a4",
+  "root_job_id": "0000d001-0000-4000-8000-000000000004",
+  "parent_job_id": null,
+  "graph_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "origin": "queued",
+  "kind": "full_pipeline",
+  "stage": "delphi_full_pipeline",
+  "state": "dead",
+  "attempt": {
+    "attempt_id": "0000d001-0000-4000-8000-0000000000b4",
+    "number": 3,
+    "lease_epoch": 3,
+    "max_attempts": 3,
+    "outcome": "dead",
+    "started_at": "2026-10-18T22:00:00.000000+00:00",
+    "ended_at": "2026-10-18T22:04:00.000000+00:00",
+    "process_exit_confirmed_at": "2026-10-18T22:04:00.010000+00:00"
+  },
+  "nodes": [],
+  "math_snapshot": null,
+  "inputs": {
+    "math_env": "prod",
+    "math_tick": 4243,
+    "math_caching_tick": 4243,
+    "comment_set_sha256": "5d3eb5750567cccc7e6d454630ed99767248f83d7e16be2a71cc52cdaa74d0ff",
+    "vote_hwm": 1760821200000,
+    "inputs_sha256": "12a64352487a472448d4d2f4dd9891608e1fb831a15d9e86f13e3f7d94a65f57"
+  },
+  "config_effective": {
+    "batch_size": 20,
+    "result_scope": "pipeline",
+    "result_backend": "postgres",
+    "include_moderation": true
+  },
+  "code_version": "0123456789abcdef0123456789abcdef01234567",
+  "models": {
+    "embedding": "sentence-transformers/all-MiniLM-L6-v2",
+    "cluster": "delphi-umap-evoc/1",
+    "cluster_seed": null,
+    "topic_names": "claude-haiku-4-5-20251001",
+    "narrative": null,
+    "statement": null
+  },
+  "prompt_versions": {
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "outputs": {
+    "manifest_sha256": null,
+    "families": [
+      {
+        "family": "Delphi_CommentEmbeddings",
+        "state": "failed",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000004",
+          "run_id": "0000d001-0000-4000-8000-0000000000a4"
+        },
+        "upstream": [],
+        "failure": {
+          "reason": "stage_failed",
+          "at": "2026-10-18T22:04:00.000000+00:00"
+        }
+      },
+      {
+        "family": "Delphi_CommentClustersLLMTopicNames",
+        "state": "failed",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000004",
+          "run_id": "0000d001-0000-4000-8000-0000000000a4"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentHierarchicalClusterAssignments",
+            "job_id": "0000d001-0000-4000-8000-000000000004",
+            "run_id": "0000d001-0000-4000-8000-0000000000a4"
+          },
+          {
+            "family": "Delphi_UMAPGraph",
+            "job_id": "0000d001-0000-4000-8000-000000000004",
+            "run_id": "0000d001-0000-4000-8000-0000000000a4"
+          }
+        ],
+        "failure": {
+          "reason": "provider_failed",
+          "at": "2026-10-18T22:03:59.000000+00:00"
+        }
+      }
+    ]
+  },
+  "cost": {
+    "llm_tokens_in": null,
+    "llm_tokens_out": null,
+    "provider_requests": []
+  },
+  "pinned": false,
+  "label": null,
+  "created_at": "2026-10-18T19:59:58.000000+00:00",
+  "completed_at": "2026-10-18T22:04:00.020000+00:00",
+  "failure": {
+    "code": "stage_failed",
+    "stage": "topic_naming",
+    "attempt": 3,
+    "at": "2026-10-18T22:04:00.000000+00:00"
+  }
+}

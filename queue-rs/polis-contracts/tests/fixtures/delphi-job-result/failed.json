@@ -1,0 +1,47 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": "0000a001-0000-4000-8000-000000000001",
+  "run_id": "0000a001-0000-4000-8000-0000000000e3",
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "status": "failed",
+  "as_of": "2026-10-03T11:50:00.000Z",
+  "inputs": {
+    "math_tick": 42,
+    "math_env": "python",
+    "vote_count": 120,
+    "comment_count": 8,
+    "model": {
+      "topic_names": "generated-model-alpha",
+      "narrative": "generated-model-alpha",
+      "statement": null,
+      "embedding": "generated-embedding"
+    },
+    "prompt_version": {
+      "topic_names": "topic-names-v1",
+      "narrative": "narrative-v1",
+      "statement": null
+    }
+  },
+  "attempt": 3,
+  "failure": {
+    "code": "stage_failed",
+    "stage": "topic_naming",
+    "attempt": 3,
+    "at": "2026-10-03T11:59:00Z"
+  },
+  "pinned": false,
+  "label": null,
+  "outputs": {},
+  "omitted": [
+    "topics_by_layer",
+    "assignments",
+    "keywords",
+    "umap",
+    "visualizations",
+    "narratives",
+    "collective_statements",
+    "topic_stats",
+    "consensus_inputs"
+  ]
+}

@@ -1,0 +1,348 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": "0000a001-0000-4000-8000-000000000001",
+  "run_id": "0000a001-0000-4000-8000-0000000000e1",
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "status": "ready",
+  "as_of": "2026-10-03T12:00:00.000Z",
+  "inputs": {
+    "math_tick": 42,
+    "math_env": "python",
+    "vote_count": 120,
+    "comment_count": 8,
+    "model": {
+      "topic_names": "generated-model-alpha",
+      "narrative": "generated-model-alpha",
+      "statement": null,
+      "embedding": "generated-embedding"
+    },
+    "prompt_version": {
+      "topic_names": "topic-names-v1",
+      "narrative": "narrative-v1",
+      "statement": null
+    }
+  },
+  "attempt": null,
+  "failure": null,
+  "pinned": true,
+  "label": "Generated pinned run",
+  "outputs": {
+    "topics_by_layer": {
+      "0": [
+        {
+          "topic_key": "0000a001-0000-4000-8000-000000000001#0#0",
+          "layer_id": 0,
+          "cluster_id": 0,
+          "topic_name": "quote \" backslash \\ newline \n tab \t bell \u0007 unit \u001f del  nbsp   line   emoji 😀 accent é",
+          "model_name": "generated-model-alpha",
+          "comment_count": 2,
+          "member_tids": [
+            0,
+            3
+          ]
+        },
+        {
+          "topic_key": "0000a001-0000-4000-8000-000000000001#0#1",
+          "layer_id": 0,
+          "cluster_id": 1,
+          "topic_name": "Generated topic 0.1",
+          "model_name": "generated-model-alpha",
+          "comment_count": 1,
+          "member_tids": [
+            1
+          ]
+        }
+      ],
+      "1": [
+        {
+          "topic_key": "0000a001-0000-4000-8000-000000000001#1#0",
+          "layer_id": 1,
+          "cluster_id": 0,
+          "topic_name": "Generated topic 1.0",
+          "model_name": "generated-model-alpha",
+          "comment_count": 3,
+          "member_tids": [
+            0,
+            1,
+            3
+          ]
+        }
+      ]
+    },
+    "assignments": {
+      "2": {
+        "0": -1,
+        "1": -1
+      },
+      "10": {
+        "0": 1,
+        "1": 0
+      }
+    },
+    "keywords": {
+      "0000a001-0000-4000-8000-000000000001#1#0": [
+        "later",
+        "layer"
+      ],
+      "0000a001-0000-4000-8000-000000000001#0#0": [
+        "earlier"
+      ]
+    },
+    "umap": {
+      "nodes": [
+        {
+          "tid": 0,
+          "x": 1e-7,
+          "y": 0.0000015,
+          "layer_cluster": {
+            "0": 0,
+            "1": 0
+          },
+          "weight": 100
+        },
+        {
+          "tid": 7,
+          "x": 0,
+          "y": 123456789012345680000,
+          "layer_cluster": {
+            "0": -1
+          },
+          "weight": 0.30000000000000004
+        },
+        {
+          "tid": 9,
+          "x": 1e+21,
+          "y": -1.5e-7,
+          "layer_cluster": {},
+          "weight": 5e-324
+        },
+        {
+          "tid": 12,
+          "x": 1.7976931348623157e+308,
+          "y": 9007199254740994,
+          "layer_cluster": {
+            "0": 3
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": 0,
+          "target": 12,
+          "weight": 0.000015
+        }
+      ]
+    },
+    "visualizations": [
+      {
+        "type": "interactive",
+        "layer_id": 0,
+        "url": "http://store.generated.invalid/visualizations/layer_0_datamapplot.html",
+        "key": "visualizations/r4p1gen/layer_0_datamapplot.html"
+      },
+      {
+        "type": "static_png",
+        "layer_id": 0,
+        "url": "http://store.generated.invalid/visualizations/layer_0_static.png",
+        "key": "visualizations/r4p1gen/layer_0_static.png"
+      }
+    ],
+    "narratives": {
+      "7": {
+        "model": "generated-model-alpha",
+        "created_at": "2026-10-03T12:00:01.000001+00:00",
+        "source_topic_job_id": "0000a001-0000-4000-8000-000000000001",
+        "raw_len": 4096,
+        "validity": "invalid",
+        "invalid_reason": "truncated_json",
+        "parsed": null
+      },
+      "summary": {
+        "model": "generated-model-alpha",
+        "created_at": "2026-10-03T12:00:00.000Z",
+        "source_topic_job_id": null,
+        "raw_len": 412,
+        "validity": "valid",
+        "invalid_reason": null,
+        "parsed": {
+          "id": "generated_narrative",
+          "title": "Generated consensus",
+          "paragraphs": [
+            {
+              "id": "p1",
+              "title": "Generated consensus: paragraph",
+              "sentences": [
+                {
+                  "clauses": [
+                    {
+                      "text": "Generated clause one. ",
+                      "citations": [
+                        0,
+                        1
+                      ],
+                      "confidence": 0.5
+                    },
+                    {
+                      "text": "Generated clause two.",
+                      "citations": []
+                    }
+                  ]
+                }
+              ],
+              "style": {
+                "b": 1,
+                "a": [
+                  1,
+                  {
+                    "z": null
+                  }
+                ]
+              }
+            }
+          ],
+          "generated_by": "generated-model-alpha"
+        }
+      }
+    },
+    "collective_statements": [
+      {
+        "statement_id": "0000a001-0000-4000-8000-000000000001#0#1#0000a001-0000-4000-8000-00000000c001",
+        "topic_key": "0000a001-0000-4000-8000-000000000001#0#1",
+        "topic_name": "Generated topic 0.1",
+        "created_at": "2026-10-03T12:10:00.000Z",
+        "model": "generated-model-alpha",
+        "inputs": {
+          "topic_job_id": "0000a001-0000-4000-8000-000000000001",
+          "assignments_job_id": null,
+          "math_tick": null
+        },
+        "statement": {
+          "id": "generated_narrative",
+          "title": "Generated statement",
+          "paragraphs": [
+            {
+              "id": "p1",
+              "title": "Generated statement: paragraph",
+              "sentences": [
+                {
+                  "clauses": [
+                    {
+                      "text": "Generated clause one. ",
+                      "citations": [
+                        0,
+                        1
+                      ]
+                    },
+                    {
+                      "text": "Generated clause two.",
+                      "citations": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "topic_stats": {
+      "0000a001-0000-4000-8000-000000000001#1#0": {
+        "comment_tids": [
+          1
+        ],
+        "agree": 1,
+        "disagree": 0,
+        "pass": 0,
+        "seen": 1,
+        "group_aware_consensus": 0.0000032,
+        "normalized_consensus": 1
+      },
+      "0000a001-0000-4000-8000-000000000001#0#0": {
+        "comment_tids": [
+          0,
+          3
+        ],
+        "agree": 10,
+        "disagree": 4,
+        "pass": 6,
+        "seen": 20,
+        "group_aware_consensus": 0.42,
+        "normalized_consensus": 0.6
+      }
+    },
+    "consensus_inputs": {
+      "group_votes": {
+        "0": {
+          "votes": {
+            "0": {
+              "A": 3,
+              "D": 1,
+              "S": 5
+            }
+          },
+          "n-members": 4
+        },
+        "1": {
+          "votes": {
+            "0": {
+              "A": 0,
+              "D": 2,
+              "S": 2,
+              "P": 0
+            }
+          },
+          "n-members": 2.5
+        }
+      },
+      "repness": {
+        "0": [
+          {
+            "tid": 0,
+            "repful-for": "agree",
+            "p-success": 0.75,
+            "n-success": 3,
+            "n-trials": 4,
+            "repness": 1.25,
+            "best-agree": true
+          }
+        ],
+        "1": [
+          {
+            "tid": 0,
+            "repful-for": "disagree",
+            "p-success": 0.9
+          }
+        ]
+      },
+      "group_aware_consensus": {
+        "0": 0.42,
+        "1": 0.05,
+        "3": 0.31
+      },
+      "group_consensus_normalized": {
+        "0": 0.6,
+        "1": 0.07,
+        "3": 0.44
+      },
+      "comment_votes": {
+        "0": {
+          "agree_count": 6,
+          "disagree_count": 2,
+          "pass_count": 4
+        },
+        "1": {
+          "agree_count": 0,
+          "disagree_count": 0,
+          "pass_count": 0
+        },
+        "3": {
+          "agree_count": 4,
+          "disagree_count": 2,
+          "pass_count": 2
+        }
+      }
+    }
+  },
+  "omitted": []
+}
