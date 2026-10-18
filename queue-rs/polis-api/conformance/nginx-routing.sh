@@ -1172,3 +1172,24 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/ops/whoami node "Disabled operations identity handoff"
 echo "ok 56 Disabled operations identity off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/ops/page/fixture node "Disabled operations page off"
+start opsPage,opsPage
+expect /api/v3/ops/page/fixture rust
+expect /api/v3/ops/page/overview rust "Disabled operations page on"
+expect /api/v3/comments node "Disabled operations page leaves comments alone"
+expect /api/v3/votes node "Disabled operations page leaves voting alone"
+[[ $(included | grep -Fc 'location ^~ /api/v3/ops/page/ {') == 1 ]] || fail "Disabled operations page duplicated"
+expect_upstream polis-api GET /api/v3/ops/page/fixture
+expect_upstream polis-api HEAD /api/v3/ops/page/fixture
+expect_upstream server OPTIONS /api/v3/ops/page/fixture
+expect_upstream server POST /api/v3/ops/page/fixture $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/ops/page/fixture $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/ops/page/fixture node "Disabled operations page handoff"
+echo "ok 57 Disabled operations page off/on/deduplicated; method/body guards; 502 hands back to Node"
