@@ -731,3 +731,21 @@ as a string,and the two fixed false auth-needed fields. Unknown/ambiguous IDs,
 cookies,Authorization headers and unsupported requests remain counted Node
 work. `conversationPreloadServed` / `conversationPreloadFallback` expose the
 boundary;no full middleware or arbitrary-query replacement is claimed.
+
+### Owner participation summaries: PID counts
+
+`POLIS_API_PARTICIPATION_READS=1` and nginx `RUST_API_ROUTES=participationRead`
+stage GET/HEAD `/api/v3/participation`; both default off. Set
+`POLIS_API_PARTICIPATION_DATABASE_URL` for primary identity reads; the
+separate read-only authority/count pool uses `READ_ONLY_DATABASE_URL` if set.
+Each pool has one connection,15 ms acquisition/50 ms statement limits and a
+75 ms configured whole-route timeout. Participation pools remain separate.
+
+Verified scoped hybrid identity and the shared strict-owner policy establish
+access; site moderators and configured admins have no independent bypass.
+Without XID mappings,the response contains event counts keyed by PID,or the
+matching409 when strict=true. Counts do not inspect vote values. XID summaries,
+more than1000 PIDs,unsupported request/auth shapes and failures hand back to
+Node. Canonical strict=true/false is accepted; no product writes or vote-value
+changes. `participationReadServed` / `participationReadFallback` count the staged
+boundary. No complete XID/report or voting endpoint replacement is claimed.
