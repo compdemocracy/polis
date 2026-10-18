@@ -19,6 +19,7 @@ import uuid
 
 from verify import comparisons, jest_cases, python_cases, require, rust_cases, sha, source_pins, stage_audit
 from source_workspace import prepare, regular
+from compressor import observe_node, admit_node
 from replay_pins import child_runtimes, kernel_environment, select_pin, validate_kernel
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -145,10 +146,16 @@ def main():
             if "==" in line:
                 name, version = line.split("==")
                 require(receipt["packages"][name] == version, f"Python dependency mismatch: {name}")
-        receipt["node"] = subprocess.check_output(["node", "--version"], text=True).strip()
+        receipt["compressor"] = observe_node()
+        receipt["node"] = receipt["compressor"]["node"]
+        env["PATH"] = str(Path(receipt["compressor"]["executable"]).parent) + os.pathsep + env["PATH"]
         require(receipt["node"].startswith("v24."), "Node 24 required")
         receipt["replay_runtime"] = json.loads(subprocess.check_output(
             [sys.executable, "-B", str(CI / "replay_pins.py")], env=env, text=True))
+        receipt["replay_runtime"]["compressor"] = receipt["compressor"]
+        # Admit the reviewed Darwin build before starting costly campaign work.
+        # Linux keeps its existing platform pins; its compressor is now observed.
+        admit_node(receipt["replay_runtime"], CI / "replay-pins.json")
         native_env = dict(env)
         native_env.pop("OPENBLAS_CORETYPE", None)
         receipt["native_runtime"] = json.loads(subprocess.check_output(
@@ -215,6 +222,7 @@ def main():
         receipt["jest_tests"] = jest_cases(json.loads((output / "jest.json").read_text()), inventory)
         run("stage-audit", [sys.executable, "delphi/tests/coordinator/audit_stages.py"], expected=1)
         receipt["stages"] = stage_audit(json.loads((EVIDENCE / "stage-inventory.json").read_text()), inventory)
+        require(observe_node() == receipt["compressor"], "Node compressor changed during campaign")
         require(source_pins(ROOT) == receipt["source_pins"], "reviewed sources changed during campaign")
         require(inputs() == receipt["source_sha256"], "campaign inputs changed during execution")
         require(all(sha(regular(original_root, p)) == expected for p, expected in
