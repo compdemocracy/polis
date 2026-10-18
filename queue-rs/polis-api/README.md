@@ -697,3 +697,20 @@ dates, count/read disagreement and unsupported authentication hand back to Node.
 Unique descending ordering, bigint strings, nullable fields and pagination
 metadata are preserved. `treeviteInvitesServed` / `treeviteInvitesFallback` count
 the boundary; no database writes or authentication creation paths are added.
+
+### Tree-invitation CSV: moderator refusals only
+
+`POLIS_API_TREEVITE_CSV_READS=1` and nginx `RUST_API_ROUTES=treeviteCsv` stage
+GET/HEAD `/api/v3/treevite/invites/csv`; both default off. Set
+`POLIS_API_TREEVITE_CSV_DATABASE_URL` for primary identity reads. The independent
+read-only authority pool uses `READ_ONLY_DATABASE_URL` when configured. Each
+pool has one connection, 15 ms acquisition and 50 ms statements, with a 75 ms
+whole-route deadline; participation pools are separate.
+
+Only verified, conversation-scoped identities denied by the shared Node
+site-moderator policy receive the matching 403. All authorized CSV downloads
+remain counted Node work, including empty exports: filenames use Node's cached
+conversation ID and dates depend on its local timezone. No CSV result or full
+route replacement is claimed. Unsupported auth/requests and database failures
+also hand back; no creation path or writes. `treeviteCsvServed` and
+`treeviteCsvFallback` expose this boundary.
