@@ -323,5 +323,13 @@
     "expected_node_handoffs": 0,
     "commands": [],
     "scope": "Browser-only HTML route; no CLI serving coverage. Raw replay and nginx gates supply positive serving proof."
+  },
+  "otherConversationsPage": {
+    "path": "^/other-conversations",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Browser-only HTML route; no CLI serving coverage. Raw replay and nginx gates supply positive serving proof."
   }
 }

@@ -35,6 +35,7 @@ mod metadata_questions;
 mod metadata_read;
 mod negotiate;
 mod next_comment;
+mod other_conversations_page;
 mod owner;
 mod params;
 mod participation_read;
@@ -319,6 +320,17 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.settings_page_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "otherConversationsPageServed",
+        js::Js::Num(app.other_conversations_page_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "otherConversationsPageFallback",
+        js::Js::Num(
+            app.other_conversations_page_fallback
+                .load(Ordering::Relaxed) as f64,
+        ),
+    );
+    body.set(
         "integratePageServed",
         js::Js::Num(app.integrate_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -434,6 +446,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if settings_page::matches(path) => route::handle(app, req).await,
+        path if other_conversations_page::matches(path) => route::handle(app, req).await,
         path if integrate_page::matches(path) => route::handle(app, req).await,
         path if admin_page::matches(path) => route::handle(app, req).await,
         path if user_logout_page::matches(path) => route::handle(app, req).await,
@@ -1044,6 +1057,8 @@ async fn main() -> Result<()> {
             einvites_read::pool_limits(),
         ));
     }
+    state.other_conversations_page =
+        admin_page::Client::from_env_for("POLIS_API_OTHER_CONVERSATIONS_PAGE_READS").await?;
     state.integrate_page =
         admin_page::Client::from_env_for("POLIS_API_INTEGRATE_PAGE_READS").await?;
     state.admin_page = admin_page::Client::from_env().await?;

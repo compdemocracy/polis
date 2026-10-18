@@ -143,6 +143,9 @@ pub struct App {
     pub settings_page_reads: bool,
     pub settings_page_served: AtomicU64,
     pub settings_page_fallback: AtomicU64,
+    pub other_conversations_page: Option<crate::admin_page::Client>,
+    pub other_conversations_page_served: AtomicU64,
+    pub other_conversations_page_fallback: AtomicU64,
     pub integrate_page: Option<crate::admin_page::Client>,
     pub integrate_page_served: AtomicU64,
     pub integrate_page_fallback: AtomicU64,
@@ -294,6 +297,9 @@ impl App {
             settings_page_reads: false,
             settings_page_served: AtomicU64::new(0),
             settings_page_fallback: AtomicU64::new(0),
+            other_conversations_page: None,
+            other_conversations_page_served: AtomicU64::new(0),
+            other_conversations_page_fallback: AtomicU64::new(0),
             integrate_page: None,
             integrate_page_served: AtomicU64::new(0),
             integrate_page_fallback: AtomicU64::new(0),
@@ -1082,6 +1088,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.settings_page_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::other_conversations_page::matches(req.path()) {
+        if out.status == 502 {
+            app.other_conversations_page_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.other_conversations_page_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if crate::integrate_page::matches(req.path()) {
         if out.status == 502 {
             app.integrate_page_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1204,6 +1219,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
     if crate::settings_page::matches(req.path()) && crate::settings_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::other_conversations_page::matches(req.path())
+        && crate::other_conversations_page::parse(app, req).is_none()
     {
         return bad_gateway();
     }
@@ -1404,6 +1424,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
         || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
+        || crate::other_conversations_page::matches(req.path())
         || crate::integrate_page::matches(req.path())
         || crate::admin_page::matches(req.path())
         || crate::user_logout_page::matches(req.path())
@@ -1435,6 +1456,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::settings_page::matches(req.path()) {
         return crate::settings_page::handle(app, req, res);
+    }
+    if crate::other_conversations_page::matches(req.path()) {
+        return crate::other_conversations_page::handle(app, req, res).await;
     }
     if crate::integrate_page::matches(req.path()) {
         return crate::integrate_page::handle(app, req, res).await;
@@ -4682,5 +4706,115 @@ mod tests {
         }
         assert_eq!(state.integrate_page_served.load(Ordering::Relaxed), 2);
         assert_eq!(state.integrate_page_fallback.load(Ordering::Relaxed), 11);
+    }
+    #[tokio::test]
+    async fn other_conversations_page_gate_boundaries_and_wire() {
+        let mut state = app(true);
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/other-conversations".into();
+        assert_eq!(
+            handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone()
+                }
+            )
+            .await
+            .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().integrate_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), 1).unwrap());
+        assert!(crate::other_conversations_page::parse(&state, &req).is_none());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        Arc::get_mut(&mut state).unwrap().other_conversations_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), port).unwrap());
+        let task = tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            for _ in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut b = [0; 4096];
+                let n = socket.read(&mut b).await.unwrap();
+                let body = if b[..n].starts_with(b"HEAD ") {
+                    ""
+                } else {
+                    "html"
+                };
+                socket
+                    .write_all(
+                        format!("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n{body}").as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+        });
+        for method in ["GET", "HEAD"] {
+            req.method = method.into();
+            let out = handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone(),
+                },
+            )
+            .await;
+            assert_eq!(out.status, 200);
+            assert_eq!(header(&out, "Content-Type"), Some("text/html"));
+            assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
+            let bytes = crate::http::write_response(&out, method == "HEAD", false, "D").unwrap();
+            let expected = if method == "HEAD" {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\n\r\n"
+            } else {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nhtml\r\n0\r\n\r\n"
+            };
+            assert_eq!(bytes, expected.as_bytes());
+        }
+        task.await.unwrap();
+        for extra in [
+            ("cookie", "a=b"),
+            ("authorization", "Bearer fixture"),
+            ("range", "bytes=0-1"),
+            ("if-none-match", "*"),
+            ("accept-encoding", "gzip"),
+            ("x-unknown", "1"),
+            ("content-length", "1"),
+        ] {
+            let mut bad = request("GET", &[("host", "localhost"), extra]);
+            bad.target = "/other-conversations".into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        for (method, path) in [
+            ("POST", "/other-conversations"),
+            ("GET", "/other-conversations?x=1"),
+            ("GET", "/other-conversations/%20"),
+        ] {
+            let mut bad = Request {
+                method: req.method.clone(),
+                target: req.target.clone(),
+                headers: req.headers.clone(),
+                body: req.body.clone(),
+            };
+            bad.method = method.into();
+            bad.target = path.into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        assert_eq!(
+            state
+                .other_conversations_page_served
+                .load(Ordering::Relaxed),
+            2
+        );
+        assert_eq!(
+            state
+                .other_conversations_page_fallback
+                .load(Ordering::Relaxed),
+            11
+        );
     }
 }

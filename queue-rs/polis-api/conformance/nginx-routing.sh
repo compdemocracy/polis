@@ -1027,3 +1027,28 @@ echo "ok 49 integratePage off/on/deduplicated; method/body guards; 502 hands bac
 
 
 
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /other-conversations node "otherConversationsPage off"
+start otherConversationsPage,otherConversationsPage
+expect /other-conversations rust "otherConversationsPage on"
+expect /other-conversations/step rust "otherConversationsPage nested path"
+expect /other-conversationsSuffix rust "otherConversationsPage prefix suffix"
+expect /other-conversation node "otherConversationsPage neighbor"
+expect /api/v3/comments node "otherConversationsPage leaves comments alone"
+expect /api/v3/votes node "otherConversationsPage leaves voting alone"
+[[ $(included | grep -Fc 'location ~ ^/other-conversations') == 1 ]] || fail "otherConversationsPage duplicated"
+expect_upstream polis-api GET /other-conversations
+expect_upstream polis-api HEAD /other-conversations
+expect_upstream server OPTIONS /other-conversations
+expect_upstream server POST /other-conversations $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /other-conversations $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /other-conversations node "otherConversationsPage handoff"
+echo "ok 50 otherConversationsPage off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+
