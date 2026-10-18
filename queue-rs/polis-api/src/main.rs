@@ -33,6 +33,8 @@ mod recent_activity;
 mod recent_started;
 mod robots;
 mod route;
+mod treevite_read;
+mod treevite_waves;
 
 use anyhow::{Context, Result};
 use http::{Body, Outgoing, Request};
@@ -158,6 +160,14 @@ async fn health(app: &route::App) -> Outgoing {
         "legacyPcaFallback",
         js::Js::Num(app.legacy_pca_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "treeviteWavesServed",
+        js::Js::Num(app.treevite_waves_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "treeviteWavesFallback",
+        js::Js::Num(app.treevite_waves_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -205,6 +215,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | contexts::PATH
         | domain_whitelist::PATH
         | metadata_questions::PATH
+        | treevite_waves::PATH
         | metadata_choices::PATH
         | recent_started::PATH
         | recent_activity::PATH
@@ -457,6 +468,32 @@ async fn main() -> Result<()> {
     }
     state.legacy_pca_reads =
         std::env::var("POLIS_API_LEGACY_PCA_READS").ok().as_deref() == Some("1");
+    if std::env::var("POLIS_API_TREEVITE_WAVES_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_TREEVITE_WAVES_DATABASE_URL")
+            .context("POLIS_API_TREEVITE_WAVES_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.treevite_waves_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-treevite-waves/1")?,
+            treevite_waves::pool_limits(),
+        ));
+        state.treevite_waves_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-treevite-waves-auth/1")?,
+            treevite_waves::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
