@@ -733,3 +733,25 @@ expect /api/v3/treevite/myInvites node "treeviteMyInvites handoff"
 echo "ok 37 treeviteMyInvites off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/participation/topicPrioritize node "topicPrioritize off"
+start topicPrioritize,topicPrioritize
+expect /api/v3/participation/topicPrioritize rust "topicPrioritize on"
+expect /api/v3/comments node "topicPrioritize leaves comments alone"
+expect /api/v3/votes node "topicPrioritize leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/participation/topicPrioritize') == 1 ]] || fail "topicPrioritize duplicated"
+expect_upstream polis-api GET /api/v3/participation/topicPrioritize
+expect_upstream polis-api HEAD /api/v3/participation/topicPrioritize
+expect_upstream server OPTIONS /api/v3/participation/topicPrioritize
+expect_upstream server POST /api/v3/participation/topicPrioritize $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/participation/topicPrioritize $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/participation/topicPrioritize node "topicPrioritize handoff"
+echo "ok 38 topicPrioritize off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+

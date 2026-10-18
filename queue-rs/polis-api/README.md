@@ -852,3 +852,19 @@ credentials,OIDC/PID-cache lookups,XIDs,Treevite credentials or enabled
 conversations,and unsupported requests remain counted Node work. This read
 never allocates participants or invitations. Counters `treeviteMyInvitesServed`
 and `treeviteMyInvitesFallback` expose this boundary.
+
+### Public topic-prioritization availability
+
+`POLIS_API_TOPIC_PRIORITIZE_READS=1` and nginx `RUST_API_ROUTES=topicPrioritize`
+stage GET/HEAD `/api/v3/participation/topicPrioritize`;both default off. Set
+`POLIS_API_TOPIC_PRIORITIZE_DATABASE_URL` to primary,matching Node's report read.
+Its dedicated read-only pool has one connection,15 ms acquisition/50 ms statement
+limits and a75 ms configured route deadline. Participation pools remain separate.
+
+The response preserves the input conversation code,the newest report capability
+and nullable BIGINT creation string,or the exact no-report object. As in Node,
+has_delphi_data is optimistic and merely follows report presence;no Delphi data
+query is performed. Equal newest created values (including NULL ties),ambiguous
+codes,headers/queries outside the staged subset and read failures remain counted
+Node work. No report or participant writes. Counters are `topicPrioritizeServed`
+and `topicPrioritizeFallback`.
