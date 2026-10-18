@@ -137,5 +137,13 @@
     "scope": "No CLI request reaches this route; no serving coverage claimed.",
     "expected_requests": 0,
     "expected_node_handoffs": 0
+  },
+  "treeviteWaves": {
+    "path": "/api/v3/treevite/waves",
+    "minimum_rust_successes": 3,
+    "commands": [],
+    "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
+    "expected_requests": 4,
+    "expected_node_handoffs": 0
   }
 }
