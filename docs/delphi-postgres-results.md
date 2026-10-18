@@ -31,7 +31,10 @@ Readers use `pd_result_artifact_family` for pinned dependencies and
 `delphi_result_current_rows` provides environment, conversation, scope, generation,
 family, tagged key, and tagged item for existing API filters. An entire family
 comes from the closest artifact in the published dependency bundle; an explicitly
-empty family shadows older ancestor rows. Existing graph publication CAS and
+empty family shadows older ancestor rows. A writer run's batch holds only the
+families that run wrote, deleted from or cleared (a full pipeline clears every
+family it computes). Its `previous` edge to the publication it was admitted over
+serves every other family from the batch that produced it. Existing graph publication CAS and
 supersession checks determine visibility. Base tables are inaccessible to the
 executor role, which receives only read APIs and fenced writers. Mutable human
 annotations belong in separate generation-aware overrides, never these artifacts.
