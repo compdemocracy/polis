@@ -1,10 +1,18 @@
+const fs=require('node:fs'),path=require('node:path');
+// Selection's math read. When the next statement reads only the priorities map
+// (getLatestCommentPriorities), the mutation removes that read; before then it
+// removes the whole-entry read. The chosen anchor must still be present.
+const nextComment=fs.readFileSync(path.resolve(__dirname,'../../src/nextComment.ts'),'utf8');
+const mathRead=nextComment.includes('getLatestCommentPriorities(zid),')
+ ?{from:'getLatestCommentPriorities(zid),',to:'Promise.resolve(undefined),'}
+ :{from:'getLatestExistingPca(zid),',to:'Promise.resolve(null),'};
 module.exports=[
  {name:'owner-filter-truthiness',file:'comment.ts',from:"if (!_.isUndefined(o.not_voted_by_pid)) {\n          // 'SELECT",to:"if (!!o.not_voted_by_pid) {\n          // 'SELECT"},
  {name:'owner-route-truthiness',file:'routes/comments.ts',from:'req.p.pid ?? req.p.not_voted_by_pid',to:'req.p.pid || req.p.not_voted_by_pid'},
  {name:'ignore-engine-priority',file:'nextComment.ts',from:'priorities[comment.tid] || 1',to:'1'},
  {name:'zero-weight-is-zero',file:'nextComment.ts',from:'priorities[comment.tid] || 1',to:'priorities[comment.tid] ?? 1'},
  {name:'disable-topical',file:'nextComment.ts',from:'Math.random() < ratio',to:'false'},
- {name:'remove-math-read',file:'nextComment.ts',from:'getLatestExistingPca(zid),',to:'Promise.resolve(null),'},
+ {name:'remove-math-read',file:'nextComment.ts',...mathRead},
  {name:'ignore-without',file:'nextComment.ts',from:'params.withoutTids = withoutTids;',to:'params.withoutTids = [];'},
  {name:'window-1000',file:'comment.ts',from:'q.limit(999)',to:'q.limit(1000)'},
  {name:'remove-seed-first',file:'comment.ts',from:'if (conv.prioritize_seed)',to:'if (false)'},
