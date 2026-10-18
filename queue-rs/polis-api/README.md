@@ -968,3 +968,14 @@ HTML fetching, unsupported browsers, query/body/auth/cookie requests and unusual
 path/host bytes stay on Node and are counted separately. This slice creates no
 users and does no database, identity or file-service work. It adds no pool or
 external dependency to participation.
+
+### User-login legacy-browser redirect
+
+`POLIS_API_USER_LOGIN_PAGE_READS=1` and nginx `RUST_API_ROUTES=userLoginPage`
+opt into GET/HEAD legacy-browser hash redirects at `/user/login` and slash
+suffixes. Both switches default off. Shared request/response types preserve
+Node's case-sensitive browser checks, anchored path and HTTPS location. This
+slice does not authenticate or change a session. Modern HTML, unsupported
+browsers, query/body/auth/cookie requests and unusual path/host bytes remain
+Node handoffs. No database pool, identity provider or file service is used;
+participation resources are untouched.
