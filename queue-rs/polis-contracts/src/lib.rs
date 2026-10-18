@@ -21,6 +21,7 @@ pub mod robots;
 pub mod topic_selections;
 pub mod treevite_csv;
 pub mod treevite_invites;
+pub mod treevite_my_invites;
 pub mod treevite_waves;
 
 use serde::Serialize;

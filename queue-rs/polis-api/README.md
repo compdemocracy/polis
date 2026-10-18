@@ -836,3 +836,19 @@ selection set is served. Populated selections,OIDC identity/PID cache lookup,
 XIDs,Treevite credentials and unsupported requests remain counted Node work.
 This read path never allocates participants,mints credentials or writes selections.
 Counters `topicSelectionsServed` and `topicSelectionsFallback` expose its boundary.
+
+### Participant-owned invites: empty results
+
+`POLIS_API_TREEVITE_MY_INVITES_READS=1` and nginx `RUST_API_ROUTES=treeviteMyInvites`
+stage GET/HEAD `/api/v3/treevite/myInvites`;both default off. Set
+`POLIS_API_TREEVITE_MY_INVITES_DATABASE_URL` for primary code/membership reads.
+The separate invite pool uses `READ_ONLY_DATABASE_URL` when configured. Both
+pools are read-only,size one,15 ms acquisition/50 ms statement limits,with a
+75 ms configured route deadline. Participation pools remain separate.
+
+Existing scoped anonymous/standard participant tokens must resolve exact
+existing membership. Only empty pending-invite sets are served. Populated
+credentials,OIDC/PID-cache lookups,XIDs,Treevite credentials or enabled
+conversations,and unsupported requests remain counted Node work. This read
+never allocates participants or invitations. Counters `treeviteMyInvitesServed`
+and `treeviteMyInvitesFallback` expose this boundary.
