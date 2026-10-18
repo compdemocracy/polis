@@ -1039,3 +1039,21 @@ database or participation connections. Neither static route enables the other.
 `conformance/integrate-page-run.sh` proves raw Node byte equality and inherited
 matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
 CLI requests; the CLI differential makes no positive serving claim for it.
+
+
+### Other-conversations admin page
+
+`POLIS_API_OTHER_CONVERSATIONS_PAGE_READS=1` and nginx `RUST_API_ROUTES=otherConversationsPage`
+opt into GET/HEAD paths beginning with `/other-conversations`, including suffixes without
+an intervening slash, matching Express. Both switches default off. The route
+uses the shared typed `other_conversations_page` contract and the fixed `/index_admin.html`
+upstream. It applies the admin-page transport's existing ASCII, size, framing,
+header and single-body-read limits. Identity, compression, query/body, unknown
+headers, oversized or fragmented replies and upstream failures hand back to Node.
+
+Its client has a separate four-slot semaphore, no queue, a 75ms request limit,
+and startup-only bounded DNS. Failure affects only this client. It acquires no
+database or participation connections. Neither static route enables the other.
+`conformance/other-conversations-page-run.sh` proves raw Node byte equality and inherited
+matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
+CLI requests; the CLI differential makes no positive serving claim for it.

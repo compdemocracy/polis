@@ -18,6 +18,7 @@ pub mod metadata_answers;
 pub mod metadata_choices;
 pub mod metadata_questions;
 pub mod metadata_read;
+pub mod other_conversations_page;
 pub mod participation_read;
 pub mod recent_activity;
 pub mod recent_started;
