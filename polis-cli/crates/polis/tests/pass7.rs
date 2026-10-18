@@ -374,3 +374,146 @@ fn manuals_and_schema_expose_the_stored_read_limits() {
         2
     );
 }
+
+fn human_call(dir: &std::path::Path, report: &str) -> (i32, String) {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_polis"));
+    for (key, _) in std::env::vars() {
+        if key.starts_with("POLIS_TOKEN_") {
+            cmd.env_remove(key);
+        }
+    }
+    let result = cmd
+        .env("POLIS_CONFIG_DIR", dir)
+        .args(["collective", "statements", report, "--no-interactive"])
+        .output()
+        .unwrap();
+    (
+        result.status.code().unwrap(),
+        String::from_utf8(result.stdout).unwrap(),
+    )
+}
+
+#[test]
+fn collective_statements_prints_topic_paragraphs_and_citations() {
+    let t = tempfile::tempdir().unwrap();
+    let body = json!({"status":"success","count":2,"statements":[
+        {"zid_topic_jobid":"first","topic_name":"Transit","statement_data":{"paragraphs":[
+            {"title":"Access","sentences":[{"clauses":[
+                {"text":"More frequent buses.","citations":[3,8]},
+                {"text":"Safer stops.","citations":[]}
+            ]}]},
+            {"title":"Service","sentences":[{"clauses":[{"text":"Evening routes.","citations":["12"]}]}]}
+        ]}},
+        {"zid_topic_jobid":"second","topic_name":"Parks","statement_data":{"paragraphs":[
+            {"sentences":[{"clauses":[{"text":"More shade.","citations":[21]}]}]}
+        ]}}
+    ]});
+    let s = server(t.path(), vec![json_res(body)]);
+    let (exit, text) = human_call(t.path(), "rFixture");
+    assert_eq!(exit, 0);
+    assert_eq!(text,"Transit\n\nAccess\nMore frequent buses. [3, 8] Safer stops.\n\nService\nEvening routes. [12]\n\nParks\n\nMore shade. [21]\n\n");
+    let requests = s.join().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(requests[0].starts_with("GET /api/v3/collectiveStatement?report_id=rFixture "));
+    assert!(!requests[0].to_lowercase().contains("authorization:"));
+}
+
+#[test]
+fn collective_statements_json_preserves_complete_response() {
+    let t = tempfile::tempdir().unwrap();
+    let body = json!({"status":"success","count":1,"statements":[{"zid_topic_jobid":"opaque","topic_name":"Topic","statement_data":{"paragraphs":[]},"comments_data":null,"model":"fixture","extra":{"retained":true}}]});
+    let s = server(t.path(), vec![json_res(body.clone())]);
+    let (exit, v) = call(
+        t.path(),
+        &["collective", "statements", "rFixture"],
+        None,
+        false,
+    );
+    assert_eq!(exit, 0);
+    assert_eq!(v["data"], body);
+    assert_eq!(s.join().unwrap().len(), 1);
+}
+
+#[test]
+fn collective_statements_empty_and_missing_text_are_explicit() {
+    for (body, expected) in [
+        (
+            json!({"status":"success","statements":[],"count":0}),
+            "No stored collective statements.\n",
+        ),
+        (
+            json!({"status":"success","statements":[{"zid_topic_jobid":"opaque","topic_key":"0_1","statement_data":null}],"count":1}),
+            "0_1\n\nNo stored statement text.\n\n",
+        ),
+    ] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(t.path(), vec![json_res(body)]);
+        assert_eq!(human_call(t.path(), "rFixture"), (0, expected.into()));
+        s.join().unwrap();
+    }
+}
+
+#[test]
+fn collective_statements_terminal_controls_cannot_rewrite_output() {
+    let t = tempfile::tempdir().unwrap();
+    let body = json!({"status":"success","count":1,"statements":[{"zid_topic_jobid":"opaque","topic_name":"Topic\u{001b}[2J","statement_data":{"paragraphs":[{"sentences":[{"clauses":[{"text":"Safe\u{001b}]0;bad\u{0007}\u{202e} text","citations":[]}]}]}]}}]});
+    let s = server(t.path(), vec![json_res(body)]);
+    let (exit, text) = human_call(t.path(), "rFixture");
+    assert_eq!(exit, 0);
+    assert!(!text.contains(['\u{001b}', '\u{0007}', '\u{202e}']));
+    assert!(text.contains("Safe"));
+    s.join().unwrap();
+}
+
+#[test]
+fn collective_statements_refuses_invalid_report_and_malformed_response() {
+    let t = tempfile::tempdir().unwrap();
+    let (exit, v) = call(
+        t.path(),
+        &["collective", "statements", "bad?report"],
+        None,
+        false,
+    );
+    assert_eq!(exit, 2);
+    assert_eq!(v["error"]["code"], "invalid_input");
+    let s = server(
+        t.path(),
+        vec![json_res(
+            json!({"status":"success","statements":[],"count":1}),
+        )],
+    );
+    let (exit, v) = call(
+        t.path(),
+        &["collective", "statements", "rFixture"],
+        None,
+        false,
+    );
+    assert_eq!(exit, 1);
+    assert_eq!(v["error"]["code"], "invalid_response");
+    s.join().unwrap();
+}
+
+#[test]
+fn collective_statements_propagates_storage_failure_without_generating() {
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![(
+            500,
+            "application/json",
+            json!({"status":"error","message":"internal-detail"}).to_string(),
+        )],
+    );
+    let (exit, v) = call(
+        t.path(),
+        &["collective", "statements", "rFixture"],
+        None,
+        false,
+    );
+    assert_eq!(exit, 6);
+    assert_eq!(v["error"]["code"], "collective_read_failed");
+    assert!(!v.to_string().contains("internal-detail"));
+    let requests = s.join().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(requests[0].starts_with("GET "));
+}
