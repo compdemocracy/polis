@@ -304,3 +304,37 @@ exact owner filtering, tied-time traversal, literal search, cursor binding,
 read-only sessions, pool saturation, and switch off/on behavior. Node byte
 recordings are not applicable to this new endpoint; existing pca2 parity remains
 a separate check.
+
+
+## Public comment reads
+
+`POLIS_API_COMMENT_READS=1` enables the public, bodyless GET/HEAD
+`/api/v3/comments` slice. It requires `POLIS_API_COMMENTS_DATABASE_URL` for
+conversation lookup and statement rows. Pagination counts use a separate pool
+on `READ_ONLY_DATABASE_URL`, falling back to the comments DSN when unset, as
+Node does. The pools have two and one connections respectively, a 100 ms
+acquisition deadline and a 1 s statement deadline; sessions are read-only.
+They do not borrow connections from other route pools or math reads. This bounds
+waiting within this process; it does not prove shared database load isolation.
+
+Both this process flag and nginx's `RUST_API_ROUTES=comments` switch are off by
+default. Requests carrying credentials or cookies, report/moderation views,
+unsupported parameters, missing conversations and database failures return the
+existing 502 handoff to Node. Node retains optional identity creation, provider
+calls and error behavior for those requests. They are **not** implemented by
+this Rust slice. No participant resolution or voting behavior moves here.
+
+The moved views preserve legacy arrays and limit/offset pagination, visibility,
+statement IDs, field order, bigint strings, nullable fields and Node's
+created-only ordering. The count and row queries remain separate observations,
+including when a read replica lags; no snapshot consistency is promised.
+
+`conformance/comments-run.sh` seeds the unchanged generated characterization
+fixtures, then replays all 396 archived comments requests against live Node and
+Rust. Responses served by Rust must match raw HTTP bytes (including headers,
+compression and chunk framing); Node handoffs are counted separately, and an
+eligible public success falling back is a failure. Only a Date-only mismatch
+may be retried and is counted. `conformance/nginx-routing.sh` checks the
+independent switch, body/method guards and failure handoff. Authentication,
+moderation/report equivalence and concurrent participation-load acceptance
+remain outside this partial implementation's evidence.

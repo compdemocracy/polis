@@ -183,3 +183,24 @@ stub "$p-rust" polis-api 5100 503 busy
 sleep 6
 [[ $(get /api/v3/owner/conversations) != node ]] || fail "owner unavailable fell back to Node"
 echo "ok 11 owner contract off/on/deduplicated; unrelated routes unchanged; unavailable never falls back to Node"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/comments node "comments off"
+start comments,comments
+expect /api/v3/comments rust "comments on"
+expect /api/v3/math/pca2 node "comments leaves pca2 alone"
+expect /api/v3/owner/conversations node "comments leaves owner list alone"
+[[ $(included | grep -c 'location = /api/v3/comments') == 1 ]] || fail "comments route duplicated"
+expect_upstream polis-api GET /api/v3/comments
+expect_upstream polis-api HEAD /api/v3/comments
+expect_upstream server OPTIONS /api/v3/comments
+expect_upstream server POST /api/v3/comments $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/comments $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 unavailable
+sleep 6
+expect /api/v3/comments node "comments boundary or unavailable"
+echo "ok 12 public comments off/on/deduplicated; method/body guards; 502 hands back to Node"
