@@ -119,7 +119,7 @@ impl<T> TransposeOption<T> for Option<Option<T>> {
     }
 }
 /// JavaScript Number(value) >> 0, used by getArrayOfInt (not getInt).
-fn to_i32(v: &Js) -> i32 {
+pub(crate) fn to_i32(v: &Js) -> i32 {
     if let Js::Bool(v) = v {
         return i32::from(*v);
     }
@@ -161,57 +161,56 @@ fn rows(c: &mut Client, q: &Query, zid: i32, strict: bool) -> Result<Vec<Js>> {
             &q.offset,
         ],
     )?;
-    rows.iter()
-        .map(|r| {
-            let mut o = Obj::new();
-            o.set(
-                "txt",
-                r.try_get::<_, Option<String>>("txt")?
-                    .map(Js::Str)
-                    .unwrap_or(Js::Null),
-            );
-            o.set("tid", Js::Num(f64::from(r.try_get::<_, i32>("tid")?)));
-            o.set(
-                "created",
-                r.try_get::<_, Option<i64>>("created")?
-                    .map(|n| Js::Str(n.to_string()))
-                    .unwrap_or(Js::Null),
-            );
-            o.set(
-                "quote_src_url",
-                r.try_get::<_, Option<String>>("quote_src_url")?
-                    .map(Js::Str)
-                    .unwrap_or(Js::Null),
-            );
-            for field in ["is_seed", "is_meta"] {
-                o.set(
-                    field,
-                    r.try_get::<_, Option<bool>>(field)?
-                        .map(Js::Bool)
-                        .unwrap_or(Js::Null),
-                );
-            }
-            o.set(
-                "lang",
-                r.try_get::<_, Option<String>>("lang")?
-                    .map(Js::Str)
-                    .unwrap_or(Js::Null),
-            );
-            o.set(
-                "pid",
-                r.try_get::<_, Option<i32>>("pid")?
-                    .map(|n| Js::Num(f64::from(n)))
-                    .unwrap_or(Js::Null),
-            );
-            o.set(
-                "original_id",
-                r.try_get::<_, Option<uuid::Uuid>>("original_id")?
-                    .map(|v| Js::Str(v.to_string()))
-                    .unwrap_or(Js::Null),
-            );
-            Ok(Js::Obj(o))
-        })
-        .collect()
+    rows.iter().map(project).collect()
+}
+pub(crate) fn project(r: &postgres::Row) -> Result<Js> {
+    let mut o = Obj::new();
+    o.set(
+        "txt",
+        r.try_get::<_, Option<String>>("txt")?
+            .map(Js::Str)
+            .unwrap_or(Js::Null),
+    );
+    o.set("tid", Js::Num(f64::from(r.try_get::<_, i32>("tid")?)));
+    o.set(
+        "created",
+        r.try_get::<_, Option<i64>>("created")?
+            .map(|n| Js::Str(n.to_string()))
+            .unwrap_or(Js::Null),
+    );
+    o.set(
+        "quote_src_url",
+        r.try_get::<_, Option<String>>("quote_src_url")?
+            .map(Js::Str)
+            .unwrap_or(Js::Null),
+    );
+    for field in ["is_seed", "is_meta"] {
+        o.set(
+            field,
+            r.try_get::<_, Option<bool>>(field)?
+                .map(Js::Bool)
+                .unwrap_or(Js::Null),
+        );
+    }
+    o.set(
+        "lang",
+        r.try_get::<_, Option<String>>("lang")?
+            .map(Js::Str)
+            .unwrap_or(Js::Null),
+    );
+    o.set(
+        "pid",
+        r.try_get::<_, Option<i32>>("pid")?
+            .map(|n| Js::Num(f64::from(n)))
+            .unwrap_or(Js::Null),
+    );
+    o.set(
+        "original_id",
+        r.try_get::<_, Option<uuid::Uuid>>("original_id")?
+            .map(|v| Js::Str(v.to_string()))
+            .unwrap_or(Js::Null),
+    );
+    Ok(Js::Obj(o))
 }
 pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Outgoing {
     let (Some(pool), Some(read_pool), Some(q)) = (

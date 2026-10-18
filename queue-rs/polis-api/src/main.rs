@@ -14,6 +14,7 @@ mod http;
 mod js;
 mod lru;
 mod negotiate;
+mod next_comment;
 mod owner;
 mod params;
 mod pca;
@@ -40,6 +41,14 @@ async fn health(app: &route::App) -> Outgoing {
         "failed",
         js::Js::Num(app.failed.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "nextCommentServed",
+        js::Js::Num(app.next_comment_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "nextCommentFallback",
+        js::Js::Num(app.next_comment_fallback.load(Ordering::Relaxed) as f64),
+    );
     let bytes = js::stringify(&js::Js::Obj(body)).into_bytes();
     Outgoing {
         status: if reachable { 200 } else { 503 },
@@ -59,7 +68,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
             Some(owner) => owner.handle(req).await,
             None => owner::error(503, "owner_list_unavailable"),
         },
-        route::PATH | comments::PATH => route::handle(app, req).await,
+        route::PATH | comments::PATH | next_comment::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -97,6 +106,22 @@ async fn main() -> Result<()> {
                 max_lifetime: std::time::Duration::from_secs(300),
             },
         ));
+    }
+    if std::env::var("POLIS_API_NEXT_COMMENT_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_NEXT_COMMENT_DATABASE_URL")
+            .context("POLIS_API_NEXT_COMMENT_DATABASE_URL is required for next comment reads")?;
+        state.next_comment_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-next-comment/1")?,
+            next_comment::pool_limits(),
+        ));
+        // Must match Node. Fail closed unless the shared setting explicitly
+        // disables topical routing; the initial-statement branch bypasses it.
+        state.next_comment_plain =
+            std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0");
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;

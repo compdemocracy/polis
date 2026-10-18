@@ -25,5 +25,13 @@
     "expected_requests": 10,
     "expected_node_handoffs": 7,
     "scope": "Credentialed/moderation GETs hand back to Node; writes stay on Node. Public success is proved by the raw comments suite."
+  },
+  "nextComment": {
+    "path": "/api/v3/nextComment",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "scope": "The CLI request carries participant identity and hands back to Node; anonymous serving is proved by the raw next-comment suite."
   }
 }

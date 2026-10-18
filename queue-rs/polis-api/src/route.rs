@@ -40,6 +40,11 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub next_comment_served: AtomicU64,
+    pub next_comment_fallback: AtomicU64,
+    pub next_comment_priorities: Arc<crate::next_comment::Priorities>,
+    pub next_comment_db: Option<Arc<Pool>>,
+    pub next_comment_plain: bool,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -53,6 +58,11 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            next_comment_served: AtomicU64::new(0),
+            next_comment_fallback: AtomicU64::new(0),
+            next_comment_priorities: Arc::new(crate::next_comment::Priorities::new(cfg.cache_size)),
+            next_comment_db: None,
+            next_comment_plain: false,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -566,6 +576,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
+    if req.path() == crate::next_comment::PATH {
+        if out.status == 502 {
+            app.next_comment_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.next_comment_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if out.status >= 500 {
         app.failed.fetch_add(1, Ordering::Relaxed);
     } else {
@@ -604,6 +621,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::next_comment::PATH && !crate::next_comment::eligible(app, req) {
+        return bad_gateway();
+    }
     // redirectIfNotHttps (domain.ts), ahead of every other middleware.
     if !app.dev_mode && req.path() != "/api/v3/testConnection" && !app.use_network_host {
         let https = req.headers.get("x-forwarded-proto") == Some("https");
@@ -668,6 +688,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.method != "GET" && req.method != "HEAD" {
         return final_handler(app, req, res, None, true);
+    }
+    if req.path() == crate::next_comment::PATH {
+        return crate::next_comment::handle(app, req, res).await;
     }
     if req.path() == crate::comments::PATH {
         return crate::comments::handle(app, req, &body, res).await;
