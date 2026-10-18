@@ -29,6 +29,7 @@ mod negotiate;
 mod next_comment;
 mod owner;
 mod params;
+mod participation_read;
 mod pca;
 mod recent_activity;
 mod recent_started;
@@ -195,6 +196,14 @@ async fn health(app: &route::App) -> Outgoing {
         "conversationPreloadFallback",
         js::Js::Num(app.conversation_preload_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "participationReadServed",
+        js::Js::Num(app.participation_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participationReadFallback",
+        js::Js::Num(app.participation_read_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -244,6 +253,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | domain_whitelist::PATH
         | metadata_questions::PATH
         | treevite_waves::PATH
+        | participation_read::PATH
         | treevite_csv::PATH
         | treevite_invites::PATH
         | metadata_choices::PATH
@@ -587,6 +597,27 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-conversation-preload/1")?,
             conversation_preload::pool_limits(),
         ));
+    }
+    if std::env::var("POLIS_API_PARTICIPATION_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_PARTICIPATION_DATABASE_URL")
+            .context("POLIS_API_PARTICIPATION_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.participation_read_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-participation-read/1")?,
+            participation_read::pool_limits(),
+        ));
+        state.participation_read_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-participation-read-auth/1")?,
+            participation_read::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
