@@ -425,3 +425,18 @@ ephemeral public key, and leaves product handlers and the existing recorder
 unchanged. Node responses are recorded and compared as complete HTTP bytes;
 Date-only retries and Node handoffs are counted separately. Existing anonymous
 conformance commands still run with participant serving disabled.
+
+### Connection probe
+
+`POLIS_API_CONNECTION_READS=1` and nginx `RUST_API_ROUTES=testConnection`
+opt into bodyless GET/HEAD `/api/v3/testConnection`. Both switches default off.
+The request/response types live in `polis-contracts::connection`, which the CLI
+already consumes. The response is Node's `{"status":"ok"}` and its normal HTTP
+middleware bytes, including HEAD, conditional requests and compression. Like
+Node, this probe is exempt from the HTTPS redirect and proves connectivity only.
+It performs no database query, provider call, participant resolution or write.
+Query parameters, credentials, cookies, bodies and unsupported methods hand back
+to Node and are counted separately in `connectionServed`/`connectionFallback`.
+Nginx uses the same 100 ms per-phase fallback limits as nextComment. Full response
+bytes are recorded by `conformance/connection-run.sh`; Date-only retries and
+handoffs are reported separately. This adds no participation pool or database work.

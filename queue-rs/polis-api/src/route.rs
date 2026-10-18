@@ -40,6 +40,9 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub connection_reads: bool,
+    pub connection_served: AtomicU64,
+    pub connection_fallback: AtomicU64,
     pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
     pub participant_served: AtomicU64,
     pub participant_fallback: AtomicU64,
@@ -61,6 +64,9 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            connection_reads: false,
+            connection_served: AtomicU64::new(0),
+            connection_fallback: AtomicU64::new(0),
             participant_verifier: None,
             participant_served: AtomicU64::new(0),
             participant_fallback: AtomicU64::new(0),
@@ -582,6 +588,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
+    if req.path() == crate::connection::PATH {
+        if out.status == 502 {
+            app.connection_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.connection_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::next_comment::PATH {
         if out.status == 502 {
             app.next_comment_fallback.fetch_add(1, Ordering::Relaxed);
@@ -638,6 +651,9 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::next_comment::PATH && !crate::next_comment::eligible(app, req) {
         return bad_gateway();
     }
@@ -708,6 +724,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::next_comment::PATH {
         return crate::next_comment::handle(app, req, res).await;
+    }
+    if req.path() == crate::connection::PATH {
+        return crate::connection::handle(app, req, res);
     }
     if req.path() == crate::comments::PATH {
         return crate::comments::handle(app, req, &body, res).await;
@@ -1003,6 +1022,55 @@ mod tests {
             cfg.pool.clone(),
         );
         Arc::new(App::new(&cfg, pool))
+    }
+
+    #[tokio::test]
+    async fn connection_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(false);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::connection::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().connection_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 200); // No HTTPS redirect and no DB wait.
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"status":"ok"}"#));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 200);
+        assert_eq!(state.connection_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.connection_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn connection_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().connection_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::connection::PATH, vec![]),
+            ("OPTIONS", crate::connection::PATH, vec![]),
+            ("GET", "/api/v3/testConnection?unknown=1", vec![]),
+            (
+                "GET",
+                crate::connection::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::connection::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::connection::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.connection_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.connection_fallback.load(Ordering::Relaxed), 6);
     }
 
     fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {

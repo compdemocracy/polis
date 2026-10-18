@@ -1,4 +1,6 @@
 //! Versioned CLI envelopes. No server, database, or credential dependencies.
+pub mod connection;
+
 use serde::Serialize;
 use serde_json::{json, Value};
 

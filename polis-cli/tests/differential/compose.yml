@@ -35,6 +35,7 @@ services:
       POLIS_API_NEXT_COMMENT_READS: "1"
       POLIS_API_NEXT_COMMENT_DATABASE_URL: postgres://postgres@postgres:5432/p027
       TOPICAL_COMMENT_RATIO: "0"
+      POLIS_API_CONNECTION_READS: "1"
       POLIS_API_COMMENT_READS: "1"
       POLIS_API_COMMENTS_DATABASE_URL: postgres://postgres@postgres:5432/p027
       MATH_ENV: p027
