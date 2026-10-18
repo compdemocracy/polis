@@ -267,5 +267,13 @@
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
     "expected_requests": 2,
     "expected_node_handoffs": 0
+  },
+  "createPage": {
+    "path": "^/conversation/create",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "scope": "No CLI request reaches this route; no serving coverage claimed.",
+    "expected_requests": 0,
+    "expected_node_handoffs": 0
   }
 }

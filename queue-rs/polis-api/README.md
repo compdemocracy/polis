@@ -947,3 +947,13 @@ ambiguous codes, oversized email text, cookies/auth headers, bodies, duplicate
 or unknown query keys and unsupported shapes hand back to Node and are counted.
 Lookup is fresh on each request; there is no CID, PID or math cache dependency.
 Counters: `einvitesReadServed`, `einvitesReadFallback`.
+
+### Conversation-create legacy-browser redirect
+
+`POLIS_API_CREATE_PAGE_READS=1` and nginx `RUST_API_ROUTES=createPage` opt into
+GET/HEAD legacy-browser hash redirects under `/conversation/create`. Both
+switches default off. The shared request/response contract preserves Node's
+case-sensitive browser checks, prefix matching and HTTPS location. HTML fetching,
+unsupported browsers, query/body/auth/cookie requests and unusual path/host bytes
+stay on Node and are counted separately. This slice does no database, identity,
+file-service or participant work; it adds no pool or dependency to participation.
