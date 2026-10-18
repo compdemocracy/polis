@@ -9,6 +9,7 @@ mod admin_page;
 mod all_conversations;
 mod bid_to_pid;
 mod clock;
+mod collective_statement;
 mod comments;
 mod compress;
 mod config;
@@ -130,6 +131,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "topicStatsFallback",
         js::Js::Num(app.topic_stats_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "collectiveStatementServed",
+        js::Js::Num(app.collective_statement_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "collectiveStatementFallback",
+        js::Js::Num(app.collective_statement_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "delphiReadServed",
@@ -458,6 +467,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | about::PATH
         | legacy_pca::PATH
         | delphi_read::PATH
+        | collective_statement::PATH
         | topic_stats::PATH
         | delphi_visualizations::PATH
         | delphi_reports::PATH
@@ -616,6 +626,19 @@ async fn main() -> Result<()> {
         state.topic_stats_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-topic-stats/1")?,
             topic_stats::pool_limits(),
+        ));
+    }
+    if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_COLLECTIVE_STATEMENT_DATABASE_URL").context(
+            "POLIS_API_COLLECTIVE_STATEMENT_DATABASE_URL is required for Collective statement validation reads",
+        )?;
+        state.collective_statement_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-collective-statement/1")?,
+            collective_statement::pool_limits(),
         ));
     }
     if std::env::var("POLIS_API_DELPHI_READS").ok().as_deref() == Some("1") {

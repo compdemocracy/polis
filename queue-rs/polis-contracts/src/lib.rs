@@ -3,6 +3,7 @@ pub mod about;
 pub mod admin_page;
 pub mod all_conversations;
 pub mod bid_to_pid;
+pub mod collective_statement;
 pub mod connection;
 pub mod contexts;
 pub mod conversation_preload;

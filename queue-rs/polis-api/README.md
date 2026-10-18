@@ -1137,3 +1137,23 @@ finishes. `topicStatsServed` and `topicStatsFallback` count the outcomes.
 Run `queue-rs/polis-api/conformance/topic-stats-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
 serve topic statistics or claim DynamoDB/Postgres/provider parity.
+
+
+### Collective statement validation
+
+`GET`/`HEAD /api/v3/collectiveStatement` is staged behind `POLIS_API_COLLECTIVE_STATEMENT_READS=1`
+and nginx `RUST_API_ROUTES=collectiveStatement`, both off by default. Set
+`POLIS_API_COLLECTIVE_STATEMENT_DATABASE_URL` to Node's read replica. Only missing/empty
+report IDs with no statement ID (HTTP 400), and absent reports (HTTP 404), are served, using the shared
+`polis-contracts::collective_statement` request/response types. Existing reports and
+DynamoDB responses remain Node, as do identity, body, duplicate/structured
+query, any statement ID parameter, job-filter and unsupported report-ID shapes. Accepted nonempty IDs
+are at most 100 ASCII alphanumeric, underscore or hyphen characters.
+The uncached report lookup has its own one-slot read-only pool: 15 ms acquire,
+50 ms statement and 75 ms caller deadline. It never borrows a participation
+pool or holds a connection over a remote service call. Database errors and
+contention hand back to Node; cancellation retains the slot until the query
+finishes. `collectiveStatementServed` and `collectiveStatementFallback` count the outcomes.
+Run `queue-rs/polis-api/conformance/collective-statement-run.sh result.json` for raw
+Node/Rust byte replay on the generated fixture stack. This slice does not
+serve collective statements or claim DynamoDB/provider parity.

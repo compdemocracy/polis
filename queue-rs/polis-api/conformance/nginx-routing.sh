@@ -1132,3 +1132,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/topicStats node "Topic statistics validation handoff"
 echo "ok 54 Topic statistics validation off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/collectiveStatement node "Collective statement validation off"
+start collectiveStatement,collectiveStatement
+expect /api/v3/collectiveStatement rust "Collective statement validation on"
+expect /api/v3/comments node "Collective statement validation leaves comments alone"
+expect /api/v3/votes node "Collective statement validation leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/collectiveStatement') == 1 ]] || fail "Collective statement validation duplicated"
+expect_upstream polis-api GET /api/v3/collectiveStatement
+expect_upstream polis-api HEAD /api/v3/collectiveStatement
+expect_upstream server OPTIONS /api/v3/collectiveStatement
+expect_upstream server POST /api/v3/collectiveStatement $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/collectiveStatement $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/collectiveStatement node "Collective statement validation handoff"
+echo "ok 55 Collective statement validation off/on/deduplicated; method/body guards; 502 hands back to Node"
