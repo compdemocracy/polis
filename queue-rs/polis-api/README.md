@@ -509,3 +509,23 @@ The generated-fixture replay is
 Node/Rust response bytes for anonymous, participant and OIDC reads and fallback
 boundaries. Authentication never downgrades an invalid supplied token to an
 anonymous Rust response.
+
+### Site domain whitelist
+
+`GET`/`HEAD /api/v3/domainWhitelist` is staged behind
+`POLIS_API_DOMAIN_WHITELIST_READS=1` and nginx route `domainWhitelist`, both off
+by default. Shared types are in `polis-contracts::domain_whitelist`.
+The hybrid reader now exposes the verified UID: participant claims require
+exact existing membership; OIDC uses the existing mapping and ignores a token's
+UID claim. This route requires a verified identity; missing credentials and
+unsupported auth paths hand back to Node, never anonymous success.
+
+`POLIS_API_DOMAIN_WHITELIST_DATABASE_URL` supplies two independent primary
+read-only pools for auth and policy, each one connection (15 ms acquire, 50 ms
+statement), with a 75 ms route deadline. Participation pools are not borrowed.
+The query selects only the authenticated user's site. Missing/null policies
+become the empty string, as in Node. Duplicate policies hand back because
+Node's unordered first-row choice is not a deterministic contract.
+`domainWhitelistServed` and `domainWhitelistFallback` count route outcomes.
+Run `queue-rs/polis-api/conformance/domain-whitelist-run.sh result.json` for
+complete HTTP byte replay with participant/OIDC and policy boundary cases.

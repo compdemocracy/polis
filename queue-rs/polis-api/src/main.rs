@@ -14,6 +14,7 @@ mod contexts;
 mod cors;
 mod database;
 mod db;
+mod domain_whitelist;
 mod http;
 mod hybrid_read;
 mod js;
@@ -86,6 +87,14 @@ async fn health(app: &route::App) -> Outgoing {
         "contextsFallback",
         js::Js::Num(app.contexts_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "domainWhitelistServed",
+        js::Js::Num(app.domain_whitelist_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "domainWhitelistFallback",
+        js::Js::Num(app.domain_whitelist_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
         "served",
@@ -129,7 +138,8 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | robots::PATH
         | about::PATH
         | database::PATH
-        | contexts::PATH => route::handle(app, req).await,
+        | contexts::PATH
+        | domain_whitelist::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
         _ => route::bad_gateway(),
@@ -223,6 +233,23 @@ async fn main() -> Result<()> {
         state.contexts_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-contexts-auth/1")?,
             contexts::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_DOMAIN_WHITELIST_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_DOMAIN_WHITELIST_DATABASE_URL")
+            .context("POLIS_API_DOMAIN_WHITELIST_DATABASE_URL required")?;
+        state.domain_whitelist_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-domain-whitelist/1")?,
+            domain_whitelist::pool_limits(),
+        ));
+        state.domain_whitelist_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-domain-whitelist-auth/1")?,
+            domain_whitelist::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }

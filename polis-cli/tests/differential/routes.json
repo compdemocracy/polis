@@ -73,5 +73,13 @@
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
     "expected_requests": 3,
     "expected_node_handoffs": 0
+  },
+  "domainWhitelist": {
+    "path": "/api/v3/domainWhitelist",
+    "minimum_rust_successes": 1,
+    "commands": [],
+    "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
+    "expected_requests": 2,
+    "expected_node_handoffs": 0
   }
 }
