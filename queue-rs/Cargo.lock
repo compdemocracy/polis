@@ -775,6 +775,7 @@ dependencies = [
  "jsonwebtoken",
  "md5",
  "openssl",
+ "polis-auth",
  "polis-queue-adapter",
  "postgres",
  "rand",
@@ -791,7 +792,11 @@ dependencies = [
 name = "polis-auth"
 version = "0.1.0"
 dependencies = [
+ "jsonwebtoken",
+ "openssl",
  "postgres",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

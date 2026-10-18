@@ -40,6 +40,9 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
+    pub participant_served: AtomicU64,
+    pub participant_fallback: AtomicU64,
     pub next_comment_served: AtomicU64,
     pub next_comment_fallback: AtomicU64,
     pub next_comment_priorities: Arc<crate::next_comment::Priorities>,
@@ -58,6 +61,9 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            participant_verifier: None,
+            participant_served: AtomicU64::new(0),
+            participant_fallback: AtomicU64::new(0),
             next_comment_served: AtomicU64::new(0),
             next_comment_fallback: AtomicU64::new(0),
             next_comment_priorities: Arc::new(crate::next_comment::Priorities::new(cfg.cache_size)),
@@ -581,6 +587,17 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.next_comment_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
             app.next_comment_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if matches!(
+        req.path(),
+        crate::comments::PATH | crate::next_comment::PATH
+    ) && req.headers.get("authorization").is_some()
+    {
+        if out.status == 502 {
+            app.participant_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.participant_served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if out.status >= 500 {

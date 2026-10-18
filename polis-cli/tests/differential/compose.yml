@@ -28,6 +28,10 @@ services:
       POLIS_API_OWNER_DATABASE_URL: postgres://postgres@postgres:5432/p027
       AUTH_ISSUER: https://oidc-simulator:3000/
       AUTH_AUDIENCE: users
+      POLIS_API_PARTICIPANT_READS: "1"
+      POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE: /artifacts/participant-public.pem
+      POLIS_JWT_ISSUER: https://pol.is/
+      POLIS_JWT_AUDIENCE: participants
       POLIS_API_NEXT_COMMENT_READS: "1"
       POLIS_API_NEXT_COMMENT_DATABASE_URL: postgres://postgres@postgres:5432/p027
       TOPICAL_COMMENT_RATIO: "0"

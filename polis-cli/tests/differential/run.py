@@ -155,7 +155,7 @@ def main():
     try:
         dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server')
         def publish_keys():
-            dc('exec','-T','server','node','-e', "(async()=>{const fs=require('fs');let response;for(let i=0;i<60;i++){try{response=await fetch('http://localhost:5001/public-key');if(response.ok)break;}catch{}await new Promise(r=>setTimeout(r,500));}if(!response?.ok)throw Error('key readiness');const jwks=await fetch('https://oidc-simulator:3000/.well-known/jwks.json');if(!jwks.ok)throw Error('jwks readiness');fs.writeFileSync('/artifacts/read-jwks.json',JSON.stringify(await jwks.json()));})().catch(()=>process.exit(1))")
+            dc('exec','-T','server','node','-e', "(async()=>{const fs=require('fs');let response;for(let i=0;i<60;i++){try{response=await fetch('http://localhost:5001/public-key');if(response.ok)break;}catch{}await new Promise(r=>setTimeout(r,500));}if(!response?.ok)throw Error('key readiness');fs.writeFileSync('/artifacts/participant-public.pem',(await response.json()).publicKey);const jwks=await fetch('https://oidc-simulator:3000/.well-known/jwks.json');if(!jwks.ok)throw Error('jwks readiness');fs.writeFileSync('/artifacts/read-jwks.json',JSON.stringify(await jwks.json()));})().catch(()=>process.exit(1))")
         publish_keys()
         dc('up','-d','--pull','never','polis-api','proxy','gateway')
         ready();tokens=get('/tokens')

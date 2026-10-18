@@ -392,3 +392,36 @@ timeout hands back to Node. Set `POLIS_API_NGINX_IMAGE` to a locally built image
 from `file-server/nginx.Dockerfile`; both proxies use that exact image and route
 configuration. The report describes local fixture-network latency, not deployed
 network latency or a live participation-load campaign.
+
+### Existing participant reads
+
+Comments and nextComment can serve Node-issued anonymous and standard-user
+participant credentials with `POLIS_API_PARTICIPANT_READS=1`, in addition to
+their existing process and nginx route switches. All remain off by default.
+Configure `POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE` with Node's matching RSA public
+key and `POLIS_JWT_ISSUER` / `POLIS_JWT_AUDIENCE` with Node's exact values. A key
+change requires replacing the configured public-key file and restarting this
+process. No private signing key belongs in polis-api.
+
+The shared polis-auth verifier requires an exact conversation-code binding and
+an existing matching `(zid, uid, pid)` membership. PID zero is supported. XID,
+provider bearer tokens, cookies, identity query overrides, missing participants,
+other-conversation tokens, Treevite and unsupported shapes return the counted
+502 handoff to Node. An already-voted `initial_tid` also hands back to Node;
+ordinary selection excludes existing votes and returns currentPid. No participant,
+user, invite or token is created. Signed-in comments support the same public
+projection; moderation and report views remain with Node.
+
+Membership reads use the route's existing bounded read-only primary pool;
+nextComment retains its own two slots, 1 ms admission, 50 ms statements and
+75 ms total database-work deadline. Slower route pools do not supply its slots.
+This does not eliminate shared-host CPU or database contention. Health reports
+`participantServed` and `participantFallback` for credential-bearing requests to
+these two routes, alongside the existing nextComment counters.
+
+Generated-fixture proof: `queue-rs/polis-api/conformance/participant-run.sh`.
+Its test-only control wrapper invokes Node's actual JWT issuers, exports only the
+ephemeral public key, and leaves product handlers and the existing recorder
+unchanged. Node responses are recorded and compared as complete HTTP bytes;
+Date-only retries and Node handoffs are counted separately. Existing anonymous
+conformance commands still run with participant serving disabled.

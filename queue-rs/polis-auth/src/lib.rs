@@ -1,5 +1,6 @@
 //! Authority decisions for already verified identities. This crate does not
-//! verify, issue or log tokens, resolve participants, or install HTTP routes.
+//! issue or log tokens or install HTTP routes. Participant verification and
+//! existing-membership reads are in the participant module.
 //!
 //! Owner and moderator are distinct policies, not an ordered privilege ladder.
 //! Node's moderator rule uses site equality (SQL NULL never equals NULL) and an
@@ -278,3 +279,5 @@ mod tests {
         }
     }
 }
+
+pub mod participant;
