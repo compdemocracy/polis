@@ -26,10 +26,10 @@
  * advisory lock the test holds, on the same pooled connection, so it keeps that
  * connection for as long as the test says (a large conversation's export or
  * tally takes seconds; here it takes the whole window). No single wait outlives
- * the connection's statement timeout: on the main pools Postgres ends a wait at
- * that bound (src/db/pg-query.ts), and the wait is issued again at once on the
- * same connection, so the connection is held across a window longer than the
- * bound, as slow statements run back to back would hold it. The hold is keyed
+ * the statement timeout of the pool it runs on: where a pool has one,
+ * Postgres ends a wait at that bound, and the wait is issued again at once on
+ * the same connection, so the connection is held across a window longer than
+ * the bound, as slow statements run back to back would hold it. The hold is keyed
  * to the statement text, not to a pool, so the scenario still applies when a
  * statement moves to another pool. Outside services are stand-ins that never
  * answer until the test releases them.
@@ -790,12 +790,10 @@ function guard(
 // What today's server waits on, named once for the expected failures below.
 // Report tallies (GET /api/v3/comments with include_voting_patterns, in
 // src/comment.ts) run on the read pool that votes, comments and statement
-// selection share (src/db/pg-query.ts). While the tallies hold every connection
-// of it, a participant's request waits the pool's acquire timeout
-// (SERVER_DB_ACQUIRE_TIMEOUT_MS) and then answers 500, with nothing it sent
-// stored.
+// selection share, and that pool has no acquire timeout and no statement
+// timeout (src/db/pg-query.ts), so a participant waits as long as the tallies do.
 const READ_POOL_SHARED_WITH_TALLIES =
-  "report tallies hold the read pool it shares, and it is refused at that pool's acquire timeout";
+  "report tallies hold the read pool it shares, with no acquire or statement timeout";
 // A vote is answered only after the next statement is chosen
 // (handle_POST_votes in src/routes/votes.ts), and topic-agenda routing sends
 // one lookup per selected topic with no deadline and waits for all of them
@@ -825,11 +823,11 @@ guard(
   { reportTallies: true },
   {
     // votesPost reads the conversation from the read pool (src/routes/votes.ts).
-    vote: `the vote is refused before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
+    vote: `the vote waits before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
     // isModerator reads from the read pool (src/utils/common.ts).
-    comment: `the comment is refused before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
+    comment: `the comment waits before it is stored: ${READ_POOL_SHARED_WITH_TALLIES}`,
     // The remaining-statement count (src/comment.ts) and the math read.
-    nextComment: `statement selection is refused: ${READ_POOL_SHARED_WITH_TALLIES}`,
+    nextComment: `statement selection waits: ${READ_POOL_SHARED_WITH_TALLIES}`,
   }
 );
 

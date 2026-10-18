@@ -190,19 +190,6 @@ export default {
     10
   ),
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS),
-  // Bounds on the API server's two main pools, the read-write and read pools
-  // the participation path runs on (db/pg-query.ts). See docs/configuration.md
-  // "Connection budget". 0 turns a bound off.
-  // How long a query waits for one of their connections before it fails (ms).
-  serverDbAcquireTimeoutMs: millisecondsFromEnv(
-    "SERVER_DB_ACQUIRE_TIMEOUT_MS",
-    3000
-  ),
-  // Per-statement cap on their connections (ms), enforced by Postgres.
-  serverDbStatementTimeoutMs: millisecondsFromEnv(
-    "SERVER_DB_STATEMENT_TIMEOUT_MS",
-    10000
-  ),
   shouldUseTranslationAPI: setGoogleApplicationCredentials(),
   staticFilesAdminPort: parseInt(
     process.env.STATIC_FILES_ADMIN_PORT ||
@@ -255,20 +242,6 @@ export default {
   webserverPass: process.env.WEBSERVER_PASS as string,
   webserverUsername: process.env.WEBSERVER_USERNAME as string,
 };
-
-// A whole number of milliseconds from the environment, or `fallback` when the
-// variable is unset or blank. Anything else stops the server at startup, so a
-// mistyped bound can never silently leave a pool unbounded.
-function millisecondsFromEnv(name: string, fallback: number): number {
-  const raw = (process.env[name] ?? "").trim();
-  if (raw === "") return fallback;
-  if (!/^\d+$/.test(raw)) {
-    throw new Error(
-      `${name} must be a whole number of milliseconds (0 turns it off); got '${raw}'`
-    );
-  }
-  return parseInt(raw, 10);
-}
 
 // Use this function when a value should default to true if not set.
 function isTrueOrBlank(val: string | boolean | undefined): boolean {

@@ -3,26 +3,20 @@
  * page at once; each delete is one pd_result_mutate on the read-write pool,
  * and the conversation's writer lock serializes them. If each edit took a
  * pooled connection and then queued for that lock, a large prune would hold
- * every connection: a vote's query would wait behind it, and the edits that
- * could not get a connection within the acquire bound would fail, leaving
- * entries behind. One at a time per process, the edits hold at most one
- * connection, all of them commit, and a query issued meanwhile is served at
- * once.
+ * every connection, and a vote's query would wait behind it. One at a time per
+ * process, the edits hold at most one connection, all of them commit, and a
+ * query issued meanwhile is served at once.
  *
- * The acquire bound is short here, so an edit or a query that has to queue for
- * a connection fails instead of passing on a fast machine. Generated data
- * only; see scripts/test-delphi-result-reads.sh. */
-
-// db/pg-query.ts reads this when it builds its pools, so it is set before any
-// module under test is required (below, in beforeAll).
-process.env.SERVER_DB_ACQUIRE_TIMEOUT_MS = "250";
+ * "At once" is a 250 ms budget: a query that had to queue for a connection
+ * behind the edits would take far longer. Generated data only; see
+ * scripts/test-delphi-result-reads.sh. */
 
 import { CreateTableCommand, ListTablesCommand } from "@aws-sdk/client-dynamodb";
 import { Client } from "pg";
 import { asRequest, conversation, dynamo, postgres, ENV, SCOPE } from "./support";
 
 const ZID = 411, RID = "r411generatedprune0000", ENTRIES = 45;
-const ACQUIRE_TIMEOUT_MS = 250;
+const PROBE_BUDGET_MS = 250;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 let pg: Client;
@@ -84,5 +78,5 @@ test("a prune's edits hold at most one read-write connection, all commit, and a 
   expect({success: pruned.success, deleted: pruned.deletedCount, remaining: remaining.data?.length})
     .toEqual({success: true, deleted: ENTRIES, remaining: 0});
   expect(probe).toMatchObject({ok: 1});
-  expect(probe.ms).toBeLessThan(ACQUIRE_TIMEOUT_MS);
+  expect(probe.ms).toBeLessThan(PROBE_BUDGET_MS);
 }, 300000);
