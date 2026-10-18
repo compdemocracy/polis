@@ -14,7 +14,9 @@ The poll queries are ``WHERE created > :since`` / ``WHERE modified > :since``
 watermark advances to the max timestamp polled (``advance_watermark``).  The
 vote poll reads ``POLL_VOTE_OVERLAP_MS`` below its watermark and drops the rows
 it already handled (``VoteWindow``); ``vote_overlap_ms=0`` is the strict
-cursor, kept here as the control.  The moderation poll is still strict.
+cursor, kept here as the control.  The moderation poll does the same over
+``comments.modified`` with ``POLL_MODERATION_OVERLAP_MS`` (``ModerationWindow``),
+and ``moderation_overlap_ms=0`` is its strict control.
 
 Two real connections are used so the "committed later, timestamped earlier"
 case is a genuine commit-order event and not a Python-side reordering.
@@ -22,7 +24,12 @@ case is a genuine commit-order event and not a Python-side reordering.
 start time; most tests here supply it explicitly, which is what a
 client-supplied or clock-skewed timestamp looks like, and
 ``test_vote_committed_after_a_later_started_vote_is_represented`` leaves it to
-the default, as the server's vote route does.
+the default, as the server's vote route does. The moderation routes stamp
+``modified = now_as_millis()`` in the moderating UPDATE, so
+``comments.modified`` is a transaction start time too;
+``test_moderation_committed_after_a_later_started_one_is_represented`` and
+``test_older_stamped_change_to_a_delivered_comment_is_represented`` leave it to
+that statement.
 """
 
 import time
@@ -204,61 +211,6 @@ def test_vote_committed_after_a_later_started_vote_is_represented(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (moderation variant of the same boundary): "
-        "polismath/database/postgres.py:606 polls comments with `WHERE "
-        "modified > :since` and polismath/poller/service.py:465 advances the "
-        "moderation watermark to max(modified), so a moderation change whose "
-        "`modified` equals the watermark is never delivered. The per-zid worker "
-        "re-derives FULL moderation state once it is woken "
-        "(polismath/poller/service.py:533), so the damage is bounded to 'the "
-        "conversation is never woken' — but with no later vote or later "
-        "moderation change, nothing wakes it."
-    ),
-)
-def test_equal_timestamp_moderation_change_is_eventually_represented(
-    engine, pg_url, make_service
-):
-    """The moderation loop has the same strict boundary."""
-    seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
-    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
-    svc.poll_once()
-
-    # Move the moderation watermark onto a real modified value.
-    now = int(time.time() * 1000)
-    with engine.begin() as conn:
-        conn.execute(sa.text("SET session_replication_role = replica"))
-        conn.execute(
-            sa.text("UPDATE comments SET modified = :m WHERE zid=1 AND tid=0"),
-            {"m": now},
-        )
-    svc.poll_once()
-    assert svc._mod_wm == now
-
-    # A second moderation action lands with modified EXACTLY on the watermark.
-    with engine.begin() as conn:
-        conn.execute(sa.text("SET session_replication_role = replica"))
-        conn.execute(
-            sa.text("UPDATE comments SET mod = -1, modified = :m "
-                    "WHERE zid=1 AND tid=1"),
-            {"m": now},
-        )
-    for _ in range(3):
-        svc.poll_once()
-
-    data = read_math_tables(engine, 1, MATH_ENV)["main"]["data"]
-    with engine.connect() as conn:
-        comment_rows = [dict(r) for r in conn.execute(
-            sa.text("SELECT tid, mod, is_meta, modified FROM comments "
-                    "WHERE zid = 1")).mappings()]
-    expected = F.fold_moderation(comment_rows)
-    assert set(data["moderation"]["mod_out_tids"]) == expected.mod_out_tids, (
-        "the moderated-out comment must eventually be represented"
-    )
-
-
 def test_a_later_vote_repairs_the_skipped_boundary_row(engine, pg_url,
                                                        make_service):
     """On the strict cursor (``vote_overlap_ms=0``), the bound on the damage:
@@ -369,3 +321,217 @@ class TestNegativeControl:
             "the boundary vote was never committed; the boundary tests would "
             "be vacuous"
         )
+
+
+# --------------------------------------------------------------------------- #
+# The same boundary on the moderation poll (comments.modified)
+# --------------------------------------------------------------------------- #
+# comments.mod as a moderator sets it.
+REJECT, ACCEPT = -1, 1
+
+
+def _published_moderation_problems(engine, zid=1):
+    """Where the published moderation sets differ from the comments table as
+    it stands, which is what a full rebuild reads (``poll_moderation``)."""
+    published = read_math_tables(engine, zid, MATH_ENV)["main"]["data"]["moderation"]
+    with engine.connect() as conn:
+        comment_rows = [dict(r) for r in conn.execute(
+            sa.text("SELECT tid, mod, is_meta, modified FROM comments "
+                    "WHERE zid = :zid"), {"zid": zid}).mappings()]
+    expected = F.fold_moderation(comment_rows)
+    problems = []
+    for name in ("mod_out_tids", "mod_in_tids", "meta_tids"):
+        got, want = set(published[name]), getattr(expected, name)
+        if got != want:
+            problems.append(f"{name}: published {sorted(got)}, "
+                            f"comments table {sorted(want)}")
+    return problems
+
+
+def test_equal_timestamp_moderation_change_is_eventually_represented(
+    engine, pg_url, make_service
+):
+    """The moderation loop's boundary: a moderation change whose ``modified``
+    equals the moderation watermark, with nothing later to wake the
+    conversation. The strict ``modified > watermark`` never reads it; the
+    overlap does."""
+    seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+
+    # Move the moderation watermark onto a real modified value.
+    now = int(time.time() * 1000)
+    with engine.begin() as conn:
+        conn.execute(sa.text("SET session_replication_role = replica"))
+        conn.execute(
+            sa.text("UPDATE comments SET modified = :m WHERE zid=1 AND tid=0"),
+            {"m": now},
+        )
+    svc.poll_once()
+    assert svc._mod_wm == now
+
+    # A second moderation action lands with modified EXACTLY on the watermark.
+    with engine.begin() as conn:
+        conn.execute(sa.text("SET session_replication_role = replica"))
+        conn.execute(
+            sa.text("UPDATE comments SET mod = :m_out, modified = :m "
+                    "WHERE zid=1 AND tid=1"),
+            {"m": now, "m_out": REJECT},
+        )
+    for _ in range(3):
+        svc.poll_once()
+
+    problems = _published_moderation_problems(engine, 1)
+    assert problems == [], (
+        "the moderated-out comment must eventually be represented: "
+        f"{problems}"
+    )
+
+
+def _moderate(conn, zid, tid, mod):
+    """Moderate one comment the way the server's moderation routes do:
+    ``modified = now_as_millis()`` in the same UPDATE, which reads ``now()``,
+    the START time of the moderating transaction. Returns the stored
+    ``modified``."""
+    return conn.execute(
+        sa.text("UPDATE comments SET mod = :mod, modified = now_as_millis() "
+                "WHERE zid = :zid AND tid = :tid RETURNING modified"),
+        {"zid": zid, "tid": tid, "mod": mod},
+    ).scalar_one()
+
+
+def _wait_for_database_clock_past(conn, millis):
+    """``conn`` autocommits, so each statement reads a fresh ``now()``."""
+    deadline = time.monotonic() + 5.0
+    while conn.execute(sa.text("SELECT now_as_millis()")).scalar_one() <= millis:
+        assert time.monotonic() < deadline, "database clock did not advance"
+
+
+def _two_sessions(pg_url):
+    """Session A (explicit transactions) and session B (autocommit)."""
+    return (sa.create_engine(pg_url, poolclass=sa.pool.NullPool),
+            sa.create_engine(pg_url, poolclass=sa.pool.NullPool,
+                             isolation_level="AUTOCOMMIT"))
+
+
+@pytest.mark.parametrize("strict", [False, True], ids=["overlap", "strict-control"])
+def test_moderation_committed_after_a_later_started_one_is_represented(
+    engine, pg_url, make_service, strict
+):
+    """The production interleaving on the moderation poll, with nothing
+    stamped by the test.
+
+    Session A opens a transaction and rejects comment 0 of conversation 1; its
+    ``modified`` is A's start time. Session B starts later and rejects a
+    comment of conversation 2, so B's ``modified`` is larger, and B commits
+    first. The poller polls, sees only B, and its moderation watermark moves
+    past A's ``modified``. Then A commits. Nothing else touches conversation 1,
+    and the next poll must still deliver A.
+
+    ``strict-control`` runs the same schedule on the strict cursor
+    (``moderation_overlap_ms=0``) and asserts that A is missing, so the
+    overlap is what delivers it.
+    """
+    seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
+    seed_conversation(engine, zid=2, n_ptpts=4, n_cmts=3)
+    overlap = {"moderation_overlap_ms": 0} if strict else {}
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1, **overlap)
+    svc.poll_once()
+    assert svc.is_cached(1), "precondition: conversation 1 is warm"
+
+    session_a, session_b = _two_sessions(pg_url)
+    try:
+        with session_a.connect() as a, session_b.connect() as b:
+            a.begin()
+            a_modified = _moderate(a, 1, 0, REJECT)
+            _wait_for_database_clock_past(b, a_modified)
+            b_modified = _moderate(b, 2, 1, REJECT)
+            assert b_modified > a_modified
+
+            svc.poll_once()     # sees B only: A is not committed yet
+            assert svc._mod_wm >= b_modified > a_modified, (
+                "precondition: the moderation watermark has moved past A"
+            )
+            a.commit()
+
+        svc.poll_once()
+    finally:
+        session_a.dispose()
+        session_b.dispose()
+
+    problems = _published_moderation_problems(engine, 1)
+    if strict:
+        assert problems != [], (
+            "control: the strict cursor delivered A; the schedule did not "
+            "reproduce the skip"
+        )
+        return
+    assert problems == [], (
+        "a committed moderation change whose transaction began before a "
+        f"polled change was never delivered to the warm conversation: {problems}"
+    )
+
+
+@pytest.mark.parametrize("strict", [False, True], ids=["overlap", "strict-control"])
+def test_older_stamped_change_to_a_delivered_comment_is_represented(
+    engine, pg_url, make_service, strict
+):
+    """Two changes to ONE comment, committed in the reverse of their stamps.
+
+    Session A's transaction starts first. Session B starts later, accepts
+    comment 0 and commits; the poller delivers it. Then A rejects the same
+    comment and commits, so the comment's row now carries A's ``modified``,
+    which is older than the change already delivered. A full rebuild reads the
+    comments table as it stands and keeps A's rejection, so the warm
+    conversation must show it too: for moderation the last commit is the
+    state, whatever its stamp.
+
+    Comments 1 and 2 are accepted and rejected first, so neither moderation
+    set becomes empty: the warm path replaces a set only when the re-derived
+    one is non-empty (``Conversation.update_moderation``), which is not what
+    this test is about.
+    """
+    seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
+    overlap = {"moderation_overlap_ms": 0} if strict else {}
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1, **overlap)
+    with engine.begin() as conn:
+        _moderate(conn, 1, 1, ACCEPT)
+        _moderate(conn, 1, 2, REJECT)
+    svc.poll_once()
+    assert svc.is_cached(1), "precondition: conversation 1 is warm"
+    assert _published_moderation_problems(engine, 1) == []
+
+    session_a, session_b = _two_sessions(pg_url)
+    try:
+        with session_a.connect() as a, session_b.connect() as b:
+            a.begin()
+            a_start = a.execute(sa.text("SELECT now_as_millis()")).scalar_one()
+            _wait_for_database_clock_past(b, a_start)
+            b_modified = _moderate(b, 1, 0, ACCEPT)
+
+            svc.poll_once()
+            assert _published_moderation_problems(engine, 1) == [], (
+                "precondition: B's acceptance was delivered"
+            )
+            assert svc._mod_wm == b_modified
+
+            a_modified = _moderate(a, 1, 0, REJECT)
+            assert a_modified == a_start < b_modified
+            a.commit()
+
+        svc.poll_once()
+    finally:
+        session_a.dispose()
+        session_b.dispose()
+
+    problems = _published_moderation_problems(engine, 1)
+    if strict:
+        assert problems != [], (
+            "control: the strict cursor delivered A; the schedule did not "
+            "reproduce the skip"
+        )
+        return
+    assert problems == [], (
+        "the comment's committed moderation was never delivered to the warm "
+        f"conversation: {problems}"
+    )

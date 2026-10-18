@@ -134,6 +134,7 @@ vote_interval_ms        POLL_VOTE_INTERVAL_MS | VOTE_POLLING_INTERVAL |
 mod_interval_ms         POLL_MOD_INTERVAL_MS | MOD_POLLING_INTERVAL |
                         POLL_INTERVAL_MS                                1000
 vote_overlap_ms         POLL_VOTE_OVERLAP_MS (0 = strict watermark)     60000
+moderation_overlap_ms   POLL_MODERATION_OVERLAP_MS (0 = strict)         60000
 poll_from_days_ago      POLL_FROM_DAYS_AGO                              10
 allowlist               POLL_ALLOWLIST | MATH_ZID_ALLOWLIST             []
 blocklist               POLL_BLOCKLIST | MATH_ZID_BLOCKLIST             []
