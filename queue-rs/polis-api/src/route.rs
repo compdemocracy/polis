@@ -143,6 +143,9 @@ pub struct App {
     pub settings_page_reads: bool,
     pub settings_page_served: AtomicU64,
     pub settings_page_fallback: AtomicU64,
+    pub user_logout_page_reads: bool,
+    pub user_logout_page_served: AtomicU64,
+    pub user_logout_page_fallback: AtomicU64,
     pub user_login_page_reads: bool,
     pub user_login_page_served: AtomicU64,
     pub user_login_page_fallback: AtomicU64,
@@ -285,6 +288,9 @@ impl App {
             settings_page_reads: false,
             settings_page_served: AtomicU64::new(0),
             settings_page_fallback: AtomicU64::new(0),
+            user_logout_page_reads: false,
+            user_logout_page_served: AtomicU64::new(0),
+            user_logout_page_fallback: AtomicU64::new(0),
             user_login_page_reads: false,
             user_login_page_served: AtomicU64::new(0),
             user_login_page_fallback: AtomicU64::new(0),
@@ -1056,6 +1062,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.settings_page_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::user_logout_page::matches(req.path()) {
+        if out.status == 502 {
+            app.user_logout_page_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.user_logout_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if crate::user_login_page::matches(req.path()) {
         if out.status == 502 {
             app.user_login_page_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1156,6 +1170,11 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
     if crate::settings_page::matches(req.path()) && crate::settings_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::user_logout_page::matches(req.path())
+        && crate::user_logout_page::parse(app, req).is_none()
     {
         return bad_gateway();
     }
@@ -1343,6 +1362,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
         || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
+        || crate::user_logout_page::matches(req.path())
         || crate::user_login_page::matches(req.path())
         || crate::user_create_page::matches(req.path())
     {
@@ -1371,6 +1391,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::settings_page::matches(req.path()) {
         return crate::settings_page::handle(app, req, res);
+    }
+    if crate::user_logout_page::matches(req.path()) {
+        return crate::user_logout_page::handle(app, req, res);
     }
     if crate::user_login_page::matches(req.path()) {
         return crate::user_login_page::handle(app, req, res);
@@ -4070,6 +4093,107 @@ mod tests {
         req.body = vec![b'x'];
         assert_eq!(handle(state.clone(), req).await.status, 502);
         assert_eq!(state.user_login_page_fallback.load(Ordering::Relaxed), 5);
+    }
+    #[tokio::test]
+    async fn user_logout_page_redirect_gate_and_wire() {
+        assert!(crate::user_logout_page::matches("/user/logout"));
+        assert!(crate::user_logout_page::matches("/user/logout/step"));
+        assert!(!crate::user_logout_page::matches("/user/logoutSuffix"));
+        assert!(!crate::user_logout_page::matches("/user/logou"));
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(state.clone(), probe("GET", "/user/logout", "MSIE 8.0"))
+                .await
+                .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().user_logout_page_reads = true;
+        for path in ["/user/logout", "/user/logout/step", "/user/logout/"] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.user_logout_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/user/logout", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/user/logout"),
+            ("OPTIONS", "/user/logout"),
+            ("GET", "/user/logout?x=1"),
+            ("GET", "/user/logout/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.user_logout_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().user_logout_page_reads = true;
+        let mut req = probe("GET", "/user/logout", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/user/logout")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn user_logout_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().user_logout_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/user/logout".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/user/logout".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.user_logout_page_fallback.load(Ordering::Relaxed), 5);
     }
     #[tokio::test]
     async fn settings_page_redirect_gate_and_wire() {
