@@ -48,6 +48,9 @@ ready
 "${compose[@]}" restart server dynamodb polis-api
 ready
 "${compose[@]}" exec -T driver node characterization/cli.cjs seed-pages
+# Restarting the fixture services can change their Docker addresses. Refresh
+# each proxy's static Node upstream after those restarts, before comparisons.
+"${compose[@]}" restart next-proxy-on next-proxy-off next-proxy-stall
 status=0
 "${compose[@]}" exec -T driver node /conformance/next-comment-replay.cjs >"$out" || status=$?
 "${compose[@]}" exec -T driver node /conformance/next-comment-latency.cjs >"${out%.json}-latency.json" || status=$?

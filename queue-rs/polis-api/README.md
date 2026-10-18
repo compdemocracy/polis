@@ -440,3 +440,15 @@ to Node and are counted separately in `connectionServed`/`connectionFallback`.
 Nginx uses the same 100 ms per-phase fallback limits as nextComment. Full response
 bytes are recorded by `conformance/connection-run.sh`; Date-only retries and
 handoffs are reported separately. This adds no participation pool or database work.
+
+### Crawler policy
+
+`POLIS_API_ROBOTS_READS=1` and nginx `RUST_API_ROUTES=robots` opt into bodyless
+GET/HEAD `/robots.txt`. Both default off. Types are shared with the CLI through
+`polis-contracts::robots`. The body and headers match Node, including its existing
+application/json content type for this text body, and no API CORS headers.
+The normal HTTPS redirect still applies. Unknown queries, credentials, cookies,
+bodies and unsupported methods use counted Node handoffs. Health exposes
+`robotsServed` and `robotsFallback`. The handler performs no database/provider
+work and adds no participation pool. `conformance/robots-run.sh` records complete
+Node/Rust response pairs, separately counting Date-only retries and Node work.
