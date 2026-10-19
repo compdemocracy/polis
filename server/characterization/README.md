@@ -112,7 +112,7 @@ python3 server/characterization/run.py down
 python3 server/characterization/run.py replay recording
 python3 server/characterization/run.py test
 # Equivalent inside the running sealed server (includes both live runtime tests):
-docker compose -f server/characterization/compose.yml exec -T server node --test characterization/test.cjs characterization/corrections.test.cjs characterization/recorded.test.cjs characterization/round2.test.cjs characterization/pca2.test.cjs characterization/runtime.test.cjs
+docker compose -f server/characterization/compose.yml exec -T server node --test characterization/test.cjs characterization/route-inventory.test.cjs characterization/corrections.test.cjs characterization/recorded.test.cjs characterization/round2.test.cjs characterization/pca2.test.cjs characterization/runtime.test.cjs
 python3 -m unittest discover -s server/characterization -p 'test_*.py'
 python3 server/characterization/run.py down
 ```
@@ -352,7 +352,7 @@ python3 server/characterization/run.py test
 python3 server/characterization/run.py down
 ```
 
-The six-file Node command remains the runner/README source of truth; round 6 adds
+The Node command remains the runner/README source of truth; round 6 adds
 two comments tests within the existing pca2.test.cjs file. The round-5 maintenance
 alone passed 80/80 before this expansion. Host audit commands require the existing
 server Node dependencies (or run their equivalents inside the sealed driver).
@@ -450,3 +450,38 @@ The production-clone policy skeleton now covers the same 600 columns, up from
 423: 71 queue/provenance and 106 coordinator entries were missing. Every entry
 remains `REVIEW`, with `reviewed: false` and an empty reason. This inventory update
 does not admit production data or replace the historical recording archive.
+
+### Updating route identities without replacing a recording
+
+`route-inventory.cjs ROOT PREVIOUS OUTPUT_DIRECTORY SOURCE_COMMIT` parses the
+route declarations without importing application code. Run it with the
+server's installed TypeScript module (for example, from the server image).
+It emits `inventory.json` and `diff.json` into a new directory. Render the diff
+with `python3 route-inventory-report.py OUTPUT_DIRECTORY/diff.json` and review
+it before copying the proposed inventory into the harness.
+
+IDs are stable by method and exact path/regex. The two duplicate-key families
+have explicit callback or condition discriminators. New routes get IDs above
+the historical maximum; removed routes move into `retired`, retaining their
+IDs forever. Reintroducing a key reuses its historical ID. Source lines and
+registration order never allocate IDs; runtime admission still checks the
+complete enabled registration order and every ALL expansion. Unknown duplicate
+registrations, dynamic paths, conditions or registrations outside app.ts fail
+closed for review. The fixture has operations and missing-file 404 mode off.
+
+All original 201 IDs survive this migration. Retired entries generate no live
+cases and are reported separately from exclusions, passes and missing coverage.
+Retained generated case IDs and entropy seeds stay unchanged. The frozen
+archive is validated against the hash-bound `inventory-legacy.json` and
+`scope-legacy.json`; only that exact historical pair and the current pair are
+accepted. The recording's required-case census is still enforced.
+
+For isolated box runs, `P027_SERVER_IMAGE`, `P027_POSTGRES_IMAGE`,
+`P027_FILE_SERVER_IMAGE`, `P027_OIDC_IMAGE` and `P027_MATH_SEED_IMAGE` select
+per-run local image names. Defaults preserve the hosted workflow. A source
+archive without Git metadata must supply its full base SHA as
+`P027_SOURCE_COMMIT`; provenance labels this as an explicit archive base and
+hashes the actual mounted source separately. The caller must retain its
+archive/patch reconstruction proof. Run `run.py record` and review the
+recordings by stable route ID. Do not pack or replace the committed baseline
+as part of inventory maintenance.

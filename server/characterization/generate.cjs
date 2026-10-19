@@ -17,6 +17,29 @@ function generate(inventory, scope, seed = "p027-v1", profile = "boundary") {
   for (const r of inventory.routes) {
     if (excluded.has(r.id)) continue;
     if (r.method === "ALL") {
+      if (r.path === "/^\\/api\\/v3\\/ops(\\/.*)?$/") {
+        for (const auth of modes)
+          cases.push({
+            caseId: `r${r.id}/${auth}/${profile}`,
+            routeId: r.id,
+            auth,
+            case: profile,
+            seed: hash(`${seed}/${r.id}/${auth}`).slice(0, 12),
+            request: {
+              method: "GET",
+              path: "/api/v3/ops/generated-unmatched",
+              query: {},
+              headers: {
+                accept: "application/json",
+                "x-forwarded-proto": "https",
+                ...(auth !== "unauthenticated"
+                  ? { authorization: `$auth:${auth}` }
+                  : {}),
+              },
+              body: null,
+            },
+          });
+      }
       if (r.id === 3)
         for (const auth of modes)
           cases.push({

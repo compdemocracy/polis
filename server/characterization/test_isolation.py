@@ -74,7 +74,7 @@ class IsolationTest(unittest.TestCase):
                 self.assertIn('set a unique COMPOSE_PROJECT_NAME', result.stderr)
                 self.assertNotIn('ModuleNotFoundError', result.stderr)
 
-    def test_runner_and_readme_execute_same_six_node_files(self):
+    def test_runner_and_readme_execute_same_node_files(self):
         spec = importlib.util.spec_from_file_location('p027_runner', HERE / 'run.py')
         module = importlib.util.module_from_spec(spec)
         calls = []
@@ -87,7 +87,7 @@ class IsolationTest(unittest.TestCase):
             module.main()
         command = next(c for c in calls if '--test' in c)
         files = list(command[command.index('--test') + 1:])
-        expected = ['test.cjs', 'corrections.test.cjs', 'recorded.test.cjs',
+        expected = ['test.cjs', 'route-inventory.test.cjs', 'corrections.test.cjs', 'recorded.test.cjs',
                     'round2.test.cjs', 'pca2.test.cjs', 'runtime.test.cjs']
         self.assertEqual(files, ['characterization/' + f for f in expected])
         readme = (HERE / 'README.md').read_text()

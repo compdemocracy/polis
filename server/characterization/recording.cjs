@@ -327,9 +327,22 @@ function readRecording(dir, { allowArmed = false } = {}) {
   }
   if (new Set(cases.map((c) => c.caseId)).size !== cases.length)
     throw Error("duplicate cases");
+  // Admit only the current plan or the exact historical plan whose archive
+  // remains committed. Archive-supplied inventories cannot shrink the census.
+  const { hash } = require("./core.cjs");
+  const plans = [
+    [require("./inventory.json"), require("./scope.json")],
+    [require("./inventory-legacy.json"), require("./scope-legacy.json")],
+  ];
+  const plan = plans.find(
+    ([inventory, scope]) =>
+      hash(inventory) === index.meta.inventoryHash &&
+      hash(scope) === index.meta.scopeHash
+  );
+  if (!plan) throw Error("unrecognized route inventory/scope plan");
   const planned = require("./generate.cjs").generate(
-    require("./inventory.json"),
-    require("./scope.json"),
+    plan[0],
+    plan[1],
     "p027-v1",
     index.meta.profile
   );
