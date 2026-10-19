@@ -40,12 +40,14 @@ import {
   U1_STATEMENTS,
   windowBounds,
 } from "../../src/ops/activityNow";
-import { guardedRead, OpsReadError } from "../../src/ops/guardedRead";
+import { guardedRead, OpsQuery, OpsReadError } from "../../src/ops/guardedRead";
 import {
   DAILY_90,
+  DAY_MS,
   HOURLY_48,
   readMonthly,
   readSeries,
+  seriesStart,
   U2_MONTHLY,
   U2_STATEMENTS,
 } from "../../src/ops/history";
@@ -92,6 +94,24 @@ type PlanNode = {
 
 function nodes(plan: PlanNode): PlanNode[] {
   return [plan, ...(plan.Plans || []).flatMap(nodes)];
+}
+
+// Other test files write votes and conversations while this one runs (CI runs
+// two workers), so a page's total and the count it is checked against must
+// come from one snapshot: two reads at two moments differ by whatever was
+// written in between. This runs `work` through guardedRead with its
+// transaction raised to REPEATABLE READ before its first query (guardedRead's
+// SET LOCALs take no snapshot, so SET TRANSACTION is still allowed there).
+function inOneSnapshot<T>(work: (q: OpsQuery) => Promise<T>): Promise<T> {
+  return guardedRead(async (q) => {
+    await q("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ", []);
+    return work(q);
+  });
+}
+
+async function countOf(q: OpsQuery, sql: string, values: unknown[]) {
+  const [row] = await q<{ n: number }>(sql, values);
+  return row.n;
 }
 
 let pool: Pool;
@@ -194,18 +214,21 @@ describe("comments: modified >= created", () => {
 describe("U1 through the guards", () => {
   test("votes and statements read for real, one row per window", async () => {
     const now = Date.now();
-    const votes = await guardedRead((q) => readVotes(q, now));
+    const { votes, counted } = await inOneSnapshot(async (q) => ({
+      votes: await readVotes(q, now),
+      counted: await countOf(
+        q,
+        "SELECT count(*)::int AS n FROM votes WHERE created >= $1",
+        [windowBounds(now)[0]]
+      ),
+    }));
     const statements = await guardedRead((q) => readStatements(q, now));
     expect(votes.map((r) => r.window)).toEqual([
       "Last 5 minutes",
       "Last hour",
       "Last 24 hours",
     ]);
-    const { rows } = await pool.query(
-      "SELECT count(*)::int AS n FROM votes WHERE created >= $1",
-      [windowBounds(now)[0]]
-    );
-    expect(votes[2].votes).toBe(rows[0].n);
+    expect(votes[2].votes).toBe(counted);
     // Shorter windows never exceed longer ones.
     for (const key of ["votes", "voters", "conversations"]) {
       expect(votes[0][key]).toBeLessThanOrEqual(votes[1][key] as number);
@@ -368,20 +391,34 @@ describe("the new pages through the guards, for real", () => {
   test("U2 series and monthly", async () => {
     const now = Date.now();
     const hourly = await guardedRead((q) => readSeries(q, HOURLY_48, now));
-    const daily = await guardedRead((q) => readSeries(q, DAILY_90, now));
     expect(hourly).toHaveLength(48);
+    // The count covers exactly the buckets the series keeps: the oldest
+    // through the one holding now (shapeSeries drops any later bucket).
+    const { first, current } = seriesStart(DAILY_90, now);
+    const { daily, votes } = await inOneSnapshot(async (q) => ({
+      daily: await readSeries(q, DAILY_90, now),
+      votes: await countOf(
+        q,
+        "SELECT count(*)::int AS n FROM votes WHERE created >= $1 AND created < $2",
+        [first * DAY_MS, (current + 1) * DAY_MS]
+      ),
+    }));
     expect(daily).toHaveLength(90);
-    const { rows } = await pool.query(
-      "SELECT count(*)::int AS n FROM votes WHERE created >= $1",
-      [(Math.floor(now / 86400000) - 89) * 86400000]
-    );
-    expect(daily.reduce((n, r) => n + (r.votes as number), 0)).toBe(rows[0].n);
-    const monthly = await guardedRead((q) => readMonthly(q, now));
-    const total = await pool.query(
-      "SELECT count(*)::int AS n FROM conversations"
-    );
+    expect(daily.reduce((n, r) => n + (r.votes as number), 0)).toBe(votes);
+    // Every conversation through the end of the current UTC month, the last
+    // month the series plots.
+    const d = new Date(now);
+    const nextMonth = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+    const { monthly, conversations } = await inOneSnapshot(async (q) => ({
+      monthly: await readMonthly(q, now),
+      conversations: await countOf(
+        q,
+        "SELECT count(*)::int AS n FROM conversations WHERE created < $1",
+        [nextMonth]
+      ),
+    }));
     expect(monthly.reduce((n, r) => n + (r.conversations as number), 0)).toBe(
-      total.rows[0].n
+      conversations
     );
   });
 
