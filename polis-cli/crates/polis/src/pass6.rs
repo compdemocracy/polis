@@ -43,7 +43,14 @@ pub fn execute(
     timeout: u64,
 ) -> Result<Value> {
     let is_report = path.starts_with("report ");
-    let id = str_arg(m, if is_report { "id" } else { "conversation" });
+    let id = if path == "report topics" {
+        m.get_one::<String>("report")
+            .or_else(|| m.get_one::<String>("id"))
+            .map(String::as_str)
+            .ok_or_else(|| Error::input("Supply a report ID or --report REPORT."))?
+    } else {
+        str_arg(m, if is_report { "id" } else { "conversation" })
+    };
     public_id(id)?;
     let topic = if path == "topic statements" {
         Some(topic_path(str_arg(m, "key"))?)
