@@ -624,7 +624,15 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
                     println!("{}", serde_json::to_string_pretty(&v).unwrap())
                 }
             }
-            Err(e) => eprintln!("polis: {} [{}]\n{}", e.message, e.code, e.action),
+            Err(e) => {
+                eprintln!("polis: {} [{}]\n{}", e.message, e.code, e.action);
+                if let Some(code) = e.upstream.get("code").and_then(Value::as_str) {
+                    eprintln!("Server code: {}", listing::terminal_text(code));
+                }
+                if let Some(message) = e.upstream.get("message").and_then(Value::as_str) {
+                    eprintln!("Server message: {}", listing::terminal_text(message));
+                }
+            }
         }
     }
     ExitCode::from(exit)

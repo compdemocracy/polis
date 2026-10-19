@@ -14,8 +14,15 @@ are not unlimited. `warnings` is an array. HTTP endpoint data otherwise retains
 its server shape; do not assume every data object has the same keys.
 
 `error` has `code`, `message`, `action`, `retryable`, `outcome`, `upstream`.
-`upstream` is null or a safe HTTP status/request ID/recognized-code object.
-Arbitrary upstream bodies are withheld. A recovery action is advice, not approval
+`upstream` is null or an HTTP status/request ID/code object. For HTTP 4xx,
+explicit string `code` and `message` fields (at the top level or inside an `error`
+object) are also shown, including unrecognized server codes. Codes are limited to
+128 ASCII letters, digits, dots, underscores or hyphens; messages to 4096 UTF-8
+bytes. Invalid or oversized fields are omitted. Controls and invisible formatting
+characters in messages are escaped, and the request's bearer token is redacted.
+These are untrusted server explanations; the CLI's error code, recovery action,
+exit code and retry/outcome policy are unchanged. Normal output also prints these
+fields. Other fields, HTML, plain-text bodies, and 5xx prose remain withheld. A recovery action is advice, not approval
 or a command to execute automatically. Outcomes are `not_sent`, `rejected` or
 `unknown`; this release does not automatically retry requests.
 
