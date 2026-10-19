@@ -93,11 +93,41 @@ pub struct Limits {
     pub max_lifetime: Duration,
 }
 
+// Test-only observations preserve the production acquisition future and limits.
+// A Pending poll is actual permit contention, unlike elapsed wall-clock time.
+#[cfg(all(test, feature = "db-tests"))]
+#[derive(Debug, Default)]
+pub(crate) struct PoolEvidence {
+    pub acquired: std::sync::atomic::AtomicUsize,
+    pub pending: std::sync::atomic::AtomicUsize,
+    pub acquire_timeouts: std::sync::atomic::AtomicUsize,
+    pub completed: std::sync::atomic::AtomicUsize,
+    pub errors: std::sync::atomic::AtomicUsize,
+    pub deadlines: std::sync::atomic::AtomicUsize,
+}
+
+#[cfg(all(test, feature = "db-tests"))]
+impl PoolEvidence {
+    pub fn snapshot(&self) -> [usize; 6] {
+        use std::sync::atomic::Ordering::SeqCst;
+        [
+            self.acquired.load(SeqCst),
+            self.pending.load(SeqCst),
+            self.acquire_timeouts.load(SeqCst),
+            self.completed.load(SeqCst),
+            self.errors.load(SeqCst),
+            self.deadlines.load(SeqCst),
+        ]
+    }
+}
+
 pub struct Pool {
     connector: Connector,
     idle: Mutex<Vec<(Client, Instant)>>,
     permits: Arc<Semaphore>,
     limits: Limits,
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) evidence: PoolEvidence,
 }
 
 impl Pool {
@@ -107,6 +137,8 @@ impl Pool {
             idle: Mutex::new(Vec::new()),
             permits: Arc::new(Semaphore::new(limits.size)),
             limits,
+            #[cfg(all(test, feature = "db-tests"))]
+            evidence: PoolEvidence::default(),
         })
     }
 
@@ -133,16 +165,52 @@ impl Pool {
         T: Send + 'static,
         F: FnOnce(&mut Client) -> Result<T> + Send + 'static,
     {
-        let permit = tokio::time::timeout(
-            self.limits.acquire_timeout,
-            self.permits.clone().acquire_owned(),
-        )
-        .await
-        .map_err(|_| unavailable("pool acquire timeout"))?
-        .map_err(unavailable)?;
+        let acquire = self.permits.clone().acquire_owned();
+        #[cfg(all(test, feature = "db-tests"))]
+        let acquire = {
+            use std::{future::Future, sync::atomic::Ordering::SeqCst, task::Poll};
+            let mut acquire = Box::pin(acquire);
+            let mut observed_pending = false;
+            std::future::poll_fn(move |cx| {
+                let result = acquire.as_mut().poll(cx);
+                if matches!(result, Poll::Pending) && !observed_pending {
+                    observed_pending = true;
+                    self.evidence.pending.fetch_add(1, SeqCst);
+                }
+                result
+            })
+        };
+        let permit = tokio::time::timeout(self.limits.acquire_timeout, acquire)
+            .await
+            .map_err(|_| {
+                #[cfg(all(test, feature = "db-tests"))]
+                self.evidence
+                    .acquire_timeouts
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                unavailable("pool acquire timeout")
+            })?
+            .map_err(unavailable)?;
+        #[cfg(all(test, feature = "db-tests"))]
+        self.evidence
+            .acquired
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let pool = self.clone();
         tokio::task::spawn_blocking(move || -> Result<T> {
             let _permit = permit;
+            #[cfg(all(test, feature = "db-tests"))]
+            struct Completion<'a>(&'a PoolEvidence, bool);
+            #[cfg(all(test, feature = "db-tests"))]
+            impl Drop for Completion<'_> {
+                fn drop(&mut self) {
+                    use std::sync::atomic::Ordering::SeqCst;
+                    if !self.1 {
+                        self.0.errors.fetch_add(1, SeqCst);
+                    }
+                    self.0.completed.fetch_add(1, SeqCst);
+                }
+            }
+            #[cfg(all(test, feature = "db-tests"))]
+            let mut completion = Completion(&pool.evidence, false);
             let cached = pool
                 .idle
                 .lock()
@@ -160,6 +228,10 @@ impl Pool {
                 if idle.len() < pool.limits.size {
                     idle.push((client, born));
                 }
+            }
+            #[cfg(all(test, feature = "db-tests"))]
+            {
+                completion.1 = out.is_ok();
             }
             out
         })
