@@ -330,10 +330,19 @@ fn report_reads_resolve_the_matching_conversation_and_preserve_fields() {
         ),
     ] {
         let t = tempfile::tempdir().unwrap();
-        let s = server(t.path(), vec![json_res(report()), json_res(body.clone())]);
+        let mut responses = vec![json_res(report()), json_res(body.clone())];
+        let mut expected = body.clone();
+        if args[1] == "statements" {
+            responses.push((404, "text/html", "Cannot GET importance".into()));
+            expected["comments"][0]["important"] = Value::Null;
+            expected["comments"][0]["voters"] = Value::Null;
+            expected["importance"] =
+                json!({"state":"unavailable","error":"capability_unavailable","read_at_ms":null});
+        }
+        let s = server(t.path(), responses);
         let (exit, v) = call(t.path(), &args, None, false);
         assert_eq!(exit, 0);
-        assert_eq!(v["data"], body);
+        assert_eq!(v["data"], expected);
         let req = s.join().unwrap();
         assert!(req[0].starts_with("GET /api/v3/reports?report_id=rA "));
         assert!(req[1].starts_with(&format!("GET {route} ")));

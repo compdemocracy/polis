@@ -29,7 +29,9 @@ def cases():
       ('invite wave list',[]),('invite list',[]),('invite status',[])]:
         add(path,[*args,'--conversation',C])
     add('context list');add('conversation uuid',[C]);add('report view',[R])
-    add('report stats',[R]);add('report statements list',[R])
+    add('report stats',[R]);add('report statements list',[R],scope='rust-only')
+    rows[-1]['contract']='report-importance'
+    rows[-1]['scenario']='report statements current importance'
     add('participant export',['--conversation',C,'--output','participants.csv'])
     add('participant xid export',['--conversation',C,'--output','xids.csv'])
     add('invite export',['--conversation',C,'--output','invites.csv'])
