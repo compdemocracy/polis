@@ -30,3 +30,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/fuzz -p 'test_*.
 # differing receipts. The default production binary lacks this capability.
 cargo clippy --locked -p polis --features fixture-ids --all-targets -- -D warnings
 cargo test --locked -p polis --features fixture-ids --bin polis seeds::fixture_tests
+
+# Release archive/provenance checks share the same local and hosted entry point.
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ../scripts/tests -p test_polis_cli_release.py

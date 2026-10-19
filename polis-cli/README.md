@@ -16,9 +16,10 @@ cargo fmt --all --check
 ./target/release/polis --help
 ```
 
-The tested release target is macOS arm64. Rust 1.99 built the delivered binary.
-`Cargo.lock` pins the reviewed build inputs. Other platforms and older toolchains
-have not been verified; credentials use an owner-only file store by default on every supported platform.
+The release build uses the pinned Rust toolchain and `Cargo.lock`.
+See [building, installing and updating](docs/releases.md) for native artifacts,
+commit identity, platform qualification and explicit installation. Credentials
+use an owner-only file store by default on every supported platform.
 
 ## Start here
 
