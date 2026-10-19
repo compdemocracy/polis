@@ -50,6 +50,23 @@ hashes. It never drops fields, replaces IDs, sorts arrays, retries writes or
 accepts a mismatch. The output lists differing JSON paths without secret values
 or submitted text. `auth token` is compared privately in memory, never logged.
 
+The gateway also records the actual response body bytes for successful `math
+view` (whole and subset) and `api` scenarios, whose payloads are printed directly
+under `data`. A separate numeric check parses the original wire and CLI stdout
+number tokens as exact decimals, not binary floats. It catches parse/print drift
+even when the same CLI binary makes the identical mistake in both phases.
+Equivalent exponent/trailing-zero spellings are accepted; changed, missing,
+additional or nonnumeric replacement fields fail. The generated PCA center
+includes a value that exposed a one-bit parser drift without `float_roundtrip`.
+
+Capture is bounded to 8 MiB per body and two responses, stays in memory, and
+never rewrites the bytes forwarded to the CLI. Gzip is decoded with a bounded
+output size. Missing, duplicated, truncated or oversized recordings fail the
+check. Only numeric field counts, differing paths and body hashes enter the
+`node_numeric_wire` / `rust_numeric_wire` reports. Other commands reshape their
+payloads and retain the existing semantic comparison; they do not claim this
+additional numeric wire coverage. The separate byte-replay corpus is untouched.
+
 Generated test clocks, SQL timestamp defaults and server-generated identity
 entropy are fixed *before* execution, not erased from results. They live only
 in the test entry point and disposable database; the real handlers, access

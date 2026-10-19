@@ -17,6 +17,9 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from urllib.parse import quote, urlsplit
+
+from numeric_wire import compare_recording
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -196,6 +199,7 @@ class Cli:
 
     def __init__(self,binary,stack,workspace):
         self.binary=binary;self.stack=stack;self.workspace=Path(workspace)
+        self.numeric_checks=[]
         self.child={k:v for k,v in os.environ.items() if not k.startswith('POLIS_')}
         self.child['POLIS_KEYCHAIN_SERVICE']='org.pol.is.cli.differential.'+stack.project
 
@@ -212,13 +216,29 @@ class Cli:
         # Used only by the explicit fixture-ids CLI build. A normal
         # binary ignores this and will fail the seed receipt comparison.
         e['POLIS_CLI_FIXTURE_UUID']=fixture_uuid or str(uuid.uuid5(uuid.NAMESPACE_URL,'generated-cli/'+row.get('scenario',row['command'])))
+        # These commands return the API payload directly under data. Other
+        # commands reshape it and retain the existing semantic comparisons.
+        numeric_path = None
+        if row['command'] == 'math view':
+            numeric_path = '/api/v3/math/pca2'
+        elif row['command'] == 'api' and len(row['args']) > 1:
+            numeric_path = urlsplit(row['args'][1]).path
+        if numeric_path:
+            self.stack.get('/numeric-recording/reset?path=' + quote(numeric_path, safe=''))
         r=subprocess.run([self.binary,*row['args'],'--json','--no-interactive'],cwd=self.workspace,env=e,
             input=tokens['owner']+'\n' if row.get('stdin')=='owner' else None,capture_output=True,text=True,timeout=90)
         try:data=json.loads(r.stdout)
         except ValueError:raise RuntimeError('non-JSON command response: '+row['command']) from None
+        if numeric_path and r.returncode == 0:
+            check = compare_recording(self.stack.get('/numeric-recording')['records'], r.stdout.encode())
+            check['scenario'] = row.get('scenario', row['command'])
+            self.numeric_checks.append(check)
+            if not check['passed']:
+                raise RuntimeError('CLI numeric wire drift: ' + row['command'] + ' at ' + ', '.join(check['different_paths']))
         return {'exit':r.returncode,'json':data}
 
     def reset(self):
+        self.numeric_checks=[]
         for item in self.workspace.iterdir():
             if item.is_dir():shutil.rmtree(item)
             else:item.unlink()
