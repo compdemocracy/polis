@@ -100,6 +100,12 @@ pub struct Config {
     /// side under the same variable name so one setting moves both. Off is
     /// today's behaviour unchanged.
     pub embeddings_table: bool,
+    /// One switch, default off (`POLIS_JOBS_INPUT_BUNDLE=1`): before a
+    /// full-pipeline child starts, the daemon reads the rows its stages read
+    /// and writes them as the input bundle (`jobs::inputs`), and the frame
+    /// names it in `inputs.bundle`. Holds the database setting the rows are
+    /// read with: the child's own `DATABASE_URL`. Off, the frame is today's.
+    pub input_bundle_dsn: Option<String>,
     pub lease_seconds: u32,
     pub heartbeat_seconds: u32,
     pub child_timeout: Duration,
@@ -274,6 +280,16 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     // One flag, default off, shared by the daemon and Delphi's Python. Only the
     // exact string "1" turns it on; anything else (unset, "0", "true", "") is off.
     let embeddings_table = get("DELPHI_EMBEDDINGS_TABLE").as_deref() == Some("1");
+    // Same rule: only "1" turns the input bundle on. The rows are read from the
+    // database the child itself would read, so the switch needs DATABASE_URL.
+    let input_bundle_dsn = if get("POLIS_JOBS_INPUT_BUNDLE").as_deref() == Some("1") {
+        match get("DATABASE_URL").filter(|s| !s.is_empty()) {
+            Some(dsn) => Some(dsn),
+            None => return err("POLIS_JOBS_INPUT_BUNDLE=1 needs DATABASE_URL"),
+        }
+    } else {
+        None
+    };
     Ok(Load::Ready(Box::new(Config {
         dsn,
         env,
@@ -284,6 +300,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         worker_class,
         stages,
         embeddings_table,
+        input_bundle_dsn,
         lease_seconds: lease as u32,
         heartbeat_seconds: heartbeat as u32,
         child_timeout: Duration::from_secs(child_timeout),
@@ -427,6 +444,27 @@ mod tests {
             c.stages.iter().map(String::as_str).collect::<Vec<_>>(),
             vec!["delphi_full_pipeline", "delphi_narrative"]
         );
+    }
+
+    #[test]
+    fn input_bundle_is_off_unless_exactly_one_and_then_needs_database_url() {
+        assert_eq!(ready(&BASE).input_bundle_dsn, None, "off by default");
+        for value in ["0", "true", ""] {
+            let mut pairs = BASE.to_vec();
+            pairs.push(("POLIS_JOBS_INPUT_BUNDLE", value));
+            pairs.push(("DATABASE_URL", "postgresql://u@127.0.0.1:5/d"));
+            assert_eq!(ready(&pairs).input_bundle_dsn, None, "{value:?}");
+        }
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_INPUT_BUNDLE", "1"));
+        pairs.push(("DATABASE_URL", "postgresql://u@127.0.0.1:5/d"));
+        assert_eq!(
+            ready(&pairs).input_bundle_dsn.as_deref(),
+            Some("postgresql://u@127.0.0.1:5/d")
+        );
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_INPUT_BUNDLE", "1"));
+        assert!(with(&pairs).is_err(), "on without DATABASE_URL is refused");
     }
 
     #[test]

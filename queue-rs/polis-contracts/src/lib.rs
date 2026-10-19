@@ -10,10 +10,14 @@ pub mod conversation_preload;
 pub mod conversation_stats;
 pub mod create_page;
 pub mod database;
+pub mod delphi_input_bundle;
+pub mod delphi_input_bundle_schema;
 pub mod delphi_job_result;
 pub mod delphi_read;
 pub mod delphi_reports;
+pub mod delphi_result_read;
 pub mod delphi_run;
+pub mod delphi_run_read;
 pub mod delphi_visualizations;
 pub mod domain_whitelist;
 pub mod einvites_read;
@@ -124,6 +128,7 @@ impl Pca2ErrorCode {
     }
 }
 
+pub mod statement_importance;
 /// Explicit vote wire declarations shared with CLI consumers.
 pub mod votes;
 

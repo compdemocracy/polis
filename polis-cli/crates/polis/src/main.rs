@@ -3,7 +3,9 @@ mod collective;
 mod collective_read;
 mod commands;
 mod commenting;
+mod delphi_show;
 mod highlights;
+mod importance;
 mod invites;
 mod listing;
 mod locations;
@@ -22,11 +24,13 @@ mod pass7;
 mod pass8;
 mod pass9;
 mod preferences;
+mod prioritize;
 mod profiles;
 mod reads;
 mod reserve;
 mod seeds;
 mod setup;
+mod sizes;
 mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
@@ -65,6 +69,14 @@ fn client(config: &profiles::Config, site: &str, timeout: u64, required: bool) -
         ));
     }
     Client::with_ca(url, token, timeout, config.auth(site)?.ca_file.as_deref())
+}
+fn public_client(config: &profiles::Config, site: &str, timeout: u64) -> Result<Client> {
+    Client::with_ca(
+        config.url(site)?,
+        profiles::public_token(config, site)?,
+        timeout,
+        config.auth(site)?.ca_file.as_deref(),
+    )
 }
 /// `GET /api/v3/conversations` answers with an array: every conversation the account
 /// owns or shares a site with, newest created first, at most `limit` rows, each row
@@ -186,6 +198,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             invites::execute(&path, m, config, site, timeout)
         }
         "comment" => commenting::submit(m, config, site, timeout),
+        "topic prioritize" => prioritize::execute(m, config, site, timeout),
         "join" => participation::join(m, config, site, timeout),
         "vote" => voting::execute(
             m,
@@ -213,6 +226,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         | "collective list"
         | "collective view"
         | "collective statements" => pass7::execute(&path, m, config, site, timeout),
+        "delphi show" => delphi_show::execute(m, config, site, timeout),
         "topic list"
         | "topic statements"
         | "topic hierarchy"
@@ -337,9 +351,11 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             )
         }
         "conversation list" => {
-            if m.get_one::<String>("sort").is_some()
-                || m.get_one::<u32>("min-participants").is_some()
-                || m.get_one::<String>("cursor").is_some()
+            let with_sizes = sizes::validate(m)?;
+            if !with_sizes
+                && (m.get_one::<String>("sort").is_some()
+                    || m.get_one::<u32>("min-participants").is_some()
+                    || m.get_one::<String>("cursor").is_some())
             {
                 return owner_conversations::list(m, || client(config, site, timeout, true));
             }
@@ -353,11 +369,21 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             }
             let c = client(config, site, timeout, true)?;
             let data = c.request("GET", "/api/v3/conversations", &query, None, false)?;
-            let listing = owned_list(
+            let mut listing = owned_list(
                 data,
                 limit,
                 m.get_one::<String>("search").map(String::as_str),
             )?;
+            if with_sizes {
+                sizes::enrich(
+                    &mut listing,
+                    &c,
+                    m.get_one::<String>("sort").map(String::as_str),
+                )?;
+                if listing["pagination"]["truncated"] == true {
+                    eprintln!("polis: sizes rank only returned owned rows; the site reached --limit, so larger conversations may be absent.");
+                }
+            }
             if m.get_flag("json") {
                 return Ok(listing);
             }
@@ -396,7 +422,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "conversation view" => {
             let id = str_arg(m, "id");
             public_id(id)?;
-            client(config, site, timeout, false)?.request(
+            public_client(config, site, timeout)?.request(
                 "GET",
                 "/api/v3/conversations",
                 &[("conversation_id".into(), id.into())],
@@ -564,6 +590,20 @@ fn public_id(id: &str) -> Result<()> {
     }
     Ok(())
 }
+/// Preserve JSON values while escaping characters that can control a terminal.
+fn terminal_json(value: &Value) -> String {
+    let json = serde_json::to_string_pretty(value).unwrap();
+    let mut out = String::with_capacity(json.len());
+    for c in json.chars() {
+        if c != '\n' && c != '\t' && (c.is_control() || listing::invisible(c)) {
+            use std::fmt::Write;
+            write!(out, "\\u{:04x}", c as u32).unwrap();
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
 fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
     let setup_partial = result.as_ref().is_ok_and(|v| v["state"] == "setup_partial");
     let partial = result
@@ -596,7 +636,7 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
             value["ok"] = json!(false);
             value["error"] = json!({"code":"partial_import","message":"Some rows failed, were skipped, or were not confirmed.","action":"Save data.receipt and read back before retrying.","outcome":"unknown","retryable":false,"upstream":null});
         }
-        println!("{}", serde_json::to_string_pretty(&value).unwrap());
+        println!("{}", terminal_json(&value));
     } else {
         match result {
             Ok(v) => {
@@ -609,10 +649,18 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
                 {
                     print!("{}", listing::terminal_text(text))
                 } else {
-                    println!("{}", serde_json::to_string_pretty(&v).unwrap())
+                    println!("{}", terminal_json(&v))
                 }
             }
-            Err(e) => eprintln!("polis: {} [{}]\n{}", e.message, e.code, e.action),
+            Err(e) => {
+                eprintln!("polis: {} [{}]\n{}", e.message, e.code, e.action);
+                if let Some(code) = e.upstream.get("code").and_then(Value::as_str) {
+                    eprintln!("Server code: {}", listing::terminal_text(code));
+                }
+                if let Some(message) = e.upstream.get("message").and_then(Value::as_str) {
+                    eprintln!("Server message: {}", listing::terminal_text(message));
+                }
+            }
         }
     }
     ExitCode::from(exit)
@@ -684,6 +732,19 @@ fn main() -> ExitCode {
         return render(&site, Err(e), json_mode);
     }
     let result = execute(&root, &mut config, &site);
+    if root
+        .subcommand_matches("delphi")
+        .is_some_and(|m| m.subcommand_name() == Some("show"))
+    {
+        if let Ok(value) = &result {
+            if json_mode {
+                println!("{}", delphi_show::json(&site, value));
+            } else {
+                print!("{}", listing::terminal_text(&delphi_show::text(value)));
+            }
+            return ExitCode::SUCCESS;
+        }
+    }
     if !json_mode
         && root
             .subcommand_matches("collective")
@@ -739,6 +800,16 @@ fn main() -> ExitCode {
             } else {
                 println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
             }
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode
+        && root
+            .subcommand_matches("topic")
+            .is_some_and(|m| m.subcommand_name() == Some("prioritize"))
+    {
+        if let Ok(value) = &result {
+            print!("{}", prioritize::human(value));
             return ExitCode::SUCCESS;
         }
     }

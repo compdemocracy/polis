@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -88,7 +88,19 @@ pub fn execute(
             ]);
         }
     }
-    let c = client(config, site, timeout, false)?;
+    let c = public_client(config, site, timeout)?;
+    if path == "statement list"
+        && (m.get_one::<String>("sort").is_some() || m.get_one::<u64>("min-important").is_some())
+    {
+        return crate::importance::list(
+            &c,
+            str_arg(m, "conversation"),
+            usize::from(*m.get_one::<u16>("limit").unwrap()),
+            *m.get_one::<u32>("offset").unwrap() as usize,
+            m.get_one::<String>("sort").is_some(),
+            m.get_one::<u64>("min-important").copied().unwrap_or(0),
+        );
+    }
     let v = c
         .request(
             "GET",

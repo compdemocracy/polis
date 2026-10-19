@@ -12,9 +12,9 @@
  *
  * The column is declared `modified BIGINT DEFAULT now_as_millis()` in
  * `server/postgres/migrations/000000_initial.sql`. That default fires on INSERT
- * only; the two triggers on the table are the BEFORE INSERT `tid_auto` and the
- * AFTER INSERT `tid_auto_unlock`. There is no update trigger, and adding one is
- * out of scope. So any UPDATE of `comments` that does not name `modified`
+ * only; the one trigger on the table is the BEFORE INSERT `tid_auto` (its AFTER
+ * INSERT partner `tid_auto_unlock` was dropped by migration 000042). There is
+ * no update trigger, and adding one is out of scope. So any UPDATE of `comments` that does not name `modified`
  * leaves the row's timestamp at its insertion value — and once that value is at
  * or behind the poller's watermark, the change is invisible to the engine until
  * an unrelated full reload happens to refresh the conversation.

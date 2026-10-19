@@ -762,6 +762,1086 @@
     "udt_name": "bool"
   },
   {
+    "table_name": "delphi_artifacts",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "artifact_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "attempt_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "output_role",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "schema_version",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "payload",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "content_sha",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "byte_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_artifacts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "model_id",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "seq",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "text_sha",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "embedding",
+    "data_type": "ARRAY",
+    "udt_name": "_float4"
+  },
+  {
+    "table_name": "delphi_comment_embeddings",
+    "column_name": "batch_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_current",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_current",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_current",
+    "column_name": "scope",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_current",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_current",
+    "column_name": "requested_generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_current",
+    "column_name": "published_generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_embedding_models",
+    "column_name": "model_id",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "delphi_embedding_models",
+    "column_name": "name",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_embedding_models",
+    "column_name": "dims",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "batch_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "model_id",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "seq_mark",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "row_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "max_tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "content_sha",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_embedding_sets",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_foundation_install",
+    "column_name": "singleton",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "delphi_foundation_install",
+    "column_name": "baseline",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_foundation_install",
+    "column_name": "installed",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_graph_edges",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_edges",
+    "column_name": "consumer",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graph_edges",
+    "column_name": "producer",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graph_edges",
+    "column_name": "input_role",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_edges",
+    "column_name": "expected_sha",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_edges",
+    "column_name": "artifact_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graph_install",
+    "column_name": "singleton",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "delphi_graph_install",
+    "column_name": "baseline",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "graph_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "node_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "declared",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "resolved",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_graph_nodes",
+    "column_name": "resolved_sha",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_served",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_served",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_graph_served",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graph_served",
+    "column_name": "generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_graph_served",
+    "column_name": "artifact_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "graph_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "request_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "request",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "root_job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "sealed",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "supersedes",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_graphs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_job_aliases",
+    "column_name": "public_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_job_aliases",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_job_aliases",
+    "column_name": "source",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_job_guards",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_job_guards",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_job_guards",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_job_guards",
+    "column_name": "root_job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_job_guards",
+    "column_name": "request_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_job_inputs",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_job_inputs",
+    "column_name": "consumer_job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_job_inputs",
+    "column_name": "input_role",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_job_inputs",
+    "column_name": "ordinal",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_job_inputs",
+    "column_name": "producer_job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_job_inputs",
+    "column_name": "producer_output_digest",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "report_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "kind",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "parent_job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "origin",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "replayable",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "reuse_eligible",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "status",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "inputs_digest",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "math_env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "math_caching_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "math_snapshot_key",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "config_effective",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "code_version",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "model_versions",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "cost",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "output_manifest_digest",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "pinned",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "label",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_jobs",
+    "column_name": "error",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "request_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "attempt_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "provider",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "provider_batch_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "state",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "request_digest",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_provider_requests",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "batch_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "sealed_sha",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "artifact_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_batches",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "delphi_result_catalog",
+    "column_name": "family",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_catalog",
+    "column_name": "key_spec",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "family",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "item_key",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_result_current_rows",
+    "column_name": "item",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_result_families",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_families",
+    "column_name": "batch_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_families",
+    "column_name": "family",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_families",
+    "column_name": "codec_wire",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_families",
+    "column_name": "content_sha",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_families",
+    "column_name": "row_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "job_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "conversation_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "report_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "status",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "job_type",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "job_config",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "created_at",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "completed_at",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "error",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_jobs",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_legacy_controls",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_legacy_controls",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_result_legacy_controls",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_legacy_controls",
+    "column_name": "generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_result_legacy_controls",
+    "column_name": "family",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_legacy_controls",
+    "column_name": "codec_wire",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_publications",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_publications",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_result_publications",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_publications",
+    "column_name": "generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_result_publications",
+    "column_name": "artifact_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_publications",
+    "column_name": "job_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_rows",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_rows",
+    "column_name": "batch_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_result_rows",
+    "column_name": "family",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_result_rows",
+    "column_name": "item_key",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_result_rows",
+    "column_name": "ordinal",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_result_rows",
+    "column_name": "item",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "scope_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "base_generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "base_artifact",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "delphi_writer_runs",
+    "column_name": "actor",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
     "table_name": "demographic_data",
     "column_name": "uid",
     "data_type": "integer",
@@ -1272,6 +2352,48 @@
     "udt_name": "int8"
   },
   {
+    "table_name": "migrations",
+    "column_name": "name",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "migrations",
+    "column_name": "checksum",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "migrations",
+    "column_name": "status",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "migrations",
+    "column_name": "recorded_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "migrations",
+    "column_name": "recorded_by",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "migrations",
+    "column_name": "legacy_completed_at",
+    "data_type": "ARRAY",
+    "udt_name": "_int8"
+  },
+  {
+    "table_name": "migrations",
+    "column_name": "compat",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
     "table_name": "notification_tasks",
     "column_name": "zid",
     "data_type": "integer",
@@ -1620,642 +2742,6 @@
     "udt_name": "int8"
   },
   {
-    "table_name": "polis_coordinator_budgets",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_budgets",
-    "column_name": "max_operations",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_budgets",
-    "column_name": "max_bytes",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_cursors",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_cursors",
-    "column_name": "consumer",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_cursors",
-    "column_name": "position",
-    "data_type": "jsonb",
-    "udt_name": "jsonb"
-  },
-  {
-    "table_name": "polis_coordinator_failures",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_failures",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_failures",
-    "column_name": "attempts",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_failures",
-    "column_name": "first_failed_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_failures",
-    "column_name": "next_attempt",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_floors",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_floors",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_floors",
-    "column_name": "math_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_floors",
-    "column_name": "caching_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "math_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "caching_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "owner_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "publisher_epoch",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "operation_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "capability_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "expected_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "input_checkpoint",
-    "data_type": "jsonb",
-    "udt_name": "jsonb"
-  },
-  {
-    "table_name": "polis_coordinator_generations",
-    "column_name": "committed_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "singleton",
-    "data_type": "boolean",
-    "udt_name": "bool"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "migration_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "catalog_fingerprint",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "provenance_fingerprint",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "sequence_start",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "installed_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_install",
-    "column_name": "installed_by",
-    "data_type": "name",
-    "udt_name": "name"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "object_kind",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "object_name",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "column_name",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "grantee",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "grantor",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "privilege",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "prior_present",
-    "data_type": "boolean",
-    "udt_name": "bool"
-  },
-  {
-    "table_name": "polis_coordinator_install_grants",
-    "column_name": "prior_grantable",
-    "data_type": "boolean",
-    "udt_name": "bool"
-  },
-  {
-    "table_name": "polis_coordinator_install_roles",
-    "column_name": "role_name",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_install_roles",
-    "column_name": "role_oid",
-    "data_type": "oid",
-    "udt_name": "oid"
-  },
-  {
-    "table_name": "polis_coordinator_install_roles",
-    "column_name": "created",
-    "data_type": "boolean",
-    "udt_name": "bool"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "owner_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "owner_epoch",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "expires_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "dispatch_operation_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "dispatch_capability_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "dispatch_checkpoint_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "dispatch_expected_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_leases",
-    "column_name": "dispatch_margin_ms",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_namespaces",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_namespaces",
-    "column_name": "writer_kind",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_namespaces",
-    "column_name": "max_transitions",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "operation_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "owner_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "owner_epoch",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "expected_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "capability_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "checkpoint_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "source_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "reserved_bytes",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "state",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "protected",
-    "data_type": "boolean",
-    "udt_name": "bool"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "admitted_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "reconciled_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_operations",
-    "column_name": "resolved_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "math_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "payload_kind",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "original_bytes",
-    "data_type": "bytea",
-    "udt_name": "bytea"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "original_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_payloads",
-    "column_name": "storage_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_principals",
-    "column_name": "principal_oid",
-    "data_type": "oid",
-    "udt_name": "oid"
-  },
-  {
-    "table_name": "polis_coordinator_principals",
-    "column_name": "principal_name",
-    "data_type": "name",
-    "udt_name": "name"
-  },
-  {
-    "table_name": "polis_coordinator_principals",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_principals",
-    "column_name": "can_transition",
-    "data_type": "boolean",
-    "udt_name": "bool"
-  },
-  {
-    "table_name": "polis_coordinator_reconciliation",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_reconciliation",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_reconciliation",
-    "column_name": "reconciled_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
-    "table_name": "polis_coordinator_reconciliation",
-    "column_name": "source_probe",
-    "data_type": "jsonb",
-    "udt_name": "jsonb"
-  },
-  {
-    "table_name": "polis_coordinator_references",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_references",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_references",
-    "column_name": "operation_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_references",
-    "column_name": "reference_name",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "math_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "transition_id",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "zid",
-    "data_type": "integer",
-    "udt_name": "int4"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "source_env",
-    "data_type": "character varying",
-    "udt_name": "varchar"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "principal_oid",
-    "data_type": "oid",
-    "udt_name": "oid"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "principal_name",
-    "data_type": "name",
-    "udt_name": "name"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "last_served_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "source_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "destination_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "floor_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "result_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "caching_tick",
-    "data_type": "bigint",
-    "udt_name": "int8"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "writer_kind",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "exclusion_sha256",
-    "data_type": "text",
-    "udt_name": "text"
-  },
-  {
-    "table_name": "polis_coordinator_transitions",
-    "column_name": "committed_at",
-    "data_type": "timestamp with time zone",
-    "udt_name": "timestamptz"
-  },
-  {
     "table_name": "polis_queue_attempts",
     "column_name": "env",
     "data_type": "text",
@@ -2314,6 +2800,12 @@
     "column_name": "output_sha256",
     "data_type": "text",
     "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "process_exit_confirmed_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
   },
   {
     "table_name": "polis_queue_heads",
@@ -2402,6 +2894,12 @@
   {
     "table_name": "polis_queue_install",
     "column_name": "catalog_fingerprint",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "contract_version",
     "data_type": "text",
     "udt_name": "text"
   },
@@ -2544,6 +3042,66 @@
     "udt_name": "text"
   },
   {
+    "table_name": "polis_queue_jobs",
+    "column_name": "worker_class",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_large_class_install",
+    "column_name": "singleton",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_queue_large_class_install",
+    "column_name": "baseline",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "polis_queue_large_class_install",
+    "column_name": "installed",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "polis_queue_logs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_logs",
+    "column_name": "attempt_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_logs",
+    "column_name": "seq",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_logs",
+    "column_name": "ts",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_logs",
+    "column_name": "stream",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_logs",
+    "column_name": "line",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
     "table_name": "polis_queue_requests",
     "column_name": "env",
     "data_type": "text",
@@ -2588,6 +3146,12 @@
   {
     "table_name": "polis_queue_requests",
     "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "binding_expires_at",
     "data_type": "timestamp with time zone",
     "udt_name": "timestamptz"
   },

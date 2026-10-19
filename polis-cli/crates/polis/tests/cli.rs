@@ -1679,3 +1679,337 @@ fn a_site_cannot_write_escape_sequences_through_passed_through_help_text() {
         assert!(!out.contains(bad), "{bad:?} reached the terminal");
     }
 }
+
+#[test]
+fn structured_client_errors_keep_server_reason_and_exit_codes() {
+    let body = json!({"status":"error","code":"INSUFFICIENT_CONSENSUS",
+        "message":"Fewer than three comments meet the existing report consensus rule",
+        "detail":"not-public","stack":"not-public"})
+    .to_string();
+    for (status, exit) in [
+        (400, 1),
+        (401, 3),
+        (403, 4),
+        (404, 1),
+        (409, 5),
+        (422, 1),
+        (429, 6),
+    ] {
+        for method in ["GET", "POST"] {
+            let (out, _) = fixture(
+                status,
+                "application/json",
+                &body,
+                &["api", "/api/v3/example", "--method", method, "--json"],
+            );
+            let v = parsed(&out);
+            assert_eq!(out.status.code(), Some(exit), "{v}");
+            assert_eq!(v["error"]["upstream"]["code"], "INSUFFICIENT_CONSENSUS");
+            assert_eq!(
+                v["error"]["upstream"]["message"],
+                "Fewer than three comments meet the existing report consensus rule"
+            );
+            assert_eq!(v["error"]["outcome"], "rejected");
+            assert_eq!(v["error"]["retryable"], false);
+            assert!(!v.to_string().contains("not-public"));
+        }
+    }
+}
+
+#[test]
+fn structured_conflict_is_visible_without_json() {
+    let body = r#"{"code":"INSUFFICIENT_CONSENSUS","message":"Fewer than three comments qualify"}"#;
+    let (out, _) = fixture(409, "application/json", body, &["api", "/api/v3/example"]);
+    assert_eq!(out.status.code(), Some(5));
+    let text = String::from_utf8(out.stderr).unwrap();
+    assert!(text.contains("INSUFFICIENT_CONSENSUS"), "{text}");
+    assert!(text.contains("Fewer than three comments qualify"), "{text}");
+}
+
+#[test]
+fn structured_error_fields_are_bounded_and_do_not_echo_credentials_or_diagnostics() {
+    let body=json!({"error":{"code":"MISSING_INPUT","message":"Token public-fixture-token: bad\u{1b}[2J\n\u{85}\u{202e} café", "detail":"private-detail"},"stack":"private-stack"}).to_string();
+    for json_mode in [false, true] {
+        let mut args = vec!["api", "/api/v3/example"];
+        if json_mode {
+            args.push("--json");
+        }
+        let (out, _) = fixture(422, "application/json", &body, &args);
+        assert_eq!(out.status.code(), Some(1));
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        for forbidden in [
+            "public-fixture-token",
+            "private-detail",
+            "private-stack",
+            "\u{1b}",
+            "\u{85}",
+            "\u{202e}",
+        ] {
+            assert!(!text.contains(forbidden), "{text}");
+        }
+        assert!(text.contains("[redacted]"));
+        assert!(text.contains("café"));
+        if json_mode {
+            let v = parsed(&out);
+            assert_eq!(v["error"]["upstream"]["code"], "MISSING_INPUT");
+            assert!(v["error"]["upstream"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("\\u{1b}"));
+        }
+    }
+    for body in [
+        json!({"code": "X".repeat(129),"message":"x".repeat(4097)}),
+        json!({"code": "bad code","message":{"nested":"private-detail"}}),
+        json!({"code": "public-fixture-token","message":""}),
+    ] {
+        let (out, _) = fixture(
+            409,
+            "application/json",
+            &body.to_string(),
+            &["api", "/api/v3/example", "--json"],
+        );
+        let v = parsed(&out);
+        assert_eq!(out.status.code(), Some(5));
+        assert!(v["error"]["upstream"].get("code").is_none());
+        assert!(v["error"]["upstream"].get("message").is_none());
+    }
+}
+
+#[test]
+fn unstructured_and_server_errors_keep_the_existing_fallback() {
+    for (status, kind, body, exit) in [
+        (409, "text/html", "<html>private-details</html>", 5),
+        (400, "application/json", "{invalid private-details", 1),
+        (
+            500,
+            "application/json",
+            r#"{"code":"PRIVATE_DETAILS","message":"private-details"}"#,
+            7,
+        ),
+        (409, "application/json", r#"{"error":"private-details"}"#, 5),
+    ] {
+        let (out, _) = fixture(
+            status,
+            kind,
+            body,
+            &["api", "/api/v3/example", "--method", "POST", "--json"],
+        );
+        let v = parsed(&out);
+        assert_eq!(out.status.code(), Some(exit), "{v}");
+        assert!(v["error"]["upstream"].get("message").is_none());
+        assert!(!v.to_string().contains("private-details"));
+        assert_eq!(
+            v["error"]["outcome"],
+            if status >= 500 { "unknown" } else { "rejected" }
+        );
+    }
+}
+
+#[test]
+fn printed_json_escapes_terminal_controls_without_changing_json_values() {
+    let text = "visible\u{009b}2J\u{009d}52;c;data\u{009c}\u{202e}hidden\u{200b}\u{061c}\u{feff}";
+    let body = json!({"text":text,"nested":{text:"value"}});
+    for json_output in [false, true] {
+        let mut args = vec!["conversation", "view", "fixture"];
+        if json_output {
+            args.push("--json");
+        }
+        let (out, _) = fixture(200, "application/json", &body.to_string(), &args);
+        assert_eq!(out.status.code(), Some(0));
+        let printed = String::from_utf8(out.stdout).unwrap();
+        assert!(!printed.chars().any(|c| matches!(
+            c,
+            '\u{007f}'..='\u{009f}' | '\u{202e}' | '\u{200b}' | '\u{061c}' | '\u{feff}'
+        )));
+        let value: Value = serde_json::from_str(&printed).unwrap();
+        assert_eq!(if json_output { &value["data"] } else { &value }, &body);
+    }
+}
+
+#[test]
+fn size_sort_uses_stats_counts_and_preserves_raw_counter() {
+    let rows = json!([
+        {"conversation_id":"abc","is_owner":true,"participant_count":99,"topic":"A"},
+        {"conversation_id":"def","is_owner":true,"participant_count":1,"topic":"B"},
+        {"conversation_id":"ghi","is_owner":false}
+    ])
+    .to_string();
+    let a = json!({"firstVoteTimes":[1],"commentTimes":[1,2,3],"voteTimes":[1,2]}).to_string();
+    let b = json!({"firstVoteTimes":[1,2],"commentTimes":[],"voteTimes":[1,2,3]}).to_string();
+    for (sort, first) in [
+        ("participants", "def"),
+        ("statements", "abc"),
+        ("votes", "def"),
+    ] {
+        let (o, req, _) = sequence(
+            &[
+                (200, "application/json", &rows),
+                (200, "application/json", &a),
+                (200, "application/json", &b),
+            ],
+            &["conversation", "list", "--sort", sort, "--json"],
+        );
+        assert!(o.status.success(), "{}", text(&o));
+        let v = parsed(&o);
+        assert_eq!(v["data"]["conversations"][0]["conversation_id"], first);
+        let a = v["data"]["conversations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["conversation_id"] == "abc")
+            .unwrap();
+        assert_eq!(a["participant_count"], 99);
+        assert_eq!(
+            a["size"],
+            json!({"participants":1,"statements":3,"votes":2})
+        );
+        assert_eq!(v["data"]["size_scope"], "returned_owned_rows");
+        assert_eq!(req.len(), 3);
+        assert!(req[1].starts_with("GET /api/v3/conversationStats?conversation_id=abc HTTP/"));
+        assert!(req[2].starts_with("GET /api/v3/conversationStats?conversation_id=def HTTP/"));
+    }
+}
+
+#[test]
+fn size_table_shows_zero_and_size_sort_is_stable_when_tied() {
+    let rows = owned_conversations();
+    let stats = r#"{"firstVoteTimes":[],"commentTimes":[],"voteTimes":[]}"#;
+    let (o, req, _) = sequence(
+        &[
+            (200, "application/json", &rows),
+            (200, "application/json", stats),
+            (200, "application/json", stats),
+            (200, "application/json", "[]"),
+        ],
+        &["conversation", "list", "--sort", "votes"],
+    );
+    assert!(o.status.success(), "{}", text(&o));
+    let table = text(&o);
+    assert!(table.contains("PARTICIPANTS  STATEMENTS  VOTES"), "{table}");
+    assert!(table.find("Budget 2027").unwrap() < table.find("Parks").unwrap());
+    assert_eq!(
+        table
+            .lines()
+            .filter(|line| line.ends_with("0             0           0"))
+            .count(),
+        2,
+        "{table}"
+    );
+    assert_eq!(req.len(), 4);
+}
+
+#[test]
+fn sizes_refuse_partial_counts_and_keep_failed_reads_as_errors() {
+    for (status, body) in [
+        (200, r#"{"firstVoteTimes":[],"voteTimes":[]}"#),
+        (
+            200,
+            r#"{"firstVoteTimes":["bad"],"commentTimes":[],"voteTimes":[]}"#,
+        ),
+        (403, "{}"),
+        (500, "{}"),
+    ] {
+        let rows = r#"[{"conversation_id":"abc","is_owner":true}]"#;
+        let (o, req, _) = sequence(
+            &[
+                (200, "application/json", rows),
+                (status, "application/json", body),
+            ],
+            &["conversation", "list", "--sizes", "--json"],
+        );
+        assert!(!o.status.success());
+        assert!(parsed(&o)["data"].is_null());
+        assert_eq!(req.len(), 2);
+    }
+}
+
+#[test]
+fn size_options_reject_cursor_or_large_fanout_before_credentials() {
+    for opts in [
+        vec!["--sort", "votes", "--cursor", "x"],
+        vec!["--sort", "participants", "--min-participants", "1"],
+        vec!["--sizes", "--sort", "newest"],
+        vec!["--sort", "statements", "--recent"],
+        vec!["--sizes", "--limit", "501"],
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut args = vec!["conversation", "list", "--json"];
+        args.extend(opts);
+        let o = run(dir.path(), &args);
+        assert_eq!(o.status.code(), Some(2), "{}", text(&o));
+    }
+}
+
+#[test]
+fn sizes_preserve_truncation_filter_candidates_and_warn_about_scope() {
+    let rows = owned_conversations();
+    let stats = r#"{"firstVoteTimes":[],"commentTimes":[],"voteTimes":[]}"#;
+    let (o, req, _) = sequence(
+        &[
+            (200, "application/json", &rows),
+            (200, "application/json", stats),
+        ],
+        &[
+            "conversation",
+            "list",
+            "--sizes",
+            "--search",
+            "Parks",
+            "--limit",
+            "3",
+            "--json",
+        ],
+    );
+    assert!(o.status.success(), "{}", text(&o));
+    let v = parsed(&o);
+    assert_eq!(v["data"]["pagination"]["truncated"], true);
+    assert_eq!(v["data"]["pagination"]["server_rows"], 3);
+    assert_eq!(v["data"]["conversations"].as_array().unwrap().len(), 1);
+    assert!(String::from_utf8_lossy(&o.stderr).contains("larger conversations may be absent"));
+    assert_eq!(req.len(), 2);
+    assert!(req[1].contains("conversation_id=def"));
+}
+
+#[test]
+fn sizes_validate_all_ids_and_server_limit_before_stats_reads() {
+    for (rows, limit) in [
+        (
+            r#"[{"conversation_id":"abc","is_owner":true},{"conversation_id":"../unsafe","is_owner":true}]"#,
+            "3",
+        ),
+        (
+            r#"[{"conversation_id":"abc","is_owner":true},{"conversation_id":"def","is_owner":true}]"#,
+            "1",
+        ),
+    ] {
+        let (o, req, _) = sequence(
+            &[(200, "application/json", rows)],
+            &[
+                "conversation",
+                "list",
+                "--sizes",
+                "--limit",
+                limit,
+                "--json",
+            ],
+        );
+        assert!(!o.status.success());
+        assert_eq!(req.len(), 1);
+    }
+}
+
+#[test]
+fn sizes_empty_list_needs_no_stats_or_report_reads() {
+    let (o, req, _) = sequence(
+        &[(200, "application/json", "[]")],
+        &["conversation", "list", "--sort", "participants", "--json"],
+    );
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(parsed(&o)["data"]["conversations"], json!([]));
+    assert_eq!(req.len(), 1);
+}

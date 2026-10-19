@@ -94,16 +94,13 @@ function normalizeDump(dump, inventory) {
         throw Error(`duplicate runtime registration ${registrationIndex}`);
       return { method: r.declaredMethod, path: r.path, registrationIndex };
     });
+  if (inventory.version === 2)
+    require("./route-inventory.cjs").validate(inventory);
   const expected = inventory.routes
     .filter((r) => r.registered_in_default_config)
     .map((r, i) => ({ method: r.method, path: r.path, registrationIndex: i }));
   const difference = firstDiff(expected, normalized);
-  if (inventory.routes.length !== 201 || difference)
-    throw Error(
-      `route inventory mismatch: ${
-        difference || "expected 201 source registrations"
-      }`
-    );
+  if (difference) throw Error(`route inventory mismatch: ${difference}`);
   return normalized.map((r, i) => ({ ...r, ...groups.get(i)[0] }));
 }
 function coverage(inventory, scope, cases) {
@@ -141,6 +138,11 @@ function coverage(inventory, scope, cases) {
     rows,
     recorded: rows.filter((r) => r.status === "RECORDED").length,
     excluded: exclusions.size,
+    retired: (inventory.retired || []).map((r) => ({
+      id: r.id,
+      route: `${r.method} ${r.path}`,
+      status: "RETIRED",
+    })),
     missing: rows.filter((r) => r.status === "MISSING").length,
   };
 }

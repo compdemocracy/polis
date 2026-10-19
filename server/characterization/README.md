@@ -112,7 +112,7 @@ python3 server/characterization/run.py down
 python3 server/characterization/run.py replay recording
 python3 server/characterization/run.py test
 # Equivalent inside the running sealed server (includes both live runtime tests):
-docker compose -f server/characterization/compose.yml exec -T server node --test characterization/test.cjs characterization/corrections.test.cjs characterization/recorded.test.cjs characterization/round2.test.cjs characterization/pca2.test.cjs characterization/runtime.test.cjs
+docker compose -f server/characterization/compose.yml exec -T server node --test characterization/test.cjs characterization/route-inventory.test.cjs characterization/corrections.test.cjs characterization/recorded.test.cjs characterization/round2.test.cjs characterization/pca2.test.cjs characterization/runtime.test.cjs
 python3 -m unittest discover -s server/characterization -p 'test_*.py'
 python3 server/characterization/run.py down
 ```
@@ -337,7 +337,9 @@ created-as-string, CORS/Vary and four size/negotiation coding profiles. The tied
 fixture changes insertion order; replay compares the resulting arrays exactly.
 The non-moderation projection excludes zid, so addConversationIds cannot add a
 conversation_id in ordinary or paginated non-moderation mode. Moderation=true is a
-separate witness and may add it. Witnesses describe existing Node behavior; this
+separate witness: for the owner, the site-sharing moderator and the admin it may add
+it; every other actor gets the participant-visible statements with the ordinary
+projection. Witnesses describe existing Node behavior; this
 harness contains no Rust dispatch implementation or authorization for routing.
 
 ```sh
@@ -352,7 +354,7 @@ python3 server/characterization/run.py test
 python3 server/characterization/run.py down
 ```
 
-The six-file Node command remains the runner/README source of truth; round 6 adds
+The Node command remains the runner/README source of truth; round 6 adds
 two comments tests within the existing pca2.test.cjs file. The round-5 maintenance
 alone passed 80/80 before this expansion. Host audit commands require the existing
 server Node dependencies (or run their equivalents inside the sealed driver).
@@ -441,7 +443,21 @@ from the target's migrations; it never reuses a historical database image or
 regenerates the catalog automatically. Any future schema mismatch still requires
 an explicit catalog review before recording.
 
-The current catalog was regenerated from all 21 migrations, including `000021`
+### Release-selected schema catalog
+
+The catalog follows a fresh database built from the release-selected migrations
+through `000042`. `000041` adds a function and `000042` replaces one and drops
+a trigger and its function; neither adds or changes a column, so the catalog is
+the same as through `000039`. It has 694 columns: 200 additions and 106 removals
+from the previous 600-column catalog, with every retained descriptor and type
+unchanged. The 106 removals are the coordinator tables' columns: `000021` is
+held, so a fresh release database never creates them; nothing is dropped. The
+recorder still refuses to record against a database whose columns or types
+differ from this catalog. The column-policy skeleton has the same 694
+identities; every new entry remains `REVIEW`, unreviewed, with an empty reason.
+This refresh does not approve production data or replace the recorded baseline.
+
+The previous 600-column catalog was regenerated from all 21 migrations, including `000021`
 rev6. Its 600 descriptors preserve all 578 entries from the rev5 catalog
 (494 earlier columns plus 84 coordinator columns). The 22 additions are in
 `polis_coordinator_namespaces` (3), `polis_coordinator_principals` (4), and
@@ -450,3 +466,38 @@ The production-clone policy skeleton now covers the same 600 columns, up from
 423: 71 queue/provenance and 106 coordinator entries were missing. Every entry
 remains `REVIEW`, with `reviewed: false` and an empty reason. This inventory update
 does not admit production data or replace the historical recording archive.
+
+### Updating route identities without replacing a recording
+
+`route-inventory.cjs ROOT PREVIOUS OUTPUT_DIRECTORY SOURCE_COMMIT` parses the
+route declarations without importing application code. Run it with the
+server's installed TypeScript module (for example, from the server image).
+It emits `inventory.json` and `diff.json` into a new directory. Render the diff
+with `python3 route-inventory-report.py OUTPUT_DIRECTORY/diff.json` and review
+it before copying the proposed inventory into the harness.
+
+IDs are stable by method and exact path/regex. The two duplicate-key families
+have explicit callback or condition discriminators. New routes get IDs above
+the historical maximum; removed routes move into `retired`, retaining their
+IDs forever. Reintroducing a key reuses its historical ID. Source lines and
+registration order never allocate IDs; runtime admission still checks the
+complete enabled registration order and every ALL expansion. Unknown duplicate
+registrations, dynamic paths, conditions or registrations outside app.ts fail
+closed for review. The fixture has operations and missing-file 404 mode off.
+
+All original 201 IDs survive this migration. Retired entries generate no live
+cases and are reported separately from exclusions, passes and missing coverage.
+Retained generated case IDs and entropy seeds stay unchanged. The frozen
+archive is validated against the hash-bound `inventory-legacy.json` and
+`scope-legacy.json`; only that exact historical pair and the current pair are
+accepted. The recording's required-case census is still enforced.
+
+For isolated box runs, `P027_SERVER_IMAGE`, `P027_POSTGRES_IMAGE`,
+`P027_FILE_SERVER_IMAGE`, `P027_OIDC_IMAGE` and `P027_MATH_SEED_IMAGE` select
+per-run local image names. Defaults preserve the hosted workflow. A source
+archive without Git metadata must supply its full base SHA as
+`P027_SOURCE_COMMIT`; provenance labels this as an explicit archive base and
+hashes the actual mounted source separately. The caller must retain its
+archive/patch reconstruction proof. Run `run.py record` and review the
+recordings by stable route ID. Do not pack or replace the committed baseline
+as part of inventory maintenance.

@@ -16,9 +16,10 @@ cargo fmt --all --check
 ./target/release/polis --help
 ```
 
-The tested release target is macOS arm64. Rust 1.99 built the delivered binary.
-`Cargo.lock` pins the reviewed build inputs. Other platforms and older toolchains
-have not been verified; credentials use an owner-only file store by default on every supported platform.
+The release build uses the pinned Rust toolchain and `Cargo.lock`.
+See [building, installing and updating](docs/releases.md) for native artifacts,
+commit identity, platform qualification and explicit installation. Credentials
+use an owner-only file store by default on every supported platform.
 
 ## Start here
 
@@ -69,7 +70,14 @@ and audience. Changing auth settings requires login again; environment access
 tokens override storage without touching refresh credentials. No real tenant
 mutation is needed to install or configure the CLI.
 
-Access tokens refresh silently within 30 seconds of expiry, before an API request.
+Commands that require sign-in, and the raw `api` command, refresh access tokens
+silently within 30 seconds of expiry, before an API request. Named public reads
+(conversation/report views, report exports, Delphi reads, math and participant
+read views) use an explicit token override or a usable saved file token. They
+never refresh, lock the owner credential store, create a credentials directory,
+or consult the Keychain. An expired, mismatched, unavailable or unsafe saved
+credential is left untouched and the public read proceeds anonymously; run
+`polis auth login` for a resource that requires a current owner sign-in.
 Rotated refresh credentials are saved before the API request; an omitted replacement
 retains the prior refresh token. A file lock prevents concurrent refresh and logout
 from overwriting each other (`credential_busy` asks the caller to rerun). If the
@@ -180,6 +188,7 @@ polis delphi status --report <report-id> --job <job-id>
 polis delphi results --report <report-id> --job <job-id>
 polis delphi narrative view --report <report-id>
 polis delphi visualization view --report <report-id>
+polis delphi show <report-id> --model <model-name>
 polis plan view
 ```
 
@@ -383,10 +392,11 @@ polis conversation edit CONV --invite-only false --external-id required
 unverified links without a request or message. `conversation stats ID [--until MS]`
 reads moderator event statistics, bounded to 8 MiB, without a report-ID fallback.
 
-`report create --conversation ID` creates configuration only. The API returns no
-created ID: the CLI keeps `report_id: null` and an accepted receipt, plus an
-uncorrelated readback list or `readback_state: unavailable`. Repeated creation can
-create duplicate reports. Report edits and statement selection remain planned.
+`report create --conversation ID` creates configuration only. The CLI prints the
+created report's ID as `report_id`, taken from the server's reply; a server that
+replies `{}` leaves it `null`. The accepted receipt and a readback list (or
+`readback_state: unavailable`) come with it. Repeated creation can create duplicate
+reports. Report edits and statement selection remain planned.
 
 
 Pass six: stored topics and report reads
@@ -716,6 +726,14 @@ printing tokens or login codes. Participant credentials are isolated by profile,
 normalized origin and conversation; account tokens are not used. Node enforces
 access and voting rules. Vote values come from the shared contract boundary.
 
+`--important` marks the statement as important to you, as the participation
+page's importance checkbox does:
+`polis vote CONVERSATION --statement 0 --agree --important`. It needs
+`--statement` and one choice, and it changes neither the choice nor the
+receipt. As on the page, every vote request carries `high_priority`: `true`
+when marked, `false` otherwise. Reports and exports count importance only in
+conversations where it is enabled.
+
 No request is automatically retried. A lost or incompatible response, or a
 credential-save failure after a response, exits 7: check participation before
 resubmitting. Node may create membership before rejecting a vote; an error does
@@ -743,6 +761,48 @@ tokens and raw receipts are never echoed; arguments can remain in local shell
 history and process listings. Lost or malformed write responses and failed
 credential saves exit 7, with no retry. Inspect the conversation before another
 submission. Empty text is rejected locally; Node enforces its text limits.
+
+### Prioritize topics
+
+`polis topic prioritize CONVERSATION --topics KEY,KEY` saves the topics that
+matter most to you, as the participation page's topic picker does. Copy the
+keys from the `topic_key` fields of `polis topic list`; each is
+`RUN#LAYER#CLUSTER`, and all must come from one analysis run.
+
+```sh
+polis topic list --conversation CONVERSATION --job RUN
+polis topic prioritize CONVERSATION --topics 'RUN#2#0,RUN#2#3'
+polis topic prioritize CONVERSATION --show --json
+polis topic prioritize CONVERSATION --clear
+```
+
+Keys are checked before any credential is read. Saving then reads the run's
+stored topics, the stored topic coordinates and the statement text, keeps each
+topic's three statements nearest the mean of its coordinates, sends one POST
+and reads the choice back. The request is the page's own: each topic's layer,
+cluster, key and those statements with their coordinates and distances. A
+topic that is not stored for its run, or that has no statements in the stored
+coordinates, is refused (exit 5) with nothing sent. A save replaces your whole
+previous choice; it never appends.
+
+Anonymous participation in an open conversation needs no account sign-in or
+prior join: the first save creates the participant through Node and saves its
+token privately, scoped by profile, origin and conversation, for later votes
+and comments. Invite participants first run `polis join CONVERSATION --invite
+CODE`. Account tokens are not used.
+
+The site, not the CLI, records which analysis run the choice belongs to. The
+receipt shows it; when it differs from the run in your keys, the terminal
+receipt says so, and `--json` callers compare `readback.data.delphi_job_id`
+with their keys. `--show` reads your saved choice and `--clear` deletes it,
+then reads back. `--json` returns the site's responses unchanged (`receipt`
+and `readback` for writes), with issued tokens removed.
+
+No request is automatically retried. Once the POST or DELETE is sent, a lost
+or incompatible response, a failed read-back, or a credential-save failure
+exits 7: run `--show` before saving again. Statement and topic text is
+untrusted content; the terminal receipt prints topic keys with control
+characters removed.
 
 ### Start a conversation with a typed setup
 
@@ -822,3 +882,27 @@ the CLI returns `capability_unavailable` (exit 8). Authentication, permission
 and other server failures retain their existing errors. A gateway outage
 returning 502 also means the feature is currently unavailable; this does not
 prove it is permanently absent. No unfiltered-list fallback occurs.
+
+### Statement importance
+
+`polis statement list --conversation CONVERSATION --sort importance
+--min-important 3` reads the complete participant-visible statement count snapshot, filters
+it, orders by important count descending (ties by statement ID), and then applies
+`--offset` and `--limit`. With only `--min-important`, order is statement ID.
+Plain `statement list` and `statement view` retain their existing behavior.
+The new read must be enabled by the site operator. A 404 returns exit 8;
+other read failures retain their error codes. No failure invents zero counts. The snapshot is bounded to 10,000 participant-visible statements.
+Counts use each participant's latest vote, not every stored vote change. The CLI reads text only for
+the selected IDs and checks the exact returned set before printing anything.
+A statement that disappears or becomes hidden between reads fails the request;
+there is no automatic retry or partial ranking. Repeated offset pages do not
+share a snapshot. Each request retains the existing timeout and 8 MiB bound.
+
+`polis report statements list REPORT` adds `important`, `voters`, and the
+importance read timestamp. An unavailable read or a statement absent from the
+participant-visible snapshot has null counts, never invented zero. A warning and
+`importance.state=unavailable` identify failed count reads while preserving the
+original statement text and report-selection metadata.
+
+Counts are current reads, not historical analysis inputs. No command starts
+analysis, changes statements, casts a vote, or calls a model.

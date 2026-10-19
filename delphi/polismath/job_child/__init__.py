@@ -114,6 +114,8 @@ DYNAMODB_FAMILIES = (
 
 INPUT_KEYS = ("math_env", "math_tick", "math_caching_tick", "comment_set_sha256", "vote_hwm")
 MODEL_KEYS = ("embed", "topic", "narrative")
+# Optional, together: the clustering's model id and seed, on a run that clustered.
+CLUSTER_MODEL_KEYS = ("cluster", "cluster_seed")
 MANIFEST_KEYS = (
     "schema", "job_id", "attempt_id", "stage", "phase", "outcome", "inputs",
     "outputs", "models", "cost", "recheck_after", "duration_ms",
@@ -460,10 +462,19 @@ def validate_manifest(m: Any) -> None:
                 raise ManifestError(f"{where}: a key is a non-empty object of attribute -> string value")
 
     models = m["models"]
-    if not isinstance(models, dict) or set(models) != set(MODEL_KEYS):
-        raise ManifestError(f"models keys must be exactly {sorted(MODEL_KEYS)}")
+    # A run that clustered names its clustering model and seed, both or neither;
+    # absent, the key set is exactly today's. Mirrors the daemon's validator.
+    clustered = isinstance(models, dict) and any(k in models for k in CLUSTER_MODEL_KEYS)
+    if not isinstance(models, dict) or set(models) != set(MODEL_KEYS) | (set(CLUSTER_MODEL_KEYS) if clustered else set()):
+        raise ManifestError(f"models keys must be exactly {sorted(MODEL_KEYS)}, with cluster and cluster_seed only together")
     for key in MODEL_KEYS:
         _nullable(models[key], str, f"models.{key}")
+    if clustered:
+        if not isinstance(models["cluster"], str) or not models["cluster"]:
+            raise ManifestError("models.cluster must be a non-empty string")
+        seed = models["cluster_seed"]
+        if not isinstance(seed, int) or isinstance(seed, bool) or not 0 <= seed < 2**32:
+            raise ManifestError("models.cluster_seed must be an integer in [0, 2**32)")
 
     cost = m["cost"]
     if not isinstance(cost, dict) or set(cost) != {"llm_tokens_in", "llm_tokens_out", "provider_batches"}:

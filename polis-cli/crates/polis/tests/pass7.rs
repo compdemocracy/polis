@@ -256,7 +256,8 @@ fn collective_missing_view_is_actionable_and_does_not_echo_details() {
         vec![(
             404,
             "application/json",
-            json!({"status":"error","message":"private-detail"}).to_string(),
+            json!({"status":"error","message":"Statement not found","detail":"private-detail"})
+                .to_string(),
         )],
     );
     let (exit, v) = parsed_call(t.path(), &["collective", "view", "opaque#key"]);
@@ -266,6 +267,7 @@ fn collective_missing_view_is_actionable_and_does_not_echo_details() {
         .as_str()
         .unwrap()
         .contains("collective list"));
+    assert_eq!(v["error"]["upstream"]["message"], "Statement not found");
     assert!(!v.to_string().contains("private-detail"));
     assert_eq!(s.join().unwrap().len(), 1);
 }

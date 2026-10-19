@@ -14,8 +14,15 @@ are not unlimited. `warnings` is an array. HTTP endpoint data otherwise retains
 its server shape; do not assume every data object has the same keys.
 
 `error` has `code`, `message`, `action`, `retryable`, `outcome`, `upstream`.
-`upstream` is null or a safe HTTP status/request ID/recognized-code object.
-Arbitrary upstream bodies are withheld. A recovery action is advice, not approval
+`upstream` is null or an HTTP status/request ID/code object. For HTTP 4xx,
+explicit string `code` and `message` fields (at the top level or inside an `error`
+object) are also shown, including unrecognized server codes. Codes are limited to
+128 ASCII letters, digits, dots, underscores or hyphens; messages to 4096 UTF-8
+bytes. Invalid or oversized fields are omitted. Controls and invisible formatting
+characters in messages are escaped, and the request's bearer token is redacted.
+These are untrusted server explanations; the CLI's error code, recovery action,
+exit code and retry/outcome policy are unchanged. Normal output also prints these
+fields. Other fields, HTML, plain-text bodies, and 5xx prose remain withheld. A recovery action is advice, not approval
 or a command to execute automatically. Outcomes are `not_sent`, `rejected` or
 `unknown`; this release does not automatically retry requests.
 
@@ -78,11 +85,13 @@ is exit 7 with `outcome: unknown`. No compare-and-set is available.
 `admin_share_url`; no remote operation occurs. `account view` may contain private
 account fields. `conversation stats` preserves the timing/histogram API shape.
 
-`report create` returns `state: accepted`, `report_id: null`, `receipt`, `reports`
-and `readback_state: observed|unavailable`. A successful empty report list is an
-observation, not proof of creation identity. The API supplies no created ID or
-idempotency key. A failed list read does not erase a successful write receipt;
-a failed/uncertain write keeps the standard nonzero error envelope.
+`report create` returns `state: accepted`, `report_id`, `receipt`, `reports`
+and `readback_state: observed|unavailable`. `report_id` is the created report's
+ID taken from the server's reply (`receipt.report_id`); a server that replies `{}`
+leaves it `null`, and the listed reports are then an observation, not proof of
+creation identity. There is no idempotency key. A failed list read does not erase
+a successful write receipt; a failed/uncertain write keeps the standard nonzero
+error envelope.
 
 
 Pass six: stored topics and report reads
@@ -93,6 +102,7 @@ Pass six: stored topics and report reads
   polis topic proximity --conversation CONV --layer all --json
   polis topic stats --conversation CONV --json
   polis report topics REPORT --json
+  polis report topics --report REPORT --job JOB --json
   polis report stats REPORT --until 1791417600000 --json
   polis report statements list REPORT --limit 50 --offset 0 --json
 
@@ -156,3 +166,31 @@ rows, names and server ordering are preserved. No pagination or writes; each rea
 is bounded to 8 MiB and --timeout. Text is untrusted data. Upstream failures become
 metadata_read_failed or contexts_read_failed; malformed rows are invalid_response.
 Authentication, permission and rate-limit errors retain their existing codes.
+
+Conversation sizes (explicit reads):
+
+    polis conversation list --sizes
+    polis conversation list --sort participants --limit 100 --json
+    polis conversation list --sort statements
+    polis conversation list --sort votes
+
+These options use the existing conversation list and one sequential
+`conversationStats` read per returned owned conversation. `--sizes` preserves
+list order; the three size sorts order largest first, with stable ties. The
+limit is at most 500. This ranks the returned rows, not every owned conversation;
+`pagination.truncated` and the warning indicate when the server limit was hit.
+Use a larger limit within that bound to expand the candidate set. No automatic
+pagination or retry occurs. A stats error fails the command without printing a
+partial ranking. Each response is bounded to 8 MiB and the selected timeout;
+large conversations can exceed that bound. This is not a snapshot.
+
+With size options, each conversation gains `size.participants` (distinct pids
+with a stored vote, including author votes), `size.statements` (all comment rows,
+including seeds and moderated statements), and `size.votes` (all vote records,
+including revotes). No vote values or signs are read or converted. The existing
+`participant_count` is preserved: it is a stored counter based on assigned
+participant IDs, not a distinct-voter count. The envelope adds `size_scope` as
+`returned_owned_rows`, `size_source`, and `sort` when requested. Normal output
+adds PARTICIPANTS, STATEMENTS and VOTES columns. Other commands and the default
+list do not perform these additional reads. Cursor/date-sort/min-participants
+mode is separate and cannot be combined with size options.

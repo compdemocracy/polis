@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -43,7 +43,14 @@ pub fn execute(
     timeout: u64,
 ) -> Result<Value> {
     let is_report = path.starts_with("report ");
-    let id = str_arg(m, if is_report { "id" } else { "conversation" });
+    let id = if path == "report topics" {
+        m.get_one::<String>("report")
+            .or_else(|| m.get_one::<String>("id"))
+            .map(String::as_str)
+            .ok_or_else(|| Error::input("Supply a report ID or --report REPORT."))?
+    } else {
+        str_arg(m, if is_report { "id" } else { "conversation" })
+    };
     public_id(id)?;
     let topic = if path == "topic statements" {
         Some(topic_path(str_arg(m, "key"))?)
@@ -78,7 +85,7 @@ pub fn execute(
             ));
         }
     }
-    let c = client(config, site, timeout, false)?;
+    let c = public_client(config, site, timeout)?;
     let conversation = if is_report {
         let rows = c.request(
             "GET",
@@ -101,7 +108,7 @@ pub fn execute(
     } else {
         id.to_owned()
     };
-    let mut query = vec![("conversation_id".into(), conversation)];
+    let mut query = vec![("conversation_id".into(), conversation.clone())];
     let route = match path {
         "report stats" => {
             query.push(("report_id".into(), id.into()));
@@ -140,7 +147,7 @@ pub fn execute(
         _ => return Err(Error::input("Unknown read command.")),
     };
     let result = c.request("GET", route, &query, None, false);
-    let v = if route.contains("/topicMod/") {
+    let mut v = if route.contains("/topicMod/") {
         result.map_err(read_error)?
     } else {
         result?
@@ -164,6 +171,9 @@ pub fn execute(
     };
     if !valid {
         return Err(response_error());
+    }
+    if path == "report statements list" {
+        crate::importance::annotate(&c, &conversation, &mut v)?;
     }
     Ok(v)
 }

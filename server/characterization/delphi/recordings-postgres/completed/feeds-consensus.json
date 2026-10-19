@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/feeds-consensus",
+ "state": "completed",
+ "route": "GET /feeds/:reportId/consensus",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zero105/consensus",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/rss+xml; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "1519"
+   ],
+   [
+    "etag",
+    "W/\"5ef-NQ6uTkeGCAcRmhgkB1OzRg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\">\n  <channel>\n    <title>Pol.is Consensus Updates - Report r2p2zero105</title>\n    <description>Cross-group consensus changes and updates for conversation r2p2zero105</description>\n    <link>https://pol.is/report/r2p2zero105</link>\n    <lastBuildDate>Tue, 14 Nov 2023 22:13:20 GMT</lastBuildDate>\n    <generator>Pol.is RSS Generator</generator>\n    <language>en-us</language>\n    \n        <item>\n          <title><![CDATA[Cross-Group Consensus Analysis]]></title>\n          <description><![CDATA[<h3>Generated batch_report_r2p2zero105_1699990001_1051_global_group_informed_consensus: generated paragraph</h3>\n<p>Generated clause one. Generated clause two.<sup>[0, 1]</sup></p>\n<h4>Referenced Comments</h4><p>This analysis references 2 comments: [0, 1]</p><p><em>Full comment details and voting patterns available at: <a href=\"https://pol.is/report/r2p2zero105#consensus-batch_report_r2p2zero105_1699990001_1051_global_group_informed_consensus\">View Full Report</a></em></p>]]></description>\n          <link>https://pol.is/report/r2p2zero105#consensus-batch_report_r2p2zero105_1699990001_1051_global_group_informed_consensus</link>\n          <guid>r2p2zero105-batch_report_r2p2zero105_1699990001_1051_global_group_informed_consensus-2023-11-14T19:51:01.000007+00:00</guid>\n          <pubDate>Tue, 14 Nov 2023 19:51:01 GMT</pubDate>\n          <category>consensus</category>\n          <source>model:generated-model-alpha</source>\n        </item>\n  </channel>\n</rss>",
+  "bodySha256": "95b5dc8a05e4d0ba4c852116469eb969b3a8e71f4ea93f773c5e67b1afba30ec"
+ }
+}

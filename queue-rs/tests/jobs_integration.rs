@@ -2002,3 +2002,563 @@ mod embeddings_table {
         );
     }
 }
+
+/// Migration 000041's run-record read, `pd_run_record(env, job)`, against the
+/// whole release chain: the executor role may call it and nothing else gains
+/// a grant (its login still cannot read the job tables it reads); it returns
+/// a seeded job's record from the tables in one statement; a job graph's root
+/// lists its other nodes.
+mod run_record {
+    use super::{ENV, LOGIN, admin_url, root, url_for};
+    use postgres::{Client, NoTls};
+    use serde_json::{Value, json};
+    use uuid::Uuid;
+
+    /// Roles are cluster-wide: the tests here create them one at a time.
+    static ROLES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    struct FullDb {
+        name: String,
+    }
+
+    impl FullDb {
+        fn new() -> Self {
+            let name = format!("rr_{}", Uuid::new_v4().simple());
+            Client::connect(&admin_url(), NoTls)
+                .unwrap()
+                .batch_execute(&format!("CREATE DATABASE {name}"))
+                .unwrap();
+            let dsn = url_for(&name, "postgres");
+            let release =
+                polis_migrate::load(&root().join("../server/postgres/migrations")).unwrap();
+            let mut runner = polis_migrate::connect(&format!("{dsn}?sslmode=disable")).unwrap();
+            polis_migrate::apply(&mut runner, &release).unwrap();
+            drop(runner);
+            let _roles = ROLES.lock().unwrap_or_else(|e| e.into_inner());
+            Client::connect(&dsn, NoTls)
+                .unwrap()
+                .batch_execute(&format!(
+                    "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='{LOGIN}') \
+                       THEN CREATE ROLE {LOGIN} LOGIN; END IF; \
+                       IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='run_record_outsider') \
+                       THEN CREATE ROLE run_record_outsider LOGIN; END IF; END $$;
+                     GRANT polis_queue_executor TO {LOGIN};
+                     INSERT INTO users(uid,hname) VALUES(1,'generated run-record owner') ON CONFLICT DO NOTHING;
+                     INSERT INTO conversations(zid,owner,topic) VALUES(1,1,'generated run-record proof') ON CONFLICT DO NOTHING;"
+                ))
+                .unwrap();
+            FullDb { name }
+        }
+        fn admin(&self) -> Client {
+            Client::connect(&url_for(&self.name, "postgres"), NoTls).unwrap()
+        }
+        fn executor(&self) -> Client {
+            Client::connect(&url_for(&self.name, LOGIN), NoTls).unwrap()
+        }
+        fn record(&self, job: &str) -> Option<Value> {
+            self.executor()
+                .query_one("SELECT pd_run_record($1,$2::text::uuid)", &[&ENV, &job])
+                .unwrap()
+                .get(0)
+        }
+        /// A synchronous statement save, as the server makes one.
+        fn save(&self, key: &str) -> String {
+            let item = json!({"zid_topic_jobid":{"S":format!("1#{key}#generated")},"zid":{"S":"1"},
+                "statement_data":{"S":"{}"}});
+            let reply: Value = self
+                .executor()
+                .query_one(
+                    "SELECT pd_result_mutate($1,'delphi','generated-server',$2,'Delphi_CollectiveStatement','put',$3)",
+                    &[&ENV, &Uuid::new_v4(), &item],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(reply["outcome"], "succeeded", "{reply}");
+            reply["job_id"].as_str().unwrap().to_owned()
+        }
+    }
+
+    impl Drop for FullDb {
+        fn drop(&mut self) {
+            if let Ok(mut admin) = Client::connect(&admin_url(), NoTls) {
+                let _ = admin.batch_execute(&format!(
+                    "DROP DATABASE IF EXISTS {} WITH (FORCE)",
+                    self.name
+                ));
+            }
+        }
+    }
+
+    fn ts(admin: &mut Client, sql: &str, job: &str) -> Option<String> {
+        admin
+            .query_one(
+                &format!("SELECT to_char(({sql}) AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"+00:00\"')"),
+                &[&job],
+            )
+            .unwrap()
+            .get(0)
+    }
+
+    #[test]
+    fn the_executor_reads_a_seeded_jobs_record_and_nothing_else_is_granted() {
+        let db = FullDb::new();
+        let mut admin = db.admin();
+        let first = db.save("first");
+        let second = db.save("second");
+
+        // The fields the executor cannot read today come from the tables.
+        let rec = db.record(&first).unwrap();
+        assert_eq!(rec["job_id"], first.as_str());
+        assert_eq!(rec["origin"], "queued");
+        assert_eq!(rec["stage"], "delphi_full_pipeline");
+        assert_eq!(rec["state"], "succeeded");
+        assert_eq!(rec["pinned"], false);
+        assert!(
+            rec["graph"].is_null(),
+            "a writer run's storage graph is not reported: {rec}"
+        );
+        assert_eq!(rec["nodes"], json!([]));
+        assert!(rec["manifest"].is_null());
+        let attempt = &rec["attempt"];
+        assert_eq!(attempt["number"], 1);
+        assert_eq!(attempt["outcome"], "succeeded");
+        assert_eq!(
+            attempt["started_at"].as_str(),
+            ts(
+                &mut admin,
+                "SELECT started_at FROM polis_queue_attempts WHERE job_id=$1::text::uuid",
+                &first
+            )
+            .as_deref()
+        );
+        assert_eq!(
+            attempt["ended_at"].as_str(),
+            ts(
+                &mut admin,
+                "SELECT ended_at FROM polis_queue_attempts WHERE job_id=$1::text::uuid",
+                &first
+            )
+            .as_deref()
+        );
+        let families = rec["families"].as_array().unwrap();
+        assert_eq!(families.len(), 1, "{rec}");
+        let f = &families[0];
+        let row = admin
+            .query_one(
+                "SELECT f.content_sha,f.row_count,f.batch_id::text FROM delphi_result_families f \
+                 JOIN delphi_result_batches b USING(env,batch_id) WHERE b.job_id=$1::text::uuid",
+                &[&first],
+            )
+            .unwrap();
+        assert_eq!(f["family"], "Delphi_CollectiveStatement");
+        assert_eq!(
+            f["content_sha256"].as_str(),
+            Some(row.get::<_, String>(0).as_str())
+        );
+        assert_eq!(f["row_count"], row.get::<_, i32>(1));
+        assert_eq!(
+            f["batch_id"].as_str(),
+            Some(row.get::<_, String>(2).as_str())
+        );
+        assert_eq!(f["batch_id"], attempt["attempt_id"]);
+        // The second save replaced it: published at generation 1, not served now.
+        assert_eq!(f["scope"], "delphi");
+        assert_eq!(f["generation"], 1);
+        assert_eq!(f["served"], false);
+        let artifact = f["artifact_id"].as_str().unwrap();
+        assert_eq!(
+            rec["bundles"][artifact]["Delphi_CollectiveStatement"]["job_id"],
+            first.as_str()
+        );
+        let later = db.record(&second).unwrap();
+        assert_eq!(later["families"][0]["generation"], 2);
+        assert_eq!(later["families"][0]["served"], true);
+        assert_eq!(later["families"][0]["row_count"], 2);
+
+        // Pinned is the job row's own.
+        admin
+            .execute(
+                "UPDATE delphi_jobs SET pinned=true WHERE job_id=$1::text::uuid",
+                &[&first],
+            )
+            .unwrap();
+        assert_eq!(db.record(&first).unwrap()["pinned"], true);
+
+        // A queued job, then claimed: the running attempt and its start.
+        let job = Uuid::new_v4();
+        let reply: Value = db
+            .executor()
+            .query_one(
+                "SELECT pd_writer_admit($1,1,'delphi','generated-server','queued-run',repeat('a',64),$2,$3,\
+                 'delphi_full_pipeline',NULL,'{\"include_moderation\":true}'::jsonb,repeat('b',40))",
+                &[&ENV, &job, &Uuid::new_v4()],
+            )
+            .unwrap()
+            .get(0);
+        assert_eq!(reply["outcome"], "enqueued", "{reply}");
+        let queued = db.record(&job.to_string()).unwrap();
+        assert_eq!(queued["state"], "queued");
+        assert!(queued["attempt"].is_null());
+        assert_eq!(queued["families"], json!([]));
+        assert_eq!(queued["max_attempts"], 3);
+        assert_eq!(queued["code_version"], "b".repeat(40));
+        let claim: Value = db
+            .executor()
+            .query_one(
+                "SELECT pq_claim($1,1::smallint,$2,$3,60,'delphi')",
+                &[&ENV, &Uuid::new_v4(), &Uuid::new_v4()],
+            )
+            .unwrap()
+            .get(0);
+        assert_eq!(claim["job_id"], job.to_string().as_str(), "{claim}");
+        let running = db.record(&job.to_string()).unwrap();
+        assert_eq!(running["state"], "running");
+        assert_eq!(running["attempt"]["outcome"], "running");
+        assert!(running["attempt"]["ended_at"].is_null());
+        assert_eq!(running["attempt"]["attempt_id"], claim["attempt_id"]);
+        assert_eq!(
+            running["attempt"]["started_at"].as_str(),
+            ts(
+                &mut admin,
+                "SELECT started_at FROM polis_queue_attempts WHERE job_id=$1::text::uuid",
+                &job.to_string()
+            )
+            .as_deref()
+        );
+
+        // Unknown jobs and other envs are NULL.
+        assert!(db.record(&Uuid::new_v4().to_string()).is_none());
+        let other: Option<Value> = db
+            .executor()
+            .query_one("SELECT pd_run_record('other',$1::text::uuid)", &[&first])
+            .unwrap()
+            .get(0);
+        assert!(other.is_none());
+
+        // The executor still cannot read the tables the function reads.
+        let mut ex = db.executor();
+        for table in [
+            "polis_queue_attempts",
+            "polis_queue_jobs",
+            "polis_queue_logs",
+            "delphi_jobs",
+            "delphi_result_families",
+            "delphi_result_batches",
+            "delphi_writer_runs",
+            "delphi_graph_nodes",
+            "delphi_graph_served",
+            "delphi_artifacts",
+        ] {
+            let err = ex
+                .query(&format!("SELECT 1 FROM public.{table} LIMIT 1"), &[])
+                .unwrap_err();
+            let message = err.as_db_error().map(|e| e.message().to_owned());
+            assert!(
+                message
+                    .as_deref()
+                    .is_some_and(|m| m.contains("permission denied")),
+                "{table}: {message:?}"
+            );
+        }
+        // Only the executor role may call it: a login outside it is refused.
+        let mut outsider =
+            Client::connect(&url_for(&db.name, "run_record_outsider"), NoTls).unwrap();
+        let err = outsider
+            .query_one("SELECT pd_run_record($1,$2::text::uuid)", &[&ENV, &first])
+            .unwrap_err();
+        let message = err.as_db_error().map(|e| e.message().to_owned());
+        assert!(
+            message
+                .as_deref()
+                .is_some_and(|m| m.contains("permission denied for function pd_run_record")),
+            "{message:?}"
+        );
+        // Its catalog shape: owned by the queue owner, a definer with a pinned
+        // search path, STABLE SQL, EXECUTE for the owner and the executor only.
+        let shape = admin
+            .query_one(
+                "SELECT pg_get_userbyid(p.proowner),p.prosecdef,p.provolatile::text,l.lanname,p.proconfig,\
+                 (SELECT array_agg(g ORDER BY g) FROM (SELECT CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS g \
+                  FROM aclexplode(p.proacl) a WHERE a.privilege_type='EXECUTE') e) \
+                 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang \
+                 WHERE p.oid='public.pd_run_record(text,uuid)'::regprocedure",
+                &[],
+            )
+            .unwrap();
+        assert_eq!(shape.get::<_, String>(0), "polis_queue_owner");
+        assert!(shape.get::<_, bool>(1));
+        assert_eq!(shape.get::<_, String>(2), "s");
+        assert_eq!(shape.get::<_, String>(3), "sql");
+        assert_eq!(
+            shape.get::<_, Vec<String>>(4),
+            vec!["search_path=pg_catalog, pg_temp".to_owned()]
+        );
+        assert_eq!(
+            shape.get::<_, Vec<String>>(5),
+            vec![
+                "polis_queue_executor".to_owned(),
+                "polis_queue_owner".to_owned()
+            ]
+        );
+
+        // The reversal drops it and nothing else.
+        let down = std::fs::read_to_string(
+            root().join("../server/postgres/migrations/down/000041_drop_delphi_run_record.sql"),
+        )
+        .unwrap();
+        admin.batch_execute(&down).unwrap();
+        let gone: bool = admin
+            .query_one(
+                "SELECT to_regprocedure('public.pd_run_record(text,uuid)') IS NULL",
+                &[],
+            )
+            .unwrap()
+            .get(0);
+        assert!(gone);
+        assert!(
+            admin
+                .query_one(
+                    "SELECT to_regprocedure('public.pd_job_view(text,uuid)') IS NOT NULL",
+                    &[]
+                )
+                .unwrap()
+                .get::<_, bool>(0)
+        );
+    }
+
+    #[test]
+    fn a_job_graphs_root_lists_its_other_nodes() {
+        let db = FullDb::new();
+        let data = json!({"texts": ["trees green leaves", "water flows river"]});
+        let sha: String = db
+            .admin()
+            .query_one("SELECT public.pd_graph_hash($1)", &[&data])
+            .unwrap()
+            .get(0);
+        let code = super::sha_hex(b"generated run-record proof");
+        let nodes: Vec<Value> = [
+            ("e", "graph_embed", embedding_model(), json!([])),
+            ("c", "graph_cluster", "local-nearest-centroid/1".to_owned(), json!([{"node":"e","role":"embeddings"}])),
+            ("t", "graph_topics", "delphi-tfidf-keywords/1".to_owned(), json!([{"node":"c","role":"clusters"}])),
+            ("n", "graph_narrative", "local-narrative-fixture/1".to_owned(), json!([{"node":"t","role":"topics"}])),
+        ]
+        .iter()
+        .map(|(k, stage, model, inputs)| {
+            json!({"key": k, "stage": stage, "class": "delphi",
+                "declared": {"snapshot": {"data": data, "sha256": sha}, "code": code, "model": model,
+                    "runtime": "python-3.12", "seed": 0, "config": {}, "mode": "full",
+                    "memory_bytes": 1048576, "work_units": 100},
+                "inputs": inputs, "max_attempts": 2})
+        })
+        .collect();
+        let spec = json!({"schema": "polis-job-graph/1", "nodes": nodes});
+        let admit: Value = db
+            .executor()
+            .query_one(
+                "SELECT public.pd_graph_admit($1,1,'graph-scope','graph-key',$2,NULL)",
+                &[&ENV, &spec],
+            )
+            .unwrap()
+            .get(0);
+        let graph = admit["graph_id"].as_str().unwrap().to_owned();
+        let root = admit["root_job_id"].as_str().unwrap().to_owned();
+        let rec = db.record(&root).unwrap();
+        assert_eq!(
+            rec["graph"],
+            json!({"graph_id": graph, "root_job_id": root})
+        );
+        assert!(rec["parent_job_id"].is_null());
+        assert_eq!(rec["stage"], "graph_embed");
+        let others = rec["nodes"].as_array().unwrap();
+        let stages: Vec<&str> = others
+            .iter()
+            .map(|n| n["stage"].as_str().unwrap())
+            .collect();
+        assert_eq!(stages, ["graph_cluster", "graph_narrative", "graph_topics"]);
+        assert!(
+            others.iter().all(|n| n["state"] == "queued"
+                && n["max_attempts"] == 2
+                && n["attempt"].is_null())
+        );
+        let child = others[0]["job_id"].as_str().unwrap();
+        let rec = db.record(child).unwrap();
+        assert_eq!(rec["parent_job_id"], root.as_str());
+        assert_eq!(rec["graph"]["root_job_id"], root.as_str());
+        assert_eq!(rec["nodes"], json!([]), "only the root lists the nodes");
+    }
+
+    fn embedding_model() -> String {
+        polis_queue_adapter::jobs::embedding::MODEL_MINILM.to_owned()
+    }
+}
+
+/// The input bundle read from real Postgres. The contract's golden
+/// conversation (delphi/tests/fixtures/input_bundle/basic) is inserted into a
+/// database carrying the full release chain; the daemon's reader reads it back
+/// and writes the bundle, which must be the golden bundle byte for byte, the
+/// manifest's `inputs` block included. With `POLIS_INPUT_BUNDLE_KEEP=<dir>`
+/// the database is kept and the bundle written under `<dir>/inputs`, so the
+/// Delphi side can read the same rows from Postgres and compare.
+mod input_bundle {
+    use super::{admin_url, root, url_for};
+    use polis_queue_adapter::jobs::inputs::{self, contract};
+    use postgres::{Client, NoTls};
+    use uuid::Uuid;
+
+    fn golden(name: &str) -> Vec<u8> {
+        std::fs::read(
+            root()
+                .join("../delphi/tests/fixtures/input_bundle/basic")
+                .join(name),
+        )
+        .unwrap()
+    }
+
+    fn decode<T: serde::de::DeserializeOwned>(name: &str) -> T {
+        serde_json::from_slice(&golden(name)).unwrap()
+    }
+
+    #[test]
+    fn the_reader_on_real_postgres_writes_the_golden_bundle() {
+        let name = format!("bundle_{}", Uuid::new_v4().simple());
+        Client::connect(&admin_url(), NoTls)
+            .unwrap()
+            .batch_execute(&format!("CREATE DATABASE {name}"))
+            .unwrap();
+        let dsn = url_for(&name, "postgres");
+        let release = polis_migrate::load(&root().join("../server/postgres/migrations")).unwrap();
+        let mut runner = polis_migrate::connect(&format!("{dsn}?sslmode=disable")).unwrap();
+        polis_migrate::apply(&mut runner, &release).unwrap();
+        drop(runner);
+
+        let conversation: contract::Conversation = decode("conversation.json");
+        let comments: Vec<contract::Comment> = decode("comments.json");
+        let selections: Vec<contract::ReportCommentSelection> =
+            decode("report_comment_selections.json");
+        let manifest: contract::Manifest = decode("manifest.json");
+        let zid = conversation.zid;
+        let owner = conversation.owner.unwrap();
+        let mut db = Client::connect(&dsn, NoTls).unwrap();
+        db.execute(
+            "INSERT INTO users(uid,hname) VALUES($1::bigint,'generated bundle owner')",
+            &[&owner],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO conversations(zid,owner,topic,description,created,modified) \
+             VALUES($1::bigint,$2::bigint,$3,$4,$5,$6)",
+            &[
+                &zid,
+                &owner,
+                &conversation.topic,
+                &conversation.description,
+                &conversation.created,
+                &conversation.modified,
+            ],
+        )
+        .unwrap();
+        // One participant per pid the comments name; pid_auto numbers them from 0.
+        let max_pid = comments.iter().map(|c| c.pid).max().unwrap();
+        for pid in 0..=max_pid {
+            let uid = 1000 + pid;
+            db.execute(
+                "INSERT INTO users(uid,hname) VALUES($1::bigint,'generated participant')",
+                &[&uid],
+            )
+            .unwrap();
+            let got: i32 = db
+                .query_one(
+                    "INSERT INTO participants(zid,uid) VALUES($1::bigint,$2::bigint) RETURNING pid",
+                    &[&zid, &uid],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(i64::from(got), pid);
+        }
+        // tid_auto numbers comments from 0 in insertion order, as the golden tids run.
+        for c in &comments {
+            let got: i32 = db
+                .query_one(
+                    "INSERT INTO comments(zid,pid,uid,txt,created,mod,active) \
+                     VALUES($1::bigint,$2::bigint,$3::bigint,$4,$5,$6::bigint,$7) RETURNING tid",
+                    &[
+                        &zid,
+                        &c.pid,
+                        &(1000 + c.pid),
+                        &c.txt,
+                        &c.created,
+                        &c.r#mod,
+                        &c.active,
+                    ],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(i64::from(got), c.tid);
+        }
+        let mut rids: Vec<i64> = selections.iter().map(|s| s.rid).collect();
+        rids.dedup();
+        for rid in rids {
+            db.execute(
+                "INSERT INTO reports(rid,report_id,zid) VALUES($1,$2,$3::bigint)",
+                &[&rid, &format!("rgenerated{rid}"), &zid],
+            )
+            .unwrap();
+        }
+        for s in &selections {
+            db.execute(
+                "INSERT INTO report_comment_selections(zid,rid,tid,selection,modified) \
+                 VALUES($1::bigint,$2,$3::bigint,$4::bigint,$5)",
+                &[&zid, &s.rid, &s.tid, &s.selection, &s.modified],
+            )
+            .unwrap();
+        }
+        // The bundle carries only the newest vote's created; one pass (0, the
+        // same in every sign convention) at that instant sets it.
+        db.execute(
+            "INSERT INTO votes(zid,pid,tid,vote,created) VALUES($1::bigint,0,0,0,$2)",
+            &[&zid, &manifest.inputs.vote_hwm],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO math_main(zid,math_env,data,last_vote_timestamp,caching_tick,math_tick) \
+             VALUES($1::bigint,$2,'{}'::jsonb,0,$3,$4)",
+            &[
+                &zid,
+                &manifest.inputs.math_env,
+                &manifest.inputs.math_caching_tick,
+                &manifest.inputs.math_tick,
+            ],
+        )
+        .unwrap();
+
+        let bundle = inputs::read(&mut db, zid, &manifest.inputs.math_env).unwrap();
+        drop(db);
+        let keep = std::env::var("POLIS_INPUT_BUNDLE_KEEP").ok();
+        let dir = match &keep {
+            Some(d) => std::path::PathBuf::from(d),
+            None => std::env::temp_dir().join(format!("bundle-{}", Uuid::new_v4())),
+        };
+        inputs::write(&dir, &bundle).unwrap();
+        for file in [
+            "conversation.json",
+            "comments.json",
+            "report_comment_selections.json",
+            "manifest.json",
+        ] {
+            assert_eq!(
+                std::fs::read(dir.join("inputs").join(file)).unwrap(),
+                golden(file),
+                "{file}"
+            );
+        }
+        if keep.is_some() {
+            println!("kept database {name}");
+        } else {
+            std::fs::remove_dir_all(&dir).unwrap();
+            Client::connect(&admin_url(), NoTls)
+                .unwrap()
+                .batch_execute(&format!("DROP DATABASE {name}"))
+                .unwrap();
+        }
+    }
+}

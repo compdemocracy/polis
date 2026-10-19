@@ -59,6 +59,9 @@ def main():
             rows.insert(18,dict(command='math view',scenario='math view subset',args=['math','view','--conversation','2p027generated','--key','math_tick'],expected_exit=0,scope='live',actor='owner'))
             rows.insert(19,dict(command='conversation list',scenario='conversation list owner pagination',args=['conversation','list','--sort','newest','--limit','10'],expected_exit=0,scope='rust-only',contract='owner-list',actor='owner'))
             rows.insert(20,dict(command='conversation list',scenario='conversation list owner minimum',args=['conversation','list','--min-participants','1','--limit','10'],expected_exit=0,scope='rust-only',contract='owner-list',actor='owner'))
+            # The same participant marks a second statement important, after the
+            # participant proof below has counted the first, unmarked vote.
+            rows.insert(next(i for i,r in enumerate(rows) if r['command']=='comment')+1,dict(command='vote',scenario='vote important',args=['vote','2p027generated','--statement','1','--agree','--important'],expected_exit=0,scope='live',actor='participant'))
             rows += [dict(command=name,args=name.split(),expected_exit=8,scope='planned',actor='owner') for name,implemented in sorted(nodes.items()) if not implemented]
             captured={}
             for phase in run_phases(stack,cli,[('node',''),('rust',','.join(sorted(routes)))]):
@@ -115,6 +118,11 @@ def main():
                         if proof!={'votes':[{'pid':participant_id,'choice':'agree'}],'comments':[{'pid':participant_id}]}:
                             raise RuntimeError('participant identity or semantic vote proof failed')
                         report[phase+'_participant_proof']={'semantic_choice':'agree','votes':1,'comments':1,'same_participant':True}
+                    if row.get('scenario')=='vote important':
+                        proof=json.loads(stack.dc('exec','-T','server','node','/differential/verify-participant.cjs','important').stdout)
+                        if proof!={'votes':[{'pid':participant_id,'tid':0,'choice':'agree','high_priority':False},{'pid':participant_id,'tid':1,'choice':'agree','high_priority':True}]}:
+                            raise RuntimeError('important vote proof failed')
+                        report[phase+'_important_proof']={'unmarked_high_priority':False,'marked_high_priority':True,'votes':2,'same_participant':True}
                 # Planned commands cannot do HTTP or mutate credentials. Run
                 # those independent parser/availability checks concurrently;
                 # keep real participant/admin flows sequential.

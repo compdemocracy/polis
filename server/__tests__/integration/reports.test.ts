@@ -55,9 +55,10 @@ describe("Reports API", () => {
       conversation_id: conversationId,
     });
 
-    // Should return successful response
+    // Should return successful response carrying only the new report's public id
     expect(response.status).toBe(200);
-    expect(response.text).toBe("{}");
+    expect(Object.keys(response.body)).toEqual(["report_id"]);
+    expect(response.body.report_id).toMatch(/^r[a-z0-9]{20}$/);
 
     // Verify report was created by checking conversation reports
     const getResponse: Response = await testAgent.get(
@@ -67,6 +68,32 @@ describe("Reports API", () => {
     expect(Array.isArray(reports)).toBe(true);
     expect(reports.length).toBeGreaterThan(0);
     expect(reports[0]).toHaveProperty("conversation_id", conversationId);
+    expect(reports.map((r) => r.report_id)).toContain(response.body.report_id);
+  });
+
+  test("POST /api/v3/reports - each creation returns the id of the report it inserted", async () => {
+    const [first, second] = await Promise.all([
+      testAgent
+        .post("/api/v3/reports")
+        .send({ conversation_id: conversationId }),
+      testAgent
+        .post("/api/v3/reports")
+        .send({ conversation_id: conversationId }),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(first.body.report_id).not.toEqual(second.body.report_id);
+
+    for (const created of [first, second]) {
+      const getResponse: Response = await testAgent.get(
+        `/api/v3/reports?report_id=${created.body.report_id}`
+      );
+      expect(getResponse.status).toBe(200);
+      const reports: Report[] = JSON.parse(getResponse.text);
+      expect(reports.length).toBe(1);
+      expect(reports[0]).toHaveProperty("report_id", created.body.report_id);
+      expect(reports[0]).toHaveProperty("conversation_id", conversationId);
+    }
   });
 
   test("GET /api/v3/reports - should return reports for the conversation", async () => {

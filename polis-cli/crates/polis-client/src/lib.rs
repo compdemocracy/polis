@@ -174,7 +174,11 @@ impl Client {
             e
         };
         if status != 302 {
-            return Err(unavailable());
+            return Err(error_response(
+                unavailable(),
+                response,
+                self.token.as_deref(),
+            ));
         }
         let location = response
             .headers()
@@ -242,7 +246,7 @@ impl Client {
                 if status >= 500 { 6 } else { 1 },
             );
             e.upstream = json!({"status":status});
-            return Err(e);
+            return Err(error_response(e, response, self.token.as_deref()));
         }
         let mut bytes = Vec::new();
         response
@@ -346,6 +350,12 @@ impl Client {
     }
     /// Read the fixed PCA presentation route, with bounded gzip support.
     pub fn math_presentation(&self, query: &[(String, String)]) -> Result<Value> {
+        let bytes = self.math_presentation_bytes(query)?;
+        serde_json::from_slice(&bytes)
+            .map_err(|_| protocol(false, "Site returned malformed math JSON."))
+    }
+    /// The same read, returning the decoded body as the server sent it.
+    pub fn math_presentation_bytes(&self, query: &[(String, String)]) -> Result<Vec<u8>> {
         let (status, content_type, bytes) =
             self.exchange("GET", "/api/v3/math/pca2", query, None, false, true)?;
         if status != 200
@@ -356,8 +366,7 @@ impl Client {
                 "Math presentation must return HTTP 200 JSON.",
             ));
         }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| protocol(false, "Site returned malformed math JSON."))
+        Ok(bytes)
     }
     /// Only the fixed public report export route is eligible for text downloads.
     pub fn report_export(&self, report: &str, kind: &str) -> Result<Vec<u8>> {
@@ -588,7 +597,8 @@ impl Client {
                     1,
                 ),
             };
-            // Do not echo arbitrary upstream error bodies: they can contain submitted secrets.
+            // Keep the existing status, outcome and recovery policy. Only explicit
+            // bounded code/message fields from client errors are exposed below.
             let mut err = Error::new(
                 code,
                 format!("Site returned HTTP {status}; operation did not report success."),
@@ -603,6 +613,11 @@ impl Client {
                 err.action = advice.action;
                 err.upstream["code"] = json!(advice.upstream_code);
             }
+            if (400..500).contains(&status) {
+                if let Some(data) = data.as_ref() {
+                    client_error_details(&mut err.upstream, data, self.token.as_deref());
+                }
+            }
             let redirect = (300..400).contains(&status) && status != 304;
             err.outcome = if effect && (status >= 500 || (200..300).contains(&status) || redirect) {
                 err.exit = 7;
@@ -615,6 +630,67 @@ impl Client {
         Ok((status, content_type, bytes))
     }
 }
+/// Specialized downloads keep their existing error class even when the body is
+/// absent, malformed, too large or interrupted. Never follow a capability here.
+fn error_response(
+    mut error: Error,
+    response: reqwest::blocking::Response,
+    token: Option<&str>,
+) -> Error {
+    if response.status().is_client_error() {
+        let mut bytes = Vec::new();
+        if response.take(MAX_BODY + 1).read_to_end(&mut bytes).is_ok()
+            && bytes.len() as u64 <= MAX_BODY
+        {
+            if let Ok(data) = serde_json::from_slice::<Value>(&bytes) {
+                client_error_details(&mut error.upstream, &data, token);
+            }
+        }
+    }
+    error
+}
+
+/// Server explanations are data, not recovery instructions. Do not copy bodies,
+/// stacks or arbitrary nested details. Keep legacy guidance and exit codes.
+fn client_error_details(upstream: &mut Value, data: &Value, token: Option<&str>) {
+    let fields = data.get("error").filter(|v| v.is_object()).unwrap_or(data);
+    let code = fields.get("code").and_then(Value::as_str).filter(|code| {
+        !code.is_empty()
+            && code.len() <= 128
+            && code
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+            && !token.is_some_and(|t| !t.is_empty() && code.contains(t))
+    });
+    if let Some(code) = code {
+        upstream["code"] = json!(code);
+    }
+    if let Some(message) = fields
+        .get("message")
+        .and_then(Value::as_str)
+        .filter(|m| !m.trim().is_empty() && m.len() <= 4096)
+    {
+        let message = match token.filter(|t| !t.is_empty()) {
+            Some(token) => message.replace(token, "[redacted]"),
+            None => message.to_owned(),
+        };
+        // Escaped controls are visible in human and JSON output without letting
+        // the remote site move the cursor, rewrite a line or reorder its text.
+        let mut safe = String::new();
+        for c in message.chars() {
+            if c.is_control()
+                || matches!(c, '\u{061c}' | '\u{180e}' | '\u{200b}'..='\u{200f}'
+                | '\u{2028}'..='\u{202e}' | '\u{2060}'..='\u{2064}' | '\u{2066}'..='\u{2069}' | '\u{feff}')
+            {
+                safe.extend(c.escape_unicode());
+            } else {
+                safe.push(c);
+            }
+        }
+        upstream["message"] = json!(safe);
+    }
+}
+
 fn has_error(v: &Value) -> bool {
     v.get("ok") == Some(&Value::Bool(false))
         || v.get("success") == Some(&Value::Bool(false))
@@ -704,15 +780,13 @@ mod tests {
         ] {
             let err = response(
                 409,
-                &json!({"status":"error","code":code,"message":"private-bearer-value"}).to_string(),
+                &json!({"status":"error","code":code,"message":"Fixture rejection"}).to_string(),
                 true,
             );
             assert_eq!(err.code, kind);
             assert_eq!(err.upstream["code"], code);
             assert!(err.action.contains(action));
-            assert!(!serde_json::to_string(&err)
-                .unwrap()
-                .contains("private-bearer-value"));
+            assert_eq!(err.upstream["message"], "Fixture rejection");
             assert_eq!(err.outcome, "rejected");
         }
     }
@@ -729,6 +803,37 @@ mod tests {
             assert_eq!(err.outcome, "unknown");
             assert_eq!(err.exit, 7);
             assert!(!err.retryable);
+        }
+    }
+
+    #[test]
+    fn specialized_reads_keep_client_error_details_and_existing_exits() {
+        for capability in [true, false] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut buf = [0; 8192];
+                assert!(socket.read(&mut buf).unwrap() > 0);
+                let text = r#"{"code":"REPORT_NOT_READY","message":"The report is still being prepared","details":"private-detail"}"#;
+                write!(socket,"HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",text.len()).unwrap();
+            });
+            let client = Client::new(&base, None, 5).unwrap();
+            let err = if capability {
+                client.export_capability(&[]).unwrap_err()
+            } else {
+                client.public_document("/feeds/rdemo").unwrap_err()
+            };
+            server.join().unwrap();
+            assert_eq!(err.exit, 1);
+            assert_eq!(err.upstream["code"], "REPORT_NOT_READY");
+            assert_eq!(
+                err.upstream["message"],
+                "The report is still being prepared"
+            );
+            assert!(!serde_json::to_string(&err)
+                .unwrap()
+                .contains("private-detail"));
         }
     }
 

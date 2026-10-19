@@ -85,25 +85,24 @@ fn cast(
     conversation: &str,
     tid: u32,
     choice: VoteChoice,
+    important: bool,
 ) -> Result<Value> {
     let scope = profiles::participant_scope(config.url(site)?, conversation)?;
     // Never hold this local credential lock while waiting for a person's answer.
     // Serialize first votes so concurrent CLI processes reuse the issued identity.
     let _lock = profiles::credential_lock(site, &scope)?;
     let saved = profiles::participant_load(site, &scope)?;
+    let mut body = json!({"conversation_id":conversation,"tid":tid,"vote":choice.wire()});
+    // As the participation page: high_priority is always sent, false unless the
+    // statement is marked important. It is separate from the vote value.
+    body["high_priority"] = Value::Bool(important);
     let data = client(
         config,
         site,
         timeout,
         saved.as_ref().map(|s| s.token.clone()),
     )?
-    .request(
-        "POST",
-        "/api/v3/votes",
-        &[],
-        Some(json!({"conversation_id":conversation,"tid":tid,"vote":choice.wire()})),
-        true,
-    )
+    .request("POST", "/api/v3/votes", &[], Some(body), true)
     .map_err(safe_error)?;
     let issued = participation::issued_token(&data, true).map_err(|_| invalid(true))?;
     // Retain a valid issued credential even if another receipt field is malformed:
@@ -149,7 +148,15 @@ pub fn execute(
     };
     match (m.get_one::<u32>("statement"), choice) {
         (Some(tid), Some(choice)) => {
-            return cast(config, site, timeout, conversation, *tid, choice)
+            return cast(
+                config,
+                site,
+                timeout,
+                conversation,
+                *tid,
+                choice,
+                m.get_flag("important"),
+            )
         }
         (None, None) => {}
         _ => {
@@ -172,7 +179,7 @@ pub fn execute(
         let Some(choice) = prompt(&mut input, &mut output, &stmt)? else {
             break;
         };
-        cast(config, site, timeout, conversation, stmt.tid, choice)?;
+        cast(config, site, timeout, conversation, stmt.tid, choice, false)?;
         recorded += 1;
         writeln!(output, "Recorded {}.", choice.name()).map_err(io_error)?;
     }

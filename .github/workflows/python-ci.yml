@@ -15,12 +15,15 @@ on:
       - 'scripts/application_stop.sh'
       - 'scripts/validate_service.sh'
       - 'scripts/test-deploy-hooks.sh'
+      - 'deploy/build-images.sh'
+      - 'deploy/build-on-box.sh'
       - 'scripts/run-import-dry-run.py'
       - 'docker-compose*.yml'
       - '.github/workflows/python-ci.yml'
       - 'ci/test-migrations.sh'
       - 'ci/local/delphi-python.sh'
       - 'ci/local/delphi_python_results.py'
+      - 'ci/tests/test_delphi_python_results.py'
       - 'ci/local/delphi-test-durations.json'
       - 'ci/local/test-images.sh'
       - '.github/workflows/test-images.yml'
@@ -51,7 +54,9 @@ jobs:
   # (test-images.yml), splits the suite into shards (each also parallel inside
   # its job) that run from those images, and the `test` job puts the shards
   # back together: it proves every test ran in exactly one shard, adds up the
-  # counts and combines coverage.
+  # counts and combines coverage. Each shard's artifact carries the run attempt in
+  # its name: a re-run shard adds an artifact beside the first attempt's, and the
+  # combine keeps only the latest attempt of each shard.
   images:
     uses: ./.github/workflows/test-images.yml
     with:
@@ -89,13 +94,14 @@ jobs:
         DELPHI_CHECK_OUT: ${{ github.workspace }}/delphi-results/shard-${{ matrix.shard }}
         # The runner is discarded after the job; tearing the stack down only costs time.
         DELPHI_CHECK_KEEP: '1'
+        DELPHI_CHECK_JOB_ID: ${{ job.check_run_id }}
       run: bash ci/local/delphi-python.sh --shard ${{ matrix.shard }}/${{ strategy.job-total }}
 
     - name: Upload shard results
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: delphi-shard-${{ matrix.shard }}
+        name: delphi-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
         path: |
           delphi-results/shard-${{ matrix.shard }}
           !delphi-results/shard-${{ matrix.shard }}/stack
@@ -119,6 +125,9 @@ jobs:
       with:
         pattern: delphi-shard-*
         path: delphi-results
+
+    - name: Test the shard combine (latest attempt of a re-run shard)
+      run: python3 ci/tests/test_delphi_python_results.py
 
     - name: Combine shards (counts, coverage)
       env:

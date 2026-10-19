@@ -85,3 +85,57 @@ test('a late answer for the previous report cannot replace the current one', asy
   expect(screen.queryByText('We support this cited proposal.')).toBeNull();
   expect(net.polisPost).not.toHaveBeenCalled();
 });
+
+
+test.each([
+  ['job#0#1', 'job_0_1', false],
+  ['another-job#12#34', 'another-job_12_34', true],
+  ['layer0_1', 'layer0_1', false],
+])('loads the stored narrative for topic %s', async (topicKey, section, encoded) => {
+  const narrative = { paragraphs: [{ sentences: [{ clauses: [{ text: 'A stored topic narrative.', citations: [] }] }] }] };
+  net.polisGet.mockImplementation(async (path, query) => {
+    if (path === '/api/v3/delphi/reports') {
+      return {
+        status: 'success',
+        reports: query.section === section
+          ? { [section]: { section, report_data: encoded ? JSON.stringify(narrative) : narrative } }
+          : {},
+      };
+    }
+    if (path === '/api/v3/delphi') return {
+      status: 'success', runs: { latest: { topics_by_layer: {
+        0: { 1: { topic_key: topicKey, topic_name: 'Test topic' } },
+      } } },
+    };
+    if (path === '/api/v3/topicStats') return {
+      status: 'success', stats: { [topicKey]: { comment_tids: [] } },
+    };
+    return stored([])(path);
+  });
+  render(<TopicPage {...props} topic_key={topicKey} />);
+  await screen.findByText('A stored topic narrative.');
+  expect(net.polisGet).toHaveBeenCalledWith('/api/v3/delphi/reports', {
+    report_id: props.report_id,
+    section,
+  });
+  expect(net.polisPost).not.toHaveBeenCalled();
+});
+
+test('a narrative stored for another cluster whose name contains this one is not shown', async () => {
+  const sibling = { paragraphs: [{ sentences: [{ clauses: [{ text: 'Cluster twelve narrative.', citations: [] }] }] }] };
+  net.polisGet.mockImplementation(async (path, query) => {
+    // The server answers job_0_1 with job_0_12 when job_0_1 is not stored.
+    if (path === '/api/v3/delphi/reports') return {
+      status: 'success', reports: { [query.section]: { section: 'job_0_12', report_data: sibling } },
+    };
+    return stored([])(path);
+  });
+  render(<TopicPage {...props} />);
+  await screen.findByText(unpublished);
+  await waitFor(() => expect(net.polisGet).toHaveBeenCalledWith('/api/v3/delphi/reports', {
+    report_id: props.report_id,
+    section: 'job_0_1',
+  }));
+  await act(async () => {});
+  expect(screen.queryByText('Cluster twelve narrative.')).toBeNull();
+});

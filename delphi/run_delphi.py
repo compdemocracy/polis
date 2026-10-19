@@ -48,17 +48,23 @@ def show_usage():
 def _start_daemon_job(zid):
     """Check the daemon's environment and frame, and observe the run's inputs, before any stage runs."""
     from polismath import job_child
-    from polismath.job_child import census
+    from polismath.job_child import census, input_bundle
 
     try:
         job = job_child.JobContext.from_env(
             expected_stage=job_child.STAGE_FULL_PIPELINE, zid=zid,
             allowed_phases={job_child.PHASE_RUN}, default_phase=job_child.PHASE_RUN,
         )
-    except job_child.JobEnvError as e:
+        # The input bundle, when the frame names one: the stages read its files
+        # instead of Postgres. A bundle that fails its checks refuses the run.
+        bundle = input_bundle.load(zid)
+    except (job_child.JobEnvError, input_bundle.BundleError) as e:
         job_child.refuse(str(e))
     try:
-        job.inputs = census.observe_inputs(zid, job_child.effective_math_env(), census.default_pg_query())
+        if bundle is not None:
+            job.inputs = census.observe_inputs_from_bundle(bundle, job_child.effective_math_env())
+        else:
+            job.inputs = census.observe_inputs(zid, job_child.effective_math_env(), census.default_pg_query())
     except census.CensusError as e:
         print(f"polis-jobs child: {e}", file=sys.stderr, flush=True)
         sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
@@ -76,6 +82,8 @@ def _finish_daemon_job(job, zid, region):
     """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
     from polismath import job_child
     from polismath.job_child import census
+    # The clustering run_pipeline.py ran: UMAP and EVoC from the default seed.
+    from umap_narrative.numerical_stages import CLUSTER_MODEL, DEFAULT_SEED
 
     try:
         outputs = census.count_full_pipeline_outputs(zid, census.default_dynamodb(region))
@@ -85,6 +93,8 @@ def _finish_daemon_job(job, zid, region):
                 "embed": os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
                 "topic": _topic_model_name(),
                 "narrative": None,
+                "cluster": CLUSTER_MODEL,
+                "cluster_seed": DEFAULT_SEED,
             },
             # Topic naming's provider batches are submitted and awaited inside
             # the UMAP stage; P1 does not observe them, so cost stays unknown.

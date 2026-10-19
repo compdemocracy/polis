@@ -237,15 +237,24 @@ def load_comment_texts(zid):
     Returns:
         Dictionary mapping comment_id to text
     """
-    logger.info(f"Loading comments directly from PostgreSQL for conversation {zid}")
-    postgres_client = PostgresClient()
-    
+    from polismath.job_child import input_bundle
+
+    # The input bundle polis-jobs wrote, when the frame names one; else PostgreSQL.
+    bundle = input_bundle.load(zid)
+    postgres_client = None
+
     try:
-        # Initialize connection
-        postgres_client.initialize()
-        
-        # Get comments
-        comments = postgres_client.get_comments_by_conversation(int(zid))
+        if bundle is not None:
+            logger.info(f"Loading comments from the input bundle for conversation {zid}")
+            comments = bundle.comments()
+        else:
+            logger.info(f"Loading comments directly from PostgreSQL for conversation {zid}")
+            postgres_client = PostgresClient()
+            # Initialize connection
+            postgres_client.initialize()
+
+            # Get comments
+            comments = postgres_client.get_comments_by_conversation(int(zid))
         
         if not comments:
             logger.error(f"No comments found in PostgreSQL for conversation {zid}")
@@ -254,7 +263,7 @@ def load_comment_texts(zid):
         # Create a dictionary of comment_id to text
         comment_dict = {comment['tid']: comment['txt'] for comment in comments if comment.get('txt')}
         
-        logger.info(f"Loaded {len(comment_dict)} comments from PostgreSQL")
+        logger.info(f"Loaded {len(comment_dict)} comments from {'the input bundle' if bundle is not None else 'PostgreSQL'}")
         return comment_dict
         
     except Exception as e:
@@ -263,7 +272,8 @@ def load_comment_texts(zid):
         
     finally:
         # Clean up connection
-        postgres_client.shutdown()
+        if postgres_client is not None:
+            postgres_client.shutdown()
 
 def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     """

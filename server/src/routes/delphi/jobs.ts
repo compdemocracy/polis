@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Request, Response } from "express";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
+import { failJson } from "../../utils/fail";
 import Config from "../../config";
 import pg from "../../db/pg-query";
 import {
@@ -25,8 +26,11 @@ export async function handle_POST_delphi_jobs(
   res: Response
 ): Promise<void> {
   try {
+    // A refusal, not a fault: answered before the request is read, so no job
+    // is written. The catch below answers 500 for anything thrown.
     if (!req.p.delphiEnabled) {
-      throw new Error("Unauthorized");
+      failJson(res, 403, "polis_err_delphi_jobs_delphi_disabled");
+      return;
     }
     logger.info(
       `Creating Delphi job with parameters: ${JSON.stringify(req.body)}`

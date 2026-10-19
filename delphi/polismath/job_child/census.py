@@ -95,6 +95,17 @@ def observe_inputs(zid: Any, math_env: str, pg_query: PgQuery) -> Dict[str, Any]
     }
 
 
+def observe_inputs_from_bundle(bundle, math_env: str) -> Dict[str, Any]:
+    """The inputs block when polis-jobs wrote an input bundle: the values it read
+    in the same snapshot as the bundle's rows, checked here (input_bundle.py)."""
+    from polismath.job_child.input_bundle import BundleError
+
+    try:
+        return bundle.inputs(math_env)
+    except BundleError as e:
+        raise CensusError(f"could not take the run's inputs from the input bundle: {e}") from e
+
+
 def _count(table, attr: str, value: str) -> int:
     from boto3.dynamodb.conditions import Key
 

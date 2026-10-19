@@ -107,6 +107,27 @@ const managementClient = new ManagementClient({
   clientSecret: Config.authClientSecret!,
 });
 
+// The unique index on a conversation's statement texts, (zid, txt). A database
+// built from the migrations names it comments_zid_txt_key; databases whose
+// comments table predates them name it comments_txt_unique_constraint.
+const STATEMENT_TEXT_UNIQUE = new Set([
+  "comments_zid_txt_key",
+  "comments_txt_unique_constraint",
+]);
+
+// A unique violation means the statement is a duplicate only when it is on
+// (zid, txt). Any other one (the (zid, tid) statement-number index, a
+// participant constraint) is a server error, not the participant's duplicate.
+function isDuplicateStatement(
+  err: { code?: unknown; constraint?: unknown } | null | undefined
+): boolean {
+  return (
+    (err?.code === "23505" || err?.code === 23505) &&
+    typeof err.constraint === "string" &&
+    STATEMENT_TEXT_UNIQUE.has(err.constraint)
+  );
+}
+
 async function commentExists(zid: number, txt: string): Promise<boolean> {
   const rows = (await pg.queryP(
     "select zid from comments where zid = ($1) and txt = ($2);",
@@ -150,14 +171,38 @@ async function handle_GET_comments_translations(
   }
 }
 
+/**
+ * GET /api/v3/comments with moderation=true is the moderation list: every
+ * statement of the conversation with its moderation state (mod, active,
+ * velocity). It is for the conversation's moderators (isModerator: the owner,
+ * a user on the owner's site, a polis dev). Any other caller, signed in or
+ * not, gets the statements participants can see (the plain list's rows)
+ * without those fields, so rejected statements, a strict conversation's
+ * unmoderated queue and their authors' pids stay with the moderators. The vote
+ * counts asked for with include_voting_patterns remain, because public report
+ * pages read them. Report pages and the participation page's topic list send
+ * moderation=true without moderator rights, so the list narrows instead of
+ * refusing. A request without a uid is never a moderator's, so it costs no
+ * extra query; a request without moderation=true is passed through untouched.
+ */
+async function commentsListParams(
+  p: RequestWithP["p"]
+): Promise<GetCommentsParams> {
+  if (!p.moderation) return p as GetCommentsParams;
+  const moderator =
+    p.uid !== undefined && p.uid !== null && (await isModerator(p.zid, p.uid));
+  return { ...p, participantVisibleOnly: !moderator } as GetCommentsParams;
+}
+
 async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
   try {
+    const listParams = await commentsListParams(req.p);
     // Check if pagination is explicitly requested for backwards compatibility
     const isPaginationRequested = req.p.limit !== undefined;
 
     if (!isPaginationRequested) {
       // Legacy response format: return array directly via finishArray
-      let comments = (await getComments(req.p as GetCommentsParams)) as any[];
+      let comments = (await getComments(listParams)) as any[];
 
       // Handle report selections if needed
       if (req.p.rid) {
@@ -192,11 +237,11 @@ async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
     );
 
     // Get total count
-    const total = await getCommentsCount(req.p as GetCommentsParams);
+    const total = await getCommentsCount(listParams);
 
     // Get comments with pagination
     const params = {
-      ...req.p,
+      ...listParams,
       limit: pagination.limit,
       offset: pagination.offset,
     } as GetCommentsParams;
@@ -531,7 +576,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       stack: err.stack,
     });
 
-    if (err.code === "23505" || err.code === 23505) {
+    if (isDuplicateStatement(err)) {
       failJson(res, 409, "polis_err_post_comment_duplicate", err);
     } else if (
       err.code === "23503" &&
@@ -928,10 +973,9 @@ async function handle_POST_comments_bulk(
         results.push({ txt, status: "success", tid, original_id });
       } catch (err: any) {
         logger.error("polis_err_bulk_comment_item", { error: err, txt });
-        let reason = "polis_err_post_comment";
-        if (err.code === "23505" || err.code === 23505) {
-          reason = "polis_err_post_comment_duplicate";
-        }
+        const reason = isDuplicateStatement(err)
+          ? "polis_err_post_comment_duplicate"
+          : "polis_err_post_comment";
         results.push({ txt, status: "error", reason });
       }
     }

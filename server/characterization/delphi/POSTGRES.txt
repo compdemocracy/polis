@@ -1,0 +1,31 @@
+PostgreSQL fixture mode
+
+Use the same generated cases, migrations, codec, HTTP request code and byte
+comparator as the default DynamoDB replay. Set DELPHI_RESULT_BACKEND=postgres
+to replay recordings-postgres/. P2ZERO_RECORDINGS_DIR optionally selects a
+separate candidate directory for recording or replay.
+P2ZERO_PG_ADMIN_URL and DYNAMODB_ENDPOINT still refer to disposable local services;
+the harness rebuilds its p2zero database and Delphi DynamoDB tables each run.
+
+From server/, with those service variables set:
+  DELPHI_RESULT_BACKEND=postgres P2ZERO_RECORDINGS_DIR=/tmp/delphi-pg-candidate node characterization/delphi/main.cjs record
+  DELPHI_RESULT_BACKEND=postgres P2ZERO_RECORDINGS_DIR=/tmp/delphi-pg-candidate node characterization/delphi/main.cjs replay
+
+The ordinary fixture loader runs first. postgres-fixtures.cjs publishes generated
+result families with the existing integration-test publication helper. Historical
+JobQueue rows (including their log fields) are encoded as legacy_control_files;
+pending/running controls use an empty result family when there is no result yet.
+Publication still uses the release codec, validating insert and seal. No source
+text is rewritten at runtime. No vote value is written by this added setup.
+
+These archived controls are never live native queue jobs. The PostgreSQL reader
+marks them archived and workLive false. This scaffolding is not evidence of
+native queue transitions or a real pipeline execution. It runs before requests
+on isolated test services and changes no participation pool, lock or handler.
+
+The workflow replays the committed DynamoDB and PostgreSQL baselines separately.
+The PostgreSQL baseline was recorded on 2026-10-19 from published commit
+c77910845486cb56f6671ee04c4a07715b22ab89. Its generated case files are unchanged
+from that capture. Named differences from the DynamoDB baseline are in
+postgres-differences.json. Both modes retain the existing Date, Connection and
+Keep-Alive header exclusions and the exact response-byte comparison.

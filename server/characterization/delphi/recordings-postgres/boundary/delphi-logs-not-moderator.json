@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/delphi-logs-not-moderator",
+ "state": "boundary",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=00000069-0000-4000-8000-000000000001",
+  "auth": "other"
+ },
+ "response": {
+  "status": 403,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "57"
+   ],
+   [
+    "etag",
+    "W/\"39-Ps3g8NQtLybwTnRl/XIyCA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"error\",\"message\":\"polis_err_delphi_logs_auth\"}",
+  "bodySha256": "4759474b350d3ae7d5e669e9a99c802825f0ba5d35d8dc50ee681763a5fef22d"
+ }
+}

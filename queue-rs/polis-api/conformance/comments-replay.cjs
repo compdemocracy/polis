@@ -1,6 +1,6 @@
 "use strict";
-// Byte conformance for the public GET /api/v3/comments slice.
-// Authenticated/moderation/report cases are counted separately as Node handoffs.
+// Byte conformance for GET /api/v3/comments, including moderator visibility.
+// Unsupported identities, report and provider paths are counted as Node handoffs.
 //
 // Sends every recorded comments request in the pinned public-fixture archive
 // (server/characterization/artifacts/baseline.json.gz), in recorded order, to
@@ -115,7 +115,7 @@ async function compare(id, bytes, headOnly) {
     if (rust.subarray(0, 16).toString("latin1").startsWith("HTTP/1.1 502")) {
       return { id, fallback: true, nodeStatus: Number(node.toString("latin1").split(" ")[1]) };
     }
-    if (node.equals(rust)) return { id, equal: true, node };
+    if (node.equals(rust)) return { id, equal: true, node, rust };
     if (sameButDate(node, rust)) {
       dateRetries++;
       continue;
@@ -141,7 +141,26 @@ async function main() {
   const cases = Object.keys(archive).filter(k => /^case-\d+\/request\.json$/.test(k)).sort().map(k => JSON.parse(archive[k])).filter(r => r.request_id.startsWith("comments-read/"));
   if (cases.length !== 396) throw Error(`expected 396 comment recordings, got ${cases.length}`);
   const results = [];
-  for (const request of cases) {
+  const recordings = [];
+  const moderation = cases.filter(r => r.request_id.endsWith("/moderation-true"));
+  // Preserve the six recorded requests; supplement each with vote-count and
+  // paginated/filter forms. All responses are freshly captured from Node.
+  const extra = [];
+  for (const request of moderation) {
+    for (const [name,query] of [
+      ["counts","&include_voting_patterns=true"],
+      ["page","&limit=2&offset=1"],
+      ["count-page","&include_voting_patterns=true&limit=2&offset=1"],
+      ["rejected","&mod=-1&limit=2"],
+      ["in","&modIn=true"], ["out","&modIn=false"],
+      ["report-filter","&mod_gt=-2&include_voting_patterns=true"],
+    ]) {
+      const target=Buffer.from(request.target.base64,"base64").toString("latin1")+query;
+      extra.push({...request, request_id:request.request_id+"/"+name, target:{base64:Buffer.from(target).toString("base64")}});
+    }
+  }
+
+  for (const request of [...cases,...extra]) {
     const target = Buffer.from(request.target.base64, "base64").toString("latin1");
     const headers = request.headers.map(h => {
       if (!h.credential_ref) return [h.name, h.value];
@@ -151,16 +170,30 @@ async function main() {
     });
     const body = Buffer.concat(request.body.map(c => Buffer.from(c.bytes.base64, "base64")));
     const result = await compare(request.request_id, requestBytes(request.method, target, headers, body), request.method === "HEAD");
+    const isModeration = request.request_id.includes("/moderation-true");
+    if (isModeration && result.fallback) result.unexpectedFallback = true;
+    if (isModeration && result.equal) {
+      recordings.push({request, node:result.node.toString("base64"), rust:result.rust.toString("base64")});
+      const raw=result.node;
+      const body=JSON.parse(raw.subarray(raw.indexOf("\r\n\r\n")+4).toString());
+      const items=Array.isArray(body)?body:body.comments;
+      const privileged=["comments-owner","comments-moderator","admin"].includes(request.actor_ref);
+      for (const item of items) {
+        for(const field of ["active","mod","velocity","conversation_id"]) {
+          if(Object.hasOwn(item,field)!==privileged) throw Error(`${request.request_id}: wrong projection ${field}`);
+        }
+      }
+    }
     if (result.fallback) {
       const query = new URL(target, "http://localhost").searchParams;
       const moved = result.nodeStatus === 200 && !headers.some(([n]) => ["authorization","cookie","content-length","transfer-encoding"].includes(n.toLowerCase())) && !query.has("report_id") && !["true","t","1","on"].includes((query.get("moderation") || "").toLowerCase());
       if (moved) result.unexpectedFallback = true;
     }
-    delete result.node; delete result.nodeRaw;
+    delete result.node; delete result.rust; delete result.nodeRaw;
     results.push(result);
   }
   const differences = results.filter(r => !r.equal && (!r.fallback || r.unexpectedFallback));
-  const summary = {recorded: cases.length, servedByRust: results.filter(r=>r.equal).length, handedToNode: results.filter(r=>r.fallback && !r.unexpectedFallback).length, dateRetries, differences};
+  const summary = {recorded: cases.length, supplemental: extra.length, recordings, servedByRust: results.filter(r=>r.equal).length, handedToNode: results.filter(r=>r.fallback && !r.unexpectedFallback).length, dateRetries, differences};
   console.log(JSON.stringify(summary,null,2));
   if (differences.length || summary.servedByRust === 0) process.exitCode=1;
 }

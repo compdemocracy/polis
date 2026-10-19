@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "running/delphi",
+ "state": "running",
+ "route": "GET /api/v3/delphi",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi?report_id=r2p2zero103",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "110"
+   ],
+   [
+    "etag",
+    "W/\"6e-gNCZrS7KMRR1GjXhLuZ+Yw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No LLM topics found for this conversation\",\"report_id\":\"r2p2zero103\",\"runs\":{}}",
+  "bodySha256": "a72114d01b3b445361695805698502fc82018123a50a44d8b2858784aa516f2c"
+ }
+}

@@ -29,7 +29,9 @@ def cases():
       ('invite wave list',[]),('invite list',[]),('invite status',[])]:
         add(path,[*args,'--conversation',C])
     add('context list');add('conversation uuid',[C]);add('report view',[R])
-    add('report stats',[R]);add('report statements list',[R])
+    add('report stats',[R]);add('report statements list',[R],scope='rust-only')
+    rows[-1]['contract']='report-importance'
+    rows[-1]['scenario']='report statements current importance'
     add('participant export',['--conversation',C,'--output','participants.csv'])
     add('participant xid export',['--conversation',C,'--output','xids.csv'])
     add('invite export',['--conversation',C,'--output','invites.csv'])
@@ -42,8 +44,9 @@ def cases():
       ('collective statements',[R]),('collective list',['--report',R]),('collective view',['generated#0#1']),
       ('delphi status',['--report',R]),('delphi results',['--report',R]),
       ('delphi narrative view',['--report',R]),('delphi visualization view',['--report',R]),
+      ('delphi show',[R]),
       ('report export',[R,'--type','format.json','--output','report.json'])]:
-        add(path,args,exit={'topic list':1,'topic statements':6,'topic hierarchy':1,'topic proximity':1,'topic stats':0,'report topics':1,'collective statements':6,'collective list':6,'collective view':6,'delphi status':6,'delphi results':1,'delphi narrative view':1,'delphi visualization view':6,'report export':0}[path],scope='missing-store')
+        add(path,args,exit={'topic list':1,'topic statements':6,'topic hierarchy':1,'topic proximity':1,'topic stats':0,'report topics':1,'collective statements':6,'collective list':6,'collective view':6,'delphi status':6,'delphi results':1,'delphi narrative view':1,'delphi visualization view':6,'delphi show':1,'report export':0}[path],scope='missing-store')
     # Import rejection uses a real file, parsed by the real contract; these do
     # not claim a successful provider result import or replace its own suite.
     for path in ['collective import','delphi statement import','delphi narrative import']:
@@ -60,6 +63,8 @@ def cases():
     add('delphi narrative export',[C,'--report',R,'--output','narrative'],exit=6,scope='unserved')
     add('vote',[C,'--statement','0','--agree'],actor='participant')
     add('comment',[C,'Generated participant statement'],actor='participant')
+    # The fixture stores no topics, so this proves the participant's own empty read.
+    add('topic prioritize',[C,'--show'],actor='participant')
     add('participant preferences',['--conversation',C,'--translations','true'])
     add('moderate accept',['--conversation',C,'--tid','0'])
     add('moderate reject',['--conversation',C,'--tid','1'])

@@ -46,21 +46,25 @@ done
 REGION=us-east-1
 REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$REGION.amazonaws.com"
 # One tag per commit. math-python is not built separately: it is the delphi
-# image (checked below).
-SERVICES=(server nginx-proxy client-participation-alpha delphi migrate)
-repo_of() { if [ "$1" = migrate ]; then echo polis; else echo "polis/$1"; fi; }
-tag_of() { if [ "$1" = migrate ]; then echo "migrate-$REVISION"; else echo "$REVISION"; fi; }
+# image (checked below). The migration runner and polis-api (the Rust read
+# routes) have no repository of their own: both go to `polis`, tagged
+# `<name>-<commit>` (cdk/buildBox.ts BUILD_REPOSITORIES).
+SERVICES=(server nginx-proxy client-participation-alpha delphi migrate polis-api)
+repo_of() { case "$1" in migrate|polis-api) echo polis ;; *) echo "polis/$1" ;; esac; }
+tag_of() { case "$1" in migrate|polis-api) echo "$1-$REVISION" ;; *) echo "$REVISION" ;; esac; }
 ref_of() { echo "$REGISTRY/$(repo_of "$1"):$(tag_of "$1")"; }
 
 # The production compose file builds the images, as it did on the boxes; this
 # override only names them, and adds the migration runner (built before by the
-# workflow with the same Dockerfile and context).
+# workflow with the same Dockerfile and context). polis-api is profile-gated
+# (rust-api), so the build names that profile.
 cat > docker-compose.build.yml <<EOF
 services:
   server: {image: "$(ref_of server)"}
   nginx-proxy: {image: "$(ref_of nginx-proxy)"}
   client-participation-alpha: {image: "$(ref_of client-participation-alpha)"}
   delphi: {image: "$(ref_of delphi)"}
+  polis-api: {image: "$(ref_of polis-api)"}
   migrate:
     image: "$(ref_of migrate)"
     build: {context: ., dockerfile: queue-rs/polis-migrate/Dockerfile}
@@ -81,7 +85,7 @@ WEB_ARGS_SHA256=$(jq -cS '.services["client-participation-alpha"].build.args' "$
 echo "building ${SERVICES[*]} for $REVISION"
 aws ecr get-login-password --region "$REGION" \
   | docker login --username AWS --password-stdin "$REGISTRY" >>"$LOG" 2>&1 || fail "ECR login"
-"${COMPOSE[@]}" build "${SERVICES[@]}" >>"$LOG" 2>&1 || fail "build"
+"${COMPOSE[@]}" --profile rust-api build "${SERVICES[@]}" >>"$LOG" 2>&1 || fail "build"
 for service in "${SERVICES[@]}"; do
   docker push "$(ref_of "$service")" >>"$LOG" 2>&1 || fail "push $service"
 done

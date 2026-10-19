@@ -484,10 +484,9 @@ async function main() {
   ] = process.argv.slice(2);
   if (
     !/^\d+$/.test(fromRoute) ||
-    Number(fromRoute) < 1 ||
-    Number(fromRoute) > 201
+    !inventory.routes.some((r) => r.id === Number(fromRoute))
   )
-    throw Error("from-route must be an inventory ID from 1 through 201");
+    throw Error("from-route must be a live inventory ID");
   if (command === "seed-pages") {
     const TableName = "Delphi_NarrativeReports";
     await dynamo.send(
@@ -640,7 +639,11 @@ async function main() {
   }
   if (command === "coverage") {
     console.log(
-      `PASS: ${dump.routes.length} runtime entries -> ${routes.length} enabled + 1 explicitly disabled = 201`
+      `PASS: ${dump.routes.length} runtime entries -> ${
+        routes.length
+      } enabled; ${inventory.routes.length - routes.length} disabled; ${
+        (inventory.retired || []).length
+      } retired`
     );
     return;
   }

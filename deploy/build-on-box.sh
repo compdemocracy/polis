@@ -121,12 +121,15 @@ fi
 # Exactly the expected lines, each well formed, or no deployment.
 manifest=$(sed -n '/^POLIS_IMAGE_MANIFEST_BEGIN$/,/^POLIS_IMAGE_MANIFEST_END$/p' build-output.txt | sed '1d;$d')
 image_re='[0-9]{12}\.dkr\.ecr\.us-east-1\.amazonaws\.com/polis(/[a-z-]+)?@sha256:[0-9a-f]{64}'
-expect() { printf '%s\n' "$manifest" | grep -Eqx "$1" || { echo "::error::manifest has no line matching $1"; exit 1; }; }
+# A here-string, not `printf | grep -q`: grep -q exits at the first match, and
+# under pipefail a printf still writing the later lines dies of SIGPIPE and the
+# check refuses a good manifest.
+expect() { grep -Eqx "$1" <<< "$manifest" || { echo "::error::manifest has no line matching $1"; exit 1; }; }
 expect "revision=$GITHUB_SHA"
-for key in server nginx-proxy client-participation-alpha delphi math-python migrate; do
+for key in server nginx-proxy client-participation-alpha delphi math-python migrate polis-api; do
   expect "$key=$image_re"
 done
 expect 'web-build-args-sha256=[0-9a-f]{64}'
-[ "$(printf '%s\n' "$manifest" | wc -l)" -eq 8 ] || { echo "::error::unexpected manifest lines"; exit 1; }
+[ "$(printf '%s\n' "$manifest" | wc -l)" -eq 9 ] || { echo "::error::unexpected manifest lines"; exit 1; }
 { echo 'manifest<<POLIS_MANIFEST_EOF'; printf '%s\n' "$manifest"; echo POLIS_MANIFEST_EOF; } >> "$GITHUB_OUTPUT"
 printf '%s\n' "$manifest"

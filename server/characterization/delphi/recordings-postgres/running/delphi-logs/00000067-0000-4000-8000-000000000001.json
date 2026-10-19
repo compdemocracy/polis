@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "running/delphi-logs/00000067-0000-4000-8000-000000000001",
+ "state": "running",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=00000067-0000-4000-8000-000000000001",
+  "auth": "owner"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "245"
+   ],
+   [
+    "etag",
+    "W/\"f5-iT9XzsmnJQuHTgXJXMJTIw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "[{\"timestamp\":1699998660000,\"message\":\"[DELPHI JOB 00000067-0000-4000-8000-000000000001] INFO: Starting FULL_PIPELINE\"},{\"timestamp\":1699998900000,\"message\":\"[DELPHI JOB 00000067-0000-4000-8000-000000000001] INFO: [stdout] Clustering complete\"}]",
+  "bodySha256": "1c92ea554cc622c70c3c97b81e58136b80aa61211d54cde253a497eeb53726a2"
+ }
+}

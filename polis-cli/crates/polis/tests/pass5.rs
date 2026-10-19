@@ -358,6 +358,79 @@ fn report_creation_never_attributes_readback_rows_to_the_request() {
     }
 }
 #[test]
+fn report_creation_projects_the_id_the_server_returns() {
+    let rows = json!([{"report_id":"rolder"},{"report_id":"r2abcdefghijklmnopqrs"}]);
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![
+            json_res(json!({"report_id":"r2abcdefghijklmnopqrs"})),
+            json_res(rows.clone()),
+        ],
+    );
+    let (exit, v) = parsed_call(t.path(), &["report", "create", "--conversation", "convA"]);
+    assert_eq!(exit, 0);
+    assert_eq!(v["data"]["state"], "accepted");
+    assert_eq!(v["data"]["report_id"], "r2abcdefghijklmnopqrs");
+    assert_eq!(
+        v["data"]["receipt"],
+        json!({"report_id":"r2abcdefghijklmnopqrs"})
+    );
+    assert_eq!(v["data"]["reports"], rows);
+    assert_eq!(s.join().unwrap().len(), 2);
+
+    // Without --json the printed result carries the id too.
+    let t = tempfile::tempdir().unwrap();
+    let s = server(
+        t.path(),
+        vec![
+            json_res(json!({"report_id":"r2abcdefghijklmnopqrs"})),
+            json_res(json!([])),
+        ],
+    );
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_polis"));
+    for (key, _) in std::env::vars() {
+        if key.starts_with("POLIS_TOKEN_") {
+            cmd.env_remove(key);
+        }
+    }
+    let o = cmd
+        .env("POLIS_CONFIG_DIR", t.path())
+        .env("POLIS_TOKEN_LOCAL", "fixture-token")
+        .args([
+            "report",
+            "create",
+            "--conversation",
+            "convA",
+            "--no-interactive",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(0));
+    let printed: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(printed["report_id"], "r2abcdefghijklmnopqrs");
+    s.join().unwrap();
+}
+#[test]
+fn report_creation_ignores_a_malformed_returned_id() {
+    for receipt in [
+        json!({"report_id":7}),
+        json!({"report_id":""}),
+        json!({"report_id":"r/../x"}),
+    ] {
+        let t = tempfile::tempdir().unwrap();
+        let s = server(
+            t.path(),
+            vec![json_res(receipt.clone()), json_res(json!([]))],
+        );
+        let (exit, v) = parsed_call(t.path(), &["report", "create", "--conversation", "convA"]);
+        assert_eq!(exit, 0);
+        assert!(v["data"]["report_id"].is_null());
+        assert_eq!(v["data"]["receipt"], receipt);
+        s.join().unwrap();
+    }
+}
+#[test]
 fn report_success_receipt_survives_failed_readback() {
     for response in [
         (503, "application/json", json!({}).to_string()),

@@ -146,10 +146,23 @@ function audit(root) {
     if (p.mode === "moderation-true") {
       assert.equal(c.commentsContext.moderation, true, p.id);
       assert.ok(body.length > 0, p.id);
-      for (const item of body) {
-        assert.equal(item.conversation_id, f.capability, p.id);
-        assert.equal(Object.hasOwn(item, "zid"), false, p.id);
-        assert.equal(Object.hasOwn(item, "uid"), false, p.id);
+      // The whole moderation list is for the conversation's moderators (its
+      // owner, a user on the owner's site, a polis dev). Anyone else gets the
+      // statements participants can see, with the plain list's fields.
+      if (["owner", "site-sharing-moderator", "admin"].includes(p.actor)) {
+        for (const item of body) {
+          assert.equal(item.conversation_id, f.capability, p.id);
+          assert.equal(Object.hasOwn(item, "zid"), false, p.id);
+          assert.equal(Object.hasOwn(item, "uid"), false, p.id);
+        }
+      } else {
+        assert.deepEqual(
+          body.map((x) => x.tid).sort((a, b) => a - b),
+          [...f.expectedTids].sort((a, b) => a - b),
+          p.id
+        );
+        for (const item of body)
+          assert.deepEqual(Object.keys(item), keys, p.id);
       }
     }
     if (p.family === "identity") {

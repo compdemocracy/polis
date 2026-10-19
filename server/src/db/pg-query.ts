@@ -98,6 +98,13 @@ const readPool: Pool = withRole(
   new Pool(readsPgConnection as unknown as PoolConfig),
   "read"
 );
+// A connection lost while idle in a pool (a database restart or failover, a
+// dropped network path) is reported as an "error" event on the pool. Unheard,
+// it is thrown, and the process 'uncaughtException' handler exits the server.
+// pg-pool has already dropped that connection, so logging it is enough.
+// pg-pool-idle-connection-lost.test.ts holds this for every pool here.
+readWritePool.on("error", (error) => logger.error("pg_read_write_pool", error));
+readPool.on("error", (error) => logger.error("pg_read_pool", error));
 
 // A read-write pool and the read pool that goes with it: what every query
 // helper below issues its statement on.
@@ -426,6 +433,16 @@ function queryP_reportExport<T>(queryString: string, ...args: any[]) {
   return queryP_impl<T>(reportExportPoolInstance(), queryString, ...args);
 }
 
+// True for the error pg-pool gives when no connection came free within the
+// pool's acquire timeout (connectionTimeoutMillis): the pool is full, not
+// broken, and the same request can succeed once the work holding it finishes.
+function isPoolAcquireTimeout(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    err.message === "timeout exceeded when trying to connect"
+  );
+}
+
 // A streamed read on the report/export pool (the whole-conversation vote
 // matrices). Mirrors stream_queryP_readOnly but on the bounded export pool.
 //
@@ -668,6 +685,7 @@ export default {
   queryP_readOnly_wRetryIfEmpty,
   queryP_reportExport,
   queryP_agentExchange,
+  isPoolAcquireTimeout,
   stream_queryP_readOnly,
   stream_queryP_reportExport,
   connect,

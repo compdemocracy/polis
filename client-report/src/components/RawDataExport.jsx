@@ -85,19 +85,17 @@ const RawDataExport = ({ conversation, report_id }) => {
         </a>
         {` (as comments x participants matrix)`}
       </p>
-      {conversation.importance_enabled && (
-        <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-          {`Importance matrix: `}
-          <a
-            download={getDownloadFilename("participant-importance", conversation)}
-            href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-importance.csv`}
-            type="text/csv"
-          >
-            {getDownloadFilename("participant-importance", conversation)}
-          </a>
-          {` (as comments x participants matrix)`}
-        </p>
-      )}
+      <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+        {`Importance matrix: `}
+        <a
+          download={getDownloadFilename("participant-importance", conversation)}
+          href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-importance.csv`}
+          type="text/csv"
+        >
+          {getDownloadFilename("participant-importance", conversation)}
+        </a>
+        {` (as comments x participants matrix)`}
+      </p>
       <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
         {`------Format (sign): `}
         <a
@@ -136,11 +134,9 @@ const RawDataExport = ({ conversation, report_id }) => {
         <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
           {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
         </p>
-        {conversation.importance_enabled && (
-          <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-            {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-importance.csv`}
-          </p>
-        )}
+        <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+          {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-importance.csv`}
+        </p>
         <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
           {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-groups.csv`}
         </p>

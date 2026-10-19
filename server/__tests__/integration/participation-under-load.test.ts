@@ -205,16 +205,6 @@ const realQuery = Client.prototype.query as unknown as AnyFn;
 const realDynamoSend = DynamoDBDocumentClient.prototype
   .send as unknown as AnyFn;
 
-// Two comments inserted at the same moment in one conversation can be given the
-// same statement number, and one of them is then rejected (the case "comments
-// sent at the same moment in one conversation" below). So that each slow-work
-// scenario measures only what the slow work does, comment inserts there run one
-// at a time, each after the previous one has committed. Delete this, and
-// serializeCommentInserts below, once that case passes.
-const COMMENT_INSERT = /^\s*INSERT INTO COMMENTS\b/i;
-let serializeCommentInserts = true;
-let commentInsertsDone: Promise<void> = Promise.resolve();
-
 const holdText = (kind: HeldKind) =>
   `SELECT pg_advisory_xact_lock_shared($1, $2) /* ${HOLD_TAG}: ${kind} */`;
 
@@ -253,28 +243,6 @@ function holdNamedStatements(): void {
         | { text?: unknown; cursor?: { text?: unknown } }
         | undefined;
       const last = args[args.length - 1];
-      if (
-        serializeCommentInserts &&
-        typeof first === "string" &&
-        COMMENT_INSERT.test(first) &&
-        typeof last === "function"
-      ) {
-        const previous = commentInsertsDone;
-        let done!: () => void;
-        commentInsertsDone = new Promise<void>((resolve) => {
-          done = resolve;
-        });
-        previous.then(() =>
-          realQuery.apply(this, [
-            ...args.slice(0, -1),
-            (...result: unknown[]) => {
-              done();
-              (last as AnyFn)(...result);
-            },
-          ])
-        );
-        return undefined;
-      }
       const text =
         typeof first === "string" ? first : first?.text ?? first?.cursor?.text;
       const kind = typeof text === "string" ? heldKind(text) : undefined;
@@ -964,27 +932,22 @@ describe("comments sent at the same moment in one conversation", () => {
       Array.from({ length: BURST_PARTICIPANTS }, () => joinedParticipant(false))
     );
     const stamp = Date.now();
-    serializeCommentInserts = false;
-    try {
-      for (let round = 0; round < BURST_ROUNDS; round++) {
-        const burst = participants.map((p, i) => {
-          const txt = `burst ${round}: statement from participant ${i} (${stamp})`;
-          texts.push(txt);
-          return timed(
-            i,
-            as(p)
-              .post("/api/v3/comments")
-              .send({
-                conversation_id: conversationId,
-                txt,
-                vote: semanticToWire("agree"),
-              })
-          );
-        });
-        outcomes.push(...(await Promise.all(burst)));
-      }
-    } finally {
-      serializeCommentInserts = true;
+    for (let round = 0; round < BURST_ROUNDS; round++) {
+      const burst = participants.map((p, i) => {
+        const txt = `burst ${round}: statement from participant ${i} (${stamp})`;
+        texts.push(txt);
+        return timed(
+          i,
+          as(p)
+            .post("/api/v3/comments")
+            .send({
+              conversation_id: conversationId,
+              txt,
+              vote: semanticToWire("agree"),
+            })
+        );
+      });
+      outcomes.push(...(await Promise.all(burst)));
     }
     await sleep(1000);
     stored = (
@@ -1004,19 +967,12 @@ describe("comments sent at the same moment in one conversation", () => {
     );
   }, 120000);
 
-  // The tid_auto trigger (server/postgres/migrations/000000_initial.sql) numbers
-  // a conversation's statements under a per-conversation advisory lock, and its
-  // AFTER INSERT partner frees that lock before the insert commits. A comment
-  // waiting on the lock then reads the same MAX(tid), its insert fails on
-  // (zid, tid), and handle_POST_comments (src/routes/comments.ts) answers 409
-  // polis_err_post_comment_duplicate: the comment is not stored.
-  test.failing(
-    "every one is answered 200 and stored [expected to fail: two comments " +
-      "inserted at the same moment can be given the same statement number, " +
-      "and one is answered 409 as a duplicate and not stored]",
-    () => {
-      expectPrompt(outcomes, BURST_PARTICIPANTS * BURST_ROUNDS);
-      expect(stored).toBe(texts.length);
-    }
-  );
+  // The tid_auto trigger numbers a conversation's statements MAX(tid) + 1 under
+  // a per-conversation advisory lock held until the inserting transaction ends
+  // (server/postgres/migrations), so comments inserted at the same moment are
+  // numbered one after another and none is refused.
+  test("every one is answered 200 and stored", () => {
+    expectPrompt(outcomes, BURST_PARTICIPANTS * BURST_ROUNDS);
+    expect(stored).toBe(texts.length);
+  });
 });

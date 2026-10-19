@@ -44,9 +44,12 @@ Sequence configuration is not current sequence state. Never reset, narrow or
 advance a live sequence to match bootstrap. Reviewed implementations of
 `get_times_for_most_recent_visible_comments()`, `pid_auto()`, `tid_auto()`,
 `random_string(integer)` and `random_polis_site_id()` are executable equivalents
-of the public historical sources; formatting fingerprints differ. This release
-never replaces those routines. Their exact historical source bindings are in
-the deployment's private reconciliation record.
+of the public historical sources; formatting fingerprints differ. Adoption
+never replaces those routines. After adoption, migration 000042 replaces
+`tid_auto()` (the same body, with the advisory lock held to the end of the
+transaction) and drops `tid_auto_unlock()` with its trigger; the others are
+never replaced. Their exact historical source bindings are in the deployment's
+private reconciliation record.
 
 Optional probe provisioning grants SELECT on comments, conversations, math_main,
 math_ticks, participants and votes, plus public schema USAGE, to the configured
@@ -115,7 +118,7 @@ unique constraint addition, contributor rename or data cleanup is selected.
 | random_polis_site_id(integer) | SET ASIDE | Retain unused integer overload as ancillary legacy state; no current direct caller established. |
 | get_times_for_most_recent_visible_comments() | SYNC BEFORE STABLE | Record reviewed production routine body/fingerprint for live trigger/caller contract. Executable equivalence established; no CREATE OR REPLACE and no existing body-hash adoption refusal. |
 | pid_auto() | SYNC BEFORE STABLE | Record reviewed production routine body/fingerprint for live trigger/caller contract. Executable equivalence established; no CREATE OR REPLACE and no existing body-hash adoption refusal. |
-| tid_auto() | SYNC BEFORE STABLE | Record reviewed production routine body/fingerprint for live trigger/caller contract. Executable equivalence established; no CREATE OR REPLACE and no existing body-hash adoption refusal. |
+| tid_auto() | SYNC BEFORE STABLE | Record reviewed production routine body/fingerprint for live trigger/caller contract. Executable equivalence established; no CREATE OR REPLACE and no existing body-hash adoption refusal. Migration 000042, after adoption, replaces it with the transaction-scoped lock and drops `tid_auto_unlock()`. |
 | random_string(integer) | SYNC BEFORE STABLE | Record reviewed production routine body/fingerprint for live trigger/caller contract. Executable equivalence established; no CREATE OR REPLACE and no existing body-hash adoption refusal. |
 | random_polis_site_id() | SYNC BEFORE STABLE | Record reviewed production routine body/fingerprint for live trigger/caller contract. Executable equivalence established; no CREATE OR REPLACE and no existing body-hash adoption refusal. |
 | comments | SYNC BEFORE STABLE | Bind existing optional probe provisioning contract; exact six SELECT/public-USAGE grants already have a source. No role/grant changes. |

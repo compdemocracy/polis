@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "rerun_after_votes/feeds-topics",
+ "state": "rerun_after_votes",
+ "route": "GET /feeds/:reportId/topics",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zero107/topics",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/rss+xml; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "2780"
+   ],
+   [
+    "etag",
+    "W/\"adc-yJK/WeMWUKjoxRWcVFVm6Q\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\" xmlns:custom=\"https://pol.is/rss/custom\">\n  <channel>\n    <title>Pol.is Topic Hierarchy - Report r2p2zero107</title>\n    <description>Hierarchical clustering results and topic organization for conversation r2p2zero107</description>\n    <link>https://pol.is/report/r2p2zero107</link>\n    <lastBuildDate>Tue, 14 Nov 2023 22:13:20 GMT</lastBuildDate>\n    <generator>Pol.is Delphi RSS Generator</generator>\n    <language>en-us</language>\n    \n        <item>\n          <title><![CDATA[Generated topic 0.0 by alpha]]></title>\n          <description></description>\n          <link>https://pol.is/report/r2p2zero107#topic-0-0</link>\n          <guid>r2p2zero107-0-0-2023-11-14T19:20:02.000000</guid>\n          <pubDate>Tue, 14 Nov 2023 19:20:02 GMT</pubDate>\n          <category>layer-0</category>\n          <custom:layer>0</custom:layer>\n          <custom:cluster>0</custom:cluster>\n        </item>\n\n        <item>\n          <title><![CDATA[Generated topic 0.1 by alpha]]></title>\n          <description></description>\n          <link>https://pol.is/report/r2p2zero107#topic-0-1</link>\n          <guid>r2p2zero107-0-1-2023-11-14T19:20:02.000000</guid>\n          <pubDate>Tue, 14 Nov 2023 19:20:02 GMT</pubDate>\n          <category>layer-0</category>\n          <custom:layer>0</custom:layer>\n          <custom:cluster>1</custom:cluster>\n        </item>\n\n        <item>\n          <title><![CDATA[Generated topic 0.2 by alpha]]></title>\n          <description></description>\n          <link>https://pol.is/report/r2p2zero107#topic-0-2</link>\n          <guid>r2p2zero107-0-2-2023-11-14T19:20:02.000000</guid>\n          <pubDate>Tue, 14 Nov 2023 19:20:02 GMT</pubDate>\n          <category>layer-0</category>\n          <custom:layer>0</custom:layer>\n          <custom:cluster>2</custom:cluster>\n        </item>\n\n        <item>\n          <title><![CDATA[Generated topic 1.0 by alpha]]></title>\n          <description></description>\n          <link>https://pol.is/report/r2p2zero107#topic-1-0</link>\n          <guid>r2p2zero107-1-0-2023-11-14T19:20:02.000000</guid>\n          <pubDate>Tue, 14 Nov 2023 19:20:02 GMT</pubDate>\n          <category>layer-1</category>\n          <custom:layer>1</custom:layer>\n          <custom:cluster>0</custom:cluster>\n        </item>\n\n        <item>\n          <title><![CDATA[Generated topic 1.1 by alpha]]></title>\n          <description></description>\n          <link>https://pol.is/report/r2p2zero107#topic-1-1</link>\n          <guid>r2p2zero107-1-1-2023-11-14T19:20:02.000000</guid>\n          <pubDate>Tue, 14 Nov 2023 19:20:02 GMT</pubDate>\n          <category>layer-1</category>\n          <custom:layer>1</custom:layer>\n          <custom:cluster>1</custom:cluster>\n        </item>\n  </channel>\n</rss>",
+  "bodySha256": "b23eafa547171dfb06300a3b02e0fda61216a80a1a42091c1ee358f815f237ae"
+ }
+}

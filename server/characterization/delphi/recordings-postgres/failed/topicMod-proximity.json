@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "failed/topicMod-proximity",
+ "state": "failed",
+ "route": "GET /api/v3/topicMod/proximity",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/proximity?conversation_id=8p2z104",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "768"
+   ],
+   [
+    "etag",
+    "W/\"300-K8SLUcu+/0lF3v6aLAnI4w\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"All proximity data retrieved successfully\",\"proximity_data\":[{\"comment_id\":0,\"umap_x\":0.125,\"umap_y\":-0.5,\"weight\":1,\"clusters\":{\"0\":0,\"1\":0}},{\"comment_id\":1,\"umap_x\":1.125,\"umap_y\":-1.5,\"weight\":1,\"clusters\":{\"0\":1,\"1\":1}},{\"comment_id\":2,\"umap_x\":2.125,\"umap_y\":-2.5,\"weight\":1,\"clusters\":{\"0\":2,\"1\":0}},{\"comment_id\":3,\"umap_x\":3.125,\"umap_y\":-3.5,\"weight\":1,\"clusters\":{\"0\":-1,\"1\":-1}},{\"comment_id\":4,\"umap_x\":4.125,\"umap_y\":-4.5,\"weight\":1,\"clusters\":{\"0\":1,\"1\":0}},{\"comment_id\":5,\"umap_x\":5.125,\"umap_y\":-5.5,\"weight\":1,\"clusters\":{\"0\":2,\"1\":1}},{\"comment_id\":6,\"umap_x\":6.125,\"umap_y\":-6.5,\"weight\":1,\"clusters\":{\"0\":0,\"1\":0}},{\"comment_id\":7,\"umap_x\":7.125,\"umap_y\":-7.5,\"weight\":1,\"clusters\":{\"0\":1,\"1\":1}}],\"total_points\":8}",
+  "bodySha256": "c4f8604b8566fb096146cb919a0b9156ee9b13059293375fa048e73a06981fa0"
+ }
+}

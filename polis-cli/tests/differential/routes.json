@@ -1,13 +1,14 @@
 {
   "pca2": {
     "path": "/api/v3/math/pca2",
-    "minimum_rust_successes": 2,
+    "minimum_rust_successes": 3,
     "commands": [
       "math view",
-      "math view subset"
+      "math view subset",
+      "delphi show"
     ],
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
-    "expected_requests": 2,
+    "expected_requests": 3,
     "expected_node_handoffs": 0
   },
   "owner-conversations": {
@@ -20,11 +21,11 @@
   },
   "comments": {
     "path": "/api/v3/comments",
-    "minimum_rust_successes": 0,
+    "minimum_rust_successes": 4,
     "commands": [],
-    "expected_requests": 10,
-    "expected_node_handoffs": 7,
-    "scope": "Moderation, cookie identities and populated admin listings are outside the staged public/participant slice."
+    "expected_requests": 11,
+    "expected_node_handoffs": 4,
+    "scope": "Moderation reads use verified caller visibility. Plain OIDC, report enrichment and unsupported identities remain Node handoffs; non-read methods stay on Node."
   },
   "nextComment": {
     "path": "/api/v3/nextComment",
@@ -191,8 +192,8 @@
     "minimum_rust_successes": 0,
     "commands": [],
     "scope": "Populated report results and capability requests remain Node; staged Rust serves empty scoped lists/refusals.",
-    "expected_requests": 10,
-    "expected_node_handoffs": 8
+    "expected_requests": 11,
+    "expected_node_handoffs": 9
   },
   "bidToPid": {
     "path": "/api/v3/bidToPid",
@@ -215,7 +216,7 @@
     "minimum_rust_successes": 1,
     "commands": [],
     "scope": "Generated CLI requests exercise the admitted staged route; refusals and non-read methods are counted separately from Rust HTTP200.",
-    "expected_requests": 4,
+    "expected_requests": 5,
     "expected_node_handoffs": 0
   },
   "treeviteMyInvites": {
@@ -335,10 +336,11 @@
   "delphiRead": {
     "path": "/api/v3/delphi",
     "minimum_rust_successes": 0,
-    "expected_requests": 1,
-    "expected_node_handoffs": 1,
+    "expected_requests": 2,
+    "expected_node_handoffs": 2,
     "commands": [
-      "delphi overview"
+      "delphi overview",
+      "delphi show"
     ],
     "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
   },
@@ -414,5 +416,31 @@
     "expected_node_handoffs": 0,
     "commands": [],
     "scope": "Unmatched operations GET/HEAD 404 with explicit OPS_ENABLED=false. No CLI command targets the catch-all; direct wire replay proves serving. Registered whoami/page paths preserve independent switches."
+  },
+  "delphiRun": {
+    "path": "/api/v3/delphi/run",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Rust-only: Node has no handler, so a hand-back is Node's 404. No CLI command reaches this route yet; the raw replay against real local runs (delphi-run-run.sh) and the nginx switch test provide serving proof."
+  },
+  "delphiResult": {
+    "path": "/api/v3/delphi/runs/00000000-0000-4000-8000-000000000001?families=assignments",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Rust-only typed assignments read. No CLI command targets this route; delphi-result-run.sh proves contract bytes against immutable results from real local runs."
+  },
+  "statementImportance": {
+    "path": "/api/v3/statements/importance",
+    "minimum_rust_successes": 1,
+    "commands": [
+      "report statements list"
+    ],
+    "expected_requests": 1,
+    "expected_node_handoffs": 0,
+    "scope": "Rust-only public importance counts. The generated report case precedes all votes: both participant-visible statements must have zero counts. Node-off display retains statements with explicitly unavailable null counts; the named contract check preserves every other field."
   }
 }

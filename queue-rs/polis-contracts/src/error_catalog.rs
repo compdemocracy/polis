@@ -55,6 +55,7 @@ pub const CATALOG: &[&str] = &[
     "polis_err_delete_participant_metadata_question",
     "polis_err_delete_participant_metadata_questions_auth",
     "polis_err_delete_participant_metadata_questions_zid",
+    "polis_err_delphi_jobs_delphi_disabled",
     "polis_err_delphi_logs_auth",
     "polis_err_domain",
     "polis_err_domain_misc",

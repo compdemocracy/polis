@@ -84,7 +84,8 @@ export type Publication = {jobId: string; artifactId: string; sha: string; gener
  * With `previous`, the new artifact consumes the previous one, so families it
  * does not carry are served from the ancestor. */
 export async function publish(pg: Client, opts: {env?: string; scope?: string; zid: number;
-  families: Record<string, Tagged[]>; previous?: Publication}): Promise<Publication> {
+  families: Record<string, Tagged[]>; previous?: Publication;
+  legacyControlFiles?: Record<string, string>}): Promise<Publication> {
   const env = opts.env ?? ENV, scope = opts.scope ?? SCOPE;
   const jobId = randomUUID(), runId = randomUUID(), attempt = randomUUID(), artifactId = randomUUID();
   const generation = (opts.previous?.generation ?? 0) + 1;
@@ -98,7 +99,8 @@ export async function publish(pg: Client, opts: {env?: string; scope?: string; z
       await pg.query("SELECT pd_result_insert_family($1,$2,$3,$4,$5)", [env, jobId, attempt, family, encodeFamily(family, items).toString("utf8")]);
     }
     const seal = (await pg.query("SELECT pd_result_seal_internal($1,$2) AS v", [env, attempt])).rows[0].v;
-    const payload = JSON.stringify({results: seal});
+    const payload = JSON.stringify({results: seal,
+      ...(opts.legacyControlFiles ? {legacy_control_files: opts.legacyControlFiles} : {})});
     sha = createHash("sha256").update(payload).digest("hex");
     await pg.query(`INSERT INTO delphi_artifacts(env,artifact_id,job_id,run_id,attempt_id,output_role,schema_version,payload,content_sha,byte_count)
       VALUES($1,$2,$3,$4,$5,'result','generated/1',$6,$7,$8)`, [env, artifactId, jobId, runId, attempt, payload, sha, Buffer.byteLength(payload)]);
@@ -146,4 +148,3 @@ export async function asRequest<T>(work: () => Promise<T>): Promise<T> {
     work().then(value => { res.emit("finish"); resolve(value); }, error => { res.emit("finish"); reject(error); });
   }));
 }
-

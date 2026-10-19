@@ -462,6 +462,23 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             }
         }
     }
+    // The input bundle (one switch, default off): the rows the full pipeline's
+    // stages read, written into the attempt directory before the child starts,
+    // and named in the frame. Off, the frame is byte identical to today's and
+    // the child reads Postgres itself.
+    if let Some(dsn) = cfg.input_bundle_dsn.as_deref()
+        && claim.stage == "delphi_full_pipeline"
+    {
+        let math_env = super::inputs::math_env(&frame["inputs"], std::env::var("MATH_ENV").ok());
+        match super::inputs::prepare(dsn, &cfg.transport, &dir, admission.zid, &math_env) {
+            Ok(bundle) => frame["inputs"]["bundle"] = bundle,
+            Err(_) => {
+                refuse_without_child(&ctx, &mut rpc, &claim, false, "input_bundle_unavailable");
+                let _ = ctx.journal.remove(&claim.attempt_id);
+                return;
+            }
+        }
+    }
     let prepared =
         std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&frame_path, frame.to_string()));
     let command = child::command_args(&cfg.app_path, &claim, &admission, &phase);

@@ -81,20 +81,28 @@ describe("Data Export API", () => {
 
     // Submit votes from each participant with deterministic pattern
     let totalVotes = 0;
+    let highPriorityVotes = 0;
     for (let i = 0; i < participants.length; i++) {
       const participantData = participants[i];
       for (let j = 0; j < comments.length; j++) {
         const commentId = comments[j];
         // Use deterministic vote pattern: alternate between -1, 1, 0
         const vote = [-1, 1, 0][j % 3] as -1 | 0 | 1;
+        // This conversation leaves importance_enabled at its default (false);
+        // one vote is still marked important.
+        const isHighPriority = i === 0 && j === 0;
         const voteResponse = await submitVote(participantData.agent, {
           conversation_id: conversationId,
           tid: commentId,
           vote,
+          high_priority: isHighPriority,
         });
 
         if (voteResponse.status === 200) {
           totalVotes++;
+          if (isHighPriority) {
+            highPriorityVotes++;
+          }
         }
       }
     }
@@ -104,6 +112,7 @@ describe("Data Export API", () => {
       stats: {
         totalVotes,
       },
+      highPriorityVotes,
     };
 
     // Trigger math computation for the conversation
@@ -210,8 +219,15 @@ describe("Data Export API", () => {
     expect(response.text).toContain("moderated");
     expect(response.text).toContain("comment-body");
 
-    // Should NOT contain importance column when importance_enabled is false
-    expect(response.text).not.toContain("importance");
+    // The importance column is always there, though importance_enabled is false
+    const lines = response.text.split("\n").filter((l) => l.trim().length > 0);
+    expect(lines[0]).toBe(
+      "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body"
+    );
+    const importanceTotal = lines
+      .slice(1)
+      .reduce((sum, line) => sum + Number(line.split(",")[7]), 0);
+    expect(importanceTotal).toBe(testData.highPriorityVotes);
 
     // Should contain all our test comments
     testData.comments.forEach((commentId) => {
@@ -234,14 +250,19 @@ describe("Data Export API", () => {
     expect(response.text).toContain("voter-id");
     expect(response.text).toContain("vote");
 
-    // Should NOT contain important column when importance_enabled is false
-    expect(response.text).not.toContain("important");
-
     // Verify we have the expected number of votes
     const voteLines = response.text
       .split("\n")
       .filter((line) => line.trim().length > 0);
     expect(voteLines.length - 1).toBe(testData.stats.totalVotes); // -1 for header row
+
+    // The important column is always there, though importance_enabled is false
+    expect(voteLines[0]).toBe(
+      "timestamp,datetime,comment-id,voter-id,vote,important"
+    );
+    expect(voteLines.slice(1).filter((l) => l.endsWith(",1")).length).toBe(
+      testData.highPriorityVotes
+    );
   });
 
   test("GET /api/v3/reportExport/:report_id/unknown.csv - should handle unknown report type", async () => {

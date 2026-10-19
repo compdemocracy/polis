@@ -125,6 +125,8 @@ const INPUT_KEYS: [&str; 5] = [
     "vote_hwm",
 ];
 const MODEL_KEYS: [&str; 3] = ["embed", "topic", "narrative"];
+/// Optional, together: the clustering's model id and seed, on a run that clustered.
+const CLUSTER_MODEL_KEYS: [&str; 2] = ["cluster", "cluster_seed"];
 const COST_KEYS: [&str; 3] = ["llm_tokens_in", "llm_tokens_out", "provider_batches"];
 
 /// The object's key set is exactly `keys`: required keys present, unknown
@@ -293,9 +295,22 @@ pub fn validate(
         }
     }
     let models = m["models"].as_object().ok_or(Invalid::Field("models"))?;
-    closed(models, &MODEL_KEYS, "models")?;
+    // A run that clustered names its clustering model and seed, both or neither;
+    // absent, the key set is exactly today's.
+    let clustered = CLUSTER_MODEL_KEYS.iter().any(|k| models.contains_key(*k));
+    let mut model_keys = MODEL_KEYS.to_vec();
+    if clustered {
+        model_keys.extend(CLUSTER_MODEL_KEYS);
+    }
+    closed(models, &model_keys, "models")?;
     for key in MODEL_KEYS {
         nullable_str(&models[key], "models")?;
+    }
+    if clustered
+        && !(models["cluster"].as_str().is_some_and(|c| !c.is_empty())
+            && models["cluster_seed"].as_u64().is_some_and(|s| s < 1 << 32))
+    {
+        return Err(Invalid::Field("models"));
     }
     let cost = m["cost"].as_object().ok_or(Invalid::Field("cost"))?;
     closed(cost, &COST_KEYS, "cost")?;
@@ -563,6 +578,51 @@ mod tests {
         m["models"]["embed"] = Value::Null;
         m["cost"] = serde_json::json!({"llm_tokens_in": null, "llm_tokens_out": null, "provider_batches": null});
         assert!(check(&m).is_ok());
+    }
+
+    #[test]
+    fn a_clustering_run_names_its_model_and_seed_together() {
+        let mut named = fixture(J, A, "delphi_full_pipeline", "succeeded");
+        named["models"]["cluster"] = "delphi-umap-evoc/1".into();
+        named["models"]["cluster_seed"] = 42.into();
+        assert!(check(&named).is_ok());
+        let mut top = named.clone();
+        top["models"]["cluster_seed"] = u64::from(u32::MAX).into();
+        assert!(check(&top).is_ok());
+        type Mutation = fn(&mut Value);
+        let cases: Vec<(&str, Mutation)> = vec![
+            ("seed without model", |m| {
+                m["models"].as_object_mut().map(|o| o.remove("cluster"));
+            }),
+            ("model without seed", |m| {
+                m["models"]
+                    .as_object_mut()
+                    .map(|o| o.remove("cluster_seed"));
+            }),
+            ("null seed", |m| m["models"]["cluster_seed"] = Value::Null),
+            ("negative seed", |m| {
+                m["models"]["cluster_seed"] = (-1).into()
+            }),
+            ("seed past 32 bits", |m| {
+                m["models"]["cluster_seed"] = (1_u64 << 32).into()
+            }),
+            ("float seed", |m| m["models"]["cluster_seed"] = 4.5.into()),
+            ("string seed", |m| m["models"]["cluster_seed"] = "42".into()),
+            ("boolean seed", |m| {
+                m["models"]["cluster_seed"] = true.into()
+            }),
+            ("null model", |m| m["models"]["cluster"] = Value::Null),
+            ("empty model", |m| m["models"]["cluster"] = "".into()),
+        ];
+        for (name, mutate) in cases {
+            let mut m = named.clone();
+            mutate(&mut m);
+            assert_eq!(
+                check(&m).err(),
+                Some(Invalid::Field("models")),
+                "{name} must be refused"
+            );
+        }
     }
 
     #[test]

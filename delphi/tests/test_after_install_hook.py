@@ -13,6 +13,8 @@ systemd units are touched, and which containers the cleanup removes:
 
   server, delphi, math, an unknown type: exactly as before (no systemctl; the
       cleanup removes every container);
+  server: polis-api is pulled on every deploy and joins the `up` line only
+      when RUST_API_ROUTES, as nginx-proxy receives it, names a route;
   delphi-large, delphi-worker: no compose service starts; the pulled Delphi
       image is tagged as the unit's image; polis-jobs.service alone is
       restarted (queued); the cleanup spares the polis-jobs container so the
@@ -70,7 +72,8 @@ FAKES = {
     "systemctl": RECORD,
     "docker-compose": RECORD,
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
-    "jq": RECORD + 'echo value\n',
+    # The hook reads RUST_API_ROUTES from the composed config with jq.
+    "jq": RECORD + 'case "$*" in *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -139,14 +142,15 @@ REGISTRY = "123456789012.dkr.ecr.us-east-1.amazonaws.com"
 JOBS_IMAGE = f"{REGISTRY}/polis/delphi:latest"
 REPOS = {"server": "polis/server", "nginx-proxy": "polis/nginx-proxy",
          "client-participation-alpha": "polis/client-participation-alpha",
-         "delphi": "polis/delphi", "math-python": "polis/delphi", "migrate": "polis"}
+         "delphi": "polis/delphi", "math-python": "polis/delphi", "migrate": "polis",
+         "polis-api": "polis"}
 # math-python runs the delphi image (deploy/build-images.sh).
 IMAGES = {name: f"{REGISTRY}/{repo}@sha256:"
                 + hashlib.sha256(("delphi" if name == "math-python" else name).encode()).hexdigest()
           for name, repo in REPOS.items()}
 # The fake jq prints "value"; the hook hashes what jq prints.
 WEB_ARGS_SHA256 = hashlib.sha256(b"value\n").hexdigest()
-ROLE_IMAGES = {"server": ["server", "nginx-proxy", "client-participation-alpha"],
+ROLE_IMAGES = {"server": ["server", "nginx-proxy", "client-participation-alpha", "polis-api"],
                "delphi": ["delphi", "math-python"], "math": [],
                "delphi-large": ["delphi"], "delphi-worker": ["delphi"]}
 COMPOSE_FILES = "-f docker-compose.yml -f docker-compose.images.yml "
@@ -159,9 +163,10 @@ def _manifest(revision=REVISION, changes=None):
 
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
-            not_on_branch=False, images="default", previous=None, **kw):
+            not_on_branch=False, images="default", previous=None, rust_api_routes="", **kw):
     root, env = _box(tmp_path, service_type, **kw)
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
+    env["FAKE_RUST_API_ROUTES"] = rust_api_routes
     env["FAKE_NOT_ON_BRANCH"] = "1" if not_on_branch else ""
     # The deploy workflow writes the bundle's commit and image manifest next to the hook.
     if revision is not None:
@@ -213,6 +218,30 @@ def test_the_other_service_types_behave_as_before(tmp_path, service_type):
         assert compose.index("down") < compose.index(UNCHANGED[service_type][0])
     assert _calls(log, "systemctl") == []
     assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
+
+
+# nginx's entrypoint splits RUST_API_ROUTES on commas and blanks; a value with
+# no route in it renders no Rust route, so polis-api is not started either.
+@pytest.mark.parametrize("routes,starts", [
+    ("", False), (" ", False), (",", False), (" , ,", False),
+    ("robots,about", True), ("pca2", True), (" robots ", True),
+])
+def test_polis_api_starts_only_when_rust_api_routes_names_a_route(tmp_path, routes, starts):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    ups = [c for c in _compose(log) if c.startswith("up")]
+    if starts:
+        assert ups == ["up -d server nginx-proxy client-participation-alpha polis-api --no-build --force-recreate"]
+    else:
+        assert ups == UNCHANGED["server"]
+    # The value is the one nginx-proxy receives: the composed config of the
+    # files the `up` line runs.
+    assert f"{COMPOSE_FILES}config --format json" in _calls(log, "docker-compose")
+    assert '-r .services["nginx-proxy"].environment.RUST_API_ROUTES // ""' in _calls(log, "jq")
+    # Pulled either way, before the migration, so turning the switch on needs
+    # no other change to the bundle.
+    assert log.index(f"docker pull {IMAGES['polis-api']}") < log.index(
+        "docker run --rm --network host --env-file .env polis-migrate:deploy deploy")
 
 
 @pytest.mark.parametrize("service_type,worker_class", [("delphi-large", "large"),
@@ -354,6 +383,7 @@ def test_every_image_is_pulled_by_digest_and_nothing_is_built(tmp_path, service_
     (None, "has no image manifest for commit"),
     (_manifest(revision="0" * 40), "has no image manifest for commit"),
     (_manifest(changes={"server": None}), "no digest in this registry for 'server'"),
+    (_manifest(changes={"polis-api": None}), "no digest in this registry for 'polis-api'"),
     (_manifest(changes={"server": f"{REGISTRY}/polis/server:{REVISION}"}), "no digest in this registry for 'server'"),
     (_manifest(changes={"server": IMAGES["server"].replace("123456789012", "999999999999")}),
      "no digest in this registry for 'server'"),

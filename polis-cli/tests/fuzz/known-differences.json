@@ -6,7 +6,7 @@
     {
       "id": "pca2-math-cache-not-shared",
       "route": "pca2",
-      "summary": "Node's math cache is shared with participationInit, reports and nextComment; polis-api's own cache sees only pca2 requests. Each serves the presentation it cached when it last filled, so the comment-derived fields (n-cmts, tids, pca.comment-extremity, which Node fills from the comments table when no math row backs them) can differ for one cache window. The fixture clocks are frozen, so every cache window lasts the whole phase: after a moderation change or a new statement, Node can keep serving what a join or vote cached while polis-api serves what its first pca2 request cached.",
+      "summary": "Node's math cache is shared with participationInit, reports and nextComment; polis-api's own cache sees only pca2 requests. Each serves the presentation it cached when it last filled, so the comment-derived fields (n-cmts, tids, pca.comment-extremity, which Node fills from the comments table when no math row backs them) can differ for one cache window. In the explicit within-window clock mode every cache window lasts the whole phase: after a moderation change or a new statement, Node can keep serving what a join or vote cached while polis-api serves what its first pca2 request cached.",
       "cli_match": {
         "command": "math view",
         "paths_regex": "^\\$\\.json\\.data\\.(n-cmts|tids(\\.length|\\[[0-9]+\\])?|pca\\.comment-extremity(\\.length|\\[[0-9]+\\])?)$"

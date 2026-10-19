@@ -163,6 +163,15 @@ jobs:
       - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh
+      - name: Public statement importance contract (isolated metadata fixture)
+        working-directory: .
+        env:
+          COMPOSE_PROJECT_NAME: statement-importance-ci
+          POLIS_RECOVERY_PG_PORT: '55463'
+          IMPORTANCE_API_PORT: '55464'
+          IMPORTANCE_OFF_PORT: '55465'
+        run: queue-rs/polis-api/conformance/statement-importance-run.sh
+
 
   polis-migrate:
     name: migration runner and startup refusal

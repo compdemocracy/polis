@@ -21,8 +21,22 @@ mod cors;
 mod create_page;
 mod database;
 mod db;
+// The Delphi run-record contract (delphi-run/1) and the modules it is built
+// on, compiled from the contracts crate as the route contracts are. The
+// run-record route uses only part of them. rustfmt leaves them to their own
+// crate's (2021) style.
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/delphi_job_result.rs"]
+mod delphi_job_result;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/delphi_run.rs"]
+mod delphi_run;
 mod delphi_read;
 mod delphi_reports;
+mod delphi_result_read;
+mod delphi_run_read;
 mod delphi_visualizations;
 mod domain_whitelist;
 mod einvites_read;
@@ -52,7 +66,12 @@ mod recent_started;
 mod reports_read;
 mod robots;
 mod route;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/schema.rs"]
+mod schema;
 mod settings_page;
+mod statement_importance;
 mod topic_prioritize;
 mod topic_selections;
 mod topic_stats;
@@ -65,6 +84,10 @@ mod treevite_waves;
 mod user_create_page;
 mod user_login_page;
 mod user_logout_page;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/wire.rs"]
+mod wire;
 mod xid_report;
 
 use anyhow::{Context, Result};
@@ -158,6 +181,22 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "topicStatsFallback",
         js::Js::Num(app.topic_stats_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiRunServed",
+        js::Js::Num(app.delphi_run_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiRunFallback",
+        js::Js::Num(app.delphi_run_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiResultServed",
+        js::Js::Num(app.delphi_result_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiResultFallback",
+        js::Js::Num(app.delphi_result_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "collectiveStatementServed",
@@ -328,6 +367,14 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.conversation_stats_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "statementImportanceServed",
+        js::Js::Num(app.statement_importance_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "statementImportanceFallback",
+        js::Js::Num(app.statement_importance_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
         "topicSelectionsServed",
         js::Js::Num(app.topic_selections_served.load(Ordering::Relaxed) as f64),
     );
@@ -481,6 +528,20 @@ async fn health(app: &route::App) -> Outgoing {
 }
 
 async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Request) -> Outgoing {
+    #[cfg(feature = "fixture-clock")]
+    {
+        let fixture_clock = req.headers.get("x-polis-fixture-clock").map(str::to_owned);
+        clock::for_request(fixture_clock.as_deref(), dispatch_at_clock(app, owner, req)).await
+    }
+    #[cfg(not(feature = "fixture-clock"))]
+    dispatch_at_clock(app, owner, req).await
+}
+
+async fn dispatch_at_clock(
+    app: Arc<route::App>,
+    owner: Option<Arc<owner::App>>,
+    req: Request,
+) -> Outgoing {
     match req.path() {
         owner::PATH => match owner {
             Some(owner) => owner.handle(req).await,
@@ -497,6 +558,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | delphi_read::PATH
         | collective_statement::PATH
         | topic_stats::PATH
+        | delphi_run_read::PATH
         | delphi_visualizations::PATH
         | delphi_reports::PATH
         | database::PATH
@@ -515,6 +577,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | legacy_conversations::PATH
         | einvites_read::PATH
         | topic_prioritize::PATH
+        | statement_importance::PATH
         | topic_selections::PATH
         | conversation_stats::PATH
         | bid_to_pid::PATH
@@ -523,6 +586,7 @@ async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Req
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
         path if settings_page::matches(path) => route::handle(app, req).await,
@@ -547,6 +611,12 @@ async fn main() -> Result<()> {
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
         let dsn = std::env::var("POLIS_API_COMMENTS_DATABASE_URL")
             .context("POLIS_API_COMMENTS_DATABASE_URL is required for comment reads")?;
         let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
@@ -673,6 +743,76 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-topic-stats/1")?,
             topic_stats::pool_limits(),
         ));
+    }
+    if std::env::var("POLIS_API_DELPHI_RUN_READS").ok().as_deref() == Some("1") {
+        // The record function's login: a member of polis_queue_executor.
+        let dsn = std::env::var("POLIS_API_DELPHI_RUN_DATABASE_URL")
+            .context("POLIS_API_DELPHI_RUN_DATABASE_URL is required for Delphi run-record reads")?;
+        // Identity and the moderator rule read Node's tables with Node's read
+        // login unless a dedicated one is given.
+        let auth_dsn = [
+            "POLIS_API_DELPHI_RUN_AUTH_DATABASE_URL",
+            "READ_ONLY_DATABASE_URL",
+        ]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .context("a database for Delphi run-record identity reads is required")?;
+        state.delphi_run_env = std::env::var("DELPHI_RESULT_ENV")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .context("DELPHI_RESULT_ENV is required for Delphi run-record reads")?;
+        state.delphi_run_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-run/1")?,
+            delphi_run_read::pool_limits(),
+        ));
+        state.delphi_run_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-run-auth/1")?,
+            delphi_run_read::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_DELPHI_RESULT_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        // The record function's login: a member of polis_queue_executor.
+        let dsn = std::env::var("POLIS_API_DELPHI_RESULT_DATABASE_URL")
+            .context("POLIS_API_DELPHI_RESULT_DATABASE_URL is required for Delphi result reads")?;
+        // Identity and the moderator rule read Node's tables with Node's read
+        // login unless a dedicated one is given.
+        let auth_dsn = [
+            "POLIS_API_DELPHI_RESULT_AUTH_DATABASE_URL",
+            "READ_ONLY_DATABASE_URL",
+        ]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .context("a database for Delphi result identity reads is required")?;
+        state.delphi_result_env = std::env::var("DELPHI_RESULT_ENV")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .context("DELPHI_RESULT_ENV is required for Delphi result reads")?;
+        state.delphi_result_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-result/1")?,
+            delphi_result_read::pool_limits(),
+        ));
+        state.delphi_result_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-result-auth/1")?,
+            delphi_result_read::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
         .ok()
@@ -1077,6 +1217,18 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_STATEMENT_IMPORTANCE_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL")
+            .context("POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL required")?;
+        state.statement_importance_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-statement-importance/1")?,
+            statement_importance::pool_limits(),
+        ));
     }
     if std::env::var("POLIS_API_TOPIC_SELECTIONS_READS")
         .ok()

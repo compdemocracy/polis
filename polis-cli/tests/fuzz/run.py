@@ -44,7 +44,16 @@ from harness import (Cli, Stack, differences, load_routes, route_lines, routing_
 import generator  # noqa: E402
 
 DEFAULT_STEPS = 40
-REPLAY = 'bash scripts/test-polis-cli-fuzz.sh --binary BINARY --output OUTPUT --seed {seed} --steps {steps}'
+CLOCK_STRIDE_MS = 10_000  # Above both engines' 3 s math-cache TTL.
+
+
+def step_clock(seed, index, mode='stepped'):
+    # Generated starting rows are at 1700000000000. The seed-specific base is
+    # strictly later; every phase uses the same sequence. No wall-clock input.
+    base = 1_700_000_010_000 + int(generator.normalize_seed(seed), 16) % 86_400_000
+    return base + (index * CLOCK_STRIDE_MS if mode == 'stepped' else 0)
+
+REPLAY = 'bash scripts/test-polis-cli-fuzz.sh --binary BINARY --output OUTPUT --seed {seed} --steps {steps} --clock-mode {clock}'
 
 
 def login_code(cli, actor, conversation):
@@ -169,6 +178,8 @@ def main():
     p.add_argument('--output', help='report JSON path')
     p.add_argument('--seed', help='64-bit hex run seed (default: a fresh one, printed)')
     p.add_argument('--steps', type=int, default=DEFAULT_STEPS, help=f'generated steps per phase (default {DEFAULT_STEPS})')
+    p.add_argument('--clock-mode', choices=['stepped', 'within-window'], default='stepped',
+                   help='expire caches between steps, or deliberately report within-window differences')
     p.add_argument('--print-steps', action='store_true', help='print the generated setups and steps, run nothing')
     args = p.parse_args()
     seed = generator.normalize_seed(args.seed if args.seed else os.urandom(8).hex())
@@ -188,6 +199,8 @@ def main():
     report = {'schema': 'polis-cli-fuzz/1', 'generator': generator.GENERATOR, 'seed': seed,
               'steps_requested': args.steps, 'start': 'generated', 'phases': [n for n, _ in plan],
               'switches': sorted(routes),
+              'clock': {'mode': args.clock_mode, 'base_ms': step_clock(seed, 0, args.clock_mode),
+                        'stride_ms': CLOCK_STRIDE_MS if args.clock_mode == 'stepped' else 0},
               'comparison': 'CLI --json envelope and exit code per step (object key order ignored); end-of-phase per-table database digests',
               'byte_capture': False, 'identity': identity(stack), 'complete': False}
     started = time.monotonic()
@@ -207,7 +220,8 @@ def main():
                 for step in steps:
                     i = step['index']
                     resolved = resolve(step['args'], state, cli)
-                    stack.begin(generator.step_seed(seed, i), 'fuzz' + str(i))
+                    stack.begin(generator.step_seed(seed, i), 'fuzz' + str(i),
+                                clock=step_clock(seed, i, args.clock_mode))
                     value = cli.invoke({'command': step['command'], 'args': resolved, 'actor': step['actor']},
                                        fixture_uuid=generator.step_uuid(seed, i))
                     print(f"{phase} {i} {step['command']} exit={value['exit']}", file=sys.stderr, flush=True)
@@ -322,7 +336,7 @@ def main():
                                  'known_over_bound': s.get('known_over_bound'),
                                  'known_steps': [r['index'] for r in report.get('steps', []) if r['verdict'] == 'known'],
                                  'database_ab': s.get('database_ab'), 'database_aa': s.get('database_aa'),
-                                 'replay': REPLAY.format(seed=seed, steps=args.steps),
+                                 'replay': REPLAY.format(seed=seed, steps=args.steps, clock=args.clock_mode),
                                  'steps': [describe(x) for x in steps]}
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n')

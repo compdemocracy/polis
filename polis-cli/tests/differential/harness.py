@@ -67,6 +67,12 @@ def routing_counts(lines):
 
 
 RUST_ONLY = {
+    'report-importance': {
+        'route': 'statementImportance',
+        'reason': 'Optional public importance display: Node-off is unknown; enabled Rust returns the zero-vote fixture counts.',
+        'node_exit': 0,
+        'tests': ['polis-cli/crates/polis/tests/importance.rs', 'queue-rs/polis-api/conformance/statement-importance-replay.py'],
+    },
     'owner-list': {
         'route': 'owner-conversations',
         'reason': 'Cursor-based owner listing is a new Rust contract with no Node counterpart.',
@@ -81,6 +87,8 @@ RUST_ONLY = {
 
 def rust_only_checks(row, node, rust):
     contract = RUST_ONLY[row['contract']]
+    if row['contract'] == 'report-importance':
+        return importance_display_checks(node, rust)
     error = node['json'].get('error') or {}
     checks = {
         'node_exit': node['exit'] == contract['node_exit'],
@@ -169,9 +177,10 @@ class Stack:
             print(fixture.stderr,file=sys.stderr)
             raise RuntimeError('generated fixture install failed')
 
-    def begin(self,seed,case):
-        """Reseed Node's entropy (and the gateway's nextComment seed) for one case."""
-        self.get('/begin?seed='+seed+'&case='+case)
+    def begin(self,seed,case,*,clock=None):
+        """Reseed one case, optionally advancing the test-only fixture clock."""
+        suffix = '' if clock is None else '&clock=' + str(clock)
+        self.get('/begin?seed='+seed+'&case='+case+suffix)
 
     def barrier(self,label):
         # Await tracked asynchronous side effects before the next
@@ -255,3 +264,33 @@ def run_phases(stack,cli,plan):
         # Gateway has no DNS cache / reused upstream sockets.
         cli.reset()
         yield name
+
+
+def importance_display_checks(node, rust):
+    """Named fixture contract, not a general normalization of current counts.
+    This command precedes every vote in cases.py; the two participant-visible statements
+    therefore have zero vote rows. Preserve every other byte-derived value.
+    """
+    import copy
+    a, b = copy.deepcopy(node), copy.deepcopy(rust)
+    checks = {'successes': all(v.get('exit') == 0 and v.get('json', {}).get('ok') is True
+                              and v['json'].get('error') is None for v in [a, b])}
+    try:
+        left, right = a['json']['data'], b['json']['data']
+        # This sealed fixture has no static-file upstream. Node's unmatched-route
+        # proxy reports operation_failed; this is not a claim that all missing
+        # routes return that code. Reject every other error in this fixture.
+        checks['node_unknown'] = left.pop('importance') == {'state':'unavailable','error':'operation_failed','read_at_ms':None}
+        meta = right.pop('importance')
+        timestamp = meta.pop('read_at_ms')
+        checks['timestamp'] = type(timestamp) is int and 0 < timestamp <= 9007199254740991
+        checks['metadata'] = meta == {'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed',
+            'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+        checks['fixture_ids'] = [r['tid'] for r in right['comments']] == [0, 1]
+        checks['unknown_rows'] = all(r.pop('important') is None and r.pop('voters') is None for r in left['comments'])
+        checks['zero_rows'] = all(type(r['important']) is int and type(r['voters']) is int
+                                 and r.pop('important') == 0 and r.pop('voters') == 0 for r in right['comments'])
+        checks['unchanged_fields'] = not differences(a, b)
+    except (KeyError, TypeError, AttributeError):
+        checks['shape'] = False
+    return checks

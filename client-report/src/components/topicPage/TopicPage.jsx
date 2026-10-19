@@ -118,14 +118,18 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
     
     try {
       setNarrativeLoading(true);
+      // Narrative sections use underscores where versioned topic keys use hashes.
+      const section = topic_key.replace(/#/g, "_");
       const response = await net.polisGet("/api/v3/delphi/reports", {
         report_id: report_id,
-        section: topic_key
+        section
       });
       
       if (response && response.status === "success" && response.reports) {
-        const sectionData = response.reports[topic_key];
-        if (sectionData && sectionData.report_data) {
+        const sectionData = response.reports[section];
+        // The server falls back to a stored section that only contains this
+        // name (topic 1 would get topic 12's narrative); show an exact match only.
+        if (sectionData && sectionData.section === section && sectionData.report_data) {
           const reportData = typeof sectionData.report_data === 'string' 
             ? JSON.parse(sectionData.report_data) 
             : sectionData.report_data;

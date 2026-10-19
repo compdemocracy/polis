@@ -189,8 +189,11 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 start ""
 expect /api/v3/comments node "comments off"
+expect "/api/v3/comments?conversation_id=fixture&moderation=true" node "moderation off"
 start comments,comments
 expect /api/v3/comments rust "comments on"
+expect_upstream polis-api GET "/api/v3/comments?conversation_id=fixture&moderation=true"
+expect_upstream polis-api GET "/api/v3/comments?conversation_id=fixture&moderation=true&include_voting_patterns=true" $'Authorization: Bearer fixture\r\n'
 expect /api/v3/math/pca2 node "comments leaves pca2 alone"
 expect /api/v3/owner/conversations node "comments leaves owner list alone"
 [[ $(included | grep -c 'location = /api/v3/comments') == 1 ]] || fail "comments route duplicated"
@@ -203,6 +206,7 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 502 unavailable
 sleep 6
 expect /api/v3/comments node "comments boundary or unavailable"
+expect "/api/v3/comments?conversation_id=fixture&moderation=true" node "moderation boundary or unavailable"
 echo "ok 12 public comments off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
@@ -1219,3 +1223,90 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/ops/unknown node "Operations catch-all handoff"
 echo "ok 58 Operations catch-all off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/run node "Run record off"
+start delphiRun,delphiRun
+expect '/api/v3/delphi/run?job_id=x' rust "Run record on"
+expect /api/v3/delphi node "Run record leaves the Delphi topics route alone"
+expect /api/v3/delphi/logs node "Run record leaves job logs alone"
+expect /api/v3/delphi/runs node "Run record path is exact"
+expect /api/v3/comments node "Run record leaves comments alone"
+expect /api/v3/votes node "Run record leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/delphi/run') == 1 ]] || fail "Run record duplicated"
+expect_upstream polis-api GET /api/v3/delphi/run
+expect_upstream polis-api HEAD /api/v3/delphi/run
+expect_upstream server OPTIONS /api/v3/delphi/run
+expect_upstream server POST /api/v3/delphi/run $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/run $'Content-Length: 2\r\n' '{}'
+# Node has no handler for this path, so a hand-back reaches Node's 404.
+docker rm -f "$p-rust" "$p-node" >/dev/null
+stub "$p-node" server 5000 404 "Cannot GET /api/v3/delphi/run"
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect_upstream server GET '/api/v3/delphi/run?job_id=x'
+handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/run?job_id=x' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
+[[ $handback == "HTTP/1.1 404" ]] || fail "Run record handoff answered '$handback', expected Node's 404"
+docker rm -f "$p-node" >/dev/null
+stub "$p-node" server 5000 200 node
+echo "ok 59 Run record off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/runs/x node "Typed result off"
+start delphiResult,delphiResult
+expect '/api/v3/delphi/runs/x?families=assignments' rust "Typed result on"
+expect /api/v3/delphi node "Typed result leaves the Delphi topics route alone"
+expect /api/v3/delphi/logs node "Typed result leaves job logs alone"
+expect /api/v3/delphi/run node "Typed result path is exact"
+expect /api/v3/comments node "Typed result leaves comments alone"
+expect /api/v3/votes node "Typed result leaves voting alone"
+[[ $(included | grep -c 'location ~.*delphi/runs/') == 1 ]] || fail "Typed result duplicated"
+expect_upstream polis-api GET /api/v3/delphi/runs/x
+expect_upstream polis-api HEAD /api/v3/delphi/runs/x
+expect_upstream server OPTIONS /api/v3/delphi/runs/x
+expect_upstream server POST /api/v3/delphi/runs/x $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/runs/x $'Content-Length: 2\r\n' '{}'
+# Node has no handler for this path, so a hand-back reaches Node's 404.
+docker rm -f "$p-rust" "$p-node" >/dev/null
+stub "$p-node" server 5000 404 "Cannot GET /api/v3/delphi/runs/x"
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect_upstream server GET '/api/v3/delphi/runs/x?families=assignments'
+handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/runs/x?families=assignments' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
+[[ $handback == "HTTP/1.1 404" ]] || fail "Typed result handoff answered '$handback', expected Node's 404"
+docker rm -f "$p-node" >/dev/null
+stub "$p-node" server 5000 200 node
+echo "ok 60 Typed result off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/statements/importance node "Statement importance off"
+start statementImportance,statementImportance
+expect '/api/v3/statements/importance?conversation_id=fixture' rust "Statement importance on"
+expect /api/v3/delphi node "Statement importance leaves the Delphi topics route alone"
+expect /api/v3/delphi/logs node "Statement importance leaves job logs alone"
+expect /api/v3/delphi/run node "Statement importance path is exact"
+expect /api/v3/comments node "Statement importance leaves comments alone"
+expect /api/v3/votes node "Statement importance leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/statements/importance') == 1 ]] || fail "Statement importance duplicated"
+expect_upstream polis-api GET /api/v3/statements/importance
+expect_upstream polis-api HEAD /api/v3/statements/importance
+expect_upstream server OPTIONS /api/v3/statements/importance
+expect_upstream server POST /api/v3/statements/importance $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/statements/importance $'Content-Length: 2\r\n' '{}'
+# Node has no handler for this path, so a hand-back reaches Node's 404.
+docker rm -f "$p-rust" "$p-node" >/dev/null
+stub "$p-node" server 5000 404 "Cannot GET /api/v3/statements/importance"
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect_upstream server GET '/api/v3/statements/importance?conversation_id=fixture'
+handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/statements/importance?conversation_id=fixture' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
+[[ $handback == "HTTP/1.1 404" ]] || fail "Statement importance handoff answered '$handback', expected Node's 404"
+docker rm -f "$p-node" >/dev/null
+stub "$p-node" server 5000 200 node
+echo "ok 61 Statement importance off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"

@@ -328,3 +328,43 @@ fn import_input_is_checked_before_any_credential_is_read() {
         assert_eq!(code, 2, "{v}");
     }
 }
+
+#[test]
+fn collective_export_explains_insufficient_consensus_without_writing_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("export");
+    let handle = server(
+        dir.path(),
+        vec![(
+            409,
+            json!({"status":"error","code":"INSUFFICIENT_CONSENSUS","message":"Fewer than three comments meet the existing report consensus rule"}),
+        )],
+    );
+    let (exit, v) = call(
+        dir.path(),
+        &[
+            "collective",
+            "export",
+            "demo",
+            "--report",
+            "rdemo",
+            "--topic",
+            "job#0#1",
+            "--output",
+            out.to_str().unwrap(),
+        ],
+        None,
+        true,
+    );
+    assert_eq!(exit, 5, "{v}");
+    assert_eq!(v["error"]["code"], "conflict");
+    assert_eq!(v["error"]["upstream"]["code"], "INSUFFICIENT_CONSENSUS");
+    assert_eq!(
+        v["error"]["upstream"]["message"],
+        "Fewer than three comments meet the existing report consensus rule"
+    );
+    assert!(!out.exists());
+    let requests = handle.join().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(requests[0].starts_with("GET /api/v3/delphi/collective/inputs?"));
+}

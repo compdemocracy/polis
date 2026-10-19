@@ -3,6 +3,7 @@ import {
   formatCSVRow,
   formatCSV,
   loadConversationSummary,
+  sendCommentSummary,
   sendVotesSummary,
   sendParticipantVotesSummary,
   sendParticipantXidsSummary,
@@ -19,6 +20,7 @@ import { failJson } from "../../src/utils/fail";
 import {
   EXPORT_VOTE_CONVENTION,
   VOTE_CONVENTION_KEY,
+  semanticToStorage,
 } from "../../src/votes/convention";
 
 type Formatters<T> = Record<string, (row: T) => string>;
@@ -292,6 +294,96 @@ describe("handle_GET_reportExport", () => {
     });
   });
 
+  describe("Importance in the export, whatever the conversation's flag", () => {
+    // Answers a query on the conversation's importance_enabled with `flag`; the
+    // export must come out the same either way.
+    function conversationWithImportanceFlag(flag: boolean, comments: any[]) {
+      (pg.queryP_reportExport as jest.Mock).mockImplementation(
+        async (sql: any) =>
+          String(sql).includes("importance_enabled")
+            ? [{ importance_enabled: flag }]
+            : String(sql).includes("FROM comments")
+            ? comments
+            : []
+      );
+    }
+
+    afterEach(() => (pg.queryP_reportExport as jest.Mock).mockReset());
+
+    for (const flag of [false, true]) {
+      it(`votes.csv carries the important column when importance_enabled is ${flag}`, async () => {
+        conversationWithImportanceFlag(flag, []);
+        mockStreamWithRows([
+          {
+            timestamp: 94668411,
+            tid: 1,
+            pid: 1,
+            vote: semanticToStorage("agree"),
+            high_priority: true,
+          },
+          {
+            timestamp: 94668412,
+            tid: 2,
+            pid: 1,
+            vote: semanticToStorage("disagree"),
+            high_priority: false,
+          },
+        ]);
+
+        await sendVotesSummary(zid, mockRes as any);
+
+        const lines = mockRes.write.mock.calls.map((c) => String(c[0]));
+        expect(lines[0]).toBe(
+          "timestamp,datetime,comment-id,voter-id,vote,important\n"
+        );
+        expect(lines.slice(1).map((l) => l.split(",").slice(2))).toEqual([
+          ["1", "1", "1", "1\n"],
+          ["2", "1", "-1", "0\n"],
+        ]);
+        expect(mockRes.end).toHaveBeenCalled();
+      });
+
+      it(`comments.csv counts important votes when importance_enabled is ${flag}`, async () => {
+        conversationWithImportanceFlag(flag, [
+          {
+            tid: 1,
+            pid: 5,
+            created: "1700000000000",
+            txt: "a",
+            mod: 1,
+            velocity: 1,
+            active: true,
+          },
+        ]);
+        mockStreamWithRows([
+          { tid: 1, vote: semanticToStorage("agree"), high_priority: true },
+          { tid: 1, vote: semanticToStorage("disagree"), high_priority: true },
+          { tid: 1, vote: semanticToStorage("agree"), high_priority: false },
+        ]);
+
+        await sendCommentSummary(zid, mockRes as any);
+
+        const [header, row] = String(mockRes.send!.mock.calls[0][0]).split(
+          "\n"
+        );
+        expect(header).toBe(
+          "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body"
+        );
+        const cells = row.split(",");
+        expect([cells[0], ...cells.slice(2)]).toEqual([
+          "1700000000",
+          "1",
+          "5",
+          "2",
+          "1",
+          "1",
+          "2",
+          '"a"',
+        ]);
+      });
+    }
+  });
+
   describe("Votes summary", () => {
     it("sendVotesSummary should send the votes summary as CSV", async () => {
       // Use the original require approach since it's more compatible with jest.spyOn
@@ -304,30 +396,26 @@ describe("handle_GET_reportExport", () => {
         "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)"
       );
 
-      // Mock the importance_enabled query (returns false by default)
-      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
-        { importance_enabled: false },
-      ] as never);
-
       // Mock stream with a single vote row
       mockStreamWithRows([{ timestamp: 94668411, tid: 1, pid: 1, vote: -1 }]);
 
       await sendVotesSummary(zid, mockRes as any);
 
+      expect(pg.queryP_reportExport).not.toHaveBeenCalled();
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         "Content-Type",
         "text/csv"
       );
       expect(mockRes.write).toHaveBeenCalledWith(
-        "timestamp,datetime,comment-id,voter-id,vote\n"
+        "timestamp,datetime,comment-id,voter-id,vote,important\n"
       );
       expect(mockRes.write).toHaveBeenCalledWith(
-        "94668,Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time),1,1,1\n"
+        "94668,Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time),1,1,1,0\n"
       );
       expect(mockRes.end).toHaveBeenCalled();
     });
 
-    it("sendVotesSummary should include important column when importance is enabled", async () => {
+    it("sendVotesSummary should mark important votes 1 and the others 0", async () => {
       // Use the original require approach since it's more compatible with jest.spyOn
       const formatDatetimeSpy = jest.spyOn(
         // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -337,11 +425,6 @@ describe("handle_GET_reportExport", () => {
       formatDatetimeSpy.mockReturnValue(
         "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)"
       );
-
-      // Mock the importance_enabled query (returns true)
-      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
-        { importance_enabled: true },
-      ] as never);
 
       // Mock stream with vote rows including high_priority field
       mockStreamWithRows([
@@ -369,11 +452,6 @@ describe("handle_GET_reportExport", () => {
 
     it("sendVotesSummary should handle errors during vote summary export", async () => {
       const mockError = new Error("Test error");
-
-      // Mock the importance_enabled query
-      (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
-        { importance_enabled: false },
-      ] as never);
 
       // Mock stream with error
       mockStreamWithRows([], true, mockError);

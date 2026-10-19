@@ -209,6 +209,9 @@ P027_HTTP_PORT=55480 P027_CONTROL_PORT=55481 \
 The `fixture-clock` feature exists only for the replay: the test stack
 freezes Node's clock, and a build with this feature can freeze its own the
 same way (`POLIS_API_FIXTURE_CLOCK`). The default build cannot.
+A fixture-clock build also honours a per-request `X-Polis-Fixture-Clock` header
+(milliseconds), token checks included, so the differential harness can advance
+the clock one step at a time; the default build ignores the header.
 
 ## Credits
 
@@ -306,38 +309,47 @@ recordings are not applicable to this new endpoint; existing pca2 parity remains
 a separate check.
 
 
-## Public comment reads
+## Comment reads
 
-`POLIS_API_COMMENT_READS=1` enables the public, bodyless GET/HEAD
-`/api/v3/comments` slice. It requires `POLIS_API_COMMENTS_DATABASE_URL` for
-conversation lookup and statement rows. Pagination counts use a separate pool
-on `READ_ONLY_DATABASE_URL`, falling back to the comments DSN when unset, as
-Node does. The pools have two and one connections respectively, a 100 ms
-acquisition deadline and a 1 s statement deadline; sessions are read-only.
-They do not borrow connections from other route pools or math reads. This bounds
+`POLIS_API_COMMENT_READS=1` enables bodyless GET/HEAD `/api/v3/comments`.
+It requires `POLIS_API_COMMENTS_DATABASE_URL` for conversation lookup and rows.
+Pagination and moderator checks use the separate `READ_ONLY_DATABASE_URL` pool,
+falling back to the comments DSN when unset. The pools have two and one connections,
+a 100 ms acquisition deadline and a 1 s statement deadline; sessions are read-only.
+They never borrow the vote, comment-write or next-statement pools. This bounds
 waiting within this process; it does not prove shared database load isolation.
 
-Both this process flag and nginx's `RUST_API_ROUTES=comments` switch are off by
-default. Requests carrying credentials or cookies, report/moderation views,
-unsupported parameters, missing conversations and database failures return the
-existing 502 handoff to Node. Node retains optional identity creation, provider
-calls and error behavior for those requests. They are **not** implemented by
-this Rust slice. No participant resolution or voting behavior moves here.
+Both the process flag and nginx's `RUST_API_ROUTES=comments` remain off by default.
+Plain lists retain their existing participant-token admission. Moderation lists
+also admit already-mapped OIDC users through the existing static JWKS verifier
+(`POLIS_API_READ_JWKS_FILE`, `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_NAMESPACE`).
+Verified users use Node's site-moderator predicate and configured `ADMIN_UIDS`.
+No identity claims from query parameters confer authority. Cookies, unsupported
+credentials, absent mappings, report enrichment, provider-dependent `mod_gt`
+values and failures retain the 502 handoff to Node; no user or membership is created.
 
-The moved views preserve legacy arrays and limit/offset pagination, visibility,
-statement IDs, field order, bigint strings, nullable fields and Node's
-created-only ordering. The count and row queries remain separate observations,
-including when a read replica lags; no snapshot consistency is promised.
+For `moderation=true`, callers without moderator rights get active, unmuted,
+participant-visible statements and the plain fields. Requested vote counts remain.
+Moderators retain the moderation fields and whole list. Counts pass through the
+shared storage convention boundary, matching the server's current constant source;
+invalid and NULL values do not become passes. Any storage convention migration
+must update both services together, without changing wire or export declarations.
 
-`conformance/comments-run.sh` seeds the unchanged generated characterization
-fixtures, then replays all 396 archived comments requests against live Node and
-Rust. Responses served by Rust must match raw HTTP bytes (including headers,
-compression and chunk framing); Node handoffs are counted separately, and an
-eligible public success falling back is a failure. Only a Date-only mismatch
-may be retried and is counted. `conformance/nginx-routing.sh` checks the
-independent switch, body/method guards and failure handoff. Authentication,
-moderation/report equivalence and concurrent participation-load acceptance
-remain outside this partial implementation's evidence.
+The legacy SQL behavior is preserved: plain lists order only by created; moderation
+lists have no imposed ordering, ignore tids, and paginate the vote-bucket join
+before merging counts. Count and row filters retain Node's distinct modIn/mod_gt
+semantics. Count, authority and row reads remain separate observations, including
+replica lag; no snapshot consistency or deterministic unordered-row claim is made.
+
+`conformance/comments-run.sh` replays all 396 archived requests against fresh Node
+and Rust, then 42 additional moderation count/filter/page requests. The six actor
+moderation cases must be served by Rust, including anonymous, bound participant and
+foreign-owner callers. Results contain fresh Node/Rust raw response recordings for
+these cases. Status, headers, field/array order and body bytes compare exactly;
+only Date-only pairs may retry, with retries counted. The committed general archive
+is unchanged. `conformance/nginx-routing.sh` covers off/on, method/body guards and
+moderation query/credential forwarding and the 502 fallback. This is generated
+fixture conformance, not production-load or activation approval.
 
 ## Anonymous next-statement reads
 
@@ -410,7 +422,7 @@ other-conversation tokens, Treevite and unsupported shapes return the counted
 502 handoff to Node. An already-voted `initial_tid` also hands back to Node;
 ordinary selection excludes existing votes and returns currentPid. No participant,
 user, invite or token is created. Signed-in comments support the same public
-projection; moderation and report views remain with Node.
+projection; moderation uses the verified moderator rule described above and report views remain with Node.
 
 Membership reads use the route's existing bounded read-only primary pool;
 nextComment retains its own two slots, 1 ms admission, 50 ms statements and
@@ -1196,3 +1208,154 @@ bytes are admitted, plus the root with or without its slash. Other encodings,
 identity/cookies, bodies, queries and methods stay Node. No database, provider
 or participation resources are acquired. The no-store response uses the shared
 contract in `polis-contracts/src/ops_catchall.rs`.
+
+
+### Delphi run record
+
+`GET`/`HEAD /api/v3/delphi/run?job_id=<uuid>` serves one Delphi job's run
+record, the `delphi-run/1` contract (`polis-contracts/src/delphi_run.rs`),
+behind `POLIS_API_DELPHI_RUN_READS=1` and nginx `RUST_API_ROUTES=delphiRun`,
+both off by default. It is a Rust-only route: Node has no handler for the
+path, so every hand-back (polis-api's 502, no answer within nginx's 3 s, a
+request shape the route does not model) reaches Node's 404.
+
+- **The read.** One call to `pd_run_record(env, job)` (migration 000041), a
+  SQL function that reads the job, its last attempt, its graph position, the
+  finalized manifest, its provider requests and every family of its published
+  bundle in one statement, so the record is one snapshot.
+  `POLIS_API_DELPHI_RUN_DATABASE_URL` names a login in
+  `polis_queue_executor`, the function's only grantee; `DELPHI_RESULT_ENV` is
+  the queue env, as for Node. Its own pool: 2 slots, 50 ms acquire, 2 s
+  statement timeout. The whole request has 2.5 s.
+- **Who may read it.** Node's rule for `GET /api/v3/delphi/logs`
+  (`hybridAuth`, then `isModerator(zid, uid)` for the job's conversation: a
+  moderator of the owner's site, or an administrator in `ADMIN_UIDS`), with
+  Node's refusal shapes: no `Authorization: Bearer` header, 401
+  `{"error":"No authentication token found"}` before any read; no job id, 400
+  `job_id is required`; no such job (or not a lowercase uuid), 404
+  `Job not found`; not a moderator, 403 `polis_err_delphi_run_auth`. Identity
+  comes only from a token polis-api verifies (polis-auth's participant
+  verifier, or OIDC through `POLIS_API_READ_JWKS_FILE`); any other token (an
+  XID token, an unknown subject, a bad signature) hands back. Identity, the
+  moderator rule and the conversation's zinvite are read on a second pool,
+  `POLIS_API_DELPHI_RUN_AUTH_DATABASE_URL`, else Node's
+  `READ_ONLY_DATABASE_URL`, else `DATABASE_URL`: 1 slot, 50 ms acquire,
+  100 ms statement timeout. Neither pool is a participation pool, and no
+  connection is held across another call.
+- **Recorded, and not yet recorded.** From the function: identity, report,
+  kind, origin, stage, state, the last attempt (number, lease epoch, outcome,
+  started and ended, exit proof), graph id, root and, on a root, the other
+  nodes; configuration, code version, the finalized manifest's inputs, its
+  embedding, topic-name and narrative models, its clustering model and seed
+  (on a run whose manifest names them) and token counts; provider
+  requests; pinned; and for each family of the job's published bundle its
+  producing run, the run each upstream family came from, its batch (content
+  sha256, row count) and its publication (scope and generation; `succeeded`
+  while the served pointer still resolves it, else `superseded`). Recorded
+  nowhere yet, so always `null`: `math_snapshot`, the statement model,
+  prompt versions and `label`. A failure is given
+  only when the job was cancelled or its recorded code (before any `:`
+  detail) is one of the contract's closed codes; its stage is `null`. A job
+  that published nothing lists no family. A full pipeline run still writes
+  empty copies of the seven retired math families (clearing the import's);
+  the contract has no new run produce a legacy family, so those empty copies
+  are left out, and a non-empty one is refused. A record the contract
+  refuses is not served (hand-back).
+- **Byte stability.** The body is `wire::to_json` of the record.
+  `conformance/delphi-run-fixtures/` holds the function's output and the
+  route's bytes for a real local sequence (a full pipeline run, a
+  collective-statement save over its topics, a second full pipeline run);
+  a unit test rebuilds each record and compares the bytes. The db-tests
+  check the rule, the refusals and pool isolation. Run
+  `queue-rs/polis-api/conformance/delphi-run-run.sh result.json` for real
+  runs through polis-jobs and every answer recorded and checked against the
+  function. `delphiRunServed` and `delphiRunFallback` count the outcomes.
+
+### Typed Delphi assignments (off by default)
+
+`GET` and `HEAD /api/v3/delphi/runs/:job_id?families=assignments` serve the
+existing `delphi-job-result/1` envelope for a moderator of the job's conversation,
+using the same verified identity and moderator rule as `/api/v3/delphi/run`.
+This first slice requires exactly `families=assignments`; other selectors,
+repeats, bodies and unsupported methods hand back to Node. Node has no handler
+for this new route, so a hand-back becomes its 404. Missing bearer tokens return
+401; unknown or noncanonical job UUIDs return 404; non-moderators return 403.
+
+Both switches default off: `POLIS_API_DELPHI_RESULT_READS=1` in polis-api and
+`RUST_API_ROUTES=delphiResult` in nginx are required. The independent result pool
+uses `POLIS_API_DELPHI_RESULT_DATABASE_URL` (an executor-member login), two slots,
+a 50 ms acquisition timeout and a 2 s statement timeout. Its auth pool uses
+`POLIS_API_DELPHI_RESULT_AUTH_DATABASE_URL`, then `READ_ONLY_DATABASE_URL`, then
+`DATABASE_URL`, with one slot, 50 ms acquisition and 100 ms statements.
+`DELPHI_RESULT_ENV` is required. All transactions are read-only; the whole request
+is bounded at 2.5 s. Neither pool shares participation slots. The executor login
+has other capabilities: the existing read-replica/enablement requirement for
+Delphi reads still applies; this route does not enable itself.
+
+The route calls `pd_run_record(env, job)` and then
+`pd_result_artifact_family(env, artifact_id, family)` with the resolved immutable
+artifact, never the current publication pointer. Row counts are checked; input
+and output documents are limited to 8 MiB and assignments to 100,000 comments.
+Malformed consumed tagged values, duplicate comment ids, noncanonical layers or
+unrepresentable contract states hand back, with no coercion or invented model.
+Ready results require a recorded topic model and completion timestamp; queued
+jobs with no attempt return pending, active attempts running, and terminal
+failures only when their recorded failure maps to the contract's closed codes.
+Retry-wait/parked states and completed imports or synchronous saves without the
+required model manifest currently hand back. Unavailable families are omitted;
+an explicitly empty produced assignments family is an empty map.
+
+The top-level job/run ids always name the requested job. For each family's actual
+producer job/run/batch/digest, use `/api/v3/delphi/run?job_id=...` as the provenance
+companion. Inherited assignments keep their original producer there; this route
+adds no fields to either contract. Counts not recorded by the job remain null,
+and neither live math nor current model defaults are substituted.
+
+`conformance/delphi-result-run.sh` runs two real local pipelines with a generated
+local sign-in and a sign-aware public fixture. Its raw replay compares the first
+job's body before and after the second publication, constructs expected bytes
+from immutable SQL rows, validates both client schemas and tests authentication,
+HEAD, unsupported selectors and served/fallback counters. It uses the same
+`DELPHI_RUN_*` settings as `delphi-run-run.sh`; `DELPHI_RUN_CODE_VERSION` may supply
+the source revision for an archive tree. The worker uses no paid model provider.
+
+The producer reserves nullable slots for hierarchy layers it did not compute.
+A stored `{"NULL":true}` layer slot is absent from that comment's assignments;
+it is never converted to a cluster id. The explicit unassigned-cluster value
+still uses the contract's `Cluster::Unassigned` encoding.
+
+### Statement importance (off by default)
+
+`GET /api/v3/statements/importance?conversation_id=…` returns
+`statement-importance/1`: `schema`, `conversation_id`, `read_at_ms` (database
+statement start, Unix milliseconds) and `statements`, ordered by `tid`.
+Each statement has `tid`, `important` (participants whose latest vote is marked
+`high_priority`) and `voters` (participants with a vote, latest vote each).
+These count participant numbers, not verified people. No vote signs, identities
+or statement text are exposed. Latest means greatest non-NULL `created`; tied
+creation times prefer `high_priority` in descending order.
+Only active, unmuted (`velocity > 0`), participant-visible statements are included:
+`mod >= 1` with strict moderation, `mod >= 0` otherwise. Visible statements with
+no votes have both counts zero. A missing conversation returns 404; an empty one
+returns `statements: []`. Resolution, visibility and counts share one SQL
+statement snapshot. The response
+is all-or-nothing with a 10,000-statement bound; larger reads hand back.
+
+Enable only with both `POLIS_API_STATEMENT_IMPORTANCE_READS=1` and nginx
+`RUST_API_ROUTES=statementImportance`; defaults stay off. Set the explicit
+`POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL` to a read-only database DSN. The
+route has its own two-slot read-only pool (15 ms acquire, 50 ms statement,
+75 ms request bound), no identity lookup, and no resource dependency on the
+participation pool. Saturation, database errors and unsupported requests return
+502 internally so nginx hands back to Node. Node has no handler here; its
+existing unmatched-route proxy determines the final response. A sealed fixture
+without the static-file upstream returns a proxy 502, while the nginx test also
+checks a Node 404. Enabling this switch does not add a Node handler. Cookies and bearer headers
+do not change these public aggregate counts. GET/HEAD only, no request bodies,
+exactly one alphanumeric conversation_id of at most 100 characters.
+
+`conformance/statement-importance-run.sh` exercises the HTTP contract on an
+isolated aggregate-only metadata fixture; it is not a Node parity recording.
+The nginx suite covers default-off, opt-in, deduplication, method/body admission
+and the 502-to-Node-404 path. The database suite covers query bounds, real lock
+shedding, read-only enforcement and independent writer/next-statement resources.

@@ -1,0 +1,51 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "failed/reportExport-comment-clusters",
+ "state": "failed",
+ "route": "GET /api/v3/reportExport/:report_id/:report_type",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/reportExport/r2p2zero104/comment-clusters.csv",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "text/csv"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ],
+   [
+    "transfer-encoding",
+    "chunked"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "comment-id,moderated,active,layer0-cluster-id,layer1-cluster-id,layer0-distance,layer1-distance,layer0-confidence,layer1-confidence,comment-body\n0,1,1,0,0,,,,,\"Generated statement 104.0\"\n1,1,1,1,1,,,,,\"Generated statement 104.1\"\n2,1,1,2,0,,,,,\"Generated statement 104.2\"\n3,1,1,-1,-1,,,,,\"Generated statement 104.3\"\n4,1,1,1,0,,,,,\"Generated statement 104.4\"\n5,1,1,2,1,,,,,\"Generated statement 104.5\"\n6,0,1,0,0,,,,,\"Generated statement 104.6\"\n7,-1,1,1,1,,,,,\"Generated statement 104.7\"\n",
+  "bodySha256": "703bd63a0918ba0cb704f6393f9d92dd74855c6f13d53edf3788d9c1b304e9ce"
+ }
+}

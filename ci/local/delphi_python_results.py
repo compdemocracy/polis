@@ -2,6 +2,12 @@
 """Result bookkeeping for ci/local/delphi-python.sh (standard library only).
 
   summary DIR                 print one run's counts (both passes added up)
+  latest DIR...               print the directories to combine: of several
+                              run attempts of one shard (a re-run on hosted CI
+                              uploads a second artifact for the shard, and both
+                              are downloaded), only the latest, read from each
+                              directory's attempt.json; directories without one
+                              (a local run) are all kept
   combine --out OUT DIR...    check that the shards' selections partition the
                               collected tests (each test in exactly one shard),
                               add up the counts, and write OUT/counts.json and
@@ -20,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -70,12 +77,62 @@ def durations(run_dir: Path, manifest: dict) -> tuple[Counter, Counter, dict]:
     return parallel_s, serial_s, longest
 
 
+def attempt_of(run_dir: Path) -> dict | None:
+    """The run attempt and job that wrote these results (attempt.json, written
+    by ci/local/delphi-python.sh on hosted CI), or None for a local run."""
+    f = run_dir / "attempt.json"
+    return json.loads(f.read_text()) if f.exists() else None
+
+
+def step_summary(lines: list[str]) -> None:
+    """Append Markdown to the hosted CI job summary, when there is one."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path:
+        with open(path, "a") as f:
+            f.write("\n".join(lines) + "\n")
+
+
 def cmd_summary(args) -> int:
     run_dir = Path(args.dir)
     manifest = json.loads((run_dir / "manifest.json").read_text())
     c = run_counts(run_dir)
     print(f"shard {manifest['shard']}: {len(manifest['selected'])} of "
           f"{len(manifest['collected'])} collected tests selected; {fmt(c)}")
+    return 0
+
+
+def cmd_latest(args) -> int:
+    # Artifact ids do not grow with time, so which of two same-shard artifacts
+    # a download returns, and in what order, says nothing about which is newer:
+    # only the attempt number does.
+    dirs = list(map(Path, args.dirs))
+    runs: dict[str, list[tuple[int, Path, dict]]] = defaultdict(list)
+    for d in dirs:
+        a = attempt_of(d)
+        if a is not None:
+            runs[a["shard"]].append((int(a["run_attempt"]), d, a))
+    dropped: set[Path] = set()
+    notes = []
+    for shard in sorted(runs, key=lambda s: int(s.split("/")[0])):
+        ordered = sorted(runs[shard], key=lambda r: r[0])
+        attempts = [n for n, _, _ in ordered]
+        for n in sorted(set(attempts)):
+            if attempts.count(n) > 1:
+                raise SystemExit(f"shard {shard}: attempt {n} has more than one result directory: "
+                                 + ", ".join(str(d) for m, d, _ in ordered if m == n))
+        n, _, a = ordered[-1]
+        for old_n, old_d, old_a in ordered[:-1]:
+            dropped.add(old_d)
+            notes.append(f"shard {shard}: attempt {n} (job {a['job_id']}) replaces "
+                         f"attempt {old_n} (job {old_a['job_id']}), {old_d} not combined")
+    for note in notes:
+        print(note, file=sys.stderr)
+    if notes:
+        step_summary(["", "Shards re-run: only the latest attempt of each is combined.", ""]
+                     + [f"- {note}" for note in notes])
+    for d in dirs:
+        if d not in dropped:
+            print(d)
     return 0
 
 
@@ -89,9 +146,13 @@ def cmd_combine(args) -> int:
     parallel_s: Counter = Counter()
     serial_s: Counter = Counter()
     longest: dict = defaultdict(float)
+    rows = []
     for d in map(Path, args.dirs):
         manifest = json.loads((d / "manifest.json").read_text())
         shard = manifest["shard"]
+        a = attempt_of(d)
+        if a is not None and a["shard"] != shard:
+            problems.append(f"{d}: attempt.json names shard {a['shard']} but its manifest is shard {shard}")
         coll = sorted(manifest["collected"])
         if collected is None:
             collected = coll
@@ -103,7 +164,10 @@ def cmd_combine(args) -> int:
                 problems.append(f"{nodeid} selected by shards {owner[nodeid]} and {shard}")
             owner[nodeid] = shard
         c = run_counts(d)
-        print(f"shard {shard}: {len(manifest['selected'])} tests; {fmt(c)}")
+        made_by = f" (attempt {a['run_attempt']}, job {a['job_id']})" if a else ""
+        print(f"shard {shard}{made_by}: {len(manifest['selected'])} tests; {fmt(c)}")
+        rows.append(f"| {shard} | {a['run_attempt'] if a else '-'} | {a['job_id'] if a else '-'} "
+                    f"| {fmt(c)} |")
         total += c
         p, s, top = durations(d, manifest)
         parallel_s += p
@@ -116,6 +180,9 @@ def cmd_combine(args) -> int:
     if len(missing) > 20:
         problems.append(f"... and {len(missing) - 20} more unselected tests")
     print(f"all shards: {len(owner)} of {len(collected or [])} collected tests; {fmt(total)}")
+    step_summary(["", "Shard counts combined:", "", "| shard | attempt | job | counts |",
+                  "|---|---|---|---|"] + rows
+                 + [f"| all | | | {fmt(total)} |"])
     (out / "counts.json").write_text(json.dumps(dict(total), sort_keys=True, indent=1) + "\n")
     (out / "test-durations.json").write_text(json.dumps(
         {"units": {u: [round(parallel_s[u], 1), round(serial_s[u], 1), round(longest[u], 1)]
@@ -133,11 +200,13 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("summary")
     s.add_argument("dir")
+    lt = sub.add_parser("latest")
+    lt.add_argument("dirs", nargs="+")
     c = sub.add_parser("combine")
     c.add_argument("--out", required=True)
     c.add_argument("dirs", nargs="+")
     args = ap.parse_args()
-    return {"summary": cmd_summary, "combine": cmd_combine}[args.cmd](args)
+    return {"summary": cmd_summary, "latest": cmd_latest, "combine": cmd_combine}[args.cmd](args)
 
 
 if __name__ == "__main__":
