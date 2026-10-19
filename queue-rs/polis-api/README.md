@@ -1323,3 +1323,39 @@ The producer reserves nullable slots for hierarchy layers it did not compute.
 A stored `{"NULL":true}` layer slot is absent from that comment's assignments;
 it is never converted to a cluster id. The explicit unassigned-cluster value
 still uses the contract's `Cluster::Unassigned` encoding.
+
+### Statement importance (off by default)
+
+`GET /api/v3/statements/importance?conversation_id=…` returns
+`statement-importance/1`: `schema`, `conversation_id`, `read_at_ms` (database
+statement start, Unix milliseconds) and `statements`, ordered by `tid`.
+Each statement has `tid`, `important` (participants whose latest vote is marked
+`high_priority`) and `voters` (participants with a vote, latest vote each).
+These count participant numbers, not verified people. No vote signs, identities
+or statement text are exposed. Latest means greatest non-NULL `created`; tied
+creation times prefer `high_priority` in descending order.
+Only active, unmuted (`velocity > 0`), participant-visible statements are included:
+`mod >= 1` with strict moderation, `mod >= 0` otherwise. Visible statements with
+no votes have both counts zero. A missing conversation returns 404; an empty one
+returns `statements: []`. Resolution, visibility and counts share one SQL
+statement snapshot. The response
+is all-or-nothing with a 10,000-statement bound; larger reads hand back.
+
+Enable only with both `POLIS_API_STATEMENT_IMPORTANCE_READS=1` and nginx
+`RUST_API_ROUTES=statementImportance`; defaults stay off. Set the explicit
+`POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL` to a read-only database DSN. The
+route has its own two-slot read-only pool (15 ms acquire, 50 ms statement,
+75 ms request bound), no identity lookup, and no resource dependency on the
+participation pool. Saturation, database errors and unsupported requests return
+502 internally so nginx hands back to Node. Node has no handler here; its
+existing unmatched-route proxy determines the final response. A sealed fixture
+without the static-file upstream returns a proxy 502, while the nginx test also
+checks a Node 404. Enabling this switch does not add a Node handler. Cookies and bearer headers
+do not change these public aggregate counts. GET/HEAD only, no request bodies,
+exactly one alphanumeric conversation_id of at most 100 characters.
+
+`conformance/statement-importance-run.sh` exercises the HTTP contract on an
+isolated aggregate-only metadata fixture; it is not a Node parity recording.
+The nginx suite covers default-off, opt-in, deduplication, method/body admission
+and the 502-to-Node-404 path. The database suite covers query bounds, real lock
+shedding, read-only enforcement and independent writer/next-statement resources.

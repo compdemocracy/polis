@@ -107,6 +107,9 @@ pub struct App {
     pub conversation_stats_auth_db: Option<Arc<Pool>>,
     pub conversation_stats_served: AtomicU64,
     pub conversation_stats_fallback: AtomicU64,
+    pub statement_importance_db: Option<Arc<Pool>>,
+    pub statement_importance_served: AtomicU64,
+    pub statement_importance_fallback: AtomicU64,
     pub topic_selections_db: Option<Arc<Pool>>,
     pub topic_selections_served: AtomicU64,
     pub topic_selections_fallback: AtomicU64,
@@ -295,6 +298,9 @@ impl App {
             conversation_stats_auth_db: None,
             conversation_stats_served: AtomicU64::new(0),
             conversation_stats_fallback: AtomicU64::new(0),
+            statement_importance_db: None,
+            statement_importance_served: AtomicU64::new(0),
+            statement_importance_fallback: AtomicU64::new(0),
             topic_selections_db: None,
             topic_selections_served: AtomicU64::new(0),
             topic_selections_fallback: AtomicU64::new(0),
@@ -1104,6 +1110,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
                 .fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::statement_importance::PATH {
+        if out.status == 502 {
+            app.statement_importance_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.statement_importance_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::topic_selections::PATH {
         if out.status == 502 {
             app.topic_selections_fallback
@@ -1443,6 +1458,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::statement_importance::PATH
+        && crate::statement_importance::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::topic_selections::PATH
         && crate::topic_selections::parse(app, req).is_none()
     {
@@ -1745,6 +1765,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::topic_prioritize::PATH {
         return crate::topic_prioritize::handle(app, req, res).await;
+    }
+    if req.path() == crate::statement_importance::PATH {
+        return crate::statement_importance::handle(app, req, res).await;
     }
     if req.path() == crate::topic_selections::PATH {
         return crate::topic_selections::handle(app, req, res).await;
@@ -6503,5 +6526,248 @@ mod tests {
         assert_eq!(handle(state.clone(), r).await.status, 502);
         assert_eq!(state.delphi_result_served.load(Ordering::Relaxed), 1);
         assert_eq!(state.delphi_result_fallback.load(Ordering::Relaxed), 11);
+    }
+
+    fn importance_request_copy(req: &Request) -> Request {
+        Request {
+            method: req.method.clone(),
+            target: req.target.clone(),
+            headers: req.headers.clone(),
+            body: req.body.clone(),
+        }
+    }
+    #[cfg(feature = "db-tests")]
+    fn importance_body(out: Outgoing) -> Vec<u8> {
+        match out.body {
+            Body::Fixed(b) => b,
+            Body::Empty => vec![],
+            _ => panic!("unexpected chunked response"),
+        }
+    }
+    #[tokio::test]
+    async fn statement_importance_defaults_off_and_guards_requests() {
+        let mut state = app(true);
+        let path = crate::statement_importance::PATH;
+        let mut req = request("GET", &[]);
+        req.target = format!("{path}?conversation_id=fixture");
+        assert!(state.statement_importance_db.is_none());
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().statement_importance_db = Some(pool);
+        for (method, query) in [
+            ("POST", "conversation_id=fixture"),
+            ("OPTIONS", "conversation_id=fixture"),
+            ("GET", ""),
+            ("GET", "conversation_id="),
+            ("GET", "conversation_id=fixture&extra=1"),
+            ("GET", "conversation_id=fixture&conversation_id=other"),
+            ("GET", "conversation_id[]=fixture"),
+            ("GET", "conversation_id=%zz"),
+            ("GET", "conversation_id=%20fixture"),
+        ] {
+            req.method = method.into();
+            req.target = format!("{path}?{query}");
+            assert!(crate::statement_importance::parse(&state, &req).is_none());
+            assert_eq!(
+                handle(state.clone(), importance_request_copy(&req))
+                    .await
+                    .status,
+                502
+            );
+        }
+        req.method = "GET".into();
+        req.target = format!("{path}?conversation_id={}", "a".repeat(101));
+        assert!(crate::statement_importance::parse(&state, &req).is_none());
+        req.target = format!("{path}?conversation_id={}", "a".repeat(100));
+        assert!(crate::statement_importance::parse(&state, &req).is_some());
+        req.body = b"{}".to_vec();
+        assert!(crate::statement_importance::parse(&state, &req).is_none());
+        for header in [("transfer-encoding", "chunked"), ("content-length", "1")] {
+            req = request("GET", &[header]);
+            req.target = format!("{path}?conversation_id=fixture");
+            assert!(crate::statement_importance::parse(&state, &req).is_none());
+        }
+        req = request(
+            "GET",
+            &[
+                ("cookie", "participant=anything"),
+                ("authorization", "Bearer unused"),
+            ],
+        );
+        req.target = format!("{path}?conversation_id=fixture");
+        assert!(crate::statement_importance::parse(&state, &req).is_some());
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            502
+        ); // database unavailable
+    }
+
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn statement_importance_counts_visibility_snapshot_and_readonly() {
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("importance_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; SET search_path={setup_schema};"
+            ))
+            .unwrap();
+            c.batch_execute(include_str!(
+                "../conformance/statement-importance-fixture.sql"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let mut pg: postgres::Config = url.parse().unwrap();
+        pg.options(&format!("-c search_path={schema}"));
+        let pool = db::Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(pg)),
+            crate::statement_importance::pool_limits(),
+        );
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().statement_importance_db = Some(pool.clone());
+        let mut req = request("GET", &[]);
+        req.target = "/api/v3/statements/importance?conversation_id=fixture".into();
+        let out = handle(state.clone(), importance_request_copy(&req)).await;
+        assert_eq!(out.status, 200);
+        let value: serde_json::Value = serde_json::from_slice(&importance_body(out)).unwrap();
+        assert_eq!(value["schema"], "statement-importance/1");
+        assert_eq!(value["conversation_id"], "fixture");
+        assert!(value["read_at_ms"].as_u64().unwrap() > 0);
+        assert_eq!(
+            value["statements"],
+            serde_json::json!([
+            {"tid":0,"important":1,"voters":3},{"tid":2,"important":0,"voters":1},{"tid":4,"important":0,"voters":0},{"tid":5,"important":1,"voters":1},{"tid":9,"important":1,"voters":1}])
+        );
+        assert_eq!(value.as_object().unwrap().len(), 4);
+        req.method = "HEAD".into();
+        let out = handle(state.clone(), importance_request_copy(&req)).await;
+        assert_eq!(out.status, 200);
+        // The HTTP writer suppresses HEAD bytes; the handler retains them to compute Content-Length.
+        assert!(
+            out.headers
+                .iter()
+                .any(|(k, v)| k.eq_ignore_ascii_case("content-length")
+                    && v.parse::<usize>().unwrap() > 0)
+        );
+        req.method = "GET".into();
+        req.target = "/api/v3/statements/importance?conversation_id=empty".into();
+        let value: serde_json::Value = serde_json::from_slice(&importance_body(
+            handle(state.clone(), importance_request_copy(&req)).await,
+        ))
+        .unwrap();
+        assert_eq!(value["statements"], serde_json::json!([]));
+        for (cid, tid) in [("strict", 1), ("other", 0)] {
+            req.target = format!("/api/v3/statements/importance?conversation_id={cid}");
+            let out = handle(state.clone(), importance_request_copy(&req)).await;
+            assert_eq!(out.status, 200);
+            let value: serde_json::Value = serde_json::from_slice(&importance_body(out)).unwrap();
+            assert_eq!(
+                value["statements"],
+                serde_json::json!([{"tid":tid,"important":1,"voters":1}])
+            );
+        }
+        req.target = "/api/v3/statements/importance?conversation_id=missing".into();
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            404
+        );
+        assert!(
+            pool.with(|c| Ok(c.batch_execute("DELETE FROM comments")?))
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("read-only")
+        );
+        // Both read slots stay occupied while a separate writer remains usable.
+        let mut held = Vec::new();
+        for _ in 0..2 {
+            let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+            let (release_tx, release_rx) = std::sync::mpsc::channel();
+            let p = pool.clone();
+            let task = tokio::spawn(async move {
+                p.with(move |c| {
+                    c.simple_query("SELECT 1")?;
+                    ready_tx.send(()).unwrap();
+                    release_rx.recv_timeout(std::time::Duration::from_secs(5))?;
+                    Ok(())
+                })
+                .await
+            });
+            ready_rx.await.unwrap();
+            held.push((release_tx, task));
+        }
+        req.target = "/api/v3/statements/importance?conversation_id=fixture".into();
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            502
+        );
+        let write_url = url.clone();
+        let write_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c=postgres::Client::connect(&write_url,postgres::NoTls).unwrap();
+            c.batch_execute(&format!("SET search_path={write_schema}; SET statement_timeout=100; INSERT INTO comments VALUES(1,7,true,1); UPDATE importance_fixture SET high_priority=false WHERE tid=0;")).unwrap();
+        }).await.unwrap();
+        for (release, task) in held {
+            release.send(()).unwrap();
+            task.await.unwrap().unwrap();
+        }
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            200
+        );
+        // Real table lock produces a bounded refusal; releasing it restores reads.
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.comments IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            502
+        );
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(
+            handle(state.clone(), importance_request_copy(&req))
+                .await
+                .status,
+            200
+        );
+        tokio::task::spawn_blocking(move || {drop(state);drop(pool);let mut c=postgres::Client::connect(&url,postgres::NoTls).unwrap();
+            c.batch_execute(&format!("SET search_path={schema}; INSERT INTO comments SELECT 2,n,true,1 FROM generate_series(0,10000) n;")).unwrap();
+            assert!(crate::statement_importance::read(&mut c,"empty").is_err());
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE")).unwrap();}).await.unwrap();
     }
 }

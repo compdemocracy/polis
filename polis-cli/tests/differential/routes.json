@@ -432,5 +432,13 @@
     "expected_node_handoffs": 0,
     "commands": [],
     "scope": "Rust-only typed assignments read. No CLI command targets this route; delphi-result-run.sh proves contract bytes against immutable results from real local runs."
+  },
+  "statementImportance": {
+    "path": "/api/v3/statements/importance",
+    "minimum_rust_successes": 0,
+    "commands": [],
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "scope": "Rust-only statement-importance/1 aggregate; explicit conformance suite exercises counts. Node-off has no route; never compare it with an unrelated Node response."
   }
 }

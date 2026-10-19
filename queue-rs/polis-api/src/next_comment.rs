@@ -553,6 +553,10 @@ mod tests {
         app.next_comment_plain = true;
         app.comments_db = Some(make());
         app.comments_count_db = Some(make());
+        app.statement_importance_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::statement_importance::pool_limits(),
+        ));
         app.delphi_result_db = Some(db::Pool::new(
             Connector::Plain(Box::new(pg.clone())),
             crate::delphi_result_read::pool_limits(),
@@ -671,6 +675,9 @@ mod tests {
             }
         }
         held.push(park(app.delphi_result_auth_db.as_ref().unwrap().clone()).await);
+        for _ in 0..crate::statement_importance::pool_limits().size {
+            held.push(park(app.statement_importance_db.as_ref().unwrap().clone()).await);
+        }
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",
