@@ -1183,3 +1183,16 @@ are admitted. Other IDs, identity/cookies, bodies, queries and methods hand back
 The Node private/no-store, Vary and nosniff envelope is preserved. Enabled ops
 and page/provider/registry evaluation remain Node. No DB or participation
 resources are acquired. The shared contract is `polis-contracts/src/ops_page.rs`.
+
+
+### Operations catch-all
+
+`POLIS_API_OPS_CATCHALL_READS=1` and nginx `RUST_API_ROUTES=opsCatchall`
+stage unmatched GET/HEAD `/api/v3/ops` and `/api/v3/ops/...` 404 responses.
+Both default off and require literal `OPS_ENABLED=false` synchronized with Node.
+The registered `whoami` and `page` path families keep their independent switches.
+Only ASCII alphanumeric, underscore or hyphen path segments within 256 total
+bytes are admitted, plus the root with or without its slash. Other encodings,
+identity/cookies, bodies, queries and methods stay Node. No database, provider
+or participation resources are acquired. The no-store response uses the shared
+contract in `polis-contracts/src/ops_catchall.rs`.

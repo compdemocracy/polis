@@ -1193,3 +1193,29 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/ops/page/fixture node "Disabled operations page handoff"
 echo "ok 57 Disabled operations page off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/ops/unknown node "Operations catch-all off"
+start opsCatchall,opsCatchall
+expect /api/v3/ops/unknown rust
+expect /api/v3/ops rust "Operations catch-all root"
+expect /api/v3/ops/ rust "Operations catch-all slash"
+expect /api/v3/ops/a/child rust "Operations catch-all nested"
+expect /api/v3/ops/whoami node "Catch-all preserves identity switch"
+expect /api/v3/ops/page/overview node "Catch-all preserves page switch"
+expect /api/v3/opsOther node "Catch-all prefix boundary"
+expect /api/v3/comments node "Operations catch-all leaves comments alone"
+expect /api/v3/votes node "Operations catch-all leaves voting alone"
+[[ $(included | grep -Fc 'location ~ ^/api/v3/ops(?:$|/(?!whoami(?:/|$)|page(?:/|$))) {') == 1 ]] || fail "Operations catch-all duplicated"
+expect_upstream polis-api GET /api/v3/ops/unknown
+expect_upstream polis-api HEAD /api/v3/ops/unknown
+expect_upstream server OPTIONS /api/v3/ops/unknown
+expect_upstream server POST /api/v3/ops/unknown $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/ops/unknown $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/ops/unknown node "Operations catch-all handoff"
+echo "ok 58 Operations catch-all off/on/deduplicated; method/body guards; 502 hands back to Node"
