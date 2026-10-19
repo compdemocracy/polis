@@ -43,6 +43,9 @@ modes. Parent commands that also perform an operation (such as `vote`) are
 included. Local discovery, authentication, file operations and mounted-router
 commands are included even when absent from a server registration inventory.
 This is one scenario per command, not exhaustive option/identity coverage.
+`vote` has one more, `vote important`: the same participant marks a second
+statement important, and the stored rows must read agree for both, with
+`high_priority` false for the first vote and true for the second.
 
 The comparator ignores JSON object key order only. It retains all data/error
 fields, types, arrays, IDs, timestamps, status/exit codes and downloaded file

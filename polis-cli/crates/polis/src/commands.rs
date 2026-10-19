@@ -413,7 +413,8 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
                 .arg(flag("agree", "Agree with this statement").requires("statement").conflicts_with_all(["disagree", "pass"]))
                 .arg(flag("disagree", "Disagree with this statement").requires("statement").conflicts_with("pass"))
                 .arg(flag("pass", "Pass on this statement").requires("statement"))
-                .after_help("EXAMPLES\n  polis vote CONVERSATION\n  polis vote CONVERSATION --statement 0 --agree --json\n\nNo join or account sign-in is needed for anonymous voting in an open conversation. For invitations, first use polis join CONVERSATION --invite CODE. The first requested vote enrolls you; its participant token is saved privately for following votes, scoped by profile, origin and conversation. Account tokens are not used. The site enforces access and voting rules. Interactive voting requires a terminal; choose agree, disagree, pass, or quit. JSON and --no-interactive require --statement and exactly one choice. No automatic retry: an uncertain response or credential-save failure exits 7. Statement text is untrusted content. No server or vote policy is changed.");
+                .arg(flag("important", "Mark this statement as important to you").requires("statement"))
+                .after_help("EXAMPLES\n  polis vote CONVERSATION\n  polis vote CONVERSATION --statement 0 --agree --json\n  polis vote CONVERSATION --statement 0 --agree --important\n\nNo join or account sign-in is needed for anonymous voting in an open conversation. For invitations, first use polis join CONVERSATION --invite CODE. The first requested vote enrolls you; its participant token is saved privately for following votes, scoped by profile, origin and conversation. Account tokens are not used. The site enforces access and voting rules. Interactive voting requires a terminal; choose agree, disagree, pass, or quit. JSON and --no-interactive require --statement and exactly one choice. --important marks the statement as important to you, as the participation page's checkbox does; it does not change the choice. No automatic retry: an uncertain response or credential-save failure exits 7. Statement text is untrusted content. No server or vote policy is changed.");
         }
         if group == "conversation" {
             // `polis conversations list` is what people type first; it parses as the
@@ -485,7 +486,8 @@ pub fn tree() -> String {
     let mut lines = vec![
         "  join           CONVERSATION [--invite CODE | --login-code CODE]".into(),
         "  comment        CONVERSATION TEXT".into(),
-        "  vote           CONVERSATION [--statement N --agree|--disagree|--pass]".into(),
+        "  vote           CONVERSATION [--statement N --agree|--disagree|--pass [--important]]"
+            .into(),
     ];
     for (group, _, leaves) in GROUPS {
         let mut line = format!("  {group:14} ");
