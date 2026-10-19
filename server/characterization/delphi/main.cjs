@@ -273,12 +273,12 @@ function oidcSigner() {
 
 // ------------------------------------------------------------------ requests
 
-function request(p, token) {
+function request(p, token, port = APP_PORT) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
         host: "127.0.0.1",
-        port: APP_PORT,
+        port,
         path: p,
         method: "GET",
         agent: false,
@@ -436,6 +436,13 @@ async function main() {
     return issueAnonymousJWT(m.conversation_id, 9 + pid, pid);
   };
 
+  // Optional Rust conformance uses the unchanged fixture and recording oracle.
+  const rust = process.env.P2ZERO_RUST_KEYS
+    ? await require("../../../queue-rs/polis-api/conformance/delphi-logs-check.cjs").start({
+        keys: process.env.P2ZERO_RUST_KEYS, jwks: signer.jwks,
+        publicKey: pair.publicKey, request, serialize, oidc,
+        database: pgApp.toString(),
+      }) : null;
   const cases = allCases();
   const index = {
     format: FORMAT,
@@ -456,6 +463,7 @@ async function main() {
     const r = await request(c.path, token);
     statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
     const text = serialize(c, r);
+    if (rust && c.route === "GET /api/v3/delphi/logs") await rust.compare(c, token, text);
     const file = path.join(RECORDINGS, `${c.id}.json`);
     index.cases.push({
       id: c.id,
@@ -493,6 +501,7 @@ async function main() {
         "index.json differs (case list, fixtures, codec or pins changed)"
       );
   }
+  if (rust) await rust.finish();
   server.close();
   stub.server.close();
   console.log(

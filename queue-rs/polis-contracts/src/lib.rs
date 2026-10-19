@@ -13,6 +13,7 @@ pub mod database;
 pub mod delphi_input_bundle;
 pub mod delphi_input_bundle_schema;
 pub mod delphi_job_result;
+pub mod delphi_logs;
 pub mod delphi_read;
 pub mod delphi_reports;
 pub mod delphi_result_read;

@@ -565,6 +565,14 @@ mod tests {
             Connector::Plain(Box::new(pg.clone())),
             crate::delphi_result_read::auth_pool_limits(),
         ));
+        app.delphi_logs_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_logs::pool_limits(),
+        ));
+        app.delphi_logs_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_logs::auth_pool_limits(),
+        ));
         let app = Arc::new(app);
         async fn park(
             pool: Arc<db::Pool>,
@@ -669,6 +677,7 @@ mod tests {
             app.comments_db.as_ref().unwrap(),
             app.comments_count_db.as_ref().unwrap(),
             app.delphi_result_db.as_ref().unwrap(),
+            app.delphi_logs_db.as_ref().unwrap(),
         ] {
             for _ in 0..2 {
                 held.push(park(pool.clone()).await);
@@ -678,6 +687,7 @@ mod tests {
         for _ in 0..crate::statement_importance::pool_limits().size {
             held.push(park(app.statement_importance_db.as_ref().unwrap().clone()).await);
         }
+        held.push(park(app.delphi_logs_auth_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",
