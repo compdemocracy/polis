@@ -393,8 +393,11 @@ class BatchReportGenerator(NarrativeSelection):
             logger.info(f"Loaded {len(cluster_map)} comment cluster assignments across {len(available_layers)} layers: {sorted(available_layers)}")
             return cluster_map
         except Exception as e:
+            # Raise, never return an empty map: with no assignments every topic
+            # section is dropped and the run still reports success. The callers
+            # turn this into an empty preparation, which fails the stage.
             logger.error(f"Error loading cluster assignments from DynamoDB: {e}")
-            return {}
+            raise
 
     async def get_topics(self):
         """
@@ -441,8 +444,10 @@ class BatchReportGenerator(NarrativeSelection):
             keywords_lookup = {item['cluster_key']: item for item in keyword_items}
             logger.info(f"Created lookup map for {len(keywords_lookup)} keyword entries.")
             
-            # Load all cluster assignments for all comments
-            all_clusters = await asyncio.to_thread(self.load_comment_clusters_from_dynamodb, self.conversation_id)
+            # Load all cluster assignments for all comments, on this thread like
+            # every other read here: in Postgres mode the resource is the attempt
+            # writer, whose SQLite connection only the opening thread may use.
+            all_clusters = self.load_comment_clusters_from_dynamodb(self.conversation_id)
             
             # --- Step 2: Process the fetched data ---
             
