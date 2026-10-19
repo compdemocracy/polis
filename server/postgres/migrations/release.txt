@@ -30,3 +30,4 @@
 000031_scope_delphi_result_reads.sql
 000038_create_delphi_comment_embeddings.sql
 000039_clear_zinvites_uuid.sql
+000041_create_delphi_run_record.sql

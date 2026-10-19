@@ -2,7 +2,7 @@
 -- First deployment only: no existing ledger or queue. Other states refuse.
 -- This is a catalog forecast, not DDL success or deployment-health proof.
 -- sha256 8fa1066d9fc29c1df528b300199c619a2f9edecf1432926ad6a8146ebc650593 adoption/helpers.sql
--- sha256 82c03381cc0abb485dffc15a065b6facc4ee36a4d06600379622c78f1d2aaf84 release.txt
+-- sha256 fe2d1c0be972df6486c25e91ce4b57022a22aec1ef924e76ae776a002485bb55 release.txt
 -- sha256 8a8b24fa47a25c613a8329aa79f413ac7461a93b12134045ae1cf2457e2ee3b7 held.txt
 -- sha256 c6b5c71247d129964dd89ba560a4522caef1abbb9379ad1b3445d6ed96be805b adoption/000000_initial.sql
 -- sha256 28ef33976beb9c7c9248ac800f29aab048f4410c2170ad12e3ade71d72e5ecb5 adoption/000001_update_pwreset_table.sql
@@ -55,6 +55,7 @@
 -- sha256 fe132110ebcb89e0a3f90c9321b6e47ad4da37179defeb88894abc93bd42f53f 000031_scope_delphi_result_reads.sql
 -- sha256 9db37506a1bb21602a2ccba4941202a7cbd73713f805d05e4eb1857f31fa7eda 000038_create_delphi_comment_embeddings.sql
 -- sha256 48ae309832ed67f280965915f0adc44109c082ef5da62c2bae830b3793bd124f 000039_clear_zinvites_uuid.sql
+-- sha256 e6d86397e5b53ed3d75d73278a293353512698bd95be2da288c92e94a935dee2 000041_create_delphi_run_record.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';
@@ -1404,7 +1405,8 @@ SELECT (SELECT EXISTS(SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('publi
               ('000030_create_delphi_writers.sql'),
               ('000031_scope_delphi_result_reads.sql'),
               ('000038_create_delphi_comment_embeddings.sql'),
-              ('000039_clear_zinvites_uuid.sql')) p(migration) CROSS JOIN readiness
+              ('000039_clear_zinvites_uuid.sql'),
+              ('000041_create_delphi_run_record.sql')) p(migration) CROSS JOIN readiness
  UNION ALL
  SELECT migration, NULL::boolean, 'OUTSIDE_RELEASE'
  FROM (VALUES ('000020'),('000021'),('000025'),('000026')) p(migration)
