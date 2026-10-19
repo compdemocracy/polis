@@ -221,20 +221,20 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "metadata question add" | "context create" => {
             pass9::execute(&path, m, config, site, timeout)
         }
-        "statement list"
-        | "statement view"
+        "comment list"
+        | "comment view"
         | "collective list"
         | "collective view"
         | "collective statements" => pass7::execute(&path, m, config, site, timeout),
         "delphi show" => delphi_show::execute(m, config, site, timeout),
         "topic list"
-        | "topic statements"
+        | "topic comments"
         | "topic hierarchy"
         | "topic proximity"
         | "topic stats"
         | "report topics"
         | "report stats"
-        | "report statements list" => pass6::execute(&path, m, config, site, timeout),
+        | "report comments list" => pass6::execute(&path, m, config, site, timeout),
         "account view" | "conversation edit" | "conversation share" | "conversation stats"
         | "report create" => pass5::execute(&path, m, config, site, timeout),
         "conversation close"
@@ -525,7 +525,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     true,
                 ) {
                     Ok(receipt) if receipt["status"] == "processing" => Ok(
-                        json!({"state":"processing","seeds":seeds,"votes":{"state":"processing","submitted":count,"source_agree":str_arg(m,"source-agree"),"receipt":receipt},"note":"Statement import is complete; votes are queued, not completed. Check the site import notification and read back before retrying."}),
+                        json!({"state":"processing","seeds":seeds,"votes":{"state":"processing","submitted":count,"source_agree":str_arg(m,"source-agree"),"receipt":receipt},"note":"Comment import is complete; votes are queued, not completed. Check the site import notification and read back before retrying."}),
                     ),
                     Ok(receipt) => Ok(
                         json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":"unknown","receipt":receipt},"receipt":data}),
@@ -796,7 +796,7 @@ fn main() -> ExitCode {
     {
         if let Ok(value) = &result {
             if let Some(choice) = value["choice"].as_str() {
-                println!("Recorded {choice} for statement {}.", value["statement"]);
+                println!("Recorded {choice} for comment {}.", value["statement"]);
             } else {
                 println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
             }
@@ -816,7 +816,7 @@ fn main() -> ExitCode {
     if !json_mode && root.subcommand_name() == Some("comment") {
         if let Ok(value) = &result {
             println!(
-                "Submitted statement {}. The site determines moderation and visibility.",
+                "Submitted comment {}. The site determines moderation and visibility.",
                 value["statement"]
             );
             return ExitCode::SUCCESS;

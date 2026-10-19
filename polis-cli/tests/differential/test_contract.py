@@ -71,7 +71,7 @@ class ImportanceDisplayTests(unittest.TestCase):
         node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'operation_failed','read_at_ms':None}}},'artifacts':{}}
         rust=copy.deepcopy(node)
         for r in rust['json']['data']['comments']:r.update(important=0,voters=0)
-        rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+        rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs'}
         self.assertTrue(all(importance_display_checks(node,rust).values()))
         for key, value in [('important',1),('voters',1),('important',False),('tid',9),('txt','changed')]:
             bad=copy.deepcopy(rust);bad['json']['data']['comments'][0][key]=value
@@ -86,7 +86,7 @@ class ImportanceDisplayTests(unittest.TestCase):
         node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'operation_failed','read_at_ms':None}}},'artifacts':{}}
         rust=copy.deepcopy(node)
         for row in rust['json']['data']['comments']:row.update(important=0,voters=0)
-        rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+        rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs'}
         self.assertTrue(all(importance_display_checks(node,rust).values()))
         for code in ['capability_unavailable','transport_unavailable','forbidden',None]:
             bad=copy.deepcopy(node);bad['json']['data']['importance']['error']=code

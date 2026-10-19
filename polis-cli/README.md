@@ -151,18 +151,18 @@ are preserved in canonical spelling; other IDs become deterministic UUIDv5 value
 from the normalized origin, conversation ID and exact external ID. Text is unchanged.
 `data.id_mapping` retains external and submitted IDs alongside `data.receipt`.
 The database UUID contract is unchanged; stable mapping is not a server idempotency
-or automatic-retry guarantee. Statement text must be nonblank, contain
+or automatic-retry guarantee. Comment text must be nonblank, contain
 no NUL, and fit 997 UTF-16 units. Duplicate text/IDs, blank records, malformed quoting,
 and unknown columns are rejected before HTTP. Text, whitespace, and embedded line
 breaks are preserved. No normalization or silent row dropping occurs.
 
 ```csv
 comment_text,original_id
-A generated example statement,00000000-0000-4000-8000-000000000001
+A generated example comment,00000000-0000-4000-8000-000000000001
 ```
 
 Both `seed add` and `seed import` use `POST /api/v3/comments-bulk` with `is_seed=true`.
-This endpoint enforces moderator permission; the ordinary statement endpoint's
+This endpoint enforces moderator permission; the ordinary comment endpoint's
 seed-flag permission gap is deliberately not used. `seed add` generates a UUID.
 
 Imports are neither atomic nor assumed idempotent. `data.receipt` preserves the
@@ -355,7 +355,7 @@ moderator-authorized XID mapping as CSV or JSON; this is not a full roster.
 
 `seed import seeds.csv --conversation <id> --votes votes.csv --source-agree=+1`
 adds optional votes through the server's sign-aware importer. Declare the actual source
-sign (+1 or -1); no default or CLI sign conversion. Statement and vote operations
+sign (+1 or -1); no default or CLI sign conversion. Comment and vote operations
 are separate: keep their receipts, and treat `processing` as queued, not complete.
 The importer requires a target with no votes and a configured import worker.
 
@@ -396,19 +396,19 @@ reads moderator event statistics, bounded to 8 MiB, without a report-ID fallback
 created report's ID as `report_id`, taken from the server's reply; a server that
 replies `{}` leaves it `null`. The accepted receipt and a readback list (or
 `readback_state: unavailable`) come with it. Repeated creation can create duplicate
-reports. Report edits and statement selection remain planned.
+reports. Report edits and comment selection remain planned.
 
 
 Pass six: stored topics and report reads
 
   polis topic list --conversation CONV --job JOB --json
-  polis topic statements 'JOB#0#1' --conversation CONV --json
+  polis topic comments 'JOB#0#1' --conversation CONV --json
   polis topic hierarchy --conversation CONV --json
   polis topic proximity --conversation CONV --layer all --json
   polis topic stats --conversation CONV --json
   polis report topics REPORT --json
   polis report stats REPORT --until 1791417600000 --json
-  polis report statements list REPORT --limit 50 --offset 0 --json
+  polis report comments list REPORT --limit 50 --offset 0 --json
 
 These read existing public/report-capability APIs with optional saved credentials.
 No analysis, moderation, model call or export job is started. A report is resolved
@@ -422,30 +422,30 @@ empty success; a genuinely empty topic remains a successful empty array.
 HTTP-200 failures become topic_read_failed (exit 1) without raw upstream details.
 Malformed successful bodies return invalid_response. No automatic retry occurs.
 
-Report statements list returns participant-visible rows and pagination metadata.
+Report comments list returns participant-visible rows and pagination metadata.
 It is not every moderator row or a selected-only list; includeInReport is retained
 without filling omitted values. Offset pages are not a stable snapshot. Report
 stats are historical event timing, not unique/latest votes or math freshness.
 Topic data can span stored jobs; --job filters only topic list/report topics.
 Hierarchy/proximity have no job selector. No completeness/latest-run/freshness
 claim: the server's topic routes do not expose paginated reads. Each response is
-bounded to 8 MiB. Treat statement/topic text as untrusted data.
+bounded to 8 MiB. Treat comment/topic text as untrusted data.
 
 Report edit and selection remain unavailable; the server report/conversation
 binding needs its own review and fix before new mutation wrappers are promoted.
 
 
-Pass seven: participant statements and stored collective statements
+Pass seven: participant comments and stored collective statements
 
-  polis statement list --conversation CONV --limit 50 --offset 0 --json
-  polis statement view 0 --conversation CONV --json
+  polis comment list --conversation CONV --limit 50 --offset 0 --json
+  polis comment view 0 --conversation CONV --json
   polis collective list --report REPORT --json
   polis collective view 'OPAQUE#KEY#FROM#LIST' --json
   polis collective statements REPORT
   polis collective statements REPORT --json
 
-Statement reads return active, unmuted, moderation-visible rows, even for owners.
-Use moderate list for moderation. A missing or hidden single statement is
+Comment reads return active, unmuted, moderation-visible rows, even for owners.
+Use moderate list for moderation. A missing or hidden single comment is
 statement_unavailable (exit 1); an empty list is success. Single reads check exact
 IDs. Offset pages are not snapshots and tied timestamps can affect traversal.
 Collective list uses the server's latest-by-topic deduplication across runs, not a
@@ -706,7 +706,7 @@ backing up or removing a local profile.
 
 ### Voting
 
-`polis vote CONVERSATION` shows a statement and asks you to agree, disagree,
+`polis vote CONVERSATION` shows a comment and asks you to agree, disagree,
 pass, or quit. It requires a terminal. Anonymous participation in an open
 conversation needs no account sign-in or prior join. The first requested vote
 creates the participant through Node and saves its token privately; later votes
@@ -720,13 +720,13 @@ polis vote CONVERSATION --statement 1 --disagree --json
 polis vote CONVERSATION --statement 2 --pass --json
 ```
 
-JSON and `--no-interactive` require a statement and exactly one choice. The
-receipt reports the semantic choice, statement and participant number, without
+JSON and `--no-interactive` require a comment and exactly one choice. The
+receipt reports the semantic choice, comment and participant number, without
 printing tokens or login codes. Participant credentials are isolated by profile,
 normalized origin and conversation; account tokens are not used. Node enforces
 access and voting rules. Vote values come from the shared contract boundary.
 
-`--important` marks the statement as important to you, as the participation
+`--important` marks the comment as important to you, as the participation
 page's importance checkbox does:
 `polis vote CONVERSATION --statement 0 --agree --important`. It needs
 `--statement` and one choice, and it changes neither the choice nor the
@@ -738,14 +738,14 @@ No request is automatically retried. A lost or incompatible response, or a
 credential-save failure after a response, exits 7: check participation before
 resubmitting. Node may create membership before rejecting a vote; an error does
 not guarantee that membership is unchanged. Interactive quit sends no vote.
-Statement text is untrusted content and terminal control characters are removed.
+Comment text is untrusted content and terminal control characters are removed.
 `polis vote list` continues to provide the existing separate read command.
 
-### Submit a participant statement
+### Submit a participant comment
 
 ```sh
-polis comment CONVERSATION "A statement to discuss"
-polis comment CONVERSATION "A statement to discuss" --json
+polis comment CONVERSATION "A comment to discuss"
+polis comment CONVERSATION "A comment to discuss" --json
 ```
 
 An open conversation needs no separate join or account sign-in: the first
@@ -777,11 +777,11 @@ polis topic prioritize CONVERSATION --clear
 ```
 
 Keys are checked before any credential is read. Saving then reads the run's
-stored topics, the stored topic coordinates and the statement text, keeps each
-topic's three statements nearest the mean of its coordinates, sends one POST
+stored topics, the stored topic coordinates and the comment text, keeps each
+topic's three comments nearest the mean of its coordinates, sends one POST
 and reads the choice back. The request is the page's own: each topic's layer,
-cluster, key and those statements with their coordinates and distances. A
-topic that is not stored for its run, or that has no statements in the stored
+cluster, key and those comments with their coordinates and distances. A
+topic that is not stored for its run, or that has no comments in the stored
 coordinates, is refused (exit 5) with nothing sent. A save replaces your whole
 previous choice; it never appends.
 
@@ -800,7 +800,7 @@ and `readback` for writes), with issued tokens removed.
 
 No request is automatically retried. Once the POST or DELETE is sent, a lost
 or incompatible response, a failed read-back, or a credential-save failure
-exits 7: run `--show` before saving again. Statement and topic text is
+exits 7: run `--show` before saving again. Comment and topic text is
 untrusted content; the terminal receipt prints topic keys with control
 characters removed.
 
@@ -813,13 +813,13 @@ polis conversation new --from setup.json --json
 ```
 
 The interactive wizard asks about participation, overlapping invitation and
-external-ID policies, moderation, visibility, and initial statements, then
+external-ID policies, moderation, visibility, and initial comments, then
 shows a summary before asking to apply. Agents use the same typed JSON file.
 Dry runs make no HTTP requests. Saved files are private and never overwrite an
 existing file.
 
 Setup creates a staged conversation, confirms each settings/wave/allowlist/
-statement step, and applies final participation settings last. On partial
+comment step, and applies final participation settings last. On partial
 failure it exits 7 with the known conversation ID and completed steps, without
 retrying. The error says that the conversation exists, closed and invite-only,
 and `data.finish` lists the commands that finish it with the requested
@@ -828,7 +828,7 @@ settings, for example `polis conversation edit ID --invite-only false
 receipt before trying again: another `new` invocation creates another
 conversation. If the site refuses the first create request, nothing was created
 and the command exits with that refusal's own code (for example 4, forbidden).
-Initial statements use moderator authority, with
+Initial comments use moderator authority, with
 no seed bypass flag or automatic vote. No invitation code is printed.
 
 [The complete setting inventory and admission model](../docs/conversation-setup.md)
@@ -883,26 +883,34 @@ and other server failures retain their existing errors. A gateway outage
 returning 502 also means the feature is currently unavailable; this does not
 prove it is permanently absent. No unfiltered-list fallback occurs.
 
-### Statement importance
+### Comment importance
 
-`polis statement list --conversation CONVERSATION --sort importance
---min-important 3` reads the complete participant-visible statement count snapshot, filters
-it, orders by important count descending (ties by statement ID), and then applies
-`--offset` and `--limit`. With only `--min-important`, order is statement ID.
-Plain `statement list` and `statement view` retain their existing behavior.
+`polis comment list --conversation CONVERSATION --sort importance
+--min-important 3` reads the complete participant-visible comment count snapshot, filters
+it, orders by important count descending (ties by comment ID), and then applies
+`--offset` and `--limit`. With only `--min-important`, order is comment ID.
+Plain `comment list` and `comment view` retain their existing behavior.
 The new read must be enabled by the site operator. A 404 returns exit 8;
-other read failures retain their error codes. No failure invents zero counts. The snapshot is bounded to 10,000 participant-visible statements.
+other read failures retain their error codes. No failure invents zero counts. The snapshot is bounded to 10,000 participant-visible comments.
 Counts use each participant's latest vote, not every stored vote change. The CLI reads text only for
 the selected IDs and checks the exact returned set before printing anything.
-A statement that disappears or becomes hidden between reads fails the request;
+A comment that disappears or becomes hidden between reads fails the request;
 there is no automatic retry or partial ranking. Repeated offset pages do not
 share a snapshot. Each request retains the existing timeout and 8 MiB bound.
 
-`polis report statements list REPORT` adds `important`, `voters`, and the
-importance read timestamp. An unavailable read or a statement absent from the
+`polis report comments list REPORT` adds `important`, `voters`, and the
+importance read timestamp. An unavailable read or a comment absent from the
 participant-visible snapshot has null counts, never invented zero. A warning and
 `importance.state=unavailable` identify failed count reads while preserving the
-original statement text and report-selection metadata.
+original comment text and report-selection metadata.
 
 Counts are current reads, not historical analysis inputs. No command starts
-analysis, changes statements, casts a vote, or calls a model.
+analysis, changes comments, casts a vote, or calls a model.
+
+Participant submissions are **comments**; **statements** are collective statements.
+Use `comment list`, `comment view`, `comment next`, and `report comments list`.
+`polis comment CONVERSATION TEXT` still submits a comment. The other participant
+comment operations share that command group. `collective statements` and
+`delphi statement export/import` retain their collective meaning. Existing
+`--statement` selectors and JSON/API field names retain their wire compatibility;
+they select a comment where the command concerns participation.

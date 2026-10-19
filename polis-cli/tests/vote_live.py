@@ -156,7 +156,7 @@ const {Pool} = require('pg');
             return data.decode(),sent
         transcript,sent=terminal(interactive,loop_code,['a','d','p'])
         credentials(interactive)
-        check(sent==3 and 'No more statements available.' in transcript,'interactive loop advances through three statements to exhaustion')
+        check(sent==3 and 'No more comments available.' in transcript,'interactive loop advances through three statements to exhaustion')
         live=rows(loop_zid)
         shown=[int(tid) for tid in re.findall(r'Statement (\d+):',transcript)]
         check({r['tid']:r['choice'] for r in live}==dict(zip(shown,['agree','disagree','pass'])), 'interactive answers match each displayed statement in storage')

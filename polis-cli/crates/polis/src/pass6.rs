@@ -52,7 +52,7 @@ pub fn execute(
         str_arg(m, if is_report { "id" } else { "conversation" })
     };
     public_id(id)?;
-    let topic = if path == "topic statements" {
+    let topic = if path == "topic comments" {
         Some(topic_path(str_arg(m, "key"))?)
     } else {
         None
@@ -117,7 +117,7 @@ pub fn execute(
             }
             "/api/v3/conversationStats"
         }
-        "report statements list" => {
+        "report comments list" => {
             query.extend([
                 ("report_id".into(), id.into()),
                 (
@@ -137,7 +137,7 @@ pub fn execute(
             }
             "/api/v3/topicMod/topics"
         }
-        "topic statements" => topic.as_deref().unwrap(),
+        "topic comments" => topic.as_deref().unwrap(),
         "topic hierarchy" => "/api/v3/topicMod/hierarchy",
         "topic proximity" => {
             query.push(("layer_id".into(), str_arg(m, "layer").into()));
@@ -156,12 +156,12 @@ pub fn execute(
     // moderation_available=false and null/empty results. Do not invent freshness.
     let valid = match path {
         "report stats" => v["voteTimes"].is_array() && v["commentTimes"].is_array(),
-        "report statements list" => v["comments"].is_array() && v["pagination"].is_object(),
+        "report comments list" => v["comments"].is_array() && v["pagination"].is_object(),
         _ if v["status"] != "success" => false,
         "topic list" | "report topics" => {
             v["topics"].is_array() || v["topics_by_layer"].is_object()
         }
-        "topic statements" => v["comments"].is_array(),
+        "topic comments" => v["comments"].is_array(),
         "topic hierarchy" => v
             .get("hierarchy")
             .is_some_and(|h| h.is_null() || h.is_object()),
@@ -172,7 +172,7 @@ pub fn execute(
     if !valid {
         return Err(response_error());
     }
-    if path == "report statements list" {
+    if path == "report comments list" {
         crate::importance::annotate(&c, &conversation, &mut v)?;
     }
     Ok(v)

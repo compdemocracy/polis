@@ -303,7 +303,7 @@ fn comment_discovery_and_human_receipt_omit_text() {
         .unwrap();
     assert!(out.status.success());
     let text = String::from_utf8(out.stdout).unwrap();
-    assert!(text.contains("Submitted statement 0"));
+    assert!(text.contains("Submitted comment 0"));
     assert!(!text.contains(TEXT));
     assert!(!text.contains(TOKEN));
     t.join().unwrap();

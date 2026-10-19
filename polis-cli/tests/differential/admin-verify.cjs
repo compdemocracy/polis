@@ -15,7 +15,7 @@ const command=process.argv[2];
   if(command==='notification set')await check('subscription-email','SELECT subscribe_email FROM participants_extended WHERE zid=1 AND uid=1',[{subscribe_email:'owner@example.invalid'}]);
  }
  if(command.startsWith('agenda ')) {
-  const rows=(await p.query('SELECT total_selections,archetypal_selections FROM topic_agenda_selections WHERE zid=1 AND pid=(SELECT pid FROM comments WHERE txt=$1)',['Generated participant statement'])).rows;
+  const rows=(await p.query('SELECT total_selections,archetypal_selections FROM topic_agenda_selections WHERE zid=1 AND pid=(SELECT pid FROM comments WHERE txt=$1)',['Generated participant comment'])).rows;
   if(command==='agenda remove'){if(rows.length)throw Error('agenda-removal');}
   else if(rows.length!==1||rows[0].total_selections!==1||!isDeepStrictEqual(rows[0].archetypal_selections,[{topic_key:'generated-topic',selected:command==='agenda add'}]))throw Error('agenda-save');
   checks.push(command);
@@ -35,7 +35,7 @@ const command=process.argv[2];
   await check('no-legacy-account-enrollment','SELECT count(*)::int AS n FROM participants WHERE zid=2 AND uid=1',[{n:0}]);
   await check('conversation-upvoted-once','SELECT upvotes FROM conversations WHERE zid=1',[{upvotes:1}]);
   for(const [table,column] of [['stars','starred'],['trashes','trashed'],['crowd_mod','as_important']]) {
-   await check(table+'-same-participant',`SELECT ${column} AS value FROM ${table} WHERE zid=1 AND tid=1 AND pid=(SELECT pid FROM comments WHERE txt=$1)`,[{value:table==='crowd_mod'?true:1}],['Generated participant statement']);
+   await check(table+'-same-participant',`SELECT ${column} AS value FROM ${table} WHERE zid=1 AND tid=1 AND pid=(SELECT pid FROM comments WHERE txt=$1)`,[{value:table==='crowd_mod'?true:1}],['Generated participant comment']);
   }
   await check('report-selected-own-conversation','SELECT zid,tid,selection FROM report_comment_selections WHERE rid=(SELECT rid FROM reports WHERE report_id=$1)',[{zid:1,tid:0,selection:1}],['r2p027generated']);
   await check('report-renamed',"SELECT report_name FROM reports WHERE report_id='r2p027generated'",[{report_name:'Generated edited report'}]);

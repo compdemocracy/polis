@@ -312,7 +312,7 @@ pub fn execute(
         || (path == "topic moderate"
             && !fields.contains_key("topic_key")
             && !fields.contains_key("comment_ids"))
-        || (path == "statement flag" && fields.len() == 2)
+        || (path == "comment flag" && fields.len() == 2)
     {
         return Err(Error::input(
             "Choose at least one setting or target. No request was sent.",
@@ -499,7 +499,7 @@ mod tests {
     fn typed_values_do_not_echo_bad_input() {
         let o = operations()
             .iter()
-            .find(|o| o.command == "statement star")
+            .find(|o| o.command == "comment star")
             .unwrap();
         let p = o.parameters.iter().find(|p| p.name == "state").unwrap();
         let e = convert(p, "private-invalid-value").unwrap_err();
