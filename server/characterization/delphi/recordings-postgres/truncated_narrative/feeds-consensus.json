@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/feeds-consensus",
+ "state": "truncated_narrative",
+ "route": "GET /feeds/:reportId/consensus",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zero108/consensus",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/rss+xml; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "1572"
+   ],
+   [
+    "etag",
+    "W/\"624-EbqxsV1OSafgSSQuOUT8gw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\">\n  <channel>\n    <title>Pol.is Consensus Updates - Report r2p2zero108</title>\n    <description>Cross-group consensus changes and updates for conversation r2p2zero108</description>\n    <link>https://pol.is/report/r2p2zero108</link>\n    <lastBuildDate>Tue, 14 Nov 2023 22:13:20 GMT</lastBuildDate>\n    <generator>Pol.is RSS Generator</generator>\n    <language>en-us</language>\n    \n        <item>\n          <title><![CDATA[Cross-Group Consensus Analysis]]></title>\n          <description><![CDATA[<p>Consensus analysis available</p>]]></description>\n          <link>https://pol.is/report/r2p2zero108#consensus-batch_report_r2p2zero108_1699990001_1081_global_group_informed_consensus</link>\n          <guid>r2p2zero108-batch_report_r2p2zero108_1699990001_1081_global_group_informed_consensus-2023-11-14T19:51:01.000007+00:00</guid>\n          <pubDate>Tue, 14 Nov 2023 19:51:01 GMT</pubDate>\n          <category>consensus</category>\n          <source>model:generated-model-alpha</source>\n        </item>\n\n        <item>\n          <title><![CDATA[Cross-Group Consensus Analysis]]></title>\n          <description><![CDATA[<p>Consensus analysis available</p>]]></description>\n          <link>https://pol.is/report/r2p2zero108#consensus-legacy_consensus</link>\n          <guid>r2p2zero108-legacy_consensus-2023-11-12T08:00:01.000000+00:00</guid>\n          <pubDate>Sun, 12 Nov 2023 08:00:01 GMT</pubDate>\n          <category>consensus</category>\n          <source>model:unknown</source>\n        </item>\n  </channel>\n</rss>",
+  "bodySha256": "b2efd3b658823a967bdab277e62efd7868974e41c14a21b349630e86fcdb28bc"
+ }
+}

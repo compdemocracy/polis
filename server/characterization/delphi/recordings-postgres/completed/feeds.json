@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/feeds",
+ "state": "completed",
+ "route": "GET /feeds/:reportId",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zero105",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "text/html; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "1492"
+   ],
+   [
+    "etag",
+    "W/\"5d4-tO4EjU3i92rhn/fV8OmSyw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "\n      <html>\n        <head>\n          <title>RSS Feeds - Report r2p2zero105</title>\n          <style>\n            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }\n            .feed-list { margin: 20px 0; }\n            .feed-list li { margin: 10px 0; }\n            .meta { color: #666; font-size: 0.9em; }\n          </style>\n        </head>\n        <body>\n          <h1>Available RSS Feeds</h1>\n          <p class=\"meta\">Report ID: r2p2zero105</p>\n          \n          \n            <h2>Available Feeds</h2>\n            <ul class=\"feed-list\">\n              <li><a href=\"/feeds/r2p2zero105/consensus\">Consensus Updates</a> - Cross-group consensus changes and updates</li>\n          <li><a href=\"/feeds/r2p2zero105/topics\">Topic Hierarchy</a> - Hierarchical clustering results and topic organization</li>\n            </ul>\n          \n          \n          <h2>What are these feeds?</h2>\n          <ul>\n            <li><strong>Consensus Updates</strong> - Shows when new cross-group consensus emerges in the conversation</li>\n            <li><strong>Topic Hierarchy</strong> - Shows the hierarchical clustering structure from coarse to fine-grained topics</li>\n          </ul>\n          \n          <p class=\"meta\">\n            These feeds are updated when new analysis is run on the conversation data.\n            Subscribe to them in your RSS reader to get notified of consensus changes and topic updates.\n          </p>\n        </body>\n      </html>\n    ",
+  "bodySha256": "2df5aee9179cd569ecf3040a62641b0f5dfd2106f9f8da134292e9a43b4e6120"
+ }
+}

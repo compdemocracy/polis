@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "two_models/delphi-reports/section-fuzzy",
+ "state": "two_models",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero106&section=global_uncertainty",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "1226"
+   ],
+   [
+    "etag",
+    "W/\"4ca-YnQyLEEanEw9J/rMRbfi1A\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Reports retrieved successfully\",\"request_report_id\":\"r2p2zero106\",\"queried_gsi_report_id\":\"r2p2zero106\",\"reports\":{\"global_uncertainty\":{\"section\":\"batch_report_r2p2zero106_1699990002_1062_global_uncertainty\",\"model\":\"generated-model-beta\",\"timestamp\":\"2023-11-14T19:51:02.000008+00:00\",\"report_data\":\"{\\\"id\\\":\\\"generated_narrative\\\",\\\"title\\\":\\\"Generated batch_report_r2p2zero106_1699990002_1062_global_uncertainty\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"p1\\\",\\\"title\\\":\\\"Generated batch_report_r2p2zero106_1699990002_1062_global_uncertainty: generated paragraph\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated clause one. \\\",\\\"citations\\\":[0,1]},{\\\"text\\\":\\\"Generated clause two.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero106_1699990102_1062\",\"metadata\":null}},\"current_job_id\":\"batch_check_r2p2zero106_1699990102_1062\",\"available_runs\":[{\"job_id\":\"batch_check_r2p2zero106_1699990102_1062\",\"latest_timestamp\":\"2023-11-14T19:51:02.000008+00:00\",\"model\":\"generated-model-beta\",\"sectionCount\":8,\"isCurrent\":true},{\"job_id\":\"batch_check_r2p2zero106_1699990101_1061\",\"latest_timestamp\":\"2023-11-14T19:51:01.000008+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":8,\"isCurrent\":false}]}",
+  "bodySha256": "5af53e26fbc787a1c587e8dc9e01da9a807d4342b8174104caa60b3e81097f30"
+ }
+}

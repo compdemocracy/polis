@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "zero_vote/delphi-reports/job-batch_check_r2p2zero109_1699990101_1091",
+ "state": "zero_vote",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero109&job_id=batch_check_r2p2zero109_1699990101_1091",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "5124"
+   ],
+   [
+    "etag",
+    "W/\"1404-ZoEkIl+e2aPxx6OoqBv0KQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Reports retrieved successfully\",\"request_report_id\":\"r2p2zero109\",\"queried_gsi_report_id\":\"r2p2zero109\",\"reports\":{\"0000006d-0000-4000-8000-000000000001_0_0\":{\"section\":\"0000006d-0000-4000-8000-000000000001_0_0\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000001+00:00\",\"report_data\":\"{\\\"id\\\":\\\"generated_narrative\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_0_0\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"p1\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_0_0: generated paragraph\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated clause one. \\\",\\\"citations\\\":[0,1]},{\\\"text\\\":\\\"Generated clause two.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"0000006d-0000-4000-8000-000000000001_0_1\":{\"section\":\"0000006d-0000-4000-8000-000000000001_0_1\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000002+00:00\",\"report_data\":\"{\\\"id\\\":\\\"generated_narrative\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_0_1\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"p1\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_0_1: generated paragraph\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated clause one. \\\",\\\"citations\\\":[0,1]},{\\\"text\\\":\\\"Generated clause two.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"0000006d-0000-4000-8000-000000000001_0_2\":{\"section\":\"0000006d-0000-4000-8000-000000000001_0_2\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000003+00:00\",\"report_data\":\"{\\\"id\\\":\\\"generated_narrative\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_0_2\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"p1\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_0_2: generated paragraph\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated clause one. \\\",\\\"citations\\\":[0,1]},{\\\"text\\\":\\\"Generated clause two.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"0000006d-0000-4000-8000-000000000001_1_0\":{\"section\":\"0000006d-0000-4000-8000-000000000001_1_0\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000004+00:00\",\"report_data\":\"{\\\"id\\\":\\\"generated_narrative\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_1_0\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"p1\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_1_0: generated paragraph\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated clause one. \\\",\\\"citations\\\":[0,1]},{\\\"text\\\":\\\"Generated clause two.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"0000006d-0000-4000-8000-000000000001_1_1\":{\"section\":\"0000006d-0000-4000-8000-000000000001_1_1\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000005+00:00\",\"report_data\":\"{\\\"id\\\":\\\"generated_narrative\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_1_1\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"p1\\\",\\\"title\\\":\\\"Generated 0000006d-0000-4000-8000-000000000001_1_1: generated paragraph\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated clause one. \\\",\\\"citations\\\":[0,1]},{\\\"text\\\":\\\"Generated clause two.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"batch_report_r2p2zero109_1699990001_1091_global_groups\":{\"section\":\"batch_report_r2p2zero109_1699990001_1091_global_groups\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000006+00:00\",\"report_data\":\"{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"There are no votes yet.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"batch_report_r2p2zero109_1699990001_1091_global_group_informed_consensus\":{\"section\":\"batch_report_r2p2zero109_1699990001_1091_global_group_informed_consensus\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000007+00:00\",\"report_data\":\"{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"There are no votes yet.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null},\"batch_report_r2p2zero109_1699990001_1091_global_uncertainty\":{\"section\":\"batch_report_r2p2zero109_1699990001_1091_global_uncertainty\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000008+00:00\",\"report_data\":\"{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"There are no votes yet.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null}},\"current_job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"available_runs\":[{\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"latest_timestamp\":\"2023-11-14T19:51:01.000008+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":8,\"isCurrent\":true}]}",
+  "bodySha256": "998dbea80c74016dbae2c1ebf9a019900c2aca7c436ce09861ebd2ee834a1c1f"
+ }
+}

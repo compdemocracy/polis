@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/feeds-unknown-report",
+ "state": "boundary",
+ "route": "GET /feeds/:reportId",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zerounknown",
+  "auth": "none"
+ },
+ "response": {
+  "status": 404,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "175"
+   ],
+   [
+    "etag",
+    "W/\"af-F0+Mvt0vqFXx3+X6uzZpYA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "\n        <html><head><title>Report Not Found</title></head><body>\n          <h1>Report Not Found</h1>\n          <p>Report ID: r2p2zerounknown</p>\n        </body></html>\n      ",
+  "bodySha256": "d9303a7e7f54d01997efffc8e87eb43b93a4a07babbf6e7937e854cfce0a7f94"
+ }
+}

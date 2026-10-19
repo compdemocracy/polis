@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "zero_vote/topicStats",
+ "state": "zero_vote",
+ "route": "GET /api/v3/topicStats",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicStats?report_id=r2p2zero109",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "549"
+   ],
+   [
+    "etag",
+    "W/\"225-iv9q6wWxY0af9OjxZDp3tQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Topic statistics retrieved successfully\",\"report_id\":\"r2p2zero109\",\"stats\":{\"0000006d-0000-4000-8000-000000000001#0#0\":{\"comment_count\":2,\"comment_tids\":[0,3]},\"0000006d-0000-4000-8000-000000000001#0#1\":{\"comment_count\":2,\"comment_tids\":[1,4]},\"0000006d-0000-4000-8000-000000000001#0#2\":{\"comment_count\":2,\"comment_tids\":[2,5]},\"0000006d-0000-4000-8000-000000000001#1#0\":{\"comment_count\":3,\"comment_tids\":[0,2,4]},\"0000006d-0000-4000-8000-000000000001#1#1\":{\"comment_count\":3,\"comment_tids\":[1,3,5]}},\"total_topics\":5}",
+  "bodySha256": "7d698df64f7cb140f950f199d62fa5fb435229e2ede4ca2cbb390d122cbc4214"
+ }
+}

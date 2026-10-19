@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "rerun_after_votes/topicAgenda-selections/pid-1",
+ "state": "rerun_after_votes",
+ "route": "GET /api/v3/topicAgenda/selections",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicAgenda/selections?conversation_id=8p2z107",
+  "auth": "participant:1"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "428"
+   ],
+   [
+    "etag",
+    "W/\"1ac-ZTClFKZWpzTB/8IzG5O7fw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"data\":{\"conversation_id\":\"107\",\"participant_id\":\"1\",\"archetypal_selections\":[{\"layer_id\":0,\"topic_key\":\"0000006b-0000-4000-8000-000000000001#0#1\",\"cluster_id\":1,\"archetypal_comments\":[{\"comment_id\":1,\"comment_text\":\"Generated statement 107.1\"}]}],\"delphi_job_id\":\"batch_check_r2p2zero107_1699900100_1070\",\"total_selections\":1,\"created_at\":\"2023-11-13T12:00:00.000Z\",\"updated_at\":\"2023-11-13T12:00:00.000Z\"}}",
+  "bodySha256": "51f7688e516c6503f84eb7a10792047618f7e6fa0a1d6992185e8ea5064dc295"
+ }
+}

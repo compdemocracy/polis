@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "not_run/delphi-reports",
+ "state": "not_run",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero101",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "167"
+   ],
+   [
+    "etag",
+    "W/\"a7-qdace1UvwA0eSS1LvxbkNg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No reports found for the given report identifier.\",\"request_report_id\":\"r2p2zero101\",\"queried_gsi_report_id\":\"r2p2zero101\",\"reports\":{}}",
+  "bodySha256": "b9481379fd20f6696f42ef23ed01be18e9dda9fde6a54b8e47c7d02bed08ea27"
+ }
+}

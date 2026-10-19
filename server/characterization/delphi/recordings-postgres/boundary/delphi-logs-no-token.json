@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/delphi-logs-no-token",
+ "state": "boundary",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=00000069-0000-4000-8000-000000000001",
+  "auth": "none"
+ },
+ "response": {
+  "status": 401,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "41"
+   ],
+   [
+    "etag",
+    "W/\"29-FGa7SZCcZQH2b/fDOXAPaA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"error\":\"No authentication token found\"}",
+  "bodySha256": "c240547c73d8e7d2fb4884733d71de8d5d9e7ef4626805c3decb7fe1e6030f48"
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "failed/delphi-logs/00000068-0000-4000-8000-000000000001",
+ "state": "failed",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=00000068-0000-4000-8000-000000000001",
+  "auth": "owner"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "257"
+   ],
+   [
+    "etag",
+    "W/\"101-7OO14dDuogEEpDuiEKfiCg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "[{\"timestamp\":1699995660000,\"message\":\"[DELPHI JOB 00000068-0000-4000-8000-000000000001] INFO: Starting FULL_PIPELINE\"},{\"timestamp\":1699996800000,\"message\":\"[DELPHI JOB 00000068-0000-4000-8000-000000000001] ERROR: Topic naming stage exited with status 1\"}]",
+  "bodySha256": "43f5f9cec5c19765ae64e045a9c41ca2ca3287a7d662fb31cfebb4204ac601cf"
+ }
+}
