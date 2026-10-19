@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "delphi-input-bundle.report-comment-selections/1",
+  "$comment": "Generated from queue-rs/polis-contracts/src/delphi_input_bundle_schema.rs. Do not edit; edit the Rust source and regenerate (POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --test delphi_input_bundle).",
+  "title": "DelphiInputBundleReportCommentSelections",
+  "description": "Every report_comment_selections row of the conversation, ordered by rid then tid.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "rid": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "tid": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "selection": {
+        "type": "integer"
+      },
+      "zid": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "modified": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "rid",
+      "tid",
+      "selection",
+      "zid",
+      "modified"
+    ],
+    "additionalProperties": false
+  }
+}

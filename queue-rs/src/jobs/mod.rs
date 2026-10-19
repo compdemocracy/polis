@@ -10,6 +10,7 @@ pub mod claim;
 pub mod config;
 pub mod embedding;
 pub mod graph;
+pub mod inputs;
 pub mod journal;
 pub mod lease;
 pub mod logs;

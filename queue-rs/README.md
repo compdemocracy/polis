@@ -126,6 +126,27 @@ a line; the per-attempt cap, `POLIS_JOBS_LOG_MAX_LINES` / `_BYTES`, is this
 daemon's own buffer, not a database rule), with no retention
 yet: nothing deletes or sweeps them.
 
+**The input bundle (`POLIS_JOBS_INPUT_BUNDLE`, off by default).** With the
+switch at exactly `1`, before a `delphi_full_pipeline` child starts the daemon
+reads the rows that child's stages read from Postgres (the conversation row,
+every comment, every report comment selection, the newest vote's `created`
+and the `math_main` tick pair), in one read-only REPEATABLE READ transaction
+with a 120 s statement timeout, on one connection opened with the child's own
+`DATABASE_URL` under this daemon's transport rules and closed afterwards. It
+writes them into `inputs/` of the attempt directory as the
+`delphi-input-bundle/1` files (`schemas/delphi-input-bundle*-v1.json`; the
+types are `polis-contracts/src/delphi_input_bundle.rs`, compiled into this
+crate as `jobs::inputs::contract`), and the frame names the manifest under
+`inputs.bundle` (path relative to the attempt directory, and its sha256). The
+child then reads those files instead of Postgres
+(`delphi/polismath/job_child/input_bundle.py`), and refuses the run if any
+digest disagrees. If the read fails, the attempt fails with
+`input_bundle_unavailable` (not permanent, so the queue may retry it) and no
+child runs. No vote row is read, and no
+pool the participation path uses is touched. With the switch off, nothing here
+runs and the frame is byte-identical to before. The switch needs
+`DATABASE_URL`, and the daemon refuses to start without it.
+
 **Worker classes.** `POLIS_JOBS_WORKER_CLASS` (default `delphi`) says which
 jobs this daemon claims; a worker sees only jobs of its class, by the SQL
 contract. `delphi` runs the two Delphi stages (`delphi_full_pipeline`,

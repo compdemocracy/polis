@@ -171,6 +171,30 @@
             "integer",
             "null"
           ]
+        },
+        "bundle": {
+          "description": "Present only with POLIS_JOBS_INPUT_BUNDLE=1 on a delphi_full_pipeline frame: the input bundle the daemon wrote before the child started (delphi-input-bundle-v1.json). The child reads its rows from these files instead of Postgres. Absent, the child reads Postgres.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest",
+            "schema",
+            "sha256"
+          ],
+          "properties": {
+            "manifest": {
+              "const": "inputs/manifest.json",
+              "description": "The manifest's path, relative to the attempt directory (the frame's directory)."
+            },
+            "schema": {
+              "const": "delphi-input-bundle/1"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "sha256 of the manifest file's bytes."
+            }
+          }
         }
       }
     },
