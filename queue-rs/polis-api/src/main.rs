@@ -35,6 +35,7 @@ mod delphi_job_result;
 mod delphi_run;
 mod delphi_read;
 mod delphi_reports;
+mod delphi_result_read;
 mod delphi_run_read;
 mod delphi_visualizations;
 mod domain_whitelist;
@@ -187,6 +188,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "delphiRunFallback",
         js::Js::Num(app.delphi_run_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiResultServed",
+        js::Js::Num(app.delphi_result_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiResultFallback",
+        js::Js::Num(app.delphi_result_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "collectiveStatementServed",
@@ -567,6 +576,7 @@ async fn dispatch_at_clock(
         | recent_activity::PATH
         | metadata_read::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
         path if settings_page::matches(path) => route::handle(app, req).await,
@@ -743,6 +753,43 @@ async fn main() -> Result<()> {
         state.delphi_run_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&auth_dsn, "polis-api-delphi-run-auth/1")?,
             delphi_run_read::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_DELPHI_RESULT_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        // The record function's login: a member of polis_queue_executor.
+        let dsn = std::env::var("POLIS_API_DELPHI_RESULT_DATABASE_URL")
+            .context("POLIS_API_DELPHI_RESULT_DATABASE_URL is required for Delphi result reads")?;
+        // Identity and the moderator rule read Node's tables with Node's read
+        // login unless a dedicated one is given.
+        let auth_dsn = [
+            "POLIS_API_DELPHI_RESULT_AUTH_DATABASE_URL",
+            "READ_ONLY_DATABASE_URL",
+        ]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .context("a database for Delphi result identity reads is required")?;
+        state.delphi_result_env = std::env::var("DELPHI_RESULT_ENV")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .context("DELPHI_RESULT_ENV is required for Delphi result reads")?;
+        state.delphi_result_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-result/1")?,
+            delphi_result_read::pool_limits(),
+        ));
+        state.delphi_result_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-result-auth/1")?,
+            delphi_result_read::auth_pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")

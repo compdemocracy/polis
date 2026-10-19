@@ -258,3 +258,8 @@ save whose family was superseded; a graph root with its nodes and a graph
 node; a legacy import; a math rebuild whose lease expired). Together they
 use every job state, attempt outcome, stage and family state; each decodes
 and encodes back to its own bytes.
+
+`delphi_result_read` is the request/refusal contract for the assignments-only
+`GET /api/v3/delphi/runs/:job_id?families=assignments` route. Success uses the
+unchanged `delphi_job_result` types; the `delphi-run/1` companion supplies
+per-family producer provenance. The two route switches remain off by default.

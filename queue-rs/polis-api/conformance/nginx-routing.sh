@@ -1248,3 +1248,32 @@ handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/r
 docker rm -f "$p-node" >/dev/null
 stub "$p-node" server 5000 200 node
 echo "ok 59 Run record off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/runs/x node "Typed result off"
+start delphiResult,delphiResult
+expect '/api/v3/delphi/runs/x?families=assignments' rust "Typed result on"
+expect /api/v3/delphi node "Typed result leaves the Delphi topics route alone"
+expect /api/v3/delphi/logs node "Typed result leaves job logs alone"
+expect /api/v3/delphi/run node "Typed result path is exact"
+expect /api/v3/comments node "Typed result leaves comments alone"
+expect /api/v3/votes node "Typed result leaves voting alone"
+[[ $(included | grep -c 'location ~.*delphi/runs/') == 1 ]] || fail "Typed result duplicated"
+expect_upstream polis-api GET /api/v3/delphi/runs/x
+expect_upstream polis-api HEAD /api/v3/delphi/runs/x
+expect_upstream server OPTIONS /api/v3/delphi/runs/x
+expect_upstream server POST /api/v3/delphi/runs/x $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/runs/x $'Content-Length: 2\r\n' '{}'
+# Node has no handler for this path, so a hand-back reaches Node's 404.
+docker rm -f "$p-rust" "$p-node" >/dev/null
+stub "$p-node" server 5000 404 "Cannot GET /api/v3/delphi/runs/x"
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect_upstream server GET '/api/v3/delphi/runs/x?families=assignments'
+handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/runs/x?families=assignments' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
+[[ $handback == "HTTP/1.1 404" ]] || fail "Typed result handoff answered '$handback', expected Node's 404"
+docker rm -f "$p-node" >/dev/null
+stub "$p-node" server 5000 200 node
+echo "ok 60 Typed result off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"

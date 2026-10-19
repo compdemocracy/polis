@@ -151,6 +151,11 @@ pub struct App {
     pub delphi_run_env: String,
     pub delphi_run_served: AtomicU64,
     pub delphi_run_fallback: AtomicU64,
+    pub delphi_result_db: Option<Arc<Pool>>,
+    pub delphi_result_auth_db: Option<Arc<Pool>>,
+    pub delphi_result_env: String,
+    pub delphi_result_served: AtomicU64,
+    pub delphi_result_fallback: AtomicU64,
     pub collective_statement_db: Option<Arc<Pool>>,
     pub collective_statement_served: AtomicU64,
     pub collective_statement_fallback: AtomicU64,
@@ -334,6 +339,11 @@ impl App {
             delphi_run_env: String::new(),
             delphi_run_served: AtomicU64::new(0),
             delphi_run_fallback: AtomicU64::new(0),
+            delphi_result_db: None,
+            delphi_result_auth_db: None,
+            delphi_result_env: String::new(),
+            delphi_result_served: AtomicU64::new(0),
+            delphi_result_fallback: AtomicU64::new(0),
             collective_statement_db: None,
             collective_statement_served: AtomicU64::new(0),
             collective_statement_fallback: AtomicU64::new(0),
@@ -1186,6 +1196,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.delphi_run_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::delphi_result_read::matches(req.path()) {
+        if out.status == 502 {
+            app.delphi_result_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_result_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::collective_statement::PATH {
         if out.status == 502 {
             app.collective_statement_fallback
@@ -1524,6 +1541,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if crate::delphi_result_read::matches(req.path())
+        && crate::delphi_result_read::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::collective_statement::PATH
         && crate::collective_statement::parse(app, req).is_none()
     {
@@ -1690,6 +1712,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::delphi_run_read::PATH {
         return crate::delphi_run_read::handle(app, req, res).await;
+    }
+    if crate::delphi_result_read::matches(req.path()) {
+        return crate::delphi_result_read::handle(app, req, res).await;
     }
     if req.path() == crate::collective_statement::PATH {
         return crate::collective_statement::handle(app, req, res).await;
@@ -6120,5 +6145,363 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn delphi_result_moderators_get_the_record_others_get_node_refusals_on_independent_pools()
+    {
+        use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+        use openssl::rsa::Rsa;
+        use serde_json::json;
+        const CONVERSATION: &str = "local-dynamo-1424";
+        const RECORD: &str = include_str!("../conformance/delphi-run-fixtures/second.record.json");
+
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("delphi_result_test_{}", std::process::id());
+        let job: String = serde_json::from_str::<serde_json::Value>(RECORD).unwrap()["job_id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        let setup_job = job.clone();
+        let artifact = serde_json::from_str::<serde_json::Value>(RECORD).unwrap()["families"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["family"] == "Delphi_CommentHierarchicalClusterAssignments")
+            .unwrap()["artifact_id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let count = serde_json::from_str::<serde_json::Value>(RECORD).unwrap()["families"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["family"] == "Delphi_CommentHierarchicalClusterAssignments")
+            .unwrap()["row_count"]
+            .as_u64()
+            .unwrap();
+        let items=serde_json::to_string(&(0..count).map(|tid| json!({"conversation_id":{"S":"1424"},"comment_id":{"N":tid.to_string()},"layer0_cluster_id":{"N":"0"}})).collect::<Vec<_>>()).unwrap();
+        let record = RECORD.trim_end().replace('\'', "''");
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; SET search_path={setup_schema};
+                 CREATE TABLE users(uid integer,site_id text);
+                 CREATE TABLE oidc_user_mappings(uid integer,oidc_sub text);
+                 CREATE TABLE conversations(zid integer,owner integer,treevite_enabled boolean);
+                 CREATE TABLE zinvites(zid integer,zinvite text,created bigint);
+                 CREATE TABLE participants(zid integer,uid integer,pid integer);
+                 CREATE TABLE run_records(env text,job_id uuid,doc jsonb);
+                 INSERT INTO users VALUES(1424,'owner-site'),(100000,'other-site'),(100002,'owner-site');
+                 INSERT INTO conversations VALUES(1424,1424,false);
+                 INSERT INTO zinvites VALUES(1424,'{CONVERSATION}',2),(1424,'a-later-code',3);
+                 INSERT INTO participants VALUES(1424,1424,0),(1424,100000,1),(1424,100002,2);
+                 INSERT INTO run_records VALUES('local','{setup_job}','{record}');
+                 CREATE FUNCTION pd_run_record(p_env text,p_job uuid) RETURNS jsonb LANGUAGE sql STABLE
+                  AS 'SELECT doc FROM {setup_schema}.run_records WHERE env=p_env AND job_id=p_job';
+                 CREATE TABLE family_rows(items jsonb); INSERT INTO family_rows VALUES('{items}');
+                 CREATE FUNCTION pd_result_artifact_family(p_env text,p_artifact uuid,p_family text) RETURNS jsonb LANGUAGE sql STABLE AS 'SELECT items FROM {setup_schema}.family_rows WHERE p_env=''local'' AND p_artifact=''{artifact}''::uuid AND p_family=''Delphi_CommentHierarchicalClusterAssignments''';"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let make_pool = |limits: crate::db::Limits| {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            crate::db::Pool::new(
+                polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(cfg)),
+                limits,
+            )
+        };
+        let run_pool = make_pool(crate::delphi_result_read::pool_limits());
+        let auth_pool = make_pool(crate::delphi_result_read::auth_pool_limits());
+        let participation = make_pool(crate::delphi_result_read::auth_pool_limits());
+        let rsa = Rsa::generate(2048).unwrap();
+        let key = EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap();
+        let verifier = polis_auth::participant::Verifier::new(
+            &rsa.public_key_to_pem().unwrap(),
+            "participants",
+            "participants",
+        )
+        .unwrap();
+        let mut state = app(true);
+        {
+            let app = Arc::get_mut(&mut state).unwrap();
+            app.delphi_result_db = Some(run_pool.clone());
+            app.delphi_result_auth_db = Some(auth_pool.clone());
+            app.delphi_result_env = "local".into();
+            app.participant_verifier = Some(Arc::new(verifier));
+            app.next_comment_db = Some(participation.clone());
+        }
+        let now = (crate::clock::now_ms() / 1000.0) as u64;
+        let token = |uid: i32, pid: i32| {
+            let claims = json!({"uid":uid,"pid":pid,"sub":format!("anon:{uid}"),"conversation_id":CONVERSATION,
+                "iss":"participants","aud":"participants","exp":now+300,"iat":now,"anonymous_participant":true});
+            format!(
+                "Bearer {}",
+                encode(&Header::new(Algorithm::RS256), &claims, &key).unwrap()
+            )
+        };
+        let get = |state: &Arc<App>, target: String, auth: Option<String>, method: &str| {
+            let state = state.clone();
+            let mut r = match &auth {
+                Some(a) => request(method, &[("host", "localhost"), ("authorization", a)]),
+                None => request(method, &[("host", "localhost")]),
+            };
+            r.target = target;
+            async move { handle(state, r).await }
+        };
+        let body = |out: &Outgoing| match &out.body {
+            Body::Fixed(b) => String::from_utf8(b.clone()).unwrap(),
+            _ => panic!("expected a fixed body"),
+        };
+        let run = format!("/api/v3/delphi/runs/{job}?families=assignments");
+        // The owner (a moderator of their own site's conversation): the record.
+        let out = get(&state, run.clone(), Some(token(1424, 0)), "GET").await;
+        assert_eq!(out.status, 200);
+        let result: serde_json::Value = serde_json::from_str(&body(&out)).unwrap();
+        assert_eq!(result["job_id"], job);
+        assert_eq!(
+            result["outputs"]["assignments"].as_object().unwrap().len(),
+            count as usize
+        );
+        assert_eq!(result["omitted"].as_array().unwrap().len(), 8);
+        // Lift the assignments from each ready legacy-recording state and
+        // serve them through the authenticated handler. These are fixture
+        // function seams; delphi-result-run.sh separately uses release SQL
+        // with artifacts published by actual local workers.
+        for (name, recording) in [
+            (
+                "completed",
+                include_str!(
+                    "../../../server/characterization/delphi/recordings/completed/topicMod-proximity.json"
+                ),
+            ),
+            (
+                "two_models",
+                include_str!(
+                    "../../../server/characterization/delphi/recordings/two_models/topicMod-proximity.json"
+                ),
+            ),
+            (
+                "rerun_after_votes",
+                include_str!(
+                    "../../../server/characterization/delphi/recordings/rerun_after_votes/topicMod-proximity.json"
+                ),
+            ),
+            (
+                "zero_vote",
+                include_str!(
+                    "../../../server/characterization/delphi/recordings/zero_vote/topicMod-proximity.json"
+                ),
+            ),
+            (
+                "truncated_narrative",
+                include_str!(
+                    "../../../server/characterization/delphi/recordings/truncated_narrative/topicMod-proximity.json"
+                ),
+            ),
+        ] {
+            let recorded: serde_json::Value = serde_json::from_str(recording).unwrap();
+            let payload: serde_json::Value =
+                serde_json::from_str(recorded["response"]["body"].as_str().unwrap()).unwrap();
+            let rows = payload["proximity_data"].as_array().unwrap();
+            let mut expected = serde_json::Map::new();
+            let lifted: Vec<_> = rows
+                .iter()
+                .map(|r| {
+                    let tid = r["comment_id"].as_u64().unwrap().to_string();
+                    expected.insert(tid.clone(), r["clusters"].clone());
+                    let mut item = json!({"conversation_id":{"S":"1424"},"comment_id":{"N":tid}});
+                    for (layer, cluster) in r["clusters"].as_object().unwrap() {
+                        item[format!("layer{layer}_cluster_id")] = json!({"N":cluster.to_string()});
+                    }
+                    item
+                })
+                .collect();
+            let mut document: serde_json::Value = serde_json::from_str(RECORD).unwrap();
+            document["families"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|f| f["family"] == "Delphi_CommentHierarchicalClusterAssignments")
+                .unwrap()["row_count"] = json!(rows.len());
+            let fixture_url = url.clone();
+            let fixture_schema = schema.clone();
+            tokio::task::spawn_blocking(move || {
+                let mut c = postgres::Client::connect(&fixture_url, postgres::NoTls).unwrap();
+                c.execute(
+                    &format!("UPDATE {fixture_schema}.run_records SET doc=($1::text)::jsonb"),
+                    &[&document.to_string()],
+                )
+                .unwrap();
+                c.execute(
+                    &format!("UPDATE {fixture_schema}.family_rows SET items=($1::text)::jsonb"),
+                    &[&serde_json::to_string(&lifted).unwrap()],
+                )
+                .unwrap();
+            })
+            .await
+            .unwrap();
+            let answer = get(&state, run.clone(), Some(token(1424, 0)), "GET").await;
+            assert_eq!(answer.status, 200, "{name}");
+            let envelope: serde_json::Value = serde_json::from_str(&body(&answer)).unwrap();
+            assert_eq!(
+                envelope["outputs"]["assignments"],
+                serde_json::Value::Object(expected),
+                "{name}"
+            );
+            crate::delphi_job_result::DelphiJobResult::from_json(&body(&answer)).unwrap();
+        }
+        let fixture_url = url.clone();
+        let fixture_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c=postgres::Client::connect(&fixture_url,postgres::NoTls).unwrap();
+            c.execute(&format!("UPDATE {fixture_schema}.run_records SET doc=($1::text)::jsonb"),&[&RECORD]).unwrap();
+            let rows:Vec<_>=(0..count).map(|tid|json!({"conversation_id":{"S":"1424"},"comment_id":{"N":tid.to_string()},"layer0_cluster_id":{"N":"0"}})).collect();
+            c.execute(&format!("UPDATE {fixture_schema}.family_rows SET items=($1::text)::jsonb"),&[&serde_json::to_string(&rows).unwrap()]).unwrap();
+        }).await.unwrap();
+        // A moderator of the same site, through their participant token.
+        let out = get(&state, run.clone(), Some(token(100002, 2)), "GET").await;
+        assert_eq!(out.status, 200);
+        // Another site's participant: Node's refusal shape.
+        let out = get(&state, run.clone(), Some(token(100000, 1)), "GET").await;
+        assert_eq!(out.status, 403);
+        assert_eq!(
+            body(&out),
+            r#"{"status":"error","message":"polis_err_delphi_result_auth"}"#
+        );
+        // A token naming a pid the participant does not hold builds no identity.
+        let out = get(&state, run.clone(), Some(token(100000, 7)), "GET").await;
+        assert_eq!(out.status, 502);
+        let out = get(&state, run.clone(), None, "GET").await;
+        assert_eq!(out.status, 401);
+        let out = get(
+            &state,
+            "/api/v3/delphi/runs/x?families=assignments".into(),
+            Some(token(1424, 0)),
+            "GET",
+        )
+        .await;
+        assert_eq!(out.status, 404);
+        let out = get(
+            &state,
+            "/api/v3/delphi/runs/00000000-0000-4000-8000-000000000000?families=assignments".into(),
+            Some(token(1424, 0)),
+            "GET",
+        )
+        .await;
+        assert_eq!(out.status, 404);
+        assert_eq!(
+            body(&out),
+            r#"{"status":"error","message":"Job not found"}"#
+        );
+        // A configured administrator passes the moderator rule.
+        Arc::get_mut(&mut state).unwrap().legacy_admin_uids = vec![100000];
+        let out = get(&state, run.clone(), Some(token(100000, 1)), "GET").await;
+        assert_eq!(out.status, 200);
+        let result: serde_json::Value = serde_json::from_str(&body(&out)).unwrap();
+        assert_eq!(result["job_id"], job);
+        assert_eq!(
+            result["outputs"]["assignments"].as_object().unwrap().len(),
+            count as usize
+        );
+        assert_eq!(result["omitted"].as_array().unwrap().len(), 8);
+        // A blocked record read sheds itself within the route's deadline; the
+        // participation pool stays usable. Isolation evidence, not a load claim.
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.run_records IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        let blocked = tokio::spawn(get(&state, run.clone(), Some(token(1424, 0)), "GET"));
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(participation.ping().await);
+        assert_eq!(blocked.await.unwrap().status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(
+            get(&state, run.clone(), Some(token(1424, 0)), "GET")
+                .await
+                .status,
+            200
+        );
+        // Both pools refuse writes.
+        for pool in [&run_pool, &auth_pool] {
+            let err = pool
+                .with(|c| Ok(c.batch_execute("DELETE FROM run_records")?))
+                .await
+                .unwrap_err();
+            assert!(format!("{err:#}").contains("read-only"));
+        }
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(run_pool);
+            drop(auth_pool);
+            drop(participation);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn delphi_result_defaults_off_and_rejects_unsupported_selectors_and_paths() {
+        let mut state = app(true);
+        let target =
+            "/api/v3/delphi/runs/00000000-0000-4000-8000-000000000001?families=assignments";
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        let pool = state.db.clone();
+        {
+            let a = Arc::get_mut(&mut state).unwrap();
+            a.delphi_result_db = Some(pool.clone());
+            a.delphi_result_auth_db = Some(pool);
+        }
+        assert_eq!(handle(state.clone(), req(target)).await.status, 401);
+        for target in [
+            target.replace("?families=assignments", ""),
+            target.replace("assignments", "narratives"),
+            format!("{target}&families=assignments"),
+            target.replace("families=", "families[]="),
+            format!("{target}&job_id=x"),
+            target.replace("?families", "/nested?families"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), req(&target)).await.status,
+                502,
+                "{target}"
+            );
+        }
+        for method in ["POST", "OPTIONS", "DELETE"] {
+            let mut r = req(target);
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        let mut r = req(target);
+        r.body = b"{}".to_vec();
+        assert_eq!(handle(state.clone(), r).await.status, 502);
+        assert_eq!(state.delphi_result_served.load(Ordering::Relaxed), 1);
+        assert_eq!(state.delphi_result_fallback.load(Ordering::Relaxed), 11);
     }
 }

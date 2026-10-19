@@ -1260,3 +1260,56 @@ request shape the route does not model) reaches Node's 404.
   `queue-rs/polis-api/conformance/delphi-run-run.sh result.json` for real
   runs through polis-jobs and every answer recorded and checked against the
   function. `delphiRunServed` and `delphiRunFallback` count the outcomes.
+
+### Typed Delphi assignments (off by default)
+
+`GET` and `HEAD /api/v3/delphi/runs/:job_id?families=assignments` serve the
+existing `delphi-job-result/1` envelope for a moderator of the job's conversation,
+using the same verified identity and moderator rule as `/api/v3/delphi/run`.
+This first slice requires exactly `families=assignments`; other selectors,
+repeats, bodies and unsupported methods hand back to Node. Node has no handler
+for this new route, so a hand-back becomes its 404. Missing bearer tokens return
+401; unknown or noncanonical job UUIDs return 404; non-moderators return 403.
+
+Both switches default off: `POLIS_API_DELPHI_RESULT_READS=1` in polis-api and
+`RUST_API_ROUTES=delphiResult` in nginx are required. The independent result pool
+uses `POLIS_API_DELPHI_RESULT_DATABASE_URL` (an executor-member login), two slots,
+a 50 ms acquisition timeout and a 2 s statement timeout. Its auth pool uses
+`POLIS_API_DELPHI_RESULT_AUTH_DATABASE_URL`, then `READ_ONLY_DATABASE_URL`, then
+`DATABASE_URL`, with one slot, 50 ms acquisition and 100 ms statements.
+`DELPHI_RESULT_ENV` is required. All transactions are read-only; the whole request
+is bounded at 2.5 s. Neither pool shares participation slots. The executor login
+has other capabilities: the existing read-replica/enablement requirement for
+Delphi reads still applies; this route does not enable itself.
+
+The route calls `pd_run_record(env, job)` and then
+`pd_result_artifact_family(env, artifact_id, family)` with the resolved immutable
+artifact, never the current publication pointer. Row counts are checked; input
+and output documents are limited to 8 MiB and assignments to 100,000 comments.
+Malformed consumed tagged values, duplicate comment ids, noncanonical layers or
+unrepresentable contract states hand back, with no coercion or invented model.
+Ready results require a recorded topic model and completion timestamp; queued
+jobs with no attempt return pending, active attempts running, and terminal
+failures only when their recorded failure maps to the contract's closed codes.
+Retry-wait/parked states and completed imports or synchronous saves without the
+required model manifest currently hand back. Unavailable families are omitted;
+an explicitly empty produced assignments family is an empty map.
+
+The top-level job/run ids always name the requested job. For each family's actual
+producer job/run/batch/digest, use `/api/v3/delphi/run?job_id=...` as the provenance
+companion. Inherited assignments keep their original producer there; this route
+adds no fields to either contract. Counts not recorded by the job remain null,
+and neither live math nor current model defaults are substituted.
+
+`conformance/delphi-result-run.sh` runs two real local pipelines with a generated
+local sign-in and a sign-aware public fixture. Its raw replay compares the first
+job's body before and after the second publication, constructs expected bytes
+from immutable SQL rows, validates both client schemas and tests authentication,
+HEAD, unsupported selectors and served/fallback counters. It uses the same
+`DELPHI_RUN_*` settings as `delphi-run-run.sh`; `DELPHI_RUN_CODE_VERSION` may supply
+the source revision for an archive tree. The worker uses no paid model provider.
+
+The producer reserves nullable slots for hierarchy layers it did not compute.
+A stored `{"NULL":true}` layer slot is absent from that comment's assignments;
+it is never converted to a cluster id. The explicit unassigned-cluster value
+still uses the contract's `Cluster::Unassigned` encoding.
