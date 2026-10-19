@@ -6,7 +6,7 @@ const mutations=[
  ['comments-run',c+'commentsReport/CommentsReport.jsx','setSelectedRunKey(runKeys[0])','setSelectedRunKey(runKeys[runKeys.length-1])'],
  ['viz-count-run',c+'topicsVizReport/TopicsVizReport.jsx','delphiTopics[runKeys[0]]','delphiTopics[runKeys[runKeys.length-1]]'],
  ['alpha-run',a+'hooks/useTopicData.ts','data.runs[runKeys[0]]','data.runs[runKeys[runKeys.length-1]]'],
- ['section-key',c+'topicPage/TopicPage.jsx','section: topic_key\n','section: topic_key.replace(/#/g, "_")\n'],
+ ['section-key',c+'topicPage/TopicPage.jsx','const section = topic_key.replace(/#/g, "_");\n','const section = topic_key;\n'],
  ['image-job-status',c+'commentsReport/CommentsReport.jsx','job.status === "COMPLETED" && ','true && '],
  ['pending-label',c+'commentsReport/CommentsReport.jsx',' (pending narrative)"),\n',' (no narrative)"),\n'],
  ['statement-order',c+'topicPage/TopicPage.jsx','new Date(b.created_at).getTime() - new Date(a.created_at).getTime()','new Date(a.created_at).getTime() - new Date(b.created_at).getTime()'],
