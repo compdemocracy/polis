@@ -1,0 +1,2908 @@
+{
+  "version": 1,
+  "source_commit": "451ab8265a244ba5cfeb1888a375ccba911682e7",
+  "source_sha256": "ea7ff8b041e4908f2fc26eb1ffffc7d45d6525f9d837b2166aa6c460617240dd",
+  "routes": [
+    {
+      "id": 1,
+      "method": "ALL",
+      "path": "/api/v3/*",
+      "registration": "server/app.ts:314",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 2,
+      "method": "ALL",
+      "path": "/font/*",
+      "registration": "server/app.ts:315",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 3,
+      "method": "ALL",
+      "path": "/api/v3/*",
+      "registration": "server/app.ts:316",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 4,
+      "method": "GET",
+      "path": "/api/v3/math/pca",
+      "registration": "server/app.ts:334",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 5,
+      "method": "GET",
+      "path": "/api/v3/math/pca2",
+      "registration": "server/app.ts:336",
+      "middleware": [
+        "moveToBody",
+        "redirectIfHasZidButNoConversationId",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"math_tick\", getInt, assignToP)",
+        "want(\"keys\", getArrayOfString, assignToP)",
+        "wantHeader( \"If-None-Match\", getStringLimitLength(1000), assignToPCustom(\"ifNoneMatch\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 6,
+      "method": "GET",
+      "path": "/api/v3/math/correlationMatrix",
+      "registration": "server/app.ts:355",
+      "middleware": [
+        "moveToBody",
+        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "want(\"math_tick\", getInt, assignToP, -1)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 7,
+      "method": "GET",
+      "path": "/api/v3/dataExport",
+      "registration": "server/app.ts:364",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"format\", getStringLimitLength(1, 100), assignToP)",
+        "want(\"unixTimestamp\", getStringLimitLength(99), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 8,
+      "method": "GET",
+      "path": "/api/v3/reportExport/:report_id/:report_type",
+      "registration": "server/app.ts:379",
+      "middleware": [
+        "moveToBody",
+        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "need(\"report_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"report_type\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 9,
+      "method": "GET",
+      "path": "/api/v3/dataExport/results",
+      "registration": "server/app.ts:388",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"filename\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 10,
+      "method": "GET",
+      "path": "/api/v3/bidToPid",
+      "registration": "server/app.ts:403",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"math_tick\", getInt, assignToP, 0)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 11,
+      "method": "GET",
+      "path": "/api/v3/xid/:xid_report",
+      "registration": "server/app.ts:416",
+      "middleware": [
+        "moveToBody",
+        "need(\"xid_report\", getStringLimitLength(1, 99), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 12,
+      "method": "GET",
+      "path": "/api/v3/bid",
+      "registration": "server/app.ts:424",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"math_tick\", getInt, assignToP, 0)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 13,
+      "method": "POST",
+      "path": "/api/v3/auth/deregister",
+      "registration": "server/app.ts:437",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 14,
+      "method": "GET",
+      "path": "/api/v3/zinvites/:zid",
+      "registration": "server/app.ts:439",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 15,
+      "method": "POST",
+      "path": "/api/v3/zinvites/:zid",
+      "registration": "server/app.ts:451",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "want(\"short_url\", getBool, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 16,
+      "method": "GET",
+      "path": "/api/v3/participants",
+      "registration": "server/app.ts:465",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 17,
+      "method": "GET",
+      "path": "/api/v3/dummyButton",
+      "registration": "server/app.ts:477",
+      "middleware": [
+        "moveToBody",
+        "need(\"button\", getStringLimitLength(1, 999), assignToP)",
+        "hybridAuthOptional(assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 18,
+      "method": "GET",
+      "path": "/api/v3/conversations/preload",
+      "registration": "server/app.ts:485",
+      "middleware": [
+        "moveToBody",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 19,
+      "method": "GET",
+      "path": "/api/v3/conversations/recently_started",
+      "registration": "server/app.ts:492",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "moveToBody",
+        "want(\"sinceUnixTimestamp\", getStringLimitLength(99), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 20,
+      "method": "GET",
+      "path": "/api/v3/conversations/recent_activity",
+      "registration": "server/app.ts:500",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "moveToBody",
+        "want(\"sinceUnixTimestamp\", getStringLimitLength(99), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 21,
+      "method": "POST",
+      "path": "/api/v3/participants",
+      "registration": "server/app.ts:508",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"answers\", getArrayOfInt, assignToP, [])",
+        "want(\"parent_url\", getStringLimitLength(9999), assignToP)",
+        "want(\"referrer\", getStringLimitLength(9999), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 22,
+      "method": "GET",
+      "path": "/api/v3/notifications/subscribe",
+      "registration": "server/app.ts:522",
+      "middleware": [
+        "moveToBody",
+        "need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"email\", getEmail, assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "notification/email workflow"
+    },
+    {
+      "id": 23,
+      "method": "GET",
+      "path": "/api/v3/notifications/unsubscribe",
+      "registration": "server/app.ts:537",
+      "middleware": [
+        "moveToBody",
+        "need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"email\", getEmail, assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "notification/email workflow"
+    },
+    {
+      "id": 24,
+      "method": "POST",
+      "path": "/api/v3/convSubscriptions",
+      "registration": "server/app.ts:552",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"type\", getInt, assignToP)",
+        "need(\"email\", getEmail, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "notification/email workflow"
+    },
+    {
+      "id": 25,
+      "method": "POST",
+      "path": "/api/v3/joinWithInvite",
+      "registration": "server/app.ts:565",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"suzinvite\", getOptionalStringLimitLength(32), assignToP)",
+        "want(\"answers\", getArrayOfInt, assignToP, [])",
+        "want(\"referrer\", getStringLimitLength(9999), assignToP)",
+        "want(\"parent_url\", getStringLimitLength(9999), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 26,
+      "method": "GET",
+      "path": "/perfStats_9182738127",
+      "registration": "server/app.ts:580",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 27,
+      "method": "POST",
+      "path": "/api/v3/sendEmailExportReady",
+      "registration": "server/app.ts:582",
+      "middleware": [
+        "need(\"webserver_username\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"webserver_pass\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"email\", getEmail, assignToP)",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"filename\", getStringLimitLength(9999), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "notification/email workflow"
+    },
+    {
+      "id": 28,
+      "method": "POST",
+      "path": "/api/v3/notifyTeam",
+      "registration": "server/app.ts:593",
+      "middleware": [
+        "need(\"webserver_username\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"webserver_pass\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"subject\", getStringLimitLength(9999), assignToP)",
+        "need(\"body\", getStringLimitLength(99999), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "notification/email workflow"
+    },
+    {
+      "id": 29,
+      "method": "GET",
+      "path": "/api/v3/domainWhitelist",
+      "registration": "server/app.ts:602",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 30,
+      "method": "POST",
+      "path": "/api/v3/domainWhitelist",
+      "registration": "server/app.ts:609",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"domain_whitelist\", getOptionalStringLimitLength(999), assignToP, \"\" )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 31,
+      "method": "GET",
+      "path": "/api/v3/xids",
+      "registration": "server/app.ts:621",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"limit\", getInt, assignToP)",
+        "want(\"offset\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 32,
+      "method": "GET",
+      "path": "/api/v3/xidAllowList",
+      "registration": "server/app.ts:635",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"limit\", getInt, assignToP)",
+        "want(\"offset\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 33,
+      "method": "POST",
+      "path": "/api/v3/xidAllowList",
+      "registration": "server/app.ts:649",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"xid_allow_list\", getArrayOfStringNonEmpty, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"replace_all\", getBool, assignToP, false)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 34,
+      "method": "GET",
+      "path": "/api/v3/xids/csv",
+      "registration": "server/app.ts:662",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 35,
+      "method": "GET",
+      "path": "/api/v3/xidAllowList/csv",
+      "registration": "server/app.ts:674",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 36,
+      "method": "GET",
+      "path": "/api/v3/conversationStats",
+      "registration": "server/app.ts:686",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "want(\"until\", getInt, assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 37,
+      "method": "GET",
+      "path": "/api/v3/conversationUuid",
+      "registration": "server/app.ts:700",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 38,
+      "method": "GET",
+      "path": "/api/v3/snapshot",
+      "registration": "server/app.ts:712",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
+      "id": 39,
+      "method": "POST",
+      "path": "/api/v3/tutorial",
+      "registration": "server/app.ts:724",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"step\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 40,
+      "method": "GET",
+      "path": "/api/v3/users",
+      "registration": "server/app.ts:731",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)",
+        "want(\"owner_uid\", getInt, assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 41,
+      "method": "GET",
+      "path": "/api/v3/participation",
+      "registration": "server/app.ts:740",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"strict\", getBool, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 42,
+      "method": "GET",
+      "path": "/api/v3/comments",
+      "registration": "server/app.ts:753",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "want(\"tids\", getArrayOfInt, assignToP)",
+        "want(\"moderation\", getBool, assignToP)",
+        "want(\"mod\", getInt, assignToP)",
+        "want(\"modIn\", getBool, assignToP)",
+        "want(\"mod_gt\", getInt, assignToP)",
+        "want(\"include_voting_patterns\", getBool, assignToP, false)",
+        "want(\"limit\", getInt, assignToP)",
+        "want(\"offset\", getInt, assignToP)",
+        "resolve_pidThing(\"pid\", assignToP, \"get:comments:pid\")"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 43,
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "registration": "server/app.ts:777",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)",
+        "ensureParticipant({ createIfMissing: true, issueJWT: true })",
+        "need(\"txt\", getStringLimitLength(1, 997), assignToP)",
+        "want(\"vote\", getIntInRange(-1, 1), assignToP)",
+        "want(\"is_seed\", getBool, assignToP)",
+        "attachAuthToken()"
+      ],
+      "auth": "optional hybrid auth; participant required/created per middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 44,
+      "method": "POST",
+      "path": "/api/v3/comments-bulk",
+      "registration": "server/app.ts:796",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"is_seed\", getBool, assignToP)",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)",
+        "resolve_pidThing(\"pid\", assignToP, \"post:comments-bulk\")"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 45,
+      "method": "GET",
+      "path": "/api/v3/comments/translations",
+      "registration": "server/app.ts:810",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"tid\", getInt, assignToP)",
+        "want(\"lang\", getStringLimitLength(1, 10), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 46,
+      "method": "POST",
+      "path": "/api/v3/votes-bulk",
+      "registration": "server/app.ts:823",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "resolve_pidThing(\"pid\", assignToP, \"post:votes-bulk\")"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 47,
+      "method": "GET",
+      "path": "/api/v3/votes/me",
+      "registration": "server/app.ts:835",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 48,
+      "method": "GET",
+      "path": "/api/v3/votes",
+      "registration": "server/app.ts:847",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"tid\", getInt, assignToP)",
+        "resolve_pidThing(\"pid\", assignToP, \"get:votes\")"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 49,
+      "method": "GET",
+      "path": "/api/v3/nextComment",
+      "registration": "server/app.ts:861",
+      "middleware": [
+        "timeout(15000)",
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "resolve_pidThing(\"not_voted_by_pid\", assignToP, \"get:nextComment\")",
+        "want(\"without\", getArrayOfInt, assignToP)",
+        "want(\"lang\", getStringLimitLength(1, 10), assignToP)",
+        "ensureParticipantOptional({ createIfMissing: false, issueJWT: false })",
+        "haltOnTimeout"
+      ],
+      "auth": "optional hybrid auth; optional participant",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 50,
+      "method": "GET",
+      "path": "/api/v3/testConnection",
+      "registration": "server/app.ts:880",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
+      "id": 51,
+      "method": "GET",
+      "path": "/api/v3/testDatabase",
+      "registration": "server/app.ts:882",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
+      "id": 52,
+      "method": "GET",
+      "path": "/api/v3/delphi",
+      "registration": "server/app.ts:884",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 53,
+      "method": "GET",
+      "path": "/api/v3/delphi/logs",
+      "registration": "server/app.ts:886",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 54,
+      "method": "POST",
+      "path": "/api/v3/delphi/jobs",
+      "registration": "server/app.ts:889",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 55,
+      "method": "GET",
+      "path": "/api/v3/delphi/reports",
+      "registration": "server/app.ts:907",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 56,
+      "method": "GET",
+      "path": "/api/v3/delphi/visualizations",
+      "registration": "server/app.ts:922",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 57,
+      "method": "POST",
+      "path": "/api/v3/delphi/batchReports",
+      "registration": "server/app.ts:935",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 58,
+      "method": "GET",
+      "path": "/api/v3/topicMod/topics",
+      "registration": "server/app.ts:953",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 59,
+      "method": "GET",
+      "path": "/api/v3/topicMod/topics/:topicKey/comments",
+      "registration": "server/app.ts:964",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 60,
+      "method": "POST",
+      "path": "/api/v3/topicMod/moderate",
+      "registration": "server/app.ts:975",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 61,
+      "method": "GET",
+      "path": "/api/v3/topicMod/proximity",
+      "registration": "server/app.ts:986",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 62,
+      "method": "GET",
+      "path": "/api/v3/topicMod/stats",
+      "registration": "server/app.ts:997",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 63,
+      "method": "GET",
+      "path": "/api/v3/topicMod/hierarchy",
+      "registration": "server/app.ts:1008",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 64,
+      "method": "GET",
+      "path": "/api/v3/topicStats",
+      "registration": "server/app.ts:1019",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 65,
+      "method": "POST",
+      "path": "/api/v3/collectiveStatement",
+      "registration": "server/app.ts:1032",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 66,
+      "method": "GET",
+      "path": "/api/v3/collectiveStatement",
+      "registration": "server/app.ts:1049",
+      "middleware": [
+        "moveToBody"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 67,
+      "method": "POST",
+      "path": "/api/v3/topicAgenda/selections",
+      "registration": "server/app.ts:1062",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipant({ createIfMissing: true, issueJWT: true })",
+        "attachAuthToken()"
+      ],
+      "auth": "optional hybrid auth; participant required/created per middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 68,
+      "method": "GET",
+      "path": "/api/v3/topicAgenda/selections",
+      "registration": "server/app.ts:1076",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipantOptional({ createIfMissing: false, issueJWT: false })"
+      ],
+      "auth": "optional hybrid auth; optional participant",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 69,
+      "method": "PUT",
+      "path": "/api/v3/topicAgenda/selections",
+      "registration": "server/app.ts:1089",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipant({ createIfMissing: false, issueJWT: false })"
+      ],
+      "auth": "required hybrid auth; participant required/created per middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 70,
+      "method": "DELETE",
+      "path": "/api/v3/topicAgenda/selections",
+      "registration": "server/app.ts:1102",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipant({ createIfMissing: false, issueJWT: false })"
+      ],
+      "auth": "required hybrid auth; participant required/created per middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 71,
+      "method": "GET",
+      "path": "/feeds/:reportId",
+      "registration": "server/app.ts:1116",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "feeds / report subscribers"
+    },
+    {
+      "id": 72,
+      "method": "GET",
+      "path": "/feeds/:reportId/consensus",
+      "registration": "server/app.ts:1129",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "feeds / report subscribers"
+    },
+    {
+      "id": 73,
+      "method": "GET",
+      "path": "/feeds/:reportId/topics",
+      "registration": "server/app.ts:1147",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "feeds / report subscribers"
+    },
+    {
+      "id": 74,
+      "method": "GET",
+      "path": "/robots.txt",
+      "registration": "server/app.ts:1165",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 75,
+      "method": "GET",
+      "path": "/api/v3/participationInit",
+      "registration": "server/app.ts:1169",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "want(\"ptptoiLimit\", getInt, assignToP)",
+        "want( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"includePCA\", getBool, assignToP)",
+        "want(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"lang\", getStringLimitLength(1, 10), assignToP)",
+        "want( \"domain_whitelist_override_key\", getStringLimitLength(1, 1000), assignToP )",
+        "denyIfNotFromWhitelistedDomain",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)",
+        "ensureParticipantOptional({ createIfMissing: false, // Don't create new participants issueJWT: true, // Issue JWT for existing participants })"
+      ],
+      "auth": "optional hybrid auth; optional participant",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 76,
+      "method": "GET",
+      "path": "/api/v3/participation/topicPrioritize",
+      "registration": "server/app.ts:1197",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 77,
+      "method": "POST",
+      "path": "/api/v3/votes",
+      "registration": "server/app.ts:1210",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)",
+        "ensureParticipant({ createIfMissing: true, issueJWT: true })",
+        "need(\"tid\", getInt, assignToP)",
+        "need(\"vote\", getIntInRange(-1, 1), assignToP)",
+        "want(\"starred\", getBool, assignToP)",
+        "want(\"high_priority\", getBool, assignToP, false)",
+        "want(\"lang\", getStringLimitLength(1, 10), assignToP)",
+        "attachAuthToken()"
+      ],
+      "auth": "optional hybrid auth; participant required/created per middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 78,
+      "method": "PUT",
+      "path": "/api/v3/participants_extended",
+      "registration": "server/app.ts:1230",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"show_translation_activated\", getBool, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 79,
+      "method": "POST",
+      "path": "/api/v3/ptptCommentMod",
+      "registration": "server/app.ts:1242",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"tid\", getInt, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"as_abusive\", getBool, assignToP, null)",
+        "want(\"as_factual\", getBool, assignToP, null)",
+        "want(\"as_feeling\", getBool, assignToP, null)",
+        "want(\"as_important\", getBool, assignToP, null)",
+        "want(\"as_notfact\", getBool, assignToP, null)",
+        "want(\"as_notgoodidea\", getBool, assignToP, null)",
+        "want(\"as_notmyfeeling\", getBool, assignToP, null)",
+        "want(\"as_offtopic\", getBool, assignToP, null)",
+        "want(\"as_spam\", getBool, assignToP, null)",
+        "want(\"as_unsure\", getBool, assignToP, null)",
+        "getPidForParticipant(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 80,
+      "method": "POST",
+      "path": "/api/v3/upvotes",
+      "registration": "server/app.ts:1265",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 81,
+      "method": "POST",
+      "path": "/api/v3/stars",
+      "registration": "server/app.ts:1276",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"tid\", getInt, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"starred\", getIntInRange(0, 1), assignToP)",
+        "getPidForParticipant(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 82,
+      "method": "POST",
+      "path": "/api/v3/trashes",
+      "registration": "server/app.ts:1290",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"tid\", getInt, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"trashed\", getIntInRange(0, 1), assignToP)",
+        "getPidForParticipant(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 83,
+      "method": "PUT",
+      "path": "/api/v3/comments",
+      "registration": "server/app.ts:1304",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"tid\", getInt, assignToP)",
+        "need(\"active\", getBool, assignToP)",
+        "need(\"mod\", getInt, assignToP)",
+        "need(\"is_meta\", getBool, assignToP)",
+        "need(\"velocity\", getNumberInRange(0, 1), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 84,
+      "method": "POST",
+      "path": "/api/v3/reportCommentSelections",
+      "registration": "server/app.ts:1321",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "need(\"tid\", getInt, assignToP)",
+        "need(\"include\", getBool, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 85,
+      "method": "POST",
+      "path": "/api/v3/conversation/close",
+      "registration": "server/app.ts:1335",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 86,
+      "method": "POST",
+      "path": "/api/v3/conversation/reopen",
+      "registration": "server/app.ts:1347",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 87,
+      "method": "PUT",
+      "path": "/api/v3/conversations",
+      "registration": "server/app.ts:1359",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"is_active\", getBool, assignToP)",
+        "want(\"is_anon\", getBool, assignToP)",
+        "want(\"is_draft\", getBool, assignToP, false)",
+        "want(\"is_data_open\", getBool, assignToP, false)",
+        "want(\"owner_sees_participation_stats\", getBool, assignToP, false)",
+        "want(\"profanity_filter\", getBool, assignToP)",
+        "want(\"short_url\", getBool, assignToP, false)",
+        "want(\"spam_filter\", getBool, assignToP)",
+        "want(\"strict_moderation\", getBool, assignToP)",
+        "want(\"topic\", getOptionalStringLimitLength(1000), assignToP)",
+        "want(\"description\", getOptionalStringLimitLength(50000), assignToP)",
+        "want(\"importance_enabled\", getBool, assignToP)",
+        "want(\"vis_type\", getInt, assignToP)",
+        "want(\"help_type\", getInt, assignToP)",
+        "want(\"write_type\", getInt, assignToP)",
+        "want(\"bgcolor\", getOptionalStringLimitLength(20), assignToP)",
+        "want(\"help_color\", getOptionalStringLimitLength(20), assignToP)",
+        "want(\"help_bgcolor\", getOptionalStringLimitLength(20), assignToP)",
+        "want(\"style_btn\", getOptionalStringLimitLength(500), assignToP)",
+        "want(\"auth_needed_to_vote\", getBool, assignToP)",
+        "want(\"auth_needed_to_write\", getBool, assignToP)",
+        "want(\"auth_opt_allow_3rdparty\", getBool, assignToP)",
+        "want(\"verifyMeta\", getBool, assignToP)",
+        "want(\"send_created_email\", getBool, assignToP)",
+        "want(\"context\", getOptionalStringLimitLength(999), assignToP)",
+        "want(\"link_url\", getStringLimitLength(1, 9999), assignToP)",
+        "want(\"subscribe_type\", getInt, assignToP)",
+        "want(\"treevite_enabled\", getBool, assignToP, false)",
+        "want(\"topics_enabled\", getBool, assignToP, false)",
+        "want(\"use_xid_whitelist\", getBool, assignToP)",
+        "want(\"xid_required\", getBool, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 88,
+      "method": "PUT",
+      "path": "/api/v3/users",
+      "registration": "server/app.ts:1405",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "want(\"email\", getEmail, assignToP)",
+        "want(\"hname\", getOptionalStringLimitLength(9999), assignToP)",
+        "want(\"uid_of_user\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 89,
+      "method": "DELETE",
+      "path": "/api/v3/metadata/questions/:pmqid",
+      "registration": "server/app.ts:1415",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need(\"pmqid\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 90,
+      "method": "DELETE",
+      "path": "/api/v3/metadata/answers/:pmaid",
+      "registration": "server/app.ts:1423",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need(\"pmaid\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 91,
+      "method": "GET",
+      "path": "/api/v3/metadata/questions",
+      "registration": "server/app.ts:1431",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"suzinvite\", getOptionalStringLimitLength(32), assignToP)",
+        "want(\"zinvite\", getOptionalStringLimitLength(300), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 92,
+      "method": "POST",
+      "path": "/api/v3/metadata/questions",
+      "registration": "server/app.ts:1446",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need(\"key\", getOptionalStringLimitLength(999), assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 93,
+      "method": "POST",
+      "path": "/api/v3/metadata/answers",
+      "registration": "server/app.ts:1459",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"pmqid\", getInt, assignToP)",
+        "need(\"value\", getOptionalStringLimitLength(999), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 94,
+      "method": "GET",
+      "path": "/api/v3/metadata/choices",
+      "registration": "server/app.ts:1473",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 95,
+      "method": "GET",
+      "path": "/api/v3/metadata/answers",
+      "registration": "server/app.ts:1485",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"pmqid\", getInt, assignToP)",
+        "want(\"suzinvite\", getOptionalStringLimitLength(32), assignToP)",
+        "want(\"zinvite\", getOptionalStringLimitLength(300), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 96,
+      "method": "GET",
+      "path": "/api/v3/metadata",
+      "registration": "server/app.ts:1501",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"zinvite\", getOptionalStringLimitLength(300), assignToP)",
+        "want(\"suzinvite\", getOptionalStringLimitLength(32), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 97,
+      "method": "GET",
+      "path": "/api/v3/conversations",
+      "registration": "server/app.ts:1516",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "want(\"include_all_conversations_i_am_in\", getBool, assignToP)",
+        "want(\"is_active\", getBool, assignToP)",
+        "want(\"is_draft\", getBool, assignToP)",
+        "want( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"limit\", getIntInRange(1, 9999), assignToP)",
+        "want(\"context\", getStringLimitLength(1, 999), assignToP)",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 98,
+      "method": "GET",
+      "path": "/api/v3/all_conversations",
+      "registration": "server/app.ts:1534",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "want(\"limit\", getIntInRange(1, 9999), assignToP)",
+        "want(\"offset\", getIntInRange(0, 99999999), assignToP)",
+        "want(\"sort_by\", getStringLimitLength(1, 50), assignToP)",
+        "want(\"sort_dir\", getStringLimitLength(1, 4), assignToP)",
+        "want(\"owner_email\", getOptionalStringLimitLength(999), assignToP)",
+        "want(\"is_active\", getBool, assignToP)",
+        "want(\"recently_updated_days\", getIntInRange(0, 36500), assignToP)",
+        "want(\"recently_created_days\", getIntInRange(0, 36500), assignToP)",
+        "want(\"min_comment_count\", getIntInRange(0, 100000000), assignToP)",
+        "want(\"min_participant_count\", getIntInRange(0, 100000000), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 99,
+      "method": "GET",
+      "path": "/api/v3/reports",
+      "registration": "server/app.ts:1551",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "want( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 100,
+      "method": "GET",
+      "path": "/api/v3/reportNarrative",
+      "registration": "server/app.ts:1564",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "moveToBody",
+        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "Delphi/report/topic administration"
+    },
+    {
+      "id": 101,
+      "method": "POST",
+      "path": "/api/v3/mathUpdate",
+      "registration": "server/app.ts:1572",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"math_update_type\", getStringLimitLength(1, 32), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 102,
+      "method": "POST",
+      "path": "/api/v3/reports",
+      "registration": "server/app.ts:1585",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "want( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"mod_level\", getInt, assignToPCustom(\"mod_level\"))"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 103,
+      "method": "PUT",
+      "path": "/api/v3/reports",
+      "registration": "server/app.ts:1597",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "want(\"report_name\", getStringLimitLength(999), assignToP)",
+        "want(\"label_x_neg\", getStringLimitLength(999), assignToP)",
+        "want(\"label_x_pos\", getStringLimitLength(999), assignToP)",
+        "want(\"label_y_neg\", getStringLimitLength(999), assignToP)",
+        "want(\"label_y_pos\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_0\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_1\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_2\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_3\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_4\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_5\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_6\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_7\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_8\", getStringLimitLength(999), assignToP)",
+        "want(\"label_group_9\", getStringLimitLength(999), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "id": 104,
+      "method": "GET",
+      "path": "/api/v3/contexts",
+      "registration": "server/app.ts:1625",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 105,
+      "method": "POST",
+      "path": "/api/v3/contexts",
+      "registration": "server/app.ts:1632",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"name\", getStringLimitLength(1, 300), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 106,
+      "method": "POST",
+      "path": "/api/v3/reserve_conversation_id",
+      "registration": "server/app.ts:1639",
+      "middleware": [
+        "hybridAuth(assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 107,
+      "method": "POST",
+      "path": "/api/v3/conversations",
+      "registration": "server/app.ts:1646",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "want(\"is_active\", getBool, assignToP, true)",
+        "want(\"is_draft\", getBool, assignToP, false)",
+        "want(\"is_anon\", getBool, assignToP, false)",
+        "want(\"owner_sees_participation_stats\", getBool, assignToP, false)",
+        "want(\"profanity_filter\", getBool, assignToP, true)",
+        "want(\"short_url\", getBool, assignToP, false)",
+        "want(\"spam_filter\", getBool, assignToP, true)",
+        "want(\"strict_moderation\", getBool, assignToP, false)",
+        "want(\"context\", getOptionalStringLimitLength(999), assignToP, \"\")",
+        "want(\"topic\", getOptionalStringLimitLength(1000), assignToP, \"\")",
+        "want(\"description\", getOptionalStringLimitLength(50000), assignToP, \"\")",
+        "want(\"conversation_id\", getStringLimitLength(6, 300), assignToP, \"\")",
+        "want(\"is_data_open\", getBool, assignToP, false)",
+        "want(\"ownerXid\", getStringLimitLength(1, 999), assignToP)",
+        "want(\"treevite_enabled\", getBool, assignToP, false)",
+        "want(\"topics_enabled\", getBool, assignToP, false)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 108,
+      "method": "POST",
+      "path": "/api/v3/query_participants_by_metadata",
+      "registration": "server/app.ts:1668",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"pmaids\", getArrayOfInt, assignToP, [])"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 109,
+      "method": "POST",
+      "path": "/api/v3/sendCreatedLinkToEmail",
+      "registration": "server/app.ts:1680",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 100), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 110,
+      "method": "GET",
+      "path": "/api/v3/locations",
+      "registration": "server/app.ts:1693",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"gid\", getInt, assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 111,
+      "method": "PUT",
+      "path": "/api/v3/ptptois",
+      "registration": "server/app.ts:1706",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need(\"mod\", getInt, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "resolve_pidThing(\"pid\", assignToP, \"put:ptptois\")"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 112,
+      "method": "GET",
+      "path": "/api/v3/ptptois",
+      "registration": "server/app.ts:1720",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "want(\"mod\", getInt, assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 113,
+      "method": "GET",
+      "path": "/api/v3/votes/famous",
+      "registration": "server/app.ts:1734",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"math_tick\", getInt, assignToP, -1)",
+        "want(\"ptptoiLimit\", getIntInRange(0, 99), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "participation (bulk variants: admin/import)"
+    },
+    {
+      "id": 114,
+      "method": "POST",
+      "path": "/api/v3/treevite/waves",
+      "registration": "server/app.ts:1748",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"invites_per_user\", getInt, assignToP)",
+        "want(\"owner_invites\", getInt, assignToP)",
+        "want(\"parent_wave\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 115,
+      "method": "GET",
+      "path": "/api/v3/treevite/waves",
+      "registration": "server/app.ts:1763",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"wave\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 116,
+      "method": "POST",
+      "path": "/api/v3/treevite/acceptInvite",
+      "registration": "server/app.ts:1776",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"invite_code\", getStringLimitLength(1, 128), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 117,
+      "method": "POST",
+      "path": "/api/v3/treevite/login",
+      "registration": "server/app.ts:1789",
+      "middleware": [
+        "moveToBody",
+        "hybridAuthOptional(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"login_code\", getStringLimitLength(1, 256), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 118,
+      "method": "GET",
+      "path": "/api/v3/treevite/myInvites",
+      "registration": "server/app.ts:1802",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipantOptional({ createIfMissing: false, issueJWT: false })"
+      ],
+      "auth": "required hybrid auth; optional participant",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 119,
+      "method": "GET",
+      "path": "/api/v3/treevite/invites",
+      "registration": "server/app.ts:1815",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "want(\"wave_id\", getInt, assignToP)",
+        "want(\"status\", getInt, assignToP)",
+        "want(\"limit\", getInt, assignToP)",
+        "want(\"offset\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 120,
+      "method": "GET",
+      "path": "/api/v3/treevite/invites/csv",
+      "registration": "server/app.ts:1831",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 121,
+      "method": "GET",
+      "path": "/api/v3/treevite/me",
+      "registration": "server/app.ts:1843",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipantOptional({ createIfMissing: false, issueJWT: false })"
+      ],
+      "auth": "required hybrid auth; optional participant",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 122,
+      "method": "GET",
+      "path": "/api/v3/treevite/myInvites/csv",
+      "registration": "server/app.ts:1856",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "ensureParticipantOptional({ createIfMissing: false, issueJWT: false })"
+      ],
+      "auth": "required hybrid auth; optional participant",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 123,
+      "method": "POST",
+      "path": "/api/v3/einvites",
+      "registration": "server/app.ts:1869",
+      "middleware": [
+        "need(\"email\", getEmail, assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 124,
+      "method": "GET",
+      "path": "/api/v3/einvites",
+      "registration": "server/app.ts:1875",
+      "middleware": [
+        "moveToBody",
+        "need(\"einvite\", getStringLimitLength(1, 100), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 125,
+      "method": "POST",
+      "path": "/api/v3/users/invite",
+      "registration": "server/app.ts:1882",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"emails\", getArrayOfStringNonEmpty, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 126,
+      "method": "GET",
+      "path": "/^\\/polis_site_id.*/",
+      "registration": "server/app.ts:1898",
+      "middleware": [
+        "moveToBody",
+        "need(\"parent_url\", getStringLimitLength(1, 10000), assignToP)",
+        "want(\"referrer\", getStringLimitLength(1, 10000), assignToP)",
+        "want(\"auth_needed_to_vote\", getBool, assignToP)",
+        "want(\"auth_needed_to_write\", getBool, assignToP)",
+        "want(\"auth_opt_allow_3rdparty\", getBool, assignToP)",
+        "want(\"show_vis\", getBool, assignToP)",
+        "want(\"show_share\", getBool, assignToP)",
+        "want(\"bg_white\", getBool, assignToP)",
+        "want(\"topic\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"ucv\", getBool, assignToP)",
+        "want(\"ucw\", getBool, assignToP)",
+        "want(\"ucsh\", getBool, assignToP)",
+        "want(\"ucst\", getBool, assignToP)",
+        "want(\"ucsd\", getBool, assignToP)",
+        "want(\"ucsv\", getBool, assignToP)",
+        "want(\"ucsf\", getBool, assignToP)",
+        "want(\"ui_lang\", getStringLimitLength(1, 10), assignToP)",
+        "want(\"dwok\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"xid\", getStringLimitLength(1, 999), assignToP)",
+        "want(\"subscribe_type\", getStringLimitLength(1, 9), assignToP)",
+        "want(\"x_name\", getStringLimitLength(1, 746), assignToP)",
+        "want(\"x_profile_image_url\", getStringLimitLength(1, 3000), assignToP)",
+        "want(\"x_email\", getStringLimitLength(256), assignToP)",
+        "want(\"build\", getStringLimitLength(300), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 127,
+      "method": "GET",
+      "path": "/iip/:conversation_id",
+      "registration": "server/app.ts:1928",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 128,
+      "method": "GET",
+      "path": "/iim/:conversation_id",
+      "registration": "server/app.ts:1939",
+      "middleware": [
+        "moveToBody",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 129,
+      "method": "GET",
+      "path": "/api/v3/verify",
+      "registration": "server/app.ts:1950",
+      "middleware": [
+        "moveToBody",
+        "need(\"e\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 130,
+      "method": "POST",
+      "path": "/api/v3/contributors",
+      "registration": "server/app.ts:1957",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need(\"agreement_version\", getIntInRange(1, 999999), assignToP)",
+        "need(\"name\", getStringLimitLength(746), assignToP)",
+        "need(\"email\", getStringLimitLength(256), assignToP)",
+        "need(\"github_id\", getStringLimitLength(256), assignToP)",
+        "need(\"company_name\", getStringLimitLength(746), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "id": 131,
+      "method": "POST",
+      "path": "/api/v3/metrics",
+      "registration": "server/app.ts:1968",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need(\"types\", getArrayOfInt, assignToP)",
+        "need(\"times\", getArrayOfInt, assignToP)",
+        "need(\"durs\", getArrayOfInt, assignToP)",
+        "need(\"clientTimestamp\", getInt, assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
+      "id": 132,
+      "method": "GET",
+      "path": "/^\\/football$/",
+      "registration": "server/app.ts:1986",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 133,
+      "method": "GET",
+      "path": "/^\\/pdf$/",
+      "registration": "server/app.ts:1987",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 134,
+      "method": "GET",
+      "path": "/^\\/nabi$/",
+      "registration": "server/app.ts:1988",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 135,
+      "method": "GET",
+      "path": "/^\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:1990",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 136,
+      "method": "GET",
+      "path": "/^\\/explore\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:1991",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 137,
+      "method": "GET",
+      "path": "/^\\/share\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:1992",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 138,
+      "method": "GET",
+      "path": "/^\\/summary\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:1993",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 139,
+      "method": "GET",
+      "path": "/^\\/ot\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:1994",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 140,
+      "method": "GET",
+      "path": "/^\\/conversation\\/create(\\/.*)?/",
+      "registration": "server/app.ts:1996",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 141,
+      "method": "GET",
+      "path": "/^\\/user\\/create(\\/.*)?$/",
+      "registration": "server/app.ts:1997",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 142,
+      "method": "GET",
+      "path": "/^\\/user\\/login(\\/.*)?$/",
+      "registration": "server/app.ts:1998",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 143,
+      "method": "GET",
+      "path": "/^\\/settings(\\/.*)?$/",
+      "registration": "server/app.ts:2000",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 144,
+      "method": "GET",
+      "path": "/^\\/user\\/logout(\\/.*)?$/",
+      "registration": "server/app.ts:2002",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 145,
+      "method": "GET",
+      "path": "/^\\/m\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2005",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 146,
+      "method": "GET",
+      "path": "/^\\/integrate(\\/.*)?/",
+      "registration": "server/app.ts:2006",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 147,
+      "method": "GET",
+      "path": "/^\\/other-conversations(\\/.*)?/",
+      "registration": "server/app.ts:2007",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 148,
+      "method": "GET",
+      "path": "/^\\/account(\\/.*)?/",
+      "registration": "server/app.ts:2008",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 149,
+      "method": "GET",
+      "path": "/^\\/bot(\\/.*)?/",
+      "registration": "server/app.ts:2009",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 150,
+      "method": "GET",
+      "path": "/^\\/conversations(\\/.*)?/",
+      "registration": "server/app.ts:2010",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 151,
+      "method": "GET",
+      "path": "/^\\/signout(\\/.*)?/",
+      "registration": "server/app.ts:2011",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 152,
+      "method": "GET",
+      "path": "/^\\/signin(\\/.*)?/",
+      "registration": "server/app.ts:2012",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 153,
+      "method": "GET",
+      "path": "/^\\/dist\\/admin_bundle.js$/",
+      "registration": "server/app.ts:2013",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 154,
+      "method": "GET",
+      "path": "/^\\/__webpack_hmr$/",
+      "registration": "server/app.ts:2019",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 155,
+      "method": "GET",
+      "path": "/^\\/privacy$/",
+      "registration": "server/app.ts:2025",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 156,
+      "method": "GET",
+      "path": "/^\\/tos$/",
+      "registration": "server/app.ts:2026",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 157,
+      "method": "GET",
+      "path": "/^\\/donate$/",
+      "registration": "server/app.ts:2027",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 158,
+      "method": "GET",
+      "path": "/^\\/gov(\\/.*)?/",
+      "registration": "server/app.ts:2030",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 159,
+      "method": "GET",
+      "path": "/^\\/createuser(\\/.*)?/",
+      "registration": "server/app.ts:2031",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 160,
+      "method": "GET",
+      "path": "/^\\/contrib(\\/.*)?/",
+      "registration": "server/app.ts:2032",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 161,
+      "method": "GET",
+      "path": "/^\\/bot\\/install(\\/.*)?/",
+      "registration": "server/app.ts:2034",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 162,
+      "method": "GET",
+      "path": "/^\\/bot\\/support(\\/.*)?/",
+      "registration": "server/app.ts:2035",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 163,
+      "method": "GET",
+      "path": "/^\\/inbox(\\/.*)?$/",
+      "registration": "server/app.ts:2037",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 164,
+      "method": "GET",
+      "path": "/^\\/hk/",
+      "registration": "server/app.ts:2039",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 165,
+      "method": "GET",
+      "path": "/^\\/s\\//",
+      "registration": "server/app.ts:2040",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 166,
+      "method": "GET",
+      "path": "/^\\/s$/",
+      "registration": "server/app.ts:2041",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 167,
+      "method": "GET",
+      "path": "/^\\/hk\\/new/",
+      "registration": "server/app.ts:2042",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 168,
+      "method": "GET",
+      "path": "/^\\/inboxApiTest/",
+      "registration": "server/app.ts:2043",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 169,
+      "method": "GET",
+      "path": "/^\\/pwresetinit.*/",
+      "registration": "server/app.ts:2044",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 170,
+      "method": "GET",
+      "path": "/^\\/demo\\/[0-9][0-9A-Za-z]+/",
+      "registration": "server/app.ts:2045",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 171,
+      "method": "GET",
+      "path": "/^\\/demo$/",
+      "registration": "server/app.ts:2046",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 172,
+      "method": "GET",
+      "path": "/^\\/pwreset.*/",
+      "registration": "server/app.ts:2047",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 173,
+      "method": "GET",
+      "path": "/^\\/company$/",
+      "registration": "server/app.ts:2048",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 174,
+      "method": "GET",
+      "path": "/^\\/report\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2050",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 175,
+      "method": "GET",
+      "path": "/^\\/narrativeReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2051",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 176,
+      "method": "GET",
+      "path": "/^\\/stats\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2055",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 177,
+      "method": "GET",
+      "path": "/^\\/commentsReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2057",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 178,
+      "method": "GET",
+      "path": "/^\\/topicReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2064",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 179,
+      "method": "GET",
+      "path": "/^\\/topicsVizReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2070",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 180,
+      "method": "GET",
+      "path": "/^\\/topicHierarchy\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2075",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 181,
+      "method": "GET",
+      "path": "/^\\/collectiveStatements\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2082",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 182,
+      "method": "GET",
+      "path": "/^\\/exportReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2089",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 183,
+      "method": "GET",
+      "path": "/^\\/topicMapNarrativeReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2095",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 184,
+      "method": "GET",
+      "path": "/^\\/topicStats\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "registration": "server/app.ts:2101",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 185,
+      "method": "GET",
+      "path": "/^\\/embed$/",
+      "registration": "server/app.ts:2108",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "embed host / participation or report frame"
+    },
+    {
+      "id": 186,
+      "method": "GET",
+      "path": "/^\\/embedPreprod$/",
+      "registration": "server/app.ts:2114",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "embed host / participation or report frame"
+    },
+    {
+      "id": 187,
+      "method": "GET",
+      "path": "/^\\/embedReport$/",
+      "registration": "server/app.ts:2120",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "embed host / participation or report frame"
+    },
+    {
+      "id": 188,
+      "method": "GET",
+      "path": "/^\\/embedReportPreprod$/",
+      "registration": "server/app.ts:2126",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "embed host / participation or report frame"
+    },
+    {
+      "id": 189,
+      "method": "GET",
+      "path": "/^\\/styleguide$/",
+      "registration": "server/app.ts:2137",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 190,
+      "method": "GET",
+      "path": "/^\\/about$/",
+      "registration": "server/app.ts:2149",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 191,
+      "method": "GET",
+      "path": "/^\\/home(\\/.*)?/",
+      "registration": "server/app.ts:2150",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 192,
+      "method": "GET",
+      "path": "/^\\/s\\/CTE\\/?$/",
+      "registration": "server/app.ts:2151",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 193,
+      "method": "GET",
+      "path": "/",
+      "registration": "server/app.ts:2163",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 194,
+      "method": "GET",
+      "path": "/^\\/cached\\/.*/",
+      "registration": "server/app.ts:2166",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 195,
+      "method": "GET",
+      "path": "/^\\/font\\/.*/",
+      "registration": "server/app.ts:2167",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 196,
+      "method": "GET",
+      "path": "/^\\/.*embed.*js\\/.*/",
+      "registration": "server/app.ts:2168",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "embed host / participation or report frame"
+    },
+    {
+      "id": 197,
+      "method": "GET",
+      "path": "/^\\/report_bundle.*\\.js$/",
+      "registration": "server/app.ts:2169",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 198,
+      "method": "GET",
+      "path": "/^\\/report_style.*\\.css$/",
+      "registration": "server/app.ts:2170",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "id": 199,
+      "method": "GET",
+      "path": "/.*\\//",
+      "registration": "server/app.ts:2173",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 200,
+      "method": "GET",
+      "path": "/^\\/[^(api\\/)]?.*/",
+      "registration": "server/app.ts:2198",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [
+        "missingFilesGet404"
+      ],
+      "registered_in_default_config": false,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "id": 201,
+      "method": "GET",
+      "path": "/^\\/[^(api\\/)]?.*/",
+      "registration": "server/app.ts:2206",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [
+        "!(missingFilesGet404)"
+      ],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    }
+  ]
+}

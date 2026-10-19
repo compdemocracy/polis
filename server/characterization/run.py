@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Host orchestrator. Only the dedicated p027 Docker project is mutable."""
-import hashlib,json,os,pathlib,subprocess,sys,time
+import hashlib,json,os,pathlib,re,subprocess,sys,time
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 HERE=ROOT/'server/characterization'
 from isolation import isolated_environment
@@ -15,6 +15,14 @@ def digest_files(files):
  h=hashlib.sha256()
  for p in sorted(files):h.update(str(p.relative_to(ROOT)).encode());h.update(p.read_bytes())
  return h.hexdigest()
+def source_commit():
+ # Archives have no Git metadata. Require an explicit base pin; sourceHash below
+ # still binds the actual mounted bytes, including uncommitted harness changes.
+ pin=ENV.get('P027_SOURCE_COMMIT')
+ if pin is not None:
+  if not re.fullmatch('[a-f0-9]{40}',pin):raise RuntimeError('invalid archive source commit')
+  return pin
+ return run('git','rev-parse','HEAD',capture=True).strip()
 def provenance():
  ids=dc('ps','-q',capture=True).split()
  if len(ids)<6:raise RuntimeError('all six sealed services must be running')
@@ -31,7 +39,7 @@ def provenance():
    server_env=dict(x.split('=',1) for x in c['Config']['Env'])
    if any(p not in mounts or mounts[p]['RW'] for p in ['/app/src','/app/app.ts','/app/index.ts']):raise RuntimeError('source snapshot exclusions require read-only source mounts')
  source=list((ROOT/'server/src').rglob('*.ts'))+[ROOT/'server/app.ts',ROOT/'server/index.ts',ROOT/'server/package-lock.json']
- stack={'commit':run('git','rev-parse','HEAD',capture=True).strip(),'sourceHash':digest_files(source),'migrationHash':digest_files((ROOT/'server/postgres/migrations').glob('*.sql')),'composeHash':hashlib.sha256((HERE/'compose.yml').read_bytes()).hexdigest(),'images':{c['Config']['Labels']['com.docker.compose.service']:c['Image'] for c in containers},'networkInternal':True,'networkCount':1,'generatedOnly':True,'fixtureClock':1700000000000,'harnessHash':digest_files([p for p in HERE.iterdir() if p.suffix in ['.cjs','.sql','.py','.json']]),'mathSeedImage':json.loads(run('docker','image','inspect','p011-delphi-test:latest',capture=True))[0]['Id'],'mathEnv':server_env['MATH_ENV'],'negativeControls':server_env.get('P027_NEGATIVE_CONTROLS','0'),'markers':server_env.get('P027_MARKERS','1')}
+ stack={'commit':source_commit(),'sourcePinKind':'explicit-archive-base' if ENV.get('P027_SOURCE_COMMIT') else 'git-head','sourceHash':digest_files(source),'migrationHash':digest_files((ROOT/'server/postgres/migrations').glob('*.sql')),'composeHash':hashlib.sha256((HERE/'compose.yml').read_bytes()).hexdigest(),'images':{c['Config']['Labels']['com.docker.compose.service']:c['Image'] for c in containers},'networkInternal':True,'networkCount':1,'generatedOnly':True,'fixtureClock':1700000000000,'harnessHash':digest_files([p for p in HERE.iterdir() if p.suffix in ['.cjs','.sql','.py','.json']]),'mathSeedImage':json.loads(run('docker','image','inspect',ENV.get('P027_MATH_SEED_IMAGE','p011-delphi-test:latest'),capture=True))[0]['Id'],'mathEnv':server_env['MATH_ENV'],'negativeControls':server_env.get('P027_NEGATIVE_CONTROLS','0'),'markers':server_env.get('P027_MARKERS','1')}
  (HERE/'artifacts').mkdir(exist_ok=True)
  (HERE/'artifacts/stack.json').write_text(json.dumps(stack,indent=2)+'\n')
  return stack
@@ -58,7 +66,7 @@ def main():
   if len(sys.argv)>3 and sys.argv[3]=='nominal':dc('exec','-T','driver','node','characterization/cli.cjs','init-dynamo')
   dc('exec','-T','-e','P027_ONLY='+ENV.get('P027_ONLY',''),'-e','P027_PARITY_ONLY='+ENV.get('P027_PARITY_ONLY',''),'driver','node','characterization/cli.cjs',command,'/artifacts/'+(sys.argv[2] if len(sys.argv)>2 else 'recording'),sys.argv[3] if len(sys.argv)>3 else 'boundary',sys.argv[4] if len(sys.argv)>4 else '1')
  elif command=='coverage':dc('exec','-T','driver','node','characterization/cli.cjs','coverage')
- elif command=='test':dc('exec','-T','server','node','--test','characterization/test.cjs','characterization/corrections.test.cjs','characterization/recorded.test.cjs','characterization/round2.test.cjs','characterization/pca2.test.cjs','characterization/runtime.test.cjs')
+ elif command=='test':dc('exec','-T','server','node','--test','characterization/test.cjs','characterization/route-inventory.test.cjs','characterization/corrections.test.cjs','characterization/recorded.test.cjs','characterization/round2.test.cjs','characterization/pca2.test.cjs','characterization/runtime.test.cjs')
  else:raise RuntimeError('unknown command')
 if __name__=='__main__':
  try:main()
