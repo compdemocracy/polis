@@ -78,12 +78,14 @@ Key/value rows, no header: `topic`, `url`, `voters`, `voters-in-conv`,
 ### `votes.csv`
 
 One row per vote event: `timestamp`, `datetime`, `comment-id`, `voter-id`,
-`vote`, and `important` when importance is enabled.
+`vote`, `important`.
 
 - `vote`: a vote value in the export convention. A vote stored as NULL is
   written `0`, as it always has been.
-- `important` (only when importance is enabled): `1` when the vote was
-  marked important, `0` otherwise. An importance flag, not a vote value.
+- `important`: `1` when the vote was marked important, `0` otherwise. An
+  importance flag, not a vote value. Present for every conversation; before
+  importance was always collected it appeared only when the conversation's
+  `importance_enabled` was set.
 
 ### `participant-votes.csv`
 
@@ -107,12 +109,13 @@ Same layout as `participant-votes.csv` with `n-important` in place of
 ### `comments.csv`
 
 One row per comment: `timestamp`, `datetime`, `comment-id`, `author-id`,
-`agrees`, `disagrees`, `moderated`, then `importance` when enabled, then
-`comment-body`.
+`agrees`, `disagrees`, `moderated`, `importance`, `comment-body`.
 
 - `agrees`, `disagrees`: counts of agree and disagree votes; no sign involved.
-- `importance` (only when importance is enabled, before `comment-body`): the
-  number of votes on the comment marked important; no sign involved.
+- `importance` (before `comment-body`): the number of votes on the comment
+  marked important; no sign involved. Present for every conversation; before
+  importance was always collected it appeared only when the conversation's
+  `importance_enabled` was set.
 
 ### `comment-groups.csv`
 

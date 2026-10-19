@@ -319,14 +319,6 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
   const comments = new Map<number, CommentRow>();
 
   try {
-    // Check if importance is enabled for this conversation
-    const convRows = (await pg.queryP_reportExport(
-      "SELECT importance_enabled FROM conversations WHERE zid = ($1)",
-      [zid]
-    )) as { importance_enabled: boolean }[];
-    const importanceEnabled =
-      convRows.length > 0 ? convRows[0].importance_enabled : false;
-
     // First query: Load comments metadata
     const commentRows = (await pg.queryP_reportExport(
       "SELECT tid, pid, created, txt, mod, velocity, active FROM comments WHERE zid = ($1)",
@@ -336,9 +328,7 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       comment.agrees = 0;
       comment.disagrees = 0;
       comment.pass = 0;
-      if (importanceEnabled) {
-        comment.importance = 0;
-      }
+      comment.importance = 0;
       comments.set(comment.tid, comment);
     }
 
@@ -355,8 +345,8 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
           else if (vote === "disagree") comment.disagrees += 1;
           else if (vote === "pass") comment.pass += 1;
 
-          // Count high priority votes if enabled
-          if (importanceEnabled && row.high_priority) {
+          // Importance is always counted, whatever the conversation's importance_enabled
+          if (row.high_priority) {
             comment.importance = (comment.importance || 0) + 1;
           }
         } else {
@@ -368,7 +358,6 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
           return b.velocity - a.velocity;
         });
 
-        // Build formatters conditionally based on importance_enabled
         const formatters: Formatters<CommentRow> = {
           timestamp: (row) => String(Math.floor(parseInt(row.created) / 1000)),
           datetime: (row) => formatDatetime(row.created),
@@ -377,15 +366,9 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
           agrees: (row) => String(row.agrees),
           disagrees: (row) => String(row.disagrees),
           moderated: (row) => String(row.mod),
+          importance: (row) => String(row.importance || 0),
+          "comment-body": (row) => formatEscapedText(row.txt),
         };
-
-        // Add importance column if enabled
-        if (importanceEnabled) {
-          formatters.importance = (row) => String(row.importance || 0);
-        }
-
-        // Add comment-body last
-        formatters["comment-body"] = (row) => formatEscapedText(row.txt);
 
         res.setHeader("content-type", "text/csv");
         res.send(formatCSV(formatters, commentRows));
@@ -403,15 +386,6 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
 
 export async function sendVotesSummary(zid: number, res: ResponseLike) {
   try {
-    // Check if importance is enabled for this conversation
-    const convRows = (await pg.queryP_reportExport(
-      "SELECT importance_enabled FROM conversations WHERE zid = ($1)",
-      [zid]
-    )) as { importance_enabled: boolean }[];
-    const importanceEnabled =
-      convRows.length > 0 ? convRows[0].importance_enabled : false;
-
-    // Build formatters conditionally based on importance_enabled
     const formatters: Formatters<any> = {
       timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
       datetime: (row) => formatDatetime(row.timestamp),
@@ -419,23 +393,15 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
       "voter-id": (row) => String(row.pid),
       // The export's own convention (agree = +1); NULL is EXPORT_NULL_VALUE.
       vote: (row) => String(storageToExport(row.vote, { onInvalid: "keep" })),
+      // Importance is always exported, whatever the conversation's importance_enabled
+      important: (row) => String(row.high_priority ? 1 : 0),
     };
-
-    // Add important column if enabled
-    if (importanceEnabled) {
-      formatters.important = (row) => String(row.high_priority ? 1 : 0);
-    }
 
     res.setHeader("Content-Type", "text/csv");
     res.write(formatCSVHeaders(formatters) + sep);
 
-    // Select high_priority field if importance is enabled
-    const selectClause = importanceEnabled
-      ? "SELECT created as timestamp, tid, pid, vote, high_priority FROM votes WHERE zid = $1 ORDER BY tid, pid"
-      : "SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 ORDER BY tid, pid";
-
     pg.stream_queryP_reportExport(
-      selectClause,
+      "SELECT created as timestamp, tid, pid, vote, high_priority FROM votes WHERE zid = $1 ORDER BY tid, pid",
       [zid],
       (row) => res.write(formatCSVRow(row, formatters) + sep),
       () => res.end(),

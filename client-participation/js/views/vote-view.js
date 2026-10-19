@@ -86,7 +86,8 @@ module.exports = Handlebones.ModelView.extend({
         };
       }
     }
-    ctx.showImportantCheckbox = preload.conversation.importance_enabled;
+    // Importance is always collected; the conversation's importance_enabled is not read.
+    ctx.showImportantCheckbox = true;
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
     ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
