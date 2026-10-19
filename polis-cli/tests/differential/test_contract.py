@@ -62,3 +62,32 @@ class RoutingContractTests(unittest.TestCase):
         with self.assertRaises(KeyError):rust_only_checks({'contract':'unknown'}, {}, {})
 
 if __name__=='__main__':unittest.main()
+
+
+class ImportanceDisplayTests(unittest.TestCase):
+    def test_named_counts_exception_rejects_count_identity_and_base_mutations(self):
+        import copy
+        from harness import importance_display_checks
+        node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'operation_failed','read_at_ms':None}}},'artifacts':{}}
+        rust=copy.deepcopy(node)
+        for r in rust['json']['data']['comments']:r.update(important=0,voters=0)
+        rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+        self.assertTrue(all(importance_display_checks(node,rust).values()))
+        for key, value in [('important',1),('voters',1),('important',False),('tid',9),('txt','changed')]:
+            bad=copy.deepcopy(rust);bad['json']['data']['comments'][0][key]=value
+            self.assertFalse(all(importance_display_checks(node,bad).values()))
+        for key,value in [('read_at_ms',None),('schema','bad'),('conversation_id','other')]:
+            bad=copy.deepcopy(rust);bad['json']['data']['importance'][key]=value
+            self.assertFalse(all(importance_display_checks(node,bad).values()))
+
+    def test_absent_route_error_is_exact_for_this_fixture(self):
+        import copy
+        from harness import importance_display_checks
+        node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'operation_failed','read_at_ms':None}}},'artifacts':{}}
+        rust=copy.deepcopy(node)
+        for row in rust['json']['data']['comments']:row.update(important=0,voters=0)
+        rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+        self.assertTrue(all(importance_display_checks(node,rust).values()))
+        for code in ['capability_unavailable','transport_unavailable','forbidden',None]:
+            bad=copy.deepcopy(node);bad['json']['data']['importance']['error']=code
+            self.assertFalse(all(importance_display_checks(bad,rust).values()))

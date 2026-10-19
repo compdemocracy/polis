@@ -882,3 +882,27 @@ the CLI returns `capability_unavailable` (exit 8). Authentication, permission
 and other server failures retain their existing errors. A gateway outage
 returning 502 also means the feature is currently unavailable; this does not
 prove it is permanently absent. No unfiltered-list fallback occurs.
+
+### Statement importance
+
+`polis statement list --conversation CONVERSATION --sort importance
+--min-important 3` reads the complete participant-visible statement count snapshot, filters
+it, orders by important count descending (ties by statement ID), and then applies
+`--offset` and `--limit`. With only `--min-important`, order is statement ID.
+Plain `statement list` and `statement view` retain their existing behavior.
+The new read must be enabled by the site operator. A 404 returns exit 8;
+other read failures retain their error codes. No failure invents zero counts. The snapshot is bounded to 10,000 participant-visible statements.
+Counts use each participant's latest vote, not every stored vote change. The CLI reads text only for
+the selected IDs and checks the exact returned set before printing anything.
+A statement that disappears or becomes hidden between reads fails the request;
+there is no automatic retry or partial ranking. Repeated offset pages do not
+share a snapshot. Each request retains the existing timeout and 8 MiB bound.
+
+`polis report statements list REPORT` adds `important`, `voters`, and the
+importance read timestamp. An unavailable read or a statement absent from the
+participant-visible snapshot has null counts, never invented zero. A warning and
+`importance.state=unavailable` identify failed count reads while preserving the
+original statement text and report-selection metadata.
+
+Counts are current reads, not historical analysis inputs. No command starts
+analysis, changes statements, casts a vote, or calls a model.

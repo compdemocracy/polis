@@ -5,6 +5,7 @@ mod commands;
 mod commenting;
 mod delphi_show;
 mod highlights;
+mod importance;
 mod invites;
 mod listing;
 mod locations;
