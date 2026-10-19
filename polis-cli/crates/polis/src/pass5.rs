@@ -112,15 +112,25 @@ pub fn execute(
             Some(json!({"conversation_id":id,"mod_level":-2})),
             true,
         )?;
-        // Legacy POST gives no resource ID. A list diff is not proof of which
-        // report this request created when another writer is running.
+        // Current servers return the inserted report's public ID; older ones
+        // reply {}. A list diff is not proof of which report this request
+        // created when another writer is running, so without an ID none is taken.
+        let report_id = receipt["report_id"]
+            .as_str()
+            .filter(|r| public_id(r).is_ok())
+            .map(str::to_owned);
         let readback = c.request("GET", "/api/v3/reports", &query, None, false);
         let (reports, readback_state) = match readback {
             Ok(rows) if rows.is_array() => (rows, "observed"),
             _ => (Value::Null, "unavailable"),
         };
+        let note = if report_id.is_some() {
+            "Creation replied with the created report's ID. Listed reports are a readback observation. Do not repeat creation; repeated creation makes another report. This creates report configuration only, not math, exports or Delphi work."
+        } else {
+            "Creation replied successfully, but the server returns no created ID or idempotency key. Listed reports are not attributed to this request. Do not repeat creation to recover an ID; use report list. This creates report configuration only, not math, exports or Delphi work."
+        };
         return Ok(
-            json!({"state":"accepted","conversation_id":id,"report_id":null,"receipt":receipt,"reports":reports,"readback_state":readback_state,"note":"Creation replied successfully, but the server returns no created ID or idempotency key. Listed reports are not attributed to this request. Do not repeat creation to recover an ID; use report list. This creates report configuration only, not math, exports or Delphi work."}),
+            json!({"state":"accepted","conversation_id":id,"report_id":report_id,"receipt":receipt,"reports":reports,"readback_state":readback_state,"note":note}),
         );
     }
     let before = c.request("GET", "/api/v3/conversations", &query, None, false)?;

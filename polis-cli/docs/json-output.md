@@ -78,11 +78,13 @@ is exit 7 with `outcome: unknown`. No compare-and-set is available.
 `admin_share_url`; no remote operation occurs. `account view` may contain private
 account fields. `conversation stats` preserves the timing/histogram API shape.
 
-`report create` returns `state: accepted`, `report_id: null`, `receipt`, `reports`
-and `readback_state: observed|unavailable`. A successful empty report list is an
-observation, not proof of creation identity. The API supplies no created ID or
-idempotency key. A failed list read does not erase a successful write receipt;
-a failed/uncertain write keeps the standard nonzero error envelope.
+`report create` returns `state: accepted`, `report_id`, `receipt`, `reports`
+and `readback_state: observed|unavailable`. `report_id` is the created report's
+ID taken from the server's reply (`receipt.report_id`); a server that replies `{}`
+leaves it `null`, and the listed reports are then an observation, not proof of
+creation identity. There is no idempotency key. A failed list read does not erase
+a successful write receipt; a failed/uncertain write keeps the standard nonzero
+error envelope.
 
 
 Pass six: stored topics and report reads
