@@ -21,11 +21,11 @@
   },
   "comments": {
     "path": "/api/v3/comments",
-    "minimum_rust_successes": 0,
+    "minimum_rust_successes": 4,
     "commands": [],
     "expected_requests": 11,
-    "expected_node_handoffs": 8,
-    "scope": "Moderation, cookie identities and populated admin listings are outside the staged public/participant slice."
+    "expected_node_handoffs": 4,
+    "scope": "Moderation reads use verified caller visibility. Plain OIDC, report enrichment and unsupported identities remain Node handoffs; non-read methods stay on Node."
   },
   "nextComment": {
     "path": "/api/v3/nextComment",

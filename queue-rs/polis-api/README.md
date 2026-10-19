@@ -309,38 +309,47 @@ recordings are not applicable to this new endpoint; existing pca2 parity remains
 a separate check.
 
 
-## Public comment reads
+## Comment reads
 
-`POLIS_API_COMMENT_READS=1` enables the public, bodyless GET/HEAD
-`/api/v3/comments` slice. It requires `POLIS_API_COMMENTS_DATABASE_URL` for
-conversation lookup and statement rows. Pagination counts use a separate pool
-on `READ_ONLY_DATABASE_URL`, falling back to the comments DSN when unset, as
-Node does. The pools have two and one connections respectively, a 100 ms
-acquisition deadline and a 1 s statement deadline; sessions are read-only.
-They do not borrow connections from other route pools or math reads. This bounds
+`POLIS_API_COMMENT_READS=1` enables bodyless GET/HEAD `/api/v3/comments`.
+It requires `POLIS_API_COMMENTS_DATABASE_URL` for conversation lookup and rows.
+Pagination and moderator checks use the separate `READ_ONLY_DATABASE_URL` pool,
+falling back to the comments DSN when unset. The pools have two and one connections,
+a 100 ms acquisition deadline and a 1 s statement deadline; sessions are read-only.
+They never borrow the vote, comment-write or next-statement pools. This bounds
 waiting within this process; it does not prove shared database load isolation.
 
-Both this process flag and nginx's `RUST_API_ROUTES=comments` switch are off by
-default. Requests carrying credentials or cookies, report/moderation views,
-unsupported parameters, missing conversations and database failures return the
-existing 502 handoff to Node. Node retains optional identity creation, provider
-calls and error behavior for those requests. They are **not** implemented by
-this Rust slice. No participant resolution or voting behavior moves here.
+Both the process flag and nginx's `RUST_API_ROUTES=comments` remain off by default.
+Plain lists retain their existing participant-token admission. Moderation lists
+also admit already-mapped OIDC users through the existing static JWKS verifier
+(`POLIS_API_READ_JWKS_FILE`, `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_NAMESPACE`).
+Verified users use Node's site-moderator predicate and configured `ADMIN_UIDS`.
+No identity claims from query parameters confer authority. Cookies, unsupported
+credentials, absent mappings, report enrichment, provider-dependent `mod_gt`
+values and failures retain the 502 handoff to Node; no user or membership is created.
 
-The moved views preserve legacy arrays and limit/offset pagination, visibility,
-statement IDs, field order, bigint strings, nullable fields and Node's
-created-only ordering. The count and row queries remain separate observations,
-including when a read replica lags; no snapshot consistency is promised.
+For `moderation=true`, callers without moderator rights get active, unmuted,
+participant-visible statements and the plain fields. Requested vote counts remain.
+Moderators retain the moderation fields and whole list. Counts pass through the
+shared storage convention boundary, matching the server's current constant source;
+invalid and NULL values do not become passes. Any storage convention migration
+must update both services together, without changing wire or export declarations.
 
-`conformance/comments-run.sh` seeds the unchanged generated characterization
-fixtures, then replays all 396 archived comments requests against live Node and
-Rust. Responses served by Rust must match raw HTTP bytes (including headers,
-compression and chunk framing); Node handoffs are counted separately, and an
-eligible public success falling back is a failure. Only a Date-only mismatch
-may be retried and is counted. `conformance/nginx-routing.sh` checks the
-independent switch, body/method guards and failure handoff. Authentication,
-moderation/report equivalence and concurrent participation-load acceptance
-remain outside this partial implementation's evidence.
+The legacy SQL behavior is preserved: plain lists order only by created; moderation
+lists have no imposed ordering, ignore tids, and paginate the vote-bucket join
+before merging counts. Count and row filters retain Node's distinct modIn/mod_gt
+semantics. Count, authority and row reads remain separate observations, including
+replica lag; no snapshot consistency or deterministic unordered-row claim is made.
+
+`conformance/comments-run.sh` replays all 396 archived requests against fresh Node
+and Rust, then 42 additional moderation count/filter/page requests. The six actor
+moderation cases must be served by Rust, including anonymous, bound participant and
+foreign-owner callers. Results contain fresh Node/Rust raw response recordings for
+these cases. Status, headers, field/array order and body bytes compare exactly;
+only Date-only pairs may retry, with retries counted. The committed general archive
+is unchanged. `conformance/nginx-routing.sh` covers off/on, method/body guards and
+moderation query/credential forwarding and the 502 fallback. This is generated
+fixture conformance, not production-load or activation approval.
 
 ## Anonymous next-statement reads
 
@@ -413,7 +422,7 @@ other-conversation tokens, Treevite and unsupported shapes return the counted
 502 handoff to Node. An already-voted `initial_tid` also hands back to Node;
 ordinary selection excludes existing votes and returns currentPid. No participant,
 user, invite or token is created. Signed-in comments support the same public
-projection; moderation and report views remain with Node.
+projection; moderation uses the verified moderator rule described above and report views remain with Node.
 
 Membership reads use the route's existing bounded read-only primary pool;
 nextComment retains its own two slots, 1 ms admission, 50 ms statements and

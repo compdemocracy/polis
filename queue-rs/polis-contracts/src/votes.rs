@@ -1,6 +1,7 @@
-//! Wire/import declarations only; storage conversion belongs to the server.
-//! Single Rust contract boundary for the CLI. Never infer storage signs here.
+//! Vote boundaries shared by the CLI and read service. Storage and wire have
+//! separately named conventions even while their current numbers coincide.
 use serde::{Deserialize, Serialize};
+#[rustfmt::skip]
 use serde_json::{json, Value};
 pub const WIRE_AGREE: i8 = -1;
 pub const WIRE_DISAGREE: i8 = 1;
@@ -69,5 +70,47 @@ impl VoteChoice {
             Self::Disagree => "disagree",
             Self::Pass => "pass",
         }
+    }
+}
+
+/// Matches the server's CONSTANT_CONVENTION_SOURCE. A new storage convention
+/// must change both services together; the wire/export declarations stay fixed.
+#[derive(Clone, Copy, Debug)]
+pub struct StorageConvention {
+    pub agree: i32,
+}
+impl StorageConvention {
+    pub const CURRENT: Self = Self { agree: -1 };
+    pub fn decode(self, raw: Option<i32>) -> Option<VoteChoice> {
+        match raw? {
+            n if n == self.agree => Some(VoteChoice::Agree),
+            n if n == -self.agree => Some(VoteChoice::Disagree),
+            0 => Some(VoteChoice::Pass),
+            _ => None,
+        }
+    }
+    pub fn encode(self, vote: VoteChoice) -> i32 {
+        match vote {
+            VoteChoice::Agree => self.agree,
+            VoteChoice::Disagree => -self.agree,
+            VoteChoice::Pass => 0,
+        }
+    }
+}
+#[cfg(test)]
+mod storage_tests {
+    use super::*;
+    #[test]
+    fn storage_is_explicit_and_invalid_is_not_pass() {
+        for agree in [-1, 1] {
+            let convention = StorageConvention { agree };
+            for vote in [VoteChoice::Agree, VoteChoice::Disagree, VoteChoice::Pass] {
+                assert_eq!(convention.decode(Some(convention.encode(vote))), Some(vote));
+            }
+            for raw in [None, Some(2), Some(-2)] {
+                assert_eq!(convention.decode(raw), None);
+            }
+        }
+        assert_eq!(StorageConvention::CURRENT.encode(VoteChoice::Agree), -1);
     }
 }
