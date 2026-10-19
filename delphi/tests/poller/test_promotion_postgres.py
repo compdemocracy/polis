@@ -78,13 +78,25 @@ def labels():
     return f"prsmall_{tag}", f"prlarge_{tag}"
 
 
-_zid_base = [20000 + (uuid.uuid4().int % 500) * 100]
+# Each pytest-xdist worker imports this module on its own; seeding a
+# conversation first deletes whatever has its id, and every test's cleanup
+# deletes its conversations' rows in every table, so two workers handed one id
+# delete each other's fixtures. Each worker owns its own block of ids (gwN the
+# N-th block; a run without xdist the first), and a test that would run past
+# the end of its block is refused rather than take the next worker's ids.
+_ZID_FIRST, _ZID_BLOCK, _ZID_STEP = 20000, 5000, 100
+_worker = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+_zid_base = [_ZID_FIRST + int(_worker.removeprefix("gw")) * _ZID_BLOCK]
+_zid_end = _zid_base[0] + _ZID_BLOCK
 _used = []
 
 
 def fresh_zids(n):
     base = _zid_base[0]
-    _zid_base[0] += 100
+    if n > _ZID_STEP or base + _ZID_STEP > _zid_end:
+        raise RuntimeError(f"{_worker} has no conversation ids left for {n} "
+                           f"(its block ends at {_zid_end})")
+    _zid_base[0] += _ZID_STEP
     zids = list(range(base, base + n))
     _used.extend(zids)
     return zids

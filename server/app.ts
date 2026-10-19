@@ -42,6 +42,12 @@ import { handle_GET_delphi_visualizations } from "./src/routes/delphi/visualizat
 import { handle_POST_delphi_jobs } from "./src/routes/delphi/jobs";
 import { handle_GET_delphi_reports } from "./src/routes/delphi/reports";
 import { handle_POST_delphi_batch_reports } from "./src/routes/delphi/batchReports";
+import { collectiveBody } from "./src/routes/delphi/collectiveBody";
+import {
+  handle_GET_collective_inputs,
+  handle_GET_collective_results,
+  handle_POST_collective_results,
+} from "./src/routes/delphi/collectiveExchange";
 import { handle_GET_participation_topicPrioritize } from "./src/routes/participation/topicPrioritize";
 
 import {
@@ -225,6 +231,7 @@ import {
   wantHeader,
 } from "./src/utils/parameter";
 import { WIRE_VOTE_MAX, WIRE_VOTE_MIN } from "./src/votes/convention";
+import { onParticipationPools } from "./src/db/participation-scope";
 
 const app = express();
 const devMode = Config.isDevMode;
@@ -323,7 +330,17 @@ export const appReady = helpersInitialized.then(
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
-    app.use(express.bodyParser({ limit: "50mb" }));
+    // Bounds the collective-statement import body before the shared parser.
+    app.use(collectiveBody);
+    // JSON and urlencoded bodies only: the parsers express.bodyParser runs,
+    // with the same options, minus its multipart step. No route reads
+    // multipart, and that step threw before routing on every multipart
+    // request (multiparty 3 calls os.tmpDir(), which Node no longer has), so
+    // such a request answered 500 on any path. Now it reaches the router like
+    // any other unparsed body: an unknown path answers 404, a known route
+    // validates an empty body.
+    app.use(express.json({ limit: "50mb" }));
+    app.use(express.urlencoded({ limit: "50mb" }));
     app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
 
@@ -776,8 +793,12 @@ export const appReady = helpersInitialized.then(
       handle_GET_comments
     );
 
+    // Votes, comments, the next statement and participationInit enter the
+    // participation pools first, so every query they make runs there and no
+    // other work can hold the connections they need (src/db/pg-query.ts).
     app.post(
       "/api/v3/comments",
+      onParticipationPools,
       hybridAuthOptional(assignToP),
       need(
         "conversation_id",
@@ -862,6 +883,7 @@ export const appReady = helpersInitialized.then(
 
     app.get(
       "/api/v3/nextComment",
+      onParticipationPools,
       timeout(15000),
       moveToBody,
       hybridAuthOptional(assignToP),
@@ -915,6 +937,28 @@ export const appReady = helpersInitialized.then(
           });
         }
       }
+    );
+
+    // The agent path for collective statements: the conversation owner exports
+    // a topic's inputs, an outside agent writes the statement, the owner
+    // imports it with its provenance. No model is called here.
+    app.get(
+      "/api/v3/delphi/collective/inputs",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_GET_collective_inputs
+    );
+    app.post(
+      "/api/v3/delphi/collective/results",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_POST_collective_results
+    );
+    // Every stored version for a report (optionally one topic), newest first.
+    app.get(
+      "/api/v3/delphi/collective/results",
+      moveToBody,
+      handle_GET_collective_results
     );
 
     // Add GET endpoint for Delphi reports
@@ -1183,6 +1227,7 @@ export const appReady = helpersInitialized.then(
 
     app.get(
       "/api/v3/participationInit",
+      onParticipationPools,
       moveToBody,
       hybridAuthOptional(assignToP),
       want("ptptoiLimit", getInt, assignToP),
@@ -1224,6 +1269,7 @@ export const appReady = helpersInitialized.then(
 
     app.post(
       "/api/v3/votes",
+      onParticipationPools,
       hybridAuthOptional(assignToP),
       need(
         "conversation_id",

@@ -1,0 +1,83 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": "0000a001-0000-4000-8000-0000000000b1",
+  "run_id": "0000a001-0000-4000-8000-0000000000e1",
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "status": "ready",
+  "as_of": "2026-10-03T12:00:00.000Z",
+  "inputs": {
+    "math_tick": 42,
+    "math_env": "python",
+    "vote_count": 120,
+    "comment_count": 8,
+    "model": {
+      "topic_names": "generated-model-alpha",
+      "narrative": "generated-model-alpha",
+      "statement": null,
+      "embedding": "generated-embedding"
+    },
+    "prompt_version": {
+      "topic_names": "topic-names-v1",
+      "narrative": "narrative-v1",
+      "statement": null
+    }
+  },
+  "attempt": null,
+  "failure": null,
+  "pinned": true,
+  "label": "Generated pinned run",
+  "outputs": {
+    "collective_statements": [
+      {
+        "statement_id": "0000a001-0000-4000-8000-000000000001#0#1#0000a001-0000-4000-8000-00000000c001",
+        "topic_key": "0000a001-0000-4000-8000-000000000001#0#1",
+        "topic_name": "Generated topic 0.1",
+        "created_at": "2026-10-03T12:10:00.000Z",
+        "model": "generated-model-alpha",
+        "inputs": {
+          "topic_job_id": "0000a001-0000-4000-8000-000000000001",
+          "assignments_job_id": "0000a001-0000-4000-8000-000000000001",
+          "math_tick": 42
+        },
+        "statement": {
+          "id": "generated_narrative",
+          "title": "Generated statement",
+          "paragraphs": [
+            {
+              "id": "p1",
+              "title": "Generated statement: paragraph",
+              "sentences": [
+                {
+                  "clauses": [
+                    {
+                      "text": "Generated clause one. ",
+                      "citations": [
+                        0,
+                        1
+                      ]
+                    },
+                    {
+                      "text": "Generated clause two.",
+                      "citations": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "omitted": [
+    "topics_by_layer",
+    "assignments",
+    "keywords",
+    "umap",
+    "visualizations",
+    "narratives",
+    "topic_stats",
+    "consensus_inputs"
+  ]
+}

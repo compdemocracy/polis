@@ -82,10 +82,8 @@ def test_dynamodb_credentials(role_endpoint, monkeypatch, endpoint, mode):
 
 
 @pytest.mark.parametrize("mode", ["absent", "empty", "environment"])
-@pytest.mark.parametrize("factory", ["priorities", "minio", "census"])
+@pytest.mark.parametrize("factory", ["minio", "census"])
 def test_script_factories_use_the_chain(role_endpoint, monkeypatch, mode, factory):
-    import importlib.util
-    from pathlib import Path
     from unittest.mock import Mock
 
     if mode == "environment":
@@ -94,21 +92,12 @@ def test_script_factories_use_the_chain(role_endpoint, monkeypatch, mode, factor
     elif mode == "empty":
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "")
-    # The CI copy and the ordinary checkout both place these beside tests/.
-    root = Path(__file__).resolve().parents[1]
-    if not (root / "setup_minio.py").exists():
-        root = Path.cwd()
     before = dict(os.environ)
     if factory == "census":
         from polismath.job_child.census import default_dynamodb
         monkeypatch.setenv("DYNAMODB_ENDPOINT", "http://127.0.0.1:9")
         before = dict(os.environ)
         api = default_dynamodb().meta.client
-    elif factory == "priorities":
-        spec = importlib.util.spec_from_file_location("credential_priorities", root / "umap_narrative/502_calculate_priorities.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        api = module.PriorityCalculator(1, endpoint_url="http://127.0.0.1:9").dynamodb.meta.client
     else:
         import setup_minio
         real_client = boto3.client

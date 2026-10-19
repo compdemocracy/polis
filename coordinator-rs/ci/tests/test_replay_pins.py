@@ -15,7 +15,8 @@ from verify import comparisons
 
 def runtime(system, machine):
     requested='Haswell' if (system,machine)==('Linux','x86_64') else 'not-forced'
-    return dict(system=system,machine=machine,forced_kernel=requested,blas=[
+    return dict(system=system,machine=machine,forced_kernel=requested,
+        compressor=json.loads((CI / "replay-pins.json").read_text())["pins"][0]["compressor"],blas=[
         dict(prefix=p,internal_api='openblas',architecture='Haswell',num_threads=1)
         for p in ('libopenblas','libscipy_openblas')])
 

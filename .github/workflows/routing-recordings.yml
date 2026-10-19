@@ -28,5 +28,5 @@ jobs:
       - run: npm ci --no-audit --no-fund
         working-directory: server
       - if: github.event_name == 'pull_request'
-        run: node server/characterization/routing/guard.cjs '${{ github.event.pull_request.base.sha }}'
+        run: node server/characterization/routing/guard.cjs 'HEAD^1'
       - run: sh server/characterization/routing/check.sh

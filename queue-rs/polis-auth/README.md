@@ -36,3 +36,13 @@ integration test uses connection-local temporary tables and compares both
 policies against Node's predicates across 240 decisions, with direct checks for
 NULL, empty and differently cased sites, absent users/conversations and admin
 bypass. The script is also the hosted CI entry point.
+
+The `participant` module verifies Node-issued RS256 anonymous and standard-user
+participant JWTs against an operator-supplied public key, issuer and audience.
+It requires the requested conversation code to match exactly, checks expiry,
+not-before, issued-at and subject/type/UID/PID bindings, then resolves an existing
+membership through the caller's read-only connection. PID zero is valid. XID,
+unknown claims, mixed token kinds, aliases, missing/ambiguous membership and
+Treevite conversations return a handoff. It never creates users/participants,
+issues tokens, fetches provider keys or logs credentials. The caller supplies a
+trusted clock and bounded primary-read connection; keys are not fetched remotely.

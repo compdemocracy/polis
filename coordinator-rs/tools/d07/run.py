@@ -27,6 +27,7 @@ sys.path.insert(0,str(ROOT/'coordinator-rs/tools/d06'))
 from observer import sample
 sys.path.insert(0,str(ROOT/'coordinator-rs/ci'))
 from replay_pins import kernel_environment, runtime_identity, select_pin
+from compressor import observe_node
 from reference_assets import load_asset
 import fold_declared
 from vote_fixtures import convention as fixture_convention, seed_vote_from_export  # d05's run.py put delphi/tests on sys.path
@@ -112,7 +113,7 @@ class Rehearsal(Readers):
         self.connection=psycopg2.connect(host='127.0.0.1',port=self.port,dbname='p027',user='postgres',sslmode='disable',connect_timeout=5)
         self.connection.autocommit=True
         self.tunnels['exclusion']=[Tunnel(self.port+13,relay_argv)]
-        self.receipt['runtime']=select_pin(runtime_identity(),ROOT/'coordinator-rs/ci/replay-pins.json')
+        self.receipt['runtime']=select_pin(dict(runtime_identity(), compressor=observe_node()),ROOT/'coordinator-rs/ci/replay-pins.json')
         self.receipt['postgres_settings']=self.query("SELECT name,setting,unit FROM pg_settings WHERE name IN ('server_version','shared_buffers','work_mem','max_connections','fsync','synchronous_commit') ORDER BY name")
         self.receipt['host_runtime']={'python':sys.version,'executable_sha256':digest(Path(sys.executable).read_bytes()),
             'platform':platform.platform(),'cpu_limit':'not constrained for host Rust/Python',

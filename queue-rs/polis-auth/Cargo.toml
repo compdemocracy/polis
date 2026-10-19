@@ -12,6 +12,12 @@ db-tests = []
 
 [dependencies]
 postgres = "0.19"
+jsonwebtoken = "9"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+openssl = "0.10"
+serde_json = "1"
 
 [lints.clippy]
 unwrap_used = "deny"

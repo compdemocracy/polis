@@ -1,7 +1,7 @@
 """run_math_pipeline.main against a generated fixture database.
 
-``main`` is the math stage of a Delphi FULL_PIPELINE job (run_delphi.py runs it
-as a subprocess). These tests drive the real ``main`` with a fake connection,
+``main`` is the legacy DynamoDB math export (it was the math stage of a Delphi
+FULL_PIPELINE job; run_delphi.py no longer runs it). These tests drive the real ``main`` with a fake connection,
 a recording stand-in for ``Conversation`` and a stand-in DynamoDB client, so
 they observe exactly what the stage feeds the engine and how it exits.
 """

@@ -1,0 +1,88 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": "0000a001-0000-4000-8000-0000000000b1",
+  "run_id": "0000a001-0000-4000-8000-0000000000e1",
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "status": "ready",
+  "as_of": "2026-10-03T12:00:00.000Z",
+  "inputs": {
+    "math_tick": 42,
+    "math_env": "python",
+    "vote_count": 120,
+    "comment_count": 8,
+    "model": {
+      "topic_names": "generated-model-alpha",
+      "narrative": "generated-model-alpha",
+      "statement": null,
+      "embedding": "generated-embedding"
+    },
+    "prompt_version": {
+      "topic_names": "topic-names-v1",
+      "narrative": "narrative-v1",
+      "statement": null
+    }
+  },
+  "attempt": null,
+  "failure": null,
+  "pinned": true,
+  "label": "Generated pinned run",
+  "outputs": {
+    "narratives": {
+      "group_informed_consensus": {
+        "model": "generated-model-alpha",
+        "created_at": "2026-10-03T12:00:00.000Z",
+        "source_topic_job_id": "0000a001-0000-4000-8000-000000000001",
+        "raw_len": 412,
+        "validity": "valid",
+        "invalid_reason": null,
+        "parsed": {
+          "id": "generated_narrative",
+          "title": "Generated consensus",
+          "paragraphs": [
+            {
+              "id": "p1",
+              "title": "Generated consensus: paragraph",
+              "sentences": [
+                {
+                  "clauses": [
+                    {
+                      "text": "Generated clause one. ",
+                      "citations": [
+                        0,
+                        1
+                      ]
+                    },
+                    {
+                      "text": "Generated clause two.",
+                      "citations": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "0000a001-0000-4000-8000-000000000001_0_0": {
+        "model": "generated-model-alpha",
+        "created_at": "2026-10-03T12:00:01.000001+00:00",
+        "source_topic_job_id": "0000a001-0000-4000-8000-000000000001",
+        "raw_len": 4096,
+        "validity": "invalid",
+        "invalid_reason": "truncated_json",
+        "parsed": null
+      }
+    }
+  },
+  "omitted": [
+    "topics_by_layer",
+    "assignments",
+    "keywords",
+    "umap",
+    "visualizations",
+    "collective_statements",
+    "topic_stats",
+    "consensus_inputs"
+  ]
+}

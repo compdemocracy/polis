@@ -240,6 +240,13 @@ services:
       - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
       - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}
       - POLL_FROM_DAYS_AGO=${POLL_FROM_DAYS_AGO:-10}
+      # How far below its watermark each vote poll reads again (ms), so a vote
+      # that commits after a later-stamped vote was polled is still delivered.
+      - POLL_VOTE_OVERLAP_MS=${POLL_VOTE_OVERLAP_MS:-60000}
+      # The same for the moderation poll (comments.modified), so a moderation
+      # change that commits after a later-stamped change was polled is still
+      # delivered.
+      - POLL_MODERATION_OVERLAP_MS=${POLL_MODERATION_OVERLAP_MS:-60000}
       # Optional zid allow/block lists (comma-separated).
       - POLL_ALLOWLIST=${POLL_ALLOWLIST:-}
       - POLL_BLOCKLIST=${POLL_BLOCKLIST:-}

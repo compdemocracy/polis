@@ -1,0 +1,79 @@
+{
+  "contract_version": "delphi-run/1",
+  "job_id": "0000d001-0000-4000-8000-000000000002",
+  "run_id": "0000d001-0000-4000-8000-0000000000a2",
+  "root_job_id": "0000d001-0000-4000-8000-000000000002",
+  "parent_job_id": null,
+  "graph_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "origin": "queued",
+  "kind": "full_pipeline",
+  "stage": "delphi_full_pipeline",
+  "state": "running",
+  "attempt": {
+    "attempt_id": "0000d001-0000-4000-8000-0000000000b2",
+    "number": 2,
+    "lease_epoch": 2,
+    "max_attempts": 3,
+    "outcome": "running",
+    "started_at": "2026-10-18T21:00:05.000000+00:00",
+    "ended_at": null,
+    "process_exit_confirmed_at": null
+  },
+  "nodes": [],
+  "math_snapshot": null,
+  "inputs": null,
+  "config_effective": {
+    "batch_size": 20,
+    "result_scope": "pipeline",
+    "result_backend": "postgres",
+    "include_moderation": true
+  },
+  "code_version": "0123456789abcdef0123456789abcdef01234567",
+  "models": {
+    "embedding": "sentence-transformers/all-MiniLM-L6-v2",
+    "cluster": "delphi-umap-evoc/1",
+    "cluster_seed": null,
+    "topic_names": "claude-haiku-4-5-20251001",
+    "narrative": null,
+    "statement": null
+  },
+  "prompt_versions": {
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "outputs": {
+    "manifest_sha256": null,
+    "families": [
+      {
+        "family": "Delphi_CommentEmbeddings",
+        "state": "running",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000002",
+          "run_id": "0000d001-0000-4000-8000-0000000000a2"
+        },
+        "upstream": []
+      },
+      {
+        "family": "Delphi_CommentHierarchicalClusterAssignments",
+        "state": "not_started"
+      },
+      {
+        "family": "Delphi_CommentClustersLLMTopicNames",
+        "state": "not_started"
+      }
+    ]
+  },
+  "cost": {
+    "llm_tokens_in": null,
+    "llm_tokens_out": null,
+    "provider_requests": []
+  },
+  "pinned": false,
+  "label": null,
+  "created_at": "2026-10-18T19:59:58.000000+00:00",
+  "completed_at": null,
+  "failure": null
+}

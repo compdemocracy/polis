@@ -22,12 +22,20 @@ anyhow = "1"
 base64 = "0.22"
 httparse = "1"
 md5 = "0.7"
+jsonwebtoken = "9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2"
+uuid = "1"
+rand = "0.10"
+polis-auth = { path = "../polis-auth" }
 polis-queue-adapter = { path = ".." }
 postgres = "0.19"
 ryu-js = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 
 [dev-dependencies]
+openssl = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

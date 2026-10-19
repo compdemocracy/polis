@@ -186,7 +186,8 @@ def test_comparison_requires_fresh_complete_unchanged_evidence(tmp_path, mutatio
         (fresh / "d4-node-reader.json").write_text('{"differences": {}}')
     with pytest.raises((ValueError, FileNotFoundError)):
         comparisons(artifacts, fresh, baseline, select_pin(
-            {"system": "Darwin", "machine": "arm64", "forced_kernel": "not-forced"}, CI / "replay-pins.json"))
+            {"system": "Darwin", "machine": "arm64", "forced_kernel": "not-forced",
+             "compressor": json.loads((CI / "replay-pins.json").read_text())["pins"][0]["compressor"]}, CI / "replay-pins.json"))
 
 
 @pytest.mark.parametrize("mutation", ["stable-field", "published-byte", "inconsistent-observation", "missing-hash"])
@@ -336,7 +337,12 @@ def test_bridge_inventory_preserves_every_baseline_identity():
     }
     assert schema_tests <= set(extended["rust_tests"])
     assert len(extended["rust_tests"])==34+len(schema_tests)
-    assert extended["jest_cases"]==INV["jest_cases"]
+    # 89c48c205 added one mathBundle case; every baseline case is kept.
+    assert all(case in extended["jest_cases"] for case in INV["jest_cases"])
+    assert [case for case in extended["jest_cases"] if case not in INV["jest_cases"]]==[[
+        "__tests__/unit/mathBundle.test.ts",
+        "the accessors are pure and exact bidsForPids refuses a malformed mapping entry instead of throwing"]]
+    assert len(extended["jest_cases"])==len(INV["jest_cases"])+1
     assert extended["stages"]==INV["stages"]
 
 

@@ -1,0 +1,109 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": "0000a001-0000-4000-8000-0000000000b1",
+  "run_id": "0000a001-0000-4000-8000-0000000000e1",
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "status": "ready",
+  "as_of": "2026-10-03T12:00:00.000Z",
+  "inputs": {
+    "math_tick": 42,
+    "math_env": "python",
+    "vote_count": 120,
+    "comment_count": 8,
+    "model": {
+      "topic_names": "generated-model-alpha",
+      "narrative": "generated-model-alpha",
+      "statement": null,
+      "embedding": "generated-embedding"
+    },
+    "prompt_version": {
+      "topic_names": "topic-names-v1",
+      "narrative": "narrative-v1",
+      "statement": null
+    }
+  },
+  "attempt": null,
+  "failure": null,
+  "pinned": true,
+  "label": "Generated pinned run",
+  "outputs": {
+    "consensus_inputs": {
+      "group_votes": {
+        "0": {
+          "votes": {
+            "0": {
+              "A": 3,
+              "D": 1,
+              "S": 5
+            }
+          },
+          "n-members": 4
+        },
+        "1": {
+          "votes": {
+            "0": {
+              "A": 0,
+              "D": 2,
+              "S": 2
+            }
+          },
+          "n-members": 2
+        }
+      },
+      "repness": {
+        "0": [
+          {
+            "tid": 0,
+            "repful-for": "agree",
+            "p-success": 0.75
+          }
+        ],
+        "1": [
+          {
+            "tid": 0,
+            "repful-for": "disagree",
+            "p-success": 0.9
+          }
+        ]
+      },
+      "group_aware_consensus": {
+        "0": 0.42,
+        "1": 0.05,
+        "3": 0.31
+      },
+      "group_consensus_normalized": {
+        "0": 0.6,
+        "1": 0.07,
+        "3": 0.44
+      },
+      "comment_votes": {
+        "0": {
+          "agree_count": 6,
+          "disagree_count": 2,
+          "pass_count": 4
+        },
+        "1": {
+          "agree_count": 0,
+          "disagree_count": 0,
+          "pass_count": 0
+        },
+        "3": {
+          "agree_count": 4,
+          "disagree_count": 2,
+          "pass_count": 2
+        }
+      }
+    }
+  },
+  "omitted": [
+    "topics_by_layer",
+    "assignments",
+    "keywords",
+    "umap",
+    "visualizations",
+    "narratives",
+    "collective_statements",
+    "topic_stats"
+  ]
+}

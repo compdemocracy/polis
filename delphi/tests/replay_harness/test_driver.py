@@ -94,9 +94,10 @@ def test_blob_has_expected_fields(run1):
     for key in [
         "pca", "proj", "base-clusters", "group-clusters", "repness",
         "in-conv", "tids", "n", "n-cmts", "user-vote-counts", "votes-base",
-        "group-votes", "comment_priorities", "math_tick", "zid",
+        "group-votes", "comment-priorities", "math_tick", "zid",
     ]:
         assert key in blob, f"missing blob field {key!r}"
+    assert "comment_priorities" not in blob
     assert blob["pca"]["comps"], "PCA components should be present on vw"
 
 

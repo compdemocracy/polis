@@ -1,0 +1,960 @@
+{
+  "about": "The Python math writer's math_main output for one generation of a four-statement conversation (delphi/tests/poller/test_comment_priorities_key.py). The server's next-statement test inserts math_main unchanged. Regenerate with UPDATE_PRIORITIES_FIXTURE=1; never edit by hand.",
+  "dominant_tid": "2",
+  "engine_priorities": {
+    "0": 5.0625,
+    "1": 5.0625,
+    "2": 45.5625,
+    "3": 5.0625
+  },
+  "math_main": {
+    "last_updated": 1700000000000,
+    "participant_count": 16,
+    "comment_count": 4,
+    "vote_stats": {
+      "n_votes": 64,
+      "n_agree": 56,
+      "n_disagree": 8,
+      "n_pass": 0,
+      "comment_stats": {
+        "0": {
+          "n_votes": 16,
+          "n_agree": 16,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "1": {
+          "n_votes": 16,
+          "n_agree": 16,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "2": {
+          "n_votes": 16,
+          "n_agree": 8,
+          "n_disagree": 8,
+          "agree_ratio": 0.5
+        },
+        "3": {
+          "n_votes": 16,
+          "n_agree": 16,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        }
+      },
+      "participant_stats": {
+        "0": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "1": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "2": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "3": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "4": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "5": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "6": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "7": {
+          "n_votes": 4,
+          "n_agree": 4,
+          "n_disagree": 0,
+          "agree_ratio": 1.0
+        },
+        "8": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "9": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "10": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "11": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "12": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "13": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "14": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        },
+        "15": {
+          "n_votes": 4,
+          "n_agree": 3,
+          "n_disagree": 1,
+          "agree_ratio": 0.75
+        }
+      }
+    },
+    "moderation": {
+      "mod_out_tids": [],
+      "mod_in_tids": [],
+      "meta_tids": [],
+      "mod_out_ptpts": []
+    },
+    "pca": {
+      "center": [
+        -1.0,
+        -1.0,
+        -0.0,
+        -1.0
+      ],
+      "comps": [
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "comment-projection": [
+        [
+          -0.0,
+          -0.0,
+          -2.0,
+          -0.0
+        ],
+        [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      ],
+      "comment-extremity": [
+        0.0,
+        0.0,
+        2.0,
+        0.0
+      ]
+    },
+    "proj": {
+      "0": [
+        1.0,
+        0.0
+      ],
+      "1": [
+        1.0,
+        0.0
+      ],
+      "2": [
+        1.0,
+        0.0
+      ],
+      "3": [
+        1.0,
+        0.0
+      ],
+      "4": [
+        1.0,
+        0.0
+      ],
+      "5": [
+        1.0,
+        0.0
+      ],
+      "6": [
+        1.0,
+        0.0
+      ],
+      "7": [
+        1.0,
+        0.0
+      ],
+      "8": [
+        -1.0,
+        0.0
+      ],
+      "9": [
+        -1.0,
+        0.0
+      ],
+      "10": [
+        -1.0,
+        0.0
+      ],
+      "11": [
+        -1.0,
+        0.0
+      ],
+      "12": [
+        -1.0,
+        0.0
+      ],
+      "13": [
+        -1.0,
+        0.0
+      ],
+      "14": [
+        -1.0,
+        0.0
+      ],
+      "15": [
+        -1.0,
+        0.0
+      ]
+    },
+    "base-clusters": {
+      "id": [
+        0,
+        1
+      ],
+      "members": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        [
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ]
+      ],
+      "x": [
+        -1.0,
+        1.0
+      ],
+      "y": [
+        -0.0,
+        -0.0
+      ],
+      "count": [
+        8,
+        8
+      ]
+    },
+    "group-clusters": [
+      {
+        "id": 0,
+        "members": [
+          0
+        ],
+        "center": [
+          -1.0,
+          -0.0
+        ]
+      },
+      {
+        "id": 1,
+        "members": [
+          1
+        ],
+        "center": [
+          1.0,
+          -0.0
+        ]
+      }
+    ],
+    "group_clusters": [
+      {
+        "id": 0,
+        "center": [
+          1.0,
+          0.0
+        ],
+        "members": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      {
+        "id": 1,
+        "center": [
+          -1.0,
+          0.0
+        ],
+        "members": [
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ]
+      }
+    ],
+    "repness": {
+      "0": [
+        {
+          "tid": 2,
+          "n-success": 8,
+          "n-trials": 8,
+          "p-success": 0.9,
+          "p-test": 3.0,
+          "repness": 9.0,
+          "repness-test": 3.7947332859039307,
+          "repful-for": "agree"
+        },
+        {
+          "tid": 0,
+          "n-success": 0,
+          "n-trials": 8,
+          "p-success": 0.1,
+          "p-test": -2.3333333333333335,
+          "repness": 1.0,
+          "repness-test": 0.0,
+          "repful-for": "disagree",
+          "best-agree": true,
+          "n-agree": 8
+        }
+      ],
+      "1": [
+        {
+          "tid": 0,
+          "n-success": 0,
+          "n-trials": 8,
+          "p-success": 0.1,
+          "p-test": -2.3333333333333335,
+          "repness": 1.0,
+          "repness-test": 0.0,
+          "repful-for": "disagree",
+          "best-agree": true,
+          "n-agree": 8
+        },
+        {
+          "tid": 2,
+          "n-success": 8,
+          "n-trials": 8,
+          "p-success": 0.9,
+          "p-test": 3.0,
+          "repness": 9.0,
+          "repness-test": 3.7947332859039307,
+          "repful-for": "disagree"
+        }
+      ]
+    },
+    "participant_info": {
+      "0": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "1": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "2": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "3": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "4": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "5": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "6": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "7": {
+        "n_agree": 4,
+        "n_disagree": 0,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 0,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 0.0
+        }
+      },
+      "8": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "9": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "10": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "11": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "12": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "13": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "14": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      },
+      "15": {
+        "n_agree": 3,
+        "n_disagree": 1,
+        "n_pass": 0,
+        "n_votes": 4,
+        "group": 1,
+        "group_correlations": {
+          "0": 0.0,
+          "1": 1.0000000000000002
+        }
+      }
+    },
+    "comment-priorities": {
+      "0": 5.0625,
+      "1": 5.0625,
+      "2": 45.5625,
+      "3": 5.0625
+    },
+    "zid": 7,
+    "lastVoteTimestamp": 1700000000000,
+    "lastModTimestamp": null,
+    "tids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "n": 16,
+    "n-cmts": 4,
+    "user-vote-counts": {
+      "0": 4,
+      "1": 4,
+      "2": 4,
+      "3": 4,
+      "4": 4,
+      "5": 4,
+      "6": 4,
+      "7": 4,
+      "8": 4,
+      "9": 4,
+      "10": 4,
+      "11": 4,
+      "12": 4,
+      "13": 4,
+      "14": 4,
+      "15": 4
+    },
+    "votes-base": {
+      "0": {
+        "A": [
+          8,
+          8
+        ],
+        "D": [
+          0,
+          0
+        ],
+        "S": [
+          8,
+          8
+        ]
+      },
+      "1": {
+        "A": [
+          8,
+          8
+        ],
+        "D": [
+          0,
+          0
+        ],
+        "S": [
+          8,
+          8
+        ]
+      },
+      "2": {
+        "A": [
+          8,
+          0
+        ],
+        "D": [
+          0,
+          8
+        ],
+        "S": [
+          8,
+          8
+        ]
+      },
+      "3": {
+        "A": [
+          8,
+          8
+        ],
+        "D": [
+          0,
+          0
+        ],
+        "S": [
+          8,
+          8
+        ]
+      }
+    },
+    "group-votes": {
+      "0": {
+        "n-members": 8,
+        "votes": {
+          "0": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          },
+          "1": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          },
+          "2": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          },
+          "3": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          }
+        }
+      },
+      "1": {
+        "n-members": 8,
+        "votes": {
+          "0": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          },
+          "1": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          },
+          "2": {
+            "A": 0,
+            "D": 8,
+            "S": 8
+          },
+          "3": {
+            "A": 8,
+            "D": 0,
+            "S": 8
+          }
+        }
+      }
+    },
+    "subgroup-votes": {},
+    "subgroup-repness": {},
+    "group-aware-consensus": {
+      "0": 0.81,
+      "1": 0.81,
+      "2": 0.09000000000000001,
+      "3": 0.81
+    },
+    "in-conv": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "mod-out": null,
+    "mod-in": null,
+    "meta-tids": [],
+    "consensus": {
+      "agree": [
+        {
+          "tid": 0,
+          "n-success": 16,
+          "n-trials": 16,
+          "p-success": 0.9444444444444444,
+          "p-test": 4.123105625617661
+        },
+        {
+          "tid": 1,
+          "n-success": 16,
+          "n-trials": 16,
+          "p-success": 0.9444444444444444,
+          "p-test": 4.123105625617661
+        },
+        {
+          "tid": 3,
+          "n-success": 16,
+          "n-trials": 16,
+          "p-success": 0.9444444444444444,
+          "p-test": 4.123105625617661
+        }
+      ],
+      "disagree": []
+    },
+    "math_tick": 25000,
+    "repness_full": {
+      "comment_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "group_repness": {
+        "0": [
+          {
+            "comment_id": 2,
+            "group_id": 0,
+            "na": 8,
+            "nd": 0,
+            "ns": 8,
+            "pa": 0.9,
+            "pd": 0.1,
+            "pat": 3.0,
+            "pdt": -2.3333333333333335,
+            "ra": 9.0,
+            "rd": 0.11111111111111112,
+            "rat": 3.794733192202055,
+            "rdt": -3.794733192202055,
+            "agree_metric": 92.21201657050993,
+            "disagree_metric": 0.09838197164968292,
+            "repful": "agree"
+          },
+          {
+            "comment_id": 0,
+            "group_id": 0,
+            "na": 8,
+            "nd": 0,
+            "ns": 8,
+            "pa": 0.9,
+            "pd": 0.1,
+            "pat": 3.0,
+            "pdt": -2.3333333333333335,
+            "ra": 1.0,
+            "rd": 1.0,
+            "rat": 0.0,
+            "rdt": 0.0,
+            "agree_metric": 0.0,
+            "disagree_metric": -0.0,
+            "repful": "disagree",
+            "best_agree": true,
+            "n_agree": 8
+          }
+        ],
+        "1": [
+          {
+            "comment_id": 0,
+            "group_id": 1,
+            "na": 8,
+            "nd": 0,
+            "ns": 8,
+            "pa": 0.9,
+            "pd": 0.1,
+            "pat": 3.0,
+            "pdt": -2.3333333333333335,
+            "ra": 1.0,
+            "rd": 1.0,
+            "rat": 0.0,
+            "rdt": 0.0,
+            "agree_metric": 0.0,
+            "disagree_metric": -0.0,
+            "repful": "disagree",
+            "best_agree": true,
+            "n_agree": 8
+          },
+          {
+            "comment_id": 2,
+            "group_id": 1,
+            "na": 0,
+            "nd": 8,
+            "ns": 8,
+            "pa": 0.1,
+            "pd": 0.9,
+            "pat": -2.3333333333333335,
+            "pdt": 3.0,
+            "ra": 0.11111111111111112,
+            "rd": 9.0,
+            "rat": -3.794733192202055,
+            "rdt": 3.794733192202055,
+            "agree_metric": 0.09838197164968292,
+            "disagree_metric": 92.21201657050993,
+            "repful": "disagree"
+          }
+        ]
+      },
+      "comment_repness": [
+        {
+          "tid": 0,
+          "gid": 0,
+          "repness": -0.0,
+          "pa": 0.9,
+          "pd": 0.1
+        },
+        {
+          "tid": 1,
+          "gid": 0,
+          "repness": -0.0,
+          "pa": 0.9,
+          "pd": 0.1
+        },
+        {
+          "tid": 2,
+          "gid": 0,
+          "repness": 92.21201657050993,
+          "pa": 0.9,
+          "pd": 0.1
+        },
+        {
+          "tid": 3,
+          "gid": 0,
+          "repness": -0.0,
+          "pa": 0.9,
+          "pd": 0.1
+        },
+        {
+          "tid": 0,
+          "gid": 1,
+          "repness": -0.0,
+          "pa": 0.9,
+          "pd": 0.1
+        },
+        {
+          "tid": 1,
+          "gid": 1,
+          "repness": -0.0,
+          "pa": 0.9,
+          "pd": 0.1
+        },
+        {
+          "tid": 2,
+          "gid": 1,
+          "repness": 92.21201657050993,
+          "pa": 0.1,
+          "pd": 0.9
+        },
+        {
+          "tid": 3,
+          "gid": 1,
+          "repness": -0.0,
+          "pa": 0.9,
+          "pd": 0.1
+        }
+      ],
+      "consensus_comments": {
+        "agree": [
+          {
+            "tid": 0,
+            "n-success": 16,
+            "n-trials": 16,
+            "p-success": 0.9444444444444444,
+            "p-test": 4.123105625617661
+          },
+          {
+            "tid": 1,
+            "n-success": 16,
+            "n-trials": 16,
+            "p-success": 0.9444444444444444,
+            "p-test": 4.123105625617661
+          },
+          {
+            "tid": 3,
+            "n-success": 16,
+            "n-trials": 16,
+            "p-success": 0.9444444444444444,
+            "p-test": 4.123105625617661
+          }
+        ],
+        "disagree": []
+      }
+    }
+  }
+}

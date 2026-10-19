@@ -1,0 +1,26 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": null,
+  "run_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": null,
+  "status": "empty",
+  "as_of": null,
+  "inputs": null,
+  "attempt": null,
+  "failure": null,
+  "pinned": false,
+  "label": null,
+  "outputs": {},
+  "omitted": [
+    "topics_by_layer",
+    "assignments",
+    "keywords",
+    "umap",
+    "visualizations",
+    "narratives",
+    "collective_statements",
+    "topic_stats",
+    "consensus_inputs"
+  ]
+}

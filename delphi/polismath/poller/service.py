@@ -15,9 +15,9 @@ import logging
 import os
 import threading
 import time
-from collections import OrderedDict, deque
+from collections import Counter, OrderedDict, deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, TypeVar
 
 from polismath.conversation.conversation import Conversation
 from polismath.poller.admission import (
@@ -61,9 +61,12 @@ def advance_watermark(current: int, timestamps: Iterable[int]) -> int:
     """Advance a watermark to max(current, *timestamps); never regress.
 
     Clojure: ``(apply max 0 last-timestamp (map timestamp-key results))``
-    (poller.clj:27).  Because the loop's ``WHERE created > watermark`` is a
-    STRICT ``>``, monotonic-max advancement guarantees each row is delivered
-    exactly once and the watermark can only move forward.
+    (poller.clj:27).  The watermark can only move forward.  A strict
+    ``created > watermark`` alone does NOT deliver every committed vote: a vote
+    can commit after a poll with a ``created`` at or below the watermark that
+    poll produced, so the vote loop reads an overlap below it and drops what it
+    already handled (:class:`VoteWindow`).  The moderation loop does the same
+    over ``comments.modified`` (:class:`ModerationWindow`).
     """
     result = current
     for ts in timestamps:
@@ -77,6 +80,184 @@ def initial_watermark(poll_from_days_ago: float, now_millis: Optional[int] = Non
     if now_millis is None:
         now_millis = int(time.time() * 1000)
     return int(now_millis - poll_from_days_ago * _MS_PER_DAY)
+
+
+#: How far below the vote watermark each vote poll reads again, in ms
+#: (``POLL_VOTE_OVERLAP_MS``). 0 restores the strict ``created > watermark``.
+DEFAULT_VOTE_OVERLAP_MS = 60_000
+
+#: How far below the moderation watermark each moderation poll reads again, in
+#: ms (``POLL_MODERATION_OVERLAP_MS``). 0 restores the strict
+#: ``modified > watermark``.
+DEFAULT_MODERATION_OVERLAP_MS = 60_000
+
+
+def _vote_key(row: Mapping[str, Any]) -> Tuple[Any, Any, Any, Any, Any]:
+    """A polled vote row as the poller delivers it. ``.get``: the poll stage
+    never required pid/tid/vote (the engine validates them), so a partial row
+    still keys, on None."""
+    return (row.get("zid"), row.get("pid"), row.get("tid"), row.get("created"),
+            row.get("vote"))
+
+
+def _vote_cell(row: Mapping[str, Any]) -> Tuple[Any, Any, Any]:
+    return (row.get("zid"), row.get("pid"), row.get("tid"))
+
+
+def _moderation_key(row: Mapping[str, Any]) -> Tuple[Any, Any, Any, Any, Any]:
+    """A polled comment row as the moderation poll delivers it: every column it
+    reads. Two changes to one comment can carry the same ``modified`` (two
+    transactions started in the same millisecond), so the moderation state is
+    part of the key."""
+    return (row.get("zid"), row.get("tid"), row.get("modified"), row.get("mod"),
+            row.get("is_meta"))
+
+
+_W = TypeVar("_W", bound="PollWindow")
+
+
+@dataclass(frozen=True)
+class PollWindow:
+    """The recent rows a watermark poll has already handled, so that it can
+    read below its watermark without delivering a row twice. One subclass per
+    poll says how its rows are stamped and keyed (:class:`VoteWindow`,
+    :class:`ModerationWindow`).
+
+    Why: the stamp each poll reads (``votes.created``, ``comments.modified``)
+    is ``now_as_millis()``, which reads ``now()``, the writing transaction's
+    START time. A row whose transaction began before, and committed after, a
+    row that a poll read therefore carries a stamp at or below the watermark
+    that poll produced, and ``stamp > watermark`` never reads it. So each poll
+    reads ``stamp > lower``, ``lower`` trailing the watermark by the overlap,
+    and the window removes what earlier polls handled. A row whose transaction
+    stayed open longer than about the overlap is still not read.
+
+    * ``handled`` counts copies of each row (``key``) already handled with
+      ``stamp > lower``; a polled row is fresh only beyond those copies.
+    * ``newest`` is the newest stamp handled per ``cell`` in the window, for a
+      poll whose cells are superseded by stamp (votes). A fresh row older than
+      it is superseded and not delivered. The window holds every newer handled
+      row of that cell, because the late row is itself inside it. A poll with
+      no cells supersedes nothing.
+
+    With no late commit, the rows delivered are exactly those with ``stamp >
+    watermark``, in the poll's order, as with the strict cursor.
+
+    ``watermark`` is the poll's watermark the window was built for. When the
+    service's watermark differs (the first poll, or a watermark set from
+    outside), the poll starts a new window at that watermark, which reads
+    exactly ``stamp > watermark``.
+    """
+
+    watermark: int
+    lower: int
+    handled: Mapping[Tuple[Any, ...], int] = field(default_factory=dict)
+    newest: Mapping[Tuple[Any, ...], int] = field(default_factory=dict)
+
+    @staticmethod
+    def stamp(row: Mapping[str, Any]) -> int:
+        raise NotImplementedError
+
+    @staticmethod
+    def key(row: Mapping[str, Any]) -> Tuple[Any, ...]:
+        raise NotImplementedError
+
+    @staticmethod
+    def cell(row: Mapping[str, Any]) -> Optional[Tuple[Any, ...]]:
+        """The unit a newer row supersedes, or None (nothing is superseded)."""
+        return None
+
+    @classmethod
+    def start(cls: "type[_W]", watermark: int) -> _W:
+        """A window that has handled nothing and reads ``stamp > watermark``."""
+        return cls(watermark=watermark, lower=watermark)
+
+    def split(self, rows: Iterable[Mapping[str, Any]]) -> Tuple[List[Any], List[Any]]:
+        """Divide one poll of ``stamp > lower`` into (fresh, superseded).
+
+        ``fresh`` keeps the poll's row order; rows already handled are in
+        neither list."""
+        remaining = dict(self.handled)
+        fresh: List[Any] = []
+        superseded: List[Any] = []
+        for row in rows:
+            key = self.key(row)
+            copies = remaining.get(key, 0)
+            if copies:
+                remaining[key] = copies - 1
+                continue
+            cell = self.cell(row)
+            newest = None if cell is None else self.newest.get(cell)
+            if newest is not None and newest > self.stamp(row):
+                superseded.append(row)
+            else:
+                fresh.append(row)
+        return fresh, superseded
+
+    def advanced(self: _W, rows: Iterable[Mapping[str, Any]], watermark: int,
+                 overlap_ms: int) -> _W:
+        """The window after a poll that read ``rows`` (all of them now
+        handled) and moved the watermark to ``watermark``. Only rows above the
+        next poll's lower bound are kept. ``lower`` never moves down, so rows at
+        or below the starting watermark are never read."""
+        lower = max(self.lower, watermark - overlap_ms)
+        handled: Counter = Counter()
+        newest: Dict[Tuple[Any, ...], int] = {}
+        for row in rows:
+            stamp = self.stamp(row)
+            if stamp > lower:
+                handled[self.key(row)] += 1
+                cell = self.cell(row)
+                if cell is None:
+                    continue
+                prior = newest.get(cell)
+                if prior is None or stamp > prior:
+                    newest[cell] = stamp
+        return type(self)(watermark=watermark, lower=lower, handled=dict(handled),
+                          newest=newest)
+
+
+class VoteWindow(PollWindow):
+    """:class:`PollWindow` for the vote poll (``votes.created``).
+
+    * ``votes`` has no key and an identical row inserted twice is two rows, so
+      ``handled`` counts copies of each (``_vote_key``).
+    * A late vote older than one already delivered for the same (zid, pid,
+      tid) is superseded: a full-history load orders by ``created`` and keeps
+      the newer vote, so the incremental path keeps it too.
+    """
+
+    @staticmethod
+    def stamp(row: Mapping[str, Any]) -> int:
+        return row["created"]
+
+    key = staticmethod(_vote_key)
+    cell = staticmethod(_vote_cell)
+
+
+class ModerationWindow(PollWindow):
+    """:class:`PollWindow` for the moderation poll (``comments.modified``).
+
+    The server stamps ``modified = now_as_millis()`` in each moderating UPDATE
+    (and a new comment takes it as the column default), so a moderation change
+    can commit after a later-stamped one was polled, as a vote can.
+
+    Comments are updated in place: the table holds one row per (zid, tid) and
+    a poll reads its current version, keyed by every column the poll reads
+    (``_moderation_key``). Nothing is superseded. Two changes to one comment
+    commit in the order their row locks are taken, so the one that started
+    first can commit last with the older stamp; that row is then the comment's
+    state, and it is what a full rebuild reads (``poll_moderation`` reads the
+    table as it stands), so it is delivered. The per-zid worker re-derives the
+    conversation's full moderation state from the table whenever a moderation
+    batch arrives, so a delivery is idempotent.
+    """
+
+    @staticmethod
+    def stamp(row: Mapping[str, Any]) -> int:
+        return row["modified"]
+
+    key = staticmethod(_moderation_key)
 
 
 def should_process_zid(
@@ -168,6 +349,8 @@ class PollerConfig:
       math_env           MATH_ENV                                   (default 'dev')
       vote_interval_ms   POLL_VOTE_INTERVAL_MS | VOTE_POLLING_INTERVAL | POLL_INTERVAL_MS (1000)
       mod_interval_ms    POLL_MOD_INTERVAL_MS  | MOD_POLLING_INTERVAL | POLL_INTERVAL_MS (1000)
+      vote_overlap_ms    POLL_VOTE_OVERLAP_MS                        (default 60000; 0 = strict)
+      moderation_overlap_ms POLL_MODERATION_OVERLAP_MS               (default 60000; 0 = strict)
       poll_from_days_ago POLL_FROM_DAYS_AGO                          (default 10)
       allowlist          POLL_ALLOWLIST | MATH_ZID_ALLOWLIST         (default [])
       blocklist          POLL_BLOCKLIST | MATH_ZID_BLOCKLIST         (default [])
@@ -191,6 +374,14 @@ class PollerConfig:
     math_env: str = "dev"
     vote_interval_ms: int = 1000
     mod_interval_ms: int = 1000
+    # How far below the vote watermark each vote poll reads again (VoteWindow):
+    # a vote is stamped with its transaction's start time and may commit after
+    # a later-stamped vote was polled. 0 restores the strict created > watermark.
+    vote_overlap_ms: int = DEFAULT_VOTE_OVERLAP_MS
+    # The same for the moderation poll (ModerationWindow): the server stamps a
+    # moderation change with its transaction's start time too. 0 restores the
+    # strict modified > watermark.
+    moderation_overlap_ms: int = DEFAULT_MODERATION_OVERLAP_MS
     poll_from_days_ago: float = 10
     allowlist: List[int] = field(default_factory=list)
     blocklist: List[int] = field(default_factory=list)
@@ -248,6 +439,12 @@ class PollerConfig:
         self._validate_shard()
         self._validate_cache_cap()
         self._validate_memory()
+        if self.vote_overlap_ms < 0:
+            raise ValueError(f"vote_overlap_ms must be >= 0, got {self.vote_overlap_ms}")
+        if self.moderation_overlap_ms < 0:
+            raise ValueError(
+                f"moderation_overlap_ms must be >= 0, got {self.moderation_overlap_ms}"
+            )
 
     def _validate_memory(self) -> None:
         if self.memory_limit_mb is not None and not (self.memory_limit_mb > 0):
@@ -310,6 +507,15 @@ class PollerConfig:
                     "MOD_POLLING_INTERVAL",
                     "POLL_INTERVAL_MS",
                     default="1000",
+                )
+            ),
+            vote_overlap_ms=int(
+                _env_first("POLL_VOTE_OVERLAP_MS", default=str(DEFAULT_VOTE_OVERLAP_MS))
+            ),
+            moderation_overlap_ms=int(
+                _env_first(
+                    "POLL_MODERATION_OVERLAP_MS",
+                    default=str(DEFAULT_MODERATION_OVERLAP_MS),
                 )
             ),
             poll_from_days_ago=float(os.environ.get("POLL_FROM_DAYS_AGO", "10")),
@@ -476,7 +682,11 @@ class MathPollerService:
         self._threads: List[threading.Thread] = []
         self._stop = threading.Event()
         self._vote_wm: Optional[int] = None
+        # What the vote poll handled just below _vote_wm (VoteWindow).
+        self._vote_window: Optional[VoteWindow] = None
         self._mod_wm: Optional[int] = None
+        # What the moderation poll handled just below _mod_wm (ModerationWindow).
+        self._mod_window: Optional[ModerationWindow] = None
         # Set ONLY on a scan that completed without raising. Until then the
         # parked-zid reconciler retries it every cycle (see _reconcile_once);
         # the lock serialises start()/poll_once()/reconciler so a retry cannot
@@ -975,26 +1185,59 @@ class MathPollerService:
         begin_cycle = getattr(self._pg, "begin_convention_cycle", None)
         if begin_cycle is not None:
             begin_cycle()
-        rows = self._pg.poll_votes_since(self._vote_wm)
-        logger.info("Polled %d votes since watermark %s", len(rows), self._vote_wm)
-        for zid, batch in _group_by_zid(rows).items():
+        window = self._vote_window
+        if window is None or window.watermark != self._vote_wm:
+            window = VoteWindow.start(self._vote_wm)
+        # Reads the overlap below the watermark too; the window drops the rows
+        # earlier polls handled, so each committed vote is delivered once.
+        rows = self._pg.poll_votes_since(window.lower)
+        fresh, superseded = window.split(rows)
+        logger.info("Polled %d votes since watermark %s", len(fresh), self._vote_wm)
+        late = sum(1 for r in fresh if r["created"] <= self._vote_wm)
+        if late or superseded:
+            logger.info(
+                "Vote poll: %d vote(s) committed after a later-stamped vote was "
+                "polled, delivered now; %d older than a vote already delivered "
+                "for the same participant and statement, not delivered",
+                late, len(superseded),
+            )
+        for zid, batch in _group_by_zid(fresh).items():
             if self._accepts(zid):
                 self._unpark(zid)  # new batch self-heals a parked zid
                 self._pool.submit(zid, VOTES, batch)
         self._vote_wm = advance_watermark(
             self._vote_wm, (r["created"] for r in rows)
         )
+        self._vote_window = window.advanced(
+            rows, self._vote_wm, self.config.vote_overlap_ms
+        )
 
     def _poll_moderation_once(self) -> None:
         assert self._pool is not None
-        rows = self._pg.poll_moderation_since(self._mod_wm)
-        logger.info("Polled %d mod changes since watermark %s", len(rows), self._mod_wm)
-        for zid, batch in _group_by_zid(rows).items():
+        window = self._mod_window
+        if window is None or window.watermark != self._mod_wm:
+            window = ModerationWindow.start(self._mod_wm)
+        # Reads the overlap below the watermark too; the window drops the rows
+        # earlier polls handled, so each committed change is delivered once.
+        # Moderation supersedes nothing, so every row not handled is fresh.
+        rows = self._pg.poll_moderation_since(window.lower)
+        fresh, _superseded = window.split(rows)
+        logger.info("Polled %d mod changes since watermark %s", len(fresh), self._mod_wm)
+        late = sum(1 for r in fresh if r["modified"] <= self._mod_wm)
+        if late:
+            logger.info(
+                "Moderation poll: %d change(s) committed after a later-stamped "
+                "change was polled, delivered now", late,
+            )
+        for zid, batch in _group_by_zid(fresh).items():
             if self._accepts(zid):
                 self._unpark(zid)  # new batch self-heals a parked zid
                 self._pool.submit(zid, MODERATION, batch)
         self._mod_wm = advance_watermark(
             self._mod_wm, (r["modified"] for r in rows)
+        )
+        self._mod_window = window.advanced(
+            rows, self._mod_wm, self.config.moderation_overlap_ms
         )
 
     # -- per-zid processing (runs on pool threads) -------------------------- #

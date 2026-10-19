@@ -1,0 +1,75 @@
+{
+  "contract_version": "delphi-run/1",
+  "job_id": "0000d001-0000-4000-8000-000000000081",
+  "run_id": "0000d001-0000-4000-8000-000000000a81",
+  "root_job_id": "0000d001-0000-4000-8000-000000000008",
+  "parent_job_id": "0000d001-0000-4000-8000-000000000008",
+  "graph_id": "0000d001-0000-4000-8000-000000000099",
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "origin": "queued",
+  "kind": "cluster",
+  "stage": "graph_cluster",
+  "state": "running",
+  "attempt": {
+    "attempt_id": "0000d001-0000-4000-8000-000000000b81",
+    "number": 1,
+    "lease_epoch": 1,
+    "max_attempts": 2,
+    "outcome": "running",
+    "started_at": "2026-10-18T23:01:05.000000+00:00",
+    "ended_at": null,
+    "process_exit_confirmed_at": null
+  },
+  "nodes": [],
+  "math_snapshot": null,
+  "inputs": null,
+  "config_effective": {
+    "mode": "full",
+    "seed": 42
+  },
+  "code_version": "0123456789abcdef0123456789abcdef01234567",
+  "models": {
+    "embedding": null,
+    "cluster": "delphi-umap-evoc/1",
+    "cluster_seed": 42,
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "prompt_versions": {
+    "topic_names": null,
+    "narrative": null,
+    "statement": null
+  },
+  "outputs": {
+    "manifest_sha256": null,
+    "families": [
+      {
+        "family": "Delphi_CommentHierarchicalClusterAssignments",
+        "state": "running",
+        "producer": {
+          "job_id": "0000d001-0000-4000-8000-000000000081",
+          "run_id": "0000d001-0000-4000-8000-000000000a81"
+        },
+        "upstream": [
+          {
+            "family": "Delphi_CommentEmbeddings",
+            "job_id": "0000d001-0000-4000-8000-000000000008",
+            "run_id": "0000d001-0000-4000-8000-0000000000a8"
+          }
+        ]
+      }
+    ]
+  },
+  "cost": {
+    "llm_tokens_in": null,
+    "llm_tokens_out": null,
+    "provider_requests": []
+  },
+  "pinned": false,
+  "label": null,
+  "created_at": "2026-10-18T19:59:58.000000+00:00",
+  "completed_at": null,
+  "failure": null
+}

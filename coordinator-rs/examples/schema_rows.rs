@@ -64,6 +64,7 @@ fn main() -> Result<()> {
                         "float4" => json!("NaN"),
                         "float8" => json!("-Infinity"),
                         "_text" => json!(["x", null]),
+                        "_float4" => json!(["NaN", null, "-0"]),
                         "job_status" => json!("pending"),
                         _ => anyhow::bail!("unreviewed type"),
                     }
@@ -95,7 +96,7 @@ fn main() -> Result<()> {
     }
     tx.rollback()?;
     println!(
-        "schema mapping PASS: {} tables, {mapped} rows, 603 catalog columns",
+        "schema mapping PASS: {} tables, {mapped} rows, 766 catalog columns",
         schema::TABLES.len()
     );
     Ok(())

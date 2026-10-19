@@ -82,6 +82,12 @@ impl Headers {
         Self(out)
     }
 
+    pub fn only(&self, names: &[&str]) -> bool {
+        self.0
+            .iter()
+            .all(|(name, _)| names.contains(&name.as_str()))
+    }
+
     /// `req.headers[name]` (`name` lower-case).
     pub fn get(&self, name: &str) -> Option<&str> {
         self.0
@@ -138,7 +144,11 @@ pub fn reason_text(status: u16) -> &'static str {
         302 => "Found",
         304 => "Not Modified",
         400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
         404 => "Not Found",
+        405 => "Method Not Allowed",
+        409 => "Conflict",
         413 => "Payload Too Large",
         500 => "Internal Server Error",
         502 => "Bad Gateway",
@@ -481,6 +491,21 @@ mod tests {
             String::from_utf8(bytes).unwrap(),
             "HTTP/1.1 302 Found\r\nLocation: https://h/x\r\nDate: D\r\nConnection: keep-alive\r\nKeep-Alive: timeout=5\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
         );
+    }
+
+    #[test]
+    fn conflict_status_line_and_head_preserve_the_wire_contract() {
+        let out = Outgoing {
+            status: 409,
+            headers: vec![("Content-Length".into(), "8".into())],
+            body: Body::Fixed(b"conflict".to_vec()),
+            close: false,
+        };
+        let full = write_response(&out, false, true, "D").unwrap();
+        let head = write_response(&out, true, true, "D").unwrap();
+        assert!(full.starts_with(b"HTTP/1.1 409 Conflict\r\n"));
+        assert!(full.ends_with(b"\r\n\r\nconflict"));
+        assert_eq!(head, &full[..full.len() - 8]);
     }
 
     #[test]

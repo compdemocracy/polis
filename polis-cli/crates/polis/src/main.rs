@@ -1,5 +1,6 @@
 mod admin;
 mod collective;
+mod collective_read;
 mod commands;
 mod commenting;
 mod highlights;
@@ -10,6 +11,7 @@ mod math;
 mod membership;
 mod narrative;
 mod oauth;
+mod owner_conversations;
 mod participation;
 mod pass10;
 mod pass11;
@@ -58,7 +60,7 @@ fn client(config: &profiles::Config, site: &str, timeout: u64, required: bool) -
         return Err(Error::new(
             "auth_required",
             "Not signed in.",
-            "Run polis auth login.",
+            "Run polis auth login once to save a sign-in in the owner-only file store.",
             3,
         ));
     }
@@ -206,9 +208,11 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "metadata question add" | "context create" => {
             pass9::execute(&path, m, config, site, timeout)
         }
-        "statement list" | "statement view" | "collective list" | "collective view" => {
-            pass7::execute(&path, m, config, site, timeout)
-        }
+        "statement list"
+        | "statement view"
+        | "collective list"
+        | "collective view"
+        | "collective statements" => pass7::execute(&path, m, config, site, timeout),
         "topic list"
         | "topic statements"
         | "topic hierarchy"
@@ -308,7 +312,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 Error::new(
                     "auth_required",
                     "Not signed in.",
-                    "Run polis auth login.",
+                    "Run polis auth login once to save a sign-in in the owner-only file store.",
                     3,
                 )
             })?;
@@ -327,12 +331,18 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             )
         }
         "auth logout" => {
-            profiles::logout(site, config.url(site)?)?;
+            let revoked = oauth::logout(config, site, timeout)?;
             Ok(
-                json!({"state":"logged_out","keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Access and refresh credentials erased; a tombstone suppresses older Keychain values. Keychain deletion may be deferred in headless mode. Unset {} separately if present.", profiles::token_env(site))}),
+                json!({"state":"logged_out","refresh_token_revocation":if revoked {"acknowledged"} else {"not_available"},"keychain_cleanup":"best_effort_or_deferred","stale_keychain_suppressed":true,"environment_override_present":profiles::token_override_present(site),"note":format!("Saved file credentials cleared; a tombstone suppresses older Keychain values. Keychain entries are left alone unless POLIS_KEYCHAIN=on; opted-in deletion is best effort without dialogs. Unset {} separately if present.", profiles::token_env(site))}),
             )
         }
         "conversation list" => {
+            if m.get_one::<String>("sort").is_some()
+                || m.get_one::<u32>("min-participants").is_some()
+                || m.get_one::<String>("cursor").is_some()
+            {
+                return owner_conversations::list(m, || client(config, site, timeout, true));
+            }
             let limit = *m.get_one::<u16>("limit").unwrap();
             // Only parameters the current API reads: limit, is_active, is_draft.
             let mut query = vec![("limit".into(), limit.to_string())];
@@ -674,6 +684,16 @@ fn main() -> ExitCode {
         return render(&site, Err(e), json_mode);
     }
     let result = execute(&root, &mut config, &site);
+    if !json_mode
+        && root
+            .subcommand_matches("collective")
+            .is_some_and(|m| m.subcommand_name() == Some("statements"))
+    {
+        if let Ok(value) = &result {
+            print!("{}", listing::terminal_text(&collective_read::text(value)));
+            return ExitCode::SUCCESS;
+        }
+    }
     if !json_mode
         && root
             .subcommand_matches("auth")

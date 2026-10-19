@@ -1,0 +1,26 @@
+{
+  "contract_version": "delphi-job-result/1",
+  "job_id": "0000a001-0000-4000-8000-000000000001",
+  "run_id": null,
+  "conversation_id": "2gen4p1",
+  "report_id": "r4p1gen",
+  "status": "pending",
+  "as_of": null,
+  "inputs": null,
+  "attempt": null,
+  "failure": null,
+  "pinned": false,
+  "label": null,
+  "outputs": {},
+  "omitted": [
+    "topics_by_layer",
+    "assignments",
+    "keywords",
+    "umap",
+    "visualizations",
+    "narratives",
+    "collective_statements",
+    "topic_stats",
+    "consensus_inputs"
+  ]
+}
