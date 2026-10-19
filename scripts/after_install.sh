@@ -137,8 +137,11 @@ pull_image() {
   fi
   sudo docker pull "$ref"
 }
+# The web box also pulls polis-api (the Rust read routes) on every deploy; it
+# starts only when the env document routes requests to it (the server branch
+# below).
 case "$SERVICE_FROM_FILE" in
-  server) ROLE_IMAGES="server nginx-proxy client-participation-alpha" ;;
+  server) ROLE_IMAGES="server nginx-proxy client-participation-alpha polis-api" ;;
   delphi) ROLE_IMAGES="delphi math-python" ;;
   delphi-large|delphi-worker) ROLE_IMAGES="delphi" ;;
   *) ROLE_IMAGES="" ;;
@@ -243,9 +246,25 @@ worker_daemon() {
 }
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
+  # polis-api (profile rust-api) starts only when RUST_API_ROUTES, as
+  # nginx-proxy receives it from this box's env document, names a route (the
+  # same split on commas and blanks as nginx's entrypoint). Naming a
+  # profile-gated service on the `up` line starts it (the note in the delphi
+  # branch). With no route named the array is empty, so the `up` line is
+  # exactly the three services, polis-api's pulled image stays unused, and
+  # nginx renders no Rust route: every request goes to Node. To stop routing
+  # to Rust, remove RUST_API_ROUTES from the env document and deploy.
+  RUST_API_ROUTES_NAMED=$("${COMPOSE[@]}" config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""' | tr -d ', \t\r\n')
+  POLIS_API_SERVICE=()
+  if [ -n "$RUST_API_ROUTES_NAMED" ]; then
+    POLIS_API_SERVICE=(polis-api)
+    echo "RUST_API_ROUTES names a route: starting polis-api too"
+  else
+    echo "RUST_API_ROUTES names no route: polis-api is not started and every request goes to Node"
+  fi
   echo "Starting the pulled 'server', 'nginx-proxy', and 'client-participation-alpha' images"
   "${COMPOSE[@]}" down
-  "${COMPOSE[@]}" up -d server nginx-proxy client-participation-alpha --no-build --force-recreate
+  "${COMPOSE[@]}" up -d server nginx-proxy client-participation-alpha "${POLIS_API_SERVICE[@]}" --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   # The Clojure math engine is retired; the Python engine (math-python) runs on
   # the Delphi role. A box still tagged `math` (the math-worker ASG until it is
