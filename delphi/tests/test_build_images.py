@@ -4,8 +4,9 @@ prints.
 
 Runs the real scripts with every external command faked on PATH: aws, docker,
 docker-compose, jq, flock and sleep only record their arguments (aws answers
-the few reads the scripts make). The build box's absolute paths
-(/run/polis-build, /var/log/polis-build) are rewritten into a temporary root.
+the few reads the scripts make; docker login reads its password from stdin).
+The build box's absolute paths (/run/polis-build, /var/log/polis-build) are
+rewritten into a temporary root.
 
 polis-api has no repository of its own: like the migration runner it goes to
 `polis`, tagged `polis-api-<commit>` (the build box may push only to
@@ -67,7 +68,11 @@ FAKES = {
     "flock": RECORD,
     "sleep": RECORD,
     "jq": RECORD + "echo value\n",
-    "docker": RECORD,
+    # `docker login --password-stdin` reads the password to EOF, as the real one
+    # does. A fake that exits unread can close the pipe before the aws fake
+    # writes the password; aws then dies of SIGPIPE and build-images.sh
+    # (pipefail) fails "ECR login", as it did intermittently under pytest-xdist.
+    "docker": RECORD + 'case "$1" in login) cat > /dev/null;; esac\n',
     "docker-compose": RECORD + 'case " $* " in *" config "*) echo "{}";; esac\n',
     # The registry digest of repo:tag is sha256("repo:tag").
     "aws": RECORD + (
