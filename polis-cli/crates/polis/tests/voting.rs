@@ -169,11 +169,116 @@ fn first_vote_needs_no_join_or_account_and_reuses_token_for_all_choices() {
         let body: Value = serde_json::from_str(r.split("\r\n\r\n").nth(1).unwrap()).unwrap();
         assert_eq!(body["vote"], choice.wire());
         assert_eq!(body["conversation_id"], "2demo");
-        assert_eq!(body.as_object().unwrap().len(), 3);
+        assert_eq!(body["high_priority"], false);
+        assert_eq!(body.as_object().unwrap().len(), 4);
     }
     assert!(rs[1].contains(TOKEN));
     assert!(rs[2].contains(TOKEN));
     assert_eq!(private(d.path())[0]["token"], TOKEN);
+}
+fn vote_body(request: &str) -> (&str, Value) {
+    let raw = request.split("\r\n\r\n").nth(1).unwrap();
+    (raw, serde_json::from_str(raw).unwrap())
+}
+#[test]
+fn important_marks_the_vote_as_the_page_does_and_leaves_the_choice_and_receipt_alone() {
+    use polis_contracts::votes::VoteChoice;
+    let d = tempfile::tempdir().unwrap();
+    let t = server(
+        d.path(),
+        vec![
+            json_res(vote_receipt()),
+            json_res(json!({"currentPid":0})),
+            json_res(json!({"currentPid":0})),
+            json_res(json!({"currentPid":0})),
+        ],
+    );
+    let mut receipts = Vec::new();
+    for (tid, flag, important) in [
+        ("0", "--agree", false),
+        ("0", "--agree", true),
+        ("1", "--disagree", true),
+        ("2", "--pass", true),
+    ] {
+        let mut args = vec!["vote", "2demo", "--statement", tid, flag];
+        if important {
+            args.push("--important");
+        }
+        let (code, v) = call(d.path(), &args, None, true);
+        assert_eq!(code, 0, "{v}");
+        receipts.push(v);
+    }
+    // --json is unchanged: the marked receipt equals the unmarked one.
+    assert_eq!(receipts[0], receipts[1]);
+    assert_eq!(
+        receipts[1]["data"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
+        [
+            "choice",
+            "conversation_id",
+            "credentials_saved",
+            "participant_id",
+            "state",
+            "statement"
+        ]
+    );
+    let rs = t.join().unwrap();
+    assert_eq!(rs.len(), 4);
+    for (r, (tid, choice, important)) in rs.iter().zip([
+        (0, VoteChoice::Agree, false),
+        (0, VoteChoice::Agree, true),
+        (1, VoteChoice::Disagree, true),
+        (2, VoteChoice::Pass, true),
+    ]) {
+        assert!(r.starts_with("POST /api/v3/votes "));
+        let (raw, body) = vote_body(r);
+        // The page's own field and spelling: always present, a JSON boolean.
+        assert!(raw.contains(&format!("\"high_priority\":{important}")));
+        assert_eq!(body["high_priority"], important);
+        // The choice goes through the shared contract, marked or not.
+        assert_eq!(body["vote"], choice.wire());
+        assert_eq!(body["tid"], tid);
+        assert_eq!(body["conversation_id"], "2demo");
+        assert_eq!(
+            body.as_object().unwrap().keys().collect::<Vec<_>>(),
+            ["conversation_id", "high_priority", "tid", "vote"]
+        );
+    }
+    let (_, unmarked) = vote_body(&rs[0]);
+    let (_, marked) = vote_body(&rs[1]);
+    assert_eq!(unmarked["vote"], marked["vote"]);
+    assert_eq!(unmarked["tid"], marked["tid"]);
+}
+#[test]
+fn important_needs_one_explicit_vote_and_sends_nothing_otherwise() {
+    let d = tempfile::tempdir().unwrap();
+    // A request would fail to connect (not exit 2), so exit 2 means none was sent.
+    std::fs::write(
+        d.path().join("profiles.json"),
+        r#"{"default":"local","sites":{"local":"http://127.0.0.1:1"}}"#,
+    )
+    .unwrap();
+    for args in [
+        vec!["vote", "2demo", "--important"],
+        vec!["vote", "2demo", "--statement", "0", "--important"],
+        vec!["vote", "--important"],
+    ] {
+        assert_eq!(call(d.path(), &args, None, false).0, 2, "{args:?}");
+    }
+    assert!(!d.path().join("credentials").exists());
+    let (code, v) = call(d.path(), &["schema", "vote"], None, false);
+    assert_eq!(code, 0);
+    let important = v["data"]["arguments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["name"] == "important")
+        .unwrap();
+    assert_eq!(important["long"], "important");
+    assert_eq!(important["help"], "Mark this statement as important to you");
 }
 #[test]
 fn invite_vote_reuses_participant_and_preserves_returning_login_secret() {

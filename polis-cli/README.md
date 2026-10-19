@@ -716,6 +716,14 @@ printing tokens or login codes. Participant credentials are isolated by profile,
 normalized origin and conversation; account tokens are not used. Node enforces
 access and voting rules. Vote values come from the shared contract boundary.
 
+`--important` marks the statement as important to you, as the participation
+page's importance checkbox does:
+`polis vote CONVERSATION --statement 0 --agree --important`. It needs
+`--statement` and one choice, and it changes neither the choice nor the
+receipt. As on the page, every vote request carries `high_priority`: `true`
+when marked, `false` otherwise. Reports and exports count importance only in
+conversations where it is enabled.
+
 No request is automatically retried. A lost or incompatible response, or a
 credential-save failure after a response, exits 7: check participation before
 resubmitting. Node may create membership before rejecting a vote; an error does
