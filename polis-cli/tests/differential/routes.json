@@ -414,5 +414,13 @@
     "expected_node_handoffs": 0,
     "commands": [],
     "scope": "Unmatched operations GET/HEAD 404 with explicit OPS_ENABLED=false. No CLI command targets the catch-all; direct wire replay proves serving. Registered whoami/page paths preserve independent switches."
+  },
+  "delphiRun": {
+    "path": "/api/v3/delphi/run",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Rust-only: Node has no handler, so a hand-back is Node's 404. No CLI command reaches this route yet; the raw replay against real local runs (delphi-run-run.sh) and the nginx switch test provide serving proof."
   }
 }

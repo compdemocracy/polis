@@ -1199,3 +1199,64 @@ bytes are admitted, plus the root with or without its slash. Other encodings,
 identity/cookies, bodies, queries and methods stay Node. No database, provider
 or participation resources are acquired. The no-store response uses the shared
 contract in `polis-contracts/src/ops_catchall.rs`.
+
+
+### Delphi run record
+
+`GET`/`HEAD /api/v3/delphi/run?job_id=<uuid>` serves one Delphi job's run
+record, the `delphi-run/1` contract (`polis-contracts/src/delphi_run.rs`),
+behind `POLIS_API_DELPHI_RUN_READS=1` and nginx `RUST_API_ROUTES=delphiRun`,
+both off by default. It is a Rust-only route: Node has no handler for the
+path, so every hand-back (polis-api's 502, no answer within nginx's 3 s, a
+request shape the route does not model) reaches Node's 404.
+
+- **The read.** One call to `pd_run_record(env, job)` (migration 000041), a
+  SQL function that reads the job, its last attempt, its graph position, the
+  finalized manifest, its provider requests and every family of its published
+  bundle in one statement, so the record is one snapshot.
+  `POLIS_API_DELPHI_RUN_DATABASE_URL` names a login in
+  `polis_queue_executor`, the function's only grantee; `DELPHI_RESULT_ENV` is
+  the queue env, as for Node. Its own pool: 2 slots, 50 ms acquire, 2 s
+  statement timeout. The whole request has 2.5 s.
+- **Who may read it.** Node's rule for `GET /api/v3/delphi/logs`
+  (`hybridAuth`, then `isModerator(zid, uid)` for the job's conversation: a
+  moderator of the owner's site, or an administrator in `ADMIN_UIDS`), with
+  Node's refusal shapes: no `Authorization: Bearer` header, 401
+  `{"error":"No authentication token found"}` before any read; no job id, 400
+  `job_id is required`; no such job (or not a lowercase uuid), 404
+  `Job not found`; not a moderator, 403 `polis_err_delphi_run_auth`. Identity
+  comes only from a token polis-api verifies (polis-auth's participant
+  verifier, or OIDC through `POLIS_API_READ_JWKS_FILE`); any other token (an
+  XID token, an unknown subject, a bad signature) hands back. Identity, the
+  moderator rule and the conversation's zinvite are read on a second pool,
+  `POLIS_API_DELPHI_RUN_AUTH_DATABASE_URL`, else Node's
+  `READ_ONLY_DATABASE_URL`, else `DATABASE_URL`: 1 slot, 50 ms acquire,
+  100 ms statement timeout. Neither pool is a participation pool, and no
+  connection is held across another call.
+- **Recorded, and not yet recorded.** From the function: identity, report,
+  kind, origin, stage, state, the last attempt (number, lease epoch, outcome,
+  started and ended, exit proof), graph id, root and, on a root, the other
+  nodes; configuration, code version, the finalized manifest's inputs, its
+  embedding, topic-name and narrative models and token counts; provider
+  requests; pinned; and for each family of the job's published bundle its
+  producing run, the run each upstream family came from, its batch (content
+  sha256, row count) and its publication (scope and generation; `succeeded`
+  while the served pointer still resolves it, else `superseded`). Recorded
+  nowhere yet, so always `null`: `math_snapshot`, the clustering model and
+  seed, the statement model, prompt versions and `label`. A failure is given
+  only when the job was cancelled or its recorded code (before any `:`
+  detail) is one of the contract's closed codes; its stage is `null`. A job
+  that published nothing lists no family. A full pipeline run still writes
+  empty copies of the seven retired math families (clearing the import's);
+  the contract has no new run produce a legacy family, so those empty copies
+  are left out, and a non-empty one is refused. A record the contract
+  refuses is not served (hand-back).
+- **Byte stability.** The body is `wire::to_json` of the record.
+  `conformance/delphi-run-fixtures/` holds the function's output and the
+  route's bytes for a real local sequence (a full pipeline run, a
+  collective-statement save over its topics, a second full pipeline run);
+  a unit test rebuilds each record and compares the bytes. The db-tests
+  check the rule, the refusals and pool isolation. Run
+  `queue-rs/polis-api/conformance/delphi-run-run.sh result.json` for real
+  runs through polis-jobs and every answer recorded and checked against the
+  function. `delphiRunServed` and `delphiRunFallback` count the outcomes.
