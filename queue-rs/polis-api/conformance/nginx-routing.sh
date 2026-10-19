@@ -1310,3 +1310,26 @@ handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/statemen
 docker rm -f "$p-node" >/dev/null
 stub "$p-node" server 5000 200 node
 echo "ok 61 Statement importance off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/logs node "Logs off"
+start delphiLogs,delphiLogs
+expect '/api/v3/delphi/logs?job_id=x' rust "Logs on"
+expect /api/v3/delphi/run node "Logs leave run record alone"
+expect /api/v3/delphi/logs/ node "Logs path is exact"
+expect /api/v3/comments node "Logs leave comments alone"
+expect /api/v3/votes node "Logs leave votes alone"
+[[ $(included | grep -c 'location = /api/v3/delphi/logs') == 1 ]] || fail "Logs duplicated"
+expect_upstream polis-api GET /api/v3/delphi/logs $'Authorization: Bearer generated\r\n'
+expect_upstream polis-api HEAD /api/v3/delphi/logs
+expect_upstream server OPTIONS /api/v3/delphi/logs
+expect_upstream server POST /api/v3/delphi/logs $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/logs $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/delphi/logs node "Logs handoff"
+echo "ok 62 Logs off/on/deduplicated; method/body guards; 502 hands back to Node"

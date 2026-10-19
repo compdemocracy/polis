@@ -149,6 +149,12 @@ pub struct App {
     pub topic_stats_db: Option<Arc<Pool>>,
     pub topic_stats_served: AtomicU64,
     pub topic_stats_fallback: AtomicU64,
+    pub delphi_logs_db: Option<Arc<Pool>>,
+    pub delphi_logs_auth_db: Option<Arc<Pool>>,
+    pub delphi_logs_env: String,
+    pub delphi_logs_served: AtomicU64,
+    pub delphi_logs_fallback: AtomicU64,
+    pub delphi_logs_scope: Option<String>,
     pub delphi_run_db: Option<Arc<Pool>>,
     pub delphi_run_auth_db: Option<Arc<Pool>>,
     pub delphi_run_env: String,
@@ -340,6 +346,12 @@ impl App {
             topic_stats_db: None,
             topic_stats_served: AtomicU64::new(0),
             topic_stats_fallback: AtomicU64::new(0),
+            delphi_logs_db: None,
+            delphi_logs_auth_db: None,
+            delphi_logs_env: String::new(),
+            delphi_logs_served: AtomicU64::new(0),
+            delphi_logs_fallback: AtomicU64::new(0),
+            delphi_logs_scope: None,
             delphi_run_db: None,
             delphi_run_auth_db: None,
             delphi_run_env: String::new(),
@@ -1204,6 +1216,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.topic_stats_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::delphi_logs::PATH {
+        if out.status == 502 {
+            app.delphi_logs_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_logs_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::delphi_run_read::PATH {
         if out.status == 502 {
             app.delphi_run_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1556,6 +1575,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::topic_stats::PATH && crate::topic_stats::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::delphi_logs::PATH && crate::delphi_logs::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::delphi_run_read::PATH
         && crate::delphi_run_read::parse(app, req).is_none()
     {
@@ -1729,6 +1751,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::topic_stats::PATH {
         return crate::topic_stats::handle(app, req, res).await;
+    }
+    if req.path() == crate::delphi_logs::PATH {
+        return crate::delphi_logs::handle(app, req, res).await;
     }
     if req.path() == crate::delphi_run_read::PATH {
         return crate::delphi_run_read::handle(app, req, res).await;
@@ -5902,6 +5927,85 @@ mod tests {
         }
         assert_eq!(state.ops_catchall_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.ops_catchall_fallback.load(Ordering::Relaxed), 6);
+    }
+    #[tokio::test]
+    async fn delphi_logs_gate_boundaries_and_refusals_without_database() {
+        let mut state = app(true);
+        let req = |target: &str, headers: &[(&str, &str)]| {
+            let mut r = request("GET", headers);
+            r.target = target.into();
+            r
+        };
+        let host = ("host", "localhost");
+        let run = "/api/v3/delphi/logs?job_id=00000000-0000-4000-8000-000000000001";
+        // Off by default: every request is Node's.
+        assert_eq!(handle(state.clone(), req(run, &[host])).await.status, 502);
+        let pool = state.db.clone();
+        {
+            let app = Arc::get_mut(&mut state).unwrap();
+            app.delphi_logs_db = Some(pool.clone());
+            app.delphi_logs_auth_db = Some(pool);
+            app.delphi_logs_env = "local".into();
+        }
+        // No bearer token: hybridAuth's 401, before any read (this database
+        // is unreachable), with or without a job id.
+        for (target, auth) in [
+            (run, None),
+            ("/api/v3/delphi/logs", None),
+            ("/api/v3/delphi/logs?job_id=", None),
+            (run, Some("Basic eDp4")),
+            (run, Some("bearer x.y.z")),
+        ] {
+            let mut headers = vec![host];
+            if let Some(a) = auth {
+                headers.push(("authorization", a));
+            }
+            let out = handle(state.clone(), req(target, &headers)).await;
+            assert_eq!(out.status, 401, "{target} {auth:?}");
+            assert!(
+                matches!(out.body, Body::Fixed(ref b) if b == br#"{"error":"No authentication token found"}"#)
+            );
+        }
+        let mut head = req(run, &[host]);
+        head.method = "HEAD".into();
+        // The writer drops a HEAD answer's body on the wire (http.rs).
+        assert_eq!(handle(state.clone(), head).await.status, 401);
+        // A token this process cannot verify builds no identity: Node's.
+        let out = handle(
+            state.clone(),
+            req(run, &[host, ("authorization", "Bearer x.y.z")]),
+        )
+        .await;
+        assert_eq!(out.status, 502);
+        // Query shapes, bodies and methods the route does not model: Node's.
+        for target in [
+            &format!("{run}&report_id=r"),
+            &format!("{run}&job_id=00000000-0000-4000-8000-000000000001"),
+            "/api/v3/delphi/logs?job_id[]=x",
+            "/api/v3/delphi/logs?jobid=x",
+            &format!("/api/v3/delphi/logs?job_id={}", "a".repeat(101)),
+        ] {
+            assert_eq!(
+                handle(state.clone(), req(target, &[host])).await.status,
+                502,
+                "{target}"
+            );
+        }
+        for header in [("content-length", "1"), ("transfer-encoding", "chunked")] {
+            assert_eq!(
+                handle(state.clone(), req(run, &[host, header]))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for method in ["POST", "OPTIONS", "PUT"] {
+            let mut r = req(run, &[host]);
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502, "{method}");
+        }
+        assert_eq!(state.delphi_logs_served.load(Ordering::Relaxed), 6);
+        assert_eq!(state.delphi_logs_fallback.load(Ordering::Relaxed), 12);
     }
     #[tokio::test]
     async fn delphi_run_gate_boundaries_and_refusals_without_database() {

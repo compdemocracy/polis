@@ -442,5 +442,15 @@
     "expected_requests": 1,
     "expected_node_handoffs": 0,
     "scope": "Rust-only public importance counts. The generated report case precedes all votes: both participant-visible statements must have zero counts. Node-off display retains statements with explicitly unavailable null counts; the named contract check preserves every other field."
+  },
+  "delphiLogs": {
+    "path": "/api/v3/delphi/logs",
+    "minimum_rust_successes": 0,
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "delphi logs"
+    ],
+    "scope": "The shared differential uses DynamoDB job fixtures, so this Postgres-only route remains disabled and the request hands back to Node. Dedicated Postgres conformance proves archived and native authorized logs and counts every Rust-served case."
   }
 }

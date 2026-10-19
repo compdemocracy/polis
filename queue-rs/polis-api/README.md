@@ -1359,3 +1359,40 @@ isolated aggregate-only metadata fixture; it is not a Node parity recording.
 The nginx suite covers default-off, opt-in, deduplication, method/body admission
 and the 502-to-Node-404 path. The database suite covers query bounds, real lock
 shedding, read-only enforcement and independent writer/next-statement resources.
+
+
+### Legacy Delphi job logs
+
+`POLIS_API_DELPHI_LOGS_READS=1` and `RUST_API_ROUTES=delphiLogs` opt in to
+`GET`/`HEAD /api/v3/delphi/logs?job_id=…`. Both are off by default. This route
+requires `DELPHI_RESULT_BACKEND=postgres`, `DELPHI_RESULT_ENV` and
+`POLIS_API_DELPHI_LOGS_DATABASE_URL` (a primary read login with the existing
+result views and queue read functions). `DELPHI_RESULT_SCOPE`, when set, must
+match Node. Identity reads use `POLIS_API_DELPHI_LOGS_AUTH_DATABASE_URL`, falling
+back to the ordinary read DSN, through a separate pool. OIDC JWKS, participant
+verification and `ADMIN_UIDS` must match Node as for the run-record route.
+
+The result pool has two slots, 15 ms acquire and 200 ms statement bounds. The
+identity pool has one slot, 15 ms acquire and 50 ms statement bounds. The whole
+request has a 750 ms deadline. Neither pool shares participation connections;
+all sessions are read-only. Native rows take precedence over archived controls;
+job lookup and latest-attempt logs use one repeatable-read snapshot. Native logs
+retain the first 1,000 entries before filtering stdout/stderr, as Node does.
+
+The existing response fields and moderator rule are preserved. A complete
+legacy archive is limited to 4 MiB and the response to 1 MiB. Unsupported archive
+attributes, date grammars, credentials, bounds and database failures hand back
+to Node with 502; no partial logs are returned. Naive legacy ISO timestamps are
+handled only with explicit `TZ=UTC`; other time zones hand back to Node. No
+writer, schema, result contract or production switch changes.
+
+
+Run `queue-rs/polis-api/conformance/delphi-logs-run.sh result.json` with a unique
+`COMPOSE_PROJECT_NAME`, `POLIS_RECOVERY_PG_PORT`, and local
+`DELPHI_LOGS_NODE_IMAGE`, `DELPHI_LOGS_POSTGRES_IMAGE`, and
+`DELPHI_LOGS_API_IMAGE` (built with `fixture-clock`). It replays all 272
+Postgres baseline cases unchanged and compares every log case through Rust,
+then adds native attempts, moderator controls, archive precedence and the
+pre-filter entry limit. Its reader login has only the existing executor role.
+The shared CLI differential retains its DynamoDB fixture and therefore checks
+this route's disabled fallback; it does not claim Postgres log-serving coverage.
