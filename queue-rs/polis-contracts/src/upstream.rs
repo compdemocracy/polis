@@ -59,6 +59,8 @@ pub fn guidance(code: &'static str) -> Guidance {
             ("forbidden", "This operation requires the conversation owner.", "Check the selected site and sign in as the conversation owner; moderator access alone is insufficient."),
         "polis_err_treevite_not_conversation_owner" | "polis_err_sending_invite_not_conversation_owner" =>
             ("forbidden", "This operation requires the conversation owner or a moderator on the owner's site.", "Check the selected site and sign in as the conversation owner or a moderator; an enabled account alone is insufficient."),
+        "polis_err_delphi_jobs_delphi_disabled" =>
+            ("forbidden", "Delphi analysis is not enabled for this account.", "No job was queued. Check the selected site and sign in with an account that has Delphi enabled."),
         // Answered with HTTP 500 when the permission lookup itself fails: a
         // site fault, not a refusal (kept ahead of the "auth" catch-all below).
         "polis_err_treevite_auth_check" | "polis_err_sending_invite_auth_check" =>
