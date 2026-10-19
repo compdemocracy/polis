@@ -1,0 +1,89 @@
+# The run-record route's stack (delphi-run-run.sh): Postgres with the
+# release migration chain, the Delphi queue worker (polis-jobs) for real
+# local runs, and polis-api with the run-record switch on. Public-fixture
+# data only. Every service shares the Postgres container's network namespace
+# because polis-jobs reaches Postgres only over a loopback address; the two
+# published ports are bound to 127.0.0.1.
+name: ${COMPOSE_PROJECT_NAME:?unique project required}
+services:
+  postgres:
+    image: ${DELPHI_RUN_POSTGRES_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_DB: runrecord
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:${DELPHI_RUN_PG_PORT:?unique port required}:5432"
+      - "127.0.0.1:${DELPHI_RUN_API_PORT:?unique port required}:5100"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d runrecord"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  # One-shot fixture steps (public-fixture seed) in the worker image.
+  tools:
+    image: ${DELPHI_RUN_WORKER_IMAGE:?a Delphi image with polis-jobs}
+    profiles: [tools]
+    network_mode: service:postgres
+    working_dir: /app
+    volumes: ["${DELPHI_RUN_APP:?a writable copy of delphi/}:/app"]
+    environment:
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql://postgres@127.0.0.1/runrecord
+    entrypoint: [python]
+  worker:
+    image: ${DELPHI_RUN_WORKER_IMAGE}
+    profiles: [worker]
+    network_mode: service:postgres
+    volumes:
+      - "${DELPHI_RUN_APP}:/app"
+      - "${DELPHI_RUN_HF_HOME:?a Hugging Face cache directory}:/hf"
+      - "${DELPHI_RUN_WORK:?a worker scratch directory}:/worker"
+    environment:
+      DATABASE_URL: postgresql://postgres@127.0.0.1/runrecord
+      DATABASE_SSL_MODE: disable
+      QUEUE_DATABASE_URL: postgresql://runrecord_worker@127.0.0.1/runrecord?sslmode=disable
+      QUEUE_ENV: local
+      POLIS_JOBS_ENABLED: "1"
+      POLIS_JOBS_TRANSPORT: loopback
+      POLIS_JOBS_POLL_SECONDS: "1"
+      POLIS_JOBS_LEASE_SECONDS: "60"
+      POLIS_JOBS_HEARTBEAT_SECONDS: "5"
+      POLIS_JOBS_WORKER_CLASS: delphi
+      POLIS_JOBS_STAGES: delphi_full_pipeline
+      POLIS_JOBS_PYTHON: python
+      POLIS_JOBS_JOURNAL_DIR: /worker/journal
+      POLIS_JOBS_WORK_DIR: /worker/jobs
+      DELPHI_APP_PATH: /app
+      PYTHONPATH: /app
+      MATH_ENV: local
+      HF_HOME: /hf
+      # No language model: topic naming falls back to keyword labels. The
+      # route serves what the run recorded, not label quality.
+      LLM_PROVIDER: ollama
+      OLLAMA_MODEL: none
+      OLLAMA_HOST: http://127.0.0.1:9
+    command: [polis-jobs]
+  polis-api:
+    image: ${DELPHI_RUN_POLIS_API_IMAGE:-x54pca2-polis-api:conformance}
+    profiles: [api]
+    network_mode: service:postgres
+    volumes: ["${DELPHI_RUN_ARTIFACTS:?an artifacts directory}:/artifacts:ro"]
+    environment:
+      POLIS_API_DELPHI_RUN_READS: "1"
+      # The record function's login is a member of polis_queue_executor;
+      # identity and the moderator rule use the server's (here the owner's).
+      POLIS_API_DELPHI_RUN_DATABASE_URL: postgresql://runrecord_worker@127.0.0.1:5432/runrecord
+      POLIS_API_DELPHI_RUN_AUTH_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/runrecord
+      DELPHI_RESULT_ENV: local
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      AUTH_ISSUER: https://oidc.invalid/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/
+      ADMIN_UIDS: "[100001]"
+      MATH_ENV: local
+      DEV_MODE: "true"
+      NODE_ENV: production
+      DOMAIN_OVERRIDE: localhost
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/runrecord
+      POLIS_API_DB_TRANSPORT: loopback
+      POLIS_API_LISTEN: 0.0.0.0:5100

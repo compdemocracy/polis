@@ -24,7 +24,11 @@ httparse = "1"
 md5 = "0.7"
 jsonwebtoken = "9"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# raw_value and float_roundtrip, as the contracts crate has them: the
+# Delphi run record (wire.rs) writes and reads numbers as JavaScript does.
+serde_json = { version = "1", features = ["raw_value", "float_roundtrip"] }
+# The run record's inputs digest (delphi_run.rs).
+sha2 = "0.10"
 url = "2"
 uuid = "1"
 rand = "0.10"

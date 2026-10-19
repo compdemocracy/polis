@@ -21,8 +21,21 @@ mod cors;
 mod create_page;
 mod database;
 mod db;
+// The Delphi run-record contract (delphi-run/1) and the modules it is built
+// on, compiled from the contracts crate as the route contracts are. The
+// run-record route uses only part of them. rustfmt leaves them to their own
+// crate's (2021) style.
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/delphi_job_result.rs"]
+mod delphi_job_result;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/delphi_run.rs"]
+mod delphi_run;
 mod delphi_read;
 mod delphi_reports;
+mod delphi_run_read;
 mod delphi_visualizations;
 mod domain_whitelist;
 mod einvites_read;
@@ -52,6 +65,10 @@ mod recent_started;
 mod reports_read;
 mod robots;
 mod route;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/schema.rs"]
+mod schema;
 mod settings_page;
 mod topic_prioritize;
 mod topic_selections;
@@ -65,6 +82,10 @@ mod treevite_waves;
 mod user_create_page;
 mod user_login_page;
 mod user_logout_page;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/wire.rs"]
+mod wire;
 mod xid_report;
 
 use anyhow::{Context, Result};
@@ -158,6 +179,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "topicStatsFallback",
         js::Js::Num(app.topic_stats_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiRunServed",
+        js::Js::Num(app.delphi_run_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiRunFallback",
+        js::Js::Num(app.delphi_run_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "collectiveStatementServed",
@@ -511,6 +540,7 @@ async fn dispatch_at_clock(
         | delphi_read::PATH
         | collective_statement::PATH
         | topic_stats::PATH
+        | delphi_run_read::PATH
         | delphi_visualizations::PATH
         | delphi_reports::PATH
         | database::PATH
@@ -687,6 +717,39 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-topic-stats/1")?,
             topic_stats::pool_limits(),
         ));
+    }
+    if std::env::var("POLIS_API_DELPHI_RUN_READS").ok().as_deref() == Some("1") {
+        // The record function's login: a member of polis_queue_executor.
+        let dsn = std::env::var("POLIS_API_DELPHI_RUN_DATABASE_URL")
+            .context("POLIS_API_DELPHI_RUN_DATABASE_URL is required for Delphi run-record reads")?;
+        // Identity and the moderator rule read Node's tables with Node's read
+        // login unless a dedicated one is given.
+        let auth_dsn = [
+            "POLIS_API_DELPHI_RUN_AUTH_DATABASE_URL",
+            "READ_ONLY_DATABASE_URL",
+        ]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .context("a database for Delphi run-record identity reads is required")?;
+        state.delphi_run_env = std::env::var("DELPHI_RESULT_ENV")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .context("DELPHI_RESULT_ENV is required for Delphi run-record reads")?;
+        state.delphi_run_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-run/1")?,
+            delphi_run_read::pool_limits(),
+        ));
+        state.delphi_run_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-run-auth/1")?,
+            delphi_run_read::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
         .ok()
