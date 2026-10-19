@@ -305,6 +305,13 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     .await
     {
         Ok(Ok(Some(payload))) => route::json(req, res, &payload),
+        Err(_) => {
+            #[cfg(all(test, feature = "db-tests"))]
+            pool.evidence
+                .deadlines
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            route::bad_gateway()
+        }
         _ => route::bad_gateway(),
     }
 }
@@ -531,6 +538,49 @@ mod tests {
             wait.await.unwrap();
             (release, work)
         }
+        // Measure the same route on an independent, identically configured cold
+        // pool in this run. Neither request gets a larger production deadline.
+        let mut control = App::new(&cfg, make());
+        control.next_comment_db = Some(make());
+        control.next_comment_plain = true;
+        let control = Arc::new(control);
+        async fn observe(app: Arc<App>) -> (u16, Duration, [usize; 6]) {
+            let pool = app.next_comment_db.as_ref().unwrap();
+            let before = pool.evidence.snapshot();
+            let start = std::time::Instant::now();
+            let response = route::handle(app.clone(), request("conversation_id=empty")).await;
+            let elapsed = start.elapsed();
+            // A caller deadline does not cancel its blocking DB operation. Wait
+            // for diagnostic completion only; this is not a request timeout.
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let now = pool.evidence.snapshot();
+                    if now[3] > before[3] || now[2] > before[2] {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("pool observation never completed");
+            let after = pool.evidence.snapshot();
+            let delta = std::array::from_fn(|i| after[i] - before[i]);
+            (response.status, elapsed, delta)
+        }
+        fn isolated(sample: &(u16, Duration, [usize; 6])) -> bool {
+            let (status, _, [acquired, pending, timeouts, completed, errors, deadlines]) = sample;
+            *acquired == 1
+                && *pending == 0
+                && *timeouts == 0
+                && *completed == 1
+                && *errors == 0
+                && ((*status == 200 && *deadlines == 0) || (*status == 502 && *deadlines == 1))
+        }
+        let control_sample = observe(control.clone()).await;
+        assert!(
+            isolated(&control_sample),
+            "invalid isolation control: {control_sample:?}"
+        );
         // Occupy every slower-route connection and wait until each is held.
         let mut held = vec![];
         for pool in [
@@ -542,20 +592,36 @@ mod tests {
                 held.push(park(pool.clone()).await);
             }
         }
-        let result = route::handle(app.clone(), request("conversation_id=empty")).await;
-        assert_eq!(result.status, 200, "next statement waits on slower routes");
+        let guarded = observe(app.clone()).await;
+        eprintln!(
+            "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",
+            DEADLINE.as_millis(),
+            guarded.1.as_secs_f64() / control_sample.1.as_secs_f64()
+        );
+        // Report the absolute deadline and ratio; scheduling time alone is not
+        // evidence of starvation. Any pending permit poll fails this guard,
+        // even when the request eventually answers within the deadline.
+        assert!(
+            isolated(&guarded),
+            "next statement waits on slower routes: control={control_sample:?}, guarded={guarded:?}"
+        );
         assert!(held.iter().all(|(_, work)| !work.is_finished()));
         // A full dedicated pool sheds its own request rather than queueing.
         let own = app.next_comment_db.as_ref().unwrap();
         let first = park(own.clone()).await;
         let second = park(own.clone()).await;
-        let result = tokio::time::timeout(
-            DEADLINE,
-            route::handle(app.clone(), request("conversation_id=empty")),
-        )
-        .await
-        .unwrap();
-        assert_eq!(result.status, 502);
+        let starved = observe(app.clone()).await;
+        eprintln!("next statement deliberately starved: {starved:?}");
+        assert_eq!(starved.0, 502);
+        assert_eq!(
+            starved.2,
+            [0, 1, 1, 0, 0, 0],
+            "must shed on pool acquisition"
+        );
+        assert!(
+            !isolated(&starved),
+            "guard accepted a deliberately starved pool"
+        );
         assert!(!first.1.is_finished() && !second.1.is_finished());
         held.extend([first, second]);
         for (release, work) in held {
@@ -589,6 +655,7 @@ mod tests {
         ));
         tokio::task::spawn_blocking(move || {
             drop(app);
+            drop(control);
             drop(disabled);
             let mut c = Client::connect(&setup_url_for_cleanup(), postgres::NoTls).unwrap();
             c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
