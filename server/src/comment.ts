@@ -553,14 +553,40 @@ async function translateString(
   return null;
 }
 
+// Share one provider cap across bulk uploads and individual background jobs.
+const LANGUAGE_DETECTION_CONCURRENCY = 4;
+let activeLanguageDetections = 0;
+const pendingLanguageDetections: Array<() => void> = [];
+
+function queueLanguageDetection(txt: any): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const start = () => {
+      activeLanguageDetections += 1;
+      const provider = Promise.resolve().then(() =>
+        translateClient.detect(txt)
+      );
+      const release = () => {
+        activeLanguageDetections -= 1;
+        pendingLanguageDetections.shift()?.();
+      };
+      // A timeout does not cancel the SDK call. Keep its slot until the real
+      // request settles, so repeated timeouts cannot exceed the provider cap.
+      void provider.then(release, release);
+      // Queued metadata has no deadline; the existing provider timeout starts
+      // only when its request starts. Participation never waits on this queue.
+      void withTranslationTimeout(() => provider).then(resolve, reject);
+    };
+    if (activeLanguageDetections < LANGUAGE_DETECTION_CONCURRENCY) start();
+    else pendingLanguageDetections.push(start);
+  });
+}
+
 async function detectLanguage(
   txt: any
 ): Promise<Array<{ confidence: any; language: any }>> {
   if (useTranslateApi) {
     try {
-      const results = await withTranslationTimeout<any[]>(() =>
-        translateClient.detect(txt)
-      );
+      const results = await queueLanguageDetection(txt);
       const detection = Array.isArray(results) ? results[0] : null;
       if (
         !detection ||

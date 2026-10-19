@@ -1,4 +1,5 @@
 import {
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -77,7 +78,8 @@ const POOL_SIZE = Config.isDevMode
   : Config.databaseURL !== Config.readOnlyDatabaseURL
   ? 3
   : 12;
-const WAITING_STATEMENTS = POOL_SIZE + 2;
+// Exercise queued statements as well as all four active detection slots.
+const WAITING_STATEMENTS = Math.max(POOL_SIZE + 2, 6);
 // A statement must answer within this while the provider hangs: the detection
 // same prompt bound as votes, before the provider's five-second timeout.
 const ANSWER_BUDGET_MS = 3000;
@@ -131,6 +133,7 @@ describe("a statement is stored first and moderated after", () => {
   const zids: Record<string, number> = {};
   const seeds: Record<string, number> = {};
   const stamp = Date.now();
+  let releaseHeldDetections: (() => void) | undefined;
 
   async function storedRow(conversationId: string, tid: number) {
     const { rows } = await pool.query(
@@ -242,6 +245,15 @@ describe("a statement is stored first and moderated after", () => {
     mockDetect.mockReset();
   });
 
+  afterEach(async () => {
+    // Release this test's SDK calls, including requests queued behind them.
+    // Resetting a mock does not settle promises already returned by that mock.
+    mockDetect.mockResolvedValue([{ language: "en", confidence: 0.75 }]);
+    releaseHeldDetections?.();
+    releaseHeldDetections = undefined;
+    await sleep(0);
+  });
+
   test("(a) statements answer while the language provider hangs, and the wait holds no connection a vote or nextComment needs", async () => {
     // Each waiting statement goes to a conversation of its own, and its author
     // joins first, so what is timed below is the statement alone. (Statements
@@ -259,7 +271,11 @@ describe("a statement is stored first and moderated after", () => {
 
     // The provider never answers from here on.
     mockDetect.mockReset();
-    mockDetect.mockImplementation(() => new Promise(() => undefined));
+    const held = new Promise((resolve) => {
+      releaseHeldDetections = () =>
+        resolve([{ language: "en", confidence: 0.75 }]);
+    });
+    mockDetect.mockImplementation(() => held);
 
     const posts = waiting.map(({ conversationId, author }) =>
       timed(
@@ -270,10 +286,11 @@ describe("a statement is stored first and moderated after", () => {
       )
     );
 
-    // At least a pool's worth of statements is now waiting on the provider.
-    expect(
-      await until(() => mockDetect.mock.calls.length >= POOL_SIZE, 5000)
-    ).toBe(true);
+    // Fill every provider slot; the remaining statements wait in the metadata
+    // queue. All statements still have to answer within the original budget.
+    expect(await until(() => mockDetect.mock.calls.length === 4, 5000)).toBe(
+      true
+    );
 
     const voter = await newAgent();
     const vote = await within(
@@ -303,7 +320,7 @@ describe("a statement is stored first and moderated after", () => {
     // The provider has never resolved, yet comments, votes and reads all
     // answer promptly. Their response order is no longer coupled to detection.
 
-    expect(mockDetect).toHaveBeenCalledTimes(WAITING_STATEMENTS);
+    expect(mockDetect).toHaveBeenCalledTimes(4);
     for (const post of answered) {
       const { conversationId, response } = post.value;
       expect(response.status).toBe(200);

@@ -343,8 +343,124 @@ describe("comment creation during translation failures", () => {
     );
   });
 
+  test("concurrent uploads and single comments share four detection slots", async () => {
+    let active = 0;
+    let maximum = 0;
+    const scopes: boolean[] = [];
+    const pending: Array<(fail?: boolean) => void> = [];
+    mockDetect.mockImplementation(() => {
+      active += 1;
+      maximum = Math.max(maximum, active);
+      scopes.push(onParticipationPath());
+      return new Promise((resolve, reject) => {
+        pending.push((fail = false) => {
+          active -= 1;
+          if (fail) reject(new Error("public-fixture failure"));
+          else resolve([{ language: "en", confidence: 0.9 }]);
+        });
+      });
+    });
+    const upload = (offset: number) => {
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+      const rows = Array.from(
+        { length: 5 },
+        (_, i) =>
+          `Public fixture ${offset + i},00000000-0000-4000-8000-${String(
+            offset + i
+          ).padStart(12, "0")}`
+      );
+      let done: Promise<void>;
+      onParticipationPools({}, {}, () => {
+        done = handle_POST_comments_bulk(
+          {
+            p: { zid: 7, uid: 11, pid: 0, is_seed: true },
+            body: { csv: "comment_text,original_id\n" + rows.join("\n") },
+          },
+          res
+        );
+      });
+      return { res, done: done! };
+    };
+    const a = upload(1),
+      b = upload(6),
+      single = post();
+    await Promise.all([a.done, b.done, single.done]);
+    await jest.advanceTimersByTimeAsync(0);
+    for (const { res } of [a, b, single]) {
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledTimes(1);
+    }
+    expect(
+      mockQuery.mock.calls.filter(([sql]) => /INSERT INTO COMMENTS/.test(sql))
+    ).toHaveLength(11);
+    expect(mockDetect).toHaveBeenCalledTimes(4);
+    expect(active).toBe(4);
+    pending.shift()!(true);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockDetect).toHaveBeenCalledTimes(5);
+    expect(active).toBe(4);
+    while (pending.length) {
+      pending.shift()!();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(active).toBeLessThanOrEqual(4);
+    }
+    expect(mockDetect).toHaveBeenCalledTimes(11);
+    expect(maximum).toBe(4);
+    expect(scopes).toEqual(Array(11).fill(false));
+    expect(
+      mockQuery.mock.calls.filter(([sql]) =>
+        /UPDATE comments SET lang/.test(sql)
+      )
+    ).toHaveLength(10);
+    // Let the handlers' existing 100ms conversation-update timers run too.
+    await jest.advanceTimersByTimeAsync(100);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  test("timed-out provider calls retain slots until they actually settle", async () => {
+    const pending: Array<() => void> = [];
+    mockDetect.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          pending.push(() => resolve([{ language: "en", confidence: 0.9 }]));
+        })
+    );
+    const requests = Array.from({ length: 6 }, () => post());
+    await Promise.all(requests.map(({ done }) => done));
+    await jest.advanceTimersByTimeAsync(0);
+    requests.forEach(({ res }) => expectCreated(res));
+    expect(mockDetect).toHaveBeenCalledTimes(4);
+    await jest.advanceTimersByTimeAsync(10000);
+    expect(mockDetect).toHaveBeenCalledTimes(4);
+    expect(
+      mockQuery.mock.calls.some(([sql]) => /UPDATE comments SET lang/.test(sql))
+    ).toBe(false);
+    pending.shift()!();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockDetect).toHaveBeenCalledTimes(5);
+    // The first queued request still receives its own complete provider budget.
+    pending.pop()!();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockDetect).toHaveBeenCalledTimes(6);
+    while (pending.length) {
+      pending.shift()!();
+      await jest.advanceTimersByTimeAsync(0);
+    }
+    expect(
+      mockQuery.mock.calls.filter(([sql]) =>
+        /UPDATE comments SET lang/.test(sql)
+      )
+    ).toHaveLength(2);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   test("bulk upload stores every statement while detection remains pending", async () => {
-    mockDetect.mockReturnValue(new Promise(() => {}));
+    let releaseProvider: (value: unknown) => void;
+    mockDetect.mockReturnValue(
+      new Promise((resolve) => {
+        releaseProvider = resolve;
+      })
+    );
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     const done = handle_POST_comments_bulk(
       {
@@ -365,6 +481,8 @@ describe("comment creation during translation failures", () => {
     expect(
       mockQuery.mock.calls.some(([sql]) => /UPDATE comments SET lang/.test(sql))
     ).toBe(false);
+    releaseProvider!([{ language: "en", confidence: 0.9 }]);
+    await jest.advanceTimersByTimeAsync(0);
   });
 
   test("bulk seed upload also survives provider rejection", async () => {

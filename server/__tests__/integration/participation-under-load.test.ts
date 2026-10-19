@@ -135,6 +135,7 @@ class Stall {
 const mockStalls = {
   identity: new Stall(),
   language: new Stall(),
+  languageDetection: new Stall(),
   topics: new Stall(),
 };
 
@@ -155,7 +156,9 @@ jest.mock("@google-cloud/translate", () => ({
   v2: {
     Translate: jest.fn().mockImplementation(() => ({
       detect: () =>
-        mockStalls.language.call(() => [{ language: "en", confidence: 0.9 }]),
+        mockStalls.languageDetection.call(() => [
+          { language: "en", confidence: 0.9 },
+        ]),
       translate: (txt: string) => mockStalls.language.call(() => [txt]),
     })),
   },
@@ -456,6 +459,8 @@ type Evidence = {
   identityWaitingAfter: number;
   topicLookupCalls: number;
   languageCalls: number;
+  languageDetectionCalls: number;
+  languageDetectionsWaitingAfter: number;
   votesStored: number;
   commentsStored: number;
   commentsWithoutLanguageWhileHeld: number;
@@ -570,7 +575,10 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     `/api/v3/comments?conversation_id=${conversationId}&report_id=${reportId}` +
     `&moderation=true&mod_gt=${level}&include_voting_patterns=true`;
   if (load.topics) mockStalls.topics.hold();
-  if (load.language) mockStalls.language.hold();
+  if (load.language) {
+    mockStalls.language.hold();
+    mockStalls.languageDetection.hold();
+  }
   // First the plan checks, so that each one reaches the identity provider
   // before any database hold could keep it from getting there.
   let identityWaitingBefore = 0;
@@ -710,7 +718,9 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   const renewed = holdsRenewed.export + holdsRenewed["report tally"];
   const identityWaitingAfter = mockStalls.identity.pending;
   const topicLookupCalls = mockStalls.topics.calls;
-  const languageCalls = mockStalls.language.calls;
+  const languageDetectionCalls = mockStalls.languageDetection.calls;
+  const languageDetectionsWaitingAfter = mockStalls.languageDetection.pending;
+  const languageCalls = mockStalls.language.calls + languageDetectionCalls;
   // What was already stored while the slow work held: a request stored but not
   // yet answered waited after its write; one not yet stored waited before it.
   const storedWhileHeld = await stored();
@@ -760,6 +770,8 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     identityWaitingAfter,
     topicLookupCalls,
     languageCalls,
+    languageDetectionCalls,
+    languageDetectionsWaitingAfter,
     votesStored,
     commentsStored,
     commentsWithoutLanguageWhileHeld,
@@ -857,7 +869,10 @@ function guard(
         checks.push(["topicLookupCalls", "at least", 1]);
       }
       if (load.language) {
-        checks.push(["languageCalls", "at least", PARTICIPANTS]);
+        // All participants still act; only four provider calls may start.
+        // They must remain held while the other metadata work is queued.
+        checks.push(["languageDetectionCalls", "exactly", 4]);
+        checks.push(["languageDetectionsWaitingAfter", "exactly", 4]);
         // With no unrelated stalled topic lookup, acceptance finishes before
         // the provider timeout: release then populates the same metadata.
         if (!load.topics) {
