@@ -12787,6 +12787,10 @@
     {
       "path": "server/postgres/migrations/000039_clear_zinvites_uuid.sql",
       "sha256": "48ae309832ed67f280965915f0adc44109c082ef5da62c2bae830b3793bd124f"
+    },
+    {
+      "path": "server/postgres/migrations/000041_create_delphi_run_record.sql",
+      "sha256": "e6d86397e5b53ed3d75d73278a293353512698bd95be2da288c92e94a935dee2"
     }
   ]
 }
