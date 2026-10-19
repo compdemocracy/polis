@@ -7,6 +7,7 @@ import { getConversationInfo } from "./conversation";
 import { MPromise } from "./utils/metered";
 import Config from "./config";
 import pg from "./db/pg-query";
+import { outsideParticipation } from "./db/participation-scope";
 import SQL from "./db/sql";
 import Utils from "./utils/common";
 import { isProConvo } from "./routes/comments";
@@ -462,8 +463,33 @@ function translateAndStoreComment(
   return Promise.resolve(null);
 }
 
+/** Enrich an already stored statement without delaying participation. */
+function scheduleCommentLanguageDetection(
+  zid: number,
+  tid: number,
+  txt: string
+): void {
+  outsideParticipation(() => {
+    // No database connection is held while the provider runs. The eventual
+    // write uses the ordinary pool, never a participation connection.
+    void detectLanguage(txt)
+      .then(async (detections) => {
+        const detection = detections[0];
+        if (!detection?.language) return;
+        await pg.queryP(
+          "UPDATE comments SET lang = $3, lang_confidence = $4, modified = now_as_millis() " +
+            "WHERE zid = $1 AND tid = $2 AND txt = $5 AND lang IS NULL;",
+          [zid, tid, detection.language, detection.confidence, txt]
+        );
+      })
+      .catch((err) =>
+        logTranslationFailure("polis_warn_language_metadata_store_failed", err)
+      );
+  });
+}
+
 // Language metadata is optional. Bound our wait for the provider, including its
-// retries, so an outage cannot hold comment creation indefinitely. This does not
+// retries, so an outage cannot retain background detection indefinitely. This does not
 // cancel the SDK request; Promise.race also observes any late rejection.
 const TRANSLATION_TIMEOUT_MS = 5000;
 
@@ -564,6 +590,7 @@ async function detectLanguage(
 
 export {
   detectLanguage,
+  scheduleCommentLanguageDetection,
   getComment,
   getComments,
   getCommentsCount,

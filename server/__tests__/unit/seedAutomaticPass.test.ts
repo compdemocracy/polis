@@ -52,7 +52,7 @@ jest.mock("../../src/utils/common", () => ({
 }));
 jest.mock("../../src/routes/votes", () => ({ votesPost: mockVotesPost }));
 jest.mock("../../src/comment", () => ({
-  detectLanguage: jest.fn(async () => [{ language: "en", confidence: 1 }]),
+  scheduleCommentLanguageDetection: jest.fn(),
 }));
 jest.mock("../../src/server-helpers", () => ({
   safeTimestampToMillis: (n: number) => n,

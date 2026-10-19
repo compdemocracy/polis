@@ -5,6 +5,10 @@ const mockTranslate = jest.fn();
 const mockQuery = jest.fn();
 const mockWarn = jest.fn();
 const mockVote = jest.fn();
+import {
+  onParticipationPath,
+  onParticipationPools,
+} from "../../src/db/participation-scope";
 
 jest.mock("@google-cloud/translate", () => ({
   v2: {
@@ -49,6 +53,9 @@ jest.mock("../../src/utils/common", () => ({
 jest.mock("../../src/routes/votes", () => ({ votesPost: mockVote }));
 jest.mock("../../src/server-helpers", () => ({
   safeTimestampToMillis: (n: number) => n,
+  updateConversationModifiedTime: jest.fn(),
+  updateLastInteractionTimeForConversation: jest.fn(),
+  updateVoteCount: jest.fn(),
 }));
 jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));
@@ -67,14 +74,23 @@ const nullDetection = [{ confidence: null, language: null }];
 
 function post(seed = true) {
   const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
-  const done = handle_POST_comments(
-    {
-      p: { zid: 7, uid: 11, pid: 0, txt: "A public-fixture comment", is_seed: seed },
-      headers: {},
-    },
-    res
-  );
-  return { res, done };
+  let done: Promise<void>;
+  onParticipationPools({}, {}, () => {
+    done = handle_POST_comments(
+      {
+        p: {
+          zid: 7,
+          uid: 11,
+          pid: 0,
+          txt: "A public-fixture comment",
+          is_seed: seed,
+        },
+        headers: {},
+      },
+      res
+    );
+  });
+  return { res, done: done! };
 }
 
 function expectCreated(
@@ -118,6 +134,7 @@ describe("comment creation during translation failures", () => {
       mockDetect.mockRejectedValue(err);
       const { res, done } = post(seed);
       await done;
+      await jest.advanceTimersByTimeAsync(0);
       expectCreated(res);
       expect(mockWarn).toHaveBeenCalledTimes(1);
       expect(mockWarn).toHaveBeenCalledWith(
@@ -150,6 +167,7 @@ describe("comment creation during translation failures", () => {
     mockDetect.mockResolvedValue(value);
     const { res, done } = post();
     await done;
+    await jest.advanceTimersByTimeAsync(0);
     expectCreated(res);
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
@@ -174,6 +192,7 @@ describe("comment creation during translation failures", () => {
       mockDetect.mockRejectedValue(err);
       const { res, done } = post();
       await done;
+      await jest.advanceTimersByTimeAsync(0);
       expectCreated(res);
       expect(mockDetect).toHaveBeenCalledTimes(1);
       expect(mockWarn).toHaveBeenCalledTimes(1);
@@ -192,7 +211,7 @@ describe("comment creation during translation failures", () => {
     }
   );
 
-  test("hung detection stops waiting at five seconds and observes late rejection", async () => {
+  test("hung detection cannot delay storing or accepting the comment", async () => {
     let rejectProvider: (e: Error) => void;
     mockDetect.mockReturnValue(
       new Promise((_resolve, reject) => {
@@ -200,14 +219,82 @@ describe("comment creation during translation failures", () => {
       })
     );
     const { res, done } = post();
-    await jest.advanceTimersByTimeAsync(4999);
-    expect(res.json).not.toHaveBeenCalled();
-    await jest.advanceTimersByTimeAsync(1);
-    await done;
+    await jest.advanceTimersByTimeAsync(0);
     expectCreated(res);
+    await done;
+    expect(mockDetect).toHaveBeenCalledTimes(1);
+    expect(
+      mockQuery.mock.calls.some(([sql]) => /UPDATE comments SET lang/.test(sql))
+    ).toBe(false);
+    // The existing provider timeout still bounds background detection.
+    await jest.advanceTimersByTimeAsync(5000);
     rejectProvider!(new Error("late provider failure"));
     await jest.advanceTimersByTimeAsync(0);
     expect(mockWarn).toHaveBeenCalledTimes(1);
+  });
+
+  test("language arrives after storage on non-participation connections", async () => {
+    let resolveProvider: (value: unknown) => void;
+    const scopes: Array<[string, boolean]> = [];
+    let providerInParticipation: boolean | undefined;
+    let providerStartedAfterInsert = false;
+    mockDetect.mockImplementation(() => {
+      providerInParticipation = onParticipationPath();
+      providerStartedAfterInsert = mockQuery.mock.calls.some(([sql]) =>
+        /INSERT INTO COMMENTS/.test(sql)
+      );
+      return new Promise((resolve) => {
+        resolveProvider = resolve;
+      });
+    });
+    mockQuery.mockImplementation(async (sql: string) => {
+      scopes.push([sql, onParticipationPath()]);
+      return /INSERT INTO COMMENTS/.test(sql)
+        ? [{ tid: 3, created: 10000000000000 }]
+        : [];
+    });
+    const { res, done } = post();
+    await jest.advanceTimersByTimeAsync(0);
+    expectCreated(res);
+    await done;
+    expect(scopes.find(([sql]) => /INSERT INTO COMMENTS/.test(sql))![1]).toBe(
+      true
+    );
+    expect(providerInParticipation).toBe(false);
+    expect(providerStartedAfterInsert).toBe(true);
+    resolveProvider!([{ language: "ja", confidence: 0.95 }]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE comments SET lang"),
+      [7, 3, "ja", 0.95, "A public-fixture comment"]
+    );
+    expect(
+      scopes.find(([sql]) => /UPDATE comments SET lang/.test(sql))![1]
+    ).toBe(false);
+    const update = mockQuery.mock.calls.find(([sql]) =>
+      /UPDATE comments SET lang/.test(sql)
+    )![0];
+    expect(update).toContain("txt = $5 AND lang IS NULL");
+    expect(res.json).toHaveBeenCalledTimes(1);
+  });
+
+  test("metadata write failure cannot change an accepted comment", async () => {
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/UPDATE comments SET lang/.test(sql))
+        throw new Error("metadata unavailable");
+      return /INSERT INTO COMMENTS/.test(sql)
+        ? [{ tid: 3, created: 10000000000000 }]
+        : [];
+    });
+    const { res, done } = post();
+    await done;
+    await jest.advanceTimersByTimeAsync(0);
+    expectCreated(res);
+    expect(res.json).toHaveBeenCalledTimes(1);
+    expect(mockWarn).toHaveBeenCalledWith(
+      "polis_warn_language_metadata_store_failed",
+      expect.any(Object)
+    );
   });
 
   test("successful detection preserves metadata and clears its timer", async () => {
@@ -220,7 +307,12 @@ describe("comment creation during translation failures", () => {
     expect(jest.getTimerCount()).toBe(0);
     const { res, done } = post();
     await done;
-    expectCreated(res, "ja", 1);
+    await jest.advanceTimersByTimeAsync(0);
+    expectCreated(res);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE comments SET lang"),
+      [7, 3, "ja", 1, "A public-fixture comment"]
+    );
     expect(mockWarn).not.toHaveBeenCalled();
     // A seed gets no automatic vote, and this request carries none.
     expect(mockVote).not.toHaveBeenCalled();
@@ -243,10 +335,36 @@ describe("comment creation during translation failures", () => {
     });
     const { res, done } = post();
     await done;
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockDetect).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: "polis_err_post_comment" })
     );
+  });
+
+  test("bulk upload stores every statement while detection remains pending", async () => {
+    mockDetect.mockReturnValue(new Promise(() => {}));
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const done = handle_POST_comments_bulk(
+      {
+        p: { zid: 7, uid: 11, pid: 0, is_seed: true },
+        body: {
+          csv: "comment_text,original_id\nFirst public fixture,00000000-0000-4000-8000-000000000001\nSecond public fixture,00000000-0000-4000-8000-000000000002",
+        },
+      },
+      res
+    );
+    await jest.advanceTimersByTimeAsync(0);
+    expect(res.json).toHaveBeenCalled();
+    await done;
+    expect(
+      mockQuery.mock.calls.filter(([sql]) => /INSERT INTO COMMENTS/.test(sql))
+    ).toHaveLength(2);
+    expect(mockDetect).toHaveBeenCalledTimes(2);
+    expect(
+      mockQuery.mock.calls.some(([sql]) => /UPDATE comments SET lang/.test(sql))
+    ).toBe(false);
   });
 
   test("bulk seed upload also survives provider rejection", async () => {
@@ -261,6 +379,7 @@ describe("comment creation during translation failures", () => {
       },
       res
     );
+    await jest.advanceTimersByTimeAsync(0);
     expect(mockDetect).toHaveBeenCalled();
     const insert = mockQuery.mock.calls.find(([sql]) =>
       /INSERT INTO COMMENTS/.test(sql)
@@ -287,7 +406,9 @@ describe("optional stored translations", () => {
   test("provider rejection logs once and does not write a translation", async () => {
     const err = new Error("public-fixture translation failure");
     mockTranslate.mockRejectedValue(err);
-    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBeNull();
+    expect(
+      await translateAndStoreComment(7, 3, "public-fixture", "fr")
+    ).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledWith(
@@ -299,7 +420,9 @@ describe("optional stored translations", () => {
     [null, [], [null], [{}], [""], [["nested"]]].map((value) => [value])
   )("invalid translation %p is not stored", async (value) => {
     mockTranslate.mockResolvedValue(value);
-    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBeNull();
+    expect(
+      await translateAndStoreComment(7, 3, "public-fixture", "fr")
+    ).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
@@ -322,7 +445,9 @@ describe("optional stored translations", () => {
   test("success stores the original translation and returns the database row", async () => {
     const row = { zid: 7, tid: 3, txt: "A translation", lang: "fr", src: -1 };
     mockQuery.mockResolvedValue([row]);
-    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBe(row);
+    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBe(
+      row
+    );
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining("insert into comment_translations"),
       [7, 3, "A translation", "fr", -1]

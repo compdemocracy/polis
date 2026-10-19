@@ -27,8 +27,8 @@ import { WIRE_AGREE } from "../../src/votes/convention";
  * POST /api/v3/comments makes no moderation call. It sets `mod` and `active`
  * locally (a moderator's statement is approved on arrival; anyone else's is
  * stored unmoderated, `mod` 0, `active` true), stores the statement and
- * answers. The one outside call before the INSERT is language detection, which
- * is bounded and optional. Moderation is a moderator's later
+ * answers. Optional language detection runs after the INSERT, outside the
+ * participation pools, and fills metadata later. Moderation is a moderator's later
  * PUT /api/v3/comments.
  *
  * Whether a stored statement is shown is decided when it is read, by the
@@ -79,8 +79,8 @@ const POOL_SIZE = Config.isDevMode
   : 12;
 const WAITING_STATEMENTS = POOL_SIZE + 2;
 // A statement must answer within this while the provider hangs: the detection
-// cap plus room for a loaded machine, and under the 10 s a browser waits.
-const ANSWER_BUDGET_MS = 8000;
+// same prompt bound as votes, before the provider's five-second timeout.
+const ANSWER_BUDGET_MS = 3000;
 // A vote and nextComment must answer within this while statements wait on the
 // provider. A connection held across that wait would make them take nearly the
 // whole detection cap.
@@ -300,10 +300,8 @@ describe("a statement is stored first and moderated after", () => {
 
     expect(vote.value.status).toBe(200);
     expect(next.value.status).toBe(200);
-    // Both answered while every statement was still waiting on the provider.
-    const firstAnswer = Math.min(...answered.map((p) => p.at));
-    expect(vote.at).toBeLessThan(firstAnswer);
-    expect(next.at).toBeLessThan(firstAnswer);
+    // The provider has never resolved, yet comments, votes and reads all
+    // answer promptly. Their response order is no longer coupled to detection.
 
     expect(mockDetect).toHaveBeenCalledTimes(WAITING_STATEMENTS);
     for (const post of answered) {
@@ -380,7 +378,13 @@ describe("a statement is stored first and moderated after", () => {
   }, 20000);
 
   test("(c) without strict moderation: shown as soon as it is stored, and a moderator can hide it afterwards", async () => {
-    mockDetect.mockResolvedValue([{ language: "en", confidence: 0.75 }]);
+    let resolveDetection: (value: unknown) => void;
+    mockDetect.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDetection = resolve;
+        })
+    );
 
     const posted = await submitComment(null, {
       conversation_id: openId,
@@ -392,8 +396,8 @@ describe("a statement is stored first and moderated after", () => {
     expect(await storedRow(openId, tid)).toEqual({
       mod: polisTypes.mod.unmoderated,
       active: true,
-      lang: "en",
-      lang_confidence: 0.75,
+      lang: null,
+      lang_confidence: null,
     });
 
     const reader = await readerWhoVotedOnTheSeed(openId);
@@ -413,6 +417,21 @@ describe("a statement is stored first and moderated after", () => {
       inPage: false,
       offeredNext: false,
       nextTid: undefined,
+    });
+
+    // Metadata can arrive after a later moderation decision, without undoing it.
+    resolveDetection!([{ language: "en", confidence: 0.75 }]);
+    const deadline = Date.now() + PROMPT_MS;
+    let row = await storedRow(openId, tid);
+    while (row.lang === null && Date.now() < deadline) {
+      await sleep(20);
+      row = await storedRow(openId, tid);
+    }
+    expect(row).toEqual({
+      mod: polisTypes.mod.ban,
+      active: true,
+      lang: "en",
+      lang_confidence: 0.75,
     });
   }, 20000);
 });

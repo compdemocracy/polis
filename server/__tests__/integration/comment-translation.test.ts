@@ -48,6 +48,7 @@ describe("POST comments with unavailable language detection", () => {
   test.each(["rejection", "malformed", "timeout", "success"])(
     "%s preserves a durable seed comment, which records no vote",
     async (scenario) => {
+      let resolveDetection: (value: unknown) => void;
       if (scenario === "rejection")
         mockDetect.mockRejectedValue(
           new Error("public-fixture provider unavailable")
@@ -56,39 +57,59 @@ describe("POST comments with unavailable language detection", () => {
       else if (scenario === "timeout")
         mockDetect.mockReturnValue(new Promise(() => undefined));
       else
-        mockDetect.mockResolvedValue([
-          { language: "en", confidence: 0.75 },
-          {},
-        ]);
+        mockDetect.mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              resolveDetection = resolve;
+            })
+        );
 
       const conversationId = await createConversation(agent, {
         is_active: true,
       });
       const txt = `Public-fixture translation ${scenario}`;
+      const started = Date.now();
       const response = await agent
         .post("/api/v3/comments")
         .send({ conversation_id: conversationId, txt, is_seed: true });
+      expect(Date.now() - started).toBeLessThan(3000);
       expect(response.status).toBe(200);
       expect(response.body.tid).toEqual(expect.any(Number));
       expect(mockDetect).toHaveBeenCalledWith(txt);
 
-      const { rows } = await pool.query(
-        `SELECT c.txt, c.lang, c.lang_confidence, c.is_seed, v.vote
+      const read = async () =>
+        (
+          await pool.query(
+            `SELECT c.txt, c.lang, c.lang_confidence, c.is_seed, v.vote
        FROM comments c JOIN zinvites z ON z.zid = c.zid
        LEFT JOIN votes v ON v.zid = c.zid AND v.tid = c.tid AND v.pid = c.pid
        WHERE z.zinvite = $1 AND c.tid = $2`,
-        [conversationId, response.body.tid]
-      );
+            [conversationId, response.body.tid]
+          )
+        ).rows;
+      const rows = await read();
       expect(rows).toEqual([
         {
           txt,
-          lang: scenario === "success" ? "en" : null,
-          lang_confidence: scenario === "success" ? 0.75 : null,
+          lang: null,
+          lang_confidence: null,
           is_seed: true,
           // The LEFT JOIN finds no vote row: a seed gets no automatic vote.
           vote: null,
         },
       ]);
+      if (scenario === "success") {
+        resolveDetection!([{ language: "en", confidence: 0.75 }, {}]);
+        const deadline = Date.now() + 3000;
+        let enriched = await read();
+        while (enriched[0].lang === null && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          enriched = await read();
+        }
+        expect(enriched).toEqual([
+          { ...rows[0], lang: "en", lang_confidence: 0.75 },
+        ]);
+      }
     }
   );
 });

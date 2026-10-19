@@ -458,6 +458,8 @@ type Evidence = {
   languageCalls: number;
   votesStored: number;
   commentsStored: number;
+  commentsWithoutLanguageWhileHeld: number;
+  commentsWithLanguageAfterRelease: number;
 };
 
 type Result = { outcomes: Record<Op, Outcome[]>; evidence: Evidence };
@@ -712,6 +714,17 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   // What was already stored while the slow work held: a request stored but not
   // yet answered waited after its write; one not yet stored waited before it.
   const storedWhileHeld = await stored();
+  const languageCount = async (ready: boolean) =>
+    (
+      await admin.query(
+        "SELECT count(*)::int AS n FROM comments WHERE zid = $1 AND txt = ANY($2::text[]) AND " +
+          (ready
+            ? "lang = 'en' AND lang_confidence = 0.9::real"
+            : "lang IS NULL AND lang_confidence IS NULL"),
+        [zid, texts]
+      )
+    ).rows[0].n as number;
+  const commentsWithoutLanguageWhileHeld = await languageCount(false);
 
   // Release everything and let it finish.
   heldKinds.clear();
@@ -749,6 +762,8 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     languageCalls,
     votesStored,
     commentsStored,
+    commentsWithoutLanguageWhileHeld,
+    commentsWithLanguageAfterRelease: await languageCount(true),
   };
   const worst = (op: Op) => Math.max(...outcomes[op].map((o) => o.ms));
   const bad = (op: Op) =>
@@ -843,6 +858,20 @@ function guard(
       }
       if (load.language) {
         checks.push(["languageCalls", "at least", PARTICIPANTS]);
+        // With no unrelated stalled topic lookup, acceptance finishes before
+        // the provider timeout: release then populates the same metadata.
+        if (!load.topics) {
+          checks.push([
+            "commentsWithoutLanguageWhileHeld",
+            "exactly",
+            PARTICIPANTS,
+          ]);
+          checks.push([
+            "commentsWithLanguageAfterRelease",
+            "exactly",
+            PARTICIPANTS,
+          ]);
+        }
       }
       checks.push(["votesStored", "exactly", PARTICIPANTS]);
       checks.push(["commentsStored", "exactly", PARTICIPANTS]);
@@ -878,11 +907,8 @@ function guard(
 // (getTidsForParticipantTopicAgenda in src/nextComment.ts).
 const TOPIC_LOOKUPS_WITHOUT_DEADLINE =
   "next-statement selection waits on topic lookups that have no deadline";
-// The language of a comment is detected before the comment is stored, within
-// a 5 s provider budget (handle_POST_comments in src/routes/comments.ts,
-// detectLanguage in src/comment.ts).
-const DETECTION_BEFORE_INSERT =
-  "language detection runs before the comment is stored, for up to 5 s";
+// Language detection enriches stored comments asynchronously. Even a hung
+// provider must not delay acceptance or borrow participation connections.
 
 guard(
   "quiet: no slow work",
@@ -923,7 +949,7 @@ guard(
 guard(
   "the language provider never answers",
   { language: true },
-  { vote: "prompt", comment: DETECTION_BEFORE_INSERT, nextComment: "prompt" }
+  { vote: "prompt", comment: "prompt", nextComment: "prompt" }
 );
 
 guard(
@@ -937,7 +963,7 @@ guard(
   },
   {
     vote: `the stored vote is answered only after ${TOPIC_LOOKUPS_WITHOUT_DEADLINE}`,
-    comment: DETECTION_BEFORE_INSERT,
+    comment: "prompt",
     nextComment: TOPIC_LOOKUPS_WITHOUT_DEADLINE,
   }
 );

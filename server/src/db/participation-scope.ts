@@ -5,7 +5,8 @@
  * as the first handler of their routes (app.ts). Everything that request does
  * after it, its middleware, its handler and the bookkeeping it schedules, is
  * in the scope, and db/pg-query.ts gives every query made in it a connection
- * from the participation pools. Work that did not come through one of those
+ * from the participation pools. Optional language enrichment explicitly exits
+ * this scope after storage. Work that did not come through one of those
  * routes is never in the scope, so it has no way to reach those pools.
  *
  * The pool is chosen by where the work came from, not at each call site, so
@@ -32,4 +33,9 @@ export function onParticipationPools(
 /** Whether the current work came through onParticipationPools. */
 export function onParticipationPath(): boolean {
   return participationScope.getStore() === true;
+}
+
+/** Detach optional work after a participant's write has completed. */
+export function outsideParticipation<T>(work: () => T): T {
+  return participationScope.exit(work);
 }
