@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "running/feeds-consensus",
+ "state": "running",
+ "route": "GET /feeds/:reportId/consensus",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zero103/consensus",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/rss+xml; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "457"
+   ],
+   [
+    "etag",
+    "W/\"1c9-p9RZ2SdcTAMlaZdsP76pZQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\">\n  <channel>\n    <title>Pol.is Consensus Updates - Report r2p2zero103</title>\n    <description>Cross-group consensus changes and updates for conversation r2p2zero103</description>\n    <link>https://pol.is/report/r2p2zero103</link>\n    <lastBuildDate>Tue, 14 Nov 2023 22:13:20 GMT</lastBuildDate>\n    <generator>Pol.is RSS Generator</generator>\n    <language>en-us</language>\n    \n  </channel>\n</rss>",
+  "bodySha256": "3a52ebc08579d48908bb96b34801c7feaeeae1fb5c6b4eae13783cb45db84cb7"
+ }
+}

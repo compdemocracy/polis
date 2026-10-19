@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "two_models/delphi",
+ "state": "two_models",
+ "route": "GET /api/v3/delphi",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi?report_id=r2p2zero106",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "2292"
+   ],
+   [
+    "etag",
+    "W/\"8f4-JPmSLnEaJwwCZDBCKQj/Aw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"LLM topics retrieved successfully\",\"report_id\":\"r2p2zero106\",\"runs\":{\"generated-model-beta_2023-11-14\":{\"model_name\":\"generated-model-beta\",\"created_date\":\"2023-11-14T19:20:02.000000\",\"topics_by_layer\":{\"0\":{\"0\":{\"topic_name\":\"Generated topic 0.0 by beta\",\"model_name\":\"generated-model-beta\",\"created_at\":\"2023-11-14T19:25:00.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000003#0#0\"},\"1\":{\"topic_name\":\"Generated topic 0.1 by beta\",\"model_name\":\"generated-model-beta\",\"created_at\":\"2023-11-14T19:25:00.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000003#0#1\"},\"2\":{\"topic_name\":\"Generated topic 0.2 by beta\",\"model_name\":\"generated-model-beta\",\"created_at\":\"2023-11-14T19:25:00.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000003#0#2\"}},\"1\":{\"0\":{\"topic_name\":\"Generated topic 1.0 by beta\",\"model_name\":\"generated-model-beta\",\"created_at\":\"2023-11-14T19:25:00.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000003#1#0\"},\"1\":{\"topic_name\":\"Generated topic 1.1 by beta\",\"model_name\":\"generated-model-beta\",\"created_at\":\"2023-11-14T19:25:00.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000003#1#1\"}}},\"item_count\":10,\"job_uuid\":null},\"generated-model-alpha_2023-11-14\":{\"model_name\":\"generated-model-alpha\",\"created_date\":\"2023-11-14T19:20:01.000000\",\"topics_by_layer\":{\"0\":{\"0\":{\"topic_name\":\"Generated topic 0.0 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000001#0#0\"},\"1\":{\"topic_name\":\"Generated topic 0.1 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000001#0#1\"},\"2\":{\"topic_name\":\"Generated topic 0.2 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000001#0#2\"}},\"1\":{\"0\":{\"topic_name\":\"Generated topic 1.0 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000001#1#0\"},\"1\":{\"topic_name\":\"Generated topic 1.1 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006a-0000-4000-8000-000000000001#1#1\"}}},\"item_count\":5,\"job_uuid\":null}}}",
+  "bodySha256": "153079d899d322eeec1a1e6840bfc3b5044dee10a833a390846eb93e3e45ffcd"
+ }
+}

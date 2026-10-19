@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/collectiveStatement/statement-1",
+ "state": "completed",
+ "route": "GET /api/v3/collectiveStatement",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/collectiveStatement?statement_id=105%2300000069-0000-4000-8000-000000000001%230%231%2300000069-0000-4000-8000-00000000c002",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "580"
+   ],
+   [
+    "etag",
+    "W/\"244-KGL/8cPRU9kCMyXQLpZudg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"statement\":{\"zid\":\"105\",\"model\":\"generated-model-alpha\",\"topic_key\":\"00000069-0000-4000-8000-000000000001#0#1\",\"created_at\":\"2023-11-14T20:20:00.000Z\",\"topic_name\":\"Generated topic 0.1\",\"comments_data\":\"[{\\\"comment_id\\\":0,\\\"comment_text\\\":\\\"Generated statement 105.0\\\",\\\"total_votes\\\":3}]\",\"statement_data\":\"{\\\"paragraphs\\\":[{\\\"id\\\":\\\"s1\\\",\\\"title\\\":\\\"Generated statement 2\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated.\\\",\\\"citations\\\":[0]}]}]}]}\",\"zid_topic_jobid\":\"105#00000069-0000-4000-8000-000000000001#0#1#00000069-0000-4000-8000-00000000c002\"}}",
+  "bodySha256": "afee80324d93e32d68d6b479e3dedef6453e96a02e2ebc2a4d2fa2c6b2228a7f"
+ }
+}

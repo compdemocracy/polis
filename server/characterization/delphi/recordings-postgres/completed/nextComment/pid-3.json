@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/nextComment/pid-3",
+ "state": "completed",
+ "route": "GET /api/v3/nextComment",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/nextComment?conversation_id=8p2z105",
+  "auth": "participant:3"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "104"
+   ],
+   [
+    "etag",
+    "W/\"68-Mf1HrFBjNVJ0mFLmoIAsTQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"tid\":2,\"txt\":\"Generated statement 105.2\",\"translations\":[],\"currentPid\":3,\"conversation_id\":\"8p2z105\"}",
+  "bodySha256": "4433a86460db0678378f0d68ecad0bf35bbdb8942b60a3775a17e60fdf67acd2"
+ }
+}

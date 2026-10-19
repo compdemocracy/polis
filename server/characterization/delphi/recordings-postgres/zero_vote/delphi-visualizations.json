@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "zero_vote/delphi-visualizations",
+ "state": "zero_vote",
+ "route": "GET /api/v3/delphi/visualizations",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/visualizations?report_id=r2p2zero109",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "927"
+   ],
+   [
+    "etag",
+    "W/\"39f-C28FJfGBJESO+K0rd6hthg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"report_id\":\"r2p2zero109\",\"visualizations\":[],\"jobs\":[{\"jobId\":\"0000006d-0000-4000-8000-000000000001\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:00:00.000Z\",\"startedAt\":\"2023-11-14T19:01:00.000Z\",\"completedAt\":\"2023-11-14T19:30:00.000Z\",\"results\":{\"status\":\"completed\",\"result_type\":\"FULL_PIPELINE\"},\"archived\":true,\"workLive\":false},{\"jobId\":\"batch_report_r2p2zero109_1699990001_1091\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:40:00.000Z\",\"startedAt\":\"2023-11-14T19:41:00.000Z\",\"completedAt\":\"2023-11-14T19:42:00.000Z\",\"results\":{\"status\":\"submitted\",\"batch_id\":\"msgbatch_generated_109\"},\"archived\":true,\"workLive\":false},{\"jobId\":\"batch_check_r2p2zero109_1699990101_1091\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:42:00.000Z\",\"startedAt\":\"2023-11-14T19:50:00.000Z\",\"completedAt\":\"2023-11-14T19:51:00.000Z\",\"results\":{\"status\":\"completed\",\"processed\":8},\"archived\":true,\"workLive\":false}]}",
+  "bodySha256": "fbe78d5a4d1afdc05554db3584f708d38820a5c25c426986830df78c0ac50d9c"
+ }
+}

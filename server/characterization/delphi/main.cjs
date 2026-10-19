@@ -26,13 +26,20 @@ const crypto = require("node:crypto");
 const HERE = __dirname;
 const SERVER = path.resolve(HERE, "../..");
 const ROOT = path.resolve(SERVER, "..");
-const RECORDINGS = path.join(HERE, "recordings");
+const backend = process.env.DELPHI_RESULT_BACKEND || "dynamodb";
+const RECORDINGS = process.env.P2ZERO_RECORDINGS_DIR
+  ? path.resolve(process.env.P2ZERO_RECORDINGS_DIR)
+  : path.join(HERE, backend === "postgres" ? "recordings-postgres" : "recordings");
 const FIXTURES = path.join(HERE, "fixtures");
 const GOLDEN = path.join(ROOT, "delphi/polismath/delphi_storage/golden");
 const FORMAT = "delphi-characterization/1";
 const EXCLUDED_HEADERS = new Set(["date", "connection", "keep-alive"]);
 
 const mode = process.argv[2];
+if (!["dynamodb", "postgres"].includes(backend)) {
+  console.error("DELPHI_RESULT_BACKEND must be dynamodb or postgres");
+  process.exit(2);
+}
 if (!["record", "replay"].includes(mode)) {
   console.error("usage: main.cjs record|replay");
   process.exit(2);
@@ -91,6 +98,11 @@ const PINNED_ENV = {
   GEMINI_API_KEY: "",
 };
 Object.assign(process.env, PINNED_ENV);
+process.env.DELPHI_RESULT_BACKEND = backend;
+if (backend === "postgres") {
+  process.env.DELPHI_RESULT_ENV = "p2zero";
+  process.env.DELPHI_RESULT_SCOPE = "delphi";
+}
 process.chdir(SERVER);
 require("ts-node/register/transpile-only");
 
@@ -356,6 +368,11 @@ function firstDifference(a, b) {
 async function main() {
   const migrations = await setupPostgres();
   const store = await setupDynamo();
+  if (backend === "postgres") {
+    const { setupPostgresResults } = require("./postgres-fixtures.cjs");
+    const results = await setupPostgresResults(pgApp.toString(), FIXTURES);
+    console.log(`PostgreSQL fixtures: ${JSON.stringify(results)}; archived controls, not native queue executions`);
+  }
   console.log(
     `postgres: ${migrations} migrations + fixtures; codec store round trip: ${store.golden.length} golden families, ${store.fixtures.length} fixture families byte-exact`
   );

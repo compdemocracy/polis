@@ -1,0 +1,39 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "running/feeds-topics",
+ "state": "running",
+ "route": "GET /feeds/:reportId/topics",
+ "request": {
+  "method": "GET",
+  "path": "/feeds/r2p2zero103/topics",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/rss+xml; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "content-length",
+    "433"
+   ],
+   [
+    "etag",
+    "W/\"1b1-7ZTrWtFizX2n1LeojFUNCQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "\n        <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n        <rss version=\"2.0\">\n          <channel>\n            <title>Pol.is Topic Hierarchy - Report r2p2zero103</title>\n            <description>No topics available yet for conversation r2p2zero103</description>\n            <link>https://pol.is/report/r2p2zero103</link>\n            <lastBuildDate>Tue, 14 Nov 2023 22:13:20 GMT</lastBuildDate>\n          </channel>\n        </rss>\n      ",
+  "bodySha256": "b5f26a45949035f73dbd894f7066dde005112134dba2bc4b39a542210140f778"
+ }
+}

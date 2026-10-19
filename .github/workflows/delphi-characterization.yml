@@ -82,6 +82,15 @@ jobs:
           TZ: UTC
         run: node characterization/delphi/main.cjs replay
 
+      - name: Replay the PostgreSQL baseline
+        working-directory: server
+        env:
+          P2ZERO_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5472/postgres
+          DYNAMODB_ENDPOINT: http://127.0.0.1:8472
+          DELPHI_RESULT_BACKEND: postgres
+          TZ: UTC
+        run: node characterization/delphi/main.cjs replay
+
       - name: Remove DynamoDB Local
         if: always()
         run: docker rm -f p2zero-dynamodb

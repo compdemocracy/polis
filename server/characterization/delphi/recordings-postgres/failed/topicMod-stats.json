@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "failed/topicMod-stats",
+ "state": "failed",
+ "route": "GET /api/v3/topicMod/stats",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/stats?conversation_id=8p2z104",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "168"
+   ],
+   [
+    "etag",
+    "W/\"a8-5RY4nA0/Bu7Qr7afTaBzbA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No moderation data available yet\",\"moderation_available\":false,\"stats\":{\"total_topics\":0,\"pending\":0,\"accepted\":0,\"rejected\":0,\"meta\":0}}",
+  "bodySha256": "9d71e7d667ecf990403dd6469b65a38a6bcd6c0bb1a08e69f171b34a6c23d313"
+ }
+}

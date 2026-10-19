@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/delphi-reports/section-topic-key-model",
+ "state": "truncated_narrative",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero108&section=0000006c-0000-4000-8000-000000000001_0_0&topic_key=model",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "243"
+   ],
+   [
+    "etag",
+    "W/\"f3-qSCl8G8BHmAE0AolbokrTA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Topic report retrieved successfully\",\"request_report_id\":\"r2p2zero108\",\"queried_gsi_report_id\":\"r2p2zero108\",\"section\":\"0000006c-0000-4000-8000-000000000001_0_0\",\"topic_key\":\"model\",\"data\":\"generated-model-beta\"}",
+  "bodySha256": "d0a724370bed14a70ec6b073a55e1b5d94e2b7334f3cfb9d6a5012a3d9e71b40"
+ }
+}

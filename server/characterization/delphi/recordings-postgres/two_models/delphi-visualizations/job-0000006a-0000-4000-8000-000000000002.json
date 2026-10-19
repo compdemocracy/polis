@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "two_models/delphi-visualizations/job-0000006a-0000-4000-8000-000000000002",
+ "state": "two_models",
+ "route": "GET /api/v3/delphi/visualizations",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/visualizations?report_id=r2p2zero106&job_id=0000006a-0000-4000-8000-000000000002",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "360"
+   ],
+   [
+    "etag",
+    "W/\"168-UkiOeHHeHE57S6878QwB9g\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"report_id\":\"r2p2zero106\",\"visualizations\":[],\"jobs\":[{\"jobId\":\"0000006a-0000-4000-8000-000000000002\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:00:00.000Z\",\"startedAt\":\"2023-11-14T19:01:00.000Z\",\"completedAt\":\"2023-11-14T19:30:00.000Z\",\"results\":{\"status\":\"completed\",\"result_type\":\"FULL_PIPELINE\"},\"archived\":true,\"workLive\":false}]}",
+  "bodySha256": "643529967893eb67ed8534b983905935ed808aac333277d290ee6f32531dd38d"
+ }
+}
