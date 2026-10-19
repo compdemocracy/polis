@@ -446,8 +446,9 @@ an explicit catalog review before recording.
 ### Release-selected schema catalog
 
 The catalog follows a fresh database built from the release-selected migrations
-through `000041`. `000041` adds a function and no column, so the catalog is the
-same as through `000039`. It has 694 columns: 200 additions and 106 removals
+through `000042`. `000041` adds a function and `000042` replaces one and drops
+a trigger and its function; neither adds or changes a column, so the catalog is
+the same as through `000039`. It has 694 columns: 200 additions and 106 removals
 from the previous 600-column catalog, with every retained descriptor and type
 unchanged. The 106 removals are the coordinator tables' columns: `000021` is
 held, so a fresh release database never creates them; nothing is dropped. The

@@ -31,3 +31,4 @@
 000038_create_delphi_comment_embeddings.sql
 000039_clear_zinvites_uuid.sql
 000041_create_delphi_run_record.sql
+000042_tid_auto_transaction_lock.sql
