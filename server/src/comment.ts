@@ -7,6 +7,7 @@ import { getConversationInfo } from "./conversation";
 import { MPromise } from "./utils/metered";
 import Config from "./config";
 import pg from "./db/pg-query";
+import { outsideParticipation } from "./db/participation-scope";
 import SQL from "./db/sql";
 import Utils from "./utils/common";
 import { isProConvo } from "./routes/comments";
@@ -495,8 +496,33 @@ function translateAndStoreComment(
   return Promise.resolve(null);
 }
 
+/** Enrich an already stored statement without delaying participation. */
+function scheduleCommentLanguageDetection(
+  zid: number,
+  tid: number,
+  txt: string
+): void {
+  outsideParticipation(() => {
+    // No database connection is held while the provider runs. The eventual
+    // write uses the ordinary pool, never a participation connection.
+    void detectLanguage(txt)
+      .then(async (detections) => {
+        const detection = detections[0];
+        if (!detection?.language) return;
+        await pg.queryP(
+          "UPDATE comments SET lang = $3, lang_confidence = $4, modified = now_as_millis() " +
+            "WHERE zid = $1 AND tid = $2 AND txt = $5 AND lang IS NULL;",
+          [zid, tid, detection.language, detection.confidence, txt]
+        );
+      })
+      .catch((err) =>
+        logTranslationFailure("polis_warn_language_metadata_store_failed", err)
+      );
+  });
+}
+
 // Language metadata is optional. Bound our wait for the provider, including its
-// retries, so an outage cannot hold comment creation indefinitely. This does not
+// retries, so an outage cannot retain background detection indefinitely. This does not
 // cancel the SDK request; Promise.race also observes any late rejection.
 const TRANSLATION_TIMEOUT_MS = 5000;
 
@@ -560,14 +586,40 @@ async function translateString(
   return null;
 }
 
+// Share one provider cap across bulk uploads and individual background jobs.
+const LANGUAGE_DETECTION_CONCURRENCY = 4;
+let activeLanguageDetections = 0;
+const pendingLanguageDetections: Array<() => void> = [];
+
+function queueLanguageDetection(txt: any): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const start = () => {
+      activeLanguageDetections += 1;
+      const provider = Promise.resolve().then(() =>
+        translateClient.detect(txt)
+      );
+      const release = () => {
+        activeLanguageDetections -= 1;
+        pendingLanguageDetections.shift()?.();
+      };
+      // A timeout does not cancel the SDK call. Keep its slot until the real
+      // request settles, so repeated timeouts cannot exceed the provider cap.
+      void provider.then(release, release);
+      // Queued metadata has no deadline; the existing provider timeout starts
+      // only when its request starts. Participation never waits on this queue.
+      void withTranslationTimeout(() => provider).then(resolve, reject);
+    };
+    if (activeLanguageDetections < LANGUAGE_DETECTION_CONCURRENCY) start();
+    else pendingLanguageDetections.push(start);
+  });
+}
+
 async function detectLanguage(
   txt: any
 ): Promise<Array<{ confidence: any; language: any }>> {
   if (useTranslateApi) {
     try {
-      const results = await withTranslationTimeout<any[]>(() =>
-        translateClient.detect(txt)
-      );
+      const results = await queueLanguageDetection(txt);
       const detection = Array.isArray(results) ? results[0] : null;
       if (
         !detection ||
@@ -597,6 +649,7 @@ async function detectLanguage(
 
 export {
   detectLanguage,
+  scheduleCommentLanguageDetection,
   getComment,
   getComments,
   getCommentsCount,

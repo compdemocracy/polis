@@ -1,4 +1,5 @@
 import {
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -27,8 +28,8 @@ import { WIRE_AGREE } from "../../src/votes/convention";
  * POST /api/v3/comments makes no moderation call. It sets `mod` and `active`
  * locally (a moderator's statement is approved on arrival; anyone else's is
  * stored unmoderated, `mod` 0, `active` true), stores the statement and
- * answers. The one outside call before the INSERT is language detection, which
- * is bounded and optional. Moderation is a moderator's later
+ * answers. Optional language detection runs after the INSERT, outside the
+ * participation pools, and fills metadata later. Moderation is a moderator's later
  * PUT /api/v3/comments.
  *
  * Whether a stored statement is shown is decided when it is read, by the
@@ -77,10 +78,11 @@ const POOL_SIZE = Config.isDevMode
   : Config.databaseURL !== Config.readOnlyDatabaseURL
   ? 3
   : 12;
-const WAITING_STATEMENTS = POOL_SIZE + 2;
+// Exercise queued statements as well as all four active detection slots.
+const WAITING_STATEMENTS = Math.max(POOL_SIZE + 2, 6);
 // A statement must answer within this while the provider hangs: the detection
-// cap plus room for a loaded machine, and under the 10 s a browser waits.
-const ANSWER_BUDGET_MS = 8000;
+// same prompt bound as votes, before the provider's five-second timeout.
+const ANSWER_BUDGET_MS = 3000;
 // A vote and nextComment must answer within this while statements wait on the
 // provider. A connection held across that wait would make them take nearly the
 // whole detection cap.
@@ -131,6 +133,7 @@ describe("a statement is stored first and moderated after", () => {
   const zids: Record<string, number> = {};
   const seeds: Record<string, number> = {};
   const stamp = Date.now();
+  let releaseHeldDetections: (() => void) | undefined;
 
   async function storedRow(conversationId: string, tid: number) {
     const { rows } = await pool.query(
@@ -242,6 +245,15 @@ describe("a statement is stored first and moderated after", () => {
     mockDetect.mockReset();
   });
 
+  afterEach(async () => {
+    // Release this test's SDK calls, including requests queued behind them.
+    // Resetting a mock does not settle promises already returned by that mock.
+    mockDetect.mockResolvedValue([{ language: "en", confidence: 0.75 }]);
+    releaseHeldDetections?.();
+    releaseHeldDetections = undefined;
+    await sleep(0);
+  });
+
   test("(a) statements answer while the language provider hangs, and the wait holds no connection a vote or nextComment needs", async () => {
     // Each waiting statement goes to a conversation of its own, and its author
     // joins first, so what is timed below is the statement alone. (Statements
@@ -259,7 +271,11 @@ describe("a statement is stored first and moderated after", () => {
 
     // The provider never answers from here on.
     mockDetect.mockReset();
-    mockDetect.mockImplementation(() => new Promise(() => undefined));
+    const held = new Promise((resolve) => {
+      releaseHeldDetections = () =>
+        resolve([{ language: "en", confidence: 0.75 }]);
+    });
+    mockDetect.mockImplementation(() => held);
 
     const posts = waiting.map(({ conversationId, author }) =>
       timed(
@@ -270,10 +286,11 @@ describe("a statement is stored first and moderated after", () => {
       )
     );
 
-    // At least a pool's worth of statements is now waiting on the provider.
-    expect(
-      await until(() => mockDetect.mock.calls.length >= POOL_SIZE, 5000)
-    ).toBe(true);
+    // Fill every provider slot; the remaining statements wait in the metadata
+    // queue. All statements still have to answer within the original budget.
+    expect(await until(() => mockDetect.mock.calls.length === 4, 5000)).toBe(
+      true
+    );
 
     const voter = await newAgent();
     const vote = await within(
@@ -300,12 +317,10 @@ describe("a statement is stored first and moderated after", () => {
 
     expect(vote.value.status).toBe(200);
     expect(next.value.status).toBe(200);
-    // Both answered while every statement was still waiting on the provider.
-    const firstAnswer = Math.min(...answered.map((p) => p.at));
-    expect(vote.at).toBeLessThan(firstAnswer);
-    expect(next.at).toBeLessThan(firstAnswer);
+    // The provider has never resolved, yet comments, votes and reads all
+    // answer promptly. Their response order is no longer coupled to detection.
 
-    expect(mockDetect).toHaveBeenCalledTimes(WAITING_STATEMENTS);
+    expect(mockDetect).toHaveBeenCalledTimes(4);
     for (const post of answered) {
       const { conversationId, response } = post.value;
       expect(response.status).toBe(200);
@@ -380,7 +395,13 @@ describe("a statement is stored first and moderated after", () => {
   }, 20000);
 
   test("(c) without strict moderation: shown as soon as it is stored, and a moderator can hide it afterwards", async () => {
-    mockDetect.mockResolvedValue([{ language: "en", confidence: 0.75 }]);
+    let resolveDetection: (value: unknown) => void;
+    mockDetect.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDetection = resolve;
+        })
+    );
 
     const posted = await submitComment(null, {
       conversation_id: openId,
@@ -392,8 +413,8 @@ describe("a statement is stored first and moderated after", () => {
     expect(await storedRow(openId, tid)).toEqual({
       mod: polisTypes.mod.unmoderated,
       active: true,
-      lang: "en",
-      lang_confidence: 0.75,
+      lang: null,
+      lang_confidence: null,
     });
 
     const reader = await readerWhoVotedOnTheSeed(openId);
@@ -413,6 +434,21 @@ describe("a statement is stored first and moderated after", () => {
       inPage: false,
       offeredNext: false,
       nextTid: undefined,
+    });
+
+    // Metadata can arrive after a later moderation decision, without undoing it.
+    resolveDetection!([{ language: "en", confidence: 0.75 }]);
+    const deadline = Date.now() + PROMPT_MS;
+    let row = await storedRow(openId, tid);
+    while (row.lang === null && Date.now() < deadline) {
+      await sleep(20);
+      row = await storedRow(openId, tid);
+    }
+    expect(row).toEqual({
+      mod: polisTypes.mod.ban,
+      active: true,
+      lang: "en",
+      lang_confidence: 0.75,
     });
   }, 20000);
 });

@@ -135,6 +135,7 @@ class Stall {
 const mockStalls = {
   identity: new Stall(),
   language: new Stall(),
+  languageDetection: new Stall(),
   topics: new Stall(),
 };
 
@@ -155,7 +156,9 @@ jest.mock("@google-cloud/translate", () => ({
   v2: {
     Translate: jest.fn().mockImplementation(() => ({
       detect: () =>
-        mockStalls.language.call(() => [{ language: "en", confidence: 0.9 }]),
+        mockStalls.languageDetection.call(() => [
+          { language: "en", confidence: 0.9 },
+        ]),
       translate: (txt: string) => mockStalls.language.call(() => [txt]),
     })),
   },
@@ -424,8 +427,12 @@ type Evidence = {
   identityWaitingAfter: number;
   topicLookupCalls: number;
   languageCalls: number;
+  languageDetectionCalls: number;
+  languageDetectionsWaitingAfter: number;
   votesStored: number;
   commentsStored: number;
+  commentsWithoutLanguageWhileHeld: number;
+  commentsWithLanguageAfterRelease: number;
 };
 
 type Result = { outcomes: Record<Op, Outcome[]>; evidence: Evidence };
@@ -536,7 +543,10 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     `/api/v3/comments?conversation_id=${conversationId}&report_id=${reportId}` +
     `&moderation=true&mod_gt=${level}&include_voting_patterns=true`;
   if (load.topics) mockStalls.topics.hold();
-  if (load.language) mockStalls.language.hold();
+  if (load.language) {
+    mockStalls.language.hold();
+    mockStalls.languageDetection.hold();
+  }
   // First the plan checks, so that each one reaches the identity provider
   // before any database hold could keep it from getting there.
   let identityWaitingBefore = 0;
@@ -676,10 +686,23 @@ async function runScenario(name: string, load: Load): Promise<Result> {
   const renewed = holdsRenewed.export + holdsRenewed["report tally"];
   const identityWaitingAfter = mockStalls.identity.pending;
   const topicLookupCalls = mockStalls.topics.calls;
-  const languageCalls = mockStalls.language.calls;
+  const languageDetectionCalls = mockStalls.languageDetection.calls;
+  const languageDetectionsWaitingAfter = mockStalls.languageDetection.pending;
+  const languageCalls = mockStalls.language.calls + languageDetectionCalls;
   // What was already stored while the slow work held: a request stored but not
   // yet answered waited after its write; one not yet stored waited before it.
   const storedWhileHeld = await stored();
+  const languageCount = async (ready: boolean) =>
+    (
+      await admin.query(
+        "SELECT count(*)::int AS n FROM comments WHERE zid = $1 AND txt = ANY($2::text[]) AND " +
+          (ready
+            ? "lang = 'en' AND lang_confidence = 0.9::real"
+            : "lang IS NULL AND lang_confidence IS NULL"),
+        [zid, texts]
+      )
+    ).rows[0].n as number;
+  const commentsWithoutLanguageWhileHeld = await languageCount(false);
 
   // Release everything and let it finish.
   heldKinds.clear();
@@ -715,8 +738,12 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     identityWaitingAfter,
     topicLookupCalls,
     languageCalls,
+    languageDetectionCalls,
+    languageDetectionsWaitingAfter,
     votesStored,
     commentsStored,
+    commentsWithoutLanguageWhileHeld,
+    commentsWithLanguageAfterRelease: await languageCount(true),
   };
   const worst = (op: Op) => Math.max(...outcomes[op].map((o) => o.ms));
   const bad = (op: Op) =>
@@ -810,7 +837,24 @@ function guard(
         checks.push(["topicLookupCalls", "at least", 1]);
       }
       if (load.language) {
-        checks.push(["languageCalls", "at least", PARTICIPANTS]);
+        // All participants still act; only four provider calls may start.
+        // They must remain held while the other metadata work is queued.
+        checks.push(["languageDetectionCalls", "exactly", 4]);
+        checks.push(["languageDetectionsWaitingAfter", "exactly", 4]);
+        // With no unrelated stalled topic lookup, acceptance finishes before
+        // the provider timeout: release then populates the same metadata.
+        if (!load.topics) {
+          checks.push([
+            "commentsWithoutLanguageWhileHeld",
+            "exactly",
+            PARTICIPANTS,
+          ]);
+          checks.push([
+            "commentsWithLanguageAfterRelease",
+            "exactly",
+            PARTICIPANTS,
+          ]);
+        }
       }
       checks.push(["votesStored", "exactly", PARTICIPANTS]);
       checks.push(["commentsStored", "exactly", PARTICIPANTS]);
@@ -846,11 +890,8 @@ function guard(
 // (getTidsForParticipantTopicAgenda in src/nextComment.ts).
 const TOPIC_LOOKUPS_WITHOUT_DEADLINE =
   "next-statement selection waits on topic lookups that have no deadline";
-// The language of a comment is detected before the comment is stored, within
-// a 5 s provider budget (handle_POST_comments in src/routes/comments.ts,
-// detectLanguage in src/comment.ts).
-const DETECTION_BEFORE_INSERT =
-  "language detection runs before the comment is stored, for up to 5 s";
+// Language detection enriches stored comments asynchronously. Even a hung
+// provider must not delay acceptance or borrow participation connections.
 
 guard(
   "quiet: no slow work",
@@ -891,7 +932,7 @@ guard(
 guard(
   "the language provider never answers",
   { language: true },
-  { vote: "prompt", comment: DETECTION_BEFORE_INSERT, nextComment: "prompt" }
+  { vote: "prompt", comment: "prompt", nextComment: "prompt" }
 );
 
 guard(
@@ -905,7 +946,7 @@ guard(
   },
   {
     vote: `the stored vote is answered only after ${TOPIC_LOOKUPS_WITHOUT_DEADLINE}`,
-    comment: DETECTION_BEFORE_INSERT,
+    comment: "prompt",
     nextComment: TOPIC_LOOKUPS_WITHOUT_DEADLINE,
   }
 );

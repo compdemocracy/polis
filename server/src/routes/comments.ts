@@ -16,7 +16,7 @@ import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import {
-  detectLanguage,
+  scheduleCommentLanguageDetection,
   getComment,
   getComments,
   getCommentsCount,
@@ -483,11 +483,9 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       active = true;
     }
 
-    // 5. Detect language
-    const detections = await detectLanguage(txt);
-    const detection = Array.isArray(detections) ? detections[0] : detections;
-    const lang = detection.language;
-    const lang_confidence = detection.confidence;
+    // Language metadata is optional and arrives after the statement is stored.
+    const lang = null;
+    const lang_confidence = null;
 
     // 6. Insert the comment
     const insertedComment = await pg.queryP(
@@ -512,6 +510,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
 
     const comment = insertedComment[0];
     const tid = comment.tid;
+    scheduleCommentLanguageDetection(zid, tid, txt);
 
     // 7. Record the author's vote only when the request carries one. A seed
     // gets no automatic vote (see the note above PolisRequestParams).
@@ -914,10 +913,6 @@ async function handle_POST_comments_bulk(
           continue;
         }
 
-        const langDetectionPromise = detectLanguage(txt);
-
-        const [detections] = await Promise.all([langDetectionPromise]);
-
         let active = true;
 
         let mod = 0;
@@ -926,11 +921,8 @@ async function handle_POST_comments_bulk(
           active = true;
         }
 
-        const detection = Array.isArray(detections)
-          ? detections[0]
-          : detections;
-        const lang = detection.language;
-        const lang_confidence = detection.confidence;
+        const lang = null;
+        const lang_confidence = null;
 
         const insertedComment: any = await pg.queryP(
           `INSERT INTO COMMENTS
@@ -955,6 +947,7 @@ async function handle_POST_comments_bulk(
 
         const comment = insertedComment[0];
         const tid = comment.tid;
+        scheduleCommentLanguageDetection(zid!, tid, txt);
         const createdTimeMillis = safeTimestampToMillis(comment.created);
         const createdTime = new Date(createdTimeMillis);
 
