@@ -140,6 +140,9 @@ pub struct App {
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
     pub contexts_served: AtomicU64,
     pub contexts_fallback: AtomicU64,
+    pub delphi_narratives_db: Option<Arc<Pool>>,
+    pub delphi_narratives_env: String,
+    pub delphi_narratives_scope: Option<String>,
     pub delphi_reports_db: Option<Arc<Pool>>,
     pub delphi_reports_served: AtomicU64,
     pub delphi_reports_fallback: AtomicU64,
@@ -343,6 +346,9 @@ impl App {
             read_oidc: None,
             contexts_served: AtomicU64::new(0),
             contexts_fallback: AtomicU64::new(0),
+            delphi_narratives_db: None,
+            delphi_narratives_env: String::new(),
+            delphi_narratives_scope: None,
             delphi_reports_db: None,
             delphi_reports_served: AtomicU64::new(0),
             delphi_reports_fallback: AtomicU64::new(0),
@@ -5297,6 +5303,35 @@ mod tests {
         }
         assert_eq!(state.delphi_reports_served.load(Ordering::Relaxed), 4);
         assert_eq!(state.delphi_reports_fallback.load(Ordering::Relaxed), 14);
+    }
+    #[tokio::test]
+    async fn reports_review_query_decoding_hands_back_express_incompatible_values() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        let inner = Arc::get_mut(&mut state).unwrap();
+        inner.delphi_reports_db = Some(pool.clone());
+        inner.delphi_narratives_db = Some(pool);
+        for field in ["section", "topic_key", "job_id"] {
+            for value in ["%", "%FF", "a%zz%41", "%C3", "%4", "a+%zz%41", "café"] {
+                let mut req = request("GET", &[("host", "localhost")]);
+                req.target = format!("/api/v3/delphi/reports?report_id=r&{field}={value}");
+                assert!(
+                    crate::delphi_reports::parse(&state, &req).is_none(),
+                    "{field}={value}"
+                );
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+        }
+        for value in ["a%20b", "a+b", "%25", "%E9%9B%AA", "%C3%A9"] {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!("/api/v3/delphi/reports?report_id=r&section={value}");
+            assert!(
+                crate::delphi_reports::parse(&state, &req).is_some(),
+                "{value}"
+            );
+        }
+        assert_eq!(state.delphi_reports_fallback.load(Ordering::Relaxed), 21);
+        assert_eq!(state.delphi_reports_served.load(Ordering::Relaxed), 0);
     }
     #[cfg(feature = "db-tests")]
     #[tokio::test]

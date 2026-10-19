@@ -589,6 +589,14 @@ mod tests {
             Connector::Plain(Box::new(pg.clone())),
             crate::delphi_topics::pool_limits(),
         ));
+        app.delphi_narratives_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_narratives::pool_limits(),
+        ));
+        app.delphi_reports_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_reports::pool_limits(),
+        ));
         let app = Arc::new(app);
         async fn park(
             pool: Arc<db::Pool>,
@@ -696,6 +704,7 @@ mod tests {
             app.delphi_logs_db.as_ref().unwrap(),
             app.delphi_visualizations_result_db.as_ref().unwrap(),
             app.delphi_topics_db.as_ref().unwrap(),
+            app.delphi_narratives_db.as_ref().unwrap(),
         ] {
             for _ in 0..2 {
                 held.push(park(pool.clone()).await);
@@ -708,6 +717,7 @@ mod tests {
         held.push(park(app.delphi_logs_auth_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_visualizations_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_read_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.delphi_reports_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",

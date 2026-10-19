@@ -438,7 +438,9 @@ async function main() {
 
   // Optional Rust conformance uses the unchanged fixture and recording oracle.
   const rust = process.env.P2ZERO_RUST_KEYS
-    ? await require(process.env.P2ZERO_RUST_CHECK === "topics"
+    ? await require(process.env.P2ZERO_RUST_CHECK === "reports"
+        ? "../../../queue-rs/polis-api/conformance/delphi-reports-pg-check.cjs"
+        : process.env.P2ZERO_RUST_CHECK === "topics"
         ? "../../../queue-rs/polis-api/conformance/delphi-topics-pg-check.cjs"
         : process.env.P2ZERO_RUST_CHECK === "visualizations"
         ? "../../../queue-rs/polis-api/conformance/delphi-visualizations-pg-check.cjs"
