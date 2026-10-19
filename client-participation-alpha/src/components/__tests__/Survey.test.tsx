@@ -80,6 +80,26 @@ test('first vote targets SSR tid and only then advances to the next blended choi
   await screen.findByText(second.txt)
   expect(vote).toHaveBeenCalledWith(expect.objectContaining({ pid: 0, tid: 0, vote: 'agree' }))
 })
+test('the important box is shown with no conversation flag, and a ticked box rides on the vote', async () => {
+  await ready()
+  const box = screen.getByLabelText(s.importantCheckbox)
+  expect(box).not.toBeChecked()
+  fireEvent.click(box)
+  vote.mockResolvedValueOnce({ nextComment: second })
+  fireEvent.click(screen.getByTestId('vote-agree'))
+  await screen.findByText(second.txt)
+  expect(vote).toHaveBeenCalledWith(
+    expect.objectContaining({ tid: 0, vote: 'agree', high_priority: true })
+  )
+  expect(screen.getByLabelText(s.importantCheckbox)).not.toBeChecked()
+})
+test('a vote with the important box left alone carries high_priority false', async () => {
+  await ready()
+  vote.mockResolvedValueOnce({ nextComment: second })
+  fireEvent.click(screen.getByTestId('vote-agree'))
+  await screen.findByText(second.txt)
+  expect(vote).toHaveBeenCalledWith(expect.objectContaining({ tid: 0, high_priority: false }))
+})
 test('returning participant with existing vote gets their unvoted statement', async () => {
   token.mockReturnValue({ token: 'fixture', pid: 0 })
   next.mockResolvedValueOnce({ ...second, initialStatus: 'voted' } as Next)

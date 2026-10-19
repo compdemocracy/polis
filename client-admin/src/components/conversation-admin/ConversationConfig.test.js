@@ -288,11 +288,11 @@ describe('ConversationConfig', () => {
       expect(screen.getByText(/\[EXPERIMENTAL FEATURE\] Enable Invite Tree/)).toBeInTheDocument()
     })
 
-    it('renders importance_enabled checkbox', () => {
+    it('has no importance_enabled checkbox and says importance is always collected', () => {
       renderWithProviders(<ConversationConfig />)
-      expect(screen.getByTestId('checkbox-importance_enabled')).toBeInTheDocument()
+      expect(screen.queryByTestId('checkbox-importance_enabled')).not.toBeInTheDocument()
       expect(
-        screen.getByText(/\[EXPERIMENTAL FEATURE\] Participants can see the/)
+        screen.getByText(/always see the "This comment is important" checkbox/)
       ).toBeInTheDocument()
     })
   })

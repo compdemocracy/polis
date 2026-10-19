@@ -4,6 +4,8 @@
  * (report.ts with its hand-written `-row.vote` flips) and must not change:
  * agree exports as 1, disagree as -1, pass as 0, a NULL vote as 0, and an
  * out-of-range stored value (no CHECK constraint exists) as its negation.
+ * votes.csv and comments.csv now always carry their importance column
+ * (`important`, `importance`); the vote bytes beside it are unchanged.
  *
  * The declared sign (P-078 PR-E) is pinned here too: summary.csv gains exactly
  * one last row, `vote-convention,...`, every byte before it unchanged, and the
@@ -92,9 +94,6 @@ beforeEach(() => jest.clearAllMocks());
 
 describe("vote CSV exports keep their bytes", () => {
   test("votes.csv", async () => {
-    (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
-      { importance_enabled: false },
-    ] as never);
     streamRows([
       { timestamp: T, tid: 1, pid: 1, vote: -1 },
       { timestamp: T, tid: 1, pid: 2, vote: 1 },
@@ -106,12 +105,12 @@ describe("vote CSV exports keep their bytes", () => {
     await sendVotesSummary(7, res as any);
     const d = formatDatetime(T);
     expect(text()).toBe(
-      "timestamp,datetime,comment-id,voter-id,vote\n" +
-        `1700000000,${d},1,1,1\n` +
-        `1700000000,${d},1,2,-1\n` +
-        `1700000000,${d},2,1,0\n` +
-        `1700000000,${d},2,2,0\n` +
-        `1700000000,${d},3,1,-2\n`
+      "timestamp,datetime,comment-id,voter-id,vote,important\n" +
+        `1700000000,${d},1,1,1,0\n` +
+        `1700000000,${d},1,2,-1,0\n` +
+        `1700000000,${d},2,1,0,0\n` +
+        `1700000000,${d},2,2,0,0\n` +
+        `1700000000,${d},3,1,-2,0\n`
     );
   });
 
@@ -166,19 +165,17 @@ describe("vote CSV exports keep their bytes", () => {
   });
 
   test("comments.csv counts", async () => {
-    (pg.queryP_reportExport as jest.Mock)
-      .mockResolvedValueOnce([{ importance_enabled: false }] as never)
-      .mockResolvedValueOnce([
-        {
-          tid: 1,
-          pid: 5,
-          created: String(T),
-          txt: "a",
-          mod: 1,
-          velocity: 1,
-          active: true,
-        },
-      ] as never);
+    (pg.queryP_reportExport as jest.Mock).mockResolvedValueOnce([
+      {
+        tid: 1,
+        pid: 5,
+        created: String(T),
+        txt: "a",
+        mod: 1,
+        velocity: 1,
+        active: true,
+      },
+    ] as never);
     streamRows([
       { tid: 1, vote: -1, high_priority: false },
       { tid: 1, vote: -1, high_priority: false },
@@ -190,8 +187,8 @@ describe("vote CSV exports keep their bytes", () => {
     const { res, text } = capture();
     await sendCommentSummary(7, res as any);
     expect(text()).toBe(
-      "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n" +
-        `1700000000,${formatDatetime(String(T) as any)},1,5,2,1,1,"a"\n`
+      "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n" +
+        `1700000000,${formatDatetime(String(T) as any)},1,5,2,1,1,0,"a"\n`
     );
   });
 });

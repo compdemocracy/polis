@@ -318,10 +318,12 @@
     },
     {
       "case": "I/reportExport/votes.csv",
-      "find": "\n<s>,<datetime>,0,0,0\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,0,0\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2,0\n<s>,<datetime>,2,0",
-      "replace": "\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2",
-      "why": "votes.csv no longer has the three rows for the uploader's automatic passes (voter-id 0 on comment-id 0, 1 and 2); the imported votes are unchanged.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,0,0\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,0,0\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2,0\n<s>,<datetime>,2,0,0\n<s>,<datetime>,2,1,0\n<s>,<datetime>,2,3,1\n<s>,<datetime>,2,3,0\n",
+      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n<s>,<datetime>,0,1,1,0\n<s>,<datetime>,0,2,-1,0\n<s>,<datetime>,0,2,1,0\n<s>,<datetime>,1,1,-1,0\n<s>,<datetime>,1,2,0,0\n<s>,<datetime>,2,1,0,0\n<s>,<datetime>,2,3,1,0\n<s>,<datetime>,2,3,0,0\n",
+      "whole_response": true,
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote; ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
+      "why": "votes.csv no longer has the three rows for the uploader's automatic passes (voter-id 0 on comment-id 0, 1 and 2); the imported votes are unchanged. Also: votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
     },
     {
       "case": "I/reportExport/participant-votes.csv",
@@ -350,6 +352,86 @@
       "replace": "",
       "why": "As I/after-import/db/votes_latest_unique.",
       "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "E/reportExport/comments.csv",
+      "find": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,",
+      "replace": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,",
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "why": "comments.csv gains the importance column for this conversation, whose importance_enabled is false: the header gains `importance` before `comment-body` and every row a count (0 here) in that place. The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "E/reportExport/votes.csv",
+      "find": "timestamp,datetime,comment-id,voter-id,vote\n",
+      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n",
+      "whole_response": true,
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
+      "why": "votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "E/after-vote-on-missing-comment/votes.csv",
+      "find": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,0,1\n",
+      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n<s>,<datetime>,0,0,1,0\n",
+      "whole_response": true,
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
+      "why": "votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "Z/reportExport/comments.csv",
+      "find": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,0,0,1,\"Vote path zero-vote statement z0\"\n<s>,<datetime>,1,0,0,0,1",
+      "replace": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n<s>,<datetime>,0,0,0,0,1,0,\"Vote path zero-vote statement z0\"\n<s>,<datetime>,1,0,0,0,1,0",
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "why": "comments.csv gains the importance column for this conversation, whose importance_enabled is false: the header gains `importance` before `comment-body` and every row a count (0 here) in that place. The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "Z/reportExport/votes.csv",
+      "find": "timestamp,datetime,comment-id,voter-id,vote\n",
+      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n",
+      "whole_response": true,
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
+      "why": "votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "I/reportExport/comments.csv",
+      "find": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,2,1,1,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,\"Vote path import statement b\"\n<s>,<datetime>,2,0,1,0,1",
+      "replace": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n<s>,<datetime>,0,0,2,1,1,0,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,0,\"Vote path import statement b\"\n<s>,<datetime>,2,0,1,0,1,0",
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "why": "comments.csv gains the importance column for this conversation, whose importance_enabled is false: the header gains `importance` before `comment-body` and every row a count (0 here) in that place. The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "I2/reportExport/comments.csv",
+      "find": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,0,0,1,\"Vote path irregular import statement a\"\n<s>,<datetime>,1,0,0,0,1",
+      "replace": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n<s>,<datetime>,0,0,0,0,1,0,\"Vote path irregular import statement a\"\n<s>,<datetime>,1,0,0,0,1,0",
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "why": "comments.csv gains the importance column for this conversation, whose importance_enabled is false: the header gains `importance` before `comment-body` and every row a count (0 here) in that place. The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "I2/reportExport/votes.csv",
+      "find": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,1,-2\n<s>,<datetime>,1,1,2\n",
+      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n<s>,<datetime>,0,1,-2,0\n<s>,<datetime>,1,1,2,0\n",
+      "whole_response": true,
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
+      "why": "votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "R/reportExport/comments.csv",
+      "find": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,1,0,1,\"Vote path irregular statement r0\"\n<s>,<datetime>,1,0,0,0,1,\"Vote path irregular statement r1\"\n<s>,<datetime>,2,0,0,0,1,\"Vote path irregular statement r2\"\n<s>,<datetime>,3,0,0,0,1",
+      "replace": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n<s>,<datetime>,0,0,1,0,1,0,\"Vote path irregular statement r0\"\n<s>,<datetime>,1,0,0,0,1,0,\"Vote path irregular statement r1\"\n<s>,<datetime>,2,0,0,0,1,0,\"Vote path irregular statement r2\"\n<s>,<datetime>,3,0,0,0,1,0",
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "why": "comments.csv gains the importance column for this conversation, whose importance_enabled is false: the header gains `importance` before `comment-body` and every row a count (0 here) in that place. The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "R/reportExport/votes.csv",
+      "find": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,1,1\n<s>,<datetime>,1,1,0\n<s>,<datetime>,2,1,-2\n<s>,<datetime>,3,1,2\n",
+      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n<s>,<datetime>,0,1,1,0\n<s>,<datetime>,1,1,0,0\n<s>,<datetime>,2,1,-2,0\n<s>,<datetime>,3,1,2,0\n",
+      "whole_response": true,
+      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
+      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
+      "why": "votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
     }
   ]
 }

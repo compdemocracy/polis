@@ -13,7 +13,6 @@ interface StatementProps {
   isStatementImportant: boolean
   setIsStatmentImportant: React.Dispatch<React.SetStateAction<boolean>>
   voteError: string | null
-  importanceEnabled?: boolean
 }
 
 export function Statement({
@@ -23,8 +22,7 @@ export function Statement({
   s,
   isStatementImportant,
   setIsStatmentImportant,
-  voteError,
-  importanceEnabled = false
+  voteError
 }: StatementProps) {
   const [showImportanceDesc, setShowImportanceDesc] = useState<boolean>(false)
   const [translationsEnabled, setTranslationsEnabled] = useState<boolean>(false)
@@ -160,27 +158,23 @@ export function Statement({
         </p>
       )}
 
-      {importanceEnabled ? (
-        <>
-          <div className="importance-container">
-            <label htmlFor="important">{s.importantCheckbox}</label>
-            <input
-              id="important"
-              type="checkbox"
-              onChange={() => setIsStatmentImportant((prev) => !prev)}
-              checked={isStatementImportant}
-            />
-            <InfoIcon
-              size={17}
-              className="info-icon"
-              onClick={() => setShowImportanceDesc((prev) => !prev)}
-              aria-label={s.infoIconAriaLabel}
-            />
-          </div>
+      <div className="importance-container">
+        <label htmlFor="important">{s.importantCheckbox}</label>
+        <input
+          id="important"
+          type="checkbox"
+          onChange={() => setIsStatmentImportant((prev) => !prev)}
+          checked={isStatementImportant}
+        />
+        <InfoIcon
+          size={17}
+          className="info-icon"
+          onClick={() => setShowImportanceDesc((prev) => !prev)}
+          aria-label={s.infoIconAriaLabel}
+        />
+      </div>
 
-          {showImportanceDesc && <p className="importance-desc">{s.importantCheckboxDesc}</p>}
-        </>
-      ) : null}
+      {showImportanceDesc && <p className="importance-desc">{s.importantCheckboxDesc}</p>}
 
       <div className="vote-buttons">
         <button

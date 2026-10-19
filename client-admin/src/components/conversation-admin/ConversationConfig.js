@@ -165,10 +165,10 @@ const ConversationConfig = () => {
         are managed in waves.
       </CheckboxField>
 
-      <CheckboxField field="importance_enabled" label="Importance Enabled">
-        [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
-        checkbox
-      </CheckboxField>
+      <Text sx={{ display: 'block', mb: [3] }}>
+        Participants always see the &quot;This comment is important&quot; checkbox; importance is
+        always collected.
+      </Text>
 
       {hasDelphiEnabled(authUser) && (
         <CheckboxField field="topics_enabled" label="Topics Enabled">

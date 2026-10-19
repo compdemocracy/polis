@@ -222,6 +222,14 @@ test("moderation toggles are mutually exclusive and a repeated toggle clears the
   assert.deepEqual(plain(f.model), { spamOn: false, otOn: false, importantOn: true });
 });
 
+test("the important checkbox shows whatever the conversation's importance flag says", () => {
+  for (const conversation of [{ importance_enabled: true }, { importance_enabled: false }, {}]) {
+    const f = fixture();
+    f.preload.conversation = conversation;
+    assert.equal(f.renderContext().showImportantCheckbox, true);
+  }
+});
+
 test("moderation context exposes no selection only when all flags are clear", () => {
   assert.equal(fixture({ spamOn: false, otOn: false, importantOn: false }).renderContext().noModSet, true);
   for (const key of ["spamOn", "otOn", "importantOn"])
