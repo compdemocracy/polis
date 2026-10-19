@@ -22,6 +22,7 @@ mod pass7;
 mod pass8;
 mod pass9;
 mod preferences;
+mod prioritize;
 mod profiles;
 mod reads;
 mod reserve;
@@ -186,6 +187,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             invites::execute(&path, m, config, site, timeout)
         }
         "comment" => commenting::submit(m, config, site, timeout),
+        "topic prioritize" => prioritize::execute(m, config, site, timeout),
         "join" => participation::join(m, config, site, timeout),
         "vote" => voting::execute(
             m,
@@ -739,6 +741,16 @@ fn main() -> ExitCode {
             } else {
                 println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
             }
+            return ExitCode::SUCCESS;
+        }
+    }
+    if !json_mode
+        && root
+            .subcommand_matches("topic")
+            .is_some_and(|m| m.subcommand_name() == Some("prioritize"))
+    {
+        if let Ok(value) = &result {
+            print!("{}", prioritize::human(value));
             return ExitCode::SUCCESS;
         }
     }

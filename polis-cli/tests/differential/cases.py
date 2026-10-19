@@ -60,6 +60,8 @@ def cases():
     add('delphi narrative export',[C,'--report',R,'--output','narrative'],exit=6,scope='unserved')
     add('vote',[C,'--statement','0','--agree'],actor='participant')
     add('comment',[C,'Generated participant statement'],actor='participant')
+    # The fixture stores no topics, so this proves the participant's own empty read.
+    add('topic prioritize',[C,'--show'],actor='participant')
     add('participant preferences',['--conversation',C,'--translations','true'])
     add('moderate accept',['--conversation',C,'--tid','0'])
     add('moderate reject',['--conversation',C,'--tid','1'])
