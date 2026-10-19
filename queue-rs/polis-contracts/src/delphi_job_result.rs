@@ -5,7 +5,7 @@
 //! the committed server/src/contracts/delphiJobResult.schema.json and its
 //! client copies, and a value encodes ([`crate::wire::to_json`]) to the bytes
 //! Node's `JSON.stringify` writes for it with its keys in the schema's
-//! property order. No route serves it yet. The README section of the same
+//! property order. The typed assignments route serves this contract. The README section of the same
 //! name is the plain-language contract.
 //!
 //! Five states share one envelope, discriminated by `status`: `ready`,

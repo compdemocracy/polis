@@ -553,6 +553,14 @@ mod tests {
         app.next_comment_plain = true;
         app.comments_db = Some(make());
         app.comments_count_db = Some(make());
+        app.delphi_result_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_result_read::pool_limits(),
+        ));
+        app.delphi_result_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_result_read::auth_pool_limits(),
+        ));
         let app = Arc::new(app);
         async fn park(
             pool: Arc<db::Pool>,
@@ -656,11 +664,13 @@ mod tests {
             &app.db,
             app.comments_db.as_ref().unwrap(),
             app.comments_count_db.as_ref().unwrap(),
+            app.delphi_result_db.as_ref().unwrap(),
         ] {
             for _ in 0..2 {
                 held.push(park(pool.clone()).await);
             }
         }
+        held.push(park(app.delphi_result_auth_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",

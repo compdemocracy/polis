@@ -422,5 +422,13 @@
     "expected_node_handoffs": 0,
     "commands": [],
     "scope": "Rust-only: Node has no handler, so a hand-back is Node's 404. No CLI command reaches this route yet; the raw replay against real local runs (delphi-run-run.sh) and the nginx switch test provide serving proof."
+  },
+  "delphiResult": {
+    "path": "/api/v3/delphi/runs/00000000-0000-4000-8000-000000000001?families=assignments",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Rust-only typed assignments read. No CLI command targets this route; delphi-result-run.sh proves contract bytes against immutable results from real local runs."
   }
 }
