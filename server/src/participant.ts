@@ -167,7 +167,16 @@ const PARTICIPANT_INSERT_LOCK_TIMEOUT = "5s";
 // SQLSTATE raised when lock_timeout expires.
 const LOCK_NOT_AVAILABLE = "55P03";
 
-async function insertParticipant(zid: number, uid?: number): Promise<any> {
+// extendedRow: false creates the participants row alone, without the
+// participants_extended row a join through votes, comments or participationInit
+// creates: what an invite accept (src/invites/treevites.ts) has always created.
+type ParticipantInsertOptions = { extendedRow?: boolean };
+
+async function insertParticipant(
+  zid: number,
+  uid?: number,
+  { extendedRow = true }: ParticipantInsertOptions = {}
+): Promise<any> {
   // Use a dedicated client (not pool-level queries) so all statements in the
   // transaction run on the same connection. Without this, pg.query() grabs a
   // random connection from the pool for each call, breaking transaction
@@ -182,12 +191,17 @@ async function insertParticipant(zid: number, uid?: number): Promise<any> {
       `SET LOCAL lock_timeout = '${PARTICIPANT_INSERT_LOCK_TIMEOUT}';`
     );
 
-    // First insert into participants_extended (ignore duplicates)
-    await client.query(
-      "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2) ON CONFLICT (zid, uid) DO NOTHING;",
-      [zid, uid]
-    );
-    logger.debug("participants_extended insert/skip successful", { zid, uid });
+    if (extendedRow) {
+      // First insert into participants_extended (ignore duplicates)
+      await client.query(
+        "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2) ON CONFLICT (zid, uid) DO NOTHING;",
+        [zid, uid]
+      );
+      logger.debug("participants_extended insert/skip successful", {
+        zid,
+        uid,
+      });
+    }
 
     // Second insert into participants table.
     // The pid_auto trigger acquires an advisory lock and assigns pid = MAX(pid)+1.
@@ -211,10 +225,11 @@ async function insertParticipant(zid: number, uid?: number): Promise<any> {
         // Duplicate key — participant was created by a concurrent request.
         // Fetch and return the existing record. This runs after ROLLBACK,
         // on the same client connection, so isolation is correct.
-        logger.debug(
-          "Participant already exists, fetching existing record",
-          { zid, uid, constraint: partErr.constraint }
-        );
+        logger.debug("Participant already exists, fetching existing record", {
+          zid,
+          uid,
+          constraint: partErr.constraint,
+        });
         const selectResult = await client.query(
           "SELECT * FROM participants WHERE zid = $1 AND uid = $2;",
           [zid, uid]
@@ -253,10 +268,14 @@ async function insertParticipant(zid: number, uid?: number): Promise<any> {
   }
 }
 
-async function addParticipant(zid: number, uid?: number): Promise<any> {
+async function addParticipant(
+  zid: number,
+  uid?: number,
+  options: ParticipantInsertOptions = {}
+): Promise<any> {
   logger.debug("addParticipant starting", { zid, uid });
   try {
-    return await insertParticipant(zid, uid);
+    return await insertParticipant(zid, uid, options);
   } catch (err: any) {
     if (err?.code !== "23505") {
       throw err;
@@ -269,7 +288,7 @@ async function addParticipant(zid: number, uid?: number): Promise<any> {
       uid,
       constraint: err.constraint,
     });
-    return insertParticipant(zid, uid);
+    return insertParticipant(zid, uid, options);
   }
 }
 

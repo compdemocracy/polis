@@ -16,6 +16,7 @@ import pg from "../db/pg-query";
 import logger from "../utils/logger";
 import { isModerator } from "../utils/common";
 import { getPidPromise } from "../user";
+import { addParticipant } from "../participant";
 
 // Administering an invite-only conversation's waves and owner invite codes is
 // work performed against someone else's conversation: the invite codes are the
@@ -422,6 +423,21 @@ export async function handle_GET_treevite_waves(req: any, res: any) {
   }
 }
 
+// The invitee's participants row, created as every other join creates it
+// (addParticipant): the wait for the conversation's participant lock (the
+// pid_auto trigger's session advisory lock) is bounded, a connection that saw
+// an error is closed rather than pooled, and an INSERT that loses the race for
+// a participant number to a concurrent join is tried once more instead of
+// refusing the invitee. Only the participants row is created, as an accept
+// always has.
+async function insertInvitedParticipant(
+  zid: number,
+  uid: number
+): Promise<number> {
+  const rows = await addParticipant(zid, uid, { extendedRow: false });
+  return rows[0].pid;
+}
+
 // POST /api/v3/treevite/acceptInvite
 // Exchange a valid invite code for participation and issue a login code + JWT
 export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
@@ -466,11 +482,7 @@ export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
       uid = req.p.uid;
       pid = await getPidPromise(zid, uid, true);
       if (pid < 0) {
-        const partRows = (await pg.queryP(
-          "insert into participants (uid, zid) values (($1), ($2)) returning pid;",
-          [uid, zid]
-        )) as { pid: number }[];
-        pid = partRows[0].pid;
+        pid = await insertInvitedParticipant(zid, uid);
       }
     } else {
       // Create new anonymous user and participant
@@ -480,11 +492,7 @@ export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
       )) as { uid: number }[];
       uid = uidRows[0].uid;
 
-      const partRows = (await pg.queryP(
-        "insert into participants (uid, zid) values (($1), ($2)) returning pid;",
-        [uid, zid]
-      )) as { pid: number }[];
-      pid = partRows[0].pid;
+      pid = await insertInvitedParticipant(zid, uid);
     }
 
     // Now mark the invite as used with the actual pid (atomically)
