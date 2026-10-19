@@ -9,6 +9,17 @@ import run  # noqa: E402
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_clock_expires_caches_and_is_seed_reproducible(self):
+        for seed in ['1', '7']:
+            values = [run.step_clock(seed, i) for i in range(300)]
+            self.assertGreater(values[0], 1700000000000)
+            self.assertTrue(all(b - a > 3000 for a, b in zip(values, values[1:])))
+            self.assertEqual(values, [run.step_clock(generator.normalize_seed(seed), i) for i in range(300)])
+        self.assertNotEqual(run.step_clock('1', 0), run.step_clock('7', 0))
+
+    def test_within_window_class_does_not_expire_cache(self):
+        self.assertEqual(run.step_clock('7', 0), run.step_clock('7', 300, 'within-window'))
+
     def test_same_seed_same_steps(self):
         self.assertEqual(generator.generate('2a', 60), generator.generate('000000000000002a', 60))
 

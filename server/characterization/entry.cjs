@@ -99,6 +99,9 @@ async function main() {
           const owner = new URL(req.url, "http://localhost").searchParams.get(
             "case"
           );
+          require("./clock.cjs").set(
+            new URL(req.url, "http://localhost").searchParams.get("clock")
+          );
           state.currentCase = owner;
           state.commentsContext = null;
           state.caseStart = performance.now();

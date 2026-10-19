@@ -481,6 +481,20 @@ async fn health(app: &route::App) -> Outgoing {
 }
 
 async fn dispatch(app: Arc<route::App>, owner: Option<Arc<owner::App>>, req: Request) -> Outgoing {
+    #[cfg(feature = "fixture-clock")]
+    {
+        let fixture_clock = req.headers.get("x-polis-fixture-clock").map(str::to_owned);
+        clock::for_request(fixture_clock.as_deref(), dispatch_at_clock(app, owner, req)).await
+    }
+    #[cfg(not(feature = "fixture-clock"))]
+    dispatch_at_clock(app, owner, req).await
+}
+
+async fn dispatch_at_clock(
+    app: Arc<route::App>,
+    owner: Option<Arc<owner::App>>,
+    req: Request,
+) -> Outgoing {
     match req.path() {
         owner::PATH => match owner {
             Some(owner) => owner.handle(req).await,

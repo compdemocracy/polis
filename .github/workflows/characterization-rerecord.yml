@@ -66,7 +66,7 @@ jobs:
         run: |
           shellcheck ci/p027_rerecord.sh ci/p027_rerecord_build.sh
           yamllint -d '{extends: default, rules: {line-length: disable, truthy: disable, document-start: disable}}' .github/workflows/characterization-rerecord.yml
-          node --test server/characterization/rerecord-accounting.test.cjs server/characterization/read-retry.test.cjs server/characterization/math-kernel.test.cjs server/characterization/case-loop.test.cjs
+          node --test server/characterization/clock.test.cjs server/characterization/rerecord-accounting.test.cjs server/characterization/read-retry.test.cjs server/characterization/math-kernel.test.cjs server/characterization/case-loop.test.cjs
       - name: Verify dispatch checkout dependency isolation
         working-directory: control
         env:
