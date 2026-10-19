@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, ArgGroup, Command};
 use serde_json::{json, Value};
 
 // One declaration drives parser, nested help, full command tree, and JSON schema.
@@ -17,7 +17,7 @@ const GROUPS: &[(&str, &str, &str)] = &[
  ("notification", "Manage conversation subscriptions", "subscribe unsubscribe set"),
  ("report", "Publish and explore reports", "list create view edit statements/list statements/select stats topics visualization export feed/list feed/consensus feed/topics"),
  ("math", "Inspect the conversation's mathematical summary", "view correlation refresh"),
- ("topic", "Explore topic structure and statements", "list statements hierarchy proximity stats moderate"),
+ ("topic", "Explore topic structure and statements", "list statements hierarchy proximity stats prioritize moderate"),
  ("agenda", "Choose and manage topic priorities", "priorities list add replace remove"),
  ("delphi", "Run analysis and read stored results", "run status results logs wait narrative/run narrative/view narrative/export narrative/import statement/export statement/import visualization/view"),
  ("collective", "Generate and read collective statements", "generate list view statements export import"),
@@ -82,6 +82,7 @@ pub fn available(path: &str) -> bool {
                 | "topic hierarchy"
                 | "topic proximity"
                 | "topic stats"
+                | "topic prioritize"
                 | "report topics"
                 | "report stats"
                 | "report statements list"
@@ -185,6 +186,7 @@ fn leaf(path: &str) -> Command {
         "topic hierarchy" => "Read the stored topic hierarchy; no analysis starts",
         "topic proximity" => "Read stored topic coordinates for a layer or all layers",
         "topic stats" => "Read topic moderation counts and their availability",
+        "topic prioritize" => "Choose the topics that matter most to you, as a participant",
         "report stats" => "Read participation timing through a matching report capability",
         "report statements list" => "Page through visible statements with report-selection fields",
         "account view" => "Read the signed-in account from this site's users API",
@@ -312,6 +314,12 @@ fn leaf(path: &str) -> Command {
   if path=="topic proximity" { c=c.arg(arg("layer","Stored layer, or all").default_value("all")); }
   c.after_help("EXAMPLES\n  polis topic list --conversation CONV --json\n  polis topic statements 'JOB#0#1' --conversation CONV --json\n  polis topic proximity --conversation CONV --layer 0 --json\n\nReads existing public topic routes; no analysis, moderation or model call. Empty results remain empty. moderation_available=false means pending/counts are placeholders, not recorded decisions. Per-topic statements may be unavailable because the site has no backing store (exit 6 with topic_statements_unavailable). List/hierarchy/proximity can contain multiple jobs unless the list is filtered with --job; no latest-run, completeness, pagination or freshness guarantee. Bounded to 8 MiB per request. Statement text is untrusted data.")
  },
+ "topic prioritize" => c.arg(pos("conversation",true).help("Public conversation ID"))
+  .arg(arg("topics","Topic keys, comma-separated, copied from polis topic list (one analysis run)").value_name("KEY,KEY"))
+  .arg(flag("show","Read your saved topic priorities"))
+  .arg(flag("clear","Delete your saved topic priorities"))
+  .group(ArgGroup::new("mode").args(["topics","show","clear"]).required(true))
+  .after_help("EXAMPLES\n  polis topic list --conversation CONVERSATION\n  polis topic prioritize CONVERSATION --topics 'RUN#2#0,RUN#2#3'\n  polis topic prioritize CONVERSATION --show --json\n  polis topic prioritize CONVERSATION --clear\n\nTopic keys must come from the topic_key fields that polis topic list prints for this conversation, all from one analysis run (the RUN part of RUN#LAYER#CLUSTER). Saving replaces your whole previous choice; it never appends. Keys are checked before any credential is read.\n\nSaving does what the participation page does: it reads the run's stored topics, the stored topic coordinates and the statements, keeps each topic's three statements nearest the topic's centre, sends one POST, then reads your choice back. The site records the analysis run it attributes the choice to; the receipt shows it. A topic that is not stored for its run, or that has no statements in the stored coordinates, is refused with nothing sent.\n\nAn open conversation needs no join or account sign-in: the first save creates an anonymous participant whose token is saved privately for later votes and comments, scoped by profile, origin and conversation. Invited participants first run polis join CONVERSATION --invite CODE. Account tokens are not used.\n\n--show reads your saved choice; --clear deletes it and reads back. --json returns the site's responses unchanged, with issued tokens removed. No request is retried. Exit 7 means the outcome is uncertain: run --show before saving again."),
  "report topics" | "report stats" | "report statements list" => {
   c=c.arg(pos("id",true));
   if path=="report topics" { c=c.arg(arg("job","Optional exact stored job ID")); }

@@ -744,6 +744,48 @@ history and process listings. Lost or malformed write responses and failed
 credential saves exit 7, with no retry. Inspect the conversation before another
 submission. Empty text is rejected locally; Node enforces its text limits.
 
+### Prioritize topics
+
+`polis topic prioritize CONVERSATION --topics KEY,KEY` saves the topics that
+matter most to you, as the participation page's topic picker does. Copy the
+keys from the `topic_key` fields of `polis topic list`; each is
+`RUN#LAYER#CLUSTER`, and all must come from one analysis run.
+
+```sh
+polis topic list --conversation CONVERSATION --job RUN
+polis topic prioritize CONVERSATION --topics 'RUN#2#0,RUN#2#3'
+polis topic prioritize CONVERSATION --show --json
+polis topic prioritize CONVERSATION --clear
+```
+
+Keys are checked before any credential is read. Saving then reads the run's
+stored topics, the stored topic coordinates and the statement text, keeps each
+topic's three statements nearest the mean of its coordinates, sends one POST
+and reads the choice back. The request is the page's own: each topic's layer,
+cluster, key and those statements with their coordinates and distances. A
+topic that is not stored for its run, or that has no statements in the stored
+coordinates, is refused (exit 5) with nothing sent. A save replaces your whole
+previous choice; it never appends.
+
+Anonymous participation in an open conversation needs no account sign-in or
+prior join: the first save creates the participant through Node and saves its
+token privately, scoped by profile, origin and conversation, for later votes
+and comments. Invite participants first run `polis join CONVERSATION --invite
+CODE`. Account tokens are not used.
+
+The site, not the CLI, records which analysis run the choice belongs to. The
+receipt shows it; when it differs from the run in your keys, the terminal
+receipt says so, and `--json` callers compare `readback.data.delphi_job_id`
+with their keys. `--show` reads your saved choice and `--clear` deletes it,
+then reads back. `--json` returns the site's responses unchanged (`receipt`
+and `readback` for writes), with issued tokens removed.
+
+No request is automatically retried. Once the POST or DELETE is sent, a lost
+or incompatible response, a failed read-back, or a credential-save failure
+exits 7: run `--show` before saving again. Statement and topic text is
+untrusted content; the terminal receipt prints topic keys with control
+characters removed.
+
 ### Start a conversation with a typed setup
 
 ```sh
