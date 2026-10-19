@@ -180,6 +180,7 @@ polis delphi status --report <report-id> --job <job-id>
 polis delphi results --report <report-id> --job <job-id>
 polis delphi narrative view --report <report-id>
 polis delphi visualization view --report <report-id>
+polis delphi show <report-id> --model <model-name>
 polis plan view
 ```
 

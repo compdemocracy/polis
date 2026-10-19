@@ -3,6 +3,7 @@ mod collective;
 mod collective_read;
 mod commands;
 mod commenting;
+mod delphi_show;
 mod highlights;
 mod invites;
 mod listing;
@@ -215,6 +216,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         | "collective list"
         | "collective view"
         | "collective statements" => pass7::execute(&path, m, config, site, timeout),
+        "delphi show" => delphi_show::execute(m, config, site, timeout),
         "topic list"
         | "topic statements"
         | "topic hierarchy"
@@ -686,6 +688,19 @@ fn main() -> ExitCode {
         return render(&site, Err(e), json_mode);
     }
     let result = execute(&root, &mut config, &site);
+    if root
+        .subcommand_matches("delphi")
+        .is_some_and(|m| m.subcommand_name() == Some("show"))
+    {
+        if let Ok(value) = &result {
+            if json_mode {
+                println!("{}", delphi_show::json(&site, value));
+            } else {
+                print!("{}", listing::terminal_text(&delphi_show::text(value)));
+            }
+            return ExitCode::SUCCESS;
+        }
+    }
     if !json_mode
         && root
             .subcommand_matches("collective")
