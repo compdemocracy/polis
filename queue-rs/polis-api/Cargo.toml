@@ -39,6 +39,7 @@ ryu-js = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 
 [dev-dependencies]
+libc = "0.2"
 openssl = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
