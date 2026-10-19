@@ -11,7 +11,7 @@ fixture-ids = []
 polis-contracts = { path = "../../../queue-rs/polis-contracts" }
 polis-client = { path = "../polis-client" }
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 clap = { version = "4", features = ["string"] }
 csv = "1"
 uuid = { version = "1", features = ["v4", "v5"] }

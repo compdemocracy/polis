@@ -346,6 +346,12 @@ impl Client {
     }
     /// Read the fixed PCA presentation route, with bounded gzip support.
     pub fn math_presentation(&self, query: &[(String, String)]) -> Result<Value> {
+        let bytes = self.math_presentation_bytes(query)?;
+        serde_json::from_slice(&bytes)
+            .map_err(|_| protocol(false, "Site returned malformed math JSON."))
+    }
+    /// The same read, returning the decoded body as the server sent it.
+    pub fn math_presentation_bytes(&self, query: &[(String, String)]) -> Result<Vec<u8>> {
         let (status, content_type, bytes) =
             self.exchange("GET", "/api/v3/math/pca2", query, None, false, true)?;
         if status != 200
@@ -356,8 +362,7 @@ impl Client {
                 "Math presentation must return HTTP 200 JSON.",
             ));
         }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| protocol(false, "Site returned malformed math JSON."))
+        Ok(bytes)
     }
     /// Only the fixed public report export route is eligible for text downloads.
     pub fn report_export(&self, report: &str, kind: &str) -> Result<Vec<u8>> {

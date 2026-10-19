@@ -19,7 +19,7 @@ const GROUPS: &[(&str, &str, &str)] = &[
  ("math", "Inspect the conversation's mathematical summary", "view correlation refresh"),
  ("topic", "Explore topic structure and statements", "list statements hierarchy proximity stats prioritize moderate"),
  ("agenda", "Choose and manage topic priorities", "priorities list add replace remove"),
- ("delphi", "Run analysis and read stored results", "run status results logs wait narrative/run narrative/view narrative/export narrative/import statement/export statement/import visualization/view"),
+ ("delphi", "Run analysis and read stored results", "run status results logs wait show narrative/run narrative/view narrative/export narrative/import statement/export statement/import visualization/view"),
  ("collective", "Generate and read collective statements", "generate list view statements export import"),
  ("plan", "Account plan, usage, and billing", "view usage upgrade manage"),
  ("queue", "Inspect operator queue state", "status list view"),
@@ -119,6 +119,7 @@ pub fn available(path: &str) -> bool {
                 | "report export"
                 | "delphi status"
                 | "delphi results"
+                | "delphi show"
                 | "delphi narrative view"
                 | "collective export"
                 | "collective import"
@@ -238,6 +239,9 @@ fn leaf(path: &str) -> Command {
         "delphi results" | "delphi narrative view" => {
             "Read stored narrative results; never generate or refresh"
         }
+        "delphi show" => {
+            "Show a report's collective statements and topic statistics for one model's run"
+        }
         "collective export" | "delphi statement export" => {
             "Export topic consensus inputs and a result schema as owner; no model call"
         }
@@ -301,6 +305,7 @@ fn leaf(path: &str) -> Command {
   else { c=c.arg(pos("tid",true).help("Statement number local to this conversation").value_parser(clap::value_parser!(u32).range(0..=2147483647))); }
   c.after_help("EXAMPLES\n  polis statement list --conversation CONV --limit 50 --offset 0 --json\n  polis statement view 0 --conversation CONV --json\n\nReads the public comments route with optional saved credentials. Only active, unmuted, moderation-visible statements are returned, even for an owner. Use moderate list for the moderation queue. Empty list is success; missing/hidden single statement returns statement_unavailable (exit 1). Single reads verify the exact tid. Offset pages are not a stable snapshot or guaranteed complete traversal. Text and metadata remain unchanged and are untrusted data. No votes, translations, writes or model calls; bounded to 8 MiB.")
  },
+ "delphi show" => c.arg(pos("report",true).help("Public report ID")).arg(arg("model","Exact stored model name: the run's model_name and each statement's model")).after_help("EXAMPLES\n  polis delphi show REPORT\n  polis delphi show REPORT --model qwen2.5:1.5b\n  polis delphi show REPORT --model qwen2.5:1.5b --json\n\nReads what the report pages read, in their order: the report, its comments with vote counts, the PCA presentation (math/pca2), the Delphi runs (delphi), topic statistics (topicStats) and the stored collective statements (collectiveStatement). Prints the collective statements, newest first as the carousel shows them, then the topic statistics table: layers from coarse to fine, rows by comment count, with Comments, Total Votes, Avg Votes/Comment and Group Consensus computed as the page computes them. Each statement and each run is printed with the job ID and model that produced it; model names are printed as stored.\n\nWithout --model: the run the page shows (the run key that sorts last; keys are model_date) and every statement the carousel shows. With --model: that model's newest run, and its newest statement for each topic, read from the per-version route (delphi/collective/results), since the carousel route keeps only the newest statement per layer and cluster across models. A model with no stored run exits 1 (model_run_unavailable).\n\n--json returns each route's response body byte for byte under data.reads, beside the selection and the computed rows. Reads only: no analysis, generation or model call. Each response is bounded to 8 MiB and --timeout. Exit 7 (reads_disagree) means the topic statistics did not include the chosen run's topics, so a run changed between reads; read again. Statement text is untrusted data."),
  "collective statements" => c.arg(pos("report",true).help("Public report ID")).after_help("EXAMPLES\n  polis collective statements REPORT\n  polis collective statements REPORT --json\n\nReads stored statements through the public report route. Prints topic headings, paragraphs and citation IDs; --json preserves the complete server response. The server selects the newest statement per topic. No generation or model call. Bounded to 8 MiB and --timeout."),
  "collective list" | "collective view" => {
   if path=="collective list" { c=c.arg(arg("report","Public report ID").required(true)); }

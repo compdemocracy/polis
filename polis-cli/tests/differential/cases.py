@@ -42,8 +42,9 @@ def cases():
       ('collective statements',[R]),('collective list',['--report',R]),('collective view',['generated#0#1']),
       ('delphi status',['--report',R]),('delphi results',['--report',R]),
       ('delphi narrative view',['--report',R]),('delphi visualization view',['--report',R]),
+      ('delphi show',[R]),
       ('report export',[R,'--type','format.json','--output','report.json'])]:
-        add(path,args,exit={'topic list':1,'topic statements':6,'topic hierarchy':1,'topic proximity':1,'topic stats':0,'report topics':1,'collective statements':6,'collective list':6,'collective view':6,'delphi status':6,'delphi results':1,'delphi narrative view':1,'delphi visualization view':6,'report export':0}[path],scope='missing-store')
+        add(path,args,exit={'topic list':1,'topic statements':6,'topic hierarchy':1,'topic proximity':1,'topic stats':0,'report topics':1,'collective statements':6,'collective list':6,'collective view':6,'delphi status':6,'delphi results':1,'delphi narrative view':1,'delphi visualization view':6,'delphi show':1,'report export':0}[path],scope='missing-store')
     # Import rejection uses a real file, parsed by the real contract; these do
     # not claim a successful provider result import or replace its own suite.
     for path in ['collective import','delphi statement import','delphi narrative import']:
