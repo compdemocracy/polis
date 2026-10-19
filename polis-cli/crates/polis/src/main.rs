@@ -576,6 +576,20 @@ fn public_id(id: &str) -> Result<()> {
     }
     Ok(())
 }
+/// Preserve JSON values while escaping characters that can control a terminal.
+fn terminal_json(value: &Value) -> String {
+    let json = serde_json::to_string_pretty(value).unwrap();
+    let mut out = String::with_capacity(json.len());
+    for c in json.chars() {
+        if c != '\n' && c != '\t' && (c.is_control() || listing::invisible(c)) {
+            use std::fmt::Write;
+            write!(out, "\\u{:04x}", c as u32).unwrap();
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
 fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
     let setup_partial = result.as_ref().is_ok_and(|v| v["state"] == "setup_partial");
     let partial = result
@@ -608,7 +622,7 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
             value["ok"] = json!(false);
             value["error"] = json!({"code":"partial_import","message":"Some rows failed, were skipped, or were not confirmed.","action":"Save data.receipt and read back before retrying.","outcome":"unknown","retryable":false,"upstream":null});
         }
-        println!("{}", serde_json::to_string_pretty(&value).unwrap());
+        println!("{}", terminal_json(&value));
     } else {
         match result {
             Ok(v) => {
@@ -621,7 +635,7 @@ fn render(site: &str, result: Result<Value>, json_mode: bool) -> ExitCode {
                 {
                     print!("{}", listing::terminal_text(text))
                 } else {
-                    println!("{}", serde_json::to_string_pretty(&v).unwrap())
+                    println!("{}", terminal_json(&v))
                 }
             }
             Err(e) => {
