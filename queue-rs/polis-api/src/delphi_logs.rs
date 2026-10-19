@@ -274,7 +274,7 @@ fn log_events(raw: Js, job: &str) -> Option<Vec<contract::Event>> {
 }
 /// ISO timestamps only. Date.parse's other grammars stay with Node. Legacy
 /// Python timestamps without a zone are admitted only under explicit UTC.
-fn iso_millis(s: &str) -> Option<i64> {
+pub(crate) fn iso_millis(s: &str) -> Option<i64> {
     let s = if let Some(s) = s.strip_suffix('Z') {
         s
     } else {

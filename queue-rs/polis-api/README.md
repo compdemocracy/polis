@@ -1415,3 +1415,36 @@ then adds native attempts, moderator controls, archive precedence and the
 pre-filter entry limit. Its reader login has only the existing executor role.
 The shared CLI differential retains its DynamoDB fixture and therefore checks
 this route's disabled fallback; it does not claim Postgres log-serving coverage.
+
+### PostgreSQL legacy topics
+
+`POLIS_API_DELPHI_READS=1` and `RUST_API_ROUTES=delphiRead` remain off by default.
+With `DELPHI_RESULT_BACKEND=postgres`, also set `POLIS_API_DELPHI_TOPICS_DATABASE_URL`
+to a primary reader with EXECUTE on `pd_result_page` and SELECT on `reports`
+(`report_id`, `zid`), `DELPHI_RESULT_ENV`
+and optional `DELPHI_RESULT_SCOPE`. Both database URLs must point to the same primary database in PostgreSQL mode.
+The report lookup retains its separate one-slot pool; the new result pool has two read-only slots, 15 ms acquisition and 200 ms statement
+limits, and the whole request is bounded to 750 ms. It shares no participation pool.
+
+The legacy response groups by model/date, keeps last topic per layer/cluster, counts
+all items, and takes its job UUID from the oldest narrative index row. Narrative and
+topics are separate reads, as in Node; this is not an immutable run-result contract.
+Numeric object keys preserve JavaScript order. Missing fields stay absent, stored nulls
+stay null. Local-time ISO dates require `TZ=UTC`; unsupported date/coercion/prototype
+shapes, ambiguous scopes, over 1,000 source rows or 512 KiB of tagged source, and all
+query failures hand back to Node with 502. The SQL byte check runs before rows
+are transferred to Rust. No partial result is returned. DynamoDB
+mode retains validation-only serving. Public auth headers are ignored in PostgreSQL
+mode as they are in Node. No handler, schema, writer or production setting changed.
+
+Conformance with locally built Node, migrated Postgres and fixture-clock API images:
+```sh
+COMPOSE_PROJECT_NAME=topics-proof POLIS_RECOVERY_PG_PORT=58241 \
+DELPHI_TOPICS_PG_NODE_IMAGE=topics-node:local \
+DELPHI_TOPICS_PG_POSTGRES_IMAGE=topics-postgres:local \
+DELPHI_TOPICS_PG_API_IMAGE=topics-api:local \
+queue-rs/polis-api/conformance/delphi-topics-pg-run.sh /tmp/topics-results.json
+```
+The runner replays the unchanged Postgres baseline and checks Rust response bytes,
+served/fallback counters, overwrites, ordering, nulls, publication replacement and
+an explicit bounded fallback. Images use generated fixtures only.

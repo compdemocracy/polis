@@ -1067,6 +1067,7 @@ expect /api/v3/comments node "Delphi report validation leaves comments alone"
 expect /api/v3/votes node "Delphi report validation leaves voting alone"
 [[ $(included | grep -c 'location = /api/v3/delphi') == 1 ]] || fail "Delphi report validation duplicated"
 expect_upstream polis-api GET /api/v3/delphi
+expect_upstream polis-api GET "/api/v3/delphi?report_id=generated-report" $'Authorization: Bearer ignored\r\n'
 expect_upstream polis-api HEAD /api/v3/delphi
 expect_upstream server OPTIONS /api/v3/delphi
 expect_upstream server POST /api/v3/delphi $'Content-Length: 2\r\n' '{}'
