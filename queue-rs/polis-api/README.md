@@ -1095,7 +1095,8 @@ serve topics or claim DynamoDB/provider parity.
 
 `GET`/`HEAD /api/v3/delphi/reports` is staged behind `POLIS_API_DELPHI_REPORTS_READS=1`
 and nginx `RUST_API_ROUTES=delphiReports`, both off by default. Set
-`POLIS_API_DELPHI_REPORTS_DATABASE_URL` to Node's read replica. Only missing/empty
+`POLIS_API_DELPHI_REPORTS_DATABASE_URL` to Node's read replica for validation-only
+mode. Without `DELPHI_RESULT_BACKEND=postgres`, only missing/empty
 report IDs and absent reports (both HTTP 200, matching Node) are served, using the shared
 `polis-contracts::delphi_reports` request/response types. Existing reports and
 DynamoDB responses remain Node, as do identity, body, duplicate/structured
@@ -1108,7 +1109,8 @@ contention hand back to Node; cancellation retains the slot until the query
 finishes. `delphiReportsServed` and `delphiReportsFallback` count the outcomes.
 Run `queue-rs/polis-api/conformance/delphi-reports-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
-serve narrative reports or claim DynamoDB/provider parity.
+serve narrative reports or claim DynamoDB/provider parity. PostgreSQL mode
+extends this route as described in “PostgreSQL narrative reports” below.
 
 
 ### Delphi visualization jobs
@@ -1448,3 +1450,27 @@ queue-rs/polis-api/conformance/delphi-topics-pg-run.sh /tmp/topics-results.json
 The runner replays the unchanged Postgres baseline and checks Rust response bytes,
 served/fallback counters, overwrites, ordering, nulls, publication replacement and
 an explicit bounded fallback. Images use generated fixtures only.
+
+## PostgreSQL narrative reports
+
+With the existing `POLIS_API_DELPHI_REPORTS_READS=1` and
+`RUST_API_ROUTES=delphiReports` switches, `DELPHI_RESULT_BACKEND=postgres`
+enables bounded reads of `/api/v3/delphi/reports`. Both switches remain off by
+default. The response preserves Node's public access, job selection, section
+filters, property ordering and stored timestamp strings, including microseconds
+and offset spelling. No timestamp is converted to a Date. The latest timestamp
+within each run uses string comparison; run ordering uses Node's characterized
+timestamp collation. Unsupported characters remain on Node.
+
+`POLIS_API_DELPHI_NARRATIVES_DATABASE_URL` selects an independent two-connection
+result pool; `POLIS_API_DELPHI_REPORTS_DATABASE_URL` selects the separate
+one-connection validation pool. Both URLs must use the same primary as Node.
+The result login requires EXECUTE on `pd_result_page` and SELECT on `reports`;
+sessions are read-only. No participation pool is used. Requests hand back to
+Node on a pool/query failure, conflicting scopes, unsupported values, more than
+1000 family rows, over 512 KiB of input, or over 1 MiB of output. The complete
+request deadline is 750 ms, with a 200 ms result statement timeout.
+
+`conformance/delphi-reports-pg-run.sh` runs the unchanged Postgres baseline plus
+native publication, timestamp, grouping, filter and bounded-handoff checks.
+It requires unique compose/port settings and the three local fixture images.

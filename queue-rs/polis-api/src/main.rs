@@ -34,6 +34,7 @@ mod delphi_job_result;
 #[path = "../../polis-contracts/src/delphi_run.rs"]
 mod delphi_run;
 mod delphi_logs;
+mod delphi_narratives;
 mod delphi_read;
 mod delphi_reports;
 mod delphi_result_read;
@@ -732,6 +733,24 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-delphi-reports/1")?,
             delphi_reports::pool_limits(),
         ));
+        if std::env::var("DELPHI_RESULT_BACKEND").ok().as_deref() == Some("postgres") {
+            let dsn = std::env::var("POLIS_API_DELPHI_NARRATIVES_DATABASE_URL").context(
+                "POLIS_API_DELPHI_NARRATIVES_DATABASE_URL required for PostgreSQL narrative reads",
+            )?;
+            state.delphi_narratives_env =
+                std::env::var("DELPHI_RESULT_ENV").context("DELPHI_RESULT_ENV required")?;
+            anyhow::ensure!(
+                !state.delphi_narratives_env.is_empty(),
+                "DELPHI_RESULT_ENV cannot be empty"
+            );
+            state.delphi_narratives_scope = std::env::var("DELPHI_RESULT_SCOPE")
+                .ok()
+                .filter(|s| !s.is_empty());
+            state.delphi_narratives_db = Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-delphi-narratives/1")?,
+                delphi_narratives::pool_limits(),
+            ));
+        }
     }
     if std::env::var("POLIS_API_DELPHI_VISUALIZATIONS_READS")
         .ok()

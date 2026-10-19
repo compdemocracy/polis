@@ -1088,6 +1088,7 @@ expect /api/v3/comments node "Delphi narrative report validation leaves comments
 expect /api/v3/votes node "Delphi narrative report validation leaves voting alone"
 [[ $(included | grep -c 'location = /api/v3/delphi/reports') == 1 ]] || fail "Delphi narrative report validation duplicated"
 expect_upstream polis-api GET /api/v3/delphi/reports
+expect_upstream polis-api GET '/api/v3/delphi/reports?report_id=generated&job_id=old&section=global&topic_key=report_data' $'Authorization: Bearer generated\r\n'
 expect_upstream polis-api HEAD /api/v3/delphi/reports
 expect_upstream server OPTIONS /api/v3/delphi/reports
 expect_upstream server POST /api/v3/delphi/reports $'Content-Length: 2\r\n' '{}'
