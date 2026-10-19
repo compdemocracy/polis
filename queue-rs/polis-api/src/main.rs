@@ -71,6 +71,7 @@ mod route;
 #[path = "../../polis-contracts/src/schema.rs"]
 mod schema;
 mod settings_page;
+mod statement_importance;
 mod topic_prioritize;
 mod topic_selections;
 mod topic_stats;
@@ -366,6 +367,14 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.conversation_stats_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "statementImportanceServed",
+        js::Js::Num(app.statement_importance_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "statementImportanceFallback",
+        js::Js::Num(app.statement_importance_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
         "topicSelectionsServed",
         js::Js::Num(app.topic_selections_served.load(Ordering::Relaxed) as f64),
     );
@@ -568,6 +577,7 @@ async fn dispatch_at_clock(
         | legacy_conversations::PATH
         | einvites_read::PATH
         | topic_prioritize::PATH
+        | statement_importance::PATH
         | topic_selections::PATH
         | conversation_stats::PATH
         | bid_to_pid::PATH
@@ -1201,6 +1211,18 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_STATEMENT_IMPORTANCE_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL")
+            .context("POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL required")?;
+        state.statement_importance_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-statement-importance/1")?,
+            statement_importance::pool_limits(),
+        ));
     }
     if std::env::var("POLIS_API_TOPIC_SELECTIONS_READS")
         .ok()

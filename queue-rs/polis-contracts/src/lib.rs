@@ -128,6 +128,7 @@ impl Pca2ErrorCode {
     }
 }
 
+pub mod statement_importance;
 /// Explicit vote wire declarations shared with CLI consumers.
 pub mod votes;
 

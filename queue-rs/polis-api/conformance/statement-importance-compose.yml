@@ -1,0 +1,37 @@
+# Aggregate fixture: integer participant numbers, no vote values or text.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: importance_test
+    ports: ["127.0.0.1:${POLIS_RECOVERY_PG_PORT:?}:5432"]
+    volumes:
+      - ./statement-importance-fixture.sql:/docker-entrypoint-initdb.d/fixture.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d importance_test"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+  polis-api:
+    image: ${IMPORTANCE_API_IMAGE:-polis-api:ci}
+    environment: &api_environment
+      DATABASE_URL: postgres://postgres@postgres:5432/importance_test
+      POLIS_API_DB_TRANSPORT: docker-internal
+      POLIS_API_DB_PLAIN_HOSTS: postgres
+      POLIS_API_LISTEN: 0.0.0.0:5100
+      MATH_ENV: test
+      DEV_MODE: "true"
+      POLIS_API_STATEMENT_IMPORTANCE_READS: "1"
+      POLIS_API_STATEMENT_IMPORTANCE_DATABASE_URL: postgres://postgres@postgres:5432/importance_test
+    ports: ["127.0.0.1:${IMPORTANCE_API_PORT:?}:5100"]
+    depends_on:
+      postgres: {condition: service_healthy}
+  polis-api-off:
+    image: ${IMPORTANCE_API_IMAGE:-polis-api:ci}
+    environment:
+      <<: *api_environment
+      POLIS_API_STATEMENT_IMPORTANCE_READS: "0"
+    ports: ["127.0.0.1:${IMPORTANCE_OFF_PORT:?}:5100"]
+    depends_on:
+      postgres: {condition: service_healthy}
