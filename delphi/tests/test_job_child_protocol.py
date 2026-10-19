@@ -233,7 +233,8 @@ def test_daemon_success_writes_a_valid_manifest_whose_sha_is_over_the_file_bytes
     assert (manifest["stage"], manifest["phase"], manifest["outcome"]) == ("delphi_full_pipeline", "run", "succeeded")
     assert manifest["inputs"] == dict(FIXTURE_INPUTS, math_env="prod")
     assert manifest["outputs"] == FIXTURE_OUTPUTS
-    assert manifest["models"] == {"embed": "all-MiniLM-L6-v2", "topic": "claude-haiku-4-5-20251001", "narrative": None}
+    assert manifest["models"] == {"embed": "all-MiniLM-L6-v2", "topic": "claude-haiku-4-5-20251001", "narrative": None,
+                                  "cluster": "delphi-umap-evoc/1", "cluster_seed": 42}
     assert manifest["recheck_after"] is None
     assert daemon.leftovers() == []
 
@@ -434,6 +435,28 @@ def test_validate_manifest_rejects(tmp_path, monkeypatch, mutate):
     mutate(manifest)
     with pytest.raises(job_child.ManifestError):
         job_child.validate_manifest(manifest)
+
+
+def test_a_clustering_run_names_its_model_and_seed_together(tmp_path, monkeypatch):
+    _, ctx = _ctx(tmp_path, monkeypatch, stage="delphi_full_pipeline")
+    named = json.loads(json.dumps(_manifest(ctx)))
+    named["models"].update(cluster="delphi-umap-evoc/1", cluster_seed=42)
+    job_child.validate_manifest(named)
+    job_child.validate_manifest(dict(named, models=dict(named["models"], cluster_seed=2**32 - 1)))
+    for models in [
+        {k: v for k, v in named["models"].items() if k != "cluster"},
+        {k: v for k, v in named["models"].items() if k != "cluster_seed"},
+        dict(named["models"], cluster_seed=None),
+        dict(named["models"], cluster_seed=-1),
+        dict(named["models"], cluster_seed=2**32),
+        dict(named["models"], cluster_seed=4.5),
+        dict(named["models"], cluster_seed="42"),
+        dict(named["models"], cluster_seed=True),
+        dict(named["models"], cluster=None),
+        dict(named["models"], cluster=""),
+    ]:
+        with pytest.raises(job_child.ManifestError):
+            job_child.validate_manifest(dict(named, models=models))
 
 
 def test_oversized_manifest_is_refused(tmp_path, monkeypatch):

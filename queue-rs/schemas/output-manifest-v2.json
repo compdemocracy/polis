@@ -163,6 +163,15 @@
         "topic",
         "narrative"
       ],
+      "description": "cluster and cluster_seed are optional and come together: the clustering's model id and seed, on a run that clustered.",
+      "dependentRequired": {
+        "cluster": [
+          "cluster_seed"
+        ],
+        "cluster_seed": [
+          "cluster"
+        ]
+      },
       "properties": {
         "embed": {
           "type": [
@@ -181,6 +190,15 @@
             "string",
             "null"
           ]
+        },
+        "cluster": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cluster_seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
         }
       }
     },

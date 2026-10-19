@@ -294,6 +294,12 @@ struct RawModels {
     embed: Option<ModelName>,
     topic: Option<ModelName>,
     narrative: Option<ModelName>,
+    /// The clustering's model id and seed: only on the manifest of a run that
+    /// clustered (the daemon accepts the two together or neither).
+    #[serde(default)]
+    cluster: Option<ModelName>,
+    #[serde(default)]
+    cluster_seed: Option<u64>,
 }
 
 /// `provider_batches` is not read: the record's provider requests are the
@@ -379,8 +385,8 @@ fn failure(
 }
 
 /// Builds the record. Not recorded anywhere yet, so always `null`: the math
-/// snapshot, the clustering model and seed, the statement model, prompt
-/// versions and the label.
+/// snapshot, the statement model, prompt versions and the label. The
+/// clustering model and seed are the manifest's, `null` when it names none.
 pub fn record(raw: Raw, conversation_id: ConversationId) -> Result<DelphiRun, Invalid> {
     let state = raw.state.unwrap_or(raw.status);
     let attempt_code = raw.attempt.as_ref().and_then(|a| a.error_code.clone());
@@ -489,8 +495,8 @@ pub fn record(raw: Raw, conversation_id: ConversationId) -> Result<DelphiRun, In
         },
         |m| RunModels {
             embedding: m.embed,
-            cluster: None,
-            cluster_seed: None,
+            cluster: m.cluster,
+            cluster_seed: m.cluster_seed,
             topic_names: m.topic,
             narrative: m.narrative,
             statement: None,
@@ -666,7 +672,9 @@ mod tests {
             for key in ["topic_names", "narrative", "statement"] {
                 assert!(v["prompt_versions"][key].is_null(), "{name} {key}");
             }
-            for key in ["cluster", "cluster_seed", "statement"] {
+            assert!(v["models"]["statement"].is_null(), "{name}");
+            // These runs' manifests name no clustering, so neither does the record.
+            for key in ["cluster", "cluster_seed"] {
                 assert!(v["models"][key].is_null(), "{name} {key}");
             }
         }
@@ -674,6 +682,24 @@ mod tests {
         let statement = value(FIXTURES[1].2);
         assert!(statement["inputs"].is_null());
         assert!(statement["models"]["embedding"].is_null());
+    }
+
+    #[test]
+    fn a_manifest_that_names_its_clustering_names_it_on_the_record() {
+        let mut doc = value(FIXTURES[0].1);
+        doc["manifest"]["models"]["cluster"] = "delphi-umap-evoc/1".into();
+        doc["manifest"]["models"]["cluster_seed"] = 42.into();
+        let run = record(serde_json::from_value(doc.clone()).unwrap(), conversation()).unwrap();
+        let v = value(&crate::wire::to_json(&run).unwrap());
+        assert_eq!(v["models"]["cluster"], "delphi-umap-evoc/1");
+        assert_eq!(v["models"]["cluster_seed"], 42);
+        assert_eq!(v["models"]["embedding"], "all-MiniLM-L6-v2");
+        // A seed without its clustering model is not a record the contract takes.
+        doc["manifest"]["models"]
+            .as_object_mut()
+            .unwrap()
+            .remove("cluster");
+        assert!(record(serde_json::from_value(doc).unwrap(), conversation()).is_err());
     }
 
     #[test]

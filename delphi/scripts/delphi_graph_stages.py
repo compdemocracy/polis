@@ -208,10 +208,14 @@ def execute(frame):
             sys.path.insert(0, str(ROOT / 'umap_narrative'))
         from umap_narrative.numerical_stages import project_and_cluster, characterize_comment_clusters
         from polismath_commentgraph.utils.converter import DataConverter
-        points, layers = project_and_cluster(vectors)
+        # The run's declared seed drives UMAP and EVōC; the artifact names it.
+        seed = d['seed']
+        if type(seed) is not int or not 0 <= seed < 2**32:
+            raise ValueError('declared seed must be an integer in [0, 2**32)')
+        points, layers = project_and_cluster(vectors, seed=seed)
         if not layers or any(len(layer) != len(texts) for layer in layers) or not np.isfinite(points).all():
             raise ValueError('invalid Delphi clustering output')
-        output.update(layers=[layer.tolist() for layer in layers], points=points.tolist())
+        output.update(layers=[layer.tolist() for layer in layers], points=points.tolist(), seed=seed)
         dump = lambda models: [model.model_dump(exclude_none=True) for model in models]
         families['Delphi_CommentHierarchicalClusterAssignments'] = dump(
             DataConverter.batch_convert_clusters(zid,layers,points,ids))

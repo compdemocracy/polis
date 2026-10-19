@@ -1237,13 +1237,14 @@ request shape the route does not model) reaches Node's 404.
   kind, origin, stage, state, the last attempt (number, lease epoch, outcome,
   started and ended, exit proof), graph id, root and, on a root, the other
   nodes; configuration, code version, the finalized manifest's inputs, its
-  embedding, topic-name and narrative models and token counts; provider
+  embedding, topic-name and narrative models, its clustering model and seed
+  (on a run whose manifest names them) and token counts; provider
   requests; pinned; and for each family of the job's published bundle its
   producing run, the run each upstream family came from, its batch (content
   sha256, row count) and its publication (scope and generation; `succeeded`
   while the served pointer still resolves it, else `superseded`). Recorded
-  nowhere yet, so always `null`: `math_snapshot`, the clustering model and
-  seed, the statement model, prompt versions and `label`. A failure is given
+  nowhere yet, so always `null`: `math_snapshot`, the statement model,
+  prompt versions and `label`. A failure is given
   only when the job was cancelled or its recorded code (before any `:`
   detail) is one of the contract's closed codes; its stage is `null`. A job
   that published nothing lists no family. A full pipeline run still writes
