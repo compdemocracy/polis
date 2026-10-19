@@ -441,7 +441,20 @@ from the target's migrations; it never reuses a historical database image or
 regenerates the catalog automatically. Any future schema mismatch still requires
 an explicit catalog review before recording.
 
-The current catalog was regenerated from all 21 migrations, including `000021`
+### Release-selected schema catalog
+
+The catalog follows a fresh database built from the release-selected migrations
+through `000041`. `000041` adds a function and no column, so the catalog is the
+same as through `000039`. It has 694 columns: 200 additions and 106 removals
+from the previous 600-column catalog, with every retained descriptor and type
+unchanged. The 106 removals are the coordinator tables' columns: `000021` is
+held, so a fresh release database never creates them; nothing is dropped. The
+recorder still refuses to record against a database whose columns or types
+differ from this catalog. The column-policy skeleton has the same 694
+identities; every new entry remains `REVIEW`, unreviewed, with an empty reason.
+This refresh does not approve production data or replace the recorded baseline.
+
+The previous 600-column catalog was regenerated from all 21 migrations, including `000021`
 rev6. Its 600 descriptors preserve all 578 entries from the rev5 catalog
 (494 earlier columns plus 84 coordinator columns). The 22 additions are in
 `polis_coordinator_namespaces` (3), `polis_coordinator_principals` (4), and
