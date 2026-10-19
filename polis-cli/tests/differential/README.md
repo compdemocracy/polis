@@ -130,3 +130,21 @@ counts and the phase loop live in `harness.py`. `run.py` holds the fixed
 scenarios; `polis-cli/tests/fuzz/run.py` runs seeded generated sequences on the
 same stack in three phases (Node, switches on, Node again as the A/A control)
 through `scripts/test-polis-cli-fuzz.sh`.
+
+### Generated sequence clocks
+
+The fuzz entry point advances the fixture clock before each step using
+`1700000010000 + (run_seed mod 86400000) + index * 10000` milliseconds.
+All three phases use the same sequence. The base follows the generated fixture
+rows; the stride exceeds the Node and Rust math caches' 3000 ms TTL.
+The step barrier drains request effects before the next clock change.
+Node's `/begin?clock=...` sets `Date`; the sealed gateway supplies
+`X-Polis-Fixture-Clock` to fixture-enabled Rust requests. Rust scopes it to the
+request future. Production Rust builds ignore this header; real timers and
+request deadlines stay unchanged. Calls without a clock retain the historical
+frozen replay clock. No committed recording is refreshed by this change.
+
+`test-polis-cli-fuzz.sh --clock-mode within-window` deliberately keeps one
+seed-derived instant throughout each phase. It reports the existing shared
+math-cache difference through the known-differences registry, with the same
+zero bound; this mode is a diagnostic, not an equivalence pass.

@@ -169,9 +169,10 @@ class Stack:
             print(fixture.stderr,file=sys.stderr)
             raise RuntimeError('generated fixture install failed')
 
-    def begin(self,seed,case):
-        """Reseed Node's entropy (and the gateway's nextComment seed) for one case."""
-        self.get('/begin?seed='+seed+'&case='+case)
+    def begin(self,seed,case,*,clock=None):
+        """Reseed one case, optionally advancing the test-only fixture clock."""
+        suffix = '' if clock is None else '&clock=' + str(clock)
+        self.get('/begin?seed='+seed+'&case='+case+suffix)
 
     def barrier(self,label):
         # Await tracked asynchronous side effects before the next

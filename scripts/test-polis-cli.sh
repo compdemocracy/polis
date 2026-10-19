@@ -24,6 +24,7 @@ cargo test --locked --workspace
 
 # The independent live differential's comparator and command-census guards.
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/differential -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/fuzz -p 'test_*.py'
 
 # The test-only build supplies generated IDs before live writes, never masks
 # differing receipts. The default production binary lacks this capability.

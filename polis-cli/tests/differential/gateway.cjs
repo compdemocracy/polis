@@ -4,7 +4,7 @@
 // Pass the existing replay seed into the Rust fixture-only RNG seam. Node uses
 // the same /begin seed before execution; no returned random value is masked.
 const http = require('node:http');
-let seed;
+let seed, clock;
 // Capture only an explicitly armed route, in memory, without decoding JSON.
 // The bounded copy never changes the bytes streamed to the CLI.
 let numericCapture;
@@ -31,11 +31,19 @@ for (const [port, host, upstreamPort] of [[5000,'proxy',80],[5001,'server',5001]
   if (port===5001 && req.url.startsWith('/begin?')) {
    const value=new URL(req.url,'http://localhost').searchParams.get('seed');
    if (!/^[a-f0-9]{12}$/.test(value || '')) { res.writeHead(400);res.end();return; }
+   const nextClock=new URL(req.url,'http://localhost').searchParams.get('clock');
+   if (nextClock !== null && (!/^[0-9]{1,16}$/.test(nextClock) ||
+       !Number.isSafeInteger(Number(nextClock)) || Number(nextClock)>8640000000000000)) {
+    res.writeHead(400);res.end();return;
+   }
    seed=value;
+   clock=nextClock;
   }
   const headers={...req.headers};
   if (port===5000) {
    delete headers['x-polis-fixture-seed'];
+   delete headers['x-polis-fixture-clock'];
+   if (clock !== null && clock !== undefined) headers['x-polis-fixture-clock']=clock;
    if (seed && req.url.split('?')[0]==='/api/v3/nextComment') headers['x-polis-fixture-seed']=seed;
   }
   const upstream=http.request({host,port:upstreamPort,path:req.url,method:req.method,headers,agent:false},r=>{

@@ -123,16 +123,15 @@ fn draw(req: &Request) -> f64 {
         .headers
         .get("x-polis-fixture-seed")
         .filter(|s| s.len() == 12 && s.bytes().all(|b| b.is_ascii_hexdigit()))
+        && let Ok(mut n) = u32::from_str_radix(&seed[..8], 16)
     {
-        if let Ok(mut n) = u32::from_str_radix(&seed[..8], 16) {
-            if n == 0 {
-                n = 0x270027;
-            }
-            n ^= n << 13;
-            n ^= n >> 17;
-            n ^= n << 5;
-            return f64::from(n) / 4294967296.0;
+        if n == 0 {
+            n = 0x270027;
         }
+        n ^= n << 13;
+        n ^= n >> 17;
+        n ^= n << 5;
+        return f64::from(n) / 4294967296.0;
     }
     let _ = req;
     rand::random::<f64>()

@@ -209,6 +209,9 @@ P027_HTTP_PORT=55480 P027_CONTROL_PORT=55481 \
 The `fixture-clock` feature exists only for the replay: the test stack
 freezes Node's clock, and a build with this feature can freeze its own the
 same way (`POLIS_API_FIXTURE_CLOCK`). The default build cannot.
+A fixture-clock build also honours a per-request `X-Polis-Fixture-Clock` header
+(milliseconds), token checks included, so the differential harness can advance
+the clock one step at a time; the default build ignores the header.
 
 ## Credits
 
