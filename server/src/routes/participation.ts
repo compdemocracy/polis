@@ -194,6 +194,14 @@ function handle_GET_participation(
       });
     })
     .catch(function (err: any) {
+      // The report/export pool holds one connection per process by default, so
+      // an export or report running past its acquire timeout leaves these
+      // counts without a connection. That is a busy pool, not a defect: answer
+      // 503 with its own code so the caller can retry.
+      if (pg.isPoolAcquireTimeout(err)) {
+        failJson(res, 503, "polis_err_get_participation_busy", err);
+        return;
+      }
       failJson(res, 500, "polis_err_get_participation_misc", err);
     });
 }
