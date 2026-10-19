@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -37,7 +37,7 @@ pub fn execute(
                 .join(","),
         ));
     }
-    let data = client(config, site, timeout, false)?.math_presentation(&query).map_err(|mut e| {
+    let data = public_client(config, site, timeout)?.math_presentation(&query).map_err(|mut e| {
         if e.upstream["status"] == 304 {
             e.code = "math_unavailable";
             e.message = "The site returned no math presentation.".into();

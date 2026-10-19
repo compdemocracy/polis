@@ -69,7 +69,14 @@ and audience. Changing auth settings requires login again; environment access
 tokens override storage without touching refresh credentials. No real tenant
 mutation is needed to install or configure the CLI.
 
-Access tokens refresh silently within 30 seconds of expiry, before an API request.
+Commands that require sign-in, and the raw `api` command, refresh access tokens
+silently within 30 seconds of expiry, before an API request. Named public reads
+(conversation/report views, report exports, Delphi reads, math and participant
+read views) use an explicit token override or a usable saved file token. They
+never refresh, lock the owner credential store, create a credentials directory,
+or consult the Keychain. An expired, mismatched, unavailable or unsafe saved
+credential is left untouched and the public read proceeds anonymously; run
+`polis auth login` for a resource that requires a current owner sign-in.
 Rotated refresh credentials are saved before the API request; an omitted replacement
 retains the prior refresh token. A file lock prevents concurrent refresh and logout
 from overwriting each other (`credential_busy` asks the caller to rerun). If the

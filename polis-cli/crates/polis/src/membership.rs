@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -11,7 +11,7 @@ pub fn execute(
 ) -> Result<Value> {
     let conversation = str_arg(m, "conversation");
     public_id(conversation)?;
-    let data = client(config, site, timeout, false)?.base_cluster_membership(conversation).map_err(|mut e| {
+    let data = public_client(config, site, timeout)?.base_cluster_membership(conversation).map_err(|mut e| {
         if e.upstream["status"] == 304 {
             e.code = "membership_unavailable";
             e.message = "The site returned no base-cluster membership map.".into();

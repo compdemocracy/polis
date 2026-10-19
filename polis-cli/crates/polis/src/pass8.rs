@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -54,7 +54,7 @@ pub fn execute(
     } else {
         "/api/v3/metadata/questions"
     };
-    let v = client(config, site, timeout, false)?
+    let v = public_client(config, site, timeout)?
         .request("GET", route, &query, None, false)
         .map_err(|e| read_error(e, context))?;
     let rows = v.as_array().ok_or_else(invalid_response)?;
