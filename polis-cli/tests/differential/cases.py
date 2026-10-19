@@ -11,7 +11,7 @@ def cases():
     def add(command,args=(),*,exit=0,scope='live',stdin=None,actor='owner'):
         rows.append(dict(command=command,args=command.split()+list(args),expected_exit=exit,scope=scope,stdin=stdin,actor=actor))
     # Local discovery is exercised as commands, not substituted for API calls.
-    for command,args in [('schema',[]),('help',[]),('completion',['bash']),('tutorial',[]),('agent guide',[]),('conversation share',[C]),('plan upgrade',[]),('plan manage',[])]:
+    for command,args in [('schema',[]),('help',[]),('completion',['bash']),('tutorial',[]),('questions',[]),('agent guide',[]),('conversation share',[C]),('plan upgrade',[]),('plan manage',[])]:
         add(command,args,scope='local')
     add('auth login',['--with-token'],stdin='owner')
     add('auth status');add('auth token',scope='credential')

@@ -27,6 +27,7 @@ mod pass9;
 mod preferences;
 mod prioritize;
 mod profiles;
+mod questions;
 mod reads;
 mod reserve;
 mod seeds;
@@ -182,6 +183,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 Ok(json!({"help":cmd.bin_name(full_name).render_long_help().to_string()}))
             }
         }
+        "questions" => Ok(questions::execute()),
         "completion" => {
             let shell = str_arg(m, "shell")
                 .parse::<clap_complete::Shell>()
@@ -713,7 +715,7 @@ fn main() -> ExitCode {
     // Help and schema never depend on credentials or profile files.
     if matches!(
         root.subcommand_name(),
-        Some("help" | "schema" | "agent" | "completion" | "tutorial")
+        Some("help" | "schema" | "agent" | "completion" | "tutorial" | "questions")
     ) {
         return render(
             "unresolved",

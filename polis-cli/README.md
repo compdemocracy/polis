@@ -918,3 +918,15 @@ they select a comment where the command concerns participation.
 Comment analysis: `polis comment stats --conversation CONV --sort divisive --by-group`
 answers which comments divided the room most. See [the statistics contract](COMMENT-STATS.md)
 for denominators, unknown values, bounds and the byte-preserving JSON source envelope.
+
+### Questions to ask about a conversation
+
+Run `polis questions` for ten plain-language analyst questions, the commands for
+each, and what to look for. The guide starts with shared ground and divisions,
+then covers groups, distinctive beliefs, importance, new comments, vote coverage,
+change over time, collective statements, and comparing one participant by XID.
+`polis questions --json` returns `data.schema=polis-questions/1`, the introduction,
+ordered question entries (`id`, `question`, `commands`, `look_for`) and rendered
+help. It works offline without a profile or credentials and runs none of the
+listed commands. It distinguishes existing reads from comparisons an analyst
+must make and from the consensus timeline the CLI does not yet provide.
