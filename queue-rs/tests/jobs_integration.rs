@@ -2391,3 +2391,174 @@ mod run_record {
         polis_queue_adapter::jobs::embedding::MODEL_MINILM.to_owned()
     }
 }
+
+/// The input bundle read from real Postgres. The contract's golden
+/// conversation (delphi/tests/fixtures/input_bundle/basic) is inserted into a
+/// database carrying the full release chain; the daemon's reader reads it back
+/// and writes the bundle, which must be the golden bundle byte for byte, the
+/// manifest's `inputs` block included. With `POLIS_INPUT_BUNDLE_KEEP=<dir>`
+/// the database is kept and the bundle written under `<dir>/inputs`, so the
+/// Delphi side can read the same rows from Postgres and compare.
+mod input_bundle {
+    use super::{admin_url, root, url_for};
+    use polis_queue_adapter::jobs::inputs::{self, contract};
+    use postgres::{Client, NoTls};
+    use uuid::Uuid;
+
+    fn golden(name: &str) -> Vec<u8> {
+        std::fs::read(
+            root()
+                .join("../delphi/tests/fixtures/input_bundle/basic")
+                .join(name),
+        )
+        .unwrap()
+    }
+
+    fn decode<T: serde::de::DeserializeOwned>(name: &str) -> T {
+        serde_json::from_slice(&golden(name)).unwrap()
+    }
+
+    #[test]
+    fn the_reader_on_real_postgres_writes_the_golden_bundle() {
+        let name = format!("bundle_{}", Uuid::new_v4().simple());
+        Client::connect(&admin_url(), NoTls)
+            .unwrap()
+            .batch_execute(&format!("CREATE DATABASE {name}"))
+            .unwrap();
+        let dsn = url_for(&name, "postgres");
+        let release = polis_migrate::load(&root().join("../server/postgres/migrations")).unwrap();
+        let mut runner = polis_migrate::connect(&format!("{dsn}?sslmode=disable")).unwrap();
+        polis_migrate::apply(&mut runner, &release).unwrap();
+        drop(runner);
+
+        let conversation: contract::Conversation = decode("conversation.json");
+        let comments: Vec<contract::Comment> = decode("comments.json");
+        let selections: Vec<contract::ReportCommentSelection> =
+            decode("report_comment_selections.json");
+        let manifest: contract::Manifest = decode("manifest.json");
+        let zid = conversation.zid;
+        let owner = conversation.owner.unwrap();
+        let mut db = Client::connect(&dsn, NoTls).unwrap();
+        db.execute(
+            "INSERT INTO users(uid,hname) VALUES($1::bigint,'generated bundle owner')",
+            &[&owner],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO conversations(zid,owner,topic,description,created,modified) \
+             VALUES($1::bigint,$2::bigint,$3,$4,$5,$6)",
+            &[
+                &zid,
+                &owner,
+                &conversation.topic,
+                &conversation.description,
+                &conversation.created,
+                &conversation.modified,
+            ],
+        )
+        .unwrap();
+        // One participant per pid the comments name; pid_auto numbers them from 0.
+        let max_pid = comments.iter().map(|c| c.pid).max().unwrap();
+        for pid in 0..=max_pid {
+            let uid = 1000 + pid;
+            db.execute(
+                "INSERT INTO users(uid,hname) VALUES($1::bigint,'generated participant')",
+                &[&uid],
+            )
+            .unwrap();
+            let got: i32 = db
+                .query_one(
+                    "INSERT INTO participants(zid,uid) VALUES($1::bigint,$2::bigint) RETURNING pid",
+                    &[&zid, &uid],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(i64::from(got), pid);
+        }
+        // tid_auto numbers comments from 0 in insertion order, as the golden tids run.
+        for c in &comments {
+            let got: i32 = db
+                .query_one(
+                    "INSERT INTO comments(zid,pid,uid,txt,created,mod,active) \
+                     VALUES($1::bigint,$2::bigint,$3::bigint,$4,$5,$6::bigint,$7) RETURNING tid",
+                    &[
+                        &zid,
+                        &c.pid,
+                        &(1000 + c.pid),
+                        &c.txt,
+                        &c.created,
+                        &c.r#mod,
+                        &c.active,
+                    ],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(i64::from(got), c.tid);
+        }
+        let mut rids: Vec<i64> = selections.iter().map(|s| s.rid).collect();
+        rids.dedup();
+        for rid in rids {
+            db.execute(
+                "INSERT INTO reports(rid,report_id,zid) VALUES($1,$2,$3::bigint)",
+                &[&rid, &format!("rgenerated{rid}"), &zid],
+            )
+            .unwrap();
+        }
+        for s in &selections {
+            db.execute(
+                "INSERT INTO report_comment_selections(zid,rid,tid,selection,modified) \
+                 VALUES($1::bigint,$2,$3::bigint,$4::bigint,$5)",
+                &[&zid, &s.rid, &s.tid, &s.selection, &s.modified],
+            )
+            .unwrap();
+        }
+        // The bundle carries only the newest vote's created; one pass (0, the
+        // same in every sign convention) at that instant sets it.
+        db.execute(
+            "INSERT INTO votes(zid,pid,tid,vote,created) VALUES($1::bigint,0,0,0,$2)",
+            &[&zid, &manifest.inputs.vote_hwm],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO math_main(zid,math_env,data,last_vote_timestamp,caching_tick,math_tick) \
+             VALUES($1::bigint,$2,'{}'::jsonb,0,$3,$4)",
+            &[
+                &zid,
+                &manifest.inputs.math_env,
+                &manifest.inputs.math_caching_tick,
+                &manifest.inputs.math_tick,
+            ],
+        )
+        .unwrap();
+
+        let bundle = inputs::read(&mut db, zid, &manifest.inputs.math_env).unwrap();
+        drop(db);
+        let keep = std::env::var("POLIS_INPUT_BUNDLE_KEEP").ok();
+        let dir = match &keep {
+            Some(d) => std::path::PathBuf::from(d),
+            None => std::env::temp_dir().join(format!("bundle-{}", Uuid::new_v4())),
+        };
+        inputs::write(&dir, &bundle).unwrap();
+        for file in [
+            "conversation.json",
+            "comments.json",
+            "report_comment_selections.json",
+            "manifest.json",
+        ] {
+            assert_eq!(
+                std::fs::read(dir.join("inputs").join(file)).unwrap(),
+                golden(file),
+                "{file}"
+            );
+        }
+        if keep.is_some() {
+            println!("kept database {name}");
+        } else {
+            std::fs::remove_dir_all(&dir).unwrap();
+            Client::connect(&admin_url(), NoTls)
+                .unwrap()
+                .batch_execute(&format!("DROP DATABASE {name}"))
+                .unwrap();
+        }
+    }
+}

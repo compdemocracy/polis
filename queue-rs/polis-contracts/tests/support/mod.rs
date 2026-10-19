@@ -64,6 +64,7 @@ pub fn minify(text: &str) -> String {
 }
 
 const ISO_8601: &str = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$";
+const SHA256_HEX: &str = "^[0-9a-f]{64}$";
 const KEYWORDS: [&str; 23] = [
     "$schema",
     "$id",
@@ -189,8 +190,14 @@ fn check(schema: &Json, value: &Json, path: &str, errors: &mut Vec<String>) {
             }
         }
         if let Some(Json::String(pattern)) = s.get("pattern") {
-            assert_eq!(pattern, ISO_8601, "pattern {pattern} is not implemented");
-            if Timestamp::new(text.clone()).is_err() {
+            let matches = match pattern.as_str() {
+                ISO_8601 => Timestamp::new(text.clone()).is_ok(),
+                SHA256_HEX => {
+                    text.len() == 64 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+                }
+                _ => panic!("pattern {pattern} is not implemented"),
+            };
+            if !matches {
                 errors.push(format!("{at}: must match {pattern}"));
             }
         }

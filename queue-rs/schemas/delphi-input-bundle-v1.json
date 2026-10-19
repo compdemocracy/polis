@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "delphi-input-bundle/1",
+  "$comment": "Generated from queue-rs/polis-contracts/src/delphi_input_bundle_schema.rs. Do not edit; edit the Rust source and regenerate (POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --test delphi_input_bundle).",
+  "title": "DelphiInputBundleManifest",
+  "description": "The files polis-jobs writes for a Delphi stage before its child starts: one entry per role, in the order conversation, comments, report_comment_selections.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "delphi-input-bundle/1"
+    },
+    "zid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "inputs": {
+      "description": "The run's inputs, exactly the output manifest's inputs block.",
+      "type": "object",
+      "properties": {
+        "math_env": {
+          "type": "string",
+          "minLength": 1
+        },
+        "math_tick": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "math_caching_tick": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "comment_set_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "vote_hwm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "math_env",
+        "math_tick",
+        "math_caching_tick",
+        "comment_set_sha256",
+        "vote_hwm"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "const": "conversation"
+              },
+              "path": {
+                "type": "string",
+                "const": "conversation.json"
+              },
+              "schema": {
+                "type": "string",
+                "const": "delphi-input-bundle.conversation/1"
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "role",
+              "path",
+              "schema",
+              "rows",
+              "bytes",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "const": "comments"
+              },
+              "path": {
+                "type": "string",
+                "const": "comments.json"
+              },
+              "schema": {
+                "type": "string",
+                "const": "delphi-input-bundle.comments/1"
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "role",
+              "path",
+              "schema",
+              "rows",
+              "bytes",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "const": "report_comment_selections"
+              },
+              "path": {
+                "type": "string",
+                "const": "report_comment_selections.json"
+              },
+              "schema": {
+                "type": "string",
+                "const": "delphi-input-bundle.report-comment-selections/1"
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "role",
+              "path",
+              "schema",
+              "rows",
+              "bytes",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+  "required": [
+    "schema",
+    "zid",
+    "inputs",
+    "files"
+  ],
+  "additionalProperties": false
+}

@@ -10,6 +10,8 @@ pub mod conversation_preload;
 pub mod conversation_stats;
 pub mod create_page;
 pub mod database;
+pub mod delphi_input_bundle;
+pub mod delphi_input_bundle_schema;
 pub mod delphi_job_result;
 pub mod delphi_read;
 pub mod delphi_reports;

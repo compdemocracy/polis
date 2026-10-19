@@ -93,21 +93,32 @@ def fetch_conversation_data(zid):
         comments: List of comment dictionaries
         metadata: Dictionary with conversation metadata
     """
-    logger.info(f"Fetching conversation {zid} from PostgreSQL...")
-    postgres_client = PostgresClient()
+    from polismath.job_child import input_bundle
+
+    # The input bundle polis-jobs wrote, when the frame names one: the same rows,
+    # read in one snapshot before the child started. Otherwise PostgreSQL.
+    bundle = input_bundle.load(zid)
+    postgres_client = None
 
     try:
-        # Initialize connection
-        postgres_client.initialize()
+        if bundle is not None:
+            logger.info(f"Reading conversation {zid} from the input bundle...")
+            conversation = bundle.conversation()
+            comments = bundle.comments()
+        else:
+            logger.info(f"Fetching conversation {zid} from PostgreSQL...")
+            postgres_client = PostgresClient()
+            # Initialize connection
+            postgres_client.initialize()
 
-        # Get conversation metadata
-        conversation = postgres_client.get_conversation_by_id(zid)
-        if not conversation:
-            logger.error(f"Conversation {zid} not found in database.")
-            return None, None
+            # Get conversation metadata
+            conversation = postgres_client.get_conversation_by_id(zid)
+            if not conversation:
+                logger.error(f"Conversation {zid} not found in database.")
+                return None, None
 
-        # Get comments - include all comments, regardless of active status
-        comments = postgres_client.get_comments_by_conversation(zid)
+            # Get comments - include all comments, regardless of active status
+            comments = postgres_client.get_comments_by_conversation(zid)
         logger.info(f"Retrieved {len(comments)} comments from conversation {zid}")
 
         # Count active and inactive for logging purposes only
@@ -142,7 +153,8 @@ def fetch_conversation_data(zid):
 
     finally:
         # Clean up connection
-        postgres_client.shutdown()
+        if postgres_client is not None:
+            postgres_client.shutdown()
 
 
 def process_comments(comments, conversation_id):
@@ -1041,10 +1053,16 @@ def process_conversation(
 
     if exclude_comment_selections:
         logger.info(f"exclude_comment_selections is enabled, fetching report comment selections for zid {zid}")
-        postgres_client = PostgresClient()
+        from polismath.job_child import input_bundle
+
+        bundle = input_bundle.load(zid)
+        postgres_client = None if bundle is not None else PostgresClient()
         try:
-            postgres_client.initialize()
-            selections = postgres_client.get_report_comment_selections(zid)
+            if bundle is not None:
+                selections = bundle.report_comment_selections()
+            else:
+                postgres_client.initialize()
+                selections = postgres_client.get_report_comment_selections(zid)
             # Build a set of tids that should be excluded (selection == -1 in any report)
             excluded_tids = {
                 sel["tid"] for sel in selections if sel.get("selection") == -1
@@ -1056,7 +1074,8 @@ def process_conversation(
             else:
                 logger.info("No excluded comment selections found for this conversation")
         finally:
-            postgres_client.shutdown()
+            if postgres_client is not None:
+                postgres_client.shutdown()
 
     # Generate a job_id for this pipeline run
     # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
