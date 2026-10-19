@@ -337,7 +337,9 @@ created-as-string, CORS/Vary and four size/negotiation coding profiles. The tied
 fixture changes insertion order; replay compares the resulting arrays exactly.
 The non-moderation projection excludes zid, so addConversationIds cannot add a
 conversation_id in ordinary or paginated non-moderation mode. Moderation=true is a
-separate witness and may add it. Witnesses describe existing Node behavior; this
+separate witness: for the owner, the site-sharing moderator and the admin it may add
+it; every other actor gets the participant-visible statements with the ordinary
+projection. Witnesses describe existing Node behavior; this
 harness contains no Rust dispatch implementation or authorization for routing.
 
 ```sh
