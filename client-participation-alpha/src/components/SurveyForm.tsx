@@ -81,7 +81,7 @@ export default function SurveyForm({
 
       if (errorText.includes('polis_err_conversation_is_closed')) {
         errorMessage = s.commentErrorConversationClosed
-      } else if (errorText.includes('polis_err_comment_duplicate')) {
+      } else if (errorText.includes('polis_err_post_comment_duplicate')) {
         errorMessage = s.commentErrorDuplicate
       } else if (errorText.includes('polis_err_xid_required')) {
         errorMessage = s.xidRequired

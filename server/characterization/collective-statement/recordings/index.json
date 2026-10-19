@@ -83,8 +83,7 @@
      ],
      "rules": [],
      "triggers": [
-      "tid_auto: CREATE TRIGGER tid_auto BEFORE INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION tid_auto()",
-      "tid_auto_unlock: CREATE TRIGGER tid_auto_unlock AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION tid_auto_unlock()"
+      "tid_auto: CREATE TRIGGER tid_auto BEFORE INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION tid_auto()"
      ]
     },
     "conversations": {

@@ -107,6 +107,27 @@ const managementClient = new ManagementClient({
   clientSecret: Config.authClientSecret!,
 });
 
+// The unique index on a conversation's statement texts, (zid, txt). A database
+// built from the migrations names it comments_zid_txt_key; databases whose
+// comments table predates them name it comments_txt_unique_constraint.
+const STATEMENT_TEXT_UNIQUE = new Set([
+  "comments_zid_txt_key",
+  "comments_txt_unique_constraint",
+]);
+
+// A unique violation means the statement is a duplicate only when it is on
+// (zid, txt). Any other one (the (zid, tid) statement-number index, a
+// participant constraint) is a server error, not the participant's duplicate.
+function isDuplicateStatement(
+  err: { code?: unknown; constraint?: unknown } | null | undefined
+): boolean {
+  return (
+    (err?.code === "23505" || err?.code === 23505) &&
+    typeof err.constraint === "string" &&
+    STATEMENT_TEXT_UNIQUE.has(err.constraint)
+  );
+}
+
 async function commentExists(zid: number, txt: string): Promise<boolean> {
   const rows = (await pg.queryP(
     "select zid from comments where zid = ($1) and txt = ($2);",
@@ -531,7 +552,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       stack: err.stack,
     });
 
-    if (err.code === "23505" || err.code === 23505) {
+    if (isDuplicateStatement(err)) {
       failJson(res, 409, "polis_err_post_comment_duplicate", err);
     } else if (
       err.code === "23503" &&
@@ -928,10 +949,9 @@ async function handle_POST_comments_bulk(
         results.push({ txt, status: "success", tid, original_id });
       } catch (err: any) {
         logger.error("polis_err_bulk_comment_item", { error: err, txt });
-        let reason = "polis_err_post_comment";
-        if (err.code === "23505" || err.code === 23505) {
-          reason = "polis_err_post_comment_duplicate";
-        }
+        const reason = isDuplicateStatement(err)
+          ? "polis_err_post_comment_duplicate"
+          : "polis_err_post_comment";
         results.push({ txt, status: "error", reason });
       }
     }

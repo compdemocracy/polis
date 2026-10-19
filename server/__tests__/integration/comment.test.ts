@@ -87,6 +87,63 @@ describe("Comment Endpoints", () => {
     expect(missingConvResponse.status).toBe(400);
   });
 
+  test("The same statement twice is answered 409 duplicate and stored once", async () => {
+    const txt = `A statement sent twice ${Date.now()}`;
+    const first = await submitComment(agent, {
+      conversation_id: conversationId,
+      txt,
+    });
+    expect(first.status).toBe(200);
+
+    const second = await submitComment(agent, {
+      conversation_id: conversationId,
+      txt,
+    });
+    expect(second.status).toBe(409);
+    expect(second.body).toMatchObject({
+      error: "polis_err_post_comment_duplicate",
+    });
+
+    const listResponse: Response = await agent.get(
+      `/api/v3/comments?conversation_id=${conversationId}`
+    );
+    expect(listResponse.status).toBe(200);
+    const body = JSON.parse(listResponse.text);
+    const comments: Comment[] = Array.isArray(body) ? body : body.comments;
+    expect(comments.filter((c) => c.txt === txt)).toHaveLength(1);
+  });
+
+  test("The same statement from two participants at once: one is stored, the other is answered 409 duplicate", async () => {
+    await createComment(agent, conversationId, {
+      txt: "Initial comment to enable anonymous participation.",
+    });
+    const [{ agent: first }, { agent: second }] = await Promise.all([
+      initializeParticipant(conversationId),
+      initializeParticipant(conversationId),
+    ]);
+    const txt = `One statement from two participants at once ${Date.now()}`;
+    const responses = await Promise.all(
+      [first, second].map((participant) =>
+        submitComment(participant, {
+          conversation_id: conversationId,
+          txt,
+          agid: 1,
+        })
+      )
+    );
+
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(responses.find((r) => r.status === 409)!.body).toMatchObject({
+      error: "polis_err_post_comment_duplicate",
+    });
+    const listResponse: Response = await agent.get(
+      `/api/v3/comments?conversation_id=${conversationId}`
+    );
+    const body = JSON.parse(listResponse.text);
+    const comments: Comment[] = Array.isArray(body) ? body : body.comments;
+    expect(comments.filter((c) => c.txt === txt)).toHaveLength(1);
+  });
+
   test("Anonymous participant can submit a comment", async () => {
     // First, create a seed comment with the authenticated agent to ensure the conversation is not empty.
     // This allows the anonymous participant to authenticate by voting.
