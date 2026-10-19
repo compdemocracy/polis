@@ -5,7 +5,7 @@ use crate::{
 };
 // Both workspaces compile the same shared contract module.
 #[path = "../../polis-contracts/src/delphi_read.rs"]
-mod contract;
+pub(crate) mod contract;
 pub use contract::PATH;
 pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
     if app.delphi_read_db.is_none()
@@ -14,8 +14,8 @@ pub fn parse(app: &App, req: &Request) -> Option<contract::Request> {
         || !req.body.is_empty()
         || req.headers.get("transfer-encoding").is_some()
         || req.headers.get("content-length").is_some_and(|s| s != "0")
-        || req.headers.get("authorization").is_some()
-        || req.headers.get("cookie").is_some()
+        || (app.delphi_topics_db.is_none()
+            && (req.headers.get("authorization").is_some() || req.headers.get("cookie").is_some()))
     {
         return None;
     }
@@ -54,39 +54,51 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let Some(query) = parse(app, req) else {
         return route::bad_gateway();
     };
-    let status = if query.report_id.is_some() { 404 } else { 400 };
-    let value = match query.report_id {
-        None => contract::Request::missing(),
-        Some(id) => {
-            let Some(pool) = &app.delphi_read_db else {
-                return route::bad_gateway();
-            };
-            let report_id = id.clone();
-            // The Node resolver is uncached. Only absence qualifies: every existing
-            // report (including unusual/null/zero identifiers) stays with Node.
-            let Ok(Ok(false)) = tokio::time::timeout(
-                std::time::Duration::from_millis(75),
-                pool.with(move |c| {
-                    Ok(!c
-                        .query(
-                            "SELECT zid FROM reports WHERE report_id=$1 LIMIT 1",
-                            &[&report_id],
-                        )?
-                        .is_empty())
-                }),
-            )
-            .await
-            else {
-                return route::bad_gateway();
-            };
-            contract::Request::unknown(id)
-        }
-    };
-    let Ok(encoded) = serde_json::to_string(&value) else {
+    let Ok(Some((status, body))) = tokio::time::timeout(
+        std::time::Duration::from_millis(if app.delphi_topics_db.is_some() {
+            750
+        } else {
+            75
+        }),
+        answer(app, query),
+    )
+    .await
+    else {
         return route::bad_gateway();
     };
-    let Ok(value) = crate::js::parse(&encoded) else {
-        return route::bad_gateway();
+    route::json_text(req, res, status, body)
+}
+async fn answer(app: &App, query: contract::Request) -> Option<(u16, String)> {
+    let Some(id) = query.report_id else {
+        return Some((
+            400,
+            crate::wire::to_json(&contract::Request::missing()).ok()?,
+        ));
     };
-    route::json_status(req, res, status, &value)
+    let rid = id.clone();
+    let zid = app
+        .delphi_read_db
+        .as_ref()?
+        .with(move |c| {
+            Ok(c.query_opt(
+                "SELECT zid FROM reports WHERE report_id=$1 LIMIT 1",
+                &[&rid],
+            )?
+            .map(|r| r.try_get::<_, Option<i32>>(0))
+            .transpose()?)
+        })
+        .await
+        .ok()?;
+    // Validation-only mode still hands every existing row to Node, including
+    // null and zero. PostgreSQL mode follows the handler's falsy-zid response.
+    if zid.is_some() && app.delphi_topics_db.is_none() {
+        return None;
+    }
+    let Some(zid) = zid.flatten().filter(|z| *z != 0) else {
+        return Some((
+            404,
+            crate::wire::to_json(&contract::Request::unknown(id)).ok()?,
+        ));
+    };
+    Some((200, crate::delphi_topics::answer(app, zid, id).await?))
 }

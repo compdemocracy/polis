@@ -342,7 +342,7 @@
       "delphi overview",
       "delphi show"
     ],
-    "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+    "scope": "Shared DynamoDB fixture retains two Node handoffs. Dedicated PostgreSQL topics replay proves successful result serving and bounded handback; validation-only behavior remains in DynamoDB mode."
   },
   "delphiReports": {
     "path": "/api/v3/delphi/reports",
@@ -353,7 +353,7 @@
       "delphi results",
       "delphi narrative view"
     ],
-    "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+    "scope": "Shared DynamoDB fixture retains two Node handoffs. Dedicated PostgreSQL topics replay proves successful result serving and bounded handback; validation-only behavior remains in DynamoDB mode."
   },
   "delphiVisualizations": {
     "path": "/api/v3/delphi/visualizations",

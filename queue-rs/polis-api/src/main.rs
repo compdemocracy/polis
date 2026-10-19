@@ -38,6 +38,7 @@ mod delphi_read;
 mod delphi_reports;
 mod delphi_result_read;
 mod delphi_run_read;
+mod delphi_topics;
 mod delphi_visualizations;
 mod domain_whitelist;
 mod einvites_read;
@@ -900,6 +901,23 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-delphi-read/1")?,
             delphi_read::pool_limits(),
         ));
+        if std::env::var("DELPHI_RESULT_BACKEND").ok().as_deref() == Some("postgres") {
+            let dsn = std::env::var("POLIS_API_DELPHI_TOPICS_DATABASE_URL")
+                .context("POLIS_API_DELPHI_TOPICS_DATABASE_URL required for PostgreSQL topics")?;
+            state.delphi_topics_env = std::env::var("DELPHI_RESULT_ENV")
+                .context("DELPHI_RESULT_ENV required for PostgreSQL topics")?;
+            anyhow::ensure!(
+                !state.delphi_topics_env.is_empty(),
+                "DELPHI_RESULT_ENV cannot be empty"
+            );
+            state.delphi_topics_scope = std::env::var("DELPHI_RESULT_SCOPE")
+                .ok()
+                .filter(|s| !s.is_empty());
+            state.delphi_topics_db = Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-delphi-topics/1")?,
+                delphi_topics::pool_limits(),
+            ));
+        }
     }
     if std::env::var("POLIS_API_DATABASE_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_DATABASE_PROBE_URL")
