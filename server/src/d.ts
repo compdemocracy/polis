@@ -90,6 +90,13 @@ export type GetCommentsParams = {
   limit?: any;
   offset?: any;
   moderation?: any;
+  /**
+   * With `moderation`: list only the statements participants can see (the
+   * plain list's rows) and leave out the moderation fields (mod, active,
+   * velocity, zid). Set by GET /api/v3/comments for a caller who does not
+   * moderate the conversation.
+   */
+  participantVisibleOnly?: boolean;
   strict_moderation?: any;
   mod?: ModerationState;
   mod_gt?: any;

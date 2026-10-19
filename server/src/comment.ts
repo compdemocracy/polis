@@ -65,6 +65,22 @@ function getComment(zid: number, tid: number): Promise<CommentRow | null> {
     });
 }
 
+/**
+ * The statements a participant can see, as a condition on `comments` to add to
+ * a moderation-list query: the same predicate the plain list applies
+ * (`_getCommentsList` and the plain branch of `getCommentsCount`). Active, not
+ * muted (velocity above 0), and accepted under strict moderation or not
+ * rejected otherwise.
+ */
+function participantVisibleClause(strictModeration: boolean): string {
+  return (
+    " and comments.active = true and comments.velocity > 0" +
+    (strictModeration
+      ? ` and comments.mod = ${Utils.polisTypes.mod.ok}`
+      : ` and comments.mod != ${Utils.polisTypes.mod.ban}`)
+  );
+}
+
 function getCommentsCount(o: GetCommentsParams): Promise<number> {
   return getConversationInfo(o.zid).then(function (conv: ConversationInfo) {
     let query = "";
@@ -93,6 +109,9 @@ function getCommentsCount(o: GetCommentsParams): Promise<number> {
             modClause = " and comments.mod < 0";
           }
         }
+      }
+      if (o.participantVisibleOnly) {
+        modClause += participantVisibleClause(conv.strict_moderation);
       }
       query =
         "select count(*) from comments where comments.zid = ($1)" + modClause;
@@ -171,10 +190,12 @@ function getComments(o: GetCommentsParams): Promise<CommentRow[]> {
         "original_id",
       ];
       if (o.moderation) {
-        cols.push("velocity");
-        cols.push("zid");
-        cols.push("mod");
-        cols.push("active");
+        if (!o.participantVisibleOnly) {
+          cols.push("velocity");
+          cols.push("zid");
+          cols.push("mod");
+          cols.push("active");
+        }
         cols.push("agree_count"); //  in  moderation queries, we join in the vote count
         cols.push("disagree_count"); //  in  moderation queries, we join in the vote count
         cols.push("pass_count"); //  in  moderation queries, we join in the vote count
@@ -206,10 +227,12 @@ function _getCommentsForModerationList(o: {
   mod_gt: any;
   limit?: any;
   offset?: any;
+  participantVisibleOnly?: boolean;
 }): Promise<CommentRow[]> {
   let strictCheck: Promise<any> = Promise.resolve(null);
   const include_voting_patterns = o.include_voting_patterns;
   let isProOwner = false;
+  let conversationStrict = false;
 
   if (o.modIn) {
     strictCheck = pg
@@ -222,8 +245,12 @@ function _getCommentsForModerationList(o: {
   }
 
   return pg
-    .queryP("select owner from conversations where zid = ($1);", [o.zid])
-    .then(async (z: { owner: number }[]) => {
+    .queryP(
+      "select owner, strict_moderation from conversations where zid = ($1);",
+      [o.zid]
+    )
+    .then(async (z: { owner: number; strict_moderation: boolean }[]) => {
+      conversationStrict = Boolean(z[0]?.strict_moderation);
       isProOwner =
         o.mod_gt && Number(o.mod_gt) > -2
           ? await isProConvo(z[0].owner)
@@ -253,6 +280,12 @@ function _getCommentsForModerationList(o: {
               modClause = " and comments.mod < 0";
             }
           }
+        }
+        // A caller who does not moderate the conversation sees only what
+        // participants see. The filters above still apply, so they can only
+        // narrow that set further, never widen it.
+        if (o.participantVisibleOnly) {
+          modClause += participantVisibleClause(conversationStrict);
         }
         if (!include_voting_patterns) {
           let query =
