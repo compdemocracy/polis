@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -85,7 +85,7 @@ pub fn execute(
             ));
         }
     }
-    let c = client(config, site, timeout, false)?;
+    let c = public_client(config, site, timeout)?;
     let conversation = if is_report {
         let rows = c.request(
             "GET",

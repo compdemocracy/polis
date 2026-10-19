@@ -1,4 +1,4 @@
-use crate::{client, profiles, public_id, str_arg};
+use crate::{profiles, public_client, public_id, str_arg};
 use clap::ArgMatches;
 use polis_contracts::{Error, Result};
 use serde_json::Value;
@@ -16,7 +16,7 @@ pub fn execute(
     if let Some(value) = moderation {
         query.push(("mod".into(), value.to_string()));
     }
-    let data = client(config, site, timeout, false)?.participant_highlights(&query).map_err(|mut e| {
+    let data = public_client(config, site, timeout)?.participant_highlights(&query).map_err(|mut e| {
         if e.upstream["status"] == 304 {
             e.code = "participant_profiles_unavailable";
             e.message = "The site returned no participant profile representation.".into();

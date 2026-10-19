@@ -308,6 +308,35 @@ pub fn token(site: &str, url: &str) -> Result<Option<String>> {
         _ => Ok(None),
     }
 }
+/// Public reads never prompt, lock, create a credential directory, or refresh.
+/// Unsafe/unavailable saved files are ignored; explicit overrides still validate.
+pub fn public_token(config: &Config, site: &str) -> Result<Option<String>> {
+    if token_override_present(site) {
+        return token_override(site);
+    }
+    let url = config.url(site)?;
+    let Some(saved) = file_read_mode(site, url, false).ok().flatten() else {
+        return Ok(None);
+    };
+    if saved.keychain {
+        return Ok(None);
+    }
+    if let Some(session) = saved.session {
+        let auth = config.auth(site)?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| Error::input("System clock is before the Unix epoch."))?
+            .as_secs();
+        if session.expires_at <= now.saturating_add(30)
+            || session.issuer != auth.issuer
+            || session.client_id != auth.client_id
+            || session.audience != auth.audience
+        {
+            return Ok(None);
+        }
+    }
+    Ok(saved.token)
+}
 pub fn validate_token(token: &str) -> Result<()> {
     if token.is_empty()
         || token.len() > 65536
@@ -419,14 +448,19 @@ fn file_error() -> Error {
         concat!("Use an owner-only credentials directory (0700) and regular token files (0600); no symlinks. ", token_env_help!(), " can override storage."), 3)
 }
 fn credential_path(site: &str, url: &str) -> Result<PathBuf> {
+    credential_path_mode(site, url, true)
+}
+fn credential_path_mode(site: &str, url: &str, create: bool) -> Result<PathBuf> {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt};
     name(site)?;
     let parent = path()?.parent().unwrap().join("credentials");
-    std::fs::create_dir_all(parent.parent().unwrap()).map_err(|_| file_error())?;
-    match std::fs::DirBuilder::new().mode(0o700).create(&parent) {
-        Ok(()) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(_) => return Err(file_error()),
+    if create {
+        std::fs::create_dir_all(parent.parent().unwrap()).map_err(|_| file_error())?;
+        match std::fs::DirBuilder::new().mode(0o700).create(&parent) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return Err(file_error()),
+        }
     }
     let m = std::fs::symlink_metadata(&parent).map_err(|_| file_error())?;
     if !m.is_dir() || m.uid() != unsafe { libc::geteuid() } || m.mode() & 0o077 != 0 {
@@ -439,11 +473,14 @@ fn credential_path(site: &str, url: &str) -> Result<PathBuf> {
     )))
 }
 fn file_read(site: &str, url: &str) -> Result<Option<SavedToken>> {
+    file_read_mode(site, url, true)
+}
+fn file_read_mode(site: &str, url: &str, create: bool) -> Result<Option<SavedToken>> {
     use std::{
         io::Read,
         os::unix::fs::{MetadataExt, OpenOptionsExt},
     };
-    let path = credential_path(site, url)?;
+    let path = credential_path_mode(site, url, create)?;
     let file = match std::fs::OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)

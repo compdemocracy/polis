@@ -68,6 +68,14 @@ fn client(config: &profiles::Config, site: &str, timeout: u64, required: bool) -
     }
     Client::with_ca(url, token, timeout, config.auth(site)?.ca_file.as_deref())
 }
+fn public_client(config: &profiles::Config, site: &str, timeout: u64) -> Result<Client> {
+    Client::with_ca(
+        config.url(site)?,
+        profiles::public_token(config, site)?,
+        timeout,
+        config.auth(site)?.ca_file.as_deref(),
+    )
+}
 /// `GET /api/v3/conversations` answers with an array: every conversation the account
 /// owns or shares a site with, newest created first, at most `limit` rows, each row
 /// carrying the server-set `is_owner`. The owner-only view is selected here from that
@@ -400,7 +408,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "conversation view" => {
             let id = str_arg(m, "id");
             public_id(id)?;
-            client(config, site, timeout, false)?.request(
+            public_client(config, site, timeout)?.request(
                 "GET",
                 "/api/v3/conversations",
                 &[("conversation_id".into(), id.into())],

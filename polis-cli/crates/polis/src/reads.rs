@@ -28,7 +28,13 @@ pub fn execute(
             | "delphi visualization view"
     );
     // Each branch validates its arguments before the client reads any credential.
-    let connect = || client(config, site, timeout, !public);
+    let connect = || {
+        if public {
+            crate::public_client(config, site, timeout)
+        } else {
+            client(config, site, timeout, true)
+        }
+    };
     if path == "plan view" {
         connect()?.request("GET", "/api/v3/users", &[], None, false)?;
         return Ok(
