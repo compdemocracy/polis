@@ -4,7 +4,7 @@ These unused storage types describe the schema; they grant no authority and do
 not change runtime queries. `store`, `bridge`, `lease`, migrations, engine
 manifests and replay expectations retain their existing behavior.
 
-`rows.rs` has 84 relation types and all 603 current public columns. `catalog.json`
+`rows.rs` has 107 relation types and all 766 current public columns. `catalog.json`
 is the PostgreSQL 17.11 result after applying the current numbered migrations to
 a fresh disposable database. Its column declaration pointers also account for
 the password-reset relation/column rename. The tests require the exact migration
@@ -12,6 +12,12 @@ file inventory and bytes, compare every column/type/nullability to compiled row
 metadata, and reject unreviewed extra serialized columns. A new migration,
 including an ADD COLUMN inside a DO block, fails until the catalog and types are
 reviewed together. This is a strict byte-bound census, not a handwritten SQL parser.
+
+`tools/schema_census.py` performs that measurement against an empty local
+PostgreSQL 17 database: it applies the numbered migrations, keeps every reviewed
+pointer, prints the pointer it located for each new table or column and the
+row declarations to review, and rewrites the catalog only with `--write`. With
+`--through 000022` it reproduces the 000000–000022 catalog byte for byte.
 
 To review a schema change, apply the entire current migration chain only to a
 fresh local fixture (never replay it as an upgrade), query public pg_attribute /
@@ -34,7 +40,7 @@ It is a mapping test, not a write-constraint or migration-reversal test.
 
 Storage representations are deliberately lossless:
 
-- Nullable columns use Option. Text-array elements independently use Option.
+- Nullable columns use Option. Text- and real-array elements independently use Option.
 - Timestamptz retains PostgreSQL microseconds since 2000, including infinities.
 - UUID retains 16 bytes. Floats retain IEEE bits, including signed zero and NaN.
 - PgJson retains PostgreSQL JSON text, including large decimal tokens; its

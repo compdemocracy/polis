@@ -26,11 +26,16 @@ RUN_DELPHI = DELPHI_ROOT / "run_delphi.py"
 # stage name -> path of its stub script inside the fixture app directory
 STAGES = {
     "reset": "umap_narrative/reset_conversation.py",
-    "math": "polismath/run_math_pipeline.py",
     "umap": "umap_narrative/run_pipeline.py",
+    "visualization": "umap_narrative/700_datamapplot_for_layer.py",
+}
+# Retired stages: Delphi's own PCA/k-means/repness math, its group extremity and
+# its priorities. Their stubs are still written, so a run that started one again
+# would show it in the stage log.
+RETIRED_STAGES = {
+    "math": "polismath/run_math_pipeline.py",
     "extremity": "umap_narrative/501_calculate_comment_extremity.py",
     "priority": "umap_narrative/502_calculate_priorities.py",
-    "visualization": "umap_narrative/700_datamapplot_for_layer.py",
 }
 
 STUB = '''import os, sys
@@ -45,7 +50,7 @@ sys.exit(int(os.environ.get("STUB_EXIT_" + name.upper(), "0")))
 def app_dir(tmp_path, monkeypatch):
     """A generated fixture app directory with stub stages and a python shim."""
     app = tmp_path / "app"
-    for name, rel in STAGES.items():
+    for name, rel in {**STAGES, **RETIRED_STAGES}.items():
         path = app / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(STUB.format(name=name))
@@ -60,7 +65,7 @@ def app_dir(tmp_path, monkeypatch):
 
     log = tmp_path / "stages.log"
     log.write_text("")
-    for name in STAGES:
+    for name in {**STAGES, **RETIRED_STAGES}:
         monkeypatch.delenv("STUB_EXIT_" + name.upper(), raising=False)
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("DELPHI_APP_PATH", str(app))
@@ -89,7 +94,7 @@ def run_delphi(app_dir):
     )
 
 
-ALL_STAGES = ["reset", "math", "umap", "extremity", "priority", "visualization"]
+ALL_STAGES = ["reset", "umap", "visualization"]
 
 
 def test_all_stages_succeed_exits_zero(app_dir):
@@ -98,38 +103,31 @@ def test_all_stages_succeed_exits_zero(app_dir):
     assert ran_stages(app_dir) == ALL_STAGES
 
 
-def test_umap_failure_exits_non_zero_and_still_runs_later_stages(app_dir, monkeypatch):
+def test_umap_failure_exits_non_zero_and_skips_the_visualisations(app_dir, monkeypatch):
     monkeypatch.setenv("STUB_EXIT_UMAP", "1")
     result = run_delphi(app_dir)
     assert result.returncode != 0, result.stdout
-    # What runs is unchanged: extremity and priority still run, and the
-    # visualisations are still skipped after a UMAP failure.
-    assert ran_stages(app_dir) == ["reset", "math", "umap", "extremity", "priority"]
+    # What runs is unchanged: the visualisations are still skipped after a UMAP failure.
+    assert ran_stages(app_dir) == ["reset", "umap"]
     assert "UMAP narrative pipeline (exit code 1)" in result.stdout
 
 
-@pytest.mark.parametrize("stage", ["extremity", "priority", "visualization"])
-def test_later_stage_failure_exits_non_zero(app_dir, monkeypatch, stage):
-    monkeypatch.setenv("STUB_EXIT_" + stage.upper(), "2")
+def test_visualisation_failure_exits_non_zero(app_dir, monkeypatch):
+    monkeypatch.setenv("STUB_EXIT_VISUALIZATION", "2")
     result = run_delphi(app_dir)
     assert result.returncode != 0, result.stdout
     assert ran_stages(app_dir) == ALL_STAGES
 
 
-def test_math_export_failure_exits_non_zero_and_still_runs_later_stages(app_dir, monkeypatch):
-    from polismath.run_math_pipeline import MATH_EXPORT_FAILED_EXIT_CODE
-
-    monkeypatch.setenv("STUB_EXIT_MATH", str(MATH_EXPORT_FAILED_EXIT_CODE))
+def test_the_retired_stages_never_run(app_dir, monkeypatch):
+    # Even with their scripts present and set to fail, no retired stage starts.
+    for name in RETIRED_STAGES:
+        monkeypatch.setenv("STUB_EXIT_" + name.upper(), "1")
     result = run_delphi(app_dir)
-    assert result.returncode != 0, result.stdout
+    assert result.returncode == 0, result.stdout + result.stderr
     assert ran_stages(app_dir) == ALL_STAGES
-
-
-def test_math_failure_still_aborts_before_umap(app_dir, monkeypatch):
-    monkeypatch.setenv("STUB_EXIT_MATH", "1")
-    result = run_delphi(app_dir)
-    assert result.returncode == 1
-    assert ran_stages(app_dir) == ["reset", "math"]
+    for retired in ("Running math pipeline", "comment extremity", "comment priorities"):
+        assert retired not in result.stdout
 
 
 # --- the poller: a non-zero run_delphi.py exit marks the job FAILED ---------

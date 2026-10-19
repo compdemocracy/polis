@@ -1,7 +1,13 @@
 import unittest
-from run import differences, census, check_census, routing_counts
+from run import differences, census, check_census, route_lines, routing_counts, rust_only_checks, serving_matches, RUST_ONLY
 
 class ComparatorTests(unittest.TestCase):
+    def test_exact_route_log_matching_does_not_accept_neighbors(self):
+        log = 'GET /api/v3/reports 127.0.0.1:5100 200\nGET /api/v3/reportsSuffix 127.0.0.1:5000 404'
+        self.assertEqual(len(route_lines(log, {'path':'/api/v3/reports'})), 1)
+    def test_regex_route_log_matching_counts_capability_paths(self):
+        log = 'GET /api/v3/xid/generated-xid.csv 127.0.0.1:5100, 127.0.0.1:5000 502, 200\nGET /api/v3/xid/ 127.0.0.1:5000 404'
+        self.assertEqual(len(route_lines(log, {'path':'^/api/v3/xid/[^/]+$'})), 1)
     def test_named_location_fallback_is_not_a_rust_success(self):
         counts = routing_counts(['GET /api/v3/reports 127.0.0.1:5100 : 127.0.0.1:5000 502 : 200'])
         self.assertEqual(counts, {'requests':1,'rust_200':0,'rust_fallbacks':1})
@@ -30,5 +36,29 @@ class ComparatorTests(unittest.TestCase):
             {'command':'polis vote','implemented':True,'commands':[
                 {'command':'polis vote cast','implemented':False,'commands':[]}]}]})
         self.assertEqual(nodes,{'vote':True,'vote cast':False})
+
+
+class RoutingContractTests(unittest.TestCase):
+    def test_scoped_handoff_cannot_hide_lost_success_or_an_extra_fallback(self):
+        contract={'minimum_rust_successes':2,'expected_node_handoffs':1,'expected_requests':3}
+        self.assertTrue(serving_matches({'rust_200':2,'rust_fallbacks':1,'requests':3},contract))
+        for counts in [{'rust_200':1,'rust_fallbacks':2,'requests':3},
+                       {'rust_200':2,'rust_fallbacks':2,'requests':4},
+                       {'rust_200':2,'rust_fallbacks':1,'requests':4}]:
+            self.assertFalse(serving_matches(counts,contract))
+    def test_rust_only_requires_the_exact_clean_refusal(self):
+        contract=RUST_ONLY['owner-list'];row={'contract':'owner-list'}
+        node={'exit':8,'json':{'ok':False,'data':None,'error':{'code':contract['node_code'],'message':contract['node_message']}},'artifacts':{}}
+        rust={'exit':0,'json':{'ok':True,'error':None,'data':{}},'artifacts':{}}
+        self.assertTrue(all(rust_only_checks(row,node,rust).values()))
+        import copy
+        for key,value in [('exit',6),('code','operation_failed'),('message','opaque')]:
+            bad=copy.deepcopy(node)
+            if key=='exit':bad[key]=value
+            else:bad['json']['error'][key]=value
+            self.assertFalse(all(rust_only_checks(row,bad,rust).values()))
+        self.assertFalse(all(rust_only_checks(row,node,node).values()))
+    def test_unknown_rust_only_contract_cannot_bypass_comparison(self):
+        with self.assertRaises(KeyError):rust_only_checks({'contract':'unknown'}, {}, {})
 
 if __name__=='__main__':unittest.main()

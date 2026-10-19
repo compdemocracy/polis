@@ -1,4 +1,55 @@
 //! Versioned CLI envelopes. No server, database, or credential dependencies.
+pub mod about;
+pub mod admin_page;
+pub mod all_conversations;
+pub mod bid_to_pid;
+pub mod collective_statement;
+pub mod connection;
+pub mod contexts;
+pub mod conversation_preload;
+pub mod conversation_stats;
+pub mod create_page;
+pub mod database;
+pub mod delphi_job_result;
+pub mod delphi_read;
+pub mod delphi_reports;
+pub mod delphi_run;
+pub mod delphi_visualizations;
+pub mod domain_whitelist;
+pub mod einvites_read;
+pub mod integrate_page;
+pub mod legacy_conversations;
+pub mod legacy_pca;
+pub mod metadata_answers;
+pub mod metadata_choices;
+pub mod metadata_questions;
+pub mod metadata_read;
+pub mod ops_catchall;
+pub mod ops_page;
+pub mod ops_whoami;
+pub mod other_conversations_page;
+pub mod participation_read;
+pub mod recent_activity;
+pub mod recent_started;
+pub mod reports_read;
+pub mod robots;
+pub mod schema;
+pub mod settings_page;
+pub mod topic_prioritize;
+pub mod topic_selections;
+pub mod topic_stats;
+pub mod treevite_csv;
+pub mod treevite_invites;
+pub mod treevite_me;
+pub mod treevite_my_invites;
+pub mod treevite_waves;
+pub mod user_create_page;
+pub mod user_login_page;
+pub mod user_logout_page;
+/// Byte-stable JSON shared by the Delphi contracts.
+pub mod wire;
+pub mod xid_report;
+
 use serde::Serialize;
 use serde_json::{json, Value};
 

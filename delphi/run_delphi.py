@@ -27,10 +27,17 @@ def show_usage():
     print("  --validate                Run extra validation checks")
     print("  --help                    Show this help message")
 
-# Exit code run_math_pipeline.py uses when the math was computed but its
-# DynamoDB export failed. Before this code existed that case exited 0, so the
-# later stages still run exactly as they did; only the job's status changes.
-MATH_EXPORT_FAILED_EXIT_CODE = 4
+# The stages, in order: the reset, the UMAP narrative pipeline (embeddings with
+# all-MiniLM-L6-v2, UMAP, EVoC clustering, keywords, topic names), then one
+# datamapplot visualisation per layer.
+#
+# A run does not compute its own math. The PCA, k-means, representativeness,
+# participant projections and comment routing of polismath/run_math_pipeline.py,
+# the group extremity of 501 and the priorities of 502 are not stages: the math
+# engine's math_main is the one source of that math, the narrative filters read
+# the engine's pca.comment-extremity themselves (801_narrative_report_batch.py),
+# and nothing read the families those stages wrote. So a run reads no votes and
+# no math_main beyond the input census taken before the first stage.
 
 
 # --- run by the polis-jobs daemon (P-077 P1) --------------------------------
@@ -112,9 +119,7 @@ def main():
     rid = args.rid
     job = _start_daemon_job(zid) if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip() else None
     verbose_arg = "--verbose" if args.verbose else ""
-    force_arg = "--force" if args.force else ""
-    # validate_arg is not used in the python script execution steps, but kept for parity with bash
-    # validate_arg = "--validate" if args.validate else ""
+    # --force and --validate are accepted for compatibility; no stage reads them.
 
     if os.environ.get("DELPHI_RESULT_BACKEND") == "postgres":
         if job is None:
@@ -172,48 +177,11 @@ def main():
     # Set up environment for the pipeline
     app_path = os.environ.get('DELPHI_APP_PATH', '/app')
     os.environ["PYTHONPATH"] = f"{app_path}:{os.environ.get('PYTHONPATH', '')}"
-    max_votes = os.environ.get("MAX_VOTES")
-    max_votes_arg = f"--max-votes={max_votes}" if max_votes else ""
-    if max_votes:
-        print(f"{YELLOW}Limiting to {max_votes} votes for testing{NC}")
-
-    batch_size = os.environ.get("BATCH_SIZE")
-    batch_size_arg = f"--batch-size={batch_size}" if batch_size else "--batch-size=50000" # Default batch size
-    if batch_size:
-        print(f"{YELLOW}Using batch size of {batch_size}{NC}")
-    else:
-        print(f"{YELLOW}Using batch size of 50000 (default){NC}")
-
-
-    # Run the math pipeline
-    print(f"{GREEN}Running math pipeline...{NC}")
-    # -P: run_math_pipeline.py lives inside the polismath package, and running a
-    # script puts its own folder first on sys.path. polismath/types.py and
-    # polismath/queue/ would then shadow the standard library's `types` and
-    # `queue`, and the first stdlib import of either fails (a circular import).
-    math_command = [
-        "python", "-P", f"{app_path}/polismath/run_math_pipeline.py",
-        f"--zid={zid}",
-    ]
-    if max_votes_arg:
-        math_command.append(max_votes_arg)
-    if batch_size_arg:
-        math_command.append(batch_size_arg)
 
     # Every stage that fails is recorded here. Stages after a failure still run
     # as before, but the run exits non-zero so the job is marked FAILED rather
     # than COMPLETED.
     failed_stages = []
-
-    math_process = subprocess.run(math_command)
-    math_exit_code = math_process.returncode
-
-    if math_exit_code == MATH_EXPORT_FAILED_EXIT_CODE:
-        print(f"{RED}Math pipeline computed but its DynamoDB export failed (exit code {math_exit_code}){NC}")
-        failed_stages.append(("math export", math_exit_code))
-    elif math_exit_code != 0:
-        print(f"{RED}Math pipeline failed with exit code {math_exit_code}{NC}")
-        sys.exit(1 if job is not None else math_exit_code)
 
     # Run the UMAP narrative pipeline
     print(f"{GREEN}Running UMAP narrative pipeline...{NC}")
@@ -231,44 +199,6 @@ def main():
     pipeline_exit_code = pipeline_process.returncode
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
-
-    # Calculate and store comment extremity values
-    print(f"{GREEN}Calculating comment extremity values...{NC}")
-    extremity_command = [
-        "python", f"{app_path}/umap_narrative/501_calculate_comment_extremity.py",
-        f"--zid={zid}",
-        f"--include_moderation={args.include_moderation}",
-        f"--exclude_comment_selections={args.exclude_comment_selections}"
-    ]
-    if verbose_arg:
-        extremity_command.append(verbose_arg)
-    if force_arg:
-        extremity_command.append(force_arg)
-    
-    extremity_process = subprocess.run(extremity_command)
-    extremity_exit_code = extremity_process.returncode
-
-    if extremity_exit_code != 0:
-        print(f"{RED}Extremity calculation failed with exit code {extremity_exit_code}{NC}")
-        print("Continuing with priority calculation...")
-        failed_stages.append(("comment extremity", extremity_exit_code))
-
-    # Calculate comment priorities using group-based extremity
-    print(f"{GREEN}Calculating comment priorities with group-based extremity...{NC}")
-    priority_command = [
-        "python", f"{app_path}/umap_narrative/502_calculate_priorities.py",
-        f"--conversation_id={zid}",
-    ]
-    if verbose_arg:
-        priority_command.append(verbose_arg)
-    
-    priority_process = subprocess.run(priority_command)
-    priority_exit_code = priority_process.returncode
-
-    if priority_exit_code != 0:
-        print(f"{RED}Priority calculation failed with exit code {priority_exit_code}{NC}")
-        print("Continuing with visualization...")
-        failed_stages.append(("comment priorities", priority_exit_code))
 
     if pipeline_exit_code == 0:
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")
@@ -368,9 +298,6 @@ def main():
     summary = ", ".join(f"{name} (exit code {code})" for name, code in failed_stages)
     print(f"{RED}Pipeline failed: {len(failed_stages)} stage(s) failed: {summary}{NC}")
     print("Please check logs for more details")
-    if job is not None and any(name == "math export" for name, _ in failed_stages):
-        # The daemon records this as stage_failed:math_export (P-077 P1 spec 1.3).
-        sys.exit(MATH_EXPORT_FAILED_EXIT_CODE)
     sys.exit(1)
 
 if __name__ == "__main__":

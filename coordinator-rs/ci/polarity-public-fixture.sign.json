@@ -1,7 +1,7 @@
 {
   "schema": "declared-vote-sign/1",
   "fixture": "../evidence/polarity-public-fixture.json",
-  "fixture_sha256": "82b469384621e344ff55b4fced672c36cd43c6ce76f91d92d29a194335e35f49",
+  "fixture_sha256": "f736d70e5b8591430aecd77ec784cc2705f0694dcd744151f74e4e07cb9e45a8",
   "storage_agree_value": -1,
   "vote_field": "none stored: a is the run with rows stored at agree = -1, b the same semantic rows stored at +1 (engine STORAGE_AGREE_VALUE=1), negative the +1 rows read at -1",
   "paired_set": "polarity-public-fixture.agree-plus-one.json",

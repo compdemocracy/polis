@@ -40,13 +40,16 @@ RUN_DELPHI = DELPHI_ROOT / "run_delphi.py"
 
 STAGES = {
     "reset": "umap_narrative/reset_conversation.py",
-    "math": "polismath/run_math_pipeline.py",
     "umap": "umap_narrative/run_pipeline.py",
-    "extremity": "umap_narrative/501_calculate_comment_extremity.py",
-    "priority": "umap_narrative/502_calculate_priorities.py",
     "visualization": "umap_narrative/700_datamapplot_for_layer.py",
 }
-ALL_STAGES = ["reset", "math", "umap", "extremity", "priority", "visualization"]
+# The retired stages' stubs are still written: a run that started one would log it.
+RETIRED_STAGES = {
+    "math": "polismath/run_math_pipeline.py",
+    "extremity": "umap_narrative/501_calculate_comment_extremity.py",
+    "priority": "umap_narrative/502_calculate_priorities.py",
+}
+ALL_STAGES = ["reset", "umap", "visualization"]
 
 STUB = '''import os, sys
 name = {name!r}
@@ -89,10 +92,10 @@ FIXTURE_INPUTS = {
     "vote_hwm": 1700000000123,
 }
 FIXTURE_OUTPUTS = [
-    {"store": "dynamodb", "family": "Delphi_PCAResults", "table": "Delphi_PCAResults",
-     "key_prefix": {"zid": "1"}, "rows": 1},
-    {"store": "dynamodb", "family": "Delphi_RepresentativeComments", "table": "Delphi_RepresentativeComments",
-     "keys": [{"zid_tick_gid": "1:41:0"}, {"zid_tick_gid": "1:41:1"}], "rows": 9},
+    {"store": "dynamodb", "family": "Delphi_CommentEmbeddings", "table": "Delphi_CommentEmbeddings",
+     "key_prefix": {"conversation_id": "1"}, "rows": 9},
+    {"store": "dynamodb", "family": "Delphi_CommentHierarchicalClusterAssignments",
+     "table": "Delphi_CommentHierarchicalClusterAssignments", "key_prefix": {"conversation_id": "1"}, "rows": 9},
     {"store": "dynamodb", "family": "Delphi_CommentClustersLLMTopicNames",
      "table": "Delphi_CommentClustersLLMTopicNames", "key_prefix": {"conversation_id": "1"}, "rows": 4},
 ]
@@ -163,7 +166,7 @@ def manifest_sha_from_stderr(stderr):
 @pytest.fixture
 def app_dir(tmp_path, monkeypatch):
     app = tmp_path / "app"
-    for name, rel in STAGES.items():
+    for name, rel in {**STAGES, **RETIRED_STAGES}.items():
         path = app / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(STUB.format(name=name))
@@ -183,7 +186,7 @@ def app_dir(tmp_path, monkeypatch):
 
     log = tmp_path / "stages.log"
     log.write_text("")
-    for name in STAGES:
+    for name in {**STAGES, **RETIRED_STAGES}:
         monkeypatch.delenv("STUB_EXIT_" + name.upper(), raising=False)
     clear_daemon_env(monkeypatch)
     monkeypatch.delenv("MATH_ENV", raising=False)
@@ -256,24 +259,32 @@ def test_legacy_path_writes_nothing_even_with_the_poller_job_id(app_dir, monkeyp
     assert sorted(p.name for p in app_dir.root.iterdir()) == before
 
 
-def test_legacy_failure_exit_code_is_unchanged_for_the_math_export(app_dir, monkeypatch):
-    monkeypatch.setenv("STUB_EXIT_MATH", "4")
-    result = run_delphi(app_dir)
-    assert result.returncode == 1  # the legacy poller only distinguishes zero from non-zero
+def test_the_retired_stages_never_run_on_either_path(app_dir, monkeypatch):
+    # Their scripts are present and set to exit 4 (the retired math export's code).
+    for name in RETIRED_STAGES:
+        monkeypatch.setenv("STUB_EXIT_" + name.upper(), "4")
+    legacy = run_delphi(app_dir)
+    assert legacy.returncode == 0, legacy.stdout + legacy.stderr
     assert ran_stages(app_dir) == ALL_STAGES
+    app_dir.log.write_text("")
+    daemon = FakeDaemon(app_dir.root, stage="delphi_full_pipeline")
+    daemon.apply(monkeypatch)
+    run = run_delphi(app_dir)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert ran_stages(app_dir) == ALL_STAGES
+    job_child.validate_manifest(json.loads(daemon.manifest_bytes()))
 
 
 @pytest.mark.parametrize(
     "stub, code, stages",
     [
-        ({"STUB_EXIT_UMAP": "1"}, 1, ["reset", "math", "umap", "extremity", "priority"]),
-        ({"STUB_EXIT_EXTREMITY": "2"}, 1, ALL_STAGES),
+        ({"STUB_EXIT_UMAP": "1"}, 1, ["reset", "umap"]),
         ({"STUB_EXIT_VISUALIZATION": "2"}, 1, ALL_STAGES),
-        ({"STUB_EXIT_MATH": "4"}, 4, ALL_STAGES),
-        ({"STUB_EXIT_MATH": "4", "STUB_EXIT_PRIORITY": "1"}, 4, ALL_STAGES),
-        ({"STUB_EXIT_MATH": "1"}, 1, ["reset", "math"]),
-        ({"STUB_EXIT_MATH": "137"}, 1, ["reset", "math"]),  # a killed stage: any other code is 1
-        ({"STUB_EXIT_MATH": "2"}, 1, ["reset", "math"]),  # never confused with "environment refused"
+        # 4 was the retired math export's code; from a remaining stage it is a plain failure.
+        ({"STUB_EXIT_VISUALIZATION": "4"}, 1, ALL_STAGES),
+        ({"STUB_EXIT_UMAP": "4"}, 1, ["reset", "umap"]),
+        ({"STUB_EXIT_UMAP": "137"}, 1, ["reset", "umap"]),  # a killed stage: any other code is 1
+        ({"STUB_EXIT_UMAP": "2"}, 1, ["reset", "umap"]),  # never confused with "environment refused"
         ({"STUB_EXIT_RESET": "3"}, 1, ["reset"]),
         ({"STUB_EXIT_RESET": "6"}, 1, ["reset"]),
     ],
@@ -472,35 +483,31 @@ class FakeDynamo:
         return self.tables.get(name, FakeTable({}, "conversation_id"))
 
 
-def test_count_full_pipeline_outputs_lists_every_family_with_its_partitions():
+def test_count_full_pipeline_outputs_lists_every_family_the_run_writes():
+    # Rows a legacy run left in the retired families are neither counted nor listed.
     tables = {
         "Delphi_PCAConversationConfig": FakeTable({"7": [{"zid": "7", "latest_math_tick": 41}]}, "zid"),
         "Delphi_PCAResults": FakeTable({"7": [{}]}, "zid"),
-        "Delphi_KMeansClusters": FakeTable({"7:41": [{"group_id": 0}, {"group_id": 1}, {"group_id": 2}]}, "zid_tick"),
         "Delphi_CommentRouting": FakeTable({"7:41": [{}] * 5}, "zid_tick"),
-        "Delphi_RepresentativeComments": FakeTable({"7:41:0": [{}] * 3, "7:41:2": [{}]}, "zid_tick_gid"),
+        "Delphi_CommentExtremity": FakeTable({"7": [{}] * 3}, "conversation_id"),
         "Delphi_CommentEmbeddings": FakeTable({"7": [{}] * 5}, "conversation_id"),
     }
     outputs = census.count_full_pipeline_outputs(7, FakeDynamo(tables))
+    assert [o["family"] for o in outputs] == list(census.CONVERSATION_FAMILIES)
     by_family = {o["family"]: o for o in outputs}
-    assert set(by_family) == set(census.ZID_FAMILIES + census.ZID_TICK_FAMILIES + (census.GROUP_FAMILY,)
-                                 + census.CONVERSATION_FAMILIES)
-    assert by_family["Delphi_PCAResults"] == {"store": "dynamodb", "family": "Delphi_PCAResults",
-                                              "table": "Delphi_PCAResults", "key_prefix": {"zid": "7"}, "rows": 1}
-    assert by_family["Delphi_CommentRouting"]["key_prefix"] == {"zid_tick": "7:41"}
-    assert by_family["Delphi_CommentRouting"]["rows"] == 5
-    assert by_family["Delphi_RepresentativeComments"]["keys"] == [
-        {"zid_tick_gid": "7:41:0"}, {"zid_tick_gid": "7:41:1"}, {"zid_tick_gid": "7:41:2"}]
-    assert by_family["Delphi_RepresentativeComments"]["rows"] == 4
-    assert by_family["Delphi_CommentEmbeddings"]["rows"] == 5
+    assert by_family["Delphi_CommentEmbeddings"] == {
+        "store": "dynamodb", "family": "Delphi_CommentEmbeddings", "table": "Delphi_CommentEmbeddings",
+        "key_prefix": {"conversation_id": "7"}, "rows": 5}
     assert by_family["Delphi_UMAPGraph"]["rows"] == 0
 
 
-def test_count_without_a_math_tick_lists_tick_families_empty():
-    outputs = census.count_full_pipeline_outputs(7, FakeDynamo({}))
-    by_family = {o["family"]: o for o in outputs}
-    for family in census.ZID_TICK_FAMILIES + (census.GROUP_FAMILY,):
-        assert by_family[family]["keys"] == [] and by_family[family]["rows"] == 0
+def test_the_retired_families_leave_the_run_but_stay_codec_families():
+    assert not set(census.RETIRED_FAMILIES) & set(census.CONVERSATION_FAMILIES)
+    assert set(census.RETIRED_FAMILIES) == {
+        "Delphi_PCAConversationConfig", "Delphi_PCAResults", "Delphi_KMeansClusters", "Delphi_CommentRouting",
+        "Delphi_RepresentativeComments", "Delphi_PCAParticipantProjections", "Delphi_CommentExtremity"}
+    # Legacy rows stay readable: every retired family is still a codec family.
+    assert set(census.RETIRED_FAMILIES) <= set(job_child.DYNAMODB_FAMILIES)
 
 
 def test_observe_inputs_digest_and_marks():

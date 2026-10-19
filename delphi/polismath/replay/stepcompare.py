@@ -39,10 +39,12 @@ from polismath.replay.store import _safe_path_component, load_step_blobs
 # Numeric-stat containers whose float leaves are the 'tolerant' family.
 # `consensus` (top-level) joins group-aware-consensus: both are float consensus
 # stats. `silhouette` scores (e.g. within group-clusters) are handled by path in
-# _family so a group-clusters ID/member mismatch stays EXACT.
+# _family so a group-clusters ID/member mismatch stays EXACT. Priorities are
+# `comment-priorities` in the blob; `comment_priorities` is their spelling in
+# recordings made before the blob used the legacy engine's key.
 DEFAULT_TOLERANT_STAT_KEYS = frozenset(
-    {"repness", "participant_info", "comment_priorities", "group-aware-consensus",
-     "consensus"}
+    {"repness", "participant_info", "comment-priorities", "comment_priorities",
+     "group-aware-consensus", "consensus"}
 )
 
 _TOP_KEY_RE = re.compile(r"^step_\d+\.([^.\[]+)")

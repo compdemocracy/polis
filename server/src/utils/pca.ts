@@ -6,6 +6,7 @@ import zlib, { InputType } from "zlib";
 import _ from "underscore";
 import LruCache from "lru-cache";
 import pg from "../db/pg-query";
+import { onParticipationPath } from "../db/participation-scope";
 import Config from "../config";
 import logger from "./logger";
 import { addInRamMetric } from "./metered";
@@ -112,6 +113,56 @@ const synthesizedEntries = new WeakSet<PcaCacheItem>();
  */
 export function isSynthesizedPca(item: PcaCacheItem | undefined): boolean {
   return !!item && synthesizedEntries.has(item);
+}
+
+/**
+ * The committed `math_main.math_tick` each row-backed entry was built from.
+ * Held outside the entry for the same reason as `synthesizedEntries`: the
+ * whole entry is serialized by participationInit.
+ */
+const entryRowTicks = new WeakMap<PcaCacheItem, number>();
+
+/**
+ * The latest entry `getPca` built from a `math_main` row, per [math_env, zid].
+ *
+ * An entry is still served without asking the store for only 3 s, but asking
+ * now costs one `math_tick` read on the (zid, math_env) unique index instead
+ * of the whole row: when the committed tick is the one this entry was built
+ * from, the entry is re-stamped rather than re-read, re-normalized and
+ * re-gzipped (`readCommittedTick`). A new generation still shows within 3 s.
+ *
+ * Kept apart from `pcaCache` because Bundle readers store their own entries in
+ * that slot, and some of their callers mutate what they get back; only an
+ * entry built here, from a row, is safe to keep serving across windows. The
+ * values are the same objects `pcaCache` holds, bounded the same way.
+ */
+const rowEntries = new LruCache<string, PcaCacheItem>({ max: pcaCacheSize });
+
+type LatestRow =
+  | { present: false }
+  // `entry` is set exactly when the row holds a committed generation
+  // (math_tick > -1); otherwise `data` is the raw blob, uncached.
+  | { present: true; mathTick: number; entry?: PcaCacheItem; data?: any };
+
+// The committed tick (`null`: no row), and the re-stamped row entry when the
+// tick is the one it was built from.
+type CommittedTick = { mathTick: number | null; entry?: PcaCacheItem };
+
+// A row whose generation is not committed yet: `math_main.math_tick` is
+// `NOT NULL DEFAULT -1` until a writer stores one (migrations/000000_initial.sql).
+const isUncommittedTick = (mathTick: number) => mathTick <= -1;
+
+// One in-flight row read and one in-flight tick read per [math_env, zid], so
+// concurrent misses share a single statement.
+const pendingRowReads = new Map<string, Promise<LatestRow>>();
+const pendingTickReads = new Map<string, Promise<CommittedTick>>();
+
+// An in-flight read is shared only by work on the same pools
+// (db/pg-query.ts): a participation request never waits on a read issued on
+// the other pools, which slow work may be holding, and the other way round.
+// Only the in-flight reads are kept apart; what they cache is shared.
+function pendingKey(key: string): string {
+  return onParticipationPath() ? `participation:${key}` : key;
 }
 
 // Each namespace has an independent publication cursor and cache entries.
@@ -470,26 +521,9 @@ export function getPca(
 
   logger.silly("mathpoll cache miss", { zid, math_tick });
 
-  // NOTE: not caching results from this query for now, think about this later.
-  // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
-  // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
-
-  const queryStart = Date.now();
-
-  return pg
-    .queryP_readOnly<Array<{ data: any; math_tick: any }>>(
-      "select * from math_main where zid = ($1) and math_env = ($2);",
-      [zid, mathEnv]
-    )
-    .then((rows) => {
-      const queryEnd = Date.now();
-      const queryDuration = queryEnd - queryStart;
-      addInRamMetric("pcaGetQuery", queryDuration);
-
-      // Ensure rows is an array with proper type assertion
-      const rowsArray = rows as Array<{ data: any; math_tick: any }>;
-
-      if (!rowsArray || !rowsArray.length) {
+  return readLatestRow(mathEnv, zid)
+    .then((row) => {
+      if (!row.present) {
         logger.silly(
           "mathpoll related; after cache miss, unable to find data for",
           {
@@ -525,6 +559,85 @@ export function getPca(
 
         return undefined;
       }
+
+      // `math_tick` undefined means "give me the latest", the same thing the
+      // cached branch above treats as latest, so the floor is -1. Coercing it
+      // to 0 with `|| 0` made a committed generation of 0 look "not newer" and
+      // reported the conversation as having no math at all. -1 remains the
+      // `math_main.math_tick` default for a row that never got a real tick,
+      // and such a row stays unserved.
+      const requestedMathTick = typeof math_tick === "number" ? math_tick : -1;
+      if (row.mathTick <= requestedMathTick) {
+        logger.silly("after cache miss, unable to find newer item", {
+          zid,
+          math_tick,
+        });
+        return undefined;
+      }
+      logger.silly("after cache miss, found item, adding to cache", {
+        zid,
+        math_tick,
+      });
+
+      if (row.entry) {
+        return row.entry;
+      }
+      // Only an explicit math_tick below -1 asks for an uninitialized row.
+      // The shared read handed every waiter the same blob, and presenting it
+      // mutates it, so present a copy.
+      return presentMathMainRow(mathEnv, zid, structuredClone(row.data));
+    });
+}
+
+/**
+ * The latest `math_main` row for [math_env, zid], shared by concurrent misses.
+ *
+ * When a row-backed entry is remembered, the committed tick is read first and
+ * an unchanged generation is served again without the blob. Otherwise the
+ * whole row is read, and a committed generation is presented and cached.
+ */
+function readLatestRow(mathEnv: string, zid: number): Promise<LatestRow> {
+  const key = pcaCacheKey(mathEnv, zid);
+  const inFlight = pendingKey(key);
+  const pending = pendingRowReads.get(inFlight);
+  if (pending) {
+    return pending;
+  }
+  const revalidated: Promise<CommittedTick> = rowEntries.has(key)
+    ? readCommittedTick(mathEnv, zid)
+    : Promise.resolve({ mathTick: null });
+  const read = revalidated
+    .then(({ entry }): LatestRow | Promise<LatestRow> =>
+      entry
+        ? { present: true, mathTick: entry.asPOJO.math_tick, entry }
+        : selectLatestRow(mathEnv, zid)
+    )
+    .finally(() => {
+      pendingRowReads.delete(inFlight);
+    });
+  pendingRowReads.set(inFlight, read);
+  return read;
+}
+
+function selectLatestRow(mathEnv: string, zid: number): Promise<LatestRow> {
+  const queryStart = Date.now();
+
+  return pg
+    .queryP_readOnly<Array<{ data: any; math_tick: any }>>(
+      "select * from math_main where zid = ($1) and math_env = ($2);",
+      [zid, mathEnv]
+    )
+    .then((rows): LatestRow | Promise<LatestRow> => {
+      const queryEnd = Date.now();
+      const queryDuration = queryEnd - queryStart;
+      addInRamMetric("pcaGetQuery", queryDuration);
+
+      // Ensure rows is an array with proper type assertion
+      const rowsArray = rows as Array<{ data: any; math_tick: any }>;
+
+      if (!rowsArray || !rowsArray.length) {
+        return { present: false };
+      }
       const item = rowsArray[0].data;
 
       // `!= null`, not truthiness. A committed generation of 0 is a real
@@ -539,28 +652,247 @@ export function getPca(
       if (rowsArray[0].math_tick != null) {
         item.math_tick = Number(rowsArray[0].math_tick);
       }
+      const mathTick = item.math_tick;
+      if (isUncommittedTick(mathTick)) {
+        return { present: true, mathTick, data: item };
+      }
+      // A blob without a usable lastVoteTimestamp is given the template's
+      // Date.now() (ensureCompletePcaStructure), so its served bytes change
+      // on every read. It is not remembered, and is read again each window.
+      const takesClock =
+        typeof item.lastVoteTimestamp !== "number" && !item.lastVoteTimestamp;
+      return presentMathMainRow(mathEnv, zid, item).then((entry) => {
+        if (!takesClock) {
+          entryRowTicks.set(entry, mathTick);
+          rowEntries.set(pcaCacheKey(mathEnv, zid), entry);
+        }
+        return { present: true, mathTick, entry };
+      });
+    });
+}
 
-      // `math_tick` undefined means "give me the latest", the same thing the
-      // cached branch above treats as latest, so the floor is -1. Coercing it
-      // to 0 with `|| 0` made a committed generation of 0 look "not newer" and
-      // reported the conversation as having no math at all. -1 remains the
-      // `math_main.math_tick` default for a row that never got a real tick,
-      // and such a row stays unserved.
-      const requestedMathTick = typeof math_tick === "number" ? math_tick : -1;
-      if (item.math_tick <= requestedMathTick) {
-        logger.silly("after cache miss, unable to find newer item", {
-          zid,
-          math_tick,
-        });
+/**
+ * The committed generation of [math_env, zid], read without the blob: the
+ * `math_tick` column only, on the unique (zid, math_env) index, so the
+ * TOASTed `data` is never fetched. `null` when there is no row.
+ *
+ * When it is the generation the remembered row entry was built from, that
+ * entry is re-stamped with a fresh 3 s expiration and returned. Any other
+ * answer forgets the remembered entry, so the next miss reads the row.
+ */
+function readCommittedTick(
+  mathEnv: string,
+  zid: number
+): Promise<CommittedTick> {
+  const key = pcaCacheKey(mathEnv, zid);
+  const inFlight = pendingKey(key);
+  const pending = pendingTickReads.get(inFlight);
+  if (pending) {
+    return pending;
+  }
+  const remembered = rowEntries.get(key);
+  const read = pg
+    .queryP_readOnly<Array<{ math_tick: any }>>(
+      "select math_tick from math_main where zid = ($1) and math_env = ($2);",
+      [zid, mathEnv]
+    )
+    .then((rows) => {
+      const rowsArray = rows as Array<{ math_tick: any }>;
+      const mathTick =
+        rowsArray && rowsArray.length ? Number(rowsArray[0].math_tick) : null;
+      // Another reader replaced the remembered entry while this ran.
+      if (!remembered || rowEntries.get(key) !== remembered) {
+        return { mathTick };
+      }
+      if (mathTick !== entryRowTicks.get(remembered)) {
+        rowEntries.del(key);
+        return { mathTick };
+      }
+      const entry = restampedEntry(remembered);
+      entryRowTicks.set(entry, mathTick);
+      rowEntries.set(key, entry);
+      // Stored as updatePcaCache stores a fresh read.
+      pcaCache.set(key, entry);
+      return { mathTick, entry };
+    })
+    .finally(() => {
+      pendingTickReads.delete(inFlight);
+    });
+  pendingTickReads.set(inFlight, read);
+  return read;
+}
+
+/**
+ * The generation `getPca(zid, -1)` would serve now, learned without reading
+ * the blob: from a live cache entry, or else from the committed tick.
+ * `undefined` when that answer carries no generation tag -- no row, an
+ * uninitialized row, or the synthesized empty presentation.
+ *
+ * GET /math/pca2 compares a held entity tag with this before any blob I/O.
+ */
+export function getLatestPcaTick(zid: number): Promise<number | undefined> {
+  const mathEnv = Config.mathEnv;
+  const cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
+  if (cached && cached.expiration > Date.now() && cached.asPOJO) {
+    return Promise.resolve(
+      synthesizedEntries.has(cached) ? undefined : cached.asPOJO.math_tick
+    );
+  }
+  return readCommittedTick(mathEnv, zid).then(({ mathTick }) =>
+    mathTick === null || isUncommittedTick(mathTick) ? undefined : mathTick
+  );
+}
+
+/** A generation's `comment-priorities`: tid -> selection weight. */
+export type CommentPriorities = Record<string | number, number>;
+
+type PrioritiesEntry = {
+  mathTick: number;
+  priorities: CommentPriorities;
+  expiration: number;
+};
+
+/**
+ * The `comment-priorities` of the latest committed generation, per
+ * [math_env, zid], for next-statement selection. Bounded like the math cache.
+ *
+ * An entry is used for 3 s, like a math cache entry. After that the committed
+ * tick is read (`readCommittedTick`, shared with the math cache) and an
+ * unchanged generation is re-stamped. Only a new generation reads the map,
+ * and then only that field of the row (`selectLatestPriorities`).
+ */
+const prioritiesEntries = new LruCache<string, PrioritiesEntry>({
+  max: pcaCacheSize,
+});
+// One in-flight priorities read per [math_env, zid].
+const pendingPriorityReads = new Map<
+  string,
+  Promise<PrioritiesEntry | undefined>
+>();
+
+const PRIORITIES_WINDOW_MS = 3000;
+
+/**
+ * The `comment-priorities` that `getLatestExistingPca(zid)` would hand the
+ * next-statement draw, without reading the whole math result.
+ *
+ * - A live math cache entry is what `getLatestExistingPca` would serve, so its
+ *   map is used, and remembered under its generation.
+ * - Otherwise a live priorities entry is used.
+ * - Otherwise the committed tick decides: the same generation is re-stamped;
+ *   a new one reads `data->'comment-priorities'` only. Concurrent callers
+ *   share one read.
+ *
+ * `undefined` when there is no committed generation (no row, or a row whose
+ * tick is not committed yet), where `getLatestExistingPca` gives no math. A
+ * failed read rejects, as the whole-row read did.
+ */
+export function getLatestCommentPriorities(
+  zid: number
+): Promise<CommentPriorities | undefined> {
+  const mathEnv = Config.mathEnv;
+  const key = pcaCacheKey(mathEnv, zid);
+  const now = Date.now();
+  const cached = pcaCache.get(key);
+  if (
+    cached &&
+    cached.expiration > now &&
+    cached.asPOJO &&
+    !synthesizedEntries.has(cached)
+  ) {
+    const priorities = cached.asPOJO["comment-priorities"];
+    const mathTick = cached.asPOJO.math_tick;
+    const current = prioritiesEntries.get(key);
+    if (
+      typeof mathTick === "number" &&
+      !isUncommittedTick(mathTick) &&
+      (!current || current.expiration < cached.expiration)
+    ) {
+      prioritiesEntries.set(key, {
+        mathTick,
+        priorities: completePriorities(priorities),
+        expiration: cached.expiration,
+      });
+    }
+    return Promise.resolve(priorities);
+  }
+  const entry = prioritiesEntries.get(key);
+  if (entry && entry.expiration > now) {
+    return Promise.resolve(entry.priorities);
+  }
+  return readLatestPriorities(mathEnv, zid).then((read) => read?.priorities);
+}
+
+function readLatestPriorities(
+  mathEnv: string,
+  zid: number
+): Promise<PrioritiesEntry | undefined> {
+  const key = pcaCacheKey(mathEnv, zid);
+  const inFlight = pendingKey(key);
+  const pending = pendingPriorityReads.get(inFlight);
+  if (pending) {
+    return pending;
+  }
+  const revalidated: Promise<CommittedTick> = prioritiesEntries.has(key)
+    ? readCommittedTick(mathEnv, zid)
+    : Promise.resolve({ mathTick: null });
+  const read = revalidated
+    .then(({ mathTick }) => {
+      const remembered = prioritiesEntries.get(key);
+      if (remembered && mathTick !== null && remembered.mathTick === mathTick) {
+        const entry = {
+          ...remembered,
+          expiration: Date.now() + PRIORITIES_WINDOW_MS,
+        };
+        prioritiesEntries.set(key, entry);
+        return entry;
+      }
+      return selectLatestPriorities(mathEnv, zid);
+    })
+    .finally(() => {
+      pendingPriorityReads.delete(inFlight);
+    });
+  pendingPriorityReads.set(inFlight, read);
+  return read;
+}
+
+/**
+ * The committed tick and `comment-priorities` of [math_env, zid]. Only that
+ * field of `data` leaves the database: no blob crosses the wire, and nothing
+ * is normalized or compressed in this process.
+ */
+function selectLatestPriorities(
+  mathEnv: string,
+  zid: number
+): Promise<PrioritiesEntry | undefined> {
+  const key = pcaCacheKey(mathEnv, zid);
+  return pg
+    .queryP_readOnly<Array<{ math_tick: any; priorities: any }>>(
+      "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
+      [zid, mathEnv]
+    )
+    .then((rows) => {
+      const rowsArray = rows as Array<{ math_tick: any; priorities: any }>;
+      const row = rowsArray && rowsArray.length ? rowsArray[0] : undefined;
+      // `math_main.math_tick` is NOT NULL (migrations/000000_initial.sql).
+      const mathTick = row ? Number(row.math_tick) : null;
+      if (mathTick === null || isUncommittedTick(mathTick)) {
+        prioritiesEntries.del(key);
         return undefined;
       }
-      logger.silly("after cache miss, found item, adding to cache", {
-        zid,
-        math_tick,
-      });
-
-      return presentMathMainRow(mathEnv, zid, item);
+      const entry = {
+        mathTick,
+        priorities: completePriorities(row.priorities),
+        expiration: Date.now() + PRIORITIES_WINDOW_MS,
+      };
+      prioritiesEntries.set(key, entry);
+      return entry;
     });
+}
+
+// The normalization `ensureCompletePcaStructure` gives the field.
+function completePriorities(value: unknown): CommentPriorities {
+  return value && typeof value === "object" ? (value as CommentPriorities) : {};
 }
 
 /**
@@ -698,6 +1030,24 @@ function updatePcaCache(
       }
     );
   });
+}
+
+/**
+ * A row-backed entry stamped as if `updatePcaCache` had just stored it from a
+ * fresh read of the same generation: the same body, JSON and gzip, a new
+ * 3 s expiration. A new object, so `presentPca` re-derives its comment
+ * defaults on the same schedule as before. Keys keep `updatePcaCache`'s order
+ * because participationInit serializes the entry.
+ */
+function restampedEntry(entry: PcaCacheItem): PcaCacheItem {
+  return {
+    asPOJO: entry.asPOJO,
+    asJSON: entry.asJSON,
+    asBufferOfGzippedJson: entry.asBufferOfGzippedJson,
+    expiration: Date.now() + 3000,
+    consensus: entry.consensus,
+    repness: entry.repness,
+  };
 }
 
 export function processMathObject(o: { [x: string]: any }) {

@@ -9,17 +9,17 @@
         {
           "cut": 1170,
           "tick": 0,
-          "rust": "cb5ab4d294aeac31d433df055df3c57233b7a8a0683e9e89b2d28800aec63fc0"
+          "rust": "154d89e90169055464da0692401812250596d025c7592c2c2fb111e8686ddbde"
         },
         {
           "cut": 2341,
           "tick": 1,
-          "rust": "dcd87c0c1e48fa4cbbc13e581de32c4fa34e777ef2d23f7eb1dd4a20f3909085"
+          "rust": "e8a88a190ce8cd83fd82aa9de024cfb5eed7a02d217c371eec8b90bd16a2a173"
         },
         {
           "cut": 4683,
           "tick": 2,
-          "rust": "16078787298c3599cb3fea0fe9bc8757b41740473ba36e042b91a8be0e3f4d05"
+          "rust": "5c320c5eea1d574071fc5e35272b968462d91acfc51f0bbc8a816e6747f424f5"
         }
       ],
       "attribution": {
@@ -41,36 +41,36 @@
       "witnesses": {
         "polarity-vw.json": {
           "fixture": "vw",
-          "a": "523b48455a31b938723628bb2606386a13056159428b43ee0a4173f8e060511c",
-          "b": "523b48455a31b938723628bb2606386a13056159428b43ee0a4173f8e060511c",
-          "negative": "23c7933c7b107866c1dcd2f3501dd48229e002fdd921b2c86b6189d1e64b452b",
+          "a": "24d251bda6a507cf2ab66bfe01e66bbeff9749627be2a6fc16940b8480985d27",
+          "b": "24d251bda6a507cf2ab66bfe01e66bbeff9749627be2a6fc16940b8480985d27",
+          "negative": "af9562e1dc45627e702dc8dbc9886b45d2b24bca6dcbb8c1b52c246ad24e3cc8",
           "deltas": []
         },
         "polarity-biodiversity.json": {
           "fixture": "biodiversity",
-          "a": "50a50a0b1c119463e0c5bca139babbfc21aaf412bffcb6b2a05b802d64eed0cc",
-          "b": "50a50a0b1c119463e0c5bca139babbfc21aaf412bffcb6b2a05b802d64eed0cc",
-          "negative": "6fbd8cf04653c42e4b973c35fcc8abc2fbe67f9330bc7e8887dc98ee8ef56483",
+          "a": "6d8a1c03f92bcafaf45b51dafc776c23f0fe4f1a4a6ebcf9e0cf8bf4feca4682",
+          "b": "6d8a1c03f92bcafaf45b51dafc776c23f0fe4f1a4a6ebcf9e0cf8bf4feca4682",
+          "negative": "f4ee9493fd186f7a2ff40756e058bc6ba76e90ccd944de13e999682e87d21b14",
           "deltas": []
         },
         "polarity-rebuild-schedule.json": [
           {
             "step": 0,
-            "positive": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
-            "paired": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
-            "negative": "01a9fdf049f73ce57d8ba66380b80c622e09d2ebe8a896aa7dbd09beca03baec"
+            "positive": "5cae7b0ef58bce2a14ad61e8da6c9c12683c17d4400c78ea67294b25f1767094",
+            "paired": "5cae7b0ef58bce2a14ad61e8da6c9c12683c17d4400c78ea67294b25f1767094",
+            "negative": "c6f4569922ba59a129f9829e7302affc217c6535936b7f982b8cbe6c84bbd1ea"
           },
           {
             "step": 1,
-            "positive": "4e5f11f8db8fe3cb1f7731fee5d62a82e6cb61b73332f5587a4c4db147a79f5d",
-            "paired": "4e5f11f8db8fe3cb1f7731fee5d62a82e6cb61b73332f5587a4c4db147a79f5d",
-            "negative": "e2b674af0ba3f01a232d36fdafd8cf6278b5c21d0c75841ca806496807ea73bb"
+            "positive": "c60ffbbf383d8c28aa2b54dd08fa8f74a8d847783e83d65139cb7e88fbf02bb0",
+            "paired": "c60ffbbf383d8c28aa2b54dd08fa8f74a8d847783e83d65139cb7e88fbf02bb0",
+            "negative": "88cdf4a14a1ab28c28fec8e71604dfabf1f1c96ef232a87caa6cb808e49f6794"
           },
           {
             "step": 2,
-            "positive": "eff7f1ecdb3857b5eb27beea2d4ae7971c411013ab9df38e886f4d47ab83d4a0",
-            "paired": "eff7f1ecdb3857b5eb27beea2d4ae7971c411013ab9df38e886f4d47ab83d4a0",
-            "negative": "686486e4e1b1f8c6a47c48a719a299869c2424b96919debfbbc062712fd28204"
+            "positive": "dc964987e5f188f13b4676480457dcff90b3ece75a73097236bb14cda110e764",
+            "paired": "dc964987e5f188f13b4676480457dcff90b3ece75a73097236bb14cda110e764",
+            "negative": "659e22fd4abb89b8c8c99a4476c639c6171a34e7133256b2ab34e686eac971a6"
           }
         ],
         "semantic-tie-key.json": {
@@ -125,9 +125,9 @@
             "storage_agree_value": -1
           },
           "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
-          "a": "c40f36ef591f86e259d2287c3345d6edc3267ca1b68385482121bbddadef7a22",
-          "b": "c40f36ef591f86e259d2287c3345d6edc3267ca1b68385482121bbddadef7a22",
-          "negative": "aec5181c022a03b45befa5686a9fef92ecaa00e3896eff32d812e0adb59764bf",
+          "a": "2d45cb02c54260efff69c864c577f9b29194d40176e28ea3baede0b6903d1fda",
+          "b": "2d45cb02c54260efff69c864c577f9b29194d40176e28ea3baede0b6903d1fda",
+          "negative": "39ace133279e05d8f695d7bfa10497e33f8a943649879853427bc12f8895123d",
           "deltas": []
         },
         "d4-node-reader.json": {
@@ -154,8 +154,8 @@
           "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
           "served": {
             "python": {
-              "asJSON_bytes": 6500,
-              "asJSON_sha256": "fca1a669ba11a2c0ecb64f6079c10d3c45086db18861b735f7f1e13844650ed8",
+              "asJSON_bytes": 6476,
+              "asJSON_sha256": "8be0d0d8366017a6a432a5627bc4f12e8ed9067f0520c838e16d63810a1c529a",
               "bid_to_pid": [
                 [
                   0
@@ -183,8 +183,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1765,
-              "gzip_sha256": "e4fc8a772a00eaa699fb03e833c26a9805c500e9f2c2d2b559d48b2e7ce56121",
+              "gzip_bytes": 1756,
+              "gzip_sha256": "a7ef00bd57dbe30a9b4e1088e8caff27121f8825be47e3f60969b97d54732244",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
               "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -220,8 +220,8 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 6500,
-              "asJSON_sha256": "fca1a669ba11a2c0ecb64f6079c10d3c45086db18861b735f7f1e13844650ed8",
+              "asJSON_bytes": 6476,
+              "asJSON_sha256": "8be0d0d8366017a6a432a5627bc4f12e8ed9067f0520c838e16d63810a1c529a",
               "bid_to_pid": [
                 [
                   0
@@ -249,8 +249,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1765,
-              "gzip_sha256": "e4fc8a772a00eaa699fb03e833c26a9805c500e9f2c2d2b559d48b2e7ce56121",
+              "gzip_bytes": 1756,
+              "gzip_sha256": "a7ef00bd57dbe30a9b4e1088e8caff27121f8825be47e3f60969b97d54732244",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
               "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -309,7 +309,7 @@
               },
               "etag_math_tick": 1,
               "gzip_bytes": 352,
-              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -327,7 +327,7 @@
               "present": true,
               "raw": {
                 "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -356,7 +356,7 @@
               },
               "etag_math_tick": 1,
               "gzip_bytes": 352,
-              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -374,7 +374,7 @@
               "present": true,
               "raw": {
                 "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -391,20 +391,20 @@
         },
         "polarity-public-fixture.json": {
           "fixture": "public-fixture",
-          "a": "0b5f690d35ba6227411bb5276d9a10ba0030c71a45205ceb8bfedc4ea626c740",
-          "b": "0b5f690d35ba6227411bb5276d9a10ba0030c71a45205ceb8bfedc4ea626c740",
-          "negative": "4fa3b33d193d8e1870af12cd4fd6526e126384c6e03818eed7d3abc186a7101d",
+          "a": "21922a704ddc4108c0d78d96b1453ee888f67bfc7729eb49c26fee9e4924e16a",
+          "b": "21922a704ddc4108c0d78d96b1453ee888f67bfc7729eb49c26fee9e4924e16a",
+          "negative": "00790c0413c4db565ec1f9dde2f206aac5a765189d1a13238b524f6f4754628b",
           "deltas": []
         }
       },
       "witness_sha256": {
-        "polarity-vw.json": "7092179388716f1a4d0f4970b206e127d1bf6d1cee72435f0995dadcf8ffd3f6",
-        "polarity-biodiversity.json": "f16146d44e98fe3a5db75355e4bc7c9f0ea0c2249b80a22686bfc6e4b54cf856",
-        "polarity-rebuild-schedule.json": "302522c3fbca550b3c99080a61a8122febdd9ac7544464f6b503989bcd341606",
-        "semantic-tie-key.json": "da642f8330b088c191943d05e699aa0beec84c9b050b6d6be0fff17df7209b9e",
-        "d4-node-reader.json": "1f127bec5c41b261ad99b865d20782eda06e6b3ac580a7a2d4617d4190ba864b",
-        "d4-node-reader-empty.json": "18de4bb4dd6ef86231b6d8ec27aa5615b012959162fb0e792cb1fccd251303b0",
-        "polarity-public-fixture.json": "82b469384621e344ff55b4fced672c36cd43c6ce76f91d92d29a194335e35f49"
+        "polarity-vw.json": "655635832b8373a06551e1dc1c5ad4e960ccfd5dda4daf456f2ac13cb3191e8f",
+        "polarity-biodiversity.json": "fbce3eebf3ff26887667ce7168ae1f95bda69258dab306f203b04dba847fd9a6",
+        "polarity-rebuild-schedule.json": "82bbbd1a02f6ae4590f899ab8ce5830718881932683902e3f1f84f954c5f2a42",
+        "semantic-tie-key.json": "5b8652185472241939835736a597fd855df569bf56d329bbafb384ade0140ef8",
+        "d4-node-reader.json": "38c4822f897a7b109bd5ccb3a67195447f1dda0bca6da2f832a68a52e41a60c3",
+        "d4-node-reader-empty.json": "0a0ff5839a413fb4f4783c071212939284b8662aa6665ac5b4cf771237d4cfdc",
+        "polarity-public-fixture.json": "f736d70e5b8591430aecd77ec784cc2705f0694dcd744151f74e4e07cb9e45a8"
       },
       "label_remap": {
         "scope": "fixture label and witness filename only; science unchanged",
@@ -413,7 +413,14 @@
         "renamed_sha256": "91cfee6f884c36a814983256bb76b479fc492d7b74069359c06f7f1e8dbd9cd9",
         "renamed_canonical_sha256": "4a5b3b2404f355f33b5c05018294d7151111d4f9b273e547bfd68bfd5349c08a"
       },
-      "forced_kernel": "not-forced"
+      "forced_kernel": "not-forced",
+      "compressor": {
+        "arch": "arm64",
+        "executable_sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
+        "node": "v24.21.0",
+        "platform": "darwin",
+        "zlib": "1.3.2.1-motley-8002e91"
+      }
     },
     {
       "id": "linux-x86_64-haswell-v1",
@@ -424,17 +431,17 @@
         {
           "cut": 1170,
           "tick": 0,
-          "rust": "c8ecc79598c6fb39fdc6eb420a39356d7f7ae35dad1be0646c271ee9e9a2dce3"
+          "rust": "e36e9abc8622e39d546673aff00d5291fbc51c488ed5f45b241bafba6c6c37a9"
         },
         {
           "cut": 2341,
           "tick": 1,
-          "rust": "cd917f124f6aff4b1c8e95f077aba5e89a79ee152870a9a261c7ede2dc809934"
+          "rust": "d1c1743ed8e6c0ef4c71a61a01c8e52008a23c95972e84e70436e78386cafb4f"
         },
         {
           "cut": 4683,
           "tick": 2,
-          "rust": "30cc593673efef79ec0037653370ba16d0a34e5a310f42d7c1e9ab85e689659b"
+          "rust": "109c7bac10d7d20ec476f7dfee9bee6e3b5ec943eadf68a62bbdfdebcbc444bc"
         }
       ],
       "attribution": {
@@ -736,8 +743,8 @@
           "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
           "served": {
             "python": {
-              "asJSON_bytes": 6491,
-              "asJSON_sha256": "ad3762f71931073f9ef9bf57c333ca5a98ad26a9cd02e6d65b3f11d520158246",
+              "asJSON_bytes": 6467,
+              "asJSON_sha256": "5a51b781e06b9aa47d73e92e727b90d70bf0f3b3c26105583fef4975db64b943",
               "bid_to_pid": [
                 [
                   0
@@ -765,8 +772,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1758,
-              "gzip_sha256": "4c65fc3697d5199f9f14418ff44bd3faf1b9ba24820196b3af5ac47ce4c06e08",
+              "gzip_bytes": 1751,
+              "gzip_sha256": "874ea767bb06c7f491fbac04ed9cdc585e06186585cb690de360cb23fd5e1b13",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
               "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -802,8 +809,8 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 6491,
-              "asJSON_sha256": "ad3762f71931073f9ef9bf57c333ca5a98ad26a9cd02e6d65b3f11d520158246",
+              "asJSON_bytes": 6467,
+              "asJSON_sha256": "5a51b781e06b9aa47d73e92e727b90d70bf0f3b3c26105583fef4975db64b943",
               "bid_to_pid": [
                 [
                   0
@@ -831,8 +838,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1758,
-              "gzip_sha256": "4c65fc3697d5199f9f14418ff44bd3faf1b9ba24820196b3af5ac47ce4c06e08",
+              "gzip_bytes": 1751,
+              "gzip_sha256": "874ea767bb06c7f491fbac04ed9cdc585e06186585cb690de360cb23fd5e1b13",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
               "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -872,43 +879,43 @@
         },
         "polarity-biodiversity.json": {
           "fixture": "biodiversity",
-          "a": "05c81cd4d6645ae207ecb104f0010e01841e3b3fc4bf9fede9848ebf413dc5ef",
-          "b": "05c81cd4d6645ae207ecb104f0010e01841e3b3fc4bf9fede9848ebf413dc5ef",
-          "negative": "12ad373779761a3c70736547a12e9a6844fa0861308a184e87568786eeab1883",
+          "a": "52d4ce6aaa8841bd01d793e86badebfa7cdedc3a4b6daa8154c7a76f89896d72",
+          "b": "52d4ce6aaa8841bd01d793e86badebfa7cdedc3a4b6daa8154c7a76f89896d72",
+          "negative": "97e6ba9157747be5156367843c7c408e9e326ff0a60df24d8a2d7a49b78a274c",
           "deltas": []
         },
         "polarity-public-fixture.json": {
           "fixture": "public-fixture",
-          "a": "3c60b6208e82f8d183c0691872c8c7d665321b7910e71554574c5c18efc4ff73",
-          "b": "3c60b6208e82f8d183c0691872c8c7d665321b7910e71554574c5c18efc4ff73",
-          "negative": "3e7d2042eb8c952e3fe9f1ee37e2750bb9be12aae8aba2f1f556f4717be7ec4a",
+          "a": "2086676a899c5cd6caab8f44e41c95d1bb31e5df7ca07e119a1eb77d548d6acc",
+          "b": "2086676a899c5cd6caab8f44e41c95d1bb31e5df7ca07e119a1eb77d548d6acc",
+          "negative": "9b737b0314f0f436affdb192838c1c1db0844fa25b4b15dc41c86595760af318",
           "deltas": []
         },
         "polarity-rebuild-schedule.json": [
           {
             "step": 0,
-            "positive": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
-            "paired": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
-            "negative": "01a9fdf049f73ce57d8ba66380b80c622e09d2ebe8a896aa7dbd09beca03baec"
+            "positive": "5cae7b0ef58bce2a14ad61e8da6c9c12683c17d4400c78ea67294b25f1767094",
+            "paired": "5cae7b0ef58bce2a14ad61e8da6c9c12683c17d4400c78ea67294b25f1767094",
+            "negative": "c6f4569922ba59a129f9829e7302affc217c6535936b7f982b8cbe6c84bbd1ea"
           },
           {
             "step": 1,
-            "positive": "d7010193c4968335d107beac1d1b629e9fb101cc220f07e7b6e1d9ba014f48a1",
-            "paired": "d7010193c4968335d107beac1d1b629e9fb101cc220f07e7b6e1d9ba014f48a1",
-            "negative": "9283d02a5d92f807c37202f18dda373f3982a858a69b555274ffe9f078b2cf55"
+            "positive": "25b2e26a749e2e162815a377801343adced6ad29bbd9403402ce3d8358d1f9d2",
+            "paired": "25b2e26a749e2e162815a377801343adced6ad29bbd9403402ce3d8358d1f9d2",
+            "negative": "d076075c11a948876fa928ec39dc1bf0b3bf79f7091edb96d0aa452906ff5cf0"
           },
           {
             "step": 2,
-            "positive": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
-            "paired": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
-            "negative": "05e73331a7eaf8a71f96bbcbc4e7d27b87cf16875c553f4e60bd5516456958d2"
+            "positive": "a6b21f08f126540941ae1ec795bc08e99192e46e9829b78d81ebe2b2356216d5",
+            "paired": "a6b21f08f126540941ae1ec795bc08e99192e46e9829b78d81ebe2b2356216d5",
+            "negative": "aa0f9b4cc2c67f22867049d84dda34dce75db33fb1df682739399e769e92edf2"
           }
         ],
         "polarity-vw.json": {
           "fixture": "vw",
-          "a": "facd29aca47ff246106d7c7b41be15dabdafc816a7672a90a46da1d179e45474",
-          "b": "facd29aca47ff246106d7c7b41be15dabdafc816a7672a90a46da1d179e45474",
-          "negative": "5f98226f353888dede0c0240f1196a23068e02c7f211577891e978e06f897926",
+          "a": "05bdf04faca236817e00bc235c4d219a2364dc478c9994e987168f0e93571bcb",
+          "b": "05bdf04faca236817e00bc235c4d219a2364dc478c9994e987168f0e93571bcb",
+          "negative": "791802486b365452b860696b4175f4e49dbad8ffdf3d53de98cf05b44bffd00b",
           "deltas": []
         },
         "semantic-tie-key.json": {
@@ -963,20 +970,20 @@
             "storage_agree_value": -1
           },
           "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
-          "a": "6289129082395351bdfdcfb62e6029d6a450d5ac4db3d93aed4244603db08a56",
-          "b": "6289129082395351bdfdcfb62e6029d6a450d5ac4db3d93aed4244603db08a56",
-          "negative": "ed28b9f356cfc9c4fac7e09af55ad66078ac752a8b83b4bb976c0009ab7f5e80",
+          "a": "4f488fb4a92b759f04984c30080cd876e5a5fb249a006343464020e838e8beb7",
+          "b": "4f488fb4a92b759f04984c30080cd876e5a5fb249a006343464020e838e8beb7",
+          "negative": "46978d0f130d7b7b7b5ed8ff6833a090d0fee82e8d637757ce291ab250240512",
           "deltas": []
         }
       },
       "witness_sha256": {
         "d4-node-reader-empty.json": "18de4bb4dd6ef86231b6d8ec27aa5615b012959162fb0e792cb1fccd251303b0",
-        "d4-node-reader.json": "f25104a5782a41b8ac2d72da02573fd0925c807ce5a99a67779f57fe66eea855",
-        "polarity-biodiversity.json": "a3219772cc723d93afdfb7ef9aa388b7a31f3f3e9906c144ed9aaa26c6fb17f7",
-        "polarity-public-fixture.json": "b7fd09db552fc9a98f1ff515c297b94e32e11f7730cf87ecbb2986e870b17d1d",
-        "polarity-rebuild-schedule.json": "005d66526cc21a6f6a0eb30be679704204a86356b2b9b39eda0b87279714ddbd",
-        "polarity-vw.json": "43a2f9054a41aeeeaf5a8c00fab888e47267a9413cb82f69bd6c257b936d195a",
-        "semantic-tie-key.json": "6026e8cdee7cf6576c0454f39ed040bdca3c6dee7ff70a75a83fc2e9879c0178"
+        "d4-node-reader.json": "8144dfec413d8434f2de297072311fea8f9fc7aafd0c5704df103771eed5301b",
+        "polarity-biodiversity.json": "9b5dca45df9f259f8ddff45eb81a4a588bbe729976e69e874f06242a0f1be851",
+        "polarity-public-fixture.json": "31d496cbe8470f5e8b9e59dcdafe4337a4d1c5f6cb25d5b2057852312ace0450",
+        "polarity-rebuild-schedule.json": "43a07b1328ea220d901896d01ec52a5d3e45d609d09cd36051ee222702674f79",
+        "polarity-vw.json": "41c93616399259f74409d145775cae437304206a774512135e4c6b9a16c82172",
+        "semantic-tie-key.json": "265d80b4279d14d70ca8c55c0be9a8ea77721aa8f91ffe01f44343adc668e90c"
       }
     }
   ],

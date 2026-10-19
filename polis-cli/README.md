@@ -18,7 +18,7 @@ cargo fmt --all --check
 
 The tested release target is macOS arm64. Rust 1.99 built the delivered binary.
 `Cargo.lock` pins the reviewed build inputs. Other platforms and older toolchains
-have not been verified; credentials use macOS Keychain with an owner-only file fallback.
+have not been verified; credentials use an owner-only file store by default on every supported platform.
 
 ## Start here
 
@@ -51,7 +51,7 @@ polis auth login                    # browser PKCE on this machine
 polis auth login --device           # approve in a browser on another device
 polis auth status                   # server-verified status, no secret output
 polis auth token                    # prints the ACCESS TOKEN: treat stdout as secret
-polis auth logout                   # erase local access and refresh credentials
+polis auth logout                   # revoke the refresh token, then clear local credentials
 ```
 
 Browser login uses Authorization Code + S256 PKCE with a state-bound loopback
@@ -82,28 +82,51 @@ The CLI does not retry an API mutation after a 401 or decode JWTs for authorizat
 Credential reads refuse symlinks, nonregular/multiply linked files, other owners,
 group/world permissions and mismatched bindings. Keep the credential directory
 out of repositories and shared backups. Profiles contain configuration only.
-On macOS an interactive sign-in (browser, device or `--token-stdin`) saves the
-credential record in the login Keychain; the credential file then holds only a
-secret-free pointer, the lock and logout tombstones. The owner-only file holds the
-record itself only as a fallback: when the Keychain cannot be written, under
-`--no-interactive`, on other platforms, and for an older file sign-in until the next
-interactive sign-in moves it. A refresh rotation stays in the backend that holds the
-session, falling back to the file if the Keychain write fails. `login` reports the
-backend used in `storage`. `--with-token` explicitly uses the file backend;
-`--token-stdin --no-store` validates without persistence. Manual access tokens have
-no issuer refresh credential or tracked lifetime.
+Every saved sign-in (OAuth access and refresh tokens, or a manual token) uses the
+owner-only file store by default on every supported platform: `credentials/` under
+`~/.config/polis/`, or under `POLIS_CONFIG_DIR` when set. The directory is 0700 and
+credential files are 0600. Refresh rotation replaces the saved session atomically.
+`login` reports the backend used in `storage`.
 
-`--no-interactive` never shows browser or Keychain dialogs; it still reads and
-rotates a Keychain sign-in when macOS needs no unlock or access approval, and
-otherwise fails with `credential_store_unavailable`. Device login still needs
+The CLI never calls the Keychain by default, including reads, migration, replacement
+and logout. A sign-in saved only in the Keychain appears **not signed in**: run
+`polis auth login` once to save a new session in the file store. Existing Keychain
+entries are left alone. No local signing setup or Keychain approval is needed.
+
+`POLIS_KEYCHAIN=on` explicitly opts into the macOS Keychain. Keep it set for commands
+that use that sign-in. Unset, `off`, or any other value uses the file store. Opted-in
+calls also suppress Keychain dialogs; inaccessible reads return
+`credential_store_unavailable`, and failed writes fall back to the file store.
+`--with-token` always writes to the file; new `--no-interactive` sign-ins also use
+it. Refresh stays in the current backend when opted in, with file fallback if a
+Keychain write fails. `--token-stdin --no-store` validates without persistence.
+Manual access tokens have no issuer refresh credential or tracked lifetime.
+
+`--no-interactive` never shows browser or Keychain dialogs.
+Device login still needs
 approval in another browser. `--no-browser` prints the PKCE URL for opening on the
 same machine. `POLIS_TOKEN` overrides saved access tokens for pol.is (the older
 `POLIS_TOKEN_PROD` still works; `POLIS_TOKEN` wins if both are set), and
 `POLIS_TOKEN_<UPPERCASE_PROFILE>` does so for developer profiles;
-unset it separately after logout. Logout clears local access/refresh credentials
-and leaves a token-free tombstone suppressing older Keychain entries; Keychain
-deletion is best effort. It does **not** revoke the issuer grant or end the provider
-browser session. No provider logout/revocation request is sent.
+unset it separately after logout. Logout sends the saved refresh token and the
+client ID that obtained it to the `revocation_endpoint` advertised by the saved
+issuer's discovery document (after checking the metadata issuer matches exactly),
+then clears local access/refresh credentials and writes a tombstone suppressing
+stale Keychain values. It uses the saved session even when a token environment
+override is set or the profile's issuer/client settings have changed. No access
+token refresh or Polis API request is needed. Discovery and revocation requests each obey `--timeout`,
+with no redirect or automatic retry, and never print tokens or provider responses.
+
+If revocation fails, local cleanup still runs and the command reports
+`oauth_revoke_failed` (exit 7, outcome unknown): the refresh token may still be valid, so revoke the
+application's access through your identity provider account or its administrator.
+A local storage failure is reported separately and does not claim cleanup succeeded.
+Successful JSON reports `refresh_token_revocation: "acknowledged"`, or
+`"not_available"` (exit 0) when the issuer advertises no revocation endpoint, or for
+a manual token, missing refresh token or absent saved session.
+Keychain-only sign-ins remain unread unless explicitly opted in; Keychain deletion
+occurs only with `POLIS_KEYCHAIN=on` and is best effort without dialogs. Logout does
+not end the provider browser session or revoke an already-issued access token.
 
 Run the local-only OAuth acceptance suite after building:
 `python3 tests/oidc_flows.py target/debug/polis`. The simulator covers PKCE, device
@@ -408,6 +431,8 @@ Pass seven: participant statements and stored collective statements
   polis statement view 0 --conversation CONV --json
   polis collective list --report REPORT --json
   polis collective view 'OPAQUE#KEY#FROM#LIST' --json
+  polis collective statements REPORT
+  polis collective statements REPORT --json
 
 Statement reads return active, unmuted, moderation-visible rows, even for owners.
 Use moderate list for moderation. A missing or hidden single statement is
@@ -762,3 +787,38 @@ and limitations still apply. Effectful operations require `--yes`; they never
 retry automatically and return receipts rather than claims of completion.
 Participant operations use conversation-scoped credentials unless `--account`
 is explicit. Download paths are private, bounded and never overwritten.
+
+Read the stored collective statements for each topic in a public report:
+
+```sh
+polis collective statements REPORT
+polis collective statements REPORT --json
+```
+
+The text view includes topic and paragraph headings, sentences and citation IDs.
+The JSON view preserves the full server response, including metadata and nulls.
+This read uses the server's latest statement per topic; it does not generate
+statements or call a model.
+
+
+### Cursor-based owner listing
+
+Use `polis conversation list --sort newest --min-participants 10 --search 'town'`
+to call the opt-in Rust owner-list endpoint. `--sort oldest` reverses creation
+order. Pass `--cursor` from `data.pagination.next_cursor` and repeat the filters
+for the next page. The route requires an OIDC access token, an existing local
+user mapping, and both Rust owner-list switches enabled. An unavailable route
+never falls back to an unfiltered list.
+
+Supplying `--sort`, `--min-participants` or `--cursor` selects this mode. Its limit
+is at most 500; filtering is server-side and pagination uses opaque cursors.
+Participant counts are stored counters; pages are not a frozen snapshot.
+Without these options, the existing Node list and its owner filtering, local
+search, truncation reporting and limit up to 9999 remain unchanged. Neither mode
+accepts `--offset`.
+
+If an older or disabled site returns 404 or 502 for the owner-list endpoint,
+the CLI returns `capability_unavailable` (exit 8). Authentication, permission
+and other server failures retain their existing errors. A gateway outage
+returning 502 also means the feature is currently unavailable; this does not
+prove it is permanently absent. No unfiltered-list fallback occurs.

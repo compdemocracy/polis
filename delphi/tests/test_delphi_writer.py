@@ -36,15 +36,75 @@ def test_roundtrip_every_family(writer,family):
     table.delete_item(Key=key)
     assert table.get_item(Key=key)=={}
 
-def test_spool_keeps_exact_decimal_and_deleted_family(writer):
+def test_spool_keeps_exact_decimal_and_holds_only_the_written_family(writer):
     table=writer.Table('Delphi_CommentEmbeddings')
     table.put_item(Item=dict(conversation_id='1',comment_id=Decimal(2),value=Decimal('0.00000000000000000001')))
     files=writer.spool()
-    assert len(files)==18
-    for family,description in files.items():
-        actual,rows=decode_family((writer.directory/description['file']).read_bytes())
-        assert family==actual
-        assert len(rows)==(1 if family==table.name else 0)
+    assert set(files)=={table.name}
+    actual,rows=decode_family((writer.directory/files[table.name]['file']).read_bytes())
+    assert actual==table.name and len(rows)==1 and rows[0]['value']=={'N':'0.00000000000000000001'}
+
+
+PRESERVED={'Delphi_NarrativeReports','report_narrative_store','Delphi_CollectiveStatement','Delphi_TopicAgendaSelections'}
+
+
+def _based_writer(tmp_path, monkeypatch, base_families):
+    """A writer whose admission captured a publication holding these rows."""
+    jid,run,attempt=[str(uuid.uuid4()) for _ in range(3)]
+    tagged={family:[item_from_python(row) for row in rows] for family,rows in base_families.items()}
+    frame=dict(schema='polis-jobs.frame/1',env='proof',zid=1,job_id=jid,run_id=run,attempt_id=attempt,lease_epoch='1',
+        config={'result_backend':'postgres'},writer_base={'schema':'delphi-writer-base/1','zid':1,'families':tagged})
+    (tmp_path/'frame.json').write_text(json.dumps(frame))
+    for key,value in dict(DELPHI_RESULT_BACKEND='postgres',DELPHI_OUTPUT_MANIFEST=str(tmp_path/'manifest.json'),
+            DELPHI_FRAME=str(tmp_path/'frame.json'),DELPHI_JOB_ID=jid,DELPHI_RUN_ID=run,DELPHI_ATTEMPT_ID=attempt).items():
+        monkeypatch.setenv(key,value)
+    return WriterResource()
+
+
+BASE={
+    'Delphi_CommentHierarchicalClusterAssignments':[{'conversation_id':'1','comment_id':1,'layer0_cluster_id':0}],
+    'Delphi_CommentClustersLLMTopicNames':[{'conversation_id':'1','topic_key':'job#0#0','topic_name':'old'}],
+    'Delphi_UMAPGraph':[{'conversation_id':'1','edge_id':'1_2','weight':Decimal('0.5')}],
+    'Delphi_NarrativeReports':[{'rid_section_model':'r1#topics#m','timestamp':'2026-01-01T00:00:00Z','report_data':'{}'}],
+    'Delphi_CollectiveStatement':[{'zid_topic_jobid':'1#t#j','text':'kept'}],
+}
+
+
+def _spooled(writer, files):
+    return {family:decode_family((writer.directory/d['file']).read_bytes())[1] for family,d in files.items()}
+
+
+def test_narrative_only_run_holds_no_topic_or_cluster_family(tmp_path, monkeypatch):
+    writer=_based_writer(tmp_path,monkeypatch,BASE)
+    writer.Table('Delphi_NarrativeReports').put_item(Item={'rid_section_model':'r1#uncertainty#m',
+        'timestamp':'2026-01-02T00:00:00Z','report_data':'{"new":true}'})
+    spooled=_spooled(writer,writer.spool())
+    assert set(spooled)=={'Delphi_NarrativeReports'}
+    # The family is whole: the base's section and this run's.
+    assert [r['rid_section_model']['S'] for r in spooled['Delphi_NarrativeReports']]==['r1#topics#m','r1#uncertainty#m']
+
+
+def test_full_run_holds_every_family_it_cleared_and_none_it_kept(tmp_path, monkeypatch):
+    writer=_based_writer(tmp_path,monkeypatch,BASE)
+    writer.reset()
+    writer.Table('Delphi_CommentClustersLLMTopicNames').put_item(Item={'conversation_id':'1','topic_key':'new#0#0','topic_name':'new'})
+    spooled=_spooled(writer,writer.spool())
+    assert set(spooled)==RESULT_FAMILIES-PRESERVED and len(spooled)==14
+    assert [r['topic_name']['S'] for r in spooled['Delphi_CommentClustersLLMTopicNames']]==['new']
+    # Cleared and not rewritten: emitted empty, so the ancestor's rows stay hidden.
+    assert spooled['Delphi_UMAPGraph']==[] and spooled['Delphi_CommentHierarchicalClusterAssignments']==[]
+
+
+def test_a_delete_alone_emits_the_family(tmp_path, monkeypatch):
+    writer=_based_writer(tmp_path,monkeypatch,BASE)
+    writer.Table('Delphi_CollectiveStatement').delete_item(Key={'zid_topic_jobid':'1#t#j'})
+    assert _spooled(writer,writer.spool())=={'Delphi_CollectiveStatement':[]}
+
+
+def test_a_run_that_changed_nothing_emits_nothing(tmp_path, monkeypatch):
+    writer=_based_writer(tmp_path,monkeypatch,BASE)
+    assert writer.Table('Delphi_CommentClustersLLMTopicNames').scan()['Items'][0]['topic_name']=='old'
+    assert writer.spool()=={}
 
 def test_queue_and_cross_conversation_writes_refuse(writer):
     with pytest.raises(RuntimeError,match='queue state'):writer.Table('Delphi_JobQueue').put_item(Item={'job_id':'x'})
@@ -82,6 +142,8 @@ def test_actual_pipeline_orchestration_uses_private_reset_and_v2_manifest(writer
     for key,value in {'DELPHI_LEASE_EPOCH':'1','DELPHI_STAGE':'delphi_full_pipeline','DELPHI_PHASE':'run'}.items():monkeypatch.setenv(key,value)
     writer.Table('Delphi_CollectiveStatement').put_item(Item={'zid_topic_jobid':'1#old#report','text':'preserved'})
     writer.Table('Delphi_CommentEmbeddings').put_item(Item={'conversation_id':'1','comment_id':999})
+    # A row a run before the retirement wrote: the reset clears it and no stage writes it again.
+    writer.Table('Delphi_PCAResults').put_item(Item={'zid':'1','math_tick':1})
     monkeypatch.setattr(census,'default_pg_query',lambda:None)
     monkeypatch.setattr(census,'observe_inputs',lambda *a:{'math_env':'proof','math_tick':None,'math_caching_tick':None,'comment_set_sha256':None,'vote_hwm':None})
     scripts=[]
@@ -89,19 +151,23 @@ def test_actual_pipeline_orchestration_uses_private_reset_and_v2_manifest(writer
         scripts.append(command[1])
         assert 'reset_conversation' not in command[1]
         resource=result_resource()
-        if command[1].endswith('run_math_pipeline.py'):
-            resource.Table('Delphi_PCAConversationConfig').put_item(Item={'zid':'1','math_tick':1})
         if command[1].endswith('run_pipeline.py'):
             resource.Table('Delphi_CommentEmbeddings').put_item(Item={'conversation_id':'1','comment_id':0})
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(run_delphi.subprocess,'run',stage)
     monkeypatch.setattr(sys,'argv',['run_delphi.py','--zid=1'])
     with pytest.raises(SystemExit) as done:run_delphi.main()
-    assert done.value.code==0 and len(scripts)>=4
+    assert done.value.code==0
+    assert [Path(script).name for script in scripts]==['run_pipeline.py','700_datamapplot_for_layer.py']
     manifest=json.loads(Path(os.environ['DELPHI_OUTPUT_MANIFEST']).read_text())
     assert manifest['schema']=='polis-jobs.output-manifest/2'
     assert all(o['store']=='postgres' for o in manifest['outputs'])
+    assert [o['family'] for o in manifest['outputs']]==list(census.CONVERSATION_FAMILIES)
     resource=result_resource()
+    for family in census.RETIRED_FAMILIES:
+        assert resource.Table(family).scan()['Items']==[]
+        spooled=Path(os.environ['DELPHI_OUTPUT_MANIFEST']).parent/manifest['family_spool'][family]['file']
+        assert len(spooled.read_bytes().splitlines())==1  # the codec header only: published empty
     assert [i['comment_id'] for i in resource.Table('Delphi_CommentEmbeddings').scan()['Items']]==[0]
     assert resource.Table('Delphi_CollectiveStatement').scan()['Items'][0]['text']=='preserved'
 
@@ -150,7 +216,9 @@ def test_embeddings_table_write_spools_and_excludes_codec_family(tmp_path, monke
     model, dims, back = read_spool((w.directory/'embeddings.spool').read_bytes())
     assert model == 'sentence-transformers/all-MiniLM-L6-v2' and dims == 3 and {r['tid'] for r in back} == {2, 5}
     files = w.spool()
-    assert len(files) == 18
+    # The base's codec rows were dropped, so the run emits that family, empty,
+    # to hide them; it touched nothing else.
+    assert set(files) == {'Delphi_CommentEmbeddings'}
     actual, crows = decode_family((w.directory/files['Delphi_CommentEmbeddings']['file']).read_bytes())
     assert actual == 'Delphi_CommentEmbeddings' and crows == []  # codec family stays empty
 

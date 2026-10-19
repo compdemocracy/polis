@@ -1,8 +1,8 @@
 # CLI differential loop
 
 Run the real CLI against one generated database with Node routing, reset the
-fixture and local credential/files state, then run it again with every merged
-Rust route enabled. This is independent of the byte replays: it neither starts
+fixture and local credential/files state, then run it again with every inventoried
+staged Rust route enabled. This is independent of the byte replays: it neither starts
 those runners nor reads a recording archive. Byte replays remain the wire gate.
 
 Build the CLI and four local images from the source being tested:
@@ -50,6 +50,23 @@ hashes. It never drops fields, replaces IDs, sorts arrays, retries writes or
 accepts a mismatch. The output lists differing JSON paths without secret values
 or submitted text. `auth token` is compared privately in memory, never logged.
 
+The gateway also records the actual response body bytes for successful `math
+view` (whole and subset) and `api` scenarios, whose payloads are printed directly
+under `data`. A separate numeric check parses the original wire and CLI stdout
+number tokens as exact decimals, not binary floats. It catches parse/print drift
+even when the same CLI binary makes the identical mistake in both phases.
+Equivalent exponent/trailing-zero spellings are accepted; changed, missing,
+additional or nonnumeric replacement fields fail. The generated PCA center
+includes a value that exposed a one-bit parser drift without `float_roundtrip`.
+
+Capture is bounded to 8 MiB per body and two responses, stays in memory, and
+never rewrites the bytes forwarded to the CLI. Gzip is decoded with a bounded
+output size. Missing, duplicated, truncated or oversized recordings fail the
+check. Only numeric field counts, differing paths and body hashes enter the
+`node_numeric_wire` / `rust_numeric_wire` reports. Other commands reshape their
+payloads and retain the existing semantic comparison; they do not claim this
+additional numeric wire coverage. The separate byte-replay corpus is untouched.
+
 Generated test clocks, SQL timestamp defaults and server-generated identity
 entropy are fixed *before* execution, not erased from results. They live only
 in the test entry point and disposable database; the real handlers, access
@@ -60,21 +77,31 @@ receipts, or the comparison. Using a normal binary deliberately fails the seed
 receipt comparison; build the documented test variant.
 
 Some commands need stored analysis artifacts absent from this small fixture.
-Their rows are marked `missing-store`; the agent-path exports, whose routes this server
-version does not serve, are marked `unserved`; malformed external-result imports
+Their rows are marked `missing-store`, the collective-statement exports among them;
+the narrative export, whose routes this server version does not serve, is marked
+`unserved`; malformed external-result imports
 are marked `invalid-input`. Those rows verify empty/availability/refusal behavior only; they are
 not successful export/import, provider, analysis or backend coverage. Planned
 commands and local commands are likewise reported separately. Never turn a
 connectivity/parser/authentication failure into a successful live scenario.
 
-The real nginx renderer receives `RUST_API_ROUTES` empty and then `pca2`, the
-only merged switch at this source version. Access logs must show both whole-presentation and selected-key
-math requests served 200 by port 5100, with no Rust
-fallback. Other paths continue to use Node; their equality is client-flow
-regression evidence, not a Rust implementation claim. A separate route-template census refuses an unaccounted new switch. When adding
-a Rust route, extend `routes.json`, add its command scenarios and require its
-own positive serving evidence.
-Do not count a 502 fallback as Rust parity.
+The real nginx renderer receives `RUST_API_ROUTES` empty and then every
+switch in `routes.json`. The route-template census rejects missing entries.
+Each entry requires an exact request count, a minimum number of sole Rust
+HTTP200 responses, and an exact count of scoped Node handoffs with a reason.
+These counts cover this generated fixture only. Unexercised routes explicitly
+claim no CLI coverage. Named-location and retry chains are always handoffs,
+never Rust successes. Added handoffs or lost positive coverage fail the run.
+The raw byte replays remain the per-route behavioral oracle.
+
+Cursor-based owner listing is a new contract without a Node counterpart. Its two
+scenarios are reported separately in `rust_only`, never counted as byte or JSON
+equality. With switches off they must return exit 8, `capability_unavailable`,
+and the exact documented message; with switches on they must succeed and leave
+the same downloaded artifacts. The owner CLI and PostgreSQL contract tests check
+response shape, filtering, authorization and cursors. Authentication and other
+server failures remain distinct. All existing Node-vs-Rust equality comparisons
+and durable participation/administration assertions are retained.
 
 The participation path stays unchanged. The fixture runs one bounded live CLI
 request/flow at a time (unimplemented local commands run concurrently and must
@@ -97,3 +124,9 @@ persisted row despite its error response. Output contains check names only.
 Run native CI before the live loop: native tests rebuild the default binary;
 rebuild `--features fixture-ids` afterwards, and keep that binary unchanged
 through both phases.
+
+The stack lifecycle, the per-actor CLI invocation, the comparator, the routing
+counts and the phase loop live in `harness.py`. `run.py` holds the fixed
+scenarios; `polis-cli/tests/fuzz/run.py` runs seeded generated sequences on the
+same stack in three phases (Node, switches on, Node again as the A/A control)
+through `scripts/test-polis-cli-fuzz.sh`.

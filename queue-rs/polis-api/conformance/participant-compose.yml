@@ -1,0 +1,12 @@
+# Additive, generated-fixture-only token control and public verifier key.
+services:
+  server:
+    command: ["node", "/conformance/participant-entry.cjs"]
+    volumes: ["../../queue-rs/polis-api/conformance:/conformance:ro"]
+  polis-api:
+    environment:
+      POLIS_API_PARTICIPANT_READS: "1"
+      POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE: /artifacts/participant-public.pem
+      POLIS_JWT_ISSUER: https://pol.is/
+      POLIS_JWT_AUDIENCE: participants
+    volumes: ["./artifacts:/artifacts:ro"]

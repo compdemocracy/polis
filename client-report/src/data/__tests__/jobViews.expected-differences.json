@@ -1,1 +1,1710 @@
-{"entries": []}
+{
+  "entries": [
+    {
+      "case": "not_run/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "not_run/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "pending/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "pending/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "running/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "running/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "failed/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "failed/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "missing#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "completed/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "00000069-0000-4000-8000-000000000001#0#0",
+              "topic_name": "Generated topic 0.0 by alpha",
+              "group_consensus": {
+                "0": 1,
+                "3": 1,
+                "6": 1
+              },
+              "qualifying_tids": [
+                0,
+                3,
+                6
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "completed/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (4)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "00000069-0000-4000-8000-000000000001#1#1",
+              "topic_name": "Generated topic 1.1 by alpha",
+              "group_consensus": {
+                "1": 1,
+                "3": 1,
+                "5": 1,
+                "7": 1
+              },
+              "qualifying_tids": [
+                1,
+                3,
+                5,
+                7
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (4)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "two_models/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by beta</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000003#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "0000006a-0000-4000-8000-000000000003#0#0",
+              "topic_name": "Generated topic 0.0 by beta",
+              "group_consensus": {
+                "0": 1,
+                "3": 1,
+                "6": 1
+              },
+              "qualifying_tids": [
+                0,
+                3,
+                6
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by beta</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000003#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "two_models/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "rerun_after_votes/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 8:30:00 PM (generated-model-alpha)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><h3 style=\"margin-bottom: 10px;\">Generated statement 1</h3><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated.<sup style=\"color: rgb(0, 102, 204); font-size: 0.85em; margin-left: 2px;\">0</sup></span></p></div></div></div><div style=\"flex-grow: 1; flex-shrink: 1; flex-basis: 0%; min-width: 400px; width: auto; overflow-x: auto; margin-top: 0px;\"><h3 style=\"margin-bottom: 20px;\">Comments Referenced</h3><div><div data-view=\"comments\"></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006b-0000-4000-8000-000000000002#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 8:30:00 PM (generated-model-alpha)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><h3 style=\"margin-bottom: 10px;\">Generated statement 1</h3><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated.<sup style=\"color: rgb(0, 102, 204); font-size: 0.85em; margin-left: 2px;\">0</sup></span></p></div></div></div><div style=\"flex-grow: 1; flex-shrink: 1; flex-basis: 0%; min-width: 400px; width: auto; overflow-x: auto; margin-top: 0px;\"><h3 style=\"margin-bottom: 20px;\">Comments Referenced</h3><div><div data-view=\"comments\"></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006b-0000-4000-8000-000000000002#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "rerun_after_votes/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006b-0000-4000-8000-000000000002#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "0000006b-0000-4000-8000-000000000002#1#1",
+              "topic_name": "Generated topic 1.1 by alpha",
+              "group_consensus": {
+                "1": 1,
+                "3": 1,
+                "5": 1
+              },
+              "qualifying_tids": [
+                1,
+                3,
+                5
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006b-0000-4000-8000-000000000002#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "truncated_narrative/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006c-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "0000006c-0000-4000-8000-000000000001#0#0",
+              "topic_name": "Generated topic 0.0 by alpha",
+              "group_consensus": {
+                "0": 1,
+                "3": 1,
+                "6": 1
+              },
+              "qualifying_tids": [
+                0,
+                3,
+                6
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006c-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "truncated_narrative/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (4)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006c-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "0000006c-0000-4000-8000-000000000001#1#1",
+              "topic_name": "Generated topic 1.1 by alpha",
+              "group_consensus": {
+                "1": 1,
+                "3": 1,
+                "5": 1,
+                "7": 1
+              },
+              "qualifying_tids": [
+                1,
+                3,
+                5,
+                7
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (4)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006c-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "zero_vote/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">2</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(255, 243, 205); border: 1px solid #ffeaa7; border-radius: 8px; margin-top: 20px;\"><p style=\"color: rgb(133, 100, 4); margin: 0px;\"><strong>Insufficient consensus:</strong> No consensus data available</p><p style=\"color: rgb(133, 100, 4); margin: 10px 0px 0px 0px; font-size: 14px;\">Candidate collective statements require topics with strong cross-group agreement to ensure meaningful representation.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (2)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006d-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">2</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (2)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006d-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The page no longer computes generation eligibility. An ineligible topic without a stored statement shows the same unpublished message as any other topic without one.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "zero_vote/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(255, 243, 205); border: 1px solid #ffeaa7; border-radius: 8px; margin-top: 20px;\"><p style=\"color: rgb(133, 100, 4); margin: 0px;\"><strong>Insufficient consensus:</strong> No consensus data available</p><p style=\"color: rgb(133, 100, 4); margin: 10px 0px 0px 0px; font-size: 14px;\">Candidate collective statements require topics with strong cross-group agreement to ensure meaningful representation.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006d-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006d-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The page no longer computes generation eligibility. An ineligible topic without a stored statement shows the same unpublished message as any other topic without one.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "mixed_jobs/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "00000069-0000-4000-8000-000000000001#0#0",
+              "topic_name": "Generated topic 0.0 by alpha",
+              "group_consensus": {
+                "0": 1,
+                "3": 1,
+                "6": 1
+              },
+              "qualifying_tids": [
+                0,
+                3,
+                6
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "mixed_jobs/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (4)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "00000069-0000-4000-8000-000000000001#1#1",
+              "topic_name": "Generated topic 1.1 by alpha",
+              "group_consensus": {
+                "1": 1,
+                "3": 1,
+                "5": 1,
+                "7": 1
+              },
+              "qualifying_tids": [
+                1,
+                3,
+                5,
+                7
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 1.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">4</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (4)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "partial_job/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by beta</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000003#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "0000006a-0000-4000-8000-000000000003#0#0",
+              "topic_name": "Generated topic 0.0 by beta",
+              "group_consensus": {
+                "0": 1,
+                "3": 1,
+                "6": 1
+              },
+              "qualifying_tids": [
+                0,
+                3,
+                6
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by beta</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000003#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "partial_job/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px; text-align: center;\"><p>Topic not found</p><button style=\"margin-top: 20px;\">Go Back</button></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "0000006a-0000-4000-8000-000000000001#1#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "existing_statements/topicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 9:00:00 PM (generated-model)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated paid response</span></p></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "POST",
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report",
+              "topic_key": "00000069-0000-4000-8000-000000000001#0#0",
+              "topic_name": "Generated topic 0.0 by alpha",
+              "group_consensus": {
+                "0": 1,
+                "3": 1,
+                "6": 1
+              },
+              "qualifying_tids": [
+                0,
+                3,
+                6
+              ]
+            },
+            "generated-view-token"
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.0 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">3</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far</p><div style=\"padding: 20px; background-color: rgb(245, 245, 245); border: 1px solid #e0e0e0; border-radius: 8px;\"><p style=\"color: rgb(102, 102, 102); font-style: italic; margin: 0px;\">No candidate collective statement has been published for this topic yet.</p></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (3)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#0"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "Opening the topic no longer requests paid generation (POST /api/v3/collectiveStatement). The page reads stored statements only; none is stored for this topic, so it says none has been published.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    },
+    {
+      "case": "existing_statements/otherTopicPage",
+      "before": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">2</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 8:20:00 PM (generated-model-alpha)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><h3 style=\"margin-bottom: 10px;\">Generated statement 2</h3><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated.<sup style=\"color: rgb(0, 102, 204); font-size: 0.85em; margin-left: 2px;\">0</sup></span></p></div></div></div><div style=\"flex-grow: 1; flex-shrink: 1; flex-basis: 0%; min-width: 400px; width: auto; overflow-x: auto; margin-top: 0px;\"><h3 style=\"margin-bottom: 20px;\">Comments Referenced</h3><div><div data-view=\"comments\"></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (2)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#1"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "after": {
+        "html": "<div style=\"max-width: 1400px; margin: 0px auto; padding: 20px;\"><div data-view=\"heading\"></div><div style=\"margin-top: 40px;\"><button style=\"background: none; font-size: 16px; cursor: pointer; margin-bottom: 20px; color: rgb(0, 102, 204);\">\u2190 Back to Topics</button><p style=\"font-size: 36px; font-weight: 700;\">Generated topic 0.1 by alpha</p><section style=\"max-width: 1200px; margin-top: 30px; margin-bottom: 40px;\"><div style=\"display: flex; justify-content: space-between; gap: 2rem;\"><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Comments</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">2</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; font-weight: normal;\">0</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Agree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(46, 204, 113); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div><div style=\"flex: 1; min-width: 200px; text-align: center;\"><p style=\"font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgb(102, 102, 102); margin-bottom: 8px;\">Total Disagree Votes</p><p style=\"font-family: Georgia, serif; font-size: 3rem; margin: 0px; color: rgb(231, 76, 60); font-weight: normal;\">0%</p><p style=\"font-size: 13px; color: rgb(153, 153, 153); margin-top: 5px;\">0 votes</p></div></div></section><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Comment Divisiveness Distribution</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">Each circle represents a comment. Position shows how similarly groups voted. Hover to see the group vote breakdown.</p><div data-view=\"beeswarm\"></div></div><div style=\"margin-top: 40px; margin-bottom: 60px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;\">Candidate Collective Statement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 20px; font-style: italic;\">Based on voting trends thus far<span style=\"margin-left: 10px; font-size: 13px; color: rgb(136, 136, 136); font-style: normal;\">\u2022 Generated 11/14/2023 at 8:20:00 PM (generated-model-alpha)</span></p><div style=\"display: flex; flex-direction: row; gap: 20px; margin-top: 20px;\"><div style=\"flex-grow: 0; flex-shrink: 1; flex-basis: 520px; min-width: 400px; width: auto;\"><div style=\"background: rgb(245, 245, 245); padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; line-height: 1.6;\"><div style=\"margin-bottom: 20px;\"><h3 style=\"margin-bottom: 10px;\">Generated statement 2</h3><p style=\"margin-bottom: 15px; color: rgb(85, 85, 85);\"><span>Generated.<sup style=\"color: rgb(0, 102, 204); font-size: 0.85em; margin-left: 2px;\">0</sup></span></p></div></div></div><div style=\"flex-grow: 1; flex-shrink: 1; flex-basis: 0%; min-width: 400px; width: auto; overflow-x: auto; margin-top: 0px;\"><h3 style=\"margin-bottom: 20px;\">Comments Referenced</h3><div><div data-view=\"comments\"></div></div></div></div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">Consensus vs Engagement</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">This visualization shows how group consensus relates to voting engagement for each comment. Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.</p><div style=\"margin-top: 30px; margin-bottom: 40px;\"><div style=\"text-align: center; padding: 40px; color: rgb(102, 102, 102);\">No data available for visualization</div></div></div><div style=\"margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 40px; margin-bottom: 60px;\"><p style=\"font-size: 18px; font-weight: 400; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase;\">All Comments (2)</p><p style=\"width: 475px; font-family: Georgia; line-height: 1.6; font-size: 14px; color: rgb(102, 102, 102); margin-bottom: 30px;\">All comments in this topic.</p><div style=\"margin-top: 30px;\"><div data-view=\"comments\"></div></div></div><div data-view=\"footer\"></div></div>",
+        "calls": [
+          [
+            "/api/v3/delphi",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/delphi/reports",
+            {
+              "report_id": "generated-report",
+              "section": "00000069-0000-4000-8000-000000000001#0#1"
+            }
+          ],
+          [
+            "/api/v3/collectiveStatement",
+            {
+              "report_id": "generated-report"
+            }
+          ],
+          [
+            "/api/v3/topicStats",
+            {
+              "report_id": "generated-report"
+            }
+          ]
+        ]
+      },
+      "reason": "The stored-statement read runs when the topic opens, independently of the topic data, so it now precedes the topicStats read (and also happens for a topic without data). The view is unchanged.",
+      "ruling": "ruled:colin-2026-10-18-topic-page-shows-stored-statements-only"
+    }
+  ]
+}

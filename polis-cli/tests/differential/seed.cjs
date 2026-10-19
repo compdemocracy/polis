@@ -19,7 +19,7 @@ const {Pool}=require('/app/node_modules/pg');
   const claims=JSON.parse(Buffer.from(tokens[role].split('.')[1],'base64url'));
   await p.query('INSERT INTO oidc_user_mappings(oidc_sub,uid,created) VALUES($1,$2,1700000000000)',[claims.sub,uid]);
  }
- await p.query("INSERT INTO math_main(zid,math_env,data,last_vote_timestamp,math_tick) VALUES(1,'p027',$1,1700000000000,1700000000000)",[JSON.stringify({math_tick:1700000000000,pca:{},'group-clusters':[],'base-clusters':{id:[],members:[]},tids:[0,1],n:3,'n-cmts':2})]);
+ await p.query("INSERT INTO math_main(zid,math_env,data,last_vote_timestamp,math_tick) VALUES(1,'p027',$1,1700000000000,1700000000000)",[JSON.stringify({math_tick:1700000000000,pca:{center:[0.9856906946328695,0.1],comps:[[0.25,0.5],[0.75,1]]},'group-clusters':[],'base-clusters':{id:[],members:[]},tids:[0,1],n:3,'n-cmts':2})]);
  await p.query("INSERT INTO math_bidtopid(zid,math_env,math_tick,data) VALUES(1,'p027',1700000000000,$1)",[JSON.stringify({bidToPid:[]})]);
  await p.query("INSERT INTO einvites(einvite,email) VALUES('generated-verification','owner@example.invalid')");
  await p.query("INSERT INTO participants_extended(zid,uid) VALUES(1,1)");

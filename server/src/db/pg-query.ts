@@ -6,6 +6,7 @@ import QueryStream from "pg-query-stream";
 import Config from "../config";
 import logger from "../utils/logger";
 import { MPromise } from "../utils/metered";
+import { onParticipationPath } from "./participation-scope";
 
 // # DB Connections
 //
@@ -58,10 +59,109 @@ const readsPgConnection = Object.assign(
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
 
+// Which pool a Pool is, for tests and diagnostics. Every pool below registers
+// itself here when it is created.
+export type PoolRole =
+  | "participation"
+  | "participation-read"
+  | "read-write"
+  | "read"
+  | "result-snapshot"
+  | "report-export"
+  | "agent-exchange";
+const poolRoles = new WeakMap<Pool, PoolRole>();
+function withRole(pool: Pool, role: PoolRole): Pool {
+  poolRoles.set(pool, role);
+  return pool;
+}
+export function poolRole(pool: Pool): PoolRole | undefined {
+  return poolRoles.get(pool);
+}
+
+// The read-write and read pools serve everything except the four participation
+// routes, which have pools of their own below. Participant-facing requests still
+// run here (the opinion map, the comment list, GET /votes, topic selection), so
+// neither pool has an acquire timeout or a statement timeout: a participant's
+// request that has to wait for a connection waits and is answered; it is never
+// refused. Slow work belongs on the pools further down (reports and exports,
+// Delphi result reads, the agent exchange), which keep their own bounds and
+// degrade themselves first. main-pool-timeouts.test.ts holds this placement.
+export const MAIN_POOL_MAX = poolSize;
+
 // const PoolConstructor = pgnative?.Pool ?? Pool;
 // Cast to unknown first to avoid type errors with port being string vs number
-const readWritePool: Pool = new Pool(pgConnection as unknown as PoolConfig);
-const readPool: Pool = new Pool(readsPgConnection as unknown as PoolConfig);
+const readWritePool: Pool = withRole(
+  new Pool(pgConnection as unknown as PoolConfig),
+  "read-write"
+);
+const readPool: Pool = withRole(
+  new Pool(readsPgConnection as unknown as PoolConfig),
+  "read"
+);
+
+// A read-write pool and the read pool that goes with it: what every query
+// helper below issues its statement on.
+type PoolPair = { readonly readWrite: Pool; readonly read: Pool };
+const sharedPools: PoolPair = { readWrite: readWritePool, read: readPool };
+
+// The participation pools. Votes, comments, the next statement and
+// participationInit run here and nothing else does, so no other work can hold
+// the connections a vote needs. Same databases as the pair above: the primary,
+// and the read replica when READ_ONLY_DATABASE_URL names one (otherwise the
+// primary again). Sized like that pair unless PARTICIPATION_POOL_MAX and
+// PARTICIPATION_READ_POOL_MAX say otherwise.
+//
+// A participation query waits for a connection; it is never refused under
+// load. Only participation work holds these connections, each for
+// milliseconds, so a wait as long as PARTICIPATION_ACQUIRE_TIMEOUT_MS (60 s by
+// default, six times the participation client's 10 s request timeout) means
+// the database has stopped answering: the bound is there to surface that as an
+// error instead of an ever-growing queue, never to shed votes. There is no
+// statement timeout on these pools; the transactions that need one set their
+// own with SET LOCAL (withTransaction below, the participant insert's
+// lock_timeout in participant.ts).
+export const PARTICIPATION_POOL_MAX = Config.participationPoolMax ?? poolSize;
+export const PARTICIPATION_READ_POOL_MAX =
+  Config.participationReadPoolMax ?? poolSize;
+export const PARTICIPATION_ACQUIRE_TIMEOUT_MS =
+  Config.participationAcquireTimeoutMs;
+let participationPools: PoolPair | undefined;
+function participationPoolsInstance(): PoolPair {
+  if (!participationPools) {
+    const readWrite = withRole(
+      new Pool({
+        ...pgConnection,
+        max: PARTICIPATION_POOL_MAX,
+        connectionTimeoutMillis: PARTICIPATION_ACQUIRE_TIMEOUT_MS,
+      } as unknown as PoolConfig),
+      "participation"
+    );
+    const read = withRole(
+      new Pool({
+        ...readsPgConnection,
+        max: PARTICIPATION_READ_POOL_MAX,
+        connectionTimeoutMillis: PARTICIPATION_ACQUIRE_TIMEOUT_MS,
+      } as unknown as PoolConfig),
+      "participation-read"
+    );
+    readWrite.on("error", (error) =>
+      logger.error("pg_participation_pool", error)
+    );
+    read.on("error", (error) =>
+      logger.error("pg_participation_read_pool", error)
+    );
+    participationPools = { readWrite, read };
+  }
+  return participationPools;
+}
+
+// The pair a query uses: the participation pools for work that came through a
+// participation route (db/participation-scope.ts), the pair above for
+// everything else. Nothing outside that scope can reach the participation
+// pools, and nothing inside it is given another pair.
+function pools(): PoolPair {
+  return onParticipationPath() ? participationPoolsInstance() : sharedPools;
+}
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
@@ -135,11 +235,11 @@ const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
 const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
 
 function query(queryString: string, ...args: any[]) {
-  return queryImpl(readWritePool, queryString, ...args);
+  return queryImpl(pools().readWrite, queryString, ...args);
 }
 
 function query_readOnly(queryString: string, ...args: any[]) {
-  return queryImpl(readPool, queryString, ...args);
+  return queryImpl(pools().read, queryString, ...args);
 }
 
 function queryP_impl<T>(pool: Pool, queryString?: string, params?: any[]) {
@@ -167,11 +267,11 @@ function queryP_impl<T>(pool: Pool, queryString?: string, params?: any[]) {
 }
 
 function queryP<T>(queryString: string, ...args: any[]) {
-  return queryP_impl<T>(readWritePool, queryString, ...args);
+  return queryP_impl<T>(pools().readWrite, queryString, ...args);
 }
 
 function queryP_readOnly<T>(queryString: string, ...args: any[]) {
-  return queryP_impl<T>(readPool, queryString, ...args);
+  return queryP_impl<T>(pools().read, queryString, ...args);
 }
 
 function queryP_readOnly_wRetryIfEmpty<T>(queryString: string, ...args: any[]) {
@@ -182,7 +282,7 @@ function queryP_readOnly_wRetryIfEmpty<T>(queryString: string, ...args: any[]) {
     return Promise.resolve(rows);
   }
 
-  return queryP_impl<T>(readPool, queryString, ...args).then(
+  return queryP_impl<T>(pools().read, queryString, ...args).then(
     retryIfEmpty as any
   );
 }
@@ -223,7 +323,7 @@ function stream_queryP_readOnly(
 ) {
   const query = new QueryStream(queryString, params);
 
-  readPool.connect((err, client, done) => {
+  pools().read.connect((err, client, done) => {
     if (err) {
       onError(err);
       return;
@@ -250,7 +350,7 @@ function stream_queryP_readOnly(
 function connect() {
   // Returns a Promise that resolves to a raw PoolClient.
   // The client will have a .release() method on it.
-  return readWritePool.connect();
+  return pools().readWrite.connect();
 }
 
 // A raw client from the read pool (the replica when READ_ONLY_DATABASE_URL is
@@ -258,31 +358,32 @@ function connect() {
 // Used by the ops pages (src/ops/guardedRead.ts), which run one bounded
 // READ ONLY transaction per checkout.
 function connectReadOnly() {
-  return readPool.connect();
+  return pools().read.connect();
 }
 
 // Delphi result reads take one short read-only snapshot per DynamoDB-shaped
 // call (utils/delphiResultSnapshot.ts) and return it when that call ends, so a
 // connection is held for milliseconds, never across a request's model calls.
 // A separate pool keeps result reads and the primary pool from starving each
-// other. nextComment's topical routing issues one read per selected topic
-// concurrently, so the pool allows several reads in flight per process.
+// other. On the participation path (nextComment's topical routing, one read per
+// selected topic) the snapshot is taken on the participation read-write pool
+// instead, the same primary, so no result read elsewhere can make it wait.
 export const RESULT_SNAPSHOT_POOL_MAX = Config.isDevMode ? 4 : 8;
 let resultSnapshotPool: Pool | undefined;
 function connectResultSnapshot() {
+  if (onParticipationPath()) return participationPoolsInstance().readWrite.connect();
   if (!resultSnapshotPool) {
-    resultSnapshotPool = new Pool({
+    resultSnapshotPool = withRole(new Pool({
       ...pgConnection, max: RESULT_SNAPSHOT_POOL_MAX, connectionTimeoutMillis: 30000,
-    } as unknown as PoolConfig);
+    } as unknown as PoolConfig), "result-snapshot");
     resultSnapshotPool.on("error", error => logger.error("pg_result_snapshot_pool", error));
   }
   return resultSnapshotPool.connect();
 }
 
 // Reports, data exports and heavy admin reads run on their own small pool so
-// they can never take the connections the participation path needs (vote and
-// comment writes and nextComment candidate selection on readWritePool; getPca,
-// votesGet and the participation GET aggregates on readPool). The pool is
+// they can never take the connections the rest of the server needs (the
+// participation path has pools of its own, above). The pool is
 // intentionally small and bounded two ways: when it is full a new report/export
 // is rejected after REPORT_EXPORT_ACQUIRE_TIMEOUT_MS (connectionTimeoutMillis)
 // instead of waiting on, or spilling into, a participation connection, and every
@@ -296,11 +397,11 @@ const REPORT_EXPORT_STATEMENT_TIMEOUT_MS = Config.reportExportStatementTimeoutMs
 let reportExportPool: Pool | undefined;
 function reportExportPoolInstance(): Pool {
   if (!reportExportPool) {
-    const pool = new Pool({
+    const pool = withRole(new Pool({
       ...readsPgConnection,
       max: REPORT_EXPORT_POOL_MAX,
       connectionTimeoutMillis: REPORT_EXPORT_ACQUIRE_TIMEOUT_MS,
-    } as unknown as PoolConfig);
+    } as unknown as PoolConfig), "report-export");
     // statement_timeout is a session setting, so it is applied once as each
     // physical connection is created. A streamed export reads its cursor in
     // small batches, each its own command, so this caps a single runaway
@@ -413,6 +514,45 @@ function stream_queryP_reportExport(
   });
 }
 
+// The collective-statement agent path (an owner exporting a topic's inputs and
+// importing a statement written outside the server) runs on its own small
+// primary pool, so it can never take a connection the rest of the server needs
+// (the participation path has pools of its own, above). When both connections
+// are busy a new request is refused after AGENT_EXCHANGE_ACQUIRE_TIMEOUT_MS
+// instead of waiting on, or spilling into, another pool, and every statement is
+// capped at AGENT_EXCHANGE_STATEMENT_TIMEOUT_MS. It is the primary, not the
+// replica: an import re-derives the inputs its export saw, checks ownership
+// and publishes in one transaction. Result-family reads still go through the
+// per-call result snapshots of utils/delphiResultSnapshot.ts.
+export const AGENT_EXCHANGE_POOL_MAX = 2;
+const AGENT_EXCHANGE_ACQUIRE_TIMEOUT_MS = 5000;
+const AGENT_EXCHANGE_STATEMENT_TIMEOUT_MS = 60000;
+let agentExchangePool: Pool | undefined;
+function agentExchangePoolInstance(): Pool {
+  if (!agentExchangePool) {
+    const pool = withRole(new Pool({
+      ...pgConnection,
+      max: AGENT_EXCHANGE_POOL_MAX,
+      connectionTimeoutMillis: AGENT_EXCHANGE_ACQUIRE_TIMEOUT_MS,
+    } as unknown as PoolConfig), "agent-exchange");
+    pool.on("connect", client => {
+      client
+        .query(`SET statement_timeout = ${AGENT_EXCHANGE_STATEMENT_TIMEOUT_MS}`)
+        .catch(error => logger.error("pg_agent_exchange_statement_timeout", error));
+    });
+    pool.on("error", error => logger.error("pg_agent_exchange_pool", error));
+    agentExchangePool = pool;
+  }
+  return agentExchangePool;
+}
+function queryP_agentExchange<T>(queryString: string, ...args: any[]) {
+  return queryP_impl<T>(agentExchangePoolInstance(), queryString, ...args);
+}
+// A raw client from the agent-exchange pool. The caller must release it.
+function connectAgentExchange(): Promise<PoolClient> {
+  return agentExchangePoolInstance().connect();
+}
+
 // Session policy applied immediately after BEGIN, taken from the queue
 // substrate's design. These are declared initial
 // bounds for the queue substrate, not a general-purpose transaction profile;
@@ -445,7 +585,8 @@ export class CommitOutcomeUnknownError extends Error {
 }
 
 /**
- * Run `callback` inside one transaction on one pinned readWritePool client.
+ * Run `callback` inside one transaction on one pinned read-write client (the
+ * participation pool's on the participation path).
  *
  * Every read and write that must be atomic with the callback's writes has to go
  * through the client passed in. queryP / queryP_readOnly acquire and release
@@ -526,10 +667,12 @@ export default {
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
   queryP_reportExport,
+  queryP_agentExchange,
   stream_queryP_readOnly,
   stream_queryP_reportExport,
   connect,
   connectReadOnly,
   connectResultSnapshot,
+  connectAgentExchange,
   withTransaction,
 };

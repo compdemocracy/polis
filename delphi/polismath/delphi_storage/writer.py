@@ -60,7 +60,10 @@ class WriterResource:
                     # With the flag on, embeddings live in the per-row table; never
                     # seed the codec family from the base (it stays empty and the
                     # rows the run keeps are carried in the embeddings spool instead).
+                    # Dropping the base's rows changes the family, so the run emits it.
                     if self.embeddings_table and family == EMBEDDINGS_FAMILY:
+                        if rows:
+                            self.connection.execute('INSERT OR IGNORE INTO dirty VALUES(?)',(family,))
                         continue
                     for item in rows:
                         self.connection.execute('INSERT INTO items VALUES(?,?,?)',
@@ -99,9 +102,13 @@ class WriterResource:
     def spool(self):
         result = {}
         total = 0
-        # Emit the full snapshot, including empty families. No deleted item can
-        # reappear through the previous-artifact edge. Preserve untouched rows.
-        for family in sorted(RESULT_FAMILIES):
+        # Emit only the families this run produced: each one it wrote, deleted
+        # from or cleared, whole and possibly empty, so no deleted item can
+        # reappear through the previous-artifact edge. A family the run left
+        # alone is not copied: readers serve it from the nearest earlier batch
+        # that holds it, so each batch names the run that produced its families.
+        produced = {row[0] for row in self.connection.execute('SELECT family FROM dirty')}
+        for family in sorted(RESULT_FAMILIES & produced):
             rows = [json.loads(row[0]) for row in self.connection.execute('SELECT item FROM items WHERE family=?',(family,))]
             wire = encode_family(family,[item_from_python(row) for row in [row for tagged in rows for row in decode_rows(family,[tagged])]])
             total += len(wire)

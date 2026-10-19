@@ -197,6 +197,19 @@ function installPg(mathRow: { math_tick: string } | null) {
         ticks_math_tick: mathRow.math_tick,
       }] : []);
     }
+    // The next-statement draw reads only the priorities field of the row.
+    if (s.includes("data->'comment-priorities' as priorities from math_main")) {
+      return Promise.resolve(
+        mathRow
+          ? [
+              {
+                math_tick: mathRow.math_tick,
+                priorities: mathBlob()["comment-priorities"],
+              },
+            ]
+          : []
+      );
+    }
     if (s.includes("from math_main")) {
       return Promise.resolve(
         mathRow ? [{ data: mathBlob(), math_tick: mathRow.math_tick }] : []

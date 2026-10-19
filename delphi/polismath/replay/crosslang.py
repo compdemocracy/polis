@@ -36,14 +36,15 @@ if TYPE_CHECKING:  # stepcompare stays a lazy, in-function import at runtime
 # The 23 keys Clojure's prep-main emits into math_main (conv_man.clj:43-74),
 # taken VERBATIM from the committed vw cold-start blob
 # (delphi/real_data/*-vw/*math_blob_cold_start.json — all kebab-case). Python's
-# to_dict() spells several of these snake_case (comment_priorities,
-# group_clusters, …) and adds Python-only keys (comment_count, participant_info,
-# vote_stats, proj, moderation, …). Without canonicalising, the comparer's
-# normalize_key (bare str(), comparer.py:611) treats kebab vs snake as DIFFERENT
-# keys, so the values (e.g. comment-priorities) are flagged once as a key-name
-# mismatch and then silently DROPPED from the numeric diff — exactly the routing
-# surface we care about. Projecting BOTH blobs onto this whitelist with canonical
-# kebab spelling before diffing puts them on the same numeric compare path.
+# to_dict() carries snake_case twins of some of these (group_clusters; older
+# recordings also spell comment_priorities that way) and adds Python-only keys
+# (comment_count, participant_info, vote_stats, proj, moderation, …). Without
+# canonicalising, the comparer's normalize_key (bare str(), comparer.py:611)
+# treats kebab vs snake as DIFFERENT keys, so the values (e.g.
+# comment-priorities) are flagged once as a key-name mismatch and then silently
+# DROPPED from the numeric diff — exactly the routing surface we care about.
+# Projecting BOTH blobs onto this whitelist with canonical kebab spelling before
+# diffing puts them on the same numeric compare path.
 PREP_MAIN_KEYS = frozenset({
     "base-clusters", "comment-priorities", "consensus", "group-aware-consensus",
     "group-clusters", "group-votes", "in-conv", "lastModTimestamp",

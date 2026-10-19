@@ -47,16 +47,17 @@ def _python_launches():
 
 
 def test_launches_from_shadowing_folders_use_safe_path():
-    checked = 0
-    for flags, rel in _python_launches():
+    launches = list(_python_launches())
+    # The parser must see today's launches, or the check below proves nothing.
+    assert {rel for _, rel in launches} >= {
+        "umap_narrative/run_pipeline.py", "umap_narrative/700_datamapplot_for_layer.py"}
+    for flags, rel in launches:
         shadowed = _shadowed(DELPHI / Path(rel).parent)
         if shadowed:
-            checked += 1
             assert "-P" in flags, (
                 f"{rel} runs from a folder that shadows the standard library "
                 f"({', '.join(sorted(shadowed))}); launch it with python -P"
             )
-    assert checked, "expected at least the math pipeline launch from polismath/"
 
 
 def test_math_pipeline_starts_with_safe_path():

@@ -93,7 +93,8 @@ load-or-init finding (from_dict restoration is PARTIAL — updated 2026-07-24)
 ``Conversation.from_dict`` (conversation.py:2818-2966) restores from a dict with
 underscore/nested keys: ``zid, last_updated, participant_count, comment_count,
 vote_stats, moderation{...}, pca{center,comps}, proj, group_clusters,
-base_clusters, group_votes, repness, participant_info, comment_priorities``.
+base_clusters, group_votes, repness, participant_info`` and ``comment-priorities``
+(or ``comment_priorities`` in blobs written before it took the Clojure key).
 ``Conversation.to_dict`` (used as the math_main ``data`` blob) is a SUPERSET
 that carries those same underscore keys alongside the hyphenated Clojure keys,
 so ``from_dict(to_dict(conv))`` round-trips the listed fields — notably the PCA
@@ -133,6 +134,8 @@ vote_interval_ms        POLL_VOTE_INTERVAL_MS | VOTE_POLLING_INTERVAL |
                         POLL_INTERVAL_MS                                1000
 mod_interval_ms         POLL_MOD_INTERVAL_MS | MOD_POLLING_INTERVAL |
                         POLL_INTERVAL_MS                                1000
+vote_overlap_ms         POLL_VOTE_OVERLAP_MS (0 = strict watermark)     60000
+moderation_overlap_ms   POLL_MODERATION_OVERLAP_MS (0 = strict)         60000
 poll_from_days_ago      POLL_FROM_DAYS_AGO                              10
 allowlist               POLL_ALLOWLIST | MATH_ZID_ALLOWLIST             []
 blocklist               POLL_BLOCKLIST | MATH_ZID_BLOCKLIST             []

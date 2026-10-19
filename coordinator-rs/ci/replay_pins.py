@@ -6,6 +6,7 @@ from pathlib import Path
 import platform
 import os
 import re
+from compressor import validate_compressor
 
 WITNESSES = {"polarity-public-fixture.json", "polarity-vw.json", "polarity-biodiversity.json",
              "polarity-rebuild-schedule.json", "semantic-tie-key.json",
@@ -134,6 +135,8 @@ def select_pin(runtime, path):
     pin = copy.deepcopy(pins[keys.index(key)])
     if set(pin["witnesses"]) != WITNESSES or set(pin["witness_sha256"]) != WITNESSES:
         raise ValueError("REPLAY_PLATFORM_PINS_INVALID: witnesses")
+    if "compressor" in pin:
+        validate_compressor(runtime.get("compressor"), pin["compressor"])
     rows = pin["checkpoints"]
     if ([(c["cut"], c["tick"]) for c in rows] != [(1170, 0), (2341, 1), (4683, 2)]
             or any(re.fullmatch(r"[0-9a-f]{64}", c["rust"]) is None for c in rows)):

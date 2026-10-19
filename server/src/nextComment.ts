@@ -5,7 +5,7 @@ import { DynamoDBClient, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 import { GetCommentsParams } from "./d";
-import { getLatestExistingPca } from "./utils/pca";
+import { CommentPriorities, getLatestCommentPriorities } from "./utils/pca";
 import Config from "./config";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
@@ -65,19 +65,22 @@ async function getNextPrioritizedComment(
     withoutTids,
   });
 
-  const [comments, mathRaw, remainingRows] = (await Promise.all([
+  const [comments, latestPriorities, remainingRows] = (await Promise.all([
     getComments(params as GetCommentsParams),
-    // The latest committed generation, NOT `getPca(zid, 0)`. A literal 0 asks
-    // for something strictly newer than generation 0, and generation 0 is a
-    // conversation's real first generation, so the old call silently threw away
-    // its `comment-priorities` and fell back to unprioritized routing for the
-    // whole first-generation window. `getLatestExistingPca` still returns
-    // undefined after a single query when there is no math row at all.
-    getLatestExistingPca(zid),
+    // The latest committed generation's priorities, NOT `getPca(zid, 0)`. A
+    // literal 0 asks for something strictly newer than generation 0, and
+    // generation 0 is a conversation's real first generation, so the old call
+    // silently threw away its `comment-priorities` and fell back to
+    // unprioritized routing for the whole first-generation window.
+    //
+    // Only the map is read: never the whole math result, which a new
+    // generation would otherwise make this request read, normalize and
+    // compress. No math row still costs a single query and gives undefined.
+    getLatestCommentPriorities(zid),
     getNumberOfCommentsRemaining(zid, pid),
   ])) as [
     CommentRow[],
-    { asPOJO?: Record<string, unknown> } | null,
+    CommentPriorities | undefined,
     Array<{ total: number; remaining: number }>
   ];
 
@@ -88,11 +91,7 @@ async function getNextPrioritizedComment(
     throw new Error(`polis_err_getNumberOfCommentsRemaining_${zid}_${pid}`);
   }
 
-  const math = mathRaw || { asPOJO: {} };
-  const commentPriorities =
-    (math.asPOJO &&
-      (math.asPOJO["comment-priorities"] as Record<string | number, number>)) ||
-    {};
+  const commentPriorities = latestPriorities || {};
 
   const totalCount = Number(remainingRows[0].total);
   const remainingCount = Number(remainingRows[0].remaining);

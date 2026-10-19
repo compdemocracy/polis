@@ -62,6 +62,7 @@ class Simulator:
                         return
                     data = dict(issuer=sim.issuer, authorization_endpoint=sim.origin + '/authorize',
                                 token_endpoint=sim.origin + '/token',
+                                revocation_endpoint=sim.origin + '/session/revoke',
                                 device_authorization_endpoint=sim.origin + '/device',
                                 code_challenge_methods_supported=['S256'])
                     if sim.mode == 'wrong_issuer':
@@ -78,6 +79,9 @@ class Simulator:
                 fields = urllib.parse.parse_qs(self.rfile.read(int(self.headers['Content-Length'])).decode())
                 fields = {k: v[0] for k, v in fields.items()}
                 sim.calls.append(('POST', self.path, fields))
+                if self.path == '/session/revoke':
+                    self.reply(200, {})
+                    return
                 if self.path == '/device':
                     self.reply(200, dict(device_code='fixture-device', user_code='TEST-CODE',
                                          verification_uri=sim.origin + '/verify', expires_in=sim.device_lifetime,

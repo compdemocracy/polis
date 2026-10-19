@@ -136,7 +136,8 @@ def test_pca_sign_flip_absorbed_as_no_divergence(tmp_path):
 # --- T6: prep-main whitelist projection (kebab vs snake key alignment) --------
 def _real_py_blob():
     """A REAL Conversation.to_dict() (2 opposing camps -> 2 groups + repness +
-    a populated comment_priorities dict), spelled SNAKE_case as Python emits it."""
+    a populated comment-priorities dict), with the snake_case twins and
+    Python-only keys Python emits beside the kebab ones."""
     votes = []
     n_per, n_cmts = 8, 8
     for p in range(n_per * 2):
@@ -149,23 +150,31 @@ def _real_py_blob():
 
 def test_projection_canonicalises_and_whitelists():
     blob = _real_py_blob()
-    assert "comment_priorities" in blob and "comment-priorities" not in blob
+    assert "comment-priorities" in blob and "comment_priorities" not in blob
     proj = project_prep_main(blob)
-    # snake -> kebab, restricted to the whitelist; Python-only keys dropped.
+    # restricted to the whitelist; Python-only keys dropped.
     assert "comment-priorities" in proj and "comment_priorities" not in proj
     assert set(proj) <= PREP_MAIN_KEYS
     assert "comment_count" not in proj and "participant_info" not in proj
     # value preserved through the projection.
-    assert proj["comment-priorities"] == blob["comment_priorities"]
+    assert proj["comment-priorities"] == blob["comment-priorities"]
+
+    # A recorded blob from before Python wrote the kebab key spells it
+    # snake_case; the projection maps it onto the kebab key.
+    older = {("comment_priorities" if k == "comment-priorities" else k): v
+             for k, v in blob.items()}
+    older_proj = project_prep_main(older)
+    assert "comment_priorities" not in older_proj
+    assert older_proj["comment-priorities"] == blob["comment-priorities"]
 
 
 def test_comment_priorities_lands_on_numeric_compare_path(tmp_path):
-    """Feed a REAL snake_case to_dict() on the PY side and a kebab prep-main blob
-    on the CLJ side whose comment-priorities differs numerically. With the
-    whitelist projection the values are COMPARED (Numeric mismatch surfaces);
-    without it they are silently dropped as a key-name mismatch (fails today)."""
+    """Feed a REAL to_dict() on the PY side and a kebab prep-main blob on the
+    CLJ side whose comment-priorities differs numerically. With the whitelist
+    projection the values are COMPARED (Numeric mismatch surfaces); without it
+    a key-name mismatch would drop them silently."""
     py_blob = _real_py_blob()
-    tid = next(iter(py_blob["comment_priorities"]))
+    tid = next(iter(py_blob["comment-priorities"]))
 
     # Clojure (golden) side: the projected (kebab) blob with one priority bumped
     # far beyond tolerance, so a faithful numeric compare MUST flag it.

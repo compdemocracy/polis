@@ -6,7 +6,6 @@ import TopicBeeswarm from "../topicStats/visualizations/TopicBeeswarm.jsx";
 import AllCommentsScatterplot from "../topicStats/visualizations/AllCommentsScatterplot.jsx";
 import CommentList from "../lists/commentList.jsx";
 import * as globals from "../globals";
-import { canGenerateCollectiveStatement, getTopicConsensusValues } from "../../util/consensusThreshold";
 
 const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCount, formatTid, voteColors, onBack, token }) => {
   const [loading, setLoading] = useState(true);
@@ -14,7 +13,6 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
   const [topicStats, setTopicStats] = useState(null);
   const [collectiveStatement, setCollectiveStatement] = useState(null);
   const [loadingStatement, setLoadingStatement] = useState(false);
-  const [statementGenerated, setStatementGenerated] = useState(false);
   const [statementMetadata, setStatementMetadata] = useState(null);
   const [topicComments, setTopicComments] = useState([]);
   const [sortedComments, setSortedComments] = useState([]);
@@ -25,9 +23,6 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
     const fetchTopicData = async () => {
       try {
         setLoading(true);
-        // Reset collective statement when topic changes
-        setCollectiveStatement(null);
-        setStatementGenerated(false);
         
         // Fetch topic data from Delphi endpoint
         const topicsResponse = await net.polisGet("/api/v3/delphi", {
@@ -117,127 +112,6 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
     }
   }, [report_id, topic_key, comments, math]);
 
-  const checkExistingStatements = async () => {
-    try {
-      const response = await net.polisGet("/api/v3/collectiveStatement", {
-        report_id: report_id
-      });
-      
-      if (response.status === "success" && response.statements && response.statements.length > 0) {
-        // Find statements for this topic
-        const topicStatements = response.statements.filter(stmt => 
-          stmt.topic_key === topic_key
-        );
-        
-        if (topicStatements.length > 0) {
-          // Use the most recent statement
-          const mostRecent = topicStatements.sort((a, b) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          )[0];
-          
-          return mostRecent;
-        }
-      }
-      return null;
-    } catch (err) {
-      console.log("Error checking existing statements:", err);
-      return null;
-    }
-  };
-
-  const generateCollectiveStatement = async () => {
-    if (loadingStatement || statementGenerated) return;
-    
-    try {
-      setLoadingStatement(true);
-      
-      // First check if we have an existing statement
-      const existingStatement = await checkExistingStatements();
-      
-      if (existingStatement) {
-        console.log("Using existing collective statement from", existingStatement.created_at);
-        setCollectiveStatement(existingStatement.statement_data);
-        setStatementGenerated(true);
-        setStatementMetadata({
-          created_at: existingStatement.created_at,
-          model: existingStatement.model
-        });
-        setLoadingStatement(false);
-        return;
-      }
-      
-      // Check if this topic can generate a collective statement
-      const statementCheck = canGenerateCollectiveStatement(topicStats.comment_tids, math);
-      
-      if (!statementCheck.canGenerate) {
-        console.log(`Skipping collective statement generation: ${statementCheck.message}`);
-        setLoadingStatement(false);
-        setCollectiveStatement({
-          insufficient: true,
-          message: statementCheck.message
-        });
-        return;
-      }
-      
-      // Get only the qualifying comment IDs
-      const qualifyingTids = statementCheck.details.map(comment => comment.tid);
-      
-      // Get the consensus values only for qualifying comments
-      const relevantConsensus = {};
-      const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"] || {};
-      qualifyingTids.forEach(tid => {
-        if (consensusData[tid] !== undefined) {
-          relevantConsensus[tid] = consensusData[tid];
-        }
-      });
-      
-      console.log("Generating collective statement with:", {
-        report_id: report_id,
-        topic_key: topic_key,
-        topic_name: topicData?.topic_name,
-        qualifyingCount: qualifyingTids.length,
-        qualifyingTids: qualifyingTids
-      });
-      
-      const response = await net.polisPost("/api/v3/collectiveStatement", {
-        report_id: report_id,
-        topic_key: topic_key,
-        topic_name: topicData?.topic_name || "",
-        group_consensus: relevantConsensus,
-        qualifying_tids: qualifyingTids  // Send the list of qualifying comment IDs
-      }, token);
-      
-      console.log("Collective statement response:", response);
-      
-      if (response.status === "success" && response.statementData) {
-        setCollectiveStatement(response.statementData);
-        setStatementGenerated(true);
-        setStatementMetadata({
-          created_at: response.created_at,
-          model: response.model
-        });
-      } else if (response.statement) {
-        setCollectiveStatement(response.statement);
-        setStatementGenerated(true);
-      } else {
-        console.error("Unexpected response format:", response);
-        setCollectiveStatement({ 
-          error: true, 
-          message: "Received unexpected response format" 
-        });
-      }
-    } catch (err) {
-      console.error("Error generating collective statement:", err);
-      // Show user-friendly error message
-      setCollectiveStatement({ 
-        error: true, 
-        message: "Unable to generate candidate collective statement. Please try again later." 
-      });
-    } finally {
-      setLoadingStatement(false);
-    }
-  };
-
   // Fetch narrative report if it exists
   const fetchNarrativeReport = async () => {
     if (!topic_key || narrativeLoading) return;
@@ -271,12 +145,38 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
     }
   }, [topic_key, report_id]);
 
-  // Auto-generate collective statement when topic data is loaded
+  // Stored statements only: opening a topic never requests generation (the
+  // paid POST /api/v3/collectiveStatement). The newest stored statement for
+  // this topic is shown, written by an outside agent or by the server.
   useEffect(() => {
-    if (topicStats && topicData && math && !collectiveStatement && !loadingStatement) {
-      generateCollectiveStatement();
-    }
-  }, [topicStats, topicData, math]);
+    let current = true;
+    setCollectiveStatement(null);
+    setStatementMetadata(null);
+    if (!topic_key || !report_id) return;
+    setLoadingStatement(true);
+    net.polisGet("/api/v3/collectiveStatement", { report_id })
+      .then(response => {
+        if (!current) return;
+        if (response.status !== "success" || !Array.isArray(response.statements)) {
+          throw new Error("Invalid stored statement response");
+        }
+        const statement = response.statements
+          .filter(item => item.topic_key === topic_key && item.statement_data)
+          .sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0];
+        setCollectiveStatement(statement ? statement.statement_data : { missing: true });
+        setStatementMetadata(statement ? {
+          created_at: statement.created_at, model: statement.model,
+          provenance: statement.provenance
+        } : null);
+      })
+      .catch(() => {
+        if (current) setCollectiveStatement({ error: true, message: "Unable to load the stored candidate collective statement. Please try again later." });
+      })
+      .finally(() => { if (current) setLoadingStatement(false); });
+    return () => { current = false; };
+  }, [topic_key, report_id]);
 
   if (loading) {
     return (
@@ -440,7 +340,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
           />
         </div>
         
-        {/* Collective Statement - moved to top and auto-generated */}
+        {/* Stored collective statement */}
         <div style={{ 
           marginTop: 40, 
           marginBottom: 60,
@@ -465,8 +365,8 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
             Based on voting trends thus far
             {statementMetadata && (
               <span style={{ marginLeft: "10px", fontSize: "13px", color: "#888", fontStyle: "normal" }}>
-                • Generated {new Date(statementMetadata.created_at).toLocaleDateString()} at {new Date(statementMetadata.created_at).toLocaleTimeString()} 
-                {statementMetadata.model && ` (${statementMetadata.model.includes('claude') ? 'Claude Opus 4' : statementMetadata.model})`}
+                • {statementMetadata.provenance === "external agent" ? "Imported" : "Generated"} {new Date(statementMetadata.created_at).toLocaleDateString()} at {new Date(statementMetadata.created_at).toLocaleTimeString()} 
+                {statementMetadata.model && ` (${statementMetadata.model})`}
               </span>
             )}
           </p>
@@ -478,28 +378,22 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
               border: "1px solid #e0e0e0",
               borderRadius: "8px"
             }}>
-              <p style={{ color: "#666", fontStyle: "italic", margin: 0 }}>Generating candidate collective statement...</p>
+              <p style={{ color: "#666", fontStyle: "italic", margin: 0 }}>Loading candidate collective statement...</p>
             </div>
           )}
           
-          {collectiveStatement && collectiveStatement.insufficient && (
+          {collectiveStatement?.missing && (
             <div style={{ 
               padding: "20px",
-              backgroundColor: "#fff3cd",
-              border: "1px solid #ffeaa7",
-              borderRadius: "8px",
-              marginTop: 20
+              backgroundColor: "#f5f5f5",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px"
             }}>
-              <p style={{ color: "#856404", margin: 0 }}>
-                <strong>Insufficient consensus:</strong> {collectiveStatement.message}
-              </p>
-              <p style={{ color: "#856404", margin: "10px 0 0 0", fontSize: "14px" }}>
-                Candidate collective statements require topics with strong cross-group agreement to ensure meaningful representation.
-              </p>
+              <p style={{ color: "#666", fontStyle: "italic", margin: 0 }}>No candidate collective statement has been published for this topic yet.</p>
             </div>
           )}
-          
-          {collectiveStatement && !collectiveStatement.error && !collectiveStatement.insufficient && (() => {
+
+          {collectiveStatement && !collectiveStatement.error && !collectiveStatement.missing && (() => {
             // Extract all citations from the collective statement
             const citationIds = [];
             const paragraphs = collectiveStatement.paragraphs || collectiveStatement.content?.paragraphs || [];
@@ -603,18 +497,6 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
             </div>
           )}
           
-          {!collectiveStatement && !loadingStatement && (
-            <div style={{ 
-              padding: "20px",
-              backgroundColor: "#f5f5f5",
-              border: "1px solid #e0e0e0",
-              borderRadius: "8px"
-            }}>
-              <p style={{ color: "#666", fontStyle: "italic", margin: 0 }}>
-                Unable to generate candidate collective statement. Please try refreshing the page.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 

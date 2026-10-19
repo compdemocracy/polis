@@ -167,6 +167,20 @@ export default {
     isTrue(process.env.POLIS_QUEUE_SUBSTRATE_ENABLED),
   readOnlyDatabaseURL:
     process.env.READ_ONLY_DATABASE_URL || (process.env.DATABASE_URL as string),
+  // The participation pools (db/pg-query.ts): votes, comments, the next
+  // statement and participationInit, and nothing else. See
+  // docs/configuration.md "Connection budget".
+  // Their sizes; unset, each is sized like the read-write and read pools.
+  participationPoolMax: poolSizeFromEnv("PARTICIPATION_POOL_MAX"),
+  participationReadPoolMax: poolSizeFromEnv("PARTICIPATION_READ_POOL_MAX"),
+  // How long a participation query waits for one of their connections (ms).
+  // Far beyond any wait that participation work alone can cause, so it never
+  // refuses a vote under load; it only surfaces a database that has stopped
+  // answering. 0 waits without limit.
+  participationAcquireTimeoutMs: millisecondsFromEnv(
+    "PARTICIPATION_ACQUIRE_TIMEOUT_MS",
+    60000
+  ),
   // Reports, data exports and heavy admin reads run on a small dedicated pool
   // (db/pg-query.ts) so they can never take the connections the participation
   // path needs. See docs/configuration.md "Connection budget".
@@ -242,6 +256,34 @@ export default {
   webserverPass: process.env.WEBSERVER_PASS as string,
   webserverUsername: process.env.WEBSERVER_USERNAME as string,
 };
+
+// A whole number of milliseconds from the environment, or `fallback` when the
+// variable is unset or blank. Anything else stops the server at startup, so a
+// mistyped bound can never silently leave a pool unbounded.
+function millisecondsFromEnv(name: string, fallback: number): number {
+  const raw = (process.env[name] ?? "").trim();
+  if (raw === "") return fallback;
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      `${name} must be a whole number of milliseconds (0 turns it off); got '${raw}'`
+    );
+  }
+  return parseInt(raw, 10);
+}
+
+// A pool size from the environment, or undefined when the variable is unset or
+// blank, so the pool takes its default size. Anything but a whole number of at
+// least 1 stops the server at startup.
+function poolSizeFromEnv(name: string): number | undefined {
+  const raw = (process.env[name] ?? "").trim();
+  if (raw === "") return undefined;
+  if (!/^\d+$/.test(raw) || parseInt(raw, 10) < 1) {
+    throw new Error(
+      `${name} must be a whole number of at least 1; got '${raw}'`
+    );
+  }
+  return parseInt(raw, 10);
+}
 
 // Use this function when a value should default to true if not set.
 function isTrueOrBlank(val: string | boolean | undefined): boolean {

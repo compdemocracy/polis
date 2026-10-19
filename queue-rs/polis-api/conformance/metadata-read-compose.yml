@@ -1,0 +1,23 @@
+# Test-only opt-in; product defaults remain off.
+services:
+  polis-api:
+    environment:
+      POLIS_API_DOMAIN_WHITELIST_READS: "1"
+      POLIS_API_DOMAIN_WHITELIST_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_METADATA_READS: "1"
+      POLIS_API_METADATA_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_METADATA_ANSWERS_READS: "1"
+      POLIS_API_METADATA_ANSWERS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_METADATA_QUESTIONS_READS: "1"
+      POLIS_API_METADATA_QUESTIONS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_CONTEXTS_READS: "1"
+      POLIS_API_CONTEXTS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      AUTH_ISSUER: https://oidc-simulator:3000/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/
+      POLIS_API_DATABASE_READS: "1"
+      POLIS_API_DATABASE_PROBE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_ABOUT_READS: "1"
+      POLIS_API_ROBOTS_READS: "1"
+      POLIS_API_CONNECTION_READS: "1"

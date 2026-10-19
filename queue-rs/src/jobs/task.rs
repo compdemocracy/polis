@@ -317,6 +317,28 @@ fn transition(ctx: &Ctx, c: &Claim, phase: &str, to: &str, reason: Option<String
     }
 }
 
+/// A refused manifest's specific cause, for the daemon's log (the importer's
+/// worker.log). The attempt's transition `reason` stays `manifest_invalid`, so
+/// poison detection and the transition schema are unchanged; this separate line
+/// names which check refused the attempt — the staging step
+/// (`stage_results`/`stage_writer_results`: embedding spool, family spool,
+/// digests, byte bounds, receipts) or the manifest validator's field — so a
+/// rejection is diagnosable from the log alone rather than collapsing every
+/// cause to one opaque reason. A distinct schema keeps it out of the transition
+/// stream readers parse.
+fn log_manifest_rejection(c: &Claim, check: &str) {
+    let line = json!({
+        "schema": "polis_jobs.manifest_reject/1",
+        "env": c.env.as_str(),
+        "job_id": c.job_id.as_str(),
+        "run_id": c.run_id.as_str(),
+        "attempt_id": c.attempt_id.as_str(),
+        "stage": c.stage.as_str(),
+        "check": check,
+    });
+    eprintln!("{line}");
+}
+
 /// End an attempt for which no child was spawned (proof is honest).
 pub fn refuse_without_child(ctx: &Ctx, rpc: &mut Rpc, c: &Claim, permanent: bool, code: &str) {
     let reply = terminal(
@@ -652,16 +674,29 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
     };
     let mut manifest: Result<Manifest, manifest::Invalid> = manifest_bytes
         .and_then(|bytes| validate(Some(&bytes), &claim.job_id, &claim.attempt_id, &claim.stage));
+    // A clean exit whose manifest the validator refused becomes `manifest_invalid`
+    // (outcome::decide); name the failing field before staging can overwrite it.
+    if matches!(&exit, Exit::Code(0))
+        && let Err(check) = &manifest
+    {
+        log_manifest_rejection(&claim, &check.to_string());
+    }
     if graph && outcome::decide(&exit, &manifest) == Action::Finalize {
         manifest = manifest.and_then(|value| {
             super::graph::stage_results(&mut rpc, &claim, &dir, value, cfg.embeddings_table)
-                .map_err(|_| manifest::Invalid::Field("result_staging_failed"))
+                .map_err(|e| {
+                    log_manifest_rejection(&claim, &format!("{e:#}"));
+                    manifest::Invalid::Field("result_staging_failed")
+                })
         });
     }
     if result_writer && outcome::decide(&exit, &manifest) == Action::Finalize {
         manifest = manifest.and_then(|value| {
             super::graph::stage_writer_results(&mut rpc, &claim, &dir, value, cfg.embeddings_table)
-                .map_err(|_| manifest::Invalid::Field("writer_result_staging_failed"))
+                .map_err(|e| {
+                    log_manifest_rejection(&claim, &format!("{e:#}"));
+                    manifest::Invalid::Field("writer_result_staging_failed")
+                })
         });
     }
     let mut action = outcome::decide(&exit, &manifest);
@@ -791,6 +826,7 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
                         match fin {
                             Ok(r) if r["outcome"] == "invalid_output" => {
                                 reason = Some("manifest_invalid".into());
+                                log_manifest_rejection(&claim, "finalize:invalid_output");
                                 terminal(
                                     &mut rpc,
                                     "pq_fail",

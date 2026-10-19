@@ -40,6 +40,173 @@ pub struct App {
     pub cors: Cors,
     pub db: Arc<Pool>,
     pub pca: Pca,
+    pub domain_whitelist_db: Option<Arc<Pool>>,
+    pub domain_whitelist_auth_db: Option<Arc<Pool>>,
+    pub domain_whitelist_served: AtomicU64,
+    pub domain_whitelist_fallback: AtomicU64,
+    pub metadata_questions_db: Option<Arc<Pool>>,
+    pub metadata_questions_auth_db: Option<Arc<Pool>>,
+    pub metadata_questions_served: AtomicU64,
+    pub metadata_questions_fallback: AtomicU64,
+    pub metadata_answers_db: Option<Arc<Pool>>,
+    pub metadata_answers_auth_db: Option<Arc<Pool>>,
+    pub metadata_answers_served: AtomicU64,
+    pub metadata_answers_fallback: AtomicU64,
+    pub metadata_read_db: Option<Arc<Pool>>,
+    pub metadata_read_auth_db: Option<Arc<Pool>>,
+    pub metadata_read_served: AtomicU64,
+    pub metadata_read_fallback: AtomicU64,
+    pub metadata_choices_db: Option<Arc<Pool>>,
+    pub metadata_choices_auth_db: Option<Arc<Pool>>,
+    pub metadata_choices_served: AtomicU64,
+    pub metadata_choices_fallback: AtomicU64,
+    pub legacy_admin_uids: Vec<i32>,
+    pub recent_started_db: Option<Arc<Pool>>,
+    pub recent_started_auth_db: Option<Arc<Pool>>,
+    pub recent_started_served: AtomicU64,
+    pub recent_started_fallback: AtomicU64,
+    pub recent_activity_db: Option<Arc<Pool>>,
+    pub recent_activity_auth_db: Option<Arc<Pool>>,
+    pub recent_activity_served: AtomicU64,
+    pub recent_activity_fallback: AtomicU64,
+    pub legacy_pca_reads: bool,
+    pub legacy_pca_served: AtomicU64,
+    pub legacy_pca_fallback: AtomicU64,
+    pub treevite_waves_db: Option<Arc<Pool>>,
+    pub treevite_waves_auth_db: Option<Arc<Pool>>,
+    pub treevite_waves_served: AtomicU64,
+    pub treevite_waves_fallback: AtomicU64,
+    pub treevite_invites_db: Option<Arc<Pool>>,
+    pub treevite_invites_auth_db: Option<Arc<Pool>>,
+    pub treevite_invites_served: AtomicU64,
+    pub treevite_invites_fallback: AtomicU64,
+    pub treevite_csv_db: Option<Arc<Pool>>,
+    pub treevite_csv_auth_db: Option<Arc<Pool>>,
+    pub treevite_csv_served: AtomicU64,
+    pub treevite_csv_fallback: AtomicU64,
+    pub conversation_preload_db: Option<Arc<Pool>>,
+    pub conversation_preload_served: AtomicU64,
+    pub conversation_preload_fallback: AtomicU64,
+    pub participation_read_db: Option<Arc<Pool>>,
+    pub participation_read_auth_db: Option<Arc<Pool>>,
+    pub participation_read_served: AtomicU64,
+    pub participation_read_fallback: AtomicU64,
+    pub all_conversations_db: Option<Arc<Pool>>,
+    pub all_conversations_auth_db: Option<Arc<Pool>>,
+    pub all_conversations_served: AtomicU64,
+    pub all_conversations_fallback: AtomicU64,
+    pub reports_read_db: Option<Arc<Pool>>,
+    pub reports_read_auth_db: Option<Arc<Pool>>,
+    pub reports_read_served: AtomicU64,
+    pub reports_read_fallback: AtomicU64,
+    pub bid_to_pid_db: Option<Arc<Pool>>,
+    pub bid_to_pid_auth_db: Option<Arc<Pool>>,
+    pub bid_to_pid_served: AtomicU64,
+    pub bid_to_pid_fallback: AtomicU64,
+    pub conversation_stats_db: Option<Arc<Pool>>,
+    pub conversation_stats_auth_db: Option<Arc<Pool>>,
+    pub conversation_stats_served: AtomicU64,
+    pub conversation_stats_fallback: AtomicU64,
+    pub topic_selections_db: Option<Arc<Pool>>,
+    pub topic_selections_served: AtomicU64,
+    pub topic_selections_fallback: AtomicU64,
+    pub treevite_my_invites_db: Option<Arc<Pool>>,
+    pub treevite_my_invites_auth_db: Option<Arc<Pool>>,
+    pub treevite_my_invites_served: AtomicU64,
+    pub treevite_my_invites_fallback: AtomicU64,
+    pub topic_prioritize_db: Option<Arc<Pool>>,
+    pub topic_prioritize_served: AtomicU64,
+    pub topic_prioritize_fallback: AtomicU64,
+    pub legacy_conversations_db: Option<Arc<Pool>>,
+    pub legacy_conversations_auth_db: Option<Arc<Pool>>,
+    pub legacy_conversations_served: AtomicU64,
+    pub legacy_conversations_fallback: AtomicU64,
+    pub treevite_me_db: Option<Arc<Pool>>,
+    pub treevite_me_auth_db: Option<Arc<Pool>>,
+    pub treevite_me_served: AtomicU64,
+    pub treevite_me_fallback: AtomicU64,
+    pub xid_report_db: Option<Arc<Pool>>,
+    pub xid_report_auth_db: Option<Arc<Pool>>,
+    pub xid_report_served: AtomicU64,
+    pub xid_report_fallback: AtomicU64,
+    pub einvites_read_db: Option<Arc<Pool>>,
+    pub einvites_read_served: AtomicU64,
+    pub einvites_read_fallback: AtomicU64,
+    pub contexts_db: Option<Arc<Pool>>,
+    pub contexts_auth_db: Option<Arc<Pool>>,
+    pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
+    pub contexts_served: AtomicU64,
+    pub contexts_fallback: AtomicU64,
+    pub delphi_reports_db: Option<Arc<Pool>>,
+    pub delphi_reports_served: AtomicU64,
+    pub delphi_reports_fallback: AtomicU64,
+    pub delphi_visualizations_db: Option<Arc<Pool>>,
+    pub delphi_visualizations_served: AtomicU64,
+    pub delphi_visualizations_fallback: AtomicU64,
+    pub topic_stats_db: Option<Arc<Pool>>,
+    pub topic_stats_served: AtomicU64,
+    pub topic_stats_fallback: AtomicU64,
+    pub collective_statement_db: Option<Arc<Pool>>,
+    pub collective_statement_served: AtomicU64,
+    pub collective_statement_fallback: AtomicU64,
+    pub delphi_read_db: Option<Arc<Pool>>,
+    pub delphi_read_served: AtomicU64,
+    pub delphi_read_fallback: AtomicU64,
+    pub database_db: Option<Arc<Pool>>,
+    pub database_served: AtomicU64,
+    pub database_fallback: AtomicU64,
+    pub settings_page_reads: bool,
+    pub settings_page_served: AtomicU64,
+    pub settings_page_fallback: AtomicU64,
+    pub other_conversations_page: Option<crate::admin_page::Client>,
+    pub other_conversations_page_served: AtomicU64,
+    pub other_conversations_page_fallback: AtomicU64,
+    pub integrate_page: Option<crate::admin_page::Client>,
+    pub integrate_page_served: AtomicU64,
+    pub integrate_page_fallback: AtomicU64,
+    pub admin_page: Option<crate::admin_page::Client>,
+    pub admin_page_served: AtomicU64,
+    pub admin_page_fallback: AtomicU64,
+    pub user_logout_page_reads: bool,
+    pub user_logout_page_served: AtomicU64,
+    pub user_logout_page_fallback: AtomicU64,
+    pub user_login_page_reads: bool,
+    pub user_login_page_served: AtomicU64,
+    pub user_login_page_fallback: AtomicU64,
+    pub user_create_page_reads: bool,
+    pub user_create_page_served: AtomicU64,
+    pub user_create_page_fallback: AtomicU64,
+    pub create_page_reads: bool,
+    pub create_page_served: AtomicU64,
+    pub create_page_fallback: AtomicU64,
+    pub ops_catchall_reads: bool,
+    pub ops_catchall_served: AtomicU64,
+    pub ops_catchall_fallback: AtomicU64,
+    pub ops_page_reads: bool,
+    pub ops_page_served: AtomicU64,
+    pub ops_page_fallback: AtomicU64,
+    pub ops_whoami_reads: bool,
+    pub ops_whoami_served: AtomicU64,
+    pub ops_whoami_fallback: AtomicU64,
+    pub about_reads: bool,
+    pub about_served: AtomicU64,
+    pub about_fallback: AtomicU64,
+    pub robots_reads: bool,
+    pub robots_served: AtomicU64,
+    pub robots_fallback: AtomicU64,
+    pub connection_reads: bool,
+    pub connection_served: AtomicU64,
+    pub connection_fallback: AtomicU64,
+    pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
+    pub participant_served: AtomicU64,
+    pub participant_fallback: AtomicU64,
+    pub next_comment_served: AtomicU64,
+    pub next_comment_fallback: AtomicU64,
+    pub next_comment_priorities: Arc<crate::next_comment::Priorities>,
+    pub next_comment_db: Option<Arc<Pool>>,
+    pub next_comment_plain: bool,
+    pub comments_db: Option<Arc<Pool>>,
+    pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
     zids: Mutex<Lru<String, i32>>,
     pub served: AtomicU64,
@@ -51,6 +218,173 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            domain_whitelist_db: None,
+            domain_whitelist_auth_db: None,
+            domain_whitelist_served: AtomicU64::new(0),
+            domain_whitelist_fallback: AtomicU64::new(0),
+            metadata_questions_db: None,
+            metadata_questions_auth_db: None,
+            metadata_questions_served: AtomicU64::new(0),
+            metadata_questions_fallback: AtomicU64::new(0),
+            metadata_answers_db: None,
+            metadata_answers_auth_db: None,
+            metadata_answers_served: AtomicU64::new(0),
+            metadata_answers_fallback: AtomicU64::new(0),
+            metadata_read_db: None,
+            metadata_read_auth_db: None,
+            metadata_read_served: AtomicU64::new(0),
+            metadata_read_fallback: AtomicU64::new(0),
+            metadata_choices_db: None,
+            metadata_choices_auth_db: None,
+            metadata_choices_served: AtomicU64::new(0),
+            metadata_choices_fallback: AtomicU64::new(0),
+            legacy_admin_uids: Vec::new(),
+            recent_started_db: None,
+            recent_started_auth_db: None,
+            recent_started_served: AtomicU64::new(0),
+            recent_started_fallback: AtomicU64::new(0),
+            recent_activity_db: None,
+            recent_activity_auth_db: None,
+            recent_activity_served: AtomicU64::new(0),
+            recent_activity_fallback: AtomicU64::new(0),
+            legacy_pca_reads: false,
+            legacy_pca_served: AtomicU64::new(0),
+            legacy_pca_fallback: AtomicU64::new(0),
+            treevite_waves_db: None,
+            treevite_waves_auth_db: None,
+            treevite_waves_served: AtomicU64::new(0),
+            treevite_waves_fallback: AtomicU64::new(0),
+            treevite_invites_db: None,
+            treevite_invites_auth_db: None,
+            treevite_invites_served: AtomicU64::new(0),
+            treevite_invites_fallback: AtomicU64::new(0),
+            treevite_csv_db: None,
+            treevite_csv_auth_db: None,
+            treevite_csv_served: AtomicU64::new(0),
+            treevite_csv_fallback: AtomicU64::new(0),
+            conversation_preload_db: None,
+            conversation_preload_served: AtomicU64::new(0),
+            conversation_preload_fallback: AtomicU64::new(0),
+            participation_read_db: None,
+            participation_read_auth_db: None,
+            participation_read_served: AtomicU64::new(0),
+            participation_read_fallback: AtomicU64::new(0),
+            all_conversations_db: None,
+            all_conversations_auth_db: None,
+            all_conversations_served: AtomicU64::new(0),
+            all_conversations_fallback: AtomicU64::new(0),
+            reports_read_db: None,
+            reports_read_auth_db: None,
+            reports_read_served: AtomicU64::new(0),
+            reports_read_fallback: AtomicU64::new(0),
+            bid_to_pid_db: None,
+            bid_to_pid_auth_db: None,
+            bid_to_pid_served: AtomicU64::new(0),
+            bid_to_pid_fallback: AtomicU64::new(0),
+            conversation_stats_db: None,
+            conversation_stats_auth_db: None,
+            conversation_stats_served: AtomicU64::new(0),
+            conversation_stats_fallback: AtomicU64::new(0),
+            topic_selections_db: None,
+            topic_selections_served: AtomicU64::new(0),
+            topic_selections_fallback: AtomicU64::new(0),
+            treevite_my_invites_db: None,
+            treevite_my_invites_auth_db: None,
+            treevite_my_invites_served: AtomicU64::new(0),
+            treevite_my_invites_fallback: AtomicU64::new(0),
+            topic_prioritize_db: None,
+            topic_prioritize_served: AtomicU64::new(0),
+            topic_prioritize_fallback: AtomicU64::new(0),
+            legacy_conversations_db: None,
+            legacy_conversations_auth_db: None,
+            legacy_conversations_served: AtomicU64::new(0),
+            legacy_conversations_fallback: AtomicU64::new(0),
+            treevite_me_db: None,
+            treevite_me_auth_db: None,
+            treevite_me_served: AtomicU64::new(0),
+            treevite_me_fallback: AtomicU64::new(0),
+            xid_report_db: None,
+            xid_report_auth_db: None,
+            xid_report_served: AtomicU64::new(0),
+            xid_report_fallback: AtomicU64::new(0),
+            einvites_read_db: None,
+            einvites_read_served: AtomicU64::new(0),
+            einvites_read_fallback: AtomicU64::new(0),
+            contexts_db: None,
+            contexts_auth_db: None,
+            read_oidc: None,
+            contexts_served: AtomicU64::new(0),
+            contexts_fallback: AtomicU64::new(0),
+            delphi_reports_db: None,
+            delphi_reports_served: AtomicU64::new(0),
+            delphi_reports_fallback: AtomicU64::new(0),
+            delphi_visualizations_db: None,
+            delphi_visualizations_served: AtomicU64::new(0),
+            delphi_visualizations_fallback: AtomicU64::new(0),
+            topic_stats_db: None,
+            topic_stats_served: AtomicU64::new(0),
+            topic_stats_fallback: AtomicU64::new(0),
+            collective_statement_db: None,
+            collective_statement_served: AtomicU64::new(0),
+            collective_statement_fallback: AtomicU64::new(0),
+            delphi_read_db: None,
+            delphi_read_served: AtomicU64::new(0),
+            delphi_read_fallback: AtomicU64::new(0),
+            database_db: None,
+            database_served: AtomicU64::new(0),
+            database_fallback: AtomicU64::new(0),
+            settings_page_reads: false,
+            settings_page_served: AtomicU64::new(0),
+            settings_page_fallback: AtomicU64::new(0),
+            other_conversations_page: None,
+            other_conversations_page_served: AtomicU64::new(0),
+            other_conversations_page_fallback: AtomicU64::new(0),
+            integrate_page: None,
+            integrate_page_served: AtomicU64::new(0),
+            integrate_page_fallback: AtomicU64::new(0),
+            admin_page: None,
+            admin_page_served: AtomicU64::new(0),
+            admin_page_fallback: AtomicU64::new(0),
+            user_logout_page_reads: false,
+            user_logout_page_served: AtomicU64::new(0),
+            user_logout_page_fallback: AtomicU64::new(0),
+            user_login_page_reads: false,
+            user_login_page_served: AtomicU64::new(0),
+            user_login_page_fallback: AtomicU64::new(0),
+            user_create_page_reads: false,
+            user_create_page_served: AtomicU64::new(0),
+            user_create_page_fallback: AtomicU64::new(0),
+            create_page_reads: false,
+            create_page_served: AtomicU64::new(0),
+            create_page_fallback: AtomicU64::new(0),
+            ops_catchall_reads: false,
+            ops_catchall_served: AtomicU64::new(0),
+            ops_catchall_fallback: AtomicU64::new(0),
+            ops_page_reads: false,
+            ops_page_served: AtomicU64::new(0),
+            ops_page_fallback: AtomicU64::new(0),
+            ops_whoami_reads: false,
+            ops_whoami_served: AtomicU64::new(0),
+            ops_whoami_fallback: AtomicU64::new(0),
+            about_reads: false,
+            about_served: AtomicU64::new(0),
+            about_fallback: AtomicU64::new(0),
+            robots_reads: false,
+            robots_served: AtomicU64::new(0),
+            robots_fallback: AtomicU64::new(0),
+            connection_reads: false,
+            connection_served: AtomicU64::new(0),
+            connection_fallback: AtomicU64::new(0),
+            participant_verifier: None,
+            participant_served: AtomicU64::new(0),
+            participant_fallback: AtomicU64::new(0),
+            next_comment_served: AtomicU64::new(0),
+            next_comment_fallback: AtomicU64::new(0),
+            next_comment_priorities: Arc::new(crate::next_comment::Priorities::new(cfg.cache_size)),
+            next_comment_db: None,
+            next_comment_plain: false,
+            comments_db: None,
+            comments_count_db: None,
             math_env: cfg.math_env.clone(),
             dev_mode: cfg.dev_mode,
             use_network_host: cfg.use_network_host,
@@ -73,7 +407,7 @@ impl App {
 
 /// The headers a Node `ServerResponse` holds, in Node's order: a header keeps
 /// the position of its first `setHeader` and the casing of its last.
-struct Res {
+pub(crate) struct Res {
     status: u16,
     headers: Vec<(String, String)>,
 }
@@ -347,15 +681,61 @@ fn send_in(req: &Request, mut res: Res, payload: Payload, installed: bool) -> Ou
 }
 
 /// Express 3 `res.json(value)`.
-fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
+pub(crate) fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
     if res.get("Content-Type").is_none() {
         res.set("Content-Type", "application/json");
     }
     send(req, res, Payload::Text(js::stringify(value)))
 }
 
+/// writeHead(302, {Location}) followed by end, after normal middleware.
+pub(crate) fn redirect(req: &Request, mut res: Res, location: &str) -> Outgoing {
+    res.status = 302;
+    res.set("Location", location);
+    finish(req, res, Ending::WriteHeadThenEnd, true)
+}
+
+/// Static HTML stream, after the route has bounded and checked its upstream.
+pub(crate) fn admin_html(req: &Request, mut res: Res, chunks: Vec<Vec<u8>>) -> Outgoing {
+    res.set("Content-Type", "text/html");
+    let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
+    out.body = Body::Chunked(chunks);
+    out
+}
+
+/// Express status(...).json(...) retaining the normal response envelope.
+pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) -> Outgoing {
+    res.status = status;
+    json(req, res, value)
+}
+
+/// Operations refusals use private cache headers before Express JSON encoding.
+pub(crate) fn ops_not_found(req: &Request, mut res: Res, value: &Js) -> Outgoing {
+    res.set("Cache-Control", "private, no-store");
+    res.set("Vary", "Authorization");
+    res.set("X-Content-Type-Options", "nosniff");
+    json_status(req, res, 404, value)
+}
+
+/// Express status(...).end() without a response body.
+pub(crate) fn empty_end(req: &Request, mut res: Res, status: u16) -> Outgoing {
+    res.status = status;
+    finish(req, res, Ending::End(Vec::new()), true)
+}
+
+/// Express text send, retaining the headers installed by writeDefaultHead.
+pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
+    send(req, res, Payload::Text(value.into()))
+}
+
+/// Express CSV send with its normal ETag, freshness and compression envelope.
+pub(crate) fn csv(req: &Request, mut res: Res, value: &str) -> Outgoing {
+    res.set("Content-Type", "text/csv");
+    send(req, res, Payload::Text(value.into()))
+}
+
 /// `failJson(res, status, message)` (utils/fail.ts).
-fn fail_json(req: &Request, mut res: Res, status: u16, message: Js) -> Outgoing {
+pub(crate) fn fail_json(req: &Request, mut res: Res, status: u16, message: Js) -> Outgoing {
     let mut body = Obj::new();
     body.set("error", message.clone());
     body.set("message", message);
@@ -441,7 +821,7 @@ fn js_trim(s: &str) -> &str {
 }
 
 /// `_integerOrUndefined` + `getInt` (utils/parameter.ts).
-fn get_int(value: &Js) -> Option<f64> {
+pub(crate) fn get_int(value: &Js) -> Option<f64> {
     match value {
         Js::Str(s) if !js_trim(s).is_empty() => {
             // parseInt(s, 10): optional sign, then the longest digit prefix.
@@ -562,6 +942,366 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
+    if req.path() == crate::domain_whitelist::PATH {
+        if out.status == 502 {
+            app.domain_whitelist_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.domain_whitelist_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::metadata_questions::PATH {
+        if out.status == 502 {
+            app.metadata_questions_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_questions_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::metadata_answers::PATH {
+        if out.status == 502 {
+            app.metadata_answers_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_answers_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::metadata_read::PATH {
+        if out.status == 502 {
+            app.metadata_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::metadata_choices::PATH {
+        if out.status == 502 {
+            app.metadata_choices_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_choices_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::recent_started::PATH {
+        if out.status == 502 {
+            app.recent_started_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.recent_started_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::recent_activity::PATH {
+        if out.status == 502 {
+            app.recent_activity_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.recent_activity_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::legacy_pca::PATH {
+        if out.status == 502 {
+            app.legacy_pca_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.legacy_pca_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::treevite_waves::PATH {
+        if out.status == 502 {
+            app.treevite_waves_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_waves_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::treevite_invites::PATH {
+        if out.status == 502 {
+            app.treevite_invites_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_invites_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::treevite_csv::PATH {
+        if out.status == 502 {
+            app.treevite_csv_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_csv_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::conversation_preload::PATH {
+        if out.status == 502 {
+            app.conversation_preload_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.conversation_preload_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::participation_read::PATH {
+        if out.status == 502 {
+            app.participation_read_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.participation_read_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::all_conversations::PATH {
+        if out.status == 502 {
+            app.all_conversations_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.all_conversations_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::reports_read::PATH {
+        if out.status == 502 {
+            app.reports_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.reports_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::bid_to_pid::PATH {
+        if out.status == 502 {
+            app.bid_to_pid_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.bid_to_pid_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::conversation_stats::PATH {
+        if out.status == 502 {
+            app.conversation_stats_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.conversation_stats_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::topic_selections::PATH {
+        if out.status == 502 {
+            app.topic_selections_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.topic_selections_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::treevite_my_invites::PATH {
+        if out.status == 502 {
+            app.treevite_my_invites_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_my_invites_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::topic_prioritize::PATH {
+        if out.status == 502 {
+            app.topic_prioritize_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.topic_prioritize_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::legacy_conversations::PATH {
+        if out.status == 502 {
+            app.legacy_conversations_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.legacy_conversations_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::treevite_me::PATH {
+        if out.status == 502 {
+            app.treevite_me_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.treevite_me_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::xid_report::matches(req.path()) {
+        if out.status == 502 {
+            app.xid_report_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.xid_report_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::einvites_read::PATH {
+        if out.status == 502 {
+            app.einvites_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.einvites_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::contexts::PATH {
+        if out.status == 502 {
+            app.contexts_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.contexts_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::delphi_reports::PATH {
+        if out.status == 502 {
+            app.delphi_reports_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_reports_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::delphi_visualizations::PATH {
+        if out.status == 502 {
+            app.delphi_visualizations_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_visualizations_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::topic_stats::PATH {
+        if out.status == 502 {
+            app.topic_stats_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.topic_stats_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::collective_statement::PATH {
+        if out.status == 502 {
+            app.collective_statement_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.collective_statement_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::delphi_read::PATH {
+        if out.status == 502 {
+            app.delphi_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::database::PATH {
+        if out.status == 502 {
+            app.database_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.database_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::settings_page::matches(req.path()) {
+        if out.status == 502 {
+            app.settings_page_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.settings_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::other_conversations_page::matches(req.path()) {
+        if out.status == 502 {
+            app.other_conversations_page_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.other_conversations_page_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::integrate_page::matches(req.path()) {
+        if out.status == 502 {
+            app.integrate_page_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.integrate_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::admin_page::matches(req.path()) {
+        if out.status == 502 {
+            app.admin_page_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.admin_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::user_logout_page::matches(req.path()) {
+        if out.status == 502 {
+            app.user_logout_page_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.user_logout_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::user_login_page::matches(req.path()) {
+        if out.status == 502 {
+            app.user_login_page_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.user_login_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::user_create_page::matches(req.path()) {
+        if out.status == 502 {
+            app.user_create_page_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.user_create_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::create_page::matches(req.path()) {
+        if out.status == 502 {
+            app.create_page_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.create_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::ops_catchall::matches(req.path()) {
+        if out.status == 502 {
+            app.ops_catchall_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.ops_catchall_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::ops_page::matches(req.path()) {
+        if out.status == 502 {
+            app.ops_page_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.ops_page_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::ops_whoami::PATH {
+        if out.status == 502 {
+            app.ops_whoami_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.ops_whoami_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::about::PATH {
+        if out.status == 502 {
+            app.about_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.about_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::robots::PATH {
+        if out.status == 502 {
+            app.robots_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.robots_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::connection::PATH {
+        if out.status == 502 {
+            app.connection_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.connection_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::next_comment::PATH {
+        if out.status == 502 {
+            app.next_comment_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.next_comment_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if matches!(
+        req.path(),
+        crate::comments::PATH | crate::next_comment::PATH
+    ) && req.headers.get("authorization").is_some()
+    {
+        if out.status == 502 {
+            app.participant_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.participant_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if out.status >= 500 {
         app.failed.fetch_add(1, Ordering::Relaxed);
     } else {
@@ -583,7 +1323,7 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
     let mut http = Obj::new();
     http.set("method", Js::Str(req.method.clone()));
     http.set("url", Js::Str(req.path().to_string()));
-    http.set("route", Js::Str(PATH.into()));
+    http.set("route", Js::Str(req.path().into()));
     http.set("status_code", Js::Num(f64::from(status)));
     let mut line = Obj::new();
     line.set("level", Js::Str(level.into()));
@@ -600,6 +1340,190 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if crate::settings_page::matches(req.path()) && crate::settings_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::other_conversations_page::matches(req.path())
+        && crate::other_conversations_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::integrate_page::matches(req.path())
+        && crate::integrate_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::admin_page::matches(req.path()) && crate::admin_page::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if crate::user_logout_page::matches(req.path())
+        && crate::user_logout_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::user_login_page::matches(req.path())
+        && crate::user_login_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::user_create_page::matches(req.path())
+        && crate::user_create_page::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::create_page::matches(req.path()) && crate::create_page::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::einvites_read::PATH && crate::einvites_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if crate::xid_report::matches(req.path()) && crate::xid_report::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::treevite_me::PATH && crate::treevite_me::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::treevite_my_invites::PATH
+        && crate::treevite_my_invites::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::legacy_conversations::PATH
+        && crate::legacy_conversations::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::topic_prioritize::PATH
+        && crate::topic_prioritize::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::topic_selections::PATH
+        && crate::topic_selections::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::conversation_stats::PATH
+        && crate::conversation_stats::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::bid_to_pid::PATH && crate::bid_to_pid::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::reports_read::PATH && crate::reports_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::all_conversations::PATH
+        && crate::all_conversations::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::participation_read::PATH
+        && crate::participation_read::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::conversation_preload::PATH
+        && crate::conversation_preload::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::treevite_csv::PATH && crate::treevite_csv::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::treevite_invites::PATH
+        && crate::treevite_invites::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::treevite_waves::PATH && crate::treevite_waves::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::legacy_pca::PATH && crate::legacy_pca::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::recent_activity::PATH
+        && crate::recent_activity::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::recent_started::PATH && crate::recent_started::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::metadata_choices::PATH
+        && crate::metadata_choices::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::metadata_read::PATH && crate::metadata_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::metadata_answers::PATH
+        && crate::metadata_answers::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::metadata_questions::PATH
+        && crate::metadata_questions::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::domain_whitelist::PATH
+        && crate::domain_whitelist::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::contexts::PATH && crate::contexts::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::delphi_reports::PATH && crate::delphi_reports::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::delphi_visualizations::PATH
+        && crate::delphi_visualizations::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::topic_stats::PATH && crate::topic_stats::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::collective_statement::PATH
+        && crate::collective_statement::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::delphi_read::PATH && crate::delphi_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::database::PATH && crate::database::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if crate::ops_catchall::matches(req.path()) && crate::ops_catchall::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if crate::ops_page::matches(req.path()) && crate::ops_page::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::ops_whoami::PATH && crate::ops_whoami::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::about::PATH && crate::about::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::robots::PATH && crate::robots::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::next_comment::PATH && !crate::next_comment::eligible(app, req) {
+        return bad_gateway();
+    }
     // redirectIfNotHttps (domain.ts), ahead of every other middleware.
     if !app.dev_mode && req.path() != "/api/v3/testConnection" && !app.use_network_host {
         let https = req.headers.get("x-forwarded-proto") == Some("https");
@@ -648,7 +1572,20 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         }
     };
     // writeDefaultHead, compress, addCorsHeader.
-    let origin = match app.cors.resolve(&req.headers) {
+    let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
+        || crate::create_page::matches(req.path())
+        || crate::settings_page::matches(req.path())
+        || crate::other_conversations_page::matches(req.path())
+        || crate::integrate_page::matches(req.path())
+        || crate::admin_page::matches(req.path())
+        || crate::user_logout_page::matches(req.path())
+        || crate::user_login_page::matches(req.path())
+        || crate::user_create_page::matches(req.path())
+    {
+        Ok(None)
+    } else {
+        app.cors.resolve(&req.headers)
+    } {
         Ok(origin) => origin,
         Err(refusal) => {
             let err = format!("unauthorized domain: {}", refusal.origin);
@@ -664,6 +1601,147 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.method != "GET" && req.method != "HEAD" {
         return final_handler(app, req, res, None, true);
+    }
+    if req.path() == crate::next_comment::PATH {
+        return crate::next_comment::handle(app, req, res).await;
+    }
+    if crate::settings_page::matches(req.path()) {
+        return crate::settings_page::handle(app, req, res);
+    }
+    if crate::other_conversations_page::matches(req.path()) {
+        return crate::other_conversations_page::handle(app, req, res).await;
+    }
+    if crate::integrate_page::matches(req.path()) {
+        return crate::integrate_page::handle(app, req, res).await;
+    }
+    if crate::admin_page::matches(req.path()) {
+        return crate::admin_page::handle(app, req, res).await;
+    }
+    if crate::user_logout_page::matches(req.path()) {
+        return crate::user_logout_page::handle(app, req, res);
+    }
+    if crate::user_login_page::matches(req.path()) {
+        return crate::user_login_page::handle(app, req, res);
+    }
+    if crate::user_create_page::matches(req.path()) {
+        return crate::user_create_page::handle(app, req, res);
+    }
+    if crate::create_page::matches(req.path()) {
+        return crate::create_page::handle(app, req, res);
+    }
+    if crate::ops_catchall::matches(req.path()) {
+        return crate::ops_catchall::handle(app, req, res);
+    }
+    if crate::ops_page::matches(req.path()) {
+        return crate::ops_page::handle(app, req, res);
+    }
+    if req.path() == crate::ops_whoami::PATH {
+        return crate::ops_whoami::handle(app, req, res);
+    }
+    if req.path() == crate::about::PATH {
+        return crate::about::handle(app, req, res);
+    }
+    if req.path() == crate::robots::PATH {
+        return crate::robots::handle(app, req, res);
+    }
+    if req.path() == crate::connection::PATH {
+        return crate::connection::handle(app, req, res);
+    }
+    if req.path() == crate::delphi_reports::PATH {
+        return crate::delphi_reports::handle(app, req, res).await;
+    }
+    if req.path() == crate::delphi_visualizations::PATH {
+        return crate::delphi_visualizations::handle(app, req, res).await;
+    }
+    if req.path() == crate::topic_stats::PATH {
+        return crate::topic_stats::handle(app, req, res).await;
+    }
+    if req.path() == crate::collective_statement::PATH {
+        return crate::collective_statement::handle(app, req, res).await;
+    }
+    if req.path() == crate::delphi_read::PATH {
+        return crate::delphi_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::database::PATH {
+        return crate::database::handle(app, req, res).await;
+    }
+    if req.path() == crate::contexts::PATH {
+        return crate::contexts::handle(app, req, res).await;
+    }
+    if req.path() == crate::einvites_read::PATH {
+        return crate::einvites_read::handle(app, req, res).await;
+    }
+    if crate::xid_report::matches(req.path()) {
+        return crate::xid_report::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_me::PATH {
+        return crate::treevite_me::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_my_invites::PATH {
+        return crate::treevite_my_invites::handle(app, req, res).await;
+    }
+    if req.path() == crate::legacy_conversations::PATH {
+        return crate::legacy_conversations::handle(app, req, res).await;
+    }
+    if req.path() == crate::topic_prioritize::PATH {
+        return crate::topic_prioritize::handle(app, req, res).await;
+    }
+    if req.path() == crate::topic_selections::PATH {
+        return crate::topic_selections::handle(app, req, res).await;
+    }
+    if req.path() == crate::conversation_stats::PATH {
+        return crate::conversation_stats::handle(app, req, res).await;
+    }
+    if req.path() == crate::bid_to_pid::PATH {
+        return crate::bid_to_pid::handle(app, req, res).await;
+    }
+    if req.path() == crate::reports_read::PATH {
+        return crate::reports_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::all_conversations::PATH {
+        return crate::all_conversations::handle(app, req, res).await;
+    }
+    if req.path() == crate::participation_read::PATH {
+        return crate::participation_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::conversation_preload::PATH {
+        return crate::conversation_preload::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_csv::PATH {
+        return crate::treevite_csv::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_invites::PATH {
+        return crate::treevite_invites::handle(app, req, res).await;
+    }
+    if req.path() == crate::treevite_waves::PATH {
+        return crate::treevite_waves::handle(app, req, res).await;
+    }
+    if req.path() == crate::legacy_pca::PATH {
+        return crate::legacy_pca::handle(app, req, res);
+    }
+    if req.path() == crate::recent_activity::PATH {
+        return crate::recent_activity::handle(app, req, res).await;
+    }
+    if req.path() == crate::recent_started::PATH {
+        return crate::recent_started::handle(app, req, res).await;
+    }
+    if req.path() == crate::metadata_choices::PATH {
+        return crate::metadata_choices::handle(app, req, res).await;
+    }
+    if req.path() == crate::metadata_read::PATH {
+        return crate::metadata_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::metadata_answers::PATH {
+        return crate::metadata_answers::handle(app, req, res).await;
+    }
+    if req.path() == crate::metadata_questions::PATH {
+        return crate::metadata_questions::handle(app, req, res).await;
+    }
+    if req.path() == crate::domain_whitelist::PATH {
+        return crate::domain_whitelist::handle(app, req, res).await;
+    }
+    if req.path() == crate::comments::PATH {
+        return crate::comments::handle(app, req, &body, res).await;
     }
     match pca2(app, req, &body, res).await {
         Ok(out) => out,
@@ -958,6 +2036,2515 @@ mod tests {
         Arc::new(App::new(&cfg, pool))
     }
 
+    #[tokio::test]
+    async fn database_probe_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::database::PATH.into();
+            req
+        };
+        assert!(state.database_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().database_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.database_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.database_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().database_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn database_probe_reads_empty_and_populated_tables_and_sheds_contention() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("database_probe_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.users (uid integer);"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::database::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().database_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::database::PATH.into();
+            req
+        };
+        let out = handle(state.clone(), probe()).await;
+        assert_eq!(out.status, 200);
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"status":"ok"}"#));
+        let update_url = url.clone();
+        let update_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&update_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("INSERT INTO {update_schema}.users VALUES (1)"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+        assert_eq!(handle(state.clone(), probe()).await.status, 200);
+        // Hold the probe's users table exclusively, then prove its stalled query
+        // sheds itself while the separate next-statement pool can still answer.
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.users IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        let stalled_state = state.clone();
+        let stalled = tokio::spawn(async move {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::database::PATH.into();
+            handle(stalled_state, req).await
+        });
+        assert!(participant_pool.ping().await);
+        assert_eq!(stalled.await.unwrap().status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), probe()).await.status, 200);
+        assert_eq!(state.database_served.load(Ordering::Relaxed), 3);
+        assert_eq!(state.database_fallback.load(Ordering::Relaxed), 1);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO users VALUES (2)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn database_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().database_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::database::PATH, vec![]),
+            ("OPTIONS", crate::database::PATH, vec![]),
+            ("GET", "/api/v3/testDatabase?unknown=1", vec![]),
+            (
+                "GET",
+                crate::database::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", crate::database::PATH, vec![("cookie", "fixture=1")]),
+            ("GET", crate::database::PATH, vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.database_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.database_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn contexts_read_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::contexts::PATH.into();
+            req
+        };
+        assert!(state.contexts_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().contexts_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.contexts_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.contexts_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().contexts_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn contexts_read_reads_empty_and_populated_tables_and_sheds_contention() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("contexts_read_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.contexts (name text, is_public boolean);"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::contexts::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().contexts_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::contexts::PATH.into();
+            req
+        };
+        Arc::get_mut(&mut state).unwrap().contexts_auth_db = Some(make_pool());
+        let out = handle(state.clone(), probe()).await;
+        assert_eq!(out.status, 200);
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == b"[]"));
+        let update_url = url.clone();
+        let update_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&update_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("INSERT INTO {update_schema}.contexts VALUES ('visible',true),(NULL,true),('hidden',false)"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+        let populated = handle(state.clone(), probe()).await;
+        assert_eq!(populated.status, 200);
+        assert!(
+            matches!(populated.body, Body::Fixed(ref b) if b==br#"[{"name":"visible"},{"name":null}]"#)
+        );
+        // Hold the probe's contexts table exclusively, then prove its stalled query
+        // sheds itself while the separate next-statement pool can still answer.
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.contexts IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        let stalled_state = state.clone();
+        let stalled = tokio::spawn(async move {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::contexts::PATH.into();
+            handle(stalled_state, req).await
+        });
+        assert!(participant_pool.ping().await);
+        assert_eq!(stalled.await.unwrap().status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), probe()).await.status, 200);
+        assert_eq!(state.contexts_served.load(Ordering::Relaxed), 3);
+        assert_eq!(state.contexts_fallback.load(Ordering::Relaxed), 1);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO contexts VALUES ('write',true)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn contexts_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().contexts_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::contexts::PATH, vec![]),
+            ("OPTIONS", crate::contexts::PATH, vec![]),
+            ("GET", "/api/v3/contexts?unknown=1", vec![]),
+            (
+                "GET",
+                crate::contexts::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", crate::contexts::PATH, vec![("cookie", "fixture=1")]),
+            ("GET", crate::contexts::PATH, vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.contexts_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.contexts_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn domain_whitelist_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = crate::domain_whitelist::PATH.into();
+            req
+        };
+        assert!(state.domain_whitelist_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().domain_whitelist_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.domain_whitelist_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.domain_whitelist_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().domain_whitelist_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn domain_whitelist_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().domain_whitelist_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::domain_whitelist::PATH, vec![]),
+            ("OPTIONS", crate::domain_whitelist::PATH, vec![]),
+            ("GET", "/api/v3/domainWhitelist?unknown=1", vec![]),
+            (
+                "GET",
+                crate::domain_whitelist::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::domain_whitelist::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::domain_whitelist::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.domain_whitelist_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.domain_whitelist_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn metadata_questions_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::metadata_questions::PATH
+            );
+            req
+        };
+        assert!(state.metadata_questions_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().metadata_questions_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.metadata_questions_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_questions_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().metadata_questions_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn metadata_questions_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_questions_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::metadata_questions::PATH, vec![]),
+            ("OPTIONS", crate::metadata_questions::PATH, vec![]),
+            ("GET", "/api/v3/metadata/questions?unknown=1", vec![]),
+            (
+                "GET",
+                crate::metadata_questions::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::metadata_questions::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::metadata_questions::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.metadata_questions_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_questions_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn conversation_preload_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::conversation_preload::PATH
+            );
+            req
+        };
+        assert!(state.conversation_preload_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().conversation_preload_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.conversation_preload_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.conversation_preload_fallback.load(Ordering::Relaxed),
+            2
+        );
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().conversation_preload_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn conversation_preload_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().conversation_preload_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::conversation_preload::PATH, vec![]),
+            ("OPTIONS", crate::conversation_preload::PATH, vec![]),
+            ("GET", "/api/v3/conversations/preload?unknown=1", vec![]),
+            (
+                "GET",
+                crate::conversation_preload::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::conversation_preload::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::conversation_preload::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.conversation_preload_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.conversation_preload_fallback.load(Ordering::Relaxed),
+            6
+        );
+    }
+
+    #[tokio::test]
+    async fn treevite_waves_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::treevite_waves::PATH);
+            req
+        };
+        assert!(state.treevite_waves_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_waves_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_waves_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_waves_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_waves_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_waves_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_waves_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_waves::PATH, vec![]),
+            ("OPTIONS", crate::treevite_waves::PATH, vec![]),
+            ("GET", "/api/v3/treevite/waves?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_waves::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_waves::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_waves::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_waves_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_waves_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn participation_read_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::participation_read::PATH
+            );
+            req
+        };
+        assert!(state.participation_read_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().participation_read_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.participation_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.participation_read_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().participation_read_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn participation_read_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().participation_read_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::participation_read::PATH, vec![]),
+            ("OPTIONS", crate::participation_read::PATH, vec![]),
+            ("GET", "/api/v3/participation?unknown=1", vec![]),
+            (
+                "GET",
+                crate::participation_read::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::participation_read::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::participation_read::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.participation_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.participation_read_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn treevite_csv_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::treevite_csv::PATH);
+            req
+        };
+        assert!(state.treevite_csv_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_csv_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_csv_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_csv_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_csv_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_csv_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_csv_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_csv::PATH, vec![]),
+            ("OPTIONS", crate::treevite_csv::PATH, vec![]),
+            ("GET", "/api/v3/treevite/invites/csv?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_csv::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_csv::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_csv::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_csv_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_csv_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn treevite_invites_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::treevite_invites::PATH);
+            req
+        };
+        assert!(state.treevite_invites_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_invites_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_invites_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_invites_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_invites_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_invites_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_invites_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_invites::PATH, vec![]),
+            ("OPTIONS", crate::treevite_invites::PATH, vec![]),
+            ("GET", "/api/v3/treevite/invites?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_invites::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_invites::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_invites::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_invites_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_invites_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn metadata_choices_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::metadata_choices::PATH);
+            req
+        };
+        assert!(state.metadata_choices_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().metadata_choices_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.metadata_choices_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_choices_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().metadata_choices_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn metadata_choices_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_choices_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::metadata_choices::PATH, vec![]),
+            ("OPTIONS", crate::metadata_choices::PATH, vec![]),
+            ("GET", "/api/v3/metadata/choices?unknown=1", vec![]),
+            (
+                "GET",
+                crate::metadata_choices::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::metadata_choices::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::metadata_choices::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.metadata_choices_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_choices_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn legacy_cid_parameters_preserve_node_length_boundaries() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_questions_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_answers_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_choices_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_waves_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_invites_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_csv_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().participation_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().reports_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().bid_to_pid_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().conversation_stats_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().topic_selections_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().topic_prioritize_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_my_invites_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().treevite_me_db = Some(pool.clone());
+        let mut mismatches = Vec::<String>::new();
+        macro_rules! check {
+            ($module:ident,$auth:expr) => {
+                for (length, encoded, accepted) in [
+                    (100, false, true),
+                    (100, true, true),
+                    (101, false, false),
+                    (101, true, false),
+                    (300, false, false),
+                ] {
+                    let headers = if $auth {
+                        vec![("host", "localhost"), ("authorization", "Bearer fixture")]
+                    } else {
+                        vec![("host", "localhost")]
+                    };
+                    let mut req = request("GET", &headers);
+                    let cid = if encoded {
+                        "%61".repeat(length)
+                    } else {
+                        "a".repeat(length)
+                    };
+                    req.target = format!("{}?conversation_id={cid}", crate::$module::PATH);
+                    if crate::$module::parse(&state, &req).is_some() != accepted {
+                        mismatches.push(format!(
+                            "{}:{length}:encoded={encoded}",
+                            stringify!($module)
+                        ));
+                    }
+                }
+            };
+        }
+        check!(metadata_questions, true);
+        check!(metadata_answers, true);
+        check!(metadata_read, true);
+        check!(metadata_choices, true);
+        check!(treevite_waves, true);
+        check!(treevite_invites, true);
+        check!(treevite_csv, true);
+        check!(participation_read, true);
+        check!(reports_read, true);
+        check!(bid_to_pid, true);
+        check!(conversation_stats, true);
+        check!(topic_selections, true);
+        check!(topic_prioritize, false);
+        check!(treevite_my_invites, true);
+        check!(treevite_me, true);
+        assert_eq!(mismatches, Vec::<String>::new());
+    }
+
+    #[tokio::test]
+    async fn recent_started_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?sinceUnixTimestamp=9007199254740",
+                crate::recent_started::PATH
+            );
+            req
+        };
+        assert!(state.recent_started_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().recent_started_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().recent_started_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn recent_started_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().recent_started_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::recent_started::PATH, vec![]),
+            ("OPTIONS", crate::recent_started::PATH, vec![]),
+            (
+                "GET",
+                "/api/v3/conversations/recently_started?unknown=1",
+                vec![],
+            ),
+            (
+                "GET",
+                crate::recent_started::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::recent_started::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::recent_started::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn treevite_me_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::treevite_me::PATH);
+            req
+        };
+        assert!(state.treevite_me_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_me_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_me_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_me_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_me_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_me_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_me_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_me::PATH, vec![]),
+            ("OPTIONS", crate::treevite_me::PATH, vec![]),
+            ("GET", "/api/v3/treevite/me?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_me::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_me::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_me::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_me_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.treevite_me_fallback.load(Ordering::Relaxed), 6);
+        for method in ["GET", "HEAD"] {
+            for (length, encoded, accepted) in [
+                (100, false, true),
+                (100, true, true),
+                (101, false, false),
+                (101, true, false),
+                (300, false, false),
+            ] {
+                let cid = if encoded {
+                    "%61".repeat(length)
+                } else {
+                    "a".repeat(length)
+                };
+                let mut req = request(method, &[("authorization", "Bearer fixture")]);
+                req.target = format!("{}?conversation_id={cid}", crate::treevite_me::PATH);
+                assert_eq!(crate::treevite_me::parse(&state, &req).is_some(), accepted);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn treevite_my_invites_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::treevite_my_invites::PATH
+            );
+            req
+        };
+        assert!(state.treevite_my_invites_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().treevite_my_invites_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.treevite_my_invites_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.treevite_my_invites_fallback.load(Ordering::Relaxed),
+            2
+        );
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().treevite_my_invites_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn treevite_my_invites_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().treevite_my_invites_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::treevite_my_invites::PATH, vec![]),
+            ("OPTIONS", crate::treevite_my_invites::PATH, vec![]),
+            ("GET", "/api/v3/treevite/myInvites?unknown=1", vec![]),
+            (
+                "GET",
+                crate::treevite_my_invites::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::treevite_my_invites::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::treevite_my_invites::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.treevite_my_invites_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.treevite_my_invites_fallback.load(Ordering::Relaxed),
+            6
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_conversations_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?limit=9999", crate::legacy_conversations::PATH);
+            req
+        };
+        assert!(state.legacy_conversations_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().legacy_conversations_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.legacy_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.legacy_conversations_fallback.load(Ordering::Relaxed),
+            2
+        );
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().legacy_conversations_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn legacy_conversations_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().legacy_conversations_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::legacy_conversations::PATH, vec![]),
+            ("OPTIONS", crate::legacy_conversations::PATH, vec![]),
+            ("GET", "/api/v3/conversations?unknown=1", vec![]),
+            (
+                "GET",
+                crate::legacy_conversations::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::legacy_conversations::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::legacy_conversations::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.legacy_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.legacy_conversations_fallback.load(Ordering::Relaxed),
+            6
+        );
+    }
+
+    #[test]
+    fn xid_report_requires_auth_before_admission() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().xid_report_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().xid_report_auth_db = Some(pool);
+        for method in ["GET", "HEAD"] {
+            let mut signed = request(method, &[("authorization", "Bearer fixture.invalid")]);
+            signed.target = "/api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv".into();
+            assert!(crate::xid_report::parse(&state, &signed).is_some());
+            let mut unsigned = request(method, &[]);
+            unsigned.target = signed.target;
+            assert!(crate::xid_report::parse(&state, &unsigned).is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn xid_report_boundaries_are_counted_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().xid_report_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().xid_report_auth_db = Some(pool);
+        let base = "/api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv";
+        for (method, target, headers) in [
+            ("POST", base.to_string(), vec![]),
+            ("OPTIONS", base.to_string(), vec![]),
+            ("GET", format!("{base}?xid_report=override"), vec![]),
+            (
+                "GET",
+                base.to_string(),
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", base.to_string(), vec![("cookie", "fixture=1")]),
+            ("GET", base.to_string(), vec![("content-length", "1")]),
+            ("GET", base.replace("12345678", "%312345678"), vec![]),
+            ("GET", base.replace("12345678", "x2345678"), vec![]),
+            ("GET", format!("{base}-xid.csv"), vec![]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target;
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.xid_report_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.xid_report_fallback.load(Ordering::Relaxed), 9);
+    }
+
+    #[tokio::test]
+    async fn topic_prioritize_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!("{}?conversation_id=fixture", crate::topic_prioritize::PATH);
+            req
+        };
+        assert!(state.topic_prioritize_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().topic_prioritize_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.topic_prioritize_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.topic_prioritize_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().topic_prioritize_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn einvites_read_parameter_and_method_boundaries() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().einvites_read_db = Some(pool);
+        for code in [
+            "a".to_string(),
+            "a".repeat(100),
+            "fixture_1-2".into(),
+            "%66ixture".into(),
+        ] {
+            let mut req = request("GET", &[]);
+            req.target = format!("/api/v3/einvites?einvite={code}");
+            assert!(crate::einvites_read::parse(&state, &req).is_some());
+        }
+        for (method, query, headers) in [
+            ("POST", "einvite=fixture".into(), vec![]),
+            ("OPTIONS", "einvite=fixture".into(), vec![]),
+            ("GET", "einvite=".into(), vec![]),
+            ("GET", format!("einvite={}", "a".repeat(101)), vec![]),
+            ("GET", "einvite=x&einvite=y".into(), vec![]),
+            ("GET", "einvite[]=x".into(), vec![]),
+            ("GET", "einvite=fixture&unknown=1".into(), vec![]),
+            ("GET", "einvite=%FF".into(), vec![]),
+            (
+                "GET",
+                "einvite=fixture".into(),
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                "einvite=fixture".into(),
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                "einvite=fixture".into(),
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/einvites?{query}");
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.einvites_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.einvites_read_fallback.load(Ordering::Relaxed), 11);
+    }
+
+    #[tokio::test]
+    async fn xid_report_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = "/api/v3/xid/12345678-1234-1234-1234-123456789abc-xid.csv".into();
+            req
+        };
+        assert!(state.xid_report_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().xid_report_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.xid_report_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.xid_report_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().xid_report_db = Some(pool);
+        // Unsupported requests hand back before HTTPS middleware.
+        assert_eq!(handle(secure.clone(), probe()).await.status, 502);
+        assert_eq!(secure.xid_report_served.load(Ordering::Relaxed), 0);
+        assert_eq!(secure.xid_report_fallback.load(Ordering::Relaxed), 1);
+        // Eligible requests retain the ordinary HTTPS redirect.
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().xid_report_auth_db = Some(pool);
+        let mut admitted = request(
+            "GET",
+            &[("host", "localhost"), ("authorization", "Bearer fixture")],
+        );
+        admitted.target = probe().target;
+        let redirect = handle(secure, admitted).await;
+        assert_eq!(redirect.status, 302);
+    }
+
+    #[tokio::test]
+    async fn einvites_read_gate_and_unreachable_database_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = "/api/v3/einvites?einvite=fixture".into();
+            req
+        };
+        assert!(state.einvites_read_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().einvites_read_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.einvites_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.einvites_read_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().einvites_read_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn topic_prioritize_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().topic_prioritize_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::topic_prioritize::PATH, vec![]),
+            ("OPTIONS", crate::topic_prioritize::PATH, vec![]),
+            (
+                "GET",
+                "/api/v3/participation/topicPrioritize?unknown=1",
+                vec![],
+            ),
+            (
+                "GET",
+                crate::topic_prioritize::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::topic_prioritize::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::topic_prioritize::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.topic_prioritize_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.topic_prioritize_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn topic_selections_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::topic_selections::PATH);
+            req
+        };
+        assert!(state.topic_selections_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().topic_selections_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.topic_selections_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.topic_selections_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().topic_selections_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn topic_selections_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().topic_selections_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::topic_selections::PATH, vec![]),
+            ("OPTIONS", crate::topic_selections::PATH, vec![]),
+            ("GET", "/api/v3/topicAgenda/selections?unknown=1", vec![]),
+            (
+                "GET",
+                crate::topic_selections::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::topic_selections::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::topic_selections::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.topic_selections_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.topic_selections_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn conversation_stats_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?conversation_id=fixture",
+                crate::conversation_stats::PATH
+            );
+            req
+        };
+        assert!(state.conversation_stats_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().conversation_stats_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.conversation_stats_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.conversation_stats_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().conversation_stats_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn conversation_stats_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().conversation_stats_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::conversation_stats::PATH, vec![]),
+            ("OPTIONS", crate::conversation_stats::PATH, vec![]),
+            ("GET", "/api/v3/conversationStats?unknown=1", vec![]),
+            (
+                "GET",
+                crate::conversation_stats::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::conversation_stats::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::conversation_stats::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.conversation_stats_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.conversation_stats_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn bid_to_pid_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::bid_to_pid::PATH);
+            req
+        };
+        assert!(state.bid_to_pid_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().bid_to_pid_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.bid_to_pid_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.bid_to_pid_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().bid_to_pid_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn bid_to_pid_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().bid_to_pid_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::bid_to_pid::PATH, vec![]),
+            ("OPTIONS", crate::bid_to_pid::PATH, vec![]),
+            ("GET", "/api/v3/bidToPid?unknown=1", vec![]),
+            (
+                "GET",
+                crate::bid_to_pid::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::bid_to_pid::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::bid_to_pid::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.bid_to_pid_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.bid_to_pid_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn reports_read_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = crate::reports_read::PATH.to_owned();
+            req
+        };
+        assert!(state.reports_read_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().reports_read_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.reports_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.reports_read_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().reports_read_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn reports_read_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().reports_read_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::reports_read::PATH, vec![]),
+            ("OPTIONS", crate::reports_read::PATH, vec![]),
+            ("GET", "/api/v3/reports?unknown=1", vec![]),
+            (
+                "GET",
+                crate::reports_read::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::reports_read::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::reports_read::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.reports_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.reports_read_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn all_conversations_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?owner_email=fixtureAbsentMarker",
+                crate::all_conversations::PATH
+            );
+            req
+        };
+        assert!(state.all_conversations_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().all_conversations_db = Some(pool);
+        let mut parsed = probe();
+        parsed.target="/api/v3/all_conversations?owner_email=++Owner%40fixture.invalid++&limit=9999&offset=99999999".into();
+        let query = crate::all_conversations::parse(&state, &parsed).unwrap();
+        assert_eq!(query.owner_email.as_deref(), Some("Owner@fixture.invalid"));
+        assert_eq!((query.limit, query.offset), (500, 99_999_999));
+        parsed.target = "/api/v3/all_conversations?owner_email=+++".into();
+        assert_eq!(
+            crate::all_conversations::parse(&state, &parsed)
+                .unwrap()
+                .owner_email
+                .as_deref(),
+            Some("")
+        );
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.all_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.all_conversations_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().all_conversations_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn all_conversations_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().all_conversations_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::all_conversations::PATH, vec![]),
+            ("OPTIONS", crate::all_conversations::PATH, vec![]),
+            ("GET", "/api/v3/all_conversations?unknown=1", vec![]),
+            (
+                "GET",
+                crate::all_conversations::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::all_conversations::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::all_conversations::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.all_conversations_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.all_conversations_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn recent_activity_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!(
+                "{}?sinceUnixTimestamp=9007199254740",
+                crate::recent_activity::PATH
+            );
+            req
+        };
+        assert!(state.recent_activity_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().recent_activity_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.recent_activity_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_activity_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().recent_activity_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn recent_activity_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().recent_activity_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::recent_activity::PATH, vec![]),
+            ("OPTIONS", crate::recent_activity::PATH, vec![]),
+            (
+                "GET",
+                "/api/v3/conversations/recent_activity?unknown=1",
+                vec![],
+            ),
+            (
+                "GET",
+                crate::recent_activity::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::recent_activity::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::recent_activity::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.recent_activity_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.recent_activity_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn metadata_read_gate_and_missing_auth_configuration_hand_back() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer fixture")],
+            );
+            req.target = format!("{}?conversation_id=fixture", crate::metadata_read::PATH);
+            req
+        };
+        assert!(state.metadata_read_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().metadata_read_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.metadata_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_read_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().metadata_read_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn metadata_read_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_read_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::metadata_read::PATH, vec![]),
+            ("OPTIONS", crate::metadata_read::PATH, vec![]),
+            ("GET", "/api/v3/metadata?unknown=1", vec![]),
+            (
+                "GET",
+                crate::metadata_read::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::metadata_read::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::metadata_read::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.metadata_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_read_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn metadata_answers_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!("{}?conversation_id=fixture", crate::metadata_answers::PATH);
+            req
+        };
+        assert!(state.metadata_answers_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().metadata_answers_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.metadata_answers_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_answers_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().metadata_answers_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn metadata_answers_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_answers_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::metadata_answers::PATH, vec![]),
+            ("OPTIONS", crate::metadata_answers::PATH, vec![]),
+            ("GET", "/api/v3/metadata/answers?unknown=1", vec![]),
+            (
+                "GET",
+                crate::metadata_answers::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::metadata_answers::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::metadata_answers::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.metadata_answers_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metadata_answers_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn connection_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(false);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::connection::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().connection_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 200); // No HTTPS redirect and no DB wait.
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"status":"ok"}"#));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 200);
+        assert_eq!(state.connection_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.connection_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn connection_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().connection_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::connection::PATH, vec![]),
+            ("OPTIONS", crate::connection::PATH, vec![]),
+            ("GET", "/api/v3/testConnection?unknown=1", vec![]),
+            (
+                "GET",
+                crate::connection::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::connection::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::connection::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.connection_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.connection_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn robots_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::robots::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().robots_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 200); // No DB wait.
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == b"User-agent: *\nDisallow: /api/"));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 200);
+        assert_eq!(state.robots_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.robots_fallback.load(Ordering::Relaxed), 1);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().robots_reads = true;
+        assert_eq!(handle(secure.clone(), probe("GET")).await.status, 302);
+        let mut req = probe("GET");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 200);
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn robots_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().robots_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::robots::PATH, vec![]),
+            ("OPTIONS", crate::robots::PATH, vec![]),
+            ("GET", "/robots.txt?unknown=1", vec![]),
+            (
+                "GET",
+                crate::robots::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", crate::robots::PATH, vec![("cookie", "fixture=1")]),
+            ("GET", crate::robots::PATH, vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.robots_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.robots_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn legacy_pca_has_no_database_work_and_preserves_304_end() {
+        let mut state = app(true);
+        let probe = |method: &str| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = format!(
+                "{}?conversation_id=fixture&math_tick=7",
+                crate::legacy_pca::PATH
+            );
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
+        for method in ["GET", "HEAD"] {
+            let out = handle(state.clone(), probe(method)).await;
+            assert_eq!(out.status, 304);
+            assert!(matches!(out.body, Body::Empty));
+            assert!(out.headers.iter().any(|(k,v)|k.eq_ignore_ascii_case("content-type") && v=="application/json"));
+            assert!(
+                !out.headers
+                    .iter()
+                    .any(|(k, _)| k.eq_ignore_ascii_case("etag"))
+            );
+        }
+        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 1);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().legacy_pca_reads = true;
+        assert_eq!(handle(secure, probe("GET")).await.status, 302);
+    }
+    #[tokio::test]
+    async fn legacy_pca_boundaries_are_counted_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
+        for (method, headers) in [
+            ("POST", vec![]),
+            ("OPTIONS", vec![]),
+            ("GET", vec![("authorization", "Bearer fixture")]),
+            ("GET", vec![("cookie", "fixture=1")]),
+            ("GET", vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = crate::legacy_pca::PATH.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 5);
+    }
+
+    #[tokio::test]
+    async fn about_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::about::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().about_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 302); // No DB wait.
+        assert_eq!(header(&out, "Location"), Some("http://localhost/home"));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 302);
+        assert_eq!(state.about_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.about_fallback.load(Ordering::Relaxed), 1);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().about_reads = true;
+        assert_eq!(handle(secure.clone(), probe("GET")).await.status, 302);
+        let mut req = probe("GET");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn about_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().about_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::about::PATH, vec![]),
+            ("OPTIONS", crate::about::PATH, vec![]),
+            ("GET", "/about?unknown=1", vec![]),
+            (
+                "GET",
+                crate::about::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", crate::about::PATH, vec![("cookie", "fixture=1")]),
+            ("GET", crate::about::PATH, vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.about_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.about_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn create_page_redirect_gate_and_wire() {
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(
+                state.clone(),
+                probe("GET", "/conversation/create", "MSIE 8.0")
+            )
+            .await
+            .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().create_page_reads = true;
+        for path in [
+            "/conversation/create",
+            "/conversation/create/step",
+            "/conversation/createSuffix",
+        ] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.create_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/conversation/create", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/conversation/create"),
+            ("OPTIONS", "/conversation/create"),
+            ("GET", "/conversation/create?x=1"),
+            ("GET", "/conversation/create/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.create_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().create_page_reads = true;
+        let mut req = probe("GET", "/conversation/create", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/conversation/create")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn create_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().create_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/conversation/create".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/conversation/create".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.create_page_fallback.load(Ordering::Relaxed), 5);
+    }
+    #[tokio::test]
+    async fn user_create_page_redirect_gate_and_wire() {
+        assert!(crate::user_create_page::matches("/user/create"));
+        assert!(crate::user_create_page::matches("/user/create/step"));
+        assert!(!crate::user_create_page::matches("/user/createSuffix"));
+        assert!(!crate::user_create_page::matches("/user/creat"));
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(state.clone(), probe("GET", "/user/create", "MSIE 8.0"))
+                .await
+                .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().user_create_page_reads = true;
+        for path in ["/user/create", "/user/create/step", "/user/create/"] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.user_create_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/user/create", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/user/create"),
+            ("OPTIONS", "/user/create"),
+            ("GET", "/user/create?x=1"),
+            ("GET", "/user/create/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.user_create_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().user_create_page_reads = true;
+        let mut req = probe("GET", "/user/create", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/user/create")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn user_create_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().user_create_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/user/create".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/user/create".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.user_create_page_fallback.load(Ordering::Relaxed), 5);
+    }
+    #[tokio::test]
+    async fn user_login_page_redirect_gate_and_wire() {
+        assert!(crate::user_login_page::matches("/user/login"));
+        assert!(crate::user_login_page::matches("/user/login/step"));
+        assert!(!crate::user_login_page::matches("/user/loginSuffix"));
+        assert!(!crate::user_login_page::matches("/user/logi"));
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(state.clone(), probe("GET", "/user/login", "MSIE 8.0"))
+                .await
+                .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().user_login_page_reads = true;
+        for path in ["/user/login", "/user/login/step", "/user/login/"] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.user_login_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/user/login", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/user/login"),
+            ("OPTIONS", "/user/login"),
+            ("GET", "/user/login?x=1"),
+            ("GET", "/user/login/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.user_login_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().user_login_page_reads = true;
+        let mut req = probe("GET", "/user/login", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/user/login")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn user_login_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().user_login_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/user/login".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/user/login".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.user_login_page_fallback.load(Ordering::Relaxed), 5);
+    }
+    #[tokio::test]
+    async fn user_logout_page_redirect_gate_and_wire() {
+        assert!(crate::user_logout_page::matches("/user/logout"));
+        assert!(crate::user_logout_page::matches("/user/logout/step"));
+        assert!(!crate::user_logout_page::matches("/user/logoutSuffix"));
+        assert!(!crate::user_logout_page::matches("/user/logou"));
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(state.clone(), probe("GET", "/user/logout", "MSIE 8.0"))
+                .await
+                .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().user_logout_page_reads = true;
+        for path in ["/user/logout", "/user/logout/step", "/user/logout/"] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.user_logout_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/user/logout", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/user/logout"),
+            ("OPTIONS", "/user/logout"),
+            ("GET", "/user/logout?x=1"),
+            ("GET", "/user/logout/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.user_logout_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().user_logout_page_reads = true;
+        let mut req = probe("GET", "/user/logout", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/user/logout")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn user_logout_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().user_logout_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/user/logout".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/user/logout".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.user_logout_page_fallback.load(Ordering::Relaxed), 5);
+    }
+    #[tokio::test]
+    async fn settings_page_redirect_gate_and_wire() {
+        assert!(crate::settings_page::matches("/settings"));
+        assert!(crate::settings_page::matches("/settings/step"));
+        assert!(!crate::settings_page::matches("/settingsSuffix"));
+        assert!(!crate::settings_page::matches("/setting"));
+        let mut state = app(true);
+        let probe = |method, path: &str, ua: &str| {
+            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
+            req.target = path.into();
+            req
+        };
+        assert_eq!(
+            handle(state.clone(), probe("GET", "/settings", "MSIE 8.0"))
+                .await
+                .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().settings_page_reads = true;
+        for path in ["/settings", "/settings/step", "/settings/"] {
+            for method in ["GET", "HEAD"] {
+                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
+                assert_eq!(out.status, 302);
+                assert_eq!(
+                    header(&out, "Location"),
+                    Some(format!("https://localhost:5000/#{path}").as_str())
+                );
+                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
+                assert_eq!(header(&out, "ETag"), None);
+            }
+        }
+        assert_eq!(state.settings_page_served.load(Ordering::Relaxed), 6);
+        for ua in [
+            "Mozilla/5.0",
+            "MSIE 7.0",
+            "MSIE 10.0",
+            "msie 8.0",
+            "MSIE 8.0 MSIE 6.0",
+            "",
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", "/settings", ua))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for (method, path) in [
+            ("POST", "/settings"),
+            ("OPTIONS", "/settings"),
+            ("GET", "/settings?x=1"),
+            ("GET", "/settings/%20"),
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe(method, path, "MSIE 8.0"))
+                    .await
+                    .status,
+                502
+            );
+        }
+        assert_eq!(state.settings_page_fallback.load(Ordering::Relaxed), 11);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().settings_page_reads = true;
+        let mut req = probe("GET", "/settings", "MSIE 8.0");
+        req.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("user-agent", "MSIE 8.0"),
+            ("x-forwarded-proto", "https"),
+            ("origin", "https://example.invalid"),
+        ]);
+        let out = handle(secure, req).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(
+            header(&out, "Location"),
+            Some("https://localhost/#/settings")
+        );
+        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
+    }
+    #[tokio::test]
+    async fn settings_page_headers_and_body_stay_on_node() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().settings_page_reads = true;
+        for extra in [
+            ("cookie", "fixture=1"),
+            ("authorization", "Bearer fixture"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
+            );
+            req.target = "/settings".into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
+        req.target = "/settings".into();
+        req.body = vec![b'x'];
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        assert_eq!(state.settings_page_fallback.load(Ordering::Relaxed), 5);
+    }
     fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {
         out.headers
             .iter()
@@ -1097,5 +4684,1140 @@ mod tests {
         );
         assert!(!out.headers.iter().any(|(k, _)| k == "Content-Length"));
         assert!(matches!(out.body, Body::Chunked(_)));
+    }
+    #[tokio::test]
+    async fn admin_page_gate_boundaries_and_wire() {
+        let mut state = app(true);
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/m/2test".into();
+        assert_eq!(
+            handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone()
+                }
+            )
+            .await
+            .status,
+            502
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        Arc::get_mut(&mut state).unwrap().admin_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), port).unwrap());
+        let task = tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            for _ in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut b = [0; 4096];
+                let n = socket.read(&mut b).await.unwrap();
+                let body = if b[..n].starts_with(b"HEAD ") {
+                    ""
+                } else {
+                    "html"
+                };
+                socket
+                    .write_all(
+                        format!("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n{body}").as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+        });
+        for method in ["GET", "HEAD"] {
+            req.method = method.into();
+            let out = handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone(),
+                },
+            )
+            .await;
+            assert_eq!(out.status, 200);
+            assert_eq!(header(&out, "Content-Type"), Some("text/html"));
+            assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
+            let bytes = crate::http::write_response(&out, method == "HEAD", false, "D").unwrap();
+            let expected = if method == "HEAD" {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\n\r\n"
+            } else {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nhtml\r\n0\r\n\r\n"
+            };
+            assert_eq!(bytes, expected.as_bytes());
+        }
+        task.await.unwrap();
+        for extra in [
+            ("cookie", "a=b"),
+            ("authorization", "Bearer fixture"),
+            ("range", "bytes=0-1"),
+            ("if-none-match", "*"),
+            ("accept-encoding", "gzip"),
+            ("x-unknown", "1"),
+            ("content-length", "1"),
+        ] {
+            let mut bad = request("GET", &[("host", "localhost"), extra]);
+            bad.target = "/m/2test".into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        for (method, path) in [
+            ("POST", "/m/2test"),
+            ("GET", "/m/2test?x=1"),
+            ("GET", "/m/2test/%20"),
+        ] {
+            let mut bad = Request {
+                method: req.method.clone(),
+                target: req.target.clone(),
+                headers: req.headers.clone(),
+                body: req.body.clone(),
+            };
+            bad.method = method.into();
+            bad.target = path.into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        assert_eq!(state.admin_page_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.admin_page_fallback.load(Ordering::Relaxed), 11);
+    }
+    #[tokio::test]
+    async fn integrate_page_gate_boundaries_and_wire() {
+        let mut state = app(true);
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/integrate".into();
+        assert_eq!(
+            handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone()
+                }
+            )
+            .await
+            .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().admin_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), 1).unwrap());
+        assert!(crate::integrate_page::parse(&state, &req).is_none());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        Arc::get_mut(&mut state).unwrap().integrate_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), port).unwrap());
+        let task = tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            for _ in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut b = [0; 4096];
+                let n = socket.read(&mut b).await.unwrap();
+                let body = if b[..n].starts_with(b"HEAD ") {
+                    ""
+                } else {
+                    "html"
+                };
+                socket
+                    .write_all(
+                        format!("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n{body}").as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+        });
+        for method in ["GET", "HEAD"] {
+            req.method = method.into();
+            let out = handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone(),
+                },
+            )
+            .await;
+            assert_eq!(out.status, 200);
+            assert_eq!(header(&out, "Content-Type"), Some("text/html"));
+            assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
+            let bytes = crate::http::write_response(&out, method == "HEAD", false, "D").unwrap();
+            let expected = if method == "HEAD" {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\n\r\n"
+            } else {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nhtml\r\n0\r\n\r\n"
+            };
+            assert_eq!(bytes, expected.as_bytes());
+        }
+        task.await.unwrap();
+        for extra in [
+            ("cookie", "a=b"),
+            ("authorization", "Bearer fixture"),
+            ("range", "bytes=0-1"),
+            ("if-none-match", "*"),
+            ("accept-encoding", "gzip"),
+            ("x-unknown", "1"),
+            ("content-length", "1"),
+        ] {
+            let mut bad = request("GET", &[("host", "localhost"), extra]);
+            bad.target = "/integrate".into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        for (method, path) in [
+            ("POST", "/integrate"),
+            ("GET", "/integrate?x=1"),
+            ("GET", "/integrate/%20"),
+        ] {
+            let mut bad = Request {
+                method: req.method.clone(),
+                target: req.target.clone(),
+                headers: req.headers.clone(),
+                body: req.body.clone(),
+            };
+            bad.method = method.into();
+            bad.target = path.into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        assert_eq!(state.integrate_page_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.integrate_page_fallback.load(Ordering::Relaxed), 11);
+    }
+    #[tokio::test]
+    async fn other_conversations_page_gate_boundaries_and_wire() {
+        let mut state = app(true);
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/other-conversations".into();
+        assert_eq!(
+            handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone()
+                }
+            )
+            .await
+            .status,
+            502
+        );
+        Arc::get_mut(&mut state).unwrap().integrate_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), 1).unwrap());
+        assert!(crate::other_conversations_page::parse(&state, &req).is_none());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        Arc::get_mut(&mut state).unwrap().other_conversations_page =
+            Some(crate::admin_page::Client::new("127.0.0.1".into(), port).unwrap());
+        let task = tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            for _ in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut b = [0; 4096];
+                let n = socket.read(&mut b).await.unwrap();
+                let body = if b[..n].starts_with(b"HEAD ") {
+                    ""
+                } else {
+                    "html"
+                };
+                socket
+                    .write_all(
+                        format!("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n{body}").as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+        });
+        for method in ["GET", "HEAD"] {
+            req.method = method.into();
+            let out = handle(
+                state.clone(),
+                Request {
+                    method: req.method.clone(),
+                    target: req.target.clone(),
+                    headers: req.headers.clone(),
+                    body: req.body.clone(),
+                },
+            )
+            .await;
+            assert_eq!(out.status, 200);
+            assert_eq!(header(&out, "Content-Type"), Some("text/html"));
+            assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
+            let bytes = crate::http::write_response(&out, method == "HEAD", false, "D").unwrap();
+            let expected = if method == "HEAD" {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\n\r\n"
+            } else {
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nhtml\r\n0\r\n\r\n"
+            };
+            assert_eq!(bytes, expected.as_bytes());
+        }
+        task.await.unwrap();
+        for extra in [
+            ("cookie", "a=b"),
+            ("authorization", "Bearer fixture"),
+            ("range", "bytes=0-1"),
+            ("if-none-match", "*"),
+            ("accept-encoding", "gzip"),
+            ("x-unknown", "1"),
+            ("content-length", "1"),
+        ] {
+            let mut bad = request("GET", &[("host", "localhost"), extra]);
+            bad.target = "/other-conversations".into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        for (method, path) in [
+            ("POST", "/other-conversations"),
+            ("GET", "/other-conversations?x=1"),
+            ("GET", "/other-conversations/%20"),
+        ] {
+            let mut bad = Request {
+                method: req.method.clone(),
+                target: req.target.clone(),
+                headers: req.headers.clone(),
+                body: req.body.clone(),
+            };
+            bad.method = method.into();
+            bad.target = path.into();
+            assert_eq!(handle(state.clone(), bad).await.status, 502);
+        }
+        assert_eq!(
+            state
+                .other_conversations_page_served
+                .load(Ordering::Relaxed),
+            2
+        );
+        assert_eq!(
+            state
+                .other_conversations_page_fallback
+                .load(Ordering::Relaxed),
+            11
+        );
+    }
+    #[tokio::test]
+    async fn delphi_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/delphi")).await.status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().delphi_read_db = Some(pool);
+        for target in [
+            "/api/v3/delphi",
+            "/api/v3/delphi?",
+            "/api/v3/delphi?report_id=",
+            "/api/v3/delphi?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 400);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"report_id is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/delphi?report_id=fixture",
+            "/api/v3/delphi?unknown=1",
+            "/api/v3/delphi?report_id=a&report_id=b",
+            "/api/v3/delphi?report_id[]=a",
+            "/api/v3/delphi?report_id[x]=a",
+            "/api/v3/delphi?report_id=%E9%9B%AA",
+            "/api/v3/delphi?job_id=x",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/delphi".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/delphi");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(state.delphi_read_served.load(Ordering::Relaxed), 4);
+        assert_eq!(state.delphi_read_fallback.load(Ordering::Relaxed), 14);
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn delphi_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("delphi_validation_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::delphi_read::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().delphi_read_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/delphi?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 404);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find conversation for report_id","report_id":"missing"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 404);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn delphi_reports_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/delphi/reports"))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().delphi_reports_db = Some(pool);
+        for target in [
+            "/api/v3/delphi/reports",
+            "/api/v3/delphi/reports?",
+            "/api/v3/delphi/reports?report_id=",
+            "/api/v3/delphi/reports?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 200);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"report_id (requestReportId) is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/delphi/reports?report_id=fixture",
+            "/api/v3/delphi/reports?unknown=1",
+            "/api/v3/delphi/reports?report_id=a&report_id=b",
+            "/api/v3/delphi/reports?report_id[]=a",
+            "/api/v3/delphi/reports?report_id[x]=a",
+            "/api/v3/delphi/reports?report_id=%E9%9B%AA",
+            "/api/v3/delphi/reports?job_id=x",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/delphi/reports".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/delphi/reports");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(state.delphi_reports_served.load(Ordering::Relaxed), 4);
+        assert_eq!(state.delphi_reports_fallback.load(Ordering::Relaxed), 14);
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn delphi_reports_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("delphi_reports_validation_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::delphi_reports::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().delphi_reports_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/delphi/reports?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 200);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find a valid identifier for the report_id to query DynamoDB.","request_report_id":"missing"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 200);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn delphi_visualizations_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/delphi/visualizations"))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().delphi_visualizations_db = Some(pool);
+        for target in [
+            "/api/v3/delphi/visualizations",
+            "/api/v3/delphi/visualizations?",
+            "/api/v3/delphi/visualizations?report_id=",
+            "/api/v3/delphi/visualizations?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 400);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"report_id is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/delphi/visualizations?report_id=fixture",
+            "/api/v3/delphi/visualizations?unknown=1",
+            "/api/v3/delphi/visualizations?report_id=a&report_id=b",
+            "/api/v3/delphi/visualizations?report_id[]=a",
+            "/api/v3/delphi/visualizations?report_id[x]=a",
+            "/api/v3/delphi/visualizations?report_id=%E9%9B%AA",
+            "/api/v3/delphi/visualizations?job_id=x",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/delphi/visualizations".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/delphi/visualizations");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(
+            state.delphi_visualizations_served.load(Ordering::Relaxed),
+            4
+        );
+        assert_eq!(
+            state.delphi_visualizations_fallback.load(Ordering::Relaxed),
+            14
+        );
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn delphi_visualizations_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!(
+            "delphi_visualizations_validation_test_{}",
+            std::process::id()
+        );
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::delphi_visualizations::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().delphi_visualizations_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/delphi/visualizations?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 404);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find conversation for report_id","report_id":"missing"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 404);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn topic_stats_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/topicStats"))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().topic_stats_db = Some(pool);
+        for target in [
+            "/api/v3/topicStats",
+            "/api/v3/topicStats?",
+            "/api/v3/topicStats?report_id=",
+            "/api/v3/topicStats?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 400);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"report_id is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/topicStats?report_id=fixture",
+            "/api/v3/topicStats?unknown=1",
+            "/api/v3/topicStats?report_id=a&report_id=b",
+            "/api/v3/topicStats?report_id[]=a",
+            "/api/v3/topicStats?report_id[x]=a",
+            "/api/v3/topicStats?report_id=%E9%9B%AA",
+            "/api/v3/topicStats?job_id=x",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/topicStats".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/topicStats");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(state.topic_stats_served.load(Ordering::Relaxed), 4);
+        assert_eq!(state.topic_stats_fallback.load(Ordering::Relaxed), 14);
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn topic_stats_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("topic_stats_validation_test_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::topic_stats::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().topic_stats_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/topicStats?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 404);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find conversation for report_id","report_id":"missing"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 404);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn collective_statement_validation_gate_boundaries_and_missing_without_database() {
+        let mut state = app(true);
+        let req = |target: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = target.into();
+            r
+        };
+        assert_eq!(
+            handle(state.clone(), req("/api/v3/collectiveStatement"))
+                .await
+                .status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().collective_statement_db = Some(pool);
+        for target in [
+            "/api/v3/collectiveStatement",
+            "/api/v3/collectiveStatement?",
+            "/api/v3/collectiveStatement?report_id=",
+            "/api/v3/collectiveStatement?report_id",
+        ] {
+            let out = handle(state.clone(), req(target)).await;
+            assert_eq!(out.status, 400);
+            assert!(
+                matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"statement_id or report_id is required"}"#)
+            );
+        }
+        for target in [
+            "/api/v3/collectiveStatement?report_id=fixture",
+            "/api/v3/collectiveStatement?unknown=1",
+            "/api/v3/collectiveStatement?report_id=a&report_id=b",
+            "/api/v3/collectiveStatement?report_id[]=a",
+            "/api/v3/collectiveStatement?report_id[x]=a",
+            "/api/v3/collectiveStatement?report_id=%E9%9B%AA",
+            "/api/v3/collectiveStatement?job_id=x",
+            "/api/v3/collectiveStatement?statement_id=generated",
+            "/api/v3/collectiveStatement?statement_id=",
+            "/api/v3/collectiveStatement?report_id=missing&statement_id=generated",
+        ] {
+            assert_eq!(handle(state.clone(), req(target)).await.status, 502);
+        }
+        for header in [
+            ("authorization", "Bearer fixture.invalid"),
+            ("cookie", "fixture=1"),
+            ("content-length", "1"),
+            ("transfer-encoding", "chunked"),
+        ] {
+            let mut r = request("GET", &[("host", "localhost"), header]);
+            r.target = "/api/v3/collectiveStatement".into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        for method in ["POST", "OPTIONS"] {
+            let mut r = req("/api/v3/collectiveStatement");
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502);
+        }
+        assert_eq!(state.collective_statement_served.load(Ordering::Relaxed), 4);
+        assert_eq!(
+            state.collective_statement_fallback.load(Ordering::Relaxed),
+            17
+        );
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn collective_statement_unknown_reports_use_independent_bounded_read_only_pool() {
+        use polis_queue_adapter::jobs::transport::Connector;
+        use std::time::Duration;
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!(
+            "collective_statement_validation_test_{}",
+            std::process::id()
+        );
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move||{let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.reports(report_id text,zid integer); INSERT INTO {setup_schema}.reports VALUES ('exists',1),('zero',0),('null',NULL),('duplicate',1),('duplicate',2);")).unwrap();}).await.unwrap();
+        let make_pool = || {
+            let mut cfg: postgres::Config = url.parse().unwrap();
+            cfg.options(&format!("-c search_path={schema}"));
+            Pool::new(
+                Connector::Plain(Box::new(cfg)),
+                crate::collective_statement::pool_limits(),
+            )
+        };
+        let probe_pool = make_pool();
+        let participant_pool = make_pool();
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().collective_statement_db = Some(probe_pool.clone());
+        Arc::get_mut(&mut state).unwrap().next_comment_db = Some(participant_pool.clone());
+        let req = |id: &str| {
+            let mut r = request("GET", &[("host", "localhost")]);
+            r.target = format!("/api/v3/collectiveStatement?report_id={id}");
+            r
+        };
+        let out = handle(state.clone(), req("missing")).await;
+        assert_eq!(out.status, 404);
+        assert!(
+            matches!(out.body,Body::Fixed(ref b) if b==br#"{"status":"error","message":"Could not find conversation for report_id"}"#)
+        );
+        for id in ["exists", "zero", "null", "duplicate"] {
+            assert_eq!(handle(state.clone(), req(id)).await.status, 502);
+        }
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let lock_url = url.clone();
+        let lock_schema = schema.clone();
+        let lock = tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&lock_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "BEGIN; LOCK TABLE {lock_schema}.reports IN ACCESS EXCLUSIVE MODE"
+            ))
+            .unwrap();
+            ready_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            c.batch_execute("ROLLBACK").unwrap();
+        });
+        ready_rx.await.unwrap();
+        // A real blocked report query sheds itself. The participation pool stays
+        // independently usable; this is isolation evidence, not a load claim.
+        assert!(participant_pool.ping().await);
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 502);
+        release_tx.send(()).unwrap();
+        lock.await.unwrap();
+        assert_eq!(handle(state.clone(), req("missing")).await.status, 404);
+        let err = probe_pool
+            .with(|c| Ok(c.batch_execute("INSERT INTO reports VALUES ('forbidden',1)")?))
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("read-only"));
+        tokio::task::spawn_blocking(move || {
+            drop(state);
+            drop(probe_pool);
+            drop(participant_pool);
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn ops_whoami_disabled_response_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::ops_whoami::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().ops_whoami_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 404);
+        assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
+        assert_eq!(header(&out, "X-Content-Type-Options"), Some("nosniff"));
+        assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"error":"not_found"}"#));
+        let head = handle(state.clone(), probe("HEAD")).await;
+        assert_eq!(head.status, 404);
+        let wire = crate::http::write_response(&head, true, false, "D").unwrap();
+        assert!(wire.ends_with(b"\r\n\r\n"));
+        assert!(!wire.windows(9).any(|w| w == b"not_found"));
+        assert_eq!(state.ops_whoami_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.ops_whoami_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn ops_whoami_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().ops_whoami_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::ops_whoami::PATH, vec![]),
+            ("OPTIONS", crate::ops_whoami::PATH, vec![]),
+            ("GET", "/api/v3/ops/whoami?unknown=1", vec![]),
+            (
+                "GET",
+                crate::ops_whoami::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::ops_whoami::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::ops_whoami::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.ops_whoami_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.ops_whoami_fallback.load(Ordering::Relaxed), 6);
+    }
+    #[tokio::test]
+    async fn ops_page_disabled_response_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = "/api/v3/ops/page/fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().ops_page_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 404);
+        assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
+        assert_eq!(header(&out, "X-Content-Type-Options"), Some("nosniff"));
+        assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"error":"not_found"}"#));
+        let head = handle(state.clone(), probe("HEAD")).await;
+        assert_eq!(head.status, 404);
+        let wire = crate::http::write_response(&head, true, false, "D").unwrap();
+        assert!(wire.ends_with(b"\r\n\r\n"));
+        assert!(!wire.windows(9).any(|w| w == b"not_found"));
+        assert_eq!(state.ops_page_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.ops_page_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn ops_page_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().ops_page_reads = true;
+        for (method, target, headers) in [
+            ("POST", "/api/v3/ops/page/fixture", vec![]),
+            ("OPTIONS", "/api/v3/ops/page/fixture", vec![]),
+            ("GET", "/api/v3/ops/page/fixture?unknown=1", vec![]),
+            (
+                "GET",
+                "/api/v3/ops/page/fixture",
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                "/api/v3/ops/page/fixture",
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                "/api/v3/ops/page/fixture",
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.ops_page_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.ops_page_fallback.load(Ordering::Relaxed), 6);
+    }
+    #[tokio::test]
+    async fn ops_catchall_disabled_response_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = "/api/v3/ops/unknown".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().ops_catchall_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 404);
+        assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
+        assert_eq!(header(&out, "X-Content-Type-Options"), Some("nosniff"));
+        assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{"error":"not_found"}"#));
+        let head = handle(state.clone(), probe("HEAD")).await;
+        assert_eq!(head.status, 404);
+        let wire = crate::http::write_response(&head, true, false, "D").unwrap();
+        assert!(wire.ends_with(b"\r\n\r\n"));
+        assert!(!wire.windows(9).any(|w| w == b"not_found"));
+        assert_eq!(state.ops_catchall_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.ops_catchall_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn ops_catchall_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().ops_catchall_reads = true;
+        for (method, target, headers) in [
+            ("POST", "/api/v3/ops/unknown", vec![]),
+            ("OPTIONS", "/api/v3/ops/unknown", vec![]),
+            ("GET", "/api/v3/ops/unknown?unknown=1", vec![]),
+            (
+                "GET",
+                "/api/v3/ops/unknown",
+                vec![("authorization", "Bearer fixture")],
+            ),
+            ("GET", "/api/v3/ops/unknown", vec![("cookie", "fixture=1")]),
+            ("GET", "/api/v3/ops/unknown", vec![("content-length", "1")]),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.ops_catchall_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.ops_catchall_fallback.load(Ordering::Relaxed), 6);
     }
 }
