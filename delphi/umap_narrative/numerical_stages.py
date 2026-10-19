@@ -1,28 +1,82 @@
 """Pure numerical stages shared by legacy CLI and independently queued Delphi jobs.
 
 Extracted without changing parameters, EVOC fallback, or corpus TF-IDF semantics.
-No storage clients or provider imports.
+No storage clients or provider imports. UMAP, EVōC and scikit-learn are imported
+where they are used, so reading DEFAULT_SEED or CLUSTER_MODEL stays cheap.
 """
 import logging
 import traceback
 import numpy as np
-import evoc
-from umap import UMAP
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 logger = logging.getLogger(__name__)
 
+# The seed of UMAP, EVōC and the KMeans fallback when the caller names none: the
+# value UMAP has always used here. The full pipeline runs with it and its output
+# manifest names it; a queued graph run passes the seed of its declared input.
+DEFAULT_SEED = 42
+# The clustering's model id: UMAP plus EVōC, as project_and_cluster runs them.
+CLUSTER_MODEL = "delphi-umap-evoc/1"
 
-def project_and_cluster(document_vectors):
+_numba_seed = None
+
+
+def _seed_evoc(seed):
+    """Make EVōC (0.1.3, which takes no random_state) repeat for one seed.
+
+    EVōC draws from NumPy's global generator (the nearest-neighbour forest, the
+    label-propagation start, the node embedding's start and per-epoch draws) and
+    from Numba's own generator (label-propagation tie breaks), and its
+    node-embedding epochs update shared rows from parallel threads. So it runs
+    with both generators seeded and on one Numba thread. On one thread EVōC would
+    also build a smaller nearest-neighbour forest (it takes 4 to 8 trees from the
+    thread count), so the forest keeps the size this machine's thread count
+    gives. Returns the function that puts NumPy's global state, the thread count
+    and the forest size back.
+    """
+    global _numba_seed
+    import functools
+    import numba
+    from evoc import clustering
+
+    if _numba_seed is None:
+        @numba.njit
+        def seed_numba(value):
+            np.random.seed(value)
+
+        _numba_seed = seed_numba
+    threads = numba.get_num_threads()
+    knn_graph = clustering.knn_graph
+    state = np.random.get_state()
+    np.random.seed(seed)
+    _numba_seed(seed)
+    clustering.knn_graph = functools.partial(knn_graph, n_trees=max(4, min(8, threads)))
+    numba.set_num_threads(1)
+
+    def restore():
+        numba.set_num_threads(threads)
+        clustering.knn_graph = knn_graph
+        np.random.set_state(state)
+
+    return restore
+
+
+def project_and_cluster(document_vectors, seed=DEFAULT_SEED):
+    """UMAP's 2-D map and EVōC's cluster layers, both from `seed`: the same
+    vectors and seed give the same map and the same layers."""
+    import evoc
+    from umap import UMAP
+
     # Generate 2D projection with UMAP
     logger.info("Generating 2D projection with UMAP...")
-    document_map = UMAP(n_components=2, metric="cosine", random_state=42).fit_transform(
+    document_map = UMAP(n_components=2, metric="cosine", random_state=seed).fit_transform(
         document_vectors
     )
 
-    # Cluster with EVōC
-    logger.info("Clustering with EVōC...")
+    # Cluster with EVōC. It is built and seeded before the try: an argument it
+    # refuses, or a failure to seed it, raises instead of falling back to KMeans.
+    logger.info(f"Clustering with EVōC (seed {seed})...")
+    clusterer = evoc.EVoC(min_samples=5)  # Set min_samples to avoid empty clusters
+    restore = _seed_evoc(seed)
     try:
-        clusterer = evoc.EVoC(min_samples=5)  # Set min_samples to avoid empty clusters
         cluster_labels = clusterer.fit_predict(document_vectors)
         cluster_layers = clusterer.cluster_layers_
 
@@ -40,7 +94,7 @@ def project_and_cluster(document_vectors):
         from sklearn.cluster import KMeans
 
         logger.info("Falling back to KMeans clustering...")
-        kmeans = KMeans(n_clusters=5, random_state=42)
+        kmeans = KMeans(n_clusters=5, random_state=seed)
         cluster_labels = kmeans.fit_predict(document_vectors)
 
         # Create a simple layered clustering for demonstration
@@ -53,6 +107,8 @@ def project_and_cluster(document_vectors):
         logger.info(
             f"Created {len(cluster_layers)} cluster layers with fallback clustering"
         )
+    finally:
+        restore()
 
     return document_map, cluster_layers
 
@@ -68,6 +124,8 @@ def characterize_comment_clusters(cluster_layer, comment_texts):
     Returns:
         cluster_characteristics: Dictionary with cluster characterizations
     """
+    from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+
     # Create a dictionary to store cluster characteristics
     cluster_characteristics = {}
 

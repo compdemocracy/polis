@@ -82,6 +82,8 @@ def _finish_daemon_job(job, zid, region):
     """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
     from polismath import job_child
     from polismath.job_child import census
+    # The clustering run_pipeline.py ran: UMAP and EVoC from the default seed.
+    from umap_narrative.numerical_stages import CLUSTER_MODEL, DEFAULT_SEED
 
     try:
         outputs = census.count_full_pipeline_outputs(zid, census.default_dynamodb(region))
@@ -91,6 +93,8 @@ def _finish_daemon_job(job, zid, region):
                 "embed": os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
                 "topic": _topic_model_name(),
                 "narrative": None,
+                "cluster": CLUSTER_MODEL,
+                "cluster_seed": DEFAULT_SEED,
             },
             # Topic naming's provider batches are submitted and awaited inside
             # the UMAP stage; P1 does not observe them, so cost stays unknown.
