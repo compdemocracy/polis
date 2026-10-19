@@ -189,8 +189,11 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 start ""
 expect /api/v3/comments node "comments off"
+expect "/api/v3/comments?conversation_id=fixture&moderation=true" node "moderation off"
 start comments,comments
 expect /api/v3/comments rust "comments on"
+expect_upstream polis-api GET "/api/v3/comments?conversation_id=fixture&moderation=true"
+expect_upstream polis-api GET "/api/v3/comments?conversation_id=fixture&moderation=true&include_voting_patterns=true" $'Authorization: Bearer fixture\r\n'
 expect /api/v3/math/pca2 node "comments leaves pca2 alone"
 expect /api/v3/owner/conversations node "comments leaves owner list alone"
 [[ $(included | grep -c 'location = /api/v3/comments') == 1 ]] || fail "comments route duplicated"
@@ -203,6 +206,7 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 502 unavailable
 sleep 6
 expect /api/v3/comments node "comments boundary or unavailable"
+expect "/api/v3/comments?conversation_id=fixture&moderation=true" node "moderation boundary or unavailable"
 echo "ok 12 public comments off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 

@@ -1,0 +1,9 @@
+# Test-only verifier configuration; product switches remain off.
+services:
+  polis-api:
+    environment:
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      AUTH_ISSUER: https://oidc-simulator:3000/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/
+      ADMIN_UIDS: "[2]"

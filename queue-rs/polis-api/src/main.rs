@@ -601,6 +601,12 @@ async fn main() -> Result<()> {
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
         let dsn = std::env::var("POLIS_API_COMMENTS_DATABASE_URL")
             .context("POLIS_API_COMMENTS_DATABASE_URL is required for comment reads")?;
         let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
