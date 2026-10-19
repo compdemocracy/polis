@@ -12795,6 +12795,10 @@
     {
       "path": "server/postgres/migrations/000042_tid_auto_transaction_lock.sql",
       "sha256": "ae12bd2dcce3a8e055adb54b241c090f36861ad4185771e173a87abd278b53f6"
+    },
+    {
+      "path": "server/postgres/migrations/000043_pid_auto_transaction_lock.sql",
+      "sha256": "55d472ea088c55bd14fc7659452eafa0167d40a26b1d06f2d367bb860e218aec"
     }
   ]
 }

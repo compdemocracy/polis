@@ -41,7 +41,8 @@ class ForwardProof(unittest.TestCase):
             '000028_create_delphi_results.sql', '000029_extend_delphi_graph_stages.sql',
             '000030_create_delphi_writers.sql', '000031_scope_delphi_result_reads.sql',
             '000038_create_delphi_comment_embeddings.sql', '000039_clear_zinvites_uuid.sql',
-            '000041_create_delphi_run_record.sql', '000042_tid_auto_transaction_lock.sql'})
+            '000041_create_delphi_run_record.sql', '000042_tid_auto_transaction_lock.sql',
+            '000043_pid_auto_transaction_lock.sql'})
 
     def test_02_deploy_records_declarations(self):
         db = self.new('records'); p.runner(db, 'deploy')
@@ -58,7 +59,7 @@ class ForwardProof(unittest.TestCase):
             self.assertIn('applied 0 migration(s)', out)
             for name in newer:
                 self.assertIn(f'tolerating {name}', out)
-            self.assertIn('8 newer additive migration(s) tolerated', p.runner(db, 'check', dir=old).stdout)
+            self.assertIn('9 newer additive migration(s) tolerated', p.runner(db, 'check', dir=old).stdout)
             gate = p.gate(db, True, dir=old)
             self.assertIn('tolerating 000030_create_delphi_writers.sql', gate.stdout)
             self.assertEqual(before, history(db))

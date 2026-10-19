@@ -151,14 +151,16 @@ function tryToJoinConversation(
   });
 }
 
-// The pid_auto trigger takes the conversation's participant lock as a SESSION
-// advisory lock, and pid_auto_unlock gives it back only after an INSERT that
-// succeeds (server/postgres/migrations/000000_initial.sql). A participants
-// INSERT that fails after taking it (a lost pid race, an existing (zid, uid),
-// a lock timeout) leaves the lock on its connection, and ROLLBACK does not
-// release it. So a connection that saw any error here is closed instead of
+// Before migration 000043, the pid_auto trigger took the conversation's
+// participant lock as a SESSION advisory lock, and pid_auto_unlock gave it back
+// only after an INSERT that succeeded (server/postgres/migrations). A
+// participants INSERT that failed after taking it (a lost pid race, an existing
+// (zid, uid), a lock timeout) left the lock on its connection, and ROLLBACK did
+// not release it. So a connection that saw any error here is closed instead of
 // being returned to the pool: the lock ends with its session, rather than
-// making every later joiner of the conversation wait on it.
+// making every later joiner of the conversation wait on it. Since 000043 the
+// lock is held to COMMIT or ROLLBACK and never outlives the transaction;
+// closing the connection is kept for a database without 000043.
 //
 // Every lock wait in the transaction is bounded, so a lock held elsewhere (a
 // server still running code that leaks it, for example) answers the joiner
@@ -204,8 +206,9 @@ async function insertParticipant(
     }
 
     // Second insert into participants table.
-    // The pid_auto trigger acquires an advisory lock and assigns pid = MAX(pid)+1.
-    // The pid_auto_unlock trigger releases the lock after insert.
+    // The pid_auto trigger acquires the conversation's participant lock and
+    // assigns pid = MAX(pid)+1; since migration 000043 the lock is held until
+    // this transaction commits or rolls back.
     try {
       const partResult = await client.query(
         "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
@@ -280,9 +283,11 @@ async function addParticipant(
     if (err?.code !== "23505") {
       throw err;
     }
-    // Another joiner was given the same pid: pid_auto computes MAX(pid) + 1
-    // before that joiner's row is committed. It is committed by the time this
-    // INSERT fails, so one more attempt, on a new connection, gets the next pid.
+    // Another joiner was given the same pid: before migration 000043, pid_auto
+    // could compute MAX(pid) + 1 before that joiner's row was committed. It is
+    // committed by the time this INSERT fails, so one more attempt, on a new
+    // connection, gets the next pid. With 000043 the lock is held to commit and
+    // this does not happen; the retry is kept for a database without it.
     logger.info("participant pid collision; retrying once", {
       zid,
       uid,
