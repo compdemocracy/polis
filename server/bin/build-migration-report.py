@@ -84,7 +84,7 @@ def build():
                '000024_create_polis_queue_large_class.sql', '000027_create_sealed_job_graphs.sql', '000028_create_delphi_results.sql',
                '000029_extend_delphi_graph_stages.sql', '000030_create_delphi_writers.sql',
                '000031_scope_delphi_result_reads.sql', '000038_create_delphi_comment_embeddings.sql',
-               '000039_clear_zinvites_uuid.sql'}
+               '000039_clear_zinvites_uuid.sql', '000041_create_delphi_run_record.sql'}
     assert selected == {p.name for p in files} | pending, 'report scope differs from release selection'
     assert held == {'000021_create_polis_coordinator.sql'}, 'review changed hold policy'
     numbered = sorted(MIG.glob('*.sql'))
@@ -158,7 +158,8 @@ WITH checks AS (
               ('000030_create_delphi_writers.sql'),
               ('000031_scope_delphi_result_reads.sql'),
               ('000038_create_delphi_comment_embeddings.sql'),
-              ('000039_clear_zinvites_uuid.sql')) p(migration) CROSS JOIN readiness
+              ('000039_clear_zinvites_uuid.sql'),
+              ('000041_create_delphi_run_record.sql')) p(migration) CROSS JOIN readiness
  UNION ALL
  SELECT migration, NULL::boolean, 'OUTSIDE_RELEASE'
  FROM (VALUES ('000020'),('000021'),('000025'),('000026')) p(migration)
