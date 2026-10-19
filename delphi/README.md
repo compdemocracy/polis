@@ -69,13 +69,14 @@ by an LLM. The provider is selected with environment variables:
 | `LLM_PROVIDER` | `anthropic` | `anthropic` (Batch API) or `ollama` (self-hosted GPU) |
 | `ANTHROPIC_TOPIC_MODEL` | `claude-haiku-4-5-20251001` | Anthropic model; falls back to `ANTHROPIC_MODEL` |
 | `ANTHROPIC_API_KEY` | — | Required when `LLM_PROVIDER=anthropic` |
-| `TOPIC_BATCH_MAX_WAIT_SECONDS` | `1800` | Max wait for a naming batch before falling back to generic labels |
+| `TOPIC_BATCH_MAX_WAIT_SECONDS` | `1800` | Max wait for a naming batch; past it, naming fails and so does the run |
 | `OLLAMA_MODEL` / `OLLAMA_HOST` | `llama3.1:8b` / `http://ollama:11434` | Only used when `LLM_PROVIDER=ollama` |
 
 **Anthropic (default):** all cluster prompts for a layer are submitted as one
-Anthropic Message Batch and polled until complete. Naming never crashes the
-pipeline — a failed request falls back to a generic `Topic N` label, and a
-wholesale failure falls back to conventional keyword labels.
+Anthropic Message Batch and polled until complete. A failed request falls back
+to a generic `Topic N` label. When the provider names no cluster (no API key,
+a refused or timed-out batch, every request errored), naming fails and the run
+fails: keyword labels are never stored under the model's name.
 
 Enable topic naming with `run_pipeline.py --name-topics` (the deprecated
 `--use-ollama` flag still works and forces `LLM_PROVIDER=ollama`).
