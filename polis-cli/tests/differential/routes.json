@@ -364,7 +364,7 @@
       "delphi status",
       "delphi visualization view"
     ],
-    "scope": "Existing-report visualizations and DynamoDB/S3 results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+    "scope": "The shared fixture uses DynamoDB, so existing reports and S3 results hand to Node. Dedicated Postgres conformance proves archived/native job metadata, filtering, liveness and serving counts."
   },
   "topicStats": {
     "path": "/api/v3/topicStats",

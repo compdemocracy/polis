@@ -744,6 +744,21 @@ async fn main() -> Result<()> {
             config::connector_for_dsn(&dsn, "polis-api-delphi-visualizations/1")?,
             delphi_visualizations::pool_limits(),
         ));
+        if std::env::var("DELPHI_RESULT_BACKEND").ok().as_deref() == Some("postgres") {
+            state.delphi_visualizations_env = std::env::var("DELPHI_RESULT_ENV")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .context("DELPHI_RESULT_ENV is required for visualization jobs")?;
+            state.delphi_visualizations_scope = std::env::var("DELPHI_RESULT_SCOPE")
+                .ok()
+                .filter(|s| !s.is_empty());
+            let results = std::env::var("POLIS_API_DELPHI_VISUALIZATIONS_RESULTS_DATABASE_URL")
+                .context("a primary result database is required for visualization jobs")?;
+            state.delphi_visualizations_result_db = Some(db::Pool::new(
+                config::connector_for_dsn(&results, "polis-api-delphi-visualizations-results/1")?,
+                delphi_visualizations::result_pool_limits(),
+            ));
+        }
     }
     if std::env::var("POLIS_API_TOPIC_STATS_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_TOPIC_STATS_DATABASE_URL").context(

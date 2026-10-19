@@ -1111,25 +1111,44 @@ Node/Rust byte replay on the generated fixture stack. This slice does not
 serve narrative reports or claim DynamoDB/provider parity.
 
 
-### Delphi visualization validation
+### Delphi visualization jobs
 
-`GET`/`HEAD /api/v3/delphi/visualizations` is staged behind `POLIS_API_DELPHI_VISUALIZATIONS_READS=1`
-and nginx `RUST_API_ROUTES=delphiVisualizations`, both off by default. Set
-`POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL` to Node's read replica. Only missing/empty
-report IDs (HTTP 400) and absent reports (HTTP 404) are served, using the shared
-`polis-contracts::delphi_visualizations` request/response types. Existing reports and
-DynamoDB responses remain Node, as do identity, body, duplicate/structured
-query, job-filter and unsupported report-ID shapes. Accepted nonempty IDs
-are at most 100 ASCII alphanumeric, underscore or hyphen characters.
-The uncached report lookup has its own one-slot read-only pool: 15 ms acquire,
-50 ms statement and 75 ms caller deadline. It never borrows a participation
-pool or holds a connection over a remote service call. Database errors and
-contention hand back to Node; cancellation retains the slot until the query
-finishes. `delphiVisualizationsServed` and `delphiVisualizationsFallback` count the outcomes.
-Run `queue-rs/polis-api/conformance/delphi-visualizations-run.sh result.json` for raw
-Node/Rust byte replay on the generated fixture stack. This slice does not
-serve visualizations or claim DynamoDB/S3/provider parity.
+`GET`/`HEAD /api/v3/delphi/visualizations` remains behind
+`POLIS_API_DELPHI_VISUALIZATIONS_READS=1` and nginx
+`RUST_API_ROUTES=delphiVisualizations`, both off by default. The existing
+`POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL` pool resolves reports (one slot,
+15 ms acquire, 50 ms statement). Without the Postgres result backend, only
+missing/unknown report validation is served and its 75 ms deadline is unchanged;
+existing reports, credentials and S3 work stay with Node.
 
+With `DELPHI_RESULT_BACKEND=postgres`, set `DELPHI_RESULT_ENV`, the same optional
+`DELPHI_RESULT_SCOPE` as Node, and the primary
+`POLIS_API_DELPHI_VISUALIZATIONS_RESULTS_DATABASE_URL`. Its independent read-only
+pool has two slots, 15 ms acquisition and 200 ms statement bounds. It reads the
+existing job views/controls and the same native graph/attempt/provider liveness
+relations as Node; use the existing Node read login's access, without new grants.
+The whole metadata request is bounded at 750 ms; nginx waits up to 1 second.
+No participation connection or lock is shared.
+
+The public response keeps `status`, `report_id`, `visualizations: []` and Node's
+job fields/order. Native rows hide archived copies, current native liveness is
+read separately after the result snapshot, and `job_id` filters the completed
+metadata list. This does not invent a static visualization artifact contract.
+The first result snapshot must fit a conservative single-page bound (512 KiB,
+1,000 jobs); larger listings, unsupported legacy coercions and unavailable reads
+hand back to Node, without a partial list, and so does a liveness sweep that
+cannot finish within these bounds. `delphiVisualizationsServed` and
+`delphiVisualizationsFallback` count outcomes.
+
+`queue-rs/polis-api/conformance/delphi-visualizations-pg-run.sh result.json`
+replays the unchanged Postgres baseline and compares native jobs, filters and
+terminal liveness. Set unique `COMPOSE_PROJECT_NAME`, `POLIS_RECOVERY_PG_PORT`,
+and the local `DELPHI_VISUALIZATIONS_PG_NODE_IMAGE`,
+`DELPHI_VISUALIZATIONS_PG_POSTGRES_IMAGE`, and
+`DELPHI_VISUALIZATIONS_PG_API_IMAGE` (fixture-clock) images. The shared CLI
+DynamoDB differential still proves existing-report handoffs; the dedicated
+Postgres run provides serving proof. No Node handler, schema, writer or
+production switch changes.
 
 ### Topic statistics validation
 
