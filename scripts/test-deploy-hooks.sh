@@ -16,6 +16,8 @@ inputs=(
   scripts/before_install.sh
   scripts/application_stop.sh
   scripts/validate_service.sh
+  deploy/build-images.sh
+  deploy/build-on-box.sh
   docker-compose.yml
   docker-compose.test.yml
   delphi/Dockerfile
@@ -25,6 +27,7 @@ tests=(
   test_before_install_hook.py
   test_validate_service_hook.py
   test_compose_math_env.py
+  test_build_images.py
 )
 # Fail before copying anything if the source checkout is incomplete. Missing
 # inputs must not turn these deployment controls into a green skipped suite.
