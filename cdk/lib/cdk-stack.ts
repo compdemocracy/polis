@@ -283,11 +283,28 @@ export class CdkStack extends cdk.Stack {
       : [];
     const workerWiring = workerClasses ? { roles: workerRoleList, extraGroups: extraWorkerGroups } : undefined;
 
+    // ALB & DNS. Created before the deployment groups: the web group names the
+    // target group so CodeDeploy drains each web box before its containers are
+    // replaced (cdk/codedeploy.ts).
+    const {
+      lb,
+      webTargetGroup,
+      httpListener,
+      httpsListener,
+      webScalingPolicy
+    } = createALBAndDNS(
+      this,
+      vpc,
+      lbSecurityGroup,
+      asgWeb
+    );
+
     // --- DEPLOY STUFF
     const {
       application,
       deploymentBucket,
-      deploymentGroup
+      deploymentGroup,
+      workersDeploymentGroup
     } = createCodedeployConfig(
       this,
       instanceRole,
@@ -296,6 +313,7 @@ export class CdkStack extends cdk.Stack {
       asgDelphiSmall,
       asgDelphiLarge,
       codeDeployRole,
+      webTargetGroup,
       workerWiring
     );
 
@@ -307,7 +325,11 @@ export class CdkStack extends cdk.Stack {
         vpc,
         deploymentBucket,
         codeDeployApplicationName: application.applicationName,
-        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        // The workflow creates a deployment in each group (cdk/codedeploy.ts).
+        codeDeployDeploymentGroupNames: [
+          deploymentGroup.deploymentGroupName,
+          workersDeploymentGroup.deploymentGroupName,
+        ],
         githubRepo: (this.node.tryGetContext('buildBoxGithubRepo') as string | undefined) ?? 'compdemocracy/polis',
         // Must equal the `environment:` and branch of the deploy workflow's jobs.
         githubEnvironment: 'production',
@@ -416,20 +438,6 @@ export class CdkStack extends cdk.Stack {
 
     db.connections.allowFrom(lambda, ec2.Port.tcp(5432), 'Allow connection from backup Lambda');
 
-    // ALB & DNS
-    const {
-      lb,
-      webTargetGroup,
-      httpListener,
-      httpsListener,
-      webScalingPolicy
-    } = createALBAndDNS(
-      this,
-      vpc,
-      lbSecurityGroup,
-      asgWeb
-    );
-
     // --- Operational alarms (P-031 slice 1).
     // Off unless synthesized with `-c enableAlarms=true -c alarmEmail=...`.
     // Seven alarms on metrics that already exist, one SNS topic, and one
@@ -444,6 +452,7 @@ export class CdkStack extends cdk.Stack {
         webTargetGroupFullName: webTargetGroup.targetGroupFullName,
         codeDeployApplicationName: application.applicationName,
         codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        codeDeployWorkerDeploymentGroupName: workersDeploymentGroup.deploymentGroupName,
         // A06 is notBreaching and A07 is ignore, as deployed. The health-pair
         // check reads those settings off the synthesized alarms rather than
         // taking them on trust from here.
