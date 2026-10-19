@@ -406,5 +406,13 @@
       "ops page"
     ],
     "scope": "Disabled operations 404 only with matching explicit OPS_ENABLED=false. CLI sends account authorization and hands to Node; raw replay proves anonymous serving."
+  },
+  "opsCatchall": {
+    "path": "/api/v3/ops/unknown",
+    "minimum_rust_successes": 0,
+    "expected_requests": 0,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Unmatched operations GET/HEAD 404 with explicit OPS_ENABLED=false. No CLI command targets the catch-all; direct wire replay proves serving. Registered whoami/page paths preserve independent switches."
   }
 }
