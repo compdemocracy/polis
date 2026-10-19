@@ -743,10 +743,9 @@ describe("Treevite API endpoints", () => {
         .get("/api/v3/treevite/myInvites")
         .query({ conversation_id: retroactiveConversationId });
 
-      // Both participants are getting their own invites plus potentially inherited ones
-      // We should check that invites were created, not exact counts
-      expect(afterResponse1.body.length).toBeGreaterThan(0);
-      expect(afterResponse2.body.length).toBeGreaterThan(0);
+      // Each wave 1 participant holds exactly invites_per_user wave 2 codes
+      expect(afterResponse1.body.length).toBe(3);
+      expect(afterResponse2.body.length).toBe(3);
 
       // Verify all invites are unique
       const allInviteCodes = [
@@ -829,6 +828,338 @@ describe("Treevite API endpoints", () => {
       // Should have 2 invites for wave 2 (invites_per_user was 2)
       // Note: Wave 3 invites are not created because it's a child of wave 2, not wave 1
       expect(invitesCheck.body).toHaveLength(2);
+    });
+  });
+
+  // A wave's invites_per_user is the number of that wave's codes each member of
+  // its parent wave holds. A member who joined before the wave existed is given
+  // them when the wave is created; one who joins after is given them on joining.
+  // Either way, each member holds exactly invites_per_user codes of each child
+  // wave of the wave they joined, and every one of those codes has its owner.
+  describe("Per-user codes from a child wave created after members joined", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let pool: any;
+    let conversationId: string;
+    let zid: number;
+    let wave2Id: number;
+    let wave3Id: number;
+    const members: { agent: Agent; pid: number }[] = [];
+
+    // Unused codes a participant owns, by wave number. The participant routes do
+    // not say which wave a code belongs to, so this reads the table.
+    const unusedByWave = async (
+      pid: number
+    ): Promise<Record<number, number>> => {
+      const { rows } = await pool.query(
+        "select w.wave, count(*)::int as n from treevite_invites i join treevite_waves w on w.id = i.wave_id where i.zid = $1 and i.invite_owner_pid = $2 and i.status = 0 group by w.wave order by w.wave",
+        [zid, pid]
+      );
+      return Object.fromEntries(
+        rows.map((r: { wave: number; n: number }) => [r.wave, r.n])
+      );
+    };
+
+    const myInviteCount = async (agent: Agent): Promise<number> => {
+      const response = await agent
+        .get("/api/v3/treevite/myInvites")
+        .query({ conversation_id: conversationId });
+      expect(response.status).toBe(200);
+      return response.body.length;
+    };
+
+    const join = async (
+      inviteCode: string
+    ): Promise<{ agent: Agent; pid: number }> => {
+      const agent = await newAgent();
+      const accepted = await agent
+        .post("/api/v3/treevite/acceptInvite")
+        .send({ conversation_id: conversationId, invite_code: inviteCode });
+      expect(accepted.status).toBe(201);
+      agent.set("Authorization", `Bearer ${accepted.body.auth.token}`);
+      const me = await agent
+        .get("/api/v3/treevite/me")
+        .query({ conversation_id: conversationId });
+      expect(me.status).toBe(200);
+      return { agent, pid: me.body.participant.pid };
+    };
+
+    beforeAll(async () => {
+      ({ pool } = await import("../setup/db-test-helpers"));
+      conversationId = await createConversation(adminAgent, {
+        topic: "Child wave after members joined",
+        treevite_enabled: true,
+      });
+      zid = (
+        await pool.query("select zid from zinvites where zinvite = $1", [
+          conversationId,
+        ])
+      ).rows[0].zid;
+
+      const wave1 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 2,
+        invites_per_user: 0,
+      });
+      expect(wave1.status).toBe(201);
+
+      // Wave 2 exists before anyone joins wave 1: its codes are given on joining.
+      const wave2 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 0,
+        invites_per_user: 2,
+        parent_wave: 1,
+      });
+      expect(wave2.status).toBe(201);
+      expect(wave2.body.invites_created).toBe(0);
+      wave2Id = wave2.body.id;
+
+      const ownerCodes = await adminAgent
+        .get("/api/v3/treevite/invites")
+        .query({ conversation_id: conversationId, wave_id: wave1.body.id });
+      expect(ownerCodes.body.invites.length).toBe(2);
+      for (const invite of ownerCodes.body.invites) {
+        members.push(await join(invite.invite_code));
+      }
+    });
+
+    test("members who joined wave 1 each hold the per-user codes of wave 2", async () => {
+      // The conversation had no participants, so participant 0 is a member.
+      expect(members.map((m) => m.pid)).toContain(0);
+      for (const member of members) {
+        expect(await unusedByWave(member.pid)).toEqual({ 2: 2 });
+        expect(await myInviteCount(member.agent)).toBe(2);
+      }
+    });
+
+    test("a second child of wave 1, created after they joined, gives each member its per-user codes once", async () => {
+      const wave3 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 0,
+        invites_per_user: 1,
+        parent_wave: 1,
+      });
+      expect(wave3.status).toBe(201);
+      wave3Id = wave3.body.id;
+      // One code for each of the two members.
+      expect(wave3.body.invites_created).toBe(2);
+
+      for (const member of members) {
+        expect(await unusedByWave(member.pid)).toEqual({ 2: 2, 3: 1 });
+        expect(await myInviteCount(member.agent)).toBe(3);
+      }
+    });
+
+    test("every code of that wave belongs to a member; none is left without an owner", async () => {
+      const { rows } = await pool.query(
+        "select count(*) filter (where invite_owner_pid is null)::int as unowned, count(distinct invite_owner_pid)::int as owners from treevite_invites where wave_id = $1",
+        [wave3Id]
+      );
+      expect(rows[0]).toEqual({ unowned: 0, owners: 2 });
+
+      const ownerList = await adminAgent
+        .get("/api/v3/treevite/invites")
+        .query({ conversation_id: conversationId, wave_id: wave3Id });
+      expect(ownerList.status).toBe(200);
+      expect(ownerList.body.invites.length).toBe(0);
+    });
+
+    test("a child of a wave nobody has joined issues nothing until someone joins that wave", async () => {
+      const wave4 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 0,
+        invites_per_user: 1,
+        parent_wave: 2,
+      });
+      expect(wave4.status).toBe(201);
+      expect(wave4.body.invites_created).toBe(0);
+      for (const member of members) {
+        expect(await unusedByWave(member.pid)).toEqual({ 2: 2, 3: 1 });
+      }
+
+      // The first member passes one of their wave 2 codes on.
+      const [first] = members;
+      const passedOn = (
+        await pool.query(
+          "select invite_code from treevite_invites where zid = $1 and wave_id = $2 and invite_owner_pid = $3 and status = 0 order by id limit 1",
+          [zid, wave2Id, first.pid]
+        )
+      ).rows[0].invite_code;
+      const newcomer = await join(passedOn);
+
+      expect(await unusedByWave(newcomer.pid)).toEqual({ 4: 1 });
+      expect(await myInviteCount(newcomer.agent)).toBe(1);
+      expect(await unusedByWave(first.pid)).toEqual({ 2: 1, 3: 1 });
+    });
+  });
+
+  describe("Per-user codes are issued once per participant and wave", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let pool: any;
+
+    const zidOf = async (conversationId: string): Promise<number> =>
+      (
+        await pool.query("select zid from zinvites where zinvite = $1", [
+          conversationId,
+        ])
+      ).rows[0].zid;
+
+    // Codes a participant owns in one wave, whatever their status.
+    const heldInWave = async (waveId: number, pid: number): Promise<number> =>
+      (
+        await pool.query(
+          "select count(*)::int as n from treevite_invites where wave_id = $1 and invite_owner_pid = $2",
+          [waveId, pid]
+        )
+      ).rows[0].n;
+
+    const ownerCodesOf = async (
+      conversationId: string,
+      waveId: number
+    ): Promise<string[]> => {
+      const response = await adminAgent
+        .get("/api/v3/treevite/invites")
+        .query({ conversation_id: conversationId, wave_id: waveId, limit: 50 });
+      expect(response.status).toBe(200);
+      return response.body.invites.map(
+        (i: { invite_code: string }) => i.invite_code
+      );
+    };
+
+    beforeAll(async () => {
+      ({ pool } = await import("../setup/db-test-helpers"));
+    });
+
+    test("a member who accepts a second code into the same wave is not given a second set", async () => {
+      const conversationId = await createConversation(adminAgent, {
+        topic: "Second accept into the same wave",
+        treevite_enabled: true,
+      });
+      const wave1 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 3,
+        invites_per_user: 0,
+      });
+      const wave2 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 0,
+        invites_per_user: 2,
+        parent_wave: 1,
+      });
+      expect(wave2.status).toBe(201);
+      const [code1, code2, code3] = await ownerCodesOf(
+        conversationId,
+        wave1.body.id
+      );
+
+      // A first joiner, so that the member below is not participant 0: the
+      // accept route honours a returning participant's token only above 0.
+      const firstAccept = await (await newAgent())
+        .post("/api/v3/treevite/acceptInvite")
+        .send({ conversation_id: conversationId, invite_code: code1 });
+      expect(firstAccept.status).toBe(201);
+
+      const agent = await newAgent();
+      const accepted = await agent
+        .post("/api/v3/treevite/acceptInvite")
+        .send({ conversation_id: conversationId, invite_code: code2 });
+      expect(accepted.status).toBe(201);
+      agent.set("Authorization", `Bearer ${accepted.body.auth.token}`);
+      const me = await agent
+        .get("/api/v3/treevite/me")
+        .query({ conversation_id: conversationId });
+      const pid = me.body.participant.pid;
+      expect(pid).toBeGreaterThan(0);
+      expect(await heldInWave(wave2.body.id, pid)).toBe(2);
+
+      const again = await agent
+        .post("/api/v3/treevite/acceptInvite")
+        .send({ conversation_id: conversationId, invite_code: code3 });
+      expect(again.status).toBe(201);
+      const meAgain = await agent
+        .get("/api/v3/treevite/me")
+        .query({ conversation_id: conversationId });
+      expect(meAgain.body.participant.pid).toBe(pid);
+      expect(await heldInWave(wave2.body.id, pid)).toBe(2);
+
+      // A child wave created now finds this member twice among wave 1's used
+      // codes; it still gives them one set (and the first joiner one).
+      const wave3 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 0,
+        invites_per_user: 1,
+        parent_wave: 1,
+      });
+      expect(wave3.status).toBe(201);
+      expect(await heldInWave(wave3.body.id, pid)).toBe(1);
+      expect(wave3.body.invites_created).toBe(2);
+    });
+
+    test("a child wave created while a member is joining gives that member one set", async () => {
+      const conversationId = await createConversation(adminAgent, {
+        topic: "Child wave created during a join",
+        treevite_enabled: true,
+      });
+      const zid = await zidOf(conversationId);
+      const wave1 = await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: conversationId,
+        owner_invites: 1,
+        invites_per_user: 0,
+      });
+      expect(wave1.status).toBe(201);
+      const [code] = await ownerCodesOf(conversationId, wave1.body.id);
+
+      // acceptInvite marks the code used, writes the login code it issues, and
+      // only then gives the member the codes of the wave's existing child
+      // waves. Hold the join at that write (a SHARE lock on the login code
+      // table makes writes to it wait; wave creation never writes it), create
+      // the child wave in that moment, then let the join go on: the wave finds
+      // the member already joined, and the join finds the wave.
+      const holder = await pool.connect();
+      let pid: number | undefined;
+      let waveId: number | undefined;
+      let joining: Promise<{ status: number }> | undefined;
+      try {
+        await holder.query("begin");
+        await holder.query("lock table treevite_login_codes in share mode");
+        const agent = await newAgent();
+        joining = agent
+          .post("/api/v3/treevite/acceptInvite")
+          .send({ conversation_id: conversationId, invite_code: code })
+          .then((response) => response);
+        for (let i = 0; i < 2500 && pid === undefined; i++) {
+          const { rows } = await holder.query(
+            "select invite_used_by_pid from treevite_invites where zid = $1 and wave_id = $2 and status = 1",
+            [zid, wave1.body.id]
+          );
+          if (rows.length) pid = rows[0].invite_used_by_pid;
+          else await new Promise((resolve) => setTimeout(resolve, 2));
+        }
+        expect(pid).toBeDefined();
+
+        const wave2 = await adminAgent.post("/api/v3/treevite/waves").send({
+          conversation_id: conversationId,
+          owner_invites: 0,
+          invites_per_user: 2,
+          parent_wave: 1,
+        });
+        expect(wave2.status).toBe(201);
+        waveId = wave2.body.id;
+        expect(await heldInWave(wave2.body.id, pid as number)).toBe(2);
+      } finally {
+        await holder.query("rollback");
+        holder.release();
+      }
+
+      const joined = await joining;
+      expect(joined?.status).toBe(201);
+      expect(await heldInWave(waveId as number, pid as number)).toBe(2);
+      const total = (
+        await pool.query(
+          "select count(*)::int as n, count(*) filter (where invite_owner_pid is null)::int as unowned from treevite_invites where wave_id = $1",
+          [waveId]
+        )
+      ).rows[0];
+      expect(total).toEqual({ n: 2, unowned: 0 });
     });
   });
 
