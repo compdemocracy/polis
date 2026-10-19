@@ -62,6 +62,7 @@ def main():
             rows += [dict(command=name,args=name.split(),expected_exit=8,scope='planned',actor='owner') for name,implemented in sorted(nodes.items()) if not implemented]
             captured={}
             for phase in run_phases(stack,cli,[('node',''),('rust',','.join(sorted(routes)))]):
+                report[phase+'_numeric_wire']=cli.numeric_checks
                 (workspace/'seeds.csv').write_text('comment_text,original_id\nGenerated imported statement,generated-import\n')
                 (workspace/'invalid-result.json').write_text('{}')
                 (workspace/'allowlist.json').write_text('["generated-external"]')
@@ -126,6 +127,7 @@ def main():
                 after=stack.nginx_log()
                 if before!=after:raise RuntimeError('planned command unexpectedly made an HTTP request')
                 captured[phase]=phase_values
+                report[phase+'_numeric_wire']=cli.numeric_checks.copy()
                 report[phase+'_seconds']=round(time.monotonic()-phase_start,3)
                 report[phase+'_slowest']=sorted(timings,key=lambda r:r['seconds'],reverse=True)[:5]
                 log=stack.nginx_log()
