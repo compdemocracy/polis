@@ -47,13 +47,15 @@ function handle_POST_reportCommentSelections(
     });
 }
 
-function createReport(zid: number, mod_level?: number) {
+function createReport(zid: number, mod_level?: number): Promise<string> {
   return generateTokenP(20, false).then(function (report_id: string) {
     report_id = "r" + report_id;
-    return pg.queryP(
-      "insert into reports (zid, report_id, mod_level) values ($1, $2, $3);", // need db migration, ui should read from report api, query API based on val
-      [zid, report_id, mod_level]
-    );
+    return pg
+      .queryP(
+        "insert into reports (zid, report_id, mod_level) values ($1, $2, $3);", // need db migration, ui should read from report api, query API based on val
+        [zid, report_id, mod_level]
+      )
+      .then(() => report_id);
   });
 }
 
@@ -70,8 +72,8 @@ function handle_POST_reports(
       if (!isMod) {
         return failJson(res, 403, "polis_err_post_reports_permissions");
       }
-      return createReport(zid, mod_level).then(() => {
-        res.json({});
+      return createReport(zid, mod_level).then((report_id) => {
+        res.json({ report_id });
       });
     })
     .catch((err: any) => {

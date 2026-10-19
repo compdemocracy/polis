@@ -391,10 +391,11 @@ polis conversation edit CONV --invite-only false --external-id required
 unverified links without a request or message. `conversation stats ID [--until MS]`
 reads moderator event statistics, bounded to 8 MiB, without a report-ID fallback.
 
-`report create --conversation ID` creates configuration only. The API returns no
-created ID: the CLI keeps `report_id: null` and an accepted receipt, plus an
-uncorrelated readback list or `readback_state: unavailable`. Repeated creation can
-create duplicate reports. Report edits and statement selection remain planned.
+`report create --conversation ID` creates configuration only. The CLI prints the
+created report's ID as `report_id`, taken from the server's reply; a server that
+replies `{}` leaves it `null`. The accepted receipt and a readback list (or
+`readback_state: unavailable`) come with it. Repeated creation can create duplicate
+reports. Report edits and statement selection remain planned.
 
 
 Pass six: stored topics and report reads
