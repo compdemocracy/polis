@@ -207,7 +207,7 @@ function extract(root) {
         ts.ScriptTarget.Latest,
         true
       );
-      function inspect(n) {
+      const inspect = (n) => {
         if (
           ts.isCallExpression(n) &&
           ts.isPropertyAccessExpression(n.expression) &&
@@ -228,7 +228,7 @@ function extract(root) {
             "route registration outside app.ts requires an explicit inventory extension"
           );
         ts.forEachChild(n, inspect);
-      }
+      };
       inspect(other);
     }
   }
