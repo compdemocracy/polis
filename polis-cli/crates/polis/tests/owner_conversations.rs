@@ -157,7 +157,7 @@ fn conflicting_pagination_and_invalid_options_fail_before_http() {
         vec!["--sort", "newest", "--offset", "1"],
         vec!["--sort", "newest", "--limit", "501"],
         vec!["--min-participants", "-1"],
-        vec!["--sort", "participants"],
+        vec!["--sort", "unknown"],
         vec!["--cursor", ""],
     ] {
         let t = tempfile::tempdir().unwrap();

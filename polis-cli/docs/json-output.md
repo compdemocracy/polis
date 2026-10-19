@@ -166,3 +166,31 @@ rows, names and server ordering are preserved. No pagination or writes; each rea
 is bounded to 8 MiB and --timeout. Text is untrusted data. Upstream failures become
 metadata_read_failed or contexts_read_failed; malformed rows are invalid_response.
 Authentication, permission and rate-limit errors retain their existing codes.
+
+Conversation sizes (explicit reads):
+
+    polis conversation list --sizes
+    polis conversation list --sort participants --limit 100 --json
+    polis conversation list --sort statements
+    polis conversation list --sort votes
+
+These options use the existing conversation list and one sequential
+`conversationStats` read per returned owned conversation. `--sizes` preserves
+list order; the three size sorts order largest first, with stable ties. The
+limit is at most 500. This ranks the returned rows, not every owned conversation;
+`pagination.truncated` and the warning indicate when the server limit was hit.
+Use a larger limit within that bound to expand the candidate set. No automatic
+pagination or retry occurs. A stats error fails the command without printing a
+partial ranking. Each response is bounded to 8 MiB and the selected timeout;
+large conversations can exceed that bound. This is not a snapshot.
+
+With size options, each conversation gains `size.participants` (distinct pids
+with a stored vote, including author votes), `size.statements` (all comment rows,
+including seeds and moderated statements), and `size.votes` (all vote records,
+including revotes). No vote values or signs are read or converted. The existing
+`participant_count` is preserved: it is a stored counter based on assigned
+participant IDs, not a distinct-voter count. The envelope adds `size_scope` as
+`returned_owned_rows`, `size_source`, and `sort` when requested. Normal output
+adds PARTICIPANTS, STATEMENTS and VOTES columns. Other commands and the default
+list do not perform these additional reads. Cursor/date-sort/min-participants
+mode is separate and cannot be combined with size options.

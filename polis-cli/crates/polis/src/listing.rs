@@ -31,7 +31,12 @@ fn layout(
     }
     let origin = origin.trim_end_matches('/');
     let newest = newest_reports(reports.unwrap_or_default());
-    let rows: Vec<[String; 4]> = conversations
+    let sizes = conversations.iter().any(|r| r.get("size").is_some());
+    let mut headers = HEADERS.to_vec();
+    if sizes {
+        headers.extend(["PARTICIPANTS", "STATEMENTS", "VOTES"]);
+    }
+    let rows: Vec<Vec<String>> = conversations
         .iter()
         .map(|row| {
             let id = text(row, "conversation_id");
@@ -42,12 +47,22 @@ fn layout(
                 }
                 None => String::new(),
             };
-            [
+            let mut cells = vec![
                 clean(text(row, "topic")),
                 clean(text(row, "description")),
                 link(origin, "", id),
                 report,
-            ]
+            ];
+            if sizes {
+                for key in ["participants", "statements", "votes"] {
+                    cells.push(
+                        row["size"][key]
+                            .as_u64()
+                            .map_or_else(|| "-".into(), |v| v.to_string()),
+                    );
+                }
+            }
+            cells
         })
         .collect();
     let natural = |column: usize| {
@@ -55,15 +70,20 @@ fn layout(
             .map(|row| chars(&row[column]))
             .max()
             .unwrap_or(0)
-            .max(chars(HEADERS[column]))
+            .max(chars(headers[column]))
     };
     let (url_width, report_width) = (natural(2), natural(3));
-    let fixed = url_width + report_width + 3 * GAP.len();
+    let count_widths: Vec<usize> = (4..headers.len()).map(natural).collect();
+    let fixed = url_width
+        + report_width
+        + count_widths.iter().sum::<usize>()
+        + (headers.len() - 1) * GAP.len();
     let budget = terminal.map_or(TEXT_BUDGET, |columns| columns.saturating_sub(fixed));
     let (topic_width, description_width) = text_widths(budget, natural(0), natural(1));
-    let widths = [topic_width, description_width, url_width, report_width];
+    let mut widths = vec![topic_width, description_width, url_width, report_width];
+    widths.extend(count_widths);
     let mut out = String::new();
-    let header = HEADERS.map(str::to_owned);
+    let header: Vec<String> = headers.into_iter().map(str::to_owned).collect();
     for row in std::iter::once(&header).chain(&rows) {
         let mut line = String::new();
         for (column, cell) in row.iter().enumerate() {
@@ -73,7 +93,7 @@ fn layout(
             let cell = truncate(cell, widths[column]);
             line.push_str(&cell);
             // The last column is never padded, so lines carry no trailing spaces.
-            if column < 3 {
+            if column + 1 < widths.len() {
                 line.extend(std::iter::repeat_n(' ', widths[column] - chars(&cell)));
             }
         }
