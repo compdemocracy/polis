@@ -1115,6 +1115,11 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/delphi/visualizations node "Delphi visualization validation handoff"
+# Query filters and arbitrary Authorization stay intact on this public route.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start delphiVisualizations
+expect_upstream polis-api GET '/api/v3/delphi/visualizations?report_id=r&job_id=generated-job' $'Authorization: Bearer generated\r\n'
 echo "ok 53 Delphi visualization validation off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 docker rm -f "$p-rust" >/dev/null

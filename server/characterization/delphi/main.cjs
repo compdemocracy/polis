@@ -438,7 +438,9 @@ async function main() {
 
   // Optional Rust conformance uses the unchanged fixture and recording oracle.
   const rust = process.env.P2ZERO_RUST_KEYS
-    ? await require("../../../queue-rs/polis-api/conformance/delphi-logs-check.cjs").start({
+    ? await require(process.env.P2ZERO_RUST_CHECK === "visualizations"
+        ? "../../../queue-rs/polis-api/conformance/delphi-visualizations-pg-check.cjs"
+        : "../../../queue-rs/polis-api/conformance/delphi-logs-check.cjs").start({
         keys: process.env.P2ZERO_RUST_KEYS, jwks: signer.jwks,
         publicKey: pair.publicKey, request, serialize, oidc,
         database: pgApp.toString(),
@@ -463,7 +465,7 @@ async function main() {
     const r = await request(c.path, token);
     statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
     const text = serialize(c, r);
-    if (rust && c.route === "GET /api/v3/delphi/logs") await rust.compare(c, token, text);
+    if (rust && (rust.matches ? rust.matches(c) : c.route === "GET /api/v3/delphi/logs")) await rust.compare(c, token, text);
     const file = path.join(RECORDINGS, `${c.id}.json`);
     index.cases.push({
       id: c.id,
