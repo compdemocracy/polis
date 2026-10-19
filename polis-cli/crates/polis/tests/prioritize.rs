@@ -122,7 +122,8 @@ fn failing(status: u16) -> (u16, &'static str, String) {
     (
         status,
         "application/json\r\nX-Request-Id: private-correlation",
-        json!({"status":"error","message":"private-correlation"}).to_string(),
+        json!({"status":"error","message":"Topic unavailable","detail":"private-correlation"})
+            .to_string(),
     )
 }
 fn body(request: &str) -> Value {
@@ -448,6 +449,9 @@ fn errors_map_to_exit_codes_without_retry_or_echo() {
         let t = server(d.path(), vec![failing(status)]);
         let (code, v) = call(d.path(), &save_args());
         assert_eq!(code, exit, "{status} {v}");
+        if (400..500).contains(&status) {
+            assert_eq!(v["error"]["upstream"]["message"], "Topic unavailable");
+        }
         assert_eq!(t.join().unwrap().len(), 1);
         let t = server(d.path(), vec![failing(status)]);
         assert_eq!(
