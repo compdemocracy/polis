@@ -29,6 +29,7 @@ mod reads;
 mod reserve;
 mod seeds;
 mod setup;
+mod sizes;
 mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
@@ -349,9 +350,11 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             )
         }
         "conversation list" => {
-            if m.get_one::<String>("sort").is_some()
-                || m.get_one::<u32>("min-participants").is_some()
-                || m.get_one::<String>("cursor").is_some()
+            let with_sizes = sizes::validate(m)?;
+            if !with_sizes
+                && (m.get_one::<String>("sort").is_some()
+                    || m.get_one::<u32>("min-participants").is_some()
+                    || m.get_one::<String>("cursor").is_some())
             {
                 return owner_conversations::list(m, || client(config, site, timeout, true));
             }
@@ -365,11 +368,21 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             }
             let c = client(config, site, timeout, true)?;
             let data = c.request("GET", "/api/v3/conversations", &query, None, false)?;
-            let listing = owned_list(
+            let mut listing = owned_list(
                 data,
                 limit,
                 m.get_one::<String>("search").map(String::as_str),
             )?;
+            if with_sizes {
+                sizes::enrich(
+                    &mut listing,
+                    &c,
+                    m.get_one::<String>("sort").map(String::as_str),
+                )?;
+                if listing["pagination"]["truncated"] == true {
+                    eprintln!("polis: sizes rank only returned owned rows; the site reached --limit, so larger conversations may be absent.");
+                }
+            }
             if m.get_flag("json") {
                 return Ok(listing);
             }

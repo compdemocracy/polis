@@ -1830,3 +1830,186 @@ fn printed_json_escapes_terminal_controls_without_changing_json_values() {
         assert_eq!(if json_output { &value["data"] } else { &value }, &body);
     }
 }
+
+#[test]
+fn size_sort_uses_stats_counts_and_preserves_raw_counter() {
+    let rows = json!([
+        {"conversation_id":"abc","is_owner":true,"participant_count":99,"topic":"A"},
+        {"conversation_id":"def","is_owner":true,"participant_count":1,"topic":"B"},
+        {"conversation_id":"ghi","is_owner":false}
+    ])
+    .to_string();
+    let a = json!({"firstVoteTimes":[1],"commentTimes":[1,2,3],"voteTimes":[1,2]}).to_string();
+    let b = json!({"firstVoteTimes":[1,2],"commentTimes":[],"voteTimes":[1,2,3]}).to_string();
+    for (sort, first) in [
+        ("participants", "def"),
+        ("statements", "abc"),
+        ("votes", "def"),
+    ] {
+        let (o, req, _) = sequence(
+            &[
+                (200, "application/json", &rows),
+                (200, "application/json", &a),
+                (200, "application/json", &b),
+            ],
+            &["conversation", "list", "--sort", sort, "--json"],
+        );
+        assert!(o.status.success(), "{}", text(&o));
+        let v = parsed(&o);
+        assert_eq!(v["data"]["conversations"][0]["conversation_id"], first);
+        let a = v["data"]["conversations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["conversation_id"] == "abc")
+            .unwrap();
+        assert_eq!(a["participant_count"], 99);
+        assert_eq!(
+            a["size"],
+            json!({"participants":1,"statements":3,"votes":2})
+        );
+        assert_eq!(v["data"]["size_scope"], "returned_owned_rows");
+        assert_eq!(req.len(), 3);
+        assert!(req[1].starts_with("GET /api/v3/conversationStats?conversation_id=abc HTTP/"));
+        assert!(req[2].starts_with("GET /api/v3/conversationStats?conversation_id=def HTTP/"));
+    }
+}
+
+#[test]
+fn size_table_shows_zero_and_size_sort_is_stable_when_tied() {
+    let rows = owned_conversations();
+    let stats = r#"{"firstVoteTimes":[],"commentTimes":[],"voteTimes":[]}"#;
+    let (o, req, _) = sequence(
+        &[
+            (200, "application/json", &rows),
+            (200, "application/json", stats),
+            (200, "application/json", stats),
+            (200, "application/json", "[]"),
+        ],
+        &["conversation", "list", "--sort", "votes"],
+    );
+    assert!(o.status.success(), "{}", text(&o));
+    let table = text(&o);
+    assert!(table.contains("PARTICIPANTS  STATEMENTS  VOTES"), "{table}");
+    assert!(table.find("Budget 2027").unwrap() < table.find("Parks").unwrap());
+    assert_eq!(
+        table
+            .lines()
+            .filter(|line| line.ends_with("0             0           0"))
+            .count(),
+        2,
+        "{table}"
+    );
+    assert_eq!(req.len(), 4);
+}
+
+#[test]
+fn sizes_refuse_partial_counts_and_keep_failed_reads_as_errors() {
+    for (status, body) in [
+        (200, r#"{"firstVoteTimes":[],"voteTimes":[]}"#),
+        (
+            200,
+            r#"{"firstVoteTimes":["bad"],"commentTimes":[],"voteTimes":[]}"#,
+        ),
+        (403, "{}"),
+        (500, "{}"),
+    ] {
+        let rows = r#"[{"conversation_id":"abc","is_owner":true}]"#;
+        let (o, req, _) = sequence(
+            &[
+                (200, "application/json", rows),
+                (status, "application/json", body),
+            ],
+            &["conversation", "list", "--sizes", "--json"],
+        );
+        assert!(!o.status.success());
+        assert!(parsed(&o)["data"].is_null());
+        assert_eq!(req.len(), 2);
+    }
+}
+
+#[test]
+fn size_options_reject_cursor_or_large_fanout_before_credentials() {
+    for opts in [
+        vec!["--sort", "votes", "--cursor", "x"],
+        vec!["--sort", "participants", "--min-participants", "1"],
+        vec!["--sizes", "--sort", "newest"],
+        vec!["--sort", "statements", "--recent"],
+        vec!["--sizes", "--limit", "501"],
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut args = vec!["conversation", "list", "--json"];
+        args.extend(opts);
+        let o = run(dir.path(), &args);
+        assert_eq!(o.status.code(), Some(2), "{}", text(&o));
+    }
+}
+
+#[test]
+fn sizes_preserve_truncation_filter_candidates_and_warn_about_scope() {
+    let rows = owned_conversations();
+    let stats = r#"{"firstVoteTimes":[],"commentTimes":[],"voteTimes":[]}"#;
+    let (o, req, _) = sequence(
+        &[
+            (200, "application/json", &rows),
+            (200, "application/json", stats),
+        ],
+        &[
+            "conversation",
+            "list",
+            "--sizes",
+            "--search",
+            "Parks",
+            "--limit",
+            "3",
+            "--json",
+        ],
+    );
+    assert!(o.status.success(), "{}", text(&o));
+    let v = parsed(&o);
+    assert_eq!(v["data"]["pagination"]["truncated"], true);
+    assert_eq!(v["data"]["pagination"]["server_rows"], 3);
+    assert_eq!(v["data"]["conversations"].as_array().unwrap().len(), 1);
+    assert!(String::from_utf8_lossy(&o.stderr).contains("larger conversations may be absent"));
+    assert_eq!(req.len(), 2);
+    assert!(req[1].contains("conversation_id=def"));
+}
+
+#[test]
+fn sizes_validate_all_ids_and_server_limit_before_stats_reads() {
+    for (rows, limit) in [
+        (
+            r#"[{"conversation_id":"abc","is_owner":true},{"conversation_id":"../unsafe","is_owner":true}]"#,
+            "3",
+        ),
+        (
+            r#"[{"conversation_id":"abc","is_owner":true},{"conversation_id":"def","is_owner":true}]"#,
+            "1",
+        ),
+    ] {
+        let (o, req, _) = sequence(
+            &[(200, "application/json", rows)],
+            &[
+                "conversation",
+                "list",
+                "--sizes",
+                "--limit",
+                limit,
+                "--json",
+            ],
+        );
+        assert!(!o.status.success());
+        assert_eq!(req.len(), 1);
+    }
+}
+
+#[test]
+fn sizes_empty_list_needs_no_stats_or_report_reads() {
+    let (o, req, _) = sequence(
+        &[(200, "application/json", "[]")],
+        &["conversation", "list", "--sort", "participants", "--json"],
+    );
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(parsed(&o)["data"]["conversations"], json!([]));
+    assert_eq!(req.len(), 1);
+}
