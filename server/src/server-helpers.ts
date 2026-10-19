@@ -61,9 +61,10 @@ function safeTimestampToMillis(timestamp: any): number {
       return Date.now();
     }
 
-    // If timestamp looks like Unix seconds (less than year 2100 in milliseconds)
+    // Legacy Unix seconds between 2001 and 2100; the upper bound is in seconds.
+    // Current database BIGINT milliseconds must survive repeated normalization.
     const timestampMs =
-      timestamp < 4102444800000 && timestamp > 1000000000
+      timestamp < 4102444800 && timestamp > 1000000000
         ? timestamp * 1000
         : timestamp;
     const date = new Date(timestampMs);
@@ -87,7 +88,7 @@ function safeTimestampToMillis(timestamp: any): number {
     }
 
     // Try parsing as number first (for string numbers)
-    const numericValue = parseFloat(timestamp);
+    const numericValue = Number(timestamp);
     if (!isNaN(numericValue) && Number.isFinite(numericValue)) {
       return safeTimestampToMillis(numericValue);
     }
