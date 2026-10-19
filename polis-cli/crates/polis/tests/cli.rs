@@ -1809,3 +1809,24 @@ fn unstructured_and_server_errors_keep_the_existing_fallback() {
         );
     }
 }
+
+#[test]
+fn printed_json_escapes_terminal_controls_without_changing_json_values() {
+    let text = "visible\u{009b}2J\u{009d}52;c;data\u{009c}\u{202e}hidden\u{200b}\u{061c}\u{feff}";
+    let body = json!({"text":text,"nested":{text:"value"}});
+    for json_output in [false, true] {
+        let mut args = vec!["conversation", "view", "fixture"];
+        if json_output {
+            args.push("--json");
+        }
+        let (out, _) = fixture(200, "application/json", &body.to_string(), &args);
+        assert_eq!(out.status.code(), Some(0));
+        let printed = String::from_utf8(out.stdout).unwrap();
+        assert!(!printed.chars().any(|c| matches!(
+            c,
+            '\u{007f}'..='\u{009f}' | '\u{202e}' | '\u{200b}' | '\u{061c}' | '\u{feff}'
+        )));
+        let value: Value = serde_json::from_str(&printed).unwrap();
+        assert_eq!(if json_output { &value["data"] } else { &value }, &body);
+    }
+}
