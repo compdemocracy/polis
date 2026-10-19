@@ -25,6 +25,8 @@
 #   DELPHI_CHECK_PROJECT   compose project name (default: delphi-python-<shard>-<path hash>)
 #   DELPHI_CHECK_OUT       results directory (default: .ci-out/<project>)
 #   DELPHI_CHECK_KEEP=1    leave the stack running afterwards
+#   DELPHI_CHECK_JOB_ID    hosted CI job id, recorded in attempt.json beside the
+#                          run attempt (GITHUB_RUN_ATTEMPT)
 #   DELPHI_PYTEST_ARGS     extra pytest arguments for both passes
 #   POLIS_TEST_IMAGES=T    run the stack from images built by
 #                          `ci/local/test-images.sh build --tag T` instead of
@@ -60,6 +62,13 @@ if [ "${1:-}" = "combine" ]; then
   mkdir -p "$OUT"
   OUT="$(cd "$OUT" && pwd)"
   PY="$(python_bin)"
+  group "keep the latest run attempt of each shard"
+  # A re-run shard on hosted CI leaves one result directory per attempt.
+  selected="$("$PY" ci/local/delphi_python_results.py latest "$@")" || exit 1
+  dirs=()
+  while IFS= read -r d; do dirs+=("$d"); done <<< "$selected"
+  set -- "${dirs[@]}"
+  endgroup
   group "check the shards and add up the counts"
   "$PY" ci/local/delphi_python_results.py combine --out "$OUT" "$@"
   endgroup
@@ -113,6 +122,12 @@ rm -rf "$OUT"; mkdir -p "$OUT/stack"
 OUT="$(cd "$OUT" && pwd)"
 STACK="$OUT/stack"   # compose inputs, kept apart from the results
 log "project $PROJECT; shard $SHARD; results $OUT"
+# On hosted CI, record which run attempt and job wrote these results, so the
+# combine can keep only the latest attempt of a re-run shard and name it.
+if [ -n "${GITHUB_RUN_ATTEMPT:-}" ]; then
+  printf '{"shard": "%s", "run_id": "%s", "run_attempt": %s, "job_id": "%s"}\n' \
+    "$SHARD" "${GITHUB_RUN_ID:-}" "$GITHUB_RUN_ATTEMPT" "${DELPHI_CHECK_JOB_ID:-}" > "$OUT/attempt.json"
+fi
 
 # test.env plus the in-network hostnames the delphi service reads.
 [ -f test.env ] || die "test.env not found"
