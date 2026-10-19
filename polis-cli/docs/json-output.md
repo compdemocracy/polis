@@ -93,6 +93,7 @@ Pass six: stored topics and report reads
   polis topic proximity --conversation CONV --layer all --json
   polis topic stats --conversation CONV --json
   polis report topics REPORT --json
+  polis report topics --report REPORT --job JOB --json
   polis report stats REPORT --until 1791417600000 --json
   polis report statements list REPORT --limit 50 --offset 0 --json
 

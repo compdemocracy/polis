@@ -400,3 +400,45 @@ fn help_describes_read_semantics_and_schema_lists_arguments() {
     assert_eq!(exit, 0);
     assert!(v.to_string().contains("layer"));
 }
+
+#[test]
+fn report_topics_accepts_report_option_and_preserves_positional_form() {
+    for args in [
+        vec!["report", "topics", "rA", "--job", "job-A"],
+        vec!["report", "topics", "--report", "rA", "--job", "job-A"],
+    ] {
+        let t = tempfile::tempdir().unwrap();
+        let body = json!({"status":"success","topics_by_layer":{"0":[]}});
+        let s = server(t.path(), vec![json_res(report()), json_res(body.clone())]);
+        let (exit, v) = parsed_call(t.path(), &args);
+        assert_eq!(exit, 0, "{v}");
+        assert_eq!(v["data"], body);
+        let requests = s.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests[0].starts_with("GET /api/v3/reports?report_id=rA "));
+        assert!(requests[1]
+            .starts_with("GET /api/v3/topicMod/topics?conversation_id=convA&job_id=job-A "));
+    }
+}
+
+#[test]
+fn report_topics_refuses_ambiguous_missing_or_invalid_ids_before_network() {
+    let t = tempfile::tempdir().unwrap();
+    std::fs::write(
+        t.path().join("profiles.json"),
+        r#"{"default":"local","sites":{"local":"http://127.0.0.1:9"}}"#,
+    )
+    .unwrap();
+    for args in [
+        vec!["report", "topics"],
+        vec!["report", "topics", "rA", "--report", "rA"],
+        vec!["report", "topics", "rA", "--report", "rB"],
+        vec!["report", "topics", "--report", "rA", "--report", "rB"],
+        vec!["report", "topics", "--report", "../invalid"],
+        vec!["report", "topics", "--report", ""],
+    ] {
+        let (exit, v) = call(t.path(), &args, None, false);
+        assert_eq!(exit, 2, "{v}");
+        assert_eq!(v["error"]["outcome"], "not_sent");
+    }
+}
