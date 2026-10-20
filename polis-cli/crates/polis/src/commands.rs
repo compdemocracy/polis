@@ -131,6 +131,7 @@ pub fn available(path: &str) -> bool {
                 | "plan upgrade"
                 | "plan manage"
                 | "completion"
+                | "questions"
                 | "tutorial"
                 | "api"
                 | "schema"
@@ -218,6 +219,9 @@ fn leaf(path: &str) -> Command {
         }
         "completion" => "Generate shell completions from the command tree without accessing a site",
         "tutorial" => "Read the terminal getting-started manual",
+        "questions" => {
+            "Find questions worth asking about a conversation, and commands to answer them"
+        }
         "seed add" => "Add one seed comment through the moderator-enforced bulk API",
         "seed import" => "Validate a CSV, then import its seed comments as moderator",
         "seed csv validate" => "Validate UTF-8 CSV headers, lengths, duplicates, and row counts",
@@ -493,10 +497,11 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
         "powershell",
         "elvish",
     ])));
+    root = root.subcommand(leaf("questions").after_help(crate::questions::text()));
     for name in ["browse", "tutorial"] {
         root = root.subcommand(leaf(name).arg(pos("target", false)));
     }
-    root.after_help(format!("CONVERSATION RESERVATION\n  polis conversation reserve --json\n\nPARTICIPANT PREFERENCES\n  polis participant preferences --conversation <id> --translations true --json\n\nPARTICIPANT LOCATIONS\n  polis participant locations --conversation <id> --group 0 --json\n\nPARTICIPANT PROFILES\n  polis participant highlight list --conversation <id> --json\n\nSTORED MEMBERSHIP\n  polis participant group-members --conversation <id> --json\n\nSTORED MATH\n  polis math view --conversation <id> --key math_tick --key pca --json\n\nSTART HERE\n  polis auth login\n  polis auth status\n  polis conversation list --json\n  polis conversation create --topic 'Our next chapter'\n  polis seed import seeds.csv --conversation <id>\n\nMETADATA OPTIONS\n  polis metadata answer add --conversation <id> --question <id> --value 'Local resident' --yes\n\nMETADATA CLEANUP\n  polis metadata question delete --conversation <id> --question <id> --yes\n  polis metadata answer delete --conversation <id> --question <id> --answer <id> --yes\n\nSECOND PASS\n  polis moderate list --conversation <id> --status pending\n  polis moderate accept --conversation <id> --tid 0\n  polis moderate reject --conversation <id> --tid 0\n  polis participant status --conversation <id>\n  polis vote list --conversation <id> --pid 0\n  polis report view <report-id>\n  polis report export <report-id> --type votes.csv --output votes.csv\n  polis delphi status --report <report-id>\n  polis delphi results --report <report-id> --job <job-id>\n  polis plan view\n\nDISCOVER THE PRODUCT\n{}\n\nAGENT CONTRACT\n  --json --no-interactive   Stable output; no prompts or automatic retries\n  polis help <command>     Read a focused manual\n  polis schema             Discover commands and implementation status\n  POLIS_TOKEN              Token override; otherwise owner-only file (Keychain opt-in)\n  POLIS_CONFIG_DIR         Profile directory override (credentials/ holds saved sign-ins)\n  POLIS_KEYCHAIN           on opts into macOS Keychain; off is the default\n\nSign in to pol.is with polis auth login; no setup is required. Developer overrides use environment variables or profiles.json.\nQuota is reported as unavailable. Planned commands perform no action.",tree()))
+    root.after_help(format!("QUESTIONS ABOUT YOUR CONVERSATION\n  polis questions\n  Find shared ground, divisions, groups, importance, new comments, coverage, change, collective statements and participant comparisons.\n\nCONVERSATION RESERVATION\n  polis conversation reserve --json\n\nPARTICIPANT PREFERENCES\n  polis participant preferences --conversation <id> --translations true --json\n\nPARTICIPANT LOCATIONS\n  polis participant locations --conversation <id> --group 0 --json\n\nPARTICIPANT PROFILES\n  polis participant highlight list --conversation <id> --json\n\nSTORED MEMBERSHIP\n  polis participant group-members --conversation <id> --json\n\nSTORED MATH\n  polis math view --conversation <id> --key math_tick --key pca --json\n\nSTART HERE\n  polis auth login\n  polis auth status\n  polis conversation list --json\n  polis conversation create --topic 'Our next chapter'\n  polis seed import seeds.csv --conversation <id>\n\nMETADATA OPTIONS\n  polis metadata answer add --conversation <id> --question <id> --value 'Local resident' --yes\n\nMETADATA CLEANUP\n  polis metadata question delete --conversation <id> --question <id> --yes\n  polis metadata answer delete --conversation <id> --question <id> --answer <id> --yes\n\nSECOND PASS\n  polis moderate list --conversation <id> --status pending\n  polis moderate accept --conversation <id> --tid 0\n  polis moderate reject --conversation <id> --tid 0\n  polis participant status --conversation <id>\n  polis vote list --conversation <id> --pid 0\n  polis report view <report-id>\n  polis report export <report-id> --type votes.csv --output votes.csv\n  polis delphi status --report <report-id>\n  polis delphi results --report <report-id> --job <job-id>\n  polis plan view\n\nDISCOVER THE PRODUCT\n{}\n\nAGENT CONTRACT\n  --json --no-interactive   Stable output; no prompts or automatic retries\n  polis help <command>     Read a focused manual\n  polis schema             Discover commands and implementation status\n  POLIS_TOKEN              Token override; otherwise owner-only file (Keychain opt-in)\n  POLIS_CONFIG_DIR         Profile directory override (credentials/ holds saved sign-ins)\n  POLIS_KEYCHAIN           on opts into macOS Keychain; off is the default\n\nSign in to pol.is with polis auth login; no setup is required. Developer overrides use environment variables or profiles.json.\nQuota is reported as unavailable. Planned commands perform no action.",tree()))
 }
 pub fn tree() -> String {
     let mut lines = vec![
