@@ -5,7 +5,7 @@ fixture and local credential/files state, then run it again with every inventori
 staged Rust route enabled. This is independent of the byte replays: it neither starts
 those runners nor reads a recording archive. Byte replays remain the wire gate.
 
-Build the CLI and four local images from the source being tested:
+Build the CLI and five local images from the source being tested:
 
 ```sh
 (cd polis-cli && cargo build --locked -p polis --features fixture-ids)
@@ -13,11 +13,13 @@ docker build --target prod --build-arg NODE_ENV=production -t cli-diff-node -f s
 docker build --build-context queue-rs=queue-rs -t cli-diff-postgres -f server/Dockerfile-db server
 docker build -t cli-diff-oidc oidc-simulator
 docker build --build-arg FEATURES=fixture-clock -t cli-diff-rust -f queue-rs/polis-api/Dockerfile queue-rs
+docker build -t cli-diff-nginx:local -f file-server/nginx.Dockerfile file-server
 ```
 
 Choose an unused project and three unused ports. The images are explicit and
 `up --pull never` prevents a test from silently changing them. The nginx image
-is the same pinned tag used by the existing routing tests.
+is built from the production Dockerfile, including its route helpers and
+the include-generation symlink. A stock nginx image is insufficient.
 
 ```sh
 export COMPOSE_PROJECT_NAME=p027cli-diff-local
@@ -88,8 +90,10 @@ not successful export/import, provider, analysis or backend coverage. Planned
 commands and local commands are likewise reported separately. Never turn a
 connectivity/parser/authentication failure into a successful live scenario.
 
-The real nginx renderer receives `RUST_API_ROUTES` empty and then every
-switch in `routes.json`. The route-template census rejects missing entries.
+The real nginx reload helper receives `RUST_API_ROUTES` empty and then every
+switch in `routes.json`, retaining the proxy container and its project-owned
+routing volume. After old workers drain, the harness clears the access log
+for each phase's independent counts. The route-template census rejects missing entries.
 Each entry requires an exact request count, a minimum number of sole Rust
 HTTP200 responses, and an exact count of scoped Node handoffs with a reason.
 These counts cover this generated fixture only. Unexercised routes explicitly
