@@ -1134,7 +1134,7 @@ fn admin_report_write_resolves_its_conversation_before_mutation() {
 #[test]
 fn participant_admin_defaults_to_scoped_identity_and_account_is_explicit() {
     let args = [
-        "statement",
+        "comment",
         "star",
         "--conversation",
         "abc",

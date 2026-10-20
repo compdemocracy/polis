@@ -21,7 +21,7 @@ def cases():
     add('api',['/api/v3/users'])
     add('join',[C],actor='participant')
     for path,args in [
-      ('statement list',[]),('statement view',['0']),('moderate list',['--status','all']),
+      ('comment list',[]),('comment view',['0']),('moderate list',['--status','all']),
       ('participant list',[]),('participant status',[]),('participant xid list',[]),
       ('vote list',['--pid','0']),('report list',[]),('participant highlight list',[]),
       ('participant group-members',[]),('participant locations',['--group','0']),
@@ -29,7 +29,7 @@ def cases():
       ('invite wave list',[]),('invite list',[]),('invite status',[])]:
         add(path,[*args,'--conversation',C])
     add('context list');add('conversation uuid',[C]);add('report view',[R])
-    add('report stats',[R]);add('report statements list',[R],scope='rust-only')
+    add('report stats',[R]);add('report comments list',[R],scope='rust-only')
     rows[-1]['contract']='report-importance'
     rows[-1]['scenario']='report statements current importance'
     add('participant export',['--conversation',C,'--output','participants.csv'])
@@ -38,7 +38,7 @@ def cases():
     # Stored-result fixtures intentionally have no computation/provider backing.
     # These cases prove the current missing-store/error contract, not analysis.
     for path,args in [
-      ('topic list',['--conversation',C]),('topic statements',['generated#0#1','--conversation',C]),
+      ('topic list',['--conversation',C]),('topic comments',['generated#0#1','--conversation',C]),
       ('topic hierarchy',['--conversation',C]),('topic proximity',['--conversation',C]),
       ('topic stats',['--conversation',C]),('report topics',[R]),
       ('collective statements',[R]),('collective list',['--report',R]),('collective view',['generated#0#1']),
@@ -46,7 +46,7 @@ def cases():
       ('delphi narrative view',['--report',R]),('delphi visualization view',['--report',R]),
       ('delphi show',[R]),
       ('report export',[R,'--type','format.json','--output','report.json'])]:
-        add(path,args,exit={'topic list':1,'topic statements':6,'topic hierarchy':1,'topic proximity':1,'topic stats':0,'report topics':1,'collective statements':6,'collective list':6,'collective view':6,'delphi status':6,'delphi results':1,'delphi narrative view':1,'delphi visualization view':6,'delphi show':1,'report export':0}[path],scope='missing-store')
+        add(path,args,exit={'topic list':1,'topic comments':6,'topic hierarchy':1,'topic proximity':1,'topic stats':0,'report topics':1,'collective statements':6,'collective list':6,'collective view':6,'delphi status':6,'delphi results':1,'delphi narrative view':1,'delphi visualization view':6,'delphi show':1,'report export':0}[path],scope='missing-store')
     # Import rejection uses a real file, parsed by the real contract; these do
     # not claim a successful provider result import or replace its own suite.
     for path in ['collective import','delphi statement import','delphi narrative import']:
@@ -62,7 +62,7 @@ def cases():
         add(path,[C,'--report',R,'--topic','generated#0#1','--output',path.replace(' ','-')],exit=6,scope='missing-store')
     add('delphi narrative export',[C,'--report',R,'--output','narrative'],exit=6,scope='unserved')
     add('vote',[C,'--statement','0','--agree'],actor='participant')
-    add('comment',[C,'Generated participant statement'],actor='participant')
+    add('comment',[C,'Generated participant comment'],actor='participant')
     # The fixture stores no topics, so this proves the participant's own empty read.
     add('topic prioritize',[C,'--show'],actor='participant')
     add('participant preferences',['--conversation',C,'--translations','true'])

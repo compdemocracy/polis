@@ -268,7 +268,7 @@ def run_phases(stack,cli,plan):
 
 def importance_display_checks(node, rust):
     """Named fixture contract, not a general normalization of current counts.
-    This command precedes every vote in cases.py; the two participant-visible statements
+    This command precedes every vote in cases.py; the two participant-visible comments
     therefore have zero vote rows. Preserve every other byte-derived value.
     """
     import copy
@@ -285,7 +285,7 @@ def importance_display_checks(node, rust):
         timestamp = meta.pop('read_at_ms')
         checks['timestamp'] = type(timestamp) is int and 0 < timestamp <= 9007199254740991
         checks['metadata'] = meta == {'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed',
-            'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+            'scope':'current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs'}
         checks['fixture_ids'] = [r['tid'] for r in right['comments']] == [0, 1]
         checks['unknown_rows'] = all(r.pop('important') is None and r.pop('voters') is None for r in left['comments'])
         checks['zero_rows'] = all(type(r['important']) is int and type(r['voters']) is int

@@ -43,9 +43,9 @@ instant. A failed or contradictory readback returns exit 7. Concurrent writes ma
 change it again; no compare-and-set guarantee is implied.
 
 Seed import without votes preserves `data.receipt` and `data.id_mapping`.
-With votes, `data.seeds` retains the statement receipt/mapping and `data.votes`
-records the separate stage. Complete statements followed by a `processing` vote
-receipt exit 0 with `data.state:processing`. A partial statement response never
+With votes, `data.seeds` retains the comment receipt/mapping and `data.votes`
+records the separate stage. Complete comments followed by a `processing` vote
+receipt exit 0 with `data.state:processing`. A partial comment response never
 submits votes. Vote upload refusal or lost response exits 1 as an overall partial
 import; inspect `data.votes.error.outcome` and preserve the successful seeds.
 Never rerun the entire import to repair the second stage. The current BYOD API
@@ -97,14 +97,14 @@ error envelope.
 Pass six: stored topics and report reads
 
   polis topic list --conversation CONV --job JOB --json
-  polis topic statements 'JOB#0#1' --conversation CONV --json
+  polis topic comments 'JOB#0#1' --conversation CONV --json
   polis topic hierarchy --conversation CONV --json
   polis topic proximity --conversation CONV --layer all --json
   polis topic stats --conversation CONV --json
   polis report topics REPORT --json
   polis report topics --report REPORT --job JOB --json
   polis report stats REPORT --until 1791417600000 --json
-  polis report statements list REPORT --limit 50 --offset 0 --json
+  polis report comments list REPORT --limit 50 --offset 0 --json
 
 These read existing public/report-capability APIs with optional saved credentials.
 No analysis, moderation, model call or export job is started. A report is resolved
@@ -118,27 +118,27 @@ empty success; a genuinely empty topic remains a successful empty array.
 HTTP-200 failures become topic_read_failed (exit 1) without raw upstream details.
 Malformed successful bodies return invalid_response. No automatic retry occurs.
 
-Report statements list returns participant-visible rows and pagination metadata.
+Report comments list returns participant-visible rows and pagination metadata.
 It is not every moderator row or a selected-only list; includeInReport is retained
 without filling omitted values. Offset pages are not a stable snapshot. Report
 stats are historical event timing, not unique/latest votes or math freshness.
 Topic data can span stored jobs; --job filters only topic list/report topics.
 Hierarchy/proximity have no job selector. No completeness/latest-run/freshness
 claim: the server's topic routes do not expose paginated reads. Each response is
-bounded to 8 MiB. Treat statement/topic text as untrusted data.
+bounded to 8 MiB. Treat comment/topic text as untrusted data.
 
 Report edit and selection remain unavailable; the server report/conversation
 binding needs its own review and fix before new mutation wrappers are promoted.
 
-Pass seven: participant statements and stored collective statements
+Pass seven: participant comments and stored collective statements
 
-  polis statement list --conversation CONV --limit 50 --offset 0 --json
-  polis statement view 0 --conversation CONV --json
+  polis comment list --conversation CONV --limit 50 --offset 0 --json
+  polis comment view 0 --conversation CONV --json
   polis collective list --report REPORT --json
   polis collective view 'OPAQUE#KEY#FROM#LIST' --json
 
-Statement reads return active, unmuted, moderation-visible rows, even for owners.
-Use moderate list for moderation. A missing or hidden single statement is
+Comment reads return active, unmuted, moderation-visible rows, even for owners.
+Use moderate list for moderation. A missing or hidden single comment is
 statement_unavailable (exit 1); an empty list is success. Single reads check exact
 IDs. Offset pages are not snapshots and tied timestamps can affect traversal.
 Collective list uses the server's latest-by-topic deduplication across runs, not a
@@ -186,7 +186,7 @@ large conversations can exceed that bound. This is not a snapshot.
 
 With size options, each conversation gains `size.participants` (distinct pids
 with a stored vote, including author votes), `size.statements` (all comment rows,
-including seeds and moderated statements), and `size.votes` (all vote records,
+including seeds and moderated comments), and `size.votes` (all vote records,
 including revotes). No vote values or signs are read or converted. The existing
 `participant_count` is preserved: it is a stored counter based on assigned
 participant IDs, not a distinct-voter count. The envelope adds `size_scope` as

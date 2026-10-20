@@ -12,7 +12,7 @@ const {storageToSemantic}=require('/app/src/votes/convention.ts');
   return;
  }
  const votes=(await p.query('SELECT pid,vote FROM votes WHERE zid=1')).rows;
- const comments=(await p.query('SELECT pid FROM comments WHERE zid=1 AND txt=$1',['Generated participant statement'])).rows;
+ const comments=(await p.query('SELECT pid FROM comments WHERE zid=1 AND txt=$1',['Generated participant comment'])).rows;
  console.log(JSON.stringify({votes:votes.map(v=>({pid:v.pid,choice:storageToSemantic(v.vote)})),comments}));
  await p.end();
 })().catch(()=>process.exit(1));

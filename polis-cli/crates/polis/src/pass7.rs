@@ -10,7 +10,7 @@ fn unavailable(collective: bool) -> Error {
     if collective {
         Error::new("collective_statement_unavailable", "The stored collective statement was not found.", "Run polis collective list --report <report> and copy an exact zid_topic_jobid; this read will not generate a replacement.", 1)
     } else {
-        Error::new("statement_unavailable", "This statement is absent or not participant-visible.", "Check the conversation and statement number. Authorized moderators can inspect hidden statements with polis moderate list.", 1)
+        Error::new("statement_unavailable", "This comment is absent or not participant-visible.", "Check the conversation and comment number. Authorized moderators can inspect hidden comments with polis moderate list.", 1)
     }
 }
 fn read_error(mut e: Error, collective: bool, single: bool) -> Error {
@@ -28,11 +28,16 @@ fn read_error(mut e: Error, collective: bool, single: bool) -> Error {
         } else {
             "statements_read_failed"
         };
-        e.message = "The site could not read the requested stored statements.".into();
-        e.action = if collective {
-            "Check the report or stored statement ID and site. Ask the operator to inspect collective-statement storage; retrying this read does not generate content."
+        e.message = if collective {
+            "The site could not read the requested stored collective statements."
         } else {
-            "Check the conversation, statement number and pagination. Ask the operator to inspect statement reads; use moderate list for hidden statements if authorized."
+            "The site could not read the requested comments."
+        }
+        .into();
+        e.action = if collective {
+            "Check the report or stored collective statement ID and site. Ask the operator to inspect collective-statement storage; retrying this read does not generate content."
+        } else {
+            "Check the conversation, comment number and pagination. Ask the operator to inspect comment reads; use moderate list for hidden comments if authorized."
         };
     }
     e
@@ -89,7 +94,7 @@ pub fn execute(
         }
     }
     let c = public_client(config, site, timeout)?;
-    if path == "statement list"
+    if path == "comment list"
         && (m.get_one::<String>("sort").is_some() || m.get_one::<u64>("min-important").is_some())
     {
         return crate::importance::list(

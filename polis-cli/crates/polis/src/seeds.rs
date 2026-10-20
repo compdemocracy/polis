@@ -4,7 +4,7 @@ use std::collections::HashSet;
 pub fn text(value: &str) -> Result<()> {
     if value.trim().is_empty() || value.encode_utf16().count() > 997 || value.contains('\0') {
         return Err(Error::input(
-            "Statement must contain text, no NUL, and at most 997 UTF-16 units.",
+            "Comment must contain text, no NUL, and at most 997 UTF-16 units.",
         ));
     }
     Ok(())
@@ -41,7 +41,7 @@ pub fn validate(raw: &str) -> Result<Vec<Value>> {
         })?;
         let t = &row[ti];
         let id = &row[oi];
-        text(t).map_err(|_| Error::input(format!("Invalid statement in CSV record {}.", i + 2)))?;
+        text(t).map_err(|_| Error::input(format!("Invalid comment in CSV record {}.", i + 2)))?;
         let canonical = uuid::Uuid::parse_str(id)
             .map(|u| u.to_string())
             .unwrap_or_else(|_| id.to_owned());
@@ -58,11 +58,11 @@ pub fn validate(raw: &str) -> Result<Vec<Value>> {
         }
         rows.push(json!({"record":i+2,"comment_text":t,"original_id":id}));
         if rows.len() > 1000 {
-            return Err(Error::input("Import at most 1000 statements per file."));
+            return Err(Error::input("Import at most 1000 comments per file."));
         }
     }
     if rows.is_empty() {
-        return Err(Error::input("CSV contains no statements."));
+        return Err(Error::input("CSV contains no comments."));
     }
     Ok(rows)
 }
@@ -71,7 +71,7 @@ pub fn validate(raw: &str) -> Result<Vec<Value>> {
 // receive the same input; no receipt field is removed from the comparison.
 #[cfg(feature = "fixture-ids")]
 fn fixture_id(value: &str) -> Result<uuid::Uuid> {
-    uuid::Uuid::parse_str(value).map_err(|_| Error::input("Invalid fixture statement UUID."))
+    uuid::Uuid::parse_str(value).map_err(|_| Error::input("Invalid fixture comment UUID."))
 }
 fn statement_id() -> Result<uuid::Uuid> {
     #[cfg(feature = "fixture-ids")]
@@ -79,7 +79,7 @@ fn statement_id() -> Result<uuid::Uuid> {
         return fixture_id(
             value
                 .to_str()
-                .ok_or_else(|| Error::input("Invalid fixture statement UUID."))?,
+                .ok_or_else(|| Error::input("Invalid fixture comment UUID."))?,
         );
     }
     Ok(uuid::Uuid::new_v4())
@@ -89,10 +89,10 @@ pub fn single(value: &str) -> Result<String> {
     let mut writer = csv::Writer::from_writer(Vec::new());
     writer
         .write_record(["comment_text", "original_id"])
-        .map_err(|_| Error::input("Cannot encode statement."))?;
+        .map_err(|_| Error::input("Cannot encode comment."))?;
     writer
         .write_record([value, &statement_id()?.to_string()])
-        .map_err(|_| Error::input("Cannot encode statement."))?;
+        .map_err(|_| Error::input("Cannot encode comment."))?;
     Ok(String::from_utf8(writer.into_inner().unwrap()).unwrap())
 }
 
@@ -140,7 +140,7 @@ pub(crate) fn strict_csv(raw: &str) -> Result<()> {
 }
 
 // Keep external identifiers in the receipt; PostgreSQL receives a stable UUID.
-// Domain separation binds mappings to a site AND conversation, never statement text.
+// Domain separation binds mappings to a site AND conversation, never comment text.
 pub fn submission(raw: &str, origin: &str, conversation: &str) -> Result<(String, Vec<Value>)> {
     let rows = validate(raw)?;
     let origin = polis_client::base_url(origin)?.to_string();

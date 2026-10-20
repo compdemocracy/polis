@@ -173,7 +173,7 @@ pub fn execute(
     let mut recorded = 0u64;
     loop {
         let Some(stmt) = next(config, site, timeout, conversation)? else {
-            writeln!(output, "No more statements available.").map_err(io_error)?;
+            writeln!(output, "No more comments available.").map_err(io_error)?;
             break;
         };
         let Some(choice) = prompt(&mut input, &mut output, &stmt)? else {
@@ -199,7 +199,7 @@ fn prompt(
         .chars()
         .filter(|&c| !c.is_control() && !crate::listing::invisible(c))
         .collect();
-    writeln!(output, "\nStatement {}: {text}", stmt.tid).map_err(io_error)?;
+    writeln!(output, "\nComment {}: {text}", stmt.tid).map_err(io_error)?;
     loop {
         write!(output, "[a]gree / [d]isagree / [p]ass / [q]uit: ").map_err(io_error)?;
         output.flush().map_err(io_error)?;

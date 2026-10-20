@@ -58,9 +58,9 @@ WEIGHTS = {
 
 READS = (
     # (command, the actor kinds that may run it)
-    ('statement list', ('participant', 'visitor', 'owner')),
-    ('statement view', ('participant', 'visitor')),
-    ('statement next', ('participant', 'visitor')),
+    ('comment list', ('participant', 'visitor', 'owner')),
+    ('comment view', ('participant', 'visitor')),
+    ('comment next', ('participant', 'visitor')),
     ('math view', ('visitor', 'owner')),
     ('conversation view', ('owner', 'admin')),
     ('conversation stats', ('owner',)),
@@ -227,9 +227,9 @@ def generate(run_seed, steps):
             words = command.split()
             if command in ('conversation view', 'conversation stats'):
                 args = [*words, conv(ref)]
-            elif command == 'statement view':
+            elif command == 'comment view':
                 args = [*words, str(rng.randrange(0, c['statements'] + 1)), '--conversation', conv(ref)]
-            elif command == 'statement list':
+            elif command == 'comment list':
                 args = [*words, '--conversation', conv(ref)]
                 if rng.random() < 0.3:
                     args += ['--limit', str(rng.choice([1, 2, 500])), '--offset', str(rng.choice([0, 1, 3]))]

@@ -7,7 +7,7 @@ def admin_cases():
         rows.append(dict(command=command,args=command.split()+list(args),expected_exit=exit,scope=scope,actor=actor,stdin=None))
     c=['--conversation',C];r=['--report',R]
     add('node doctor');add('node database');add('account domain list')
-    for name in ['metadata view','metadata choices','participant group','vote mine','vote famous','agenda list','invite mine list','participant invitation-status','statement next']:
+    for name in ['metadata view','metadata choices','participant group','vote mine','vote famous','agenda list','invite mine list','participant invitation-status','comment next']:
         add(name,c,actor='participant')
     add('invite mine export',c+['--output','mine.csv'],actor='participant')
     add('participant xid capability-export',['--key-file','capability.txt','--output','capability.csv'])
@@ -31,7 +31,7 @@ def admin_cases():
     for name in ['subscribe','unsubscribe']:
         add('notification '+name,c+['--email','owner@example.invalid','--signature-file',name+'.txt','--yes'])
     add('notification set',c+['--email','owner@example.invalid','--state','subscribe','--yes'])
-    add('statement translations',c+['--statement','0','--language','en','--yes'],exit=1,scope='server-limitation')
+    add('comment translations',c+['--statement','0','--language','en','--yes'],exit=1,scope='server-limitation')
     add('delphi narrative run',r+['--yes'],exit=7,scope='missing-store')
     add('account verify',['--code-file','verification.txt','--yes'])
     add('participant tutorial',['--step','2','--yes'])
@@ -41,11 +41,11 @@ def admin_cases():
     add('collective generate',r+['--topic','generated#0#1','--name','Generated topic','--yes'],exit=7,scope='permission-refusal')
     for name in ['add','replace','remove']:
         add('agenda '+name,c+([] if name=='remove' else ['--from','agenda-replace.json' if name=='replace' else 'agenda.json'])+['--yes'],actor='participant')
-    add('statement flag',c+['--statement','1','--as-important','true','--yes'],actor='participant')
+    add('comment flag',c+['--statement','1','--as-important','true','--yes'],actor='participant')
     add('conversation upvote',c+['--yes'])
     for name in ['star','trash']:
-        add('statement '+name,c+['--statement','1','--state','on','--yes'],exit=7 if name=='star' else 0,scope='persisted-then-error' if name=='star' else 'live',actor='participant')
-    add('report statements select',r+['--statement','0','--include','true','--yes'])
+        add('comment '+name,c+['--statement','1','--state','on','--yes'],exit=7 if name=='star' else 0,scope='persisted-then-error' if name=='star' else 'live',actor='participant')
+    add('report comments select',r+['--statement','0','--include','true','--yes'])
     add('account edit',['--name','Generated edited account','--yes'])
     add('math refresh',c+['--type','update','--yes'])
     add('report edit',r+['--name','Generated edited report','--yes'])
