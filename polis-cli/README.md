@@ -914,3 +914,7 @@ comment operations share that command group. `collective statements` and
 `delphi statement export/import` retain their collective meaning. Existing
 `--statement` selectors and JSON/API field names retain their wire compatibility;
 they select a comment where the command concerns participation.
+
+Comment analysis: `polis comment stats --conversation CONV --sort divisive --by-group`
+answers which comments divided the room most. See [the statistics contract](COMMENT-STATS.md)
+for denominators, unknown values, bounds and the byte-preserving JSON source envelope.

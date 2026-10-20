@@ -2,6 +2,7 @@ mod admin;
 mod collective;
 mod collective_read;
 mod commands;
+mod comment_stats;
 mod commenting;
 mod delphi_show;
 mod highlights;
@@ -213,6 +214,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "participant locations" => locations::execute(m, config, site, timeout),
         "participant highlight list" => highlights::execute(m, config, site, timeout),
         "participant group-members" => membership::execute(m, config, site, timeout),
+        "comment stats" => comment_stats::execute(m, config, site, timeout),
         "math view" => math::execute(m, config, site, timeout),
         "metadata answer add" => pass11::execute(m, config, site, timeout),
         "metadata question delete" | "metadata answer delete" => {
@@ -732,6 +734,16 @@ fn main() -> ExitCode {
         return render(&site, Err(e), json_mode);
     }
     let result = execute(&root, &mut config, &site);
+    if !json_mode
+        && root
+            .subcommand_matches("comment")
+            .is_some_and(|m| m.subcommand_name() == Some("stats"))
+    {
+        if let Ok(value) = &result {
+            print!("{}", listing::terminal_text(&comment_stats::text(value)));
+            return ExitCode::SUCCESS;
+        }
+    }
     if root
         .subcommand_matches("delphi")
         .is_some_and(|m| m.subcommand_name() == Some("show"))

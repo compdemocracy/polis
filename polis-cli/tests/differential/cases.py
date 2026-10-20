@@ -18,6 +18,8 @@ def cases():
     add('account view');add('plan view')
     add('conversation list');add('conversation view',[C]);add('conversation stats',[C])
     add('math view',['--conversation',C])
+    # Successful statistics/optional importance are covered by generated HTTP tests.
+    add('comment stats',['--conversation','invalid/id'],exit=2,scope='invalid-input')
     add('api',['/api/v3/users'])
     add('join',[C],actor='participant')
     for path,args in [
