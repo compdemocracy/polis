@@ -18,6 +18,10 @@ def cases():
     add('account view');add('plan view')
     add('conversation list');add('conversation view',[C]);add('conversation stats',[C])
     add('math view',['--conversation',C])
+    add('site list',scope='local')
+    add('site add',['example','https://example.invalid'],scope='local')
+    add('site use',['local'],scope='local')
+    add('site remove',['example'],scope='local')
     # Successful statistics/optional importance are covered by generated HTTP tests.
     add('comment stats',['--conversation','invalid/id'],exit=2,scope='invalid-input')
     add('api',['/api/v3/users'])

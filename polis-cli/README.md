@@ -43,6 +43,92 @@ binary as configuration. Authentication and credentials stay bound to that origi
 Developer overrides for local servers and preproduction are documented in
 [development configuration](docs/development.md).
 
+## Sites
+
+One CLI works with pol.is, your local stack, a community's self-hosted installation,
+and regional hosts. **pol.is is the default with no setup.** Add a name for another
+site, then use `--site NAME` on any command to visit it just for that command:
+
+```sh
+polis site add dev http://localhost:5000
+polis --site dev conversation list --json
+polis conversation list --json              # back on pol.is
+polis site list
+```
+
+For a self-hosted site, ask its operator for the address and public sign-in
+settings. These example.org addresses are placeholders:
+
+```sh
+polis site add community https://polis.example.org \
+  --issuer https://login.example.org/ --client-id PUBLIC_NATIVE_CLIENT_ID \
+  --audience users --callback-port 53147
+polis --site community auth login
+polis --site community conversation list
+```
+
+A local stack with OAuth uses the same options, with its loopback issuer and
+native client ID. Otherwise use `polis --site dev auth login --with-token` with a
+token issued by that stack. Adding a site never signs in or contacts a server;
+pol.is sign-in settings are never copied to other sites. `--callback-port` is
+optional; the browser callback defaults to port 53147. Its redirect address must
+be registered by the site's operator.
+
+For repeated work on a regional site, save it as your preference. Return to
+pol.is with one command:
+
+```sh
+polis site add eu https://polis.eu.example.org \
+  --issuer https://login.eu.example.org/ --client-id EU_PUBLIC_NATIVE_CLIENT_ID \
+  --audience users
+polis site use eu
+polis auth login
+polis conversation list
+polis --site default conversation list      # pol.is for just this command
+polis site use default                     # pol.is for following commands too
+```
+
+`site use NAME` is an explicit sticky preference. Without a flag, commands use
+that preference until `site use default` restores pol.is. `default` is reserved
+and refers to the built-in `prod` profile; the older `prod` name still works.
+The flag works before or after subcommands and never changes your saved preference.
+When an operation targets an origin other than pol.is, a **Site: NAME (URL)**
+header on stderr identifies it, including a developer override of the prod URL.
+JSON mode has no header. Offline help, the questions guide, schema and shell
+completion do not select a site and stay independent of configuration.
+
+You sign in separately at each site. Sign-ins and participant credentials are
+bound to the **site name and origin**, and account sign-ins also bind the issuer,
+client ID and audience. Two aliases never share a login even at the same host.
+Credentials stay in the owner-only file store by default. Site management never
+accesses credentials or the Keychain.
+
+```sh
+polis --site community auth logout
+polis site remove community
+```
+
+Removal changes only configuration. Log out first to revoke and clear an account
+sign-in. Otherwise saved credentials remain; re-adding the same name and origin
+can reuse them. Removing the saved preference returns to pol.is. Neither `prod`
+nor `default` can be removed. Site commands do not change accounts or conversations.
+
+Aliases are saved in `~/.config/polis/profiles.json`. Names use 1–40 lowercase
+letters, digits or underscores; existing names cannot be overwritten. Use a new
+name when changing a host or sign-in provider. Only HTTPS origins are accepted,
+with HTTP allowed on loopback for local stacks. Origins cannot contain credentials,
+paths, query strings or fragments; an OAuth issuer may have a path.
+
+For developers, existing environment overrides still use these same profiles:
+**`--site NAME` > `POLIS_SITE` > saved preference > pol.is on a fresh install**.
+`site use default` changes the saved preference; an explicitly set `POLIS_SITE`
+still wins until unset, or use `--site default`. `POLIS_URL_<PROFILE>` and
+`POLIS_AUTH_*_<PROFILE>` still override that profile's origin and sign-in settings,
+including prod; they are never written back by site commands. `site list --json`
+shows effective origins and both the selected and saved site without reading tokens.
+See [development configuration](docs/development.md) for custom certificate
+authorities and `POLIS_CONFIG_DIR`.
+
 ## Authentication
 
 On a fresh install, sign in without configuration:

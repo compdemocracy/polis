@@ -32,6 +32,7 @@ mod reads;
 mod reserve;
 mod seeds;
 mod setup;
+mod sites;
 mod sizes;
 mod voting;
 use clap::ArgMatches;
@@ -151,6 +152,9 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         return admin::execute(&path, m, config, site, timeout);
     }
     match path.as_str() {
+        "site list" | "site add" | "site use" | "site remove" => {
+            sites::execute(&path, m, config, site)
+        }
         "help" | "schema" => {
             if path == "help"
                 && m.get_many::<String>("command")
@@ -727,7 +731,13 @@ fn main() -> ExitCode {
             json_mode || root.subcommand_name() == Some("schema"),
         );
     }
-    let mut config = match profiles::Config::load() {
+    let selected = root.get_one::<String>("site").map(String::as_str);
+    let loaded = if root.subcommand_name() == Some("site") {
+        sites::load(selected)
+    } else {
+        profiles::Config::load(selected)
+    };
+    let mut config = match loaded {
         Ok(c) => c,
         Err(e) => return render("unresolved", Err(e), json_mode),
     };
@@ -735,7 +745,27 @@ fn main() -> ExitCode {
     if let Err(e) = profiles::name(&site) {
         return render(&site, Err(e), json_mode);
     }
+    if selected.is_some() {
+        if let Err(e) = config.url(&site) {
+            return render(&site, Err(e), json_mode);
+        }
+    }
+    let site_command = root.subcommand_name() == Some("site");
+    if !json_mode && !site_command {
+        sites::print_header(&config, &site);
+    }
     let result = execute(&root, &mut config, &site);
+    if !json_mode && site_command {
+        // Site management reports the effective selection after a successful change.
+        if result.is_ok() {
+            match sites::load(selected) {
+                Ok(updated) => sites::print_header(&updated, &updated.default),
+                Err(_) => sites::print_header(&config, &site),
+            }
+        } else {
+            sites::print_header(&config, &site);
+        }
+    }
     if !json_mode
         && root
             .subcommand_matches("comment")
