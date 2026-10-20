@@ -434,11 +434,12 @@ services:
       polis_tag: ${TAG:-dev}
     environment:
       - API_SERVER_PORT=${API_SERVER_PORT:-5000}
-      # Comma-separated routes polis-api serves instead of Node (today only
-      # "pca2"). Unset: every request goes to Node, as before. Set it only
-      # with the polis-api service running (`--profile rust-api`).
+      # Authoritative selection on every nginx startup, even with an existing
+      # routing volume. Use scripts/rust-api-switch.sh for live reloads.
       - RUST_API_ROUTES=${RUST_API_ROUTES:-}
       - RUST_API_UPSTREAM=${RUST_API_UPSTREAM:-polis-api:5100}
+    volumes:
+      - nginx-routing:/var/lib/polis-routing
     depends_on:
       - "client-participation-alpha"
       - "server"
@@ -635,6 +636,8 @@ networks:
   polis-net:
 
 volumes:
+  nginx-routing:
+
   delphi-queue-state:
 
   math-backfill-state:
