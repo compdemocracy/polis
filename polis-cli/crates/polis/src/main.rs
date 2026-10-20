@@ -28,6 +28,7 @@ mod preferences;
 mod prioritize;
 mod profiles;
 mod questions;
+mod raw_output;
 mod reads;
 mod reserve;
 mod seeds;
@@ -392,7 +393,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     eprintln!("polis: sizes rank only returned owned rows; the site reached --limit, so larger conversations may be absent.");
                 }
             }
-            if m.get_flag("json") {
+            if m.get_flag("json") || m.get_flag("csv-output") {
                 return Ok(listing);
             }
             // People get a table. Its report column needs a second read, which is
@@ -715,6 +716,23 @@ fn main() -> ExitCode {
             return ExitCode::from(if display { 0 } else { 2 });
         }
     };
+    let csv_mode = root.get_flag("csv-output");
+    let mut leaf = &root;
+    let mut parts = Vec::new();
+    while let Some((name, child)) = leaf.subcommand() {
+        parts.push(name);
+        leaf = child;
+    }
+    let path = parts.join(" ");
+    if csv_mode
+        && (!raw_output::available(&path)
+            || (path == "topic prioritize" && !leaf.get_flag("show"))
+            || (path == "api" && str_arg(leaf, "method") != "GET"))
+    {
+        return render("unresolved", Err(Error::input(
+            "CSV is available for read results only. Use --json, or the export command's --format and --output options."
+        )), false);
+    }
     profiles::noninteractive(root.get_flag("no-interactive"));
     // Help and schema never depend on credentials or profile files.
     if matches!(
@@ -755,6 +773,18 @@ fn main() -> ExitCode {
         sites::print_header(&config, &site);
     }
     let result = execute(&root, &mut config, &site);
+    if csv_mode {
+        return match result.and_then(|value| raw_output::csv(&path, &value)) {
+            Ok(bytes) => {
+                use std::io::Write;
+                match std::io::stdout().lock().write_all(&bytes) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(_) => render(&site, Err(Error::input("Cannot write CSV output.")), false),
+                }
+            }
+            Err(e) => render(&site, Err(e), false),
+        };
+    }
     if !json_mode && site_command {
         // Site management reports the effective selection after a successful change.
         if result.is_ok() {

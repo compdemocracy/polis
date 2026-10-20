@@ -1016,3 +1016,114 @@ ordered question entries (`id`, `question`, `commands`, `look_for`) and rendered
 help. It works offline without a profile or credentials and runs none of the
 listed commands. It distinguishes existing reads from comparisons an analyst
 must make and from the consensus timeline the CLI does not yet provide.
+
+## Raw data
+
+Every command accepts `--json`, including reads, help and errors. It keeps the
+existing `polis-cli/1` envelope and each command's documented data contract.
+Existing route-provided PIDs and authorized XIDs remain unchanged. Locations
+have no identity; the CLI does not add one or perform an extra identity lookup.
+
+Use `--csv` for read-result rows on stdout:
+
+```sh
+polis comment list --conversation CONVERSATION --csv > comments.csv
+polis comment stats --conversation CONVERSATION --by-group --csv > stats.csv
+polis participant locations --conversation CONVERSATION --group 0 --csv > locations.csv
+polis participant xid list --conversation CONVERSATION --csv > xids-list.csv
+polis conversation list --csv > conversations.csv
+```
+
+`polis schema --json` marks supported commands with `csv: true`. `--csv` and
+`--json` are mutually exclusive. `topic prioritize` accepts CSV only with `--show`; `api` accepts it only
+with the default `--method GET`. CSV is a presentation of the same bounded read;
+it adds no fetches, pagination, sorting or identity enrichment. CSV conversation
+lists use the JSON read path without the human table's optional report lookup.
+Existing limits still apply. Use `--json` to inspect cursors, truncation, scope,
+notes and provenance before treating a result as complete. These reads are not
+an atomic snapshot. A failed read preserves its exit code, writes its error to
+stderr, and emits no CSV rows. Site headers and warnings also stay on stderr.
+
+CSV refuses more than one million cells or 64 MiB of encoded output before
+writing rows. Narrow the read or use JSON for those shapes.
+
+CSV columns are the sorted union of fields in the returned rows; no text is
+truncated. Quoting preserves commas, quotes, Unicode and newlines. Missing
+fields are empty cells, explicit null is `null`, and objects/arrays are compact
+JSON cells. Scalar or mixed arrays use a single `value` column; an empty array
+is a header-only `value` table. A single object is one row. CSV does not preserve
+JSON scalar types; use JSON when the distinction between a string such as
+`"null"`, an empty string and a missing field matters. Formula-like strings are
+preserved as data: import CSV columns as text, not executable spreadsheet formulas.
+
+For the following commands the CSV rows come from the named data field:
+
+| Commands | Row field |
+| --- | --- |
+| `site list` | `sites` |
+| `seed csv preview` | `rows` |
+| `conversation list` | `conversations` |
+| `comment list`, `comment stats`, `report comments list`, `topic comments` | `comments` |
+| `participant list` | `participants` (the signed-in account only, not a roster) |
+| `vote list` | `votes` |
+| `vote mine`, `vote famous` | `data` |
+| `invite code list`, `invite list` | `codes`, `invites` respectively |
+| `collective list`, `collective statements` | `statements` |
+| `topic list`, `report topics` | `topics`, when present; otherwise the complete object |
+| `topic proximity` | `proximity_data` |
+| `delphi status` | `jobs` |
+
+Other read results retain their full object or top-level array. Nested structures,
+including `bidToPid` group arrays and per-group statistics, remain JSON cells;
+empty groups and duplicate points are not removed. Wrapper metadata is available
+in `--json`, rather than repeated in every CSV row. File/document exports keep
+their existing `--output` and `--format` interfaces; `--json` describes the download
+receipt and does not replace the downloaded file.
+
+### Join an organizer's members to votes
+
+Use the XID export you are authorized to download for **the same conversation**
+as the vote export. The existing votes CSV contains `voter-id` (a PID), not XID.
+Join `votes.voter-id` to `xids.pid` first, then `xids.xid` to your member list's
+`xid`. PIDs are conversation-local; never reuse a mapping from another conversation
+or site. Verify the report belongs to that conversation with `report view`.
+Neither CSV includes sufficient context to detect a mistaken cross-conversation
+join automatically.
+
+```sh
+polis auth login
+polis report view REPORT --json
+polis participant xid export --conversation CONVERSATION --output xids.csv
+polis report export REPORT --type votes.csv --output votes.csv
+polis report export REPORT --type format.json --output format.json
+```
+
+The XID export requires owner/moderator authority and contains only participants
+with XIDs. Anonymous/unmapped votes must remain unmatched. Locations cannot be
+joined to members. Public group membership does not provide an XID map. Exports
+can be capped; separate reads can observe changes. Check the JSON receipts and
+the site's limits before claiming a complete member or voter roster.
+
+For example, your own `members.csv` might be:
+
+```csv
+xid,member_label
+member-north,North district
+member-south,South district
+```
+
+From a source checkout, run the included Python standard-library example:
+
+```sh
+python3 polis-cli/examples/join-member-votes.py \
+  --members members.csv --xids xids.csv --votes votes.csv --output member-votes.csv
+```
+
+This left join keeps every vote row in its original order, including repeated
+votes. It appends `xid`, `member_label` and `member_match` (`matched`, `no_member`
+or `no_xid`). The output is owner-only on Unix. It preserves string IDs, leading zeroes and every original vote
+cell, rejects ambiguous duplicate keys and refuses to overwrite an output file.
+Use it only with files you have verified belong together; keep identity-linked
+files private. Read `format.json` for the export's vote convention. `vote list`
+uses the wire convention documented by its JSON response; changing the output
+format performs no sign conversion. The join does not change vote values either.
