@@ -166,12 +166,16 @@ class Stack:
         return self.tokens
 
     def enter_phase(self,switch,*,fresh_backends):
-        """Re-render the proxy with the real renderer and reinstall the fixture.
+        """Reload the proxy with the real route helper and reinstall the fixture.
         Fresh backend processes clear process caches between phases."""
         self.env['RUST_API_ROUTES']=switch
         if fresh_backends:
             self.dc('restart','-t','1','server','dynamodb');self.ready();self.publish_keys();self.dc('restart','-t','1','polis-api')
-        self.dc('up','-d','--no-deps','--force-recreate','--pull','never','proxy')
+        self.dc('exec','-T','-e','RUST_API_ROUTES='+switch,
+                'proxy','/usr/local/bin/polis-rust-routes','--reload')
+        # The proxy survives phase changes. After old workers drain, clear
+        # only the access log so routing counts still describe one phase.
+        self.dc('exec','-T','proxy','sh','-c',': > '+NGINX_LOG)
         fixture=self.dc('exec','-T','server','node','/differential/seed.cjs',input=json.dumps(self.tokens),check=False)
         if fixture.returncode:
             print(fixture.stderr,file=sys.stderr)

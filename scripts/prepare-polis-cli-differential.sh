@@ -8,6 +8,7 @@ docker build --target prod --build-arg NODE_ENV=production -t "$CLI_DIFF_NODE_IM
 docker build --build-context queue-rs=queue-rs -t "$CLI_DIFF_POSTGRES_IMAGE" -f server/Dockerfile-db server
 docker build -t "$CLI_DIFF_OIDC_IMAGE" oidc-simulator
 docker build --build-arg FEATURES=fixture-clock -t "$CLI_DIFF_RUST_IMAGE" -f queue-rs/polis-api/Dockerfile queue-rs
-for image in "${CLI_DIFF_NGINX_IMAGE:-nginx:1.21.5-alpine}" amazon/dynamodb-local:latest; do
+docker build -t "${CLI_DIFF_NGINX_IMAGE:-cli-diff-nginx:local}" -f file-server/nginx.Dockerfile file-server
+for image in amazon/dynamodb-local:latest; do
   docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image"
 done
