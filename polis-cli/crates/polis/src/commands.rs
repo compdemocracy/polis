@@ -415,7 +415,8 @@ pub fn command() -> Command {
  .long_about("Listen at scale. Bring Polis to your terminal.\n\nConversations, comments, and shared understanding — for people and agents.\nWorking now: auth, conversations, seeds, moderation, participant/vote reads,
 report exports, stored Delphi results, and raw API.\nThe full product surface is discoverable below; planned commands return exit 8.")
  .arg(arg("site","Use a site for this command; default selects pol.is (overrides POLIS_SITE and the saved default)").global(true))
- .arg(flag("json","Emit the versioned polis-cli/1 JSON envelope (including errors and help)").global(true))
+ .arg(flag("json","Emit the versioned polis-cli/1 JSON envelope (including errors and help)").global(true).conflicts_with("csv-output"))
+ .arg(flag("csv-output","Write read-result rows as CSV on stdout; nested fields are JSON, no text truncation (see README Raw data)").long("csv").global(true).conflicts_with("json"))
  .arg(flag("no-interactive","Never prompt; saved file sign-ins, explicitly opted-in Keychain and environment tokens still work").global(true))
  .arg(arg("timeout","Bound each HTTP request in seconds (1–300)").default_value("30").value_parser(clap::value_parser!(u64).range(1..=300)).global(true))
  .disable_help_subcommand(true).subcommand_required(true).arg_required_else_help(true);
@@ -555,6 +556,7 @@ pub fn schema(cmd: &Command, prefix: &str) -> Value {
         format!("{prefix} {}", cmd.get_name())
     };
     json!({"command":path,"description":cmd.get_about().map(|v|v.to_string()),"implemented":available(path.strip_prefix("polis ").unwrap_or(&path)),
+ "csv":crate::raw_output::available(path.strip_prefix("polis ").unwrap_or(&path)),
  "arguments":cmd.get_arguments().map(|a|json!({"name":a.get_id().as_str(),"long":a.get_long(),"required":a.is_required_set(),"global":a.is_global_set(),"values":a.get_value_parser().possible_values().map(|v|v.map(|p|p.get_name().to_owned()).collect::<Vec<_>>()),"defaults":a.get_default_values().iter().map(|v|v.to_string_lossy()).collect::<Vec<_>>(),"help":a.get_help().map(|h|h.to_string()),"action":format!("{:?}",a.get_action())})).collect::<Vec<_>>(),
  "commands":cmd.get_subcommands().map(|c|schema(c,&path)).collect::<Vec<_>>()})
 }

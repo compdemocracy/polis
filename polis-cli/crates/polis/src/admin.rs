@@ -83,6 +83,13 @@ pub(crate) fn operations() -> &'static [Operation] {
 pub fn available(path: &str) -> bool {
     operations().iter().any(|o| o.command == path)
 }
+pub fn csv_available(path: &str) -> bool {
+    operations().iter().any(|o| {
+        o.command == path
+            && !o.effect
+            && matches!(o.response, Response::Json | Response::PublicJson)
+    })
+}
 pub fn command(path: &str) -> Option<Command> {
     let o = operations().iter().find(|o| o.command == path)?;
     let mut c=Command::new(path.split(' ').next_back().unwrap().to_owned())
