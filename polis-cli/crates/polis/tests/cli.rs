@@ -124,10 +124,9 @@ fn list_prints_a_table_with_the_newest_report_of_each_conversation() {
         &["conversation", "list"],
     );
     assert!(o.status.success());
-    assert!(
-        o.stderr.is_empty(),
-        "{}",
-        String::from_utf8_lossy(&o.stderr)
+    assert_eq!(
+        String::from_utf8_lossy(&o.stderr),
+        format!("Site: local ({origin})\n")
     );
     assert!(requests[0].starts_with("GET /api/v3/conversations?limit=100 "));
     assert!(
@@ -182,9 +181,11 @@ fn list_table_survives_a_failed_or_missing_reports_read() {
         assert!(stdout.contains(&format!("  {origin}/def\n")), "{stdout}");
         assert!(!stdout.contains("/report/"));
         let stderr = String::from_utf8_lossy(&o.stderr);
-        assert_eq!(stderr.lines().count(), 1, "{stderr}");
+        let header = format!("Site: local ({origin})\n");
+        let warning = stderr.strip_prefix(&header).expect("effective site header");
+        assert_eq!(warning.lines().count(), 1, "{stderr}");
         assert!(
-            stderr.starts_with("polis: report links unavailable"),
+            warning.starts_with("polis: report links unavailable"),
             "{stderr}"
         );
         assert!(!stderr.contains("polis_err_permissions") && !stderr.contains("old server"));
@@ -219,14 +220,17 @@ fn list_table_cleans_and_truncates_text_but_never_links() {
 }
 #[test]
 fn list_without_conversations_reads_no_reports() {
-    let (o, requests, _) = sequence(
+    let (o, requests, origin) = sequence(
         &[(200, "application/json", "[]")],
         &["conversation", "list", "--search", "nothing"],
     );
     assert!(o.status.success());
     assert_eq!(requests.len(), 1);
     assert_eq!(text(&o), "No conversations.\n");
-    assert!(o.stderr.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&o.stderr),
+        format!("Site: local ({origin})\n")
+    );
 }
 #[test]
 fn list_json_envelope_is_unchanged_by_the_table() {
@@ -261,7 +265,7 @@ fn all_help_and_schema_commands_are_reachable() {
         let out = run(tmp, &args);
         assert!(out.status.success(), "{path}");
         assert_eq!(parsed(&out)["ok"], true);
-        assert!(!String::from_utf8_lossy(&out.stdout).contains("--site"));
+        assert!(String::from_utf8_lossy(&out.stdout).contains("--site"));
         *count += 1;
         for child in v["commands"].as_array().unwrap() {
             walk(child, tmp, count);
@@ -612,31 +616,49 @@ fn profiles_preserve_configuration_and_require_origins() {
     assert_eq!(parsed(&o)["error"]["code"], "site_unconfigured");
 }
 #[test]
-fn site_selection_is_not_a_command_or_option() {
+fn site_selection_is_discoverable_in_commands_options_and_completions() {
     let t = tempfile::tempdir().unwrap();
     let schema = parsed(&run(t.path(), &["schema"]));
-    assert!(!schema["data"]["commands"]
+    let sites = schema["data"]["commands"]
         .as_array()
         .unwrap()
         .iter()
-        .any(|v| v["command"] == "polis site"));
+        .find(|v| v["command"] == "polis site")
+        .unwrap();
+    for name in ["list", "add", "use", "remove"] {
+        assert!(sites["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["command"] == format!("polis site {name}") && v["implemented"] == true));
+    }
     for args in [
-        vec!["auth", "login", "--site", "prod", "--json"],
-        vec!["site", "use", "prod", "--json"],
+        vec!["--site", "prod", "site", "list", "--json"],
+        vec!["site", "list", "--site", "prod", "--json"],
     ] {
         let o = run(t.path(), &args);
-        assert_eq!(o.status.code(), Some(2));
-        assert_eq!(parsed(&o)["error"]["code"], "invalid_input");
+        assert_eq!(o.status.code(), Some(0));
+        assert_eq!(parsed(&o)["data"]["selected"], "prod");
     }
-    let plain = run(t.path(), &["auth", "login", "--site", "prod"]);
-    assert_eq!(plain.status.code(), Some(2));
-    assert!(!String::from_utf8_lossy(&plain.stderr).contains("--site"));
+    let unknown = run(t.path(), &["site", "list", "--site", "missing", "--json"]);
+    assert_eq!(unknown.status.code(), Some(2));
+    assert_eq!(parsed(&unknown)["error"]["code"], "site_unconfigured");
     for shell in ["bash", "zsh", "fish", "powershell", "elvish"] {
         let o = run(t.path(), &["completion", shell]);
         assert!(o.status.success());
-        assert!(!String::from_utf8_lossy(&o.stdout).contains("--site"));
+        let declaration = if shell == "fish" {
+            " -l site "
+        } else {
+            "--site"
+        };
+        assert!(
+            String::from_utf8_lossy(&o.stdout).contains(declaration),
+            "{shell}"
+        );
     }
+    assert_eq!(std::fs::read_dir(t.path()).unwrap().count(), 0);
 }
+
 #[test]
 fn different_site_does_not_reuse_local_token() {
     let t = tempfile::tempdir().unwrap();
