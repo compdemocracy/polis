@@ -621,8 +621,18 @@
         },
         {
           "table": "comments",
+          "name": "comments_zid_created_idx",
+          "definition": "CREATE INDEX comments_zid_created_idx ON public.comments USING btree (zid, created)"
+        },
+        {
+          "table": "comments",
           "name": "comments_zid_idx",
           "definition": "CREATE INDEX comments_zid_idx ON public.comments USING btree (zid)"
+        },
+        {
+          "table": "comments",
+          "name": "comments_zid_modified_idx",
+          "definition": "CREATE INDEX comments_zid_modified_idx ON public.comments USING btree (zid, modified)"
         },
         {
           "table": "comments",
@@ -12142,6 +12152,11 @@
         },
         {
           "table": "votes",
+          "name": "votes_zid_created_idx",
+          "definition": "CREATE INDEX votes_zid_created_idx ON public.votes USING btree (zid, created)"
+        },
+        {
+          "table": "votes",
           "name": "votes_zid_pid_idx",
           "definition": "CREATE INDEX votes_zid_pid_idx ON public.votes USING btree (zid, pid)"
         }
@@ -12795,6 +12810,10 @@
     {
       "path": "server/postgres/migrations/000042_tid_auto_transaction_lock.sql",
       "sha256": "ae12bd2dcce3a8e055adb54b241c090f36861ad4185771e173a87abd278b53f6"
+    },
+    {
+      "path": "server/postgres/migrations/000043_add_conversation_activity_indexes.sql",
+      "sha256": "1c85ef8a67bb0add2bcf6dd7e38fabb977c26fe004994cf78e06fed8eda9b906"
     }
   ]
 }

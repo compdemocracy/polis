@@ -85,7 +85,7 @@ def build():
                '000029_extend_delphi_graph_stages.sql', '000030_create_delphi_writers.sql',
                '000031_scope_delphi_result_reads.sql', '000038_create_delphi_comment_embeddings.sql',
                '000039_clear_zinvites_uuid.sql', '000041_create_delphi_run_record.sql',
-               '000042_tid_auto_transaction_lock.sql'}
+               '000042_tid_auto_transaction_lock.sql', '000043_add_conversation_activity_indexes.sql'}
     assert selected == {p.name for p in files} | pending, 'report scope differs from release selection'
     assert held == {'000021_create_polis_coordinator.sql'}, 'review changed hold policy'
     numbered = sorted(MIG.glob('*.sql'))
@@ -151,17 +151,7 @@ WITH checks AS (
    CASE WHEN NOT can_reconcile THEN 'BLOCKED_RECONCILIATION'
         WHEN NOT reconcile_authority OR NOT can_provision THEN 'REVIEW_MIGRATION_SESSION_AUTHORITY'
         ELSE 'WOULD_APPLY' END
- FROM (VALUES ('000019_create_polis_queue.sql'),('000023_create_delphi_foundation.sql'),
-              ('000024_create_polis_queue_large_class.sql'),
-              ('000027_create_sealed_job_graphs.sql'),
-              ('000028_create_delphi_results.sql'),
-              ('000029_extend_delphi_graph_stages.sql'),
-              ('000030_create_delphi_writers.sql'),
-              ('000031_scope_delphi_result_reads.sql'),
-              ('000038_create_delphi_comment_embeddings.sql'),
-              ('000039_clear_zinvites_uuid.sql'),
-              ('000041_create_delphi_run_record.sql'),
-              ('000042_tid_auto_transaction_lock.sql')) p(migration) CROSS JOIN readiness
+ FROM (VALUES ''' + ','.join("('" + name + "')" for name in sorted(pending)) + ''') p(migration) CROSS JOIN readiness
  UNION ALL
  SELECT migration, NULL::boolean, 'OUTSIDE_RELEASE'
  FROM (VALUES ('000020'),('000021'),('000025'),('000026')) p(migration)
