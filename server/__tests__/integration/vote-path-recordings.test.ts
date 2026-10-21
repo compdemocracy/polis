@@ -538,20 +538,15 @@ async function zidOf(conversationId: string): Promise<number> {
   return rows[0].zid;
 }
 
-/**
- * Wait for the handlers' deferred updates (POST /votes and POST /comments run
- * updateVoteCount and the modified/last-interaction updates on a 100 ms timer)
- * before reading. Polls instead of sleeping: done when every participant's
- * vote_count equals its stored rows and the conversation's participant and
- * modified state has not changed across three polls. A path that never
- * updates vote_count is accepted once its state has been still for 2 s.
+/** Wait for notification state to settle before recording. Numeric counts
+ * are read from durable vote history; the retired cached count is not a signal.
  */
 async function settle(zid: number): Promise<void> {
   const state = async () =>
     JSON.stringify(
       (
         await pool.query(
-          `SELECT p.pid, p.vote_count, p.last_interaction, c.modified,
+          `SELECT p.pid, (SELECT count(*)::int FROM votes v WHERE v.zid=p.zid AND v.pid=p.pid) AS vote_count, p.last_interaction, c.modified,
                   (SELECT count(*) FROM votes v WHERE v.zid = p.zid AND v.pid = p.pid) AS stored
              FROM participants p JOIN conversations c ON c.zid = p.zid
             WHERE p.zid = $1 ORDER BY p.pid`,
@@ -911,7 +906,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
     await recordStored("V/after-participant-votes", V.zid);
     await recordQuery(
       "V/db/participants",
-      "SELECT pid, vote_count, mod FROM participants WHERE zid = $1 ORDER BY pid",
+      "SELECT pid, (SELECT count(*)::int FROM votes v WHERE v.zid=p.zid AND v.pid=p.pid) AS vote_count, mod FROM participants p WHERE zid = $1 ORDER BY pid",
       [V.zid]
     );
 

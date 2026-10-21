@@ -43,6 +43,7 @@ exports.runtime = function runtime(client, fixture, mutate = null) {
     queryP_metered: async(_name,sql,params)=>(await trackedQuery(sql,params)).rows,
     query(sql, params, cb) { trackedQuery(sql,params).then(x=>cb(null,x),e=>cb(e)); },
     queryP: async(sql,params)=>(await trackedQuery(sql,params)).rows,
+    queryP_notification: async(sql,params)=>(await trackedQuery(sql,params)).rows,
     queryP_readOnly: async(sql,params)=>(await trackedQuery(sql,params)).rows,
   };
   const config = {mathEnv:'python',cacheMathResults:true,shouldUseTranslationAPI:fixture.translate!==false,
