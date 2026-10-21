@@ -27,7 +27,7 @@ function exemption(kind, stack, callback) {
 // they cannot perform request writes. runtime.test.cjs exercises actual resources.
 // Request ownership propagates through promises even though promises themselves are
 // not pending I/O. Track timers, filesystem work and explicit DB/provider operations.
-function createBarrier(unownedActive = () => false) {
+function createBarrier(unownedActive = () => false, settledResource = () => false) {
   const context = new AsyncLocalStorage(),
     pending = new Map(),
     closed = new Set(),
@@ -73,7 +73,7 @@ function createBarrier(unownedActive = () => false) {
   function state(owner) {
     return {
       pending: [...pending.values()]
-        .filter((x) => x.owner === owner)
+        .filter((x) => x.owner === owner && !settledResource(x.kind, x.resource))
         .map(({ owner, kind, origin, callback }) => ({
           owner,
           kind,

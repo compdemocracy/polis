@@ -12,6 +12,10 @@ const pair = crypto.generateKeyPairSync("rsa", {
 });
 process.env.JWT_PRIVATE_KEY = pair.privateKey;
 process.env.JWT_PUBLIC_KEY = pair.publicKey;
+// Explicit, local recording profile; never loaded by the application entrypoint.
+const votesProfile = process.env.P027_VOTES_PROFILE === "1"
+  ? require("./votes/control.cjs").install(state, pair)
+  : null;
 function files(dir = process.cwd()) {
   const result = {};
   function visit(p) {
@@ -90,6 +94,7 @@ async function main() {
     .createServer(async (req, res) => {
       res.setHeader("content-type", "application/json");
       try {
+        if (votesProfile && await votesProfile(req, res)) return;
         if (req.url.startsWith("/begin?")) {
           const seed = new URL(req.url, "http://localhost").searchParams.get(
             "seed"
