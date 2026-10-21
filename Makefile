@@ -22,7 +22,11 @@ export ENV_FILE = .env
 # Lazy evaluation of expensive environment parsing - only when needed
 define get_env_vars
 	$(eval export TAG = $(call parse_env_value,TAG))
-	$(eval export GIT_HASH = $(shell git rev-parse --short HEAD))
+	$(eval export GIT_HASH = $(shell git rev-parse HEAD))
+	$(eval POLIS_BUILD_IDENTITY := $(shell python3 scripts/build_identity.py --format env))
+	$(eval export POLIS_BUILD_DISTANCE = $(patsubst distance=%,%,$(filter distance=%,$(POLIS_BUILD_IDENTITY))))
+	$(eval export POLIS_BUILD_SOURCE = $(patsubst source=%,%,$(filter source=%,$(POLIS_BUILD_IDENTITY))))
+	$(eval export POLIS_BUILD_TAG = $(if $(filter channel=stable,$(POLIS_BUILD_IDENTITY)),v$(patsubst version_base=%,%,$(filter version_base=%,$(POLIS_BUILD_IDENTITY))),))
 	$(eval POSTGRES_DOCKER_RAW = $(shell echo $(call parse_env_value,POSTGRES_DOCKER) | tr '[:upper:]' '[:lower:]'))
 	$(eval export POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW)))
 	$(eval LOCAL_SERVICES_DOCKER_RAW = $(shell echo $(call parse_env_value,LOCAL_SERVICES_DOCKER) | tr '[:upper:]' '[:lower:]'))

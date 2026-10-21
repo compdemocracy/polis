@@ -35,7 +35,7 @@ cp "$proof/linux-target/debug/polis-jobs" "$proof/binary/"
 docker build -f delphi/tests/dynamo_removal/Dockerfile --build-arg "DELPHI_BASE=$base" \
  --build-context "queue-binary=$proof/binary" -t "$image" . > "$proof/worker-build.log" 2>&1
 if [[ -z "${WRITER_PROOF_SERVER_IMAGE:-}" ]]; then
- docker build --target dev -t "$server_image" server > "$proof/server-build.log" 2>&1
+ docker build --target dev -t "$server_image" -f server/Dockerfile . > "$proof/server-build.log" 2>&1
 fi
 docker run --rm --network none -v "$repo/server:/candidate:ro" -v "$repo/delphi:/delphi:ro" \
  -e DATABASE_URL=postgresql://postgres@127.0.0.1:1/generated --entrypoint sh "$server_image" \

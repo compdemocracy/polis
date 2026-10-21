@@ -70,7 +70,7 @@ docker run --rm --network none "$image" python -m pytest --noconftest -o addopts
 # The same server tests and SQL boundary campaign run in hosted CI and on mm5.
 server_image=${DYNAMO_PROOF_SERVER_IMAGE:-${COMPOSE_PROJECT_NAME}:server}
 if [[ -z "${DYNAMO_PROOF_SERVER_IMAGE:-}" ]]; then
- docker build --target dev -t "$server_image" server > "$proof/server-image-build.log" 2>&1
+ docker build --target dev -t "$server_image" -f server/Dockerfile . > "$proof/server-image-build.log" 2>&1
 fi
 export DYNAMO_PROOF_SERVER_IMAGE="$server_image"
 docker run --rm --network none -v "$repo/server:/candidate:ro" -v "$repo/delphi:/delphi:ro" \

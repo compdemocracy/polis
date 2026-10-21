@@ -80,12 +80,12 @@ if [ "$(jq -cS '.services.delphi.build' "$CONFIG")" != "$(jq -cS '.services["mat
 fi
 # The production web box recomputes this from its own env document and refuses
 # an image built with other public settings (scripts/after_install.sh).
-WEB_ARGS_SHA256=$(jq -cS '.services["client-participation-alpha"].build.args' "$CONFIG" | sha256sum | cut -d' ' -f1)
+WEB_ARGS_SHA256=$(jq -cS '.services["client-participation-alpha"].build.args | del(.GIT_HASH, .POLIS_BUILD_DISTANCE, .POLIS_BUILD_TAG, .POLIS_BUILD_SOURCE)' "$CONFIG" | sha256sum | cut -d' ' -f1)
 
 echo "building ${SERVICES[*]} for $REVISION"
 aws ecr get-login-password --region "$REGION" \
   | docker login --username AWS --password-stdin "$REGISTRY" >>"$LOG" 2>&1 || fail "ECR login"
-"${COMPOSE[@]}" --profile rust-api build "${SERVICES[@]}" >>"$LOG" 2>&1 || fail "build"
+"${COMPOSE[@]}" --profile rust-api build --build-arg "GIT_HASH=$REVISION" --build-arg "POLIS_BUILD_DISTANCE=${POLIS_BUILD_DISTANCE:-unknown}" --build-arg "POLIS_BUILD_TAG=${POLIS_BUILD_TAG:-}" --build-arg "POLIS_BUILD_SOURCE=${POLIS_BUILD_SOURCE:-unverified-archive}" "${SERVICES[@]}" >>"$LOG" 2>&1 || fail "build"
 for service in "${SERVICES[@]}"; do
   docker push "$(ref_of "$service")" >>"$LOG" 2>&1 || fail "push $service"
 done

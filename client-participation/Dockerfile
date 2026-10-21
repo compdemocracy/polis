@@ -3,6 +3,7 @@
 # Instead, the file-server Dockerfile builds and serves these assets.
 # But this file is still useful for development or deployments that do not use
 # the docker compose configuration.
+# Build from the repository root: docker build -f client-participation/Dockerfile .
 
 FROM docker.io/node:24-alpine
 
@@ -21,15 +22,25 @@ ENV AUTH_NAMESPACE=${AUTH_NAMESPACE}
 ARG NODE_ENV
 ENV NODE_ENV=${NODE_ENV:-production}
 
-WORKDIR /app
+RUN apk add --no-cache python3
 
-COPY package*.json ./
+WORKDIR /app/client-participation
+
+COPY client-participation/package*.json ./
 
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
 RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
-COPY . .
+COPY VERSION VERSION_STABLE_COMMIT /app/
+COPY scripts/build_identity.py scripts/build-identity.cjs /app/scripts/
+COPY client-participation/ .
+
+ARG GIT_HASH=unknown
+ARG POLIS_BUILD_DISTANCE=unknown
+ARG POLIS_BUILD_TAG
+ARG POLIS_BUILD_SOURCE=unverified-archive
+ENV GIT_HASH=${GIT_HASH} POLIS_BUILD_DISTANCE=${POLIS_BUILD_DISTANCE} POLIS_BUILD_TAG=${POLIS_BUILD_TAG} POLIS_BUILD_SOURCE=${POLIS_BUILD_SOURCE}
 
 CMD npm run build:prod

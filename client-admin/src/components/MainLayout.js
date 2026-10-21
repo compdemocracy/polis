@@ -48,6 +48,9 @@ const MainLayout = () => {
               Account
             </Link>
           </Box>
+          <Box sx={{ mb: [0, 0, 3] }}>
+            <Link sx={{ variant: 'links.nav' }} to="/home/about">About</Link>
+          </Box>
           {ops ? (
             <Box sx={{ mb: [0, 0, 3] }}>
               <Link sx={{ variant: 'links.nav', whiteSpace: 'nowrap' }} to={`/ops`}>

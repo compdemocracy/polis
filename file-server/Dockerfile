@@ -16,6 +16,8 @@ ARG NODE_ENV
 ENV NODE_ENV=${NODE_ENV:-production}
 
 WORKDIR /app
+RUN apk add --no-cache python3
+
 
 COPY client-admin/package*.json ./
 
@@ -25,6 +27,14 @@ RUN npm config set fetch-retries 5 && \
 RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-admin/. .
+
+ARG GIT_HASH=unknown
+ARG POLIS_BUILD_DISTANCE=unknown
+ARG POLIS_BUILD_TAG
+ARG POLIS_BUILD_SOURCE=unverified-archive
+ENV GIT_HASH=$GIT_HASH POLIS_BUILD_DISTANCE=$POLIS_BUILD_DISTANCE POLIS_BUILD_TAG=$POLIS_BUILD_TAG POLIS_BUILD_SOURCE=$POLIS_BUILD_SOURCE
+COPY VERSION VERSION_STABLE_COMMIT /
+COPY scripts/build_identity.py scripts/build-identity.cjs /scripts/
 
 ARG ADMIN_UIDS
 ARG AUTH_AUDIENCE
@@ -58,6 +68,8 @@ ARG NODE_ENV
 ENV NODE_ENV=${NODE_ENV:-production}
 
 WORKDIR /app
+RUN apk add --no-cache python3
+
 
 COPY client-participation/package*.json ./
 
@@ -67,6 +79,14 @@ RUN npm config set fetch-retries 5 && \
 RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-participation/. .
+
+ARG GIT_HASH=unknown
+ARG POLIS_BUILD_DISTANCE=unknown
+ARG POLIS_BUILD_TAG
+ARG POLIS_BUILD_SOURCE=unverified-archive
+ENV GIT_HASH=$GIT_HASH POLIS_BUILD_DISTANCE=$POLIS_BUILD_DISTANCE POLIS_BUILD_TAG=$POLIS_BUILD_TAG POLIS_BUILD_SOURCE=$POLIS_BUILD_SOURCE
+COPY VERSION VERSION_STABLE_COMMIT /
+COPY scripts/build_identity.py scripts/build-identity.cjs /scripts/
 
 RUN npm run build:prod
 
@@ -81,6 +101,8 @@ ARG NODE_ENV
 ENV NODE_ENV=${NODE_ENV:-production}
 
 WORKDIR /app
+RUN apk add --no-cache python3
+
 
 RUN apk add git
 
@@ -93,9 +115,13 @@ RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-report/. .
 
-# GIT_HASH will be set properly when running `make` (see Makefile).
-ARG GIT_HASH
-ENV GIT_HASH=${GIT_HASH:-placeholder}
+ARG GIT_HASH=unknown
+ARG POLIS_BUILD_DISTANCE=unknown
+ARG POLIS_BUILD_TAG
+ARG POLIS_BUILD_SOURCE=unverified-archive
+ENV GIT_HASH=$GIT_HASH POLIS_BUILD_DISTANCE=$POLIS_BUILD_DISTANCE POLIS_BUILD_TAG=$POLIS_BUILD_TAG POLIS_BUILD_SOURCE=$POLIS_BUILD_SOURCE
+COPY VERSION VERSION_STABLE_COMMIT /
+COPY scripts/build_identity.py scripts/build-identity.cjs /scripts/
 
 ARG AUTH_AUDIENCE
 ARG AUTH_NAMESPACE

@@ -3,7 +3,7 @@ polis-api included, and deploy/build-on-box.sh accepts exactly the manifest it
 prints.
 
 Runs the real scripts with every external command faked on PATH: aws, docker,
-docker-compose, jq, flock and sleep only record their arguments (aws answers
+docker-compose, python3, jq, flock and sleep only record their arguments (aws answers
 the few reads the scripts make; docker login reads its password from stdin).
 The build box's absolute paths (/run/polis-build, /var/log/polis-build) are
 rewritten into a temporary root.
@@ -65,6 +65,7 @@ REFS = {
 
 RECORD = '#!/bin/bash\necho "$(basename "$0") $*" >> "$FAKE_LOG"\n'
 FAKES = {
+    "python3": RECORD + 'echo "{}"\n',
     "flock": RECORD,
     "sleep": RECORD,
     "jq": RECORD + "echo value\n",
@@ -145,6 +146,8 @@ def test_polis_api_is_built_pushed_and_named_in_the_manifest(tmp_path):
     # One build of every service; polis-api's profile is named.
     builds = [c for c in _calls(tmp_path, "docker-compose") if " build " in f" {c} "]
     assert builds == ["-f docker-compose.yml -f docker-compose.build.yml --profile rust-api build "
+                      f"--build-arg GIT_HASH={REVISION} --build-arg POLIS_BUILD_DISTANCE=unknown "
+                      "--build-arg POLIS_BUILD_TAG= --build-arg POLIS_BUILD_SOURCE=unverified-archive "
                       "server nginx-proxy client-participation-alpha delphi migrate polis-api"]
     pushes = [c.split()[1] for c in _calls(tmp_path, "docker") if c.startswith("push ")]
     assert pushes == [*REFS.values(), f"{REGISTRY}/polis/server:latest"]
@@ -187,6 +190,7 @@ def test_the_deploy_workflow_accepts_the_manifest_the_build_prints(tmp_path):
     box_dir.mkdir()
     box, output = _on_box(box_dir, proc.stdout)
     assert box.returncode == 0, box.stdout + box.stderr
+    assert _calls(box_dir, "python3") == ["scripts/build_identity.py"]
     manifest = _manifest(proc.stdout)
     body = "".join(f"{k}={v}\n" for k, v in manifest.items())
     assert output == f"manifest<<POLIS_MANIFEST_EOF\n{body}POLIS_MANIFEST_EOF\n"

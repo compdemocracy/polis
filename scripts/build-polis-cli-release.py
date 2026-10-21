@@ -11,12 +11,18 @@ import re
 import subprocess
 import tarfile
 import tomllib
+import importlib.util
+
+_IDENTITY_SPEC = importlib.util.spec_from_file_location("build_identity", Path(__file__).with_name("build_identity.py"))
+_IDENTITY = importlib.util.module_from_spec(_IDENTITY_SPEC)
+_IDENTITY_SPEC.loader.exec_module(_IDENTITY)
+identity = _IDENTITY.identity
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = ("aarch64-apple-darwin", "x86_64-apple-darwin",
            "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu")
 INPUTS = ("polis-cli", "queue-rs/polis-contracts", "scripts/build-polis-cli-release.py",
-          "scripts/test-polis-cli.sh", "LICENSE")
+          "scripts/test-polis-cli.sh", "scripts/build_identity.py", "VERSION", "VERSION_STABLE_COMMIT", "LICENSE")
 
 
 def output(argv, cwd=ROOT, env=None):
@@ -125,7 +131,9 @@ def main():
         metadata = json.loads(output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], workspace, env))
         subprocess.run(["cargo", "build", "--locked", "--release", "--package", "polis", "--bin", "polis", "--target", args.target], cwd=workspace, env=env, check=True)
         binary = Path(metadata["target_directory"]) / args.target / "release" / "polis"
-        expected = f"polis {version} (commit {commit}; {source})"
+        info = identity(ROOT, env)
+        distance = info["distance"] if info["distance"] is not None else "unknown"
+        expected = f'polis {info["version_display"]} (commit {commit}; distance {distance}; {source})'
         if output([str(binary), "--version"], workspace, env) != expected:
             raise ValueError("Built binary version does not match source metadata.")
         # Version/help must work without a profile, sign-in, or server request.

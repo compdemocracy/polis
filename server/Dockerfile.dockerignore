@@ -1,0 +1,23 @@
+# Preserve the server-context image layout while admitting root identity inputs.
+**
+!server/
+!server/**
+!VERSION
+!VERSION_STABLE_COMMIT
+!scripts/
+!scripts/build_identity.py
+!scripts/build-identity.cjs
+server/.env
+server/.git
+server/.google_creds_temp
+server/.venv/
+server/coverage/
+server/dist
+server/logs/
+server/node_modules/
+server/npm-debug.log*
+**/.env
+**/.env.*
+**/.google_creds_temp
+**/.venv
+**/node_modules

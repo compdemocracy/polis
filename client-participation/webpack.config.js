@@ -1,3 +1,5 @@
+const { buildIdentity, BuildInfoPlugin } = require('../scripts/build-identity.cjs');
+const buildInfo = buildIdentity();
 const path = require("path");
 const webpack = require("webpack");
 const CopyPlugin = require("copy-webpack-plugin");
@@ -7,7 +9,6 @@ const EventHooksPlugin = require("event-hooks-webpack-plugin");
 const lodashTemplate = require("lodash/template");
 const glob = require("glob");
 const fs = require("fs");
-const pkg = require("./package.json");
 const TerserPlugin = require("terser-webpack-plugin");
 const Dotenv = require("dotenv-webpack");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
@@ -237,7 +238,7 @@ module.exports = (env, options) => {
         template: path.resolve(__dirname, "public/index.ejs"),
         filename: "index.html",
         templateParameters: {
-          versionString: pkg.version,
+          versionString: buildInfo.version_display,
           jwtDecodeSrc: `/${jwtDecodeScript}`,
           gaTrackingId: gaTrackingId,
           oidcCacheKeyPrefix: oidcCacheKeyPrefix,
@@ -265,7 +266,9 @@ module.exports = (env, options) => {
         }
       }),
 
+      new BuildInfoPlugin(buildInfo, 'participation'),
       new webpack.DefinePlugin({
+        'process.env.POLIS_BUILD_INFO': JSON.stringify(buildInfo),
         "process.env.GA_TRACKING_ID": JSON.stringify(gaTrackingId),
         "process.env.OIDC_CACHE_KEY_PREFIX": JSON.stringify(oidcCacheKeyPrefix),
         "process.env.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX": JSON.stringify(oidcCacheKeyIdTokenSuffix),
