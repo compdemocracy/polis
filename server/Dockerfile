@@ -11,7 +11,7 @@
 # For a dev build, use `--target dev`.
 # Should default to prod build, but you can also explicitly use `--target prod`
 
-FROM docker.io/node:22-alpine as base
+FROM docker.io/node:22.23.4-alpine as base
 
 ARG NODE_ENV
 
@@ -19,7 +19,7 @@ WORKDIR /app
 
 
 # Install Python and necessary tools (including pip)
-RUN apk add --no-cache python3 py3-pip ca-certificates
+RUN apk add --no-cache python3 py3-pip 'ca-certificates>=20261020-r0'
 
 # Verified startup migration checks use the same public RDS CA pin as the
 # runner image. Deployments with another private CA can override this env.
@@ -72,7 +72,7 @@ FROM base as prod
 ENV NODE_ENV ${NODE_ENV:-production}
 
 # Install OpenSSL and CA Certificates (CRITICAL for production)
-RUN apk add --no-cache openssl ca-certificates
+RUN apk add --no-cache openssl 'ca-certificates>=20261020-r0'
 
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \

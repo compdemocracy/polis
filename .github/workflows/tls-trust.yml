@@ -1,0 +1,39 @@
+name: TLS trust stores
+on:
+  pull_request:
+    paths:
+      - '**/*Dockerfile*'
+      - '**/*requirements*'
+      - '**/pyproject.toml'
+      - '**/uv.lock'
+      - 'polis-cli/Cargo.lock'
+      - 'ci/tls/**'
+      - 'math/distrust-ca.sh'
+      - 'server/mise.toml'
+      - '.github/workflows/tls-trust.yml'
+  push:
+    branches: [edge, stable]
+    paths:
+      - '**/*Dockerfile*'
+      - '**/*requirements*'
+      - '**/pyproject.toml'
+      - '**/uv.lock'
+      - 'polis-cli/Cargo.lock'
+      - 'ci/tls/**'
+      - 'math/distrust-ca.sh'
+      - 'server/mise.toml'
+      - '.github/workflows/tls-trust.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Regression controls and version pins
+        run: python3 -m unittest discover -s ci/tls -p 'test_*.py'
+      - name: Build and inspect effective trust stores
+        run: bash ci/tls/check-images.sh

@@ -1,3 +1,4 @@
+certifi==2026.10.19
 # Installed by lambda/lambda.ts (packageHandler) with pip for the Lambda's own
 # platform: CPython 3.12, x86_64, manylinux2014. The hash is the wheel's, so
 # the exact file is verified; it is the version the deployed function carries.

@@ -7,7 +7,7 @@
 # The toolchain matches queue-rs/rust-toolchain.toml (1.98.1).
 FROM docker.io/library/rust:1.98.1-slim-bookworm AS polis-jobs
 RUN apt-get update \
- && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates=20250419~deb12u2 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY --from=queue-rs . .
@@ -17,7 +17,12 @@ RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
  && /polis-jobs --version
 
 # ---- Stage 1: Builder ----
-  FROM python:3.12-slim AS builder
+  FROM python:3.12-slim-trixie AS trust
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 \
+ && rm -rf /var/lib/apt/lists/*
+
+  FROM trust AS builder
 
   # Define a build argument to signal if we should install CPU-specific torch
   ARG USE_CPU_TORCH=false
@@ -30,7 +35,7 @@ RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
   # Install uv for faster package installation (~2x faster than pip)
   # Placed in /opt/uv (not /usr/local/bin) to avoid leaking into the final/prod image
   # via the blanket COPY --from=builder /usr/local/bin in Stage 2.
-  COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /opt/uv/uv
+  COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /opt/uv/uv
   ENV PATH="/opt/uv:$PATH"
 
   RUN apt-get update && \
@@ -90,7 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
       (ls -lhR /usr/local/lib/python3.12/site-packages/torch/lib/*cuda* || echo "No CUDA libs in torch/lib.")
 
 # ---- Stage 2: Final ----
-FROM python:3.12-slim AS final
+FROM trust AS final
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

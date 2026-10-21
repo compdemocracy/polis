@@ -4,7 +4,7 @@
 # image has no way to fake the clock.
 FROM docker.io/library/rust:1.98.1-slim-trixie AS build
 RUN apt-get update \
- && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates=20250419+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
@@ -14,7 +14,7 @@ RUN cargo build --release --locked -p polis-api ${FEATURES:+--features "$FEATURE
 
 FROM docker.io/library/debian:trixie-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libssl3t64 ca-certificates \
+ && apt-get install -y --no-install-recommends libssl3t64 ca-certificates=20250419+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /polis-api /usr/local/bin/polis-api
 # As the server image's prod target: production unless built otherwise, and

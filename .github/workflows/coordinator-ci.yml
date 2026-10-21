@@ -57,7 +57,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: steps.paths.outputs.run == 'true'
         with:
-          node-version: '24'
+          node-version: "24.22.1"
           cache: npm
           cache-dependency-path: server/package-lock.json
       - name: Provision locked candidate and server modules

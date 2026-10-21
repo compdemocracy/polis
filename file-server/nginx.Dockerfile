@@ -1,5 +1,11 @@
 FROM docker.io/nginx:1.21.5-alpine
 
+# Mozilla's October 2026 eMudhra advisory includes the Sectigo cross-sign path.
+RUN apk add --no-cache ca-certificates \
+ && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' \
+           -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+ && update-ca-certificates
+
 # Copy config as template
 COPY nginx/nginx-ssl.site.default.conf /etc/nginx/conf.d/default.conf.template
 
