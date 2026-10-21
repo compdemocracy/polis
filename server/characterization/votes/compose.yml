@@ -1,0 +1,4 @@
+services:
+  server:
+    environment:
+      P027_VOTES_PROFILE: "1"

@@ -31,7 +31,10 @@ const state = (global.__p027 = {
 // Bluebird's shared callback queue otherwise drops AsyncLocalStorage ownership.
 require("bluebird").config({ asyncHooks: true });
 const barrier = (state.barrier = require("./barrier.cjs").createBarrier(
-  () => state.currentCase !== null
+  () => state.currentCase !== null,
+  process.env.P027_VOTES_PROFILE === "1"
+    ? require("./votes/idle-tls.cjs").install()
+    : undefined
 ));
 const { AsyncResource } = require("node:async_hooks");
 const pgPool = require("pg").Pool,

@@ -1,0 +1,434 @@
+[
+  {
+    "case": "anonymous-first",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.112874258076772,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":3,\"auth\":{\"token\":\"$jwt:8123d1d96d13e926fe16bf4ef6afe8467107ba5185af5c1e2b46edb0a8de399f\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.828463755082339,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.609784686937928,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 1\",\"tid\":4,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.1951061030849814,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.337324131978676,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 2\",\"tid\":5,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.2020552253816277,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement A\",\"tid\":0,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.2029235998634249,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement A\",\"tid\":0,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.8732665081042796,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.777415480464697,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 2\",\"tid\":5,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.920147249242291,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.63758784905076,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.312350075226277,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.2251244159415364,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":4.388390659354627,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.560576517600566,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.592354732565582,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.2549573422875255,\"remaining\":5,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement B\",\"tid\":1,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.2880198820494115,\"remaining\":5,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.8468313382472843,\"remaining\":5,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":4.726128152105957,\"remaining\":5,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement A\",\"tid\":0,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.04368971916846931,\"remaining\":5,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.174153212923557,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.395857783034444,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement A\",\"tid\":0,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.36438696971163154,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement A\",\"tid\":0,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.8500022878870368,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":4.626847336068749,\"remaining\":6,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement B\",\"tid\":1,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.261453143786639,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 2\",\"tid\":5,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":4.376307199243456,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.5522221371065825,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement B\",\"tid\":1,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.6764576942659914,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.49618799961172,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "foreign-conversation-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.220504785655066,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":4,\"auth\":{\"token\":\"$jwt:780c26a4be383fee80afa1ca6eadd798e71d00c626f0c7956c3d174a102dcf46\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "expired-token",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-token-format",
+    "status": 401,
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-member",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement B\",\"tid\":1,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.6366801131516695,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-owner",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement B\",\"tid\":1,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.28910759603604674,\"remaining\":5,\"total\":8,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-new-anonymous",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-required",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_xid_required\",\"message\":\"polis_err_xid_required\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-first-contact",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.403491917531937,\"remaining\":7,\"total\":8,\"translations\":[]},\"currentPid\":5,\"auth\":{\"token\":\"$jwt:bb839ee98d40a2b6c5f177cc4b4b0655990543abd21ca7d530927f42440756ca\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-allowed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.717525489628315,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-denied",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_xid_not_allowed\",\"message\":\"polis_err_xid_not_allowed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-true",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.694807194173336,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-false",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.733730649575591,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-repeat",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.4739013807848096,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-null",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.829334800131619,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-numeric",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.462148081511259,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-string",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.8437822936102748,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-invalid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "priority-invalid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "prefix-integers",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.569366866722703,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "fractional-tid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "missing-tid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "missing-vote",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-vote",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-conversation",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "missing-conversation",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-xid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-lang",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "lang-empty",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.9316071514040232,\"remaining\":4,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "no-next-comment",
+    "status": 200,
+    "body": "{\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-failure",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "duplicate-sqlstate",
+    "status": 406,
+    "body": "{\"error\":\"polis_err_vote_duplicate\",\"message\":\"polis_err_vote_duplicate\",\"status\":406}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-failure-after-commit",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "next-failure-after-commit",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "retry-after-next-failure",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.9368339048232883,\"remaining\":3,\"total\":8,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  }
+]

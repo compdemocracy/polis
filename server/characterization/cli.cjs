@@ -359,6 +359,9 @@ async function observeCase(c, tokens, tables, normalizer) {
       ? JSON.parse(Buffer.from(tokens[c.auth].split(".")[1], "base64url")).sub
       : undefined,
     xid: c.request.body?.xid,
+    // Additional vote identities declare the expected subject independently of
+    // the response; signature, participant and conversation checks still apply.
+    ...c.credentialBinding,
   };
   const wire = response.wire;
   wire.response.headers = require("./headers.cjs").headers(
@@ -456,6 +459,7 @@ async function observeCase(c, tokens, tables, normalizer) {
   return {
     ...c,
     version: 1,
+    ...(!stable ? { unsettledWork: obsAfter.work } : {}),
     ...(c.caseId.startsWith("comments-read/")
       ? { commentsContext: obsAfter.commentsContext }
       : {}),
@@ -1053,7 +1057,7 @@ async function close() {
 // sender, snapshot and schema reader rather than reimplementing request
 // semantics. Requiring the module must not run the recorder, and a consumer
 // needs a way to release the pg pool and the DynamoDB client it opens on import.
-module.exports = { send, snapshot, schema, close };
+module.exports = { send, snapshot, schema, close, runCase };
 
 if (require.main === module) {
   main()
