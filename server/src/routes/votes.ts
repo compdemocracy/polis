@@ -16,9 +16,7 @@ import {
   finishArray,
   finishOne,
   safeTimestampToMillis,
-  updateConversationModifiedTime,
   updateLastInteractionTimeForConversation,
-  updateVoteCount,
 } from "../server-helpers";
 import Config from "../config";
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
@@ -234,12 +232,8 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
     const voteRecord = voteResult.vote;
     const createdTimeMillis = safeTimestampToMillis(voteRecord.created);
 
-    // 2. Async updates (don't wait for them)
-    setTimeout(() => {
-      updateConversationModifiedTime(zid, createdTimeMillis);
-      updateLastInteractionTimeForConversation(zid, uid);
-      updateVoteCount(zid, pid);
-    }, 100);
+    // Notification state uses its own bounded lane; counts/activity are reads.
+    void updateLastInteractionTimeForConversation(zid, uid);
 
     // 3. Handle star if present
     if (!_.isUndefined(starred)) {

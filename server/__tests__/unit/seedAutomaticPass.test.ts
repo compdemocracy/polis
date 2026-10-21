@@ -23,7 +23,7 @@ jest.mock("auth0", () => ({ ManagementClient: jest.fn() }));
 jest.mock("../../src/config", () => ({ __esModule: true, default: {} }));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: mockQuery, queryP_readOnly: mockQuery },
+  default: { queryP: mockQuery, queryP_readOnly: mockQuery, queryP_notification: jest.fn(async () => []) },
 }));
 jest.mock("../../src/utils/logger", () => ({
   __esModule: true,

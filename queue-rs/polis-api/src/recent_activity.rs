@@ -104,7 +104,9 @@ pub fn read(
     since: i64,
 ) -> anyhow::Result<Option<contract::EmptyResponse>> {
     let rows = c.query(
-        "SELECT 1 FROM conversations WHERE modified >= $1 LIMIT 1",
+        "SELECT 1 FROM conversations c WHERE c.modified >= $1
+         OR (c.modified IS NOT NULL AND EXISTS (SELECT 1 FROM votes v WHERE v.zid=c.zid AND v.created >= $1))
+         OR (c.modified IS NOT NULL AND EXISTS (SELECT 1 FROM comments m WHERE m.zid=c.zid AND (m.created >= $1 OR m.modified >= $1))) LIMIT 1",
         &[&since],
     )?;
     Ok(rows.is_empty().then_some([]))
@@ -120,7 +122,7 @@ mod tests {
         let setup_schema = schema.clone();
         tokio::task::spawn_blocking(move||{
             let mut c=postgres::Client::connect(&setup_url,postgres::NoTls).unwrap();
-            c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.conversations(modified bigint); INSERT INTO {setup_schema}.conversations VALUES(2000),(NULL);")).unwrap();
+            c.batch_execute(&format!("CREATE SCHEMA {setup_schema}; CREATE TABLE {setup_schema}.conversations(zid int, modified bigint); CREATE TABLE {setup_schema}.votes(zid int, created bigint); CREATE TABLE {setup_schema}.comments(zid int, created bigint, modified bigint); INSERT INTO {setup_schema}.conversations VALUES(1,2000),(2,NULL),(3,1),(4,1); INSERT INTO {setup_schema}.votes VALUES(2,9000),(3,3000); INSERT INTO {setup_schema}.comments VALUES(4,4000,5000);")).unwrap();
         }).await.unwrap();
         let make_pool = || {
             let mut c: postgres::Config = url.parse().unwrap();
@@ -132,7 +134,7 @@ mod tests {
         };
         let pool = make_pool();
         let participation = make_pool();
-        for zid in [2001, 9007199254740000] {
+        for zid in [5001, 9007199254740000] {
             assert!(
                 pool.with(move |c| read(c, zid))
                     .await
@@ -141,7 +143,9 @@ mod tests {
                     .is_empty()
             );
         }
-        assert!(pool.with(|c| read(c, 2000)).await.unwrap().is_none());
+        for since in [2000, 3000, 4000, 5000] {
+            assert!(pool.with(move |c| read(c, since)).await.unwrap().is_none());
+        }
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
         let (release_tx, release_rx) = std::sync::mpsc::channel();
         let lock_url = url.clone();
@@ -160,13 +164,13 @@ mod tests {
         });
         ready_rx.await.unwrap();
         let stalled = pool.clone();
-        let task = tokio::spawn(async move { stalled.with(|c| read(c, 2001)).await });
+        let task = tokio::spawn(async move { stalled.with(|c| read(c, 5001)).await });
         assert!(participation.ping().await);
         assert!(task.await.unwrap().is_err());
         release_tx.send(()).unwrap();
         locked.await.unwrap();
         assert!(
-            pool.with(|c| read(c, 2001))
+            pool.with(|c| read(c, 5001))
                 .await
                 .unwrap()
                 .unwrap()

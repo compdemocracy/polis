@@ -14403,8 +14403,8 @@
     {
       "case": "http/ordinary/owner/POST/seeds",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -14458,7 +14458,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"nextComment\": {\n    \"txt\": \"Generated statement 5\",\n    \"tid\": 5,\n    \"created\": \"1700000000005\",\n    \"quote_src_url\": null,\n    \"is_seed\": false,\n    \"is_meta\": false,\n    \"lang\": \"en\",\n    \"pid\": 0,\n    \"original_id\": null,\n    \"randomN\": 6.25,\n    \"remaining\": 2,\n    \"total\": 6,\n    \"translations\": []\n  },\n  \"currentPid\": 0\n}",
           "beforeDeferred": {
-            "postgresStatements": 7,
+            "postgresStatements": 8,
             "dynamoCalls": 0,
             "mathBytes": 0
           }
@@ -14470,9 +14470,7 @@
           "SELECT * FROM conversations WHERE zid = ($1);",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [],
@@ -14496,15 +14494,15 @@
         "draws": [
           0.625
         ],
-        "postgresStatements": 10,
+        "postgresStatements": 8,
         "dynamoCalls": 0
       }
     },
     {
       "case": "http/ordinary/owner/POST/all-voted",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -14543,7 +14541,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"currentPid\": 0\n}",
           "beforeDeferred": {
-            "postgresStatements": 8,
+            "postgresStatements": 9,
             "dynamoCalls": 0,
             "mathBytes": 0
           }
@@ -14556,9 +14554,7 @@
           "insert into event_ptpt_no_more_comments (zid, pid, votes_placed) values ($1, $2, (select count(*) from votes where zid = ($1) and pid = ($2)))",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [],
@@ -14566,15 +14562,15 @@
         "translations": 0,
         "pools": [],
         "draws": [],
-        "postgresStatements": 11,
+        "postgresStatements": 9,
         "dynamoCalls": 0
       }
     },
     {
       "case": "http/ordinary/owner/POST/large-math",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -14628,7 +14624,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"nextComment\": {\n    \"txt\": \"Generated statement 5\",\n    \"tid\": 5,\n    \"created\": \"1700000000005\",\n    \"quote_src_url\": null,\n    \"is_seed\": false,\n    \"is_meta\": false,\n    \"lang\": \"en\",\n    \"pid\": 0,\n    \"original_id\": null,\n    \"randomN\": 6.25,\n    \"remaining\": 2,\n    \"total\": 6,\n    \"translations\": []\n  },\n  \"currentPid\": 0\n}",
           "beforeDeferred": {
-            "postgresStatements": 7,
+            "postgresStatements": 8,
             "dynamoCalls": 0,
             "mathBytes": 0
           }
@@ -14640,9 +14636,7 @@
           "SELECT * FROM conversations WHERE zid = ($1);",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [],
@@ -14666,7 +14660,7 @@
         "draws": [
           0.625
         ],
-        "postgresStatements": 10,
+        "postgresStatements": 8,
         "dynamoCalls": 0
       }
     },
@@ -14975,8 +14969,8 @@
     {
       "case": "http/ordinary/second/POST/seeds",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -15042,7 +15036,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"nextComment\": {\n    \"txt\": \"Generated statement 4\",\n    \"tid\": 4,\n    \"created\": \"1700000000004\",\n    \"quote_src_url\": null,\n    \"is_seed\": true,\n    \"is_meta\": false,\n    \"lang\": \"en\",\n    \"pid\": 0,\n    \"original_id\": null,\n    \"randomN\": 11.875,\n    \"remaining\": 5,\n    \"total\": 6,\n    \"translations\": []\n  },\n  \"currentPid\": 7\n}",
           "beforeDeferred": {
-            "postgresStatements": 7,
+            "postgresStatements": 8,
             "dynamoCalls": 0,
             "mathBytes": 0
           }
@@ -15054,9 +15048,7 @@
           "SELECT * FROM conversations WHERE zid = ($1);",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [],
@@ -15092,15 +15084,15 @@
         "draws": [
           0.625
         ],
-        "postgresStatements": 10,
+        "postgresStatements": 8,
         "dynamoCalls": 0
       }
     },
     {
       "case": "http/ordinary/second/POST/all-voted",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -15139,7 +15131,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"currentPid\": 7\n}",
           "beforeDeferred": {
-            "postgresStatements": 8,
+            "postgresStatements": 9,
             "dynamoCalls": 0,
             "mathBytes": 0
           }
@@ -15152,9 +15144,7 @@
           "insert into event_ptpt_no_more_comments (zid, pid, votes_placed) values ($1, $2, (select count(*) from votes where zid = ($1) and pid = ($2)))",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [],
@@ -15162,15 +15152,15 @@
         "translations": 0,
         "pools": [],
         "draws": [],
-        "postgresStatements": 11,
+        "postgresStatements": 9,
         "dynamoCalls": 0
       }
     },
     {
       "case": "http/ordinary/second/POST/large-math",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -15236,7 +15226,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"nextComment\": {\n    \"txt\": \"Generated statement 4\",\n    \"tid\": 4,\n    \"created\": \"1700000000004\",\n    \"quote_src_url\": null,\n    \"is_seed\": true,\n    \"is_meta\": false,\n    \"lang\": \"en\",\n    \"pid\": 0,\n    \"original_id\": null,\n    \"randomN\": 11.875,\n    \"remaining\": 5,\n    \"total\": 6,\n    \"translations\": []\n  },\n  \"currentPid\": 7\n}",
           "beforeDeferred": {
-            "postgresStatements": 7,
+            "postgresStatements": 8,
             "dynamoCalls": 0,
             "mathBytes": 0
           }
@@ -15248,9 +15238,7 @@
           "SELECT * FROM conversations WHERE zid = ($1);",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [],
@@ -15286,7 +15274,7 @@
         "draws": [
           0.625
         ],
-        "postgresStatements": 10,
+        "postgresStatements": 8,
         "dynamoCalls": 0
       }
     },
@@ -15709,8 +15697,8 @@
     {
       "case": "http/topical/owner/POST/seeds",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -15789,7 +15777,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"nextComment\": {\n    \"txt\": \"Generated statement 5\",\n    \"tid\": 5,\n    \"created\": \"1700000000005\",\n    \"quote_src_url\": null,\n    \"is_seed\": false,\n    \"is_meta\": false,\n    \"lang\": \"en\",\n    \"pid\": 0,\n    \"original_id\": null,\n    \"randomN\": 6.25,\n    \"remaining\": 2,\n    \"total\": 6,\n    \"translations\": []\n  },\n  \"currentPid\": 0\n}",
           "beforeDeferred": {
-            "postgresStatements": 11,
+            "postgresStatements": 12,
             "dynamoCalls": 2,
             "mathBytes": 0
           }
@@ -15805,9 +15793,7 @@
           "SELECT archetypal_selections, delphi_job_id FROM topic_agenda_selections WHERE zid = ($1) AND pid = ($2) LIMIT 1;",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [
@@ -15852,15 +15838,15 @@
           0.625,
           0.625
         ],
-        "postgresStatements": 14,
+        "postgresStatements": 12,
         "dynamoCalls": 2
       }
     },
     {
       "case": "http/topical/owner/POST/all-voted",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -15930,7 +15916,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"currentPid\": 0\n}",
           "beforeDeferred": {
-            "postgresStatements": 16,
+            "postgresStatements": 17,
             "dynamoCalls": 2,
             "mathBytes": 0
           }
@@ -15950,9 +15936,7 @@
           "insert into event_ptpt_no_more_comments (zid, pid, votes_placed) values ($1, $2, (select count(*) from votes where zid = ($1) and pid = ($2)))",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
@@ -15984,15 +15968,15 @@
         "draws": [
           0.625
         ],
-        "postgresStatements": 19,
+        "postgresStatements": 17,
         "dynamoCalls": 2
       }
     },
     {
       "case": "http/topical/owner/POST/large-math",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -16071,7 +16055,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"nextComment\": {\n    \"txt\": \"Generated statement 5\",\n    \"tid\": 5,\n    \"created\": \"1700000000005\",\n    \"quote_src_url\": null,\n    \"is_seed\": false,\n    \"is_meta\": false,\n    \"lang\": \"en\",\n    \"pid\": 0,\n    \"original_id\": null,\n    \"randomN\": 6.25,\n    \"remaining\": 2,\n    \"total\": 6,\n    \"translations\": []\n  },\n  \"currentPid\": 0\n}",
           "beforeDeferred": {
-            "postgresStatements": 11,
+            "postgresStatements": 12,
             "dynamoCalls": 2,
             "mathBytes": 0
           }
@@ -16087,9 +16071,7 @@
           "SELECT archetypal_selections, delphi_job_id FROM topic_agenda_selections WHERE zid = ($1) AND pid = ($2) LIMIT 1;",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
         "dynamo": [
@@ -16134,7 +16116,7 @@
           0.625,
           0.625
         ],
-        "postgresStatements": 14,
+        "postgresStatements": 12,
         "dynamoCalls": 2
       }
     },
@@ -16261,8 +16243,8 @@
     {
       "case": "http/topical/second/POST/all-voted",
       "status": "ruled",
-      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged",
-      "ruling": "ruled:2026-10-18 cost only, same choice and response bytes in every case",
+      "reason": "the vote path reads comment priorities from a tick-keyed cache; the whole-row read is gone; response bytes unchanged Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
       "before": {
         "value": {
           "status": 200,
@@ -16332,7 +16314,7 @@
           "contentType": "application/json; charset=utf-8",
           "text": "{\n  \"currentPid\": 7\n}",
           "beforeDeferred": {
-            "postgresStatements": 16,
+            "postgresStatements": 17,
             "dynamoCalls": 2,
             "mathBytes": 0
           }
@@ -16352,9 +16334,7 @@
           "insert into event_ptpt_no_more_comments (zid, pid, votes_placed) values ($1, $2, (select count(*) from votes where zid = ($1) and pid = ($2)))",
           "select * from conversations where zid = ($1);",
           "select math_tick, data->'comment-priorities' as priorities from math_main where zid = ($1) and math_env = ($2);",
-          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
           "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
-          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;",
           "with v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), c as (select * from get_visible_comments($1)), remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), total as (select count(*) as total from c) select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;"
         ],
@@ -16386,7 +16366,279 @@
         "draws": [
           0.625
         ],
-        "postgresStatements": 19,
+        "postgresStatements": 17,
+        "dynamoCalls": 2
+      }
+    },
+    {
+      "case": "http/topical/second/POST/seeds",
+      "status": "ruled",
+      "reason": "Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
+      "before": {
+        "value": {
+          "status": 200,
+          "contentType": "application/json; charset=utf-8",
+          "text": "{\n  \"nextComment\": {\n    \"zid\": 1,\n    \"tid\": 2,\n    \"txt\": \"Generated statement 2\",\n    \"translations\": []\n  },\n  \"currentPid\": 7\n}",
+          "beforeDeferred": {
+            "postgresStatements": 6,
+            "dynamoCalls": 2,
+            "mathBytes": 0
+          }
+        },
+        "sql": [
+          "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;",
+          "SELECT \"comments\".* FROM \"comments\" WHERE (((((((\"comments\".\"zid\" = 1) AND (\"comments\".\"tid\" IN (0, 2, 4))) AND (\"comments\".\"tid\" NOT IN (SELECT \"votes_latest_unique\".\"tid\" FROM \"votes_latest_unique\" WHERE ((\"votes_latest_unique\".\"zid\" = 1) AND (\"votes_latest_unique\".\"pid\" = 7))))) AND (1=1)) AND (\"comments\".\"active\" = TRUE)) AND (\"comments\".\"mod\" <> -1)) AND (\"comments\".\"velocity\" > 0)) ORDER BY is_seed desc, random() LIMIT 1",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT archetypal_selections, delphi_job_id FROM topic_agenda_selections WHERE zid = ($1) AND pid = ($2) LIMIT 1;",
+          "select * from conversations where zid = ($1);",
+          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
+          "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
+          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)"
+        ],
+        "dynamo": [
+          {
+            "TableName": "Delphi_CommentClustersLLMTopicNames",
+            "KeyConditionExpression": "conversation_id = :cid AND topic_key = :tk",
+            "ExpressionAttributeValues": {
+              ":cid": "1",
+              ":tk": "job#0#1"
+            }
+          },
+          {
+            "TableName": "Delphi_CommentHierarchicalClusterAssignments",
+            "KeyConditionExpression": "conversation_id = :cid",
+            "ExpressionAttributeValues": {
+              ":cid": "1"
+            }
+          }
+        ],
+        "mathBytes": 0,
+        "translations": 0,
+        "pools": [
+          {
+            "path": "topical",
+            "candidates": [
+              {
+                "tid": 0,
+                "weight": 1
+              },
+              {
+                "tid": 2,
+                "weight": 1
+              },
+              {
+                "tid": 4,
+                "weight": 1
+              }
+            ]
+          }
+        ],
+        "draws": [
+          0.625
+        ],
+        "postgresStatements": 9,
+        "dynamoCalls": 2
+      },
+      "after": {
+        "value": {
+          "status": 200,
+          "contentType": "application/json; charset=utf-8",
+          "text": "{\n  \"nextComment\": {\n    \"zid\": 1,\n    \"tid\": 2,\n    \"txt\": \"Generated statement 2\",\n    \"translations\": []\n  },\n  \"currentPid\": 7\n}",
+          "beforeDeferred": {
+            "postgresStatements": 7,
+            "dynamoCalls": 2,
+            "mathBytes": 0
+          }
+        },
+        "sql": [
+          "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;",
+          "SELECT \"comments\".* FROM \"comments\" WHERE (((((((\"comments\".\"zid\" = 1) AND (\"comments\".\"tid\" IN (0, 2, 4))) AND (\"comments\".\"tid\" NOT IN (SELECT \"votes_latest_unique\".\"tid\" FROM \"votes_latest_unique\" WHERE ((\"votes_latest_unique\".\"zid\" = 1) AND (\"votes_latest_unique\".\"pid\" = 7))))) AND (1=1)) AND (\"comments\".\"active\" = TRUE)) AND (\"comments\".\"mod\" <> -1)) AND (\"comments\".\"velocity\" > 0)) ORDER BY is_seed desc, random() LIMIT 1",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT archetypal_selections, delphi_job_id FROM topic_agenda_selections WHERE zid = ($1) AND pid = ($2) LIMIT 1;",
+          "select * from conversations where zid = ($1);",
+          "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);"
+        ],
+        "dynamo": [
+          {
+            "TableName": "Delphi_CommentClustersLLMTopicNames",
+            "KeyConditionExpression": "conversation_id = :cid AND topic_key = :tk",
+            "ExpressionAttributeValues": {
+              ":cid": "1",
+              ":tk": "job#0#1"
+            }
+          },
+          {
+            "TableName": "Delphi_CommentHierarchicalClusterAssignments",
+            "KeyConditionExpression": "conversation_id = :cid",
+            "ExpressionAttributeValues": {
+              ":cid": "1"
+            }
+          }
+        ],
+        "mathBytes": 0,
+        "translations": 0,
+        "pools": [
+          {
+            "path": "topical",
+            "candidates": [
+              {
+                "tid": 0,
+                "weight": 1
+              },
+              {
+                "tid": 2,
+                "weight": 1
+              },
+              {
+                "tid": 4,
+                "weight": 1
+              }
+            ]
+          }
+        ],
+        "draws": [
+          0.625
+        ],
+        "postgresStatements": 7,
+        "dynamoCalls": 2
+      }
+    },
+    {
+      "case": "http/topical/second/POST/large-math",
+      "status": "ruled",
+      "reason": "Two fewer SQL statements: the participant recount and the conversation-modified UPDATE are gone; the notification UPDATE is issued immediately rather than deferred; response bytes unchanged.",
+      "ruling": "ruled:2026-10-21 counts and activity derived at read; the vote path no longer recounts; response bytes unchanged",
+      "before": {
+        "value": {
+          "status": 200,
+          "contentType": "application/json; charset=utf-8",
+          "text": "{\n  \"nextComment\": {\n    \"zid\": 1,\n    \"tid\": 2,\n    \"txt\": \"Generated statement 2\",\n    \"translations\": []\n  },\n  \"currentPid\": 7\n}",
+          "beforeDeferred": {
+            "postgresStatements": 6,
+            "dynamoCalls": 2,
+            "mathBytes": 0
+          }
+        },
+        "sql": [
+          "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;",
+          "SELECT \"comments\".* FROM \"comments\" WHERE (((((((\"comments\".\"zid\" = 1) AND (\"comments\".\"tid\" IN (0, 2, 4))) AND (\"comments\".\"tid\" NOT IN (SELECT \"votes_latest_unique\".\"tid\" FROM \"votes_latest_unique\" WHERE ((\"votes_latest_unique\".\"zid\" = 1) AND (\"votes_latest_unique\".\"pid\" = 7))))) AND (1=1)) AND (\"comments\".\"active\" = TRUE)) AND (\"comments\".\"mod\" <> -1)) AND (\"comments\".\"velocity\" > 0)) ORDER BY is_seed desc, random() LIMIT 1",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT archetypal_selections, delphi_job_id FROM topic_agenda_selections WHERE zid = ($1) AND pid = ($2) LIMIT 1;",
+          "select * from conversations where zid = ($1);",
+          "update conversations set modified = ($2) where zid = ($1) and modified < ($2);",
+          "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
+          "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)"
+        ],
+        "dynamo": [
+          {
+            "TableName": "Delphi_CommentClustersLLMTopicNames",
+            "KeyConditionExpression": "conversation_id = :cid AND topic_key = :tk",
+            "ExpressionAttributeValues": {
+              ":cid": "1",
+              ":tk": "job#0#1"
+            }
+          },
+          {
+            "TableName": "Delphi_CommentHierarchicalClusterAssignments",
+            "KeyConditionExpression": "conversation_id = :cid",
+            "ExpressionAttributeValues": {
+              ":cid": "1"
+            }
+          }
+        ],
+        "mathBytes": 0,
+        "translations": 0,
+        "pools": [
+          {
+            "path": "topical",
+            "candidates": [
+              {
+                "tid": 0,
+                "weight": 1
+              },
+              {
+                "tid": 2,
+                "weight": 1
+              },
+              {
+                "tid": 4,
+                "weight": 1
+              }
+            ]
+          }
+        ],
+        "draws": [
+          0.625
+        ],
+        "postgresStatements": 9,
+        "dynamoCalls": 2
+      },
+      "after": {
+        "value": {
+          "status": 200,
+          "contentType": "application/json; charset=utf-8",
+          "text": "{\n  \"nextComment\": {\n    \"zid\": 1,\n    \"tid\": 2,\n    \"txt\": \"Generated statement 2\",\n    \"translations\": []\n  },\n  \"currentPid\": 7\n}",
+          "beforeDeferred": {
+            "postgresStatements": 7,
+            "dynamoCalls": 2,
+            "mathBytes": 0
+          }
+        },
+        "sql": [
+          "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;",
+          "SELECT \"comments\".* FROM \"comments\" WHERE (((((((\"comments\".\"zid\" = 1) AND (\"comments\".\"tid\" IN (0, 2, 4))) AND (\"comments\".\"tid\" NOT IN (SELECT \"votes_latest_unique\".\"tid\" FROM \"votes_latest_unique\" WHERE ((\"votes_latest_unique\".\"zid\" = 1) AND (\"votes_latest_unique\".\"pid\" = 7))))) AND (1=1)) AND (\"comments\".\"active\" = TRUE)) AND (\"comments\".\"mod\" <> -1)) AND (\"comments\".\"velocity\" > 0)) ORDER BY is_seed desc, random() LIMIT 1",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT * FROM conversations WHERE zid = ($1);",
+          "SELECT archetypal_selections, delphi_job_id FROM topic_agenda_selections WHERE zid = ($1) AND pid = ($2) LIMIT 1;",
+          "select * from conversations where zid = ($1);",
+          "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);"
+        ],
+        "dynamo": [
+          {
+            "TableName": "Delphi_CommentClustersLLMTopicNames",
+            "KeyConditionExpression": "conversation_id = :cid AND topic_key = :tk",
+            "ExpressionAttributeValues": {
+              ":cid": "1",
+              ":tk": "job#0#1"
+            }
+          },
+          {
+            "TableName": "Delphi_CommentHierarchicalClusterAssignments",
+            "KeyConditionExpression": "conversation_id = :cid",
+            "ExpressionAttributeValues": {
+              ":cid": "1"
+            }
+          }
+        ],
+        "mathBytes": 0,
+        "translations": 0,
+        "pools": [
+          {
+            "path": "topical",
+            "candidates": [
+              {
+                "tid": 0,
+                "weight": 1
+              },
+              {
+                "tid": 2,
+                "weight": 1
+              },
+              {
+                "tid": 4,
+                "weight": 1
+              }
+            ]
+          }
+        ],
+        "draws": [
+          0.625
+        ],
+        "postgresStatements": 7,
         "dynamoCalls": 2
       }
     }

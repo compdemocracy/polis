@@ -68,7 +68,8 @@ export type PoolRole =
   | "read"
   | "result-snapshot"
   | "report-export"
-  | "agent-exchange";
+  | "agent-exchange"
+  | "notification";
 const poolRoles = new WeakMap<Pool, PoolRole>();
 function withRole(pool: Pool, role: PoolRole): Pool {
   poolRoles.set(pool, role);
@@ -165,9 +166,38 @@ function participationPoolsInstance(): PoolPair {
 // The pair a query uses: the participation pools for work that came through a
 // participation route (db/participation-scope.ts), the pair above for
 // everything else. Nothing outside that scope can reach the participation
-// pools, and nothing inside it is given another pair.
+// pools. Notification state explicitly uses its own bounded pool.
 function pools(): PoolPair {
   return onParticipationPath() ? participationPoolsInstance() : sharedPools;
+}
+
+// Notification writes never inherit participation scope. Admission bounds the
+// entire in-process queue as well as the number of PostgreSQL connections.
+export const NOTIFICATION_POOL_MAX = 2;
+export const NOTIFICATION_PENDING_MAX = 64;
+let notificationPool: Pool | undefined;
+let notificationPending = 0;
+async function queryP_notification(queryString: string, params: any[] = []) {
+  if (notificationPending >= NOTIFICATION_PENDING_MAX) {
+    throw new Error("notification_queue_full");
+  }
+  notificationPending++;
+  try {
+    if (!notificationPool) {
+      notificationPool = withRole(new Pool({
+        ...pgConnection,
+        max: NOTIFICATION_POOL_MAX,
+        connectionTimeoutMillis: 250,
+        statement_timeout: 1000,
+        lock_timeout: 250,
+      } as unknown as PoolConfig), "notification");
+      notificationPool.on("error", error => logger.error("pg_notification_pool", error));
+    }
+    const result = await notificationPool.query(queryString, params);
+    return result.rows;
+  } finally {
+    notificationPending--;
+  }
 }
 
 // Same syntax as pg.client.query, but uses connection pool
@@ -685,6 +715,7 @@ export default {
   queryP_readOnly_wRetryIfEmpty,
   queryP_reportExport,
   queryP_agentExchange,
+  queryP_notification,
   isPoolAcquireTimeout,
   stream_queryP_readOnly,
   stream_queryP_reportExport,
