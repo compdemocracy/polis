@@ -1,0 +1,10 @@
+# Test-only opt-in; production defaults stay off.
+services:
+  polis-api:
+    environment:
+      POLIS_API_VOTES_READS: "1"
+      POLIS_API_VOTES_READ_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      AUTH_ISSUER: https://oidc-simulator:3000/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/

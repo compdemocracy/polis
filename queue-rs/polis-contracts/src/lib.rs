@@ -35,6 +35,7 @@ pub mod ops_whoami;
 pub mod other_conversations_page;
 pub mod participation_read;
 pub mod post_votes;
+pub mod votes_read;
 pub mod recent_activity;
 pub mod recent_started;
 pub mod reports_read;

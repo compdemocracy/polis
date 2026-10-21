@@ -1474,3 +1474,7 @@ request deadline is 750 ms, with a 200 ms result statement timeout.
 `conformance/delphi-reports-pg-run.sh` runs the unchanged Postgres baseline plus
 native publication, timestamp, grouping, filter and bounded-handoff checks.
 It requires unique compose/port settings and the three local fixture images.
+
+The staged [vote read routes](VOTES-READ.md) cover latest/history responses under
+`votesRead`, off by default. The route note names the identity quirks, bounded
+read pools, exact response subset and Node hand-back conditions.

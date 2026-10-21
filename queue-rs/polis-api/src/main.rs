@@ -51,6 +51,10 @@ mod legacy_conversations;
 mod legacy_pca;
 mod lru;
 mod metadata_answers;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/votes.rs"]
+mod votes;
 mod metadata_choices;
 mod metadata_questions;
 mod metadata_read;
@@ -69,6 +73,7 @@ mod recent_started;
 mod reports_read;
 mod robots;
 mod route;
+mod votes_read;
 #[allow(dead_code)]
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/schema.rs"]
@@ -264,6 +269,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "votesReadServed",
+        js::Js::Num(app.votes_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "votesReadFallback",
+        js::Js::Num(app.votes_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "metadataReadServed",
@@ -597,6 +610,8 @@ async fn dispatch_at_clock(
         | all_conversations::PATH
         | recent_activity::PATH
         | metadata_read::PATH
+        | votes_read::PATH
+        | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
@@ -1019,6 +1034,23 @@ async fn main() -> Result<()> {
         state.metadata_answers_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-metadata-answers-auth/1")?,
             metadata_answers::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_VOTES_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_VOTES_READ_DATABASE_URL")
+            .context("POLIS_API_VOTES_READ_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.votes_read_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-votes-read/1")?,
+            votes_read::pool_limits(),
+        ));
+        state.votes_read_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-votes-read-auth/1")?,
+            votes_read::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }

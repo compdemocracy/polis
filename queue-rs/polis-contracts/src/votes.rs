@@ -89,6 +89,15 @@ impl StorageConvention {
             _ => None,
         }
     }
+    /// Read routes use Node's onInvalid=keep policy: null stays null and an
+    /// invalid legacy integer is returned unchanged, never interpreted as pass.
+    pub fn wire_preserving_invalid(self, raw: Option<i16>) -> Option<i16> {
+        raw.map(|n| {
+            self.decode(Some(i32::from(n)))
+                .map(|v| i16::from(v.wire()))
+                .unwrap_or(n)
+        })
+    }
     pub fn encode(self, vote: VoteChoice) -> i32 {
         match vote {
             VoteChoice::Agree => self.agree,
@@ -106,6 +115,10 @@ mod storage_tests {
             let convention = StorageConvention { agree };
             for vote in [VoteChoice::Agree, VoteChoice::Disagree, VoteChoice::Pass] {
                 assert_eq!(convention.decode(Some(convention.encode(vote))), Some(vote));
+                assert_eq!(
+                    convention.wire_preserving_invalid(Some(convention.encode(vote) as i16)),
+                    Some(i16::from(vote.wire()))
+                );
             }
             for raw in [None, Some(2), Some(-2)] {
                 assert_eq!(convention.decode(raw), None);

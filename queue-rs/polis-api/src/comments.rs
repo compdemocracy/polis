@@ -10,9 +10,7 @@ use crate::{
 use anyhow::Result;
 use postgres::Client;
 
-#[allow(dead_code)]
-#[path = "../../polis-contracts/src/votes.rs"]
-mod votes;
+use crate::votes;
 
 pub const PATH: &str = "/api/v3/comments";
 #[derive(Clone, Debug)]
