@@ -8,7 +8,7 @@ const {Pool}=require('pg');
 const recorder=require('../cli.cjs');
 const {Normalizer}=require('../normalize.cjs');
 const {hash}=require('../core.cjs');
-const {blob,records,put,pin}=require('../recording.cjs');
+const {records,put,pin}=require('../recording.cjs');
 const {firstDifference}=require('../compare.cjs');
 const convention=require('../../src/votes/convention.ts');
 const {MOD_BAN}=require('../routing/fixture.cjs');
@@ -151,7 +151,7 @@ async function main(){
   convention:{wire_agree:convention.WIRE_AGREE,storage_agree:convention.currentStorageConvention().agreeValue},
   serialization:ready.serialization,initial,final:await recorder.snapshot(tables)};
  put(out,'corpus.json',corpus);
- const comparisonFile=path.join(out,'cases.json');put(out,'cases.json',actual);
+ put(out,'cases.json',actual);
  if(process.argv[3]){
   const before=JSON.parse(fs.readFileSync(path.join(process.argv[3],'cases.json')));
   assert.equal(before.length,actual.length);
