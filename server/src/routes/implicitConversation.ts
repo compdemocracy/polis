@@ -47,6 +47,12 @@ function registerPageId(site_id: string, page_id: string, zid: number) {
   );
 }
 
+class MissingSiteOwnerError extends Error {
+  constructor() {
+    super("polis_err_bad_site_id");
+  }
+}
+
 function initializeImplicitConversation(
   site_id: string,
   page_id: string,
@@ -62,7 +68,7 @@ function initializeImplicitConversation(
     )
     .then(function (rows: string | any[]) {
       if (!rows || !rows.length) {
-        throw new Error("polis_err_bad_site_id");
+        throw new MissingSiteOwnerError();
       }
       return new Promise(function (
         resolve: (arg0: {
@@ -310,6 +316,10 @@ function handle_GET_implicit_conversation_generation(
             res.redirect(url);
           })
           .catch(function (err: any) {
+            if (err instanceof MissingSiteOwnerError) {
+              failJson(res, 404, "polis_err_bad_site_id", err);
+              return;
+            }
             failJson(res, 500, "polis_err_creating_conv", err);
           });
       } else {
