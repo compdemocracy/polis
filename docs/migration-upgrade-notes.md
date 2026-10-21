@@ -57,7 +57,7 @@ operator session, `psql -X -v ON_ERROR_STOP=1 -f <report>` is equivalent, using
 the normal secret connection environment without a credential argument. On any
 query error, ROLLBACK or close that same client before returning it to a pool.
 
-Expected initial-schema results: 20 `WOULD_ADOPT`, four `WOULD_APPLY`, and four
+Expected initial-schema results: 20 `WOULD_ADOPT`, thirteen `WOULD_APPLY`, and four
 `OUTSIDE_RELEASE` entries. The report conservatively flags any existing queue
 role for migration-session review rather than guessing inherited ADMIN/SET
 authority. Existing ledgers/queues report review-required; they need the exact
@@ -80,8 +80,8 @@ to a runtime login just to satisfy startup; startup needs metadata SELECT.
 
 Each ordinary file and its history receipt commit together. If M23 fails after
 M19 commits, M19 remains applied while all M23 changes and its receipt roll back.
-Do not describe that as a rollback of the whole release. M22 is the documented
-concurrent-index exception; interrupted valid indexes may persist and be reused.
+Do not describe that as a rollback of the whole release. M22 and M43 are the documented
+concurrent-index exceptions; interrupted valid indexes may persist and be reused.
 Check invalid/conflicting index recovery in [migrations.md](migrations.md).
 Two runners serialize using the database advisory lock; they do not double-apply.
 Lost commit connections require history inspection, not an assumed rollback.
@@ -98,3 +98,17 @@ Keep a per-deployment [reconciliation record](migration-reconciliation.md),
 including exact source hashes, schema report, actual session authority, observed
 receipts, supported variants, backup evidence and health result. Do not publish
 credentials, application records or real conversation/report identifiers.
+
+
+## Derived conversation activity indexes
+
+Migration 000043 is required by this release and applies at the next deploy.
+It adds only `votes(zid, created)`, `comments(zid, created)` and
+`comments(zid, modified)`. Earlier application SQL remains compatible.
+The concurrent-index header selects one autocommit build per statement under
+the migration advisory lock, followed by a catalog-checked history transaction.
+Each build has a 5 s lock wait and 5 min statement ceiling. Ordinary participation
+reads and writes continue; competing DDL and long snapshots may delay or fail a
+build. Successful earlier indexes remain after failure. Inspect any invalid index,
+explicitly drop only that expected interrupted index concurrently, and retry;
+valid indexes are reused. See [the runner contract](migrations.md#concurrent-index-file-header).

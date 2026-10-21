@@ -41,7 +41,8 @@ class ForwardProof(unittest.TestCase):
             '000028_create_delphi_results.sql', '000029_extend_delphi_graph_stages.sql',
             '000030_create_delphi_writers.sql', '000031_scope_delphi_result_reads.sql',
             '000038_create_delphi_comment_embeddings.sql', '000039_clear_zinvites_uuid.sql',
-            '000041_create_delphi_run_record.sql', '000042_tid_auto_transaction_lock.sql'})
+            '000041_create_delphi_run_record.sql', '000042_tid_auto_transaction_lock.sql',
+            '000043_add_conversation_activity_indexes.sql'})
 
     def test_02_deploy_records_declarations(self):
         db = self.new('records'); p.runner(db, 'deploy')
