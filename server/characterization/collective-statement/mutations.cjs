@@ -54,6 +54,7 @@ function scratchCopy() {
     path.join(dest, "node_modules")
   );
   fs.symlinkSync(path.join(ROOT, "delphi"), path.join(root, "delphi"));
+  fs.symlinkSync(path.join(ROOT, "queue-rs"), path.join(root, "queue-rs"));
   return { root, dest };
 }
 

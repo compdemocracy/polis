@@ -25,6 +25,10 @@ from urllib.parse import urlparse
 import psycopg2
 
 ROOT = Path(__file__).resolve().parents[2]
+
+import runpy
+apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
+
 MIGRATIONS = ROOT / "server/postgres/migrations"
 CATALOG = ROOT / "coordinator-rs/src/schema/catalog.json"
 ROWS = ROOT / "coordinator-rs/src/schema/rows.rs"
@@ -151,17 +155,17 @@ def main():
     reviewed_types()
     files = migrations(args.through)
     conn = psycopg2.connect(args.url)
-    with conn, conn.cursor() as cur:
+    conn.autocommit = True
+    with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
                     "WHERE n.nspname = 'public'")
         if cur.fetchone()[0]:
             raise SystemExit("census database is not empty")
         for path in files:
-            cur.execute(path.read_text())
+            apply_migration(conn, path)
         cur.execute("SELECT version()")
         print(cur.fetchone()[0], file=sys.stderr)
         measured = measure(cur)
-        conn.rollback()
     conn.close()
     old = json.loads(CATALOG.read_text())
     old_tables = {t["table"]: t for t in old["tables"]}

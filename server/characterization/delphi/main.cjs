@@ -131,7 +131,7 @@ async function setupPostgres() {
     .filter((f) => f.endsWith(".sql"))
     .sort();
   for (const f of files)
-    await db.query(fs.readFileSync(path.join(dir, f), "utf8"));
+    await require("../migrations.cjs").applyMigration(db, path.join(dir, f), pgApp.toString());
   await db.query(fs.readFileSync(path.join(FIXTURES, "postgres.sql"), "utf8"));
   await db.end();
   return files.length;

@@ -34,8 +34,9 @@ an absent prerequisite.
 Nothing here hides the matrix from that job by policy — the skip is a statement
 about the image's contents, and it is one step away from being satisfied::
 
-    docker compose ... cp server/postgres/migrations delphi:/app/migrations
-    ... exec -e POLIS_MIGRATIONS_DIR=/app/migrations delphi ...
+    docker compose ... cp server/postgres delphi:/app/postgres
+    ... exec -e POLIS_MIGRATIONS_DIR=/app/postgres/migrations \
+        -e POLIS_MIGRATE_BIN=/usr/local/bin/polis-migrate delphi ...
 
 which makes the whole matrix run there (verified: 122 passed, 1 skipped — R11's
 docker-compose.yml assertion, still outside the image — and 12 xfailed).
@@ -44,6 +45,9 @@ P-022 §C's separate "required recovery job" decision, not this file's.
 
 Schema freshness
 ----------------
+The packaged invocation also needs a polis-migrate binary built for the container
+installed at POLIS_MIGRATE_BIN. In a source checkout the helper builds it with Cargo.
+
 The migrations are applied ONCE per session into a template database; each test
 then gets its own database created with ``CREATE DATABASE ... TEMPLATE``.  That
 is a genuinely fresh migrated schema per test (no cross-test residue in
@@ -285,11 +289,13 @@ def migrated_template(recovery_migrations_dir: str,
     conn = psycopg2.connect(tmpl_url, connect_timeout=5)
     conn.autocommit = True
     try:
+        import runpy
+        from pathlib import Path
+        apply_migration = runpy.run_path(str(
+            Path(recovery_migrations_dir).parents[1] / "bin" / "apply-test-migration.py"
+        ))["apply_migration"]
         for name in files:
-            with open(os.path.join(recovery_migrations_dir, name), "r") as fh:
-                sql = fh.read()
-            with conn.cursor() as cur:
-                cur.execute(sql)
+            apply_migration(conn, Path(recovery_migrations_dir) / name)
     finally:
         conn.close()
 

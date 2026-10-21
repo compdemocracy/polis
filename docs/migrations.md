@@ -90,8 +90,9 @@ the actual migrations (including role administration for the queue).
 
 A database advisory lock serializes runners on the same connection across
 per-file commits. A second runner waits up to five minutes, then reads the
-committed history. Each ordinary file and its APPLIED row commit in one transaction. The two
-000022 index builds are the explicit autocommit exception described below.
+committed history. Each ordinary file and its APPLIED row commit in one transaction.
+Concurrent index files and the two
+000022 index builds are the explicit autocommit exceptions described below.
 An optional historical outer BEGIN/COMMIT pair is removed; any other top-level
 transaction control is rejected. Dollar-quoted function bodies stay intact.
 SQL errors abort the file. Earlier successfully committed files stay applied.
@@ -123,6 +124,27 @@ same-name object requires a reviewed resolution, not that drop instruction.
 If history recording fails after both builds, both valid indexes remain; retry
 records their checked state without rebuilding. Concurrent builds have the
 same bounded statement/lock timeouts; a timeout is not a success receipt.
+
+### Concurrent index file header
+
+New files containing only concurrent index builds opt out of the ordinary file
+transaction with `-- polis-migrate: concurrent-indexes` in the leading line-comment
+header. The runner accepts only `CREATE INDEX CONCURRENTLY IF NOT EXISTS name ON
+[public.]table (column, ...)` statements: simple lowercase identifiers, ordinary
+btree columns, no expressions, predicates, options, transaction control or other
+SQL. Each build is a separate autocommit statement, on the same connection under
+the migration advisory lock. The runner restores the session's 5 s lock wait and
+5 min statement and transaction budgets before the file, even if a previous file
+changed them. These apply to each build; there is no aggregate file timeout.
+
+All named objects are checked before building any index. Exact valid definitions
+are reused; a conflicting or invalid object refuses the file. As with 000022,
+inspect a failed build, explicitly `DROP INDEX CONCURRENTLY public.<name>` only
+if it is the expected interrupted index, and rerun. `IF NOT EXISTS` alone would
+silently accept an invalid index and is not the validity check. The runner never
+drops an index automatically. After all builds, catalog validity is checked again
+in the transaction that records APPLIED. A failed history write leaves the valid
+indexes for the next run. Ordinary files retain atomic SQL/history semantics.
 
 ## Release contents and new migrations
 
@@ -266,3 +288,13 @@ predicate must lead to a reviewed forward repair or a documented compatible
 variant, never to manually inserting a migration row. Unknown historical variants remain review cases; this document does not authorize
 a deployment that fails reconciliation. Run the [read-only first-deploy report](migration-upgrade-notes.md)
 before the first transition; it does not replace application-health verification.
+
+Historical schema tests that intentionally replay an older inventory use
+`polis-migrate prepare-indexes --file PATH` only for header-marked index files.
+It shares the deployment parser, advisory lock, budgets, preflight and final
+validity checks, but does not write migration history. The harness must commit
+earlier DDL and release its transaction before invoking it. The Python helper
+`server/bin/apply-test-migration.py` and Node helper
+`server/characterization/migrations.cjs` enforce this boundary; both accept
+`POLIS_MIGRATE_BIN` or build the locked runner with Cargo. Normal installations,
+including database resets, continue to use `apply`/`deploy`.
