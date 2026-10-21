@@ -12,8 +12,7 @@
  * Make sure your DATABASE_URL points to a test/development database.
  */
 
-import { exec } from 'child_process';
-import fs from 'fs';
+import { execFile } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
@@ -23,7 +22,7 @@ import pg from 'pg';
 // Setup dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Load environment variables
 dotenv.config();
@@ -124,33 +123,15 @@ async function resetDatabase() {
     // Close connection to postgres database
     await client.end();
 
-    // Get list of migration files
+    // Use the same release selection, history and concurrent-index contract as deploy.
     const migrationsDir = path.join(__dirname, '..', 'postgres', 'migrations');
-    const migrationFiles = fs
-      .readdirSync(migrationsDir)
-      .filter((file) => file.endsWith('.sql'))
-      .filter((file) => !file.includes('archived'))
-      .sort();
-
-    // Apply each migration
-    console.log('🔄 Applying migrations...');
-
-    for (const migrationFile of migrationFiles) {
-      console.log(`  ➡️  Applying ${migrationFile}...`);
-      const migrationPath = path.join(migrationsDir, migrationFile);
-
-      // Use psql to apply the migration
-      const { stdout: _stdout, stderr } = await execAsync(
-        `PGPASSWORD="${dbConfig.password}" psql -h ${dbConfig.host} -p ${dbConfig.port} -U ${dbConfig.username} -d ${dbConfig.database} -f "${migrationPath}"`
-      );
-
-      if (stderr && !stderr.includes('NOTICE')) {
-        console.warn(`    ⚠️  Warnings: ${stderr}`);
-      }
-    }
-
-    console.log('\x1b[32m%s\x1b[0m', '✅ Database reset complete!');
-    console.log(`📁 Applied ${migrationFiles.length} migrations`);
+    const { stdout, stderr } = await execFileAsync(
+      process.env.POLIS_MIGRATE_BIN || 'polis-migrate', ['apply', '--dir', migrationsDir],
+      { env: { ...process.env, DATABASE_URL: databaseUrl } }
+    );
+    process.stdout.write(stdout);
+    process.stderr.write(stderr);
+    console.log('Database reset complete!');
     console.log('\x1b[32m%s\x1b[0m', '✨ Your database is fresh and ready to use!');
   } catch (error) {
     console.error('\x1b[31m%s\x1b[0m', '❌ Error resetting database:');

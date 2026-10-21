@@ -5,7 +5,7 @@ fn run() -> Result<()> {
     let command = args.next().unwrap_or_default();
     if matches!(command.as_str(), "--help" | "-h") {
         println!(
-            "polis-migrate deploy|apply|check|reconcile [--dir PATH] [--through NNNNNN]\nDATABASE_URL is read from the environment; reconcile requires --through. See docs/migrations.md."
+            "polis-migrate deploy|apply|check|reconcile [--dir PATH] [--through NNNNNN]\npolis-migrate prepare-indexes --file PATH (historical schema tests only)\nDATABASE_URL is read from the environment; reconcile requires --through. See docs/migrations.md."
         );
         return Ok(());
     }
@@ -13,8 +13,15 @@ fn run() -> Result<()> {
         env::var("POLIS_MIGRATIONS_DIR").unwrap_or_else(|_| "server/postgres/migrations".into()),
     );
     let mut through = None;
+    let mut file = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--file" => {
+                file = Some(PathBuf::from(
+                    args.next()
+                        .ok_or_else(|| anyhow::anyhow!("--file needs a path"))?,
+                ));
+            }
             "--dir" => {
                 dir = args
                     .next()
@@ -29,6 +36,19 @@ fn run() -> Result<()> {
             }
             _ => bail!("unknown argument: {arg}"),
         }
+    }
+    if command == "prepare-indexes" {
+        if through.is_some() {
+            bail!("prepare-indexes does not accept --through");
+        }
+        let file = file.ok_or_else(|| anyhow::anyhow!("prepare-indexes requires --file"))?;
+        let source = std::fs::read_to_string(&file)?;
+        let dsn =
+            env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?;
+        return polis_migrate::prepare_indexes(&dsn, &source);
+    }
+    if file.is_some() {
+        bail!("--file is only for prepare-indexes");
     }
     if !matches!(command.as_str(), "deploy" | "apply" | "check" | "reconcile") {
         bail!("expected deploy, apply, check or reconcile (see --help)");
