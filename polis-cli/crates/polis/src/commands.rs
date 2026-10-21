@@ -46,7 +46,8 @@ pub fn available(path: &str) -> bool {
     crate::admin::available(path)
         || matches!(
             path,
-            "site list"
+            "update"
+                | "site list"
                 | "site add"
                 | "site use"
                 | "site remove"
@@ -512,6 +513,9 @@ report exports, stored Delphi results, and raw API.\nThe full product surface is
         "powershell",
         "elvish",
     ])));
+    root = root.subcommand(Command::new("update").about("Install the latest stable CLI release, keeping polis.prev")
+        .arg(arg("release-base-url", "Release list URL; overrides POLIS_RELEASE_BASE_URL"))
+        .after_help("Explicit update only; never runs during other commands. Uses HTTPS release assets and SHA256 checksums, validates the platform and manifest, then atomically replaces the running executable. Keeps the previous executable as polis.prev. Requires a writable installation directory and a regular executable named polis. No sign-in or site configuration is read. Release source is independent of --site. See polis-cli/docs/releases.md for the release API, trust and rollback."));
     root = root.subcommand(leaf("questions").after_help(crate::questions::text()));
     for name in ["browse", "tutorial"] {
         root = root.subcommand(leaf(name).arg(pos("target", false)));

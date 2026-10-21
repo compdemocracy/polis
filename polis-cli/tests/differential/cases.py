@@ -13,6 +13,8 @@ def cases():
     # Local discovery is exercised as commands, not substituted for API calls.
     for command,args in [('schema',[]),('help',[]),('completion',['bash']),('tutorial',[]),('questions',[]),('agent guide',[]),('conversation share',[C]),('plan upgrade',[]),('plan manage',[])]:
         add(command,args,scope='local')
+    # Release transport/install behavior is covered by the local updater server tests.
+    add('update',['--release-base-url','file:///invalid-release-source'],exit=2,scope='invalid-input')
     add('auth login',['--with-token'],stdin='owner')
     add('auth status');add('auth token',scope='credential')
     add('account view');add('plan view')
