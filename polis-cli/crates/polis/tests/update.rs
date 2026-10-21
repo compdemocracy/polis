@@ -39,14 +39,26 @@ impl Drop for Server {
         self.handle.take().unwrap().join().unwrap();
     }
 }
+fn current_version() -> semver::Version {
+    let version = semver::Version::parse(
+        option_env!("POLIS_VERSION_BASE").unwrap_or(env!("CARGO_PKG_VERSION")),
+    )
+    .unwrap();
+    semver::Version::new(version.major, version.minor, version.patch)
+}
+fn next_version() -> String {
+    format!("{}.10.0", current_version().major + 1)
+}
 fn server(mode: &str) -> (Server, Vec<u8>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
     listener.set_nonblocking(true).unwrap();
     let version = if mode == "old" {
-        env!("CARGO_PKG_VERSION")
+        current_version().to_string()
+    } else if mode == "lower" {
+        "0.0.0".to_owned()
     } else {
-        "999.0.0"
+        next_version()
     };
     let commit = "a".repeat(40);
     let root = format!("polis-{version}-{}-{}", &commit[..12], target());
@@ -104,17 +116,62 @@ fn server(mode: &str) -> (Server, Vec<u8>) {
             {"name":format!("{name}.sha256"),"browser_download_url":format!("{origin}/checksum")}
         ])
     };
-    let releases = json!([
+    let mut releases = json!([
         {"tag_name":"server-v9999.0.0","draft":false,"prerelease":false,"assets":[]},
-        {"tag_name":"cli-v9999.0.0","draft":true,"prerelease":false,"assets":[]},
-        {"tag_name":"cli-v9998.0.0","draft":false,"prerelease":true,"assets":[]},
-        {"tag_name":format!("cli-v{version}"),"draft":false,"prerelease":false,"body":"New commands.\u{1b}[31m","assets":assets}
+        {"tag_name":"v9999.0.0","draft":true,"prerelease":false,"assets":[]},
+        {"tag_name":"v9998.0.0","draft":false,"prerelease":true,"assets":[]},
+        {"tag_name":format!("v{version}"),"draft":false,"prerelease":false,"body":"New commands.\u{1b}[31m","assets":assets}
     ]);
-    let releases = if mode == "empty" { json!([]) } else { releases };
+    // These malformed or legacy tags must never outrank the canonical release.
+    for tag in [
+        "cli-v9999.0.0",
+        "v9999.0.0-rc.1",
+        "v9999.0.0+build",
+        "v09999.0.0",
+        "9999.0.0",
+        "v9999.0",
+    ] {
+        releases
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"tag_name":tag,"draft":false,"prerelease":false,"assets":[]}));
+    }
+    // Numeric ordering must win over listing order and lexicographic ordering.
+    if matches!(mode, "match" | "paged") {
+        releases.as_array_mut().unwrap().push(json!({"tag_name":format!("v{}.9.0", current_version().major + 1),"draft":false,"prerelease":false,"assets":[]}));
+    }
+    if mode == "missing" {
+        releases.as_array_mut().unwrap().push(json!({"tag_name":format!("v{}", current_version()),"draft":false,"prerelease":false,"assets":assets}));
+    }
+    if mode == "legacy" {
+        releases =
+            json!([{"tag_name":"cli-v9999.0.0","draft":false,"prerelease":false,"assets":[]}]);
+    }
+    if mode == "empty" {
+        releases = json!([]);
+    }
+    let page_one = if matches!(mode, "paged" | "bounded") {
+        // A higher valid release on the first page must survive a later page.
+        let mut page = vec![
+            json!({"tag_name":"cli-v9999.0.0","draft":false,"prerelease":false,"assets":[]});
+            99
+        ];
+        page.push(json!({"tag_name":format!("v{version}"),"draft":false,"prerelease":false,"body":"New commands.\u{1b}[31m","assets":assets}));
+        serde_json::to_vec(&page).unwrap()
+    } else {
+        serde_json::to_vec(&releases).unwrap()
+    };
+    let page_two = if mode == "paged" {
+        serde_json::to_vec(&json!([{"tag_name":format!("v{}.9.0", current_version().major + 1),"draft":false,"prerelease":false,"assets":[]}])).unwrap()
+    } else {
+        serde_json::to_vec(&releases).unwrap()
+    };
+    let bounded = mode == "bounded";
     let not_found = mode == "not_found";
     let offline = mode == "offline";
     let routes = HashMap::from([
-        ("/releases", serde_json::to_vec(&releases).unwrap()),
+        ("/releases", page_one),
+        ("/releases-next", page_two),
         ("/archive", archive),
         ("/checksum", checksum.into_bytes()),
     ]);
@@ -156,6 +213,11 @@ fn server(mode: &str) -> (Server, Vec<u8>) {
                         .split('?')
                         .next()
                         .unwrap();
+                    let path = if path == "/releases" && !bounded && !request.contains("page=1 ") {
+                        "/releases-next"
+                    } else {
+                        path
+                    };
                     let body = routes
                         .get(path)
                         .unwrap_or_else(|| panic!("unexpected path {path}"));
@@ -236,7 +298,8 @@ fn run(mode: &str, json_mode: bool, env_source: bool) {
     let out = output.unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let stderr = String::from_utf8(out.stderr).unwrap();
-    let success = matches!(mode, "match" | "old");
+    let updated = matches!(mode, "match" | "paged");
+    let success = updated || matches!(mode, "old" | "lower");
     assert_eq!(out.status.success(), success, "{stdout}\n{stderr}");
     assert!(!stdout.contains('\u{1b}'));
     assert!(!stdout.contains("unused-fixture-token"));
@@ -246,7 +309,10 @@ fn run(mode: &str, json_mode: bool, env_source: bool) {
         let expected_message = match mode {
             "offline" => Some("Cannot download release data."),
             "not_found" => Some("Release server returned an unsuccessful status."),
-            "empty" => Some("No published stable CLI release was found."),
+            "empty" | "legacy" => Some("No published stable Polis release was found (expected vMAJOR.MINOR.PATCH; legacy cli-v tags are ignored)."),
+            "missing" => Some("The latest Polis release does not contain exactly one archive for this platform."),
+            "mismatch" => Some("Release archive checksum mismatch."),
+            "bounded" => Some("Release list exceeds ten pages; cannot determine the latest Polis release."),
             "denied_lock" => Some("Cannot open the update lock in the installation directory."),
             "denied_staging" => Some("Installation directory is not writable."),
             _ => None,
@@ -258,16 +324,22 @@ fn run(mode: &str, json_mode: bool, env_source: bool) {
             assert_eq!(data["error"]["outcome"], "not_sent");
             assert!(stderr.is_empty());
         }
-        if mode == "match" {
-            assert_eq!(data["data"]["to"]["version"], "999.0.0");
+        if updated {
+            assert_eq!(data["data"]["to"]["version"], next_version());
+            assert_eq!(
+                data["data"]["from"]["version"],
+                current_version().to_string()
+            );
             assert_eq!(data["data"]["to"]["commit"], "a".repeat(40));
             assert_eq!(data["data"]["changes"], "New commands.\u{1b}[31m");
         }
-        if mode == "old" {
+        if matches!(mode, "old" | "lower") {
             assert_eq!(data["data"]["state"], "up_to_date");
+            assert_eq!(data["data"]["version"], current_version().to_string());
+            assert_eq!(data["data"]["message"], "No newer stable Polis release is available; equal-base development builds require an explicitly selected artifact.");
         }
     }
-    if mode == "match" {
+    if updated {
         assert_eq!(fs::read(&exe).unwrap(), binary);
         assert_eq!(fs::read(dir.path().join("polis.prev")).unwrap(), original);
         #[cfg(unix)]
@@ -285,6 +357,15 @@ fn run(mode: &str, json_mode: bool, env_source: bool) {
             b"older backup"
         );
     }
+    let expected_requests = match mode {
+        "paged" => Some(4),
+        "bounded" => Some(10),
+        "old" | "lower" | "empty" | "legacy" | "missing" | "not_found" => Some(1),
+        _ => None,
+    };
+    if let Some(expected) = expected_requests {
+        assert_eq!(server.requests.load(Ordering::SeqCst), expected);
+    }
     assert_eq!(
         fs::read(config.join("profiles.json")).unwrap(),
         b"invalid config; must not be read"
@@ -301,6 +382,22 @@ fn checksum_mismatch_keeps_installed_binary_and_backup() {
 #[test]
 fn no_newer_version_does_not_replace() {
     run("old", true, false);
+}
+#[test]
+fn lower_version_does_not_replace() {
+    run("lower", true, false);
+}
+#[test]
+fn legacy_only_releases_explain_the_required_tag() {
+    run("legacy", true, false);
+}
+#[test]
+fn numeric_order_and_later_pages_preserve_highest_release() {
+    run("paged", true, false);
+}
+#[test]
+fn ten_full_pages_refuse_to_guess() {
+    run("bounded", true, false);
 }
 #[test]
 fn platform_missing_does_not_replace() {

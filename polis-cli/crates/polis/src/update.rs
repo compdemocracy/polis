@@ -98,7 +98,7 @@ fn latest(client: &Client, base: Url) -> Result<(Version, Release)> {
             }
             let Some(version) = release
                 .tag_name
-                .strip_prefix("cli-v")
+                .strip_prefix("v")
                 .and_then(|s| Version::parse(s).ok())
             else {
                 continue;
@@ -111,11 +111,11 @@ fn latest(client: &Client, base: Url) -> Result<(Version, Release)> {
             }
         }
         if last {
-            return chosen.ok_or_else(|| fail("No published stable CLI release was found."));
+            return chosen.ok_or_else(|| fail("No published stable Polis release was found (expected vMAJOR.MINOR.PATCH; legacy cli-v tags are ignored)."));
         }
     }
     Err(fail(
-        "Release list exceeds ten pages; cannot determine the latest CLI release.",
+        "Release list exceeds ten pages; cannot determine the latest Polis release.",
     ))
 }
 fn digest(bytes: &[u8]) -> String {
@@ -299,6 +299,13 @@ fn install(_: &Path, _: &[u8], _: &str) -> Result<()> {
     Err(fail("This platform does not support CLI updates."))
 }
 
+// The shared build identity supplies the Polis base. Older build scripts only
+// supply the Cargo version; keep that fallback until all builds use the identity.
+fn installed_base(raw: &str) -> Result<Version> {
+    let version = Version::parse(raw).map_err(|_| fail("Invalid installed version."))?;
+    Ok(Version::new(version.major, version.minor, version.patch))
+}
+
 pub fn execute(base: Option<&str>, timeout: u64) -> Result<Value> {
     let platform = target()?;
     let configured = base
@@ -332,11 +339,11 @@ pub fn execute(base: Option<&str>, timeout: u64) -> Result<Value> {
     let installed_digest =
         digest(&fs::read(&executable).map_err(|_| fail("Cannot read installed executable."))?);
     let (version, release) = latest(&client, base)?;
-    let current = Version::parse(env!("CARGO_PKG_VERSION"))
-        .map_err(|_| fail("Invalid installed version."))?;
+    let current =
+        installed_base(option_env!("POLIS_VERSION_BASE").unwrap_or(env!("CARGO_PKG_VERSION")))?;
     if version <= current {
         return Ok(
-            json!({"state":"up_to_date", "version":current.to_string(), "commit":env!("POLIS_BUILD_COMMIT"), "latest":version.to_string(), "message":"No newer stable CLI release is available."}),
+            json!({"state":"up_to_date", "version":current.to_string(), "commit":env!("POLIS_BUILD_COMMIT"), "latest":version.to_string(), "message":"No newer stable Polis release is available; equal-base development builds require an explicitly selected artifact."}),
         );
     }
     let suffix = format!("-{platform}.tar.gz");
@@ -347,7 +354,7 @@ pub fn execute(base: Option<&str>, timeout: u64) -> Result<Value> {
         .collect();
     if candidates.len() != 1 {
         return Err(fail(
-            "The latest CLI release does not contain exactly one archive for this platform.",
+            "The latest Polis release does not contain exactly one archive for this platform.",
         ));
     }
     let asset = candidates[0];
@@ -393,6 +400,22 @@ pub fn execute(base: Option<&str>, timeout: u64) -> Result<Value> {
 mod tests {
     use super::*;
     use std::os::fd::AsRawFd;
+
+    #[test]
+    fn development_metadata_does_not_make_an_equal_base_release_newer() {
+        for installed in [
+            "2.41.0",
+            "2.41.0+dev.7.abcdef123456",
+            "2.41.0+dev.0.abcdef123456",
+        ] {
+            let current = installed_base(installed).unwrap();
+            assert_eq!(current, Version::new(2, 41, 0));
+            assert!(Version::new(2, 41, 0) <= current);
+            assert!(Version::new(2, 40, 9) <= current);
+            assert!(Version::new(2, 41, 1) > current);
+        }
+        assert!(installed_base("invalid").is_err());
+    }
 
     #[test]
     fn directory_sync_failure_after_replacement_reports_unknown() {
