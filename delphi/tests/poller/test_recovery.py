@@ -95,7 +95,7 @@ class FakeWriter:
         self.writes = []
         self.before_write = None
 
-    def write_conv_updates(self, zid, conv):
+    def write_conv_updates(self, zid, conv, n_votes=None):
         if self.before_write is not None:
             cb, self.before_write = self.before_write, None
             cb()  # may raise to inject a write failure

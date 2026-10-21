@@ -37,6 +37,7 @@ from polismath.poller.worker_pool import (
     REBUILD,
     BACKFILL,
 )
+from polismath.utils.cli_flags import parse_bool_flag
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +331,35 @@ def _env_first(*names: str, default: Optional[str] = None) -> Optional[str]:
     return default
 
 
+# Every publication writes math_recompute_log (MathWriter.write_conv_updates),
+# so on a database without these tables every publication rolls back and the
+# error path parks each active conversation after its retry. The poller checks
+# once at startup and refuses to start instead (scripts/math_poller.py).
+RECOMPUTE_LOG_MIGRATION = "000044_routing_propensities.sql"
+RECOMPUTE_LOG_SCHEMA_SQL = """
+    SELECT to_regclass('math_recompute_log')::text AS recompute_log,
+           to_regclass('math_priorities_history')::text AS priorities_history
+"""
+
+
+class SchemaNotReady(RuntimeError):
+    """The database lacks tables this poller writes on every publication."""
+
+
+def require_recompute_log_schema(pg: Any) -> None:
+    """Raise :class:`SchemaNotReady` unless both tables of migration 000044
+    exist (resolved through the connection's search_path, as every write is)."""
+    row = pg.query(RECOMPUTE_LOG_SCHEMA_SQL)[0]
+    missing = [table for table, column in (("math_recompute_log", "recompute_log"),
+                                           ("math_priorities_history", "priorities_history"))
+               if row[column] is None]
+    if missing:
+        raise SchemaNotReady(
+            f"database lacks {', '.join(missing)}: apply migration "
+            f"server/postgres/migrations/{RECOMPUTE_LOG_MIGRATION} before starting the "
+            "math poller (its publication transaction writes them)")
+
+
 def _env_float(name: str, default: Optional[float] = None) -> Optional[float]:
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":
@@ -359,6 +389,8 @@ class PollerConfig:
       worker_pool_size   MATH_WORKER_POOL_SIZE                       (default 4)
       dump_dir           MATH_POLLER_DUMP_DIR                        (default 'scratch/errorconv')
       retry_cap          MATH_POLLER_RETRY_CAP                       (default 1)
+      priorities_history MATH_PRIORITIES_HISTORY  (default 0; 1/true = also write
+                         math_priorities_history beside math_recompute_log)
       conv_cache_cap     MATH_CONV_CACHE_CAP                (default 200; 0 = unlimited)
       reconcile_interval_ms MATH_POLLER_RECONCILE_INTERVAL_MS        (default 60000)
       memory_limit_mb    MATH_POLLER_MEMORY_LIMIT_MB   (fallback when no cgroup limit)
@@ -401,6 +433,11 @@ class PollerConfig:
     worker_pool_size: int = 4
     dump_dir: str = "scratch/errorconv"
     retry_cap: int = 1
+    # Also keep every generation's comment-priorities map in
+    # math_priorities_history (propensity-logging design §6). Off by default:
+    # the map is ~one number per comment per recompute. The math_recompute_log
+    # row is written for every generation regardless.
+    priorities_history: bool = False
     # Max in-memory conversations before LRU-evicting the coldest. Defaults to a
     # FINITE 200 (M4, P-019): an unbounded cache is not acceptable for prod —
     # Clojure's 4h reboot was the de-facto memory cap, which we dropped, so a
@@ -534,6 +571,9 @@ class PollerConfig:
             worker_pool_size=int(os.environ.get("MATH_WORKER_POOL_SIZE", "4")),
             dump_dir=os.environ.get("MATH_POLLER_DUMP_DIR", "scratch/errorconv"),
             retry_cap=int(os.environ.get("MATH_POLLER_RETRY_CAP", "1")),
+            priorities_history=parse_bool_flag(
+                _env_first("MATH_PRIORITIES_HISTORY", default="0")
+            ),
             conv_cache_cap=int(os.environ.get("MATH_CONV_CACHE_CAP", "200")),
             reconcile_interval_ms=int(
                 os.environ.get("MATH_POLLER_RECONCILE_INTERVAL_MS", "60000")
@@ -664,7 +704,8 @@ class MathPollerService:
             self.capacity_loop = self._build_capacity_loop()
             # Once at start, then on the reconciler's cadence.
             self._start_hooks.append(self._capacity_tick)
-        self._writer = MathWriter(pg_client, publisher=publisher)
+        self._writer = MathWriter(pg_client, publisher=publisher,
+                                  priorities_history=config.priorities_history)
         self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
         self._coordinator_rebuild = publisher is not None
         # LRU order: most-recently-touched zid last, so popitem(last=False) evicts
@@ -1512,7 +1553,10 @@ class MathPollerService:
         # apply the batch on top of, double-advancing the temporal state). On
         # write failure the cache still holds the pre-batch conv, so the retry
         # re-applies the (idempotent, created-sorted) batch cleanly.
-        self._writer.write_conv_updates(zid, conv)
+        # n_votes: this generation is the cached one plus this batch, so its
+        # size goes to math_recompute_log (the cold path above leaves it NULL:
+        # a full-history rebuild is not "the previous generation plus a batch").
+        self._writer.write_conv_updates(zid, conv, n_votes=len(coalesced.votes))
         self._remember(zid, conv)
 
     def _restorable(self, zid: int, row: Dict[str, Any]) -> bool:

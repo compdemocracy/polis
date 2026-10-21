@@ -41,7 +41,13 @@ from polismath.poller.readiness import (
     check_identity_source,
     identity,
 )
-from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
+from polismath.poller.service import (
+    MathPollerService,
+    PollerConfig,
+    PoolDrainTimeout,
+    SchemaNotReady,
+    require_recompute_log_schema,
+)
 
 
 def _configure_logging() -> None:
@@ -406,6 +412,14 @@ def _build_service(config: PollerConfig) -> MathPollerService:
     admission = _memory_admission(config, log)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
+    # Before any loop starts: without migration 000044 every publication would
+    # roll back and park its conversation.
+    try:
+        require_recompute_log_schema(pg)
+    except SchemaNotReady as exc:
+        log.error("refusing to start: %s", exc)
+        print(f"refusing to start: {exc}", file=sys.stderr)
+        raise SystemExit(2)
     return MathPollerService(
         pg, config, backfill_config=_backfill_config(log), admission=admission,
         # One run id for the readiness lines and the backfill's report lines.

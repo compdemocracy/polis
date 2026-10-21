@@ -142,7 +142,15 @@ blocklist               POLL_BLOCKLIST | MATH_ZID_BLOCKLIST             []
 worker_pool_size        MATH_WORKER_POOL_SIZE                           4
 dump_dir                MATH_POLLER_DUMP_DIR                            scratch/errorconv
 retry_cap               MATH_POLLER_RETRY_CAP                           1
+priorities_history      MATH_PRIORITIES_HISTORY (1/true = on)           0
 ======================  ==============================================  =======
+
+Every publication also writes a ``math_recompute_log`` row (tick,
+``last_vote_timestamp``, size of the triggering vote batch or NULL, number of
+prioritised comments) in the same transaction as the tick; with
+``MATH_PRIORITIES_HISTORY`` on it also stores the generation's
+``comment-priorities`` map in ``math_priorities_history``. Tables from
+migration 000044; see ``MathWriter.write_conv_updates``.
 
 ``POLL_VOTE_INTERVAL_MS`` / ``POLL_MOD_INTERVAL_MS`` / ``POLL_ALLOWLIST`` /
 ``POLL_BLOCKLIST`` are the names already present in

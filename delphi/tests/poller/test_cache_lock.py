@@ -108,7 +108,7 @@ def test_eviction_between_lookup_and_touch_does_not_park(cap, tmp_path):
     svc._on_engine_error.assert_not_called()
     assert svc._parked == set()
     conv.recompute.assert_called_once_with()
-    svc._writer.write_conv_updates.assert_called_once_with(1, conv)
+    svc._writer.write_conv_updates.assert_called_once_with(1, conv, n_votes=0)
     assert svc._convs[1] is conv  # The evicted in-flight result was published.
     assert list(svc._convs)[-1] == 1
     assert len(svc._convs) == cap
