@@ -35,7 +35,6 @@ pub mod ops_whoami;
 pub mod other_conversations_page;
 pub mod participation_read;
 pub mod post_votes;
-pub mod votes_read;
 pub mod recent_activity;
 pub mod recent_started;
 pub mod reports_read;
@@ -53,6 +52,7 @@ pub mod treevite_waves;
 pub mod user_create_page;
 pub mod user_login_page;
 pub mod user_logout_page;
+pub mod votes_read;
 /// Byte-stable JSON shared by the Delphi contracts.
 pub mod wire;
 pub mod xid_report;
