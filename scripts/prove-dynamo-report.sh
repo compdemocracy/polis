@@ -35,7 +35,7 @@ cleanup() {
 trap cleanup EXIT
 # Optional dependency caches are read-only inputs. Hosted CI can start empty.
 if [[ -z "${DYNAMO_PROOF_SERVER_IMAGE:-}" ]]; then
- docker build --target dev -t "$proof_image" server > "$DYNAMO_PROOF_OUTPUT/server-image-build.log" 2>&1
+ docker build --target dev -t "$proof_image" -f server/Dockerfile . > "$DYNAMO_PROOF_OUTPUT/server-image-build.log" 2>&1
 fi
 if [[ ! -d client-report/node_modules ]]; then
  (cd client-report && npm ci --no-audit --no-fund) > "$DYNAMO_PROOF_OUTPUT/report-dependencies.log" 2>&1

@@ -411,7 +411,7 @@ fn purpose(path: &str) -> String {
         .unwrap_or_else(|| format!("provide {rest} operations for {group}"))
 }
 pub fn command() -> Command {
-    let mut root=Command::new("polis").version(concat!(env!("CARGO_PKG_VERSION"), " (commit ", env!("POLIS_BUILD_COMMIT"), "; ", env!("POLIS_BUILD_SOURCE"), ")"))
+    let mut root=Command::new("polis").version(concat!(env!("POLIS_VERSION_DISPLAY"), " (commit ", env!("POLIS_BUILD_COMMIT"), "; distance ", env!("POLIS_BUILD_DISTANCE"), "; ", env!("POLIS_BUILD_SOURCE"), ")"))
  .about("Listen at scale. Bring Polis to your terminal.")
  .long_about("Listen at scale. Bring Polis to your terminal.\n\nConversations, comments, and shared understanding — for people and agents.\nWorking now: auth, conversations, seeds, moderation, participant/vote reads,
 report exports, stored Delphi results, and raw API.\nThe full product surface is discoverable below; planned commands return exit 8.")

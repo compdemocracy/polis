@@ -59,9 +59,17 @@ launch() {
   return 1
 }
 
+# Calculate identity before crossing the source-archive boundary. A shallow
+# checkout reports an unknown distance until the caller supplies full history.
+BUILD_IDENTITY=$(python3 scripts/build_identity.py)
+BUILD_DISTANCE=$(printf '%s' "$BUILD_IDENTITY" | jq -r '.distance // "unknown"')
+BUILD_TAG=$(printf '%s' "$BUILD_IDENTITY" | jq -r 'if .channel == "stable" then "v" + .version_base else "" end')
+BUILD_SOURCE=$(printf '%s' "$BUILD_IDENTITY" | jq -r '.source')
+
 # The build, as AWS-RunShellScript commands. Waits for the box's bootstrap,
 # fetches this commit's source, checks the archive is that commit, builds.
 jq -n --arg sha "$GITHUB_SHA" --arg bucket "$DEPLOY_BUCKET" --arg timeout "$BUILD_TIMEOUT_SECONDS" \
+  --arg distance "$BUILD_DISTANCE" --arg tag "$BUILD_TAG" --arg source "$BUILD_SOURCE" \
   --arg psu "${PUBLIC_SERVICE_URL:-}" --arg an "${AUTH_NAMESPACE:-}" \
   --arg ocp "${OIDC_CACHE_KEY_PREFIX:-}" --arg ocs "${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX:-}" '{
   executionTimeout: [$timeout],
@@ -75,6 +83,7 @@ jq -n --arg sha "$GITHUB_SHA" --arg bucket "$DEPLOY_BUCKET" --arg timeout "$BUIL
     "mkdir \"$W/src\" && tar -xzf \"$W/source.tar.gz\" -C \"$W/src\"",
     ("PUBLIC_SERVICE_URL=" + ($psu|@sh) + " AUTH_NAMESPACE=" + ($an|@sh) +
      " OIDC_CACHE_KEY_PREFIX=" + ($ocp|@sh) + " OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=" + ($ocs|@sh) +
+     " POLIS_BUILD_DISTANCE=" + ($distance|@sh) + " POLIS_BUILD_TAG=" + ($tag|@sh) + " POLIS_BUILD_SOURCE=" + ($source|@sh) +
      " HOME=/root bash \"$W/src/deploy/build-images.sh\" " + $sha)
   ]}' > build-command.json
 

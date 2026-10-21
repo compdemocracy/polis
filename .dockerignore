@@ -94,3 +94,16 @@ client-participation/node_modules
 
 client-report/dist
 client-report/node_modules
+
+# Private configuration and local review artifacts never enter images.
+**/.env
+**/*.env
+**/.env.*
+**/.google_creds_temp
+**/.venv
+**/node_modules
+**/dist
+releases/
+
+# Public templates are runtime inputs of the importer source-binding check.
+!delphi/example.env

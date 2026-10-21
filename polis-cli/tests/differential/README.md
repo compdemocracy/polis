@@ -9,7 +9,7 @@ Build the CLI and five local images from the source being tested:
 
 ```sh
 (cd polis-cli && cargo build --locked -p polis --features fixture-ids)
-docker build --target prod --build-arg NODE_ENV=production -t cli-diff-node -f server/Dockerfile server
+docker build --target prod --build-arg NODE_ENV=production -t cli-diff-node -f server/Dockerfile .
 docker build --build-context queue-rs=queue-rs -t cli-diff-postgres -f server/Dockerfile-db server
 docker build -t cli-diff-oidc oidc-simulator
 docker build --build-arg FEATURES=fixture-clock -t cli-diff-rust -f queue-rs/polis-api/Dockerfile queue-rs

@@ -40,12 +40,16 @@ services:
 
   client-participation-alpha:
     build:
-      context: ./client-participation-alpha
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: client-participation-alpha/Dockerfile
       args:
-        - OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
-        - OIDC_CACHE_KEY_PREFIX=${OIDC_CACHE_KEY_PREFIX}
-        - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
+        OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: "${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}"
+        OIDC_CACHE_KEY_PREFIX: "${OIDC_CACHE_KEY_PREFIX}"
+        PUBLIC_SERVICE_URL: "${PUBLIC_SERVICE_URL}"
     depends_on:
       - "server"
     environment:
@@ -68,10 +72,14 @@ services:
     env_file:
       - test.env
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
       target: prod
       args:
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
         NODE_ENV: production
     labels:
       polis_tag: test
@@ -223,13 +231,16 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
         ADMIN_UIDS: ${ADMIN_UIDS}
         AUTH_AUDIENCE: users
         AUTH_CLIENT_ID: dev-client-id
         AUTH_ISSUER: https://localhost:3000/
         AUTH_NAMESPACE: https://pol.is/
         EMBED_SERVICE_HOSTNAME: localhost
-        GIT_HASH: test
         NODE_ENV: production
         OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
         OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}

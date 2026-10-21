@@ -44,6 +44,7 @@ function parseArgs(argv) {
 function scratchCopy() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "csrec-mutation-"));
   const dest = path.join(root, "server");
+  fs.copyFileSync(path.join(ROOT, "VERSION"), path.join(root, "VERSION"));
   fs.cpSync(SERVER, dest, {
     recursive: true,
     filter: (src) =>

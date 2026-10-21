@@ -26,3 +26,10 @@ scripts/deploy-revision.txt
 
 # Results of ci/local/ check runs
 .ci-out/
+
+# Generated build identity
+server/src/generated/build-info.ts
+
+# Deploy transport and instance bookkeeping must not dirty source identity.
+/build-source.tar.gz
+/build-box-instances.txt

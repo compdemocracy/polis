@@ -380,9 +380,10 @@ fn version_plain_and_json_make_no_release_or_proxy_requests() {
         assert!(out.stderr.is_empty());
         let stdout = String::from_utf8(out.stdout).unwrap();
         let expected = format!(
-            "polis {} (commit {}; {})",
-            env!("CARGO_PKG_VERSION"),
+            "polis {} (commit {}; distance {}; {})",
+            env!("POLIS_VERSION_DISPLAY"),
             env!("POLIS_BUILD_COMMIT"),
+            env!("POLIS_BUILD_DISTANCE"),
             env!("POLIS_BUILD_SOURCE")
         );
         if args.contains(&"--json") {
