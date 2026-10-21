@@ -47,13 +47,14 @@ async function getXidsPaginated(
   offset: number
 ): Promise<XidRecord[]> {
   const sql =
-    "select p.pid, xids.xid, COALESCE(p.vote_count, 0) as vote_count from xids inner join " +
+    "with counts as (select pid, count(*)::integer as vote_count from votes where zid = ($1) group by pid) " +
+    "select p.pid, xids.xid, COALESCE(counts.vote_count, 0) as vote_count from xids inner join " +
     "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-    " where xids.owner in (select owner from conversations where zid = ($1))" +
+    " left join counts on counts.pid = p.pid where xids.owner in (select owner from conversations where zid = ($1))" +
     ` LIMIT ($2) OFFSET ($3)`;
   const params: number[] = [zid, limit, offset];
 
-  const rows = await pg.queryP_readOnly<XidRecord>(sql, params);
+  const rows = await pg.queryP_reportExport<XidRecord>(sql, params);
   return Array.isArray(rows) ? rows : [];
 }
 

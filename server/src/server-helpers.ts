@@ -18,6 +18,7 @@ import { UserInfo } from "./d";
 import Config from "./config";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
+import { conversationModifiedSql } from "./db/activity";
 import { storageToSemantic } from "./votes/convention";
 
 // TODO consider "p2a24a2dadadu15" format
@@ -439,17 +440,13 @@ function updateConversationModifiedTime(zid: number, t?: Date | number) {
 }
 
 function updateLastInteractionTimeForConversation(zid: number, uid?: number) {
-  return pg.queryP(
+  return pg.queryP_notification(
     "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
     [zid, uid]
-  );
-}
-
-function updateVoteCount(zid: number, pid: number) {
-  return pg.queryP(
-    "update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)",
-    [zid, pid]
-  );
+  ).catch((error) => {
+    // Best effort: a busy notification lane must never reject a committed vote.
+    logger.warn("notification_interaction_deferred", { error });
+  });
 }
 
 function addStar(
@@ -677,7 +674,7 @@ function getOneConversation(zid: number, uid?: number, lang?: string) {
   return new Promise(function (resolve: any, _reject: any) {
     Promise.all([
       pg.queryP_readOnly(
-        "select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);",
+        `select conversations.*, u.*, ${conversationModifiedSql("conversations")} as modified from conversations left join (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);`,
         [zid]
       ),
       getConversationHasMetadata(zid),
@@ -735,6 +732,5 @@ export {
   sendEmailByUid,
   updateConversationModifiedTime,
   updateLastInteractionTimeForConversation,
-  updateVoteCount,
   userHasAnsweredZeQuestions,
 };

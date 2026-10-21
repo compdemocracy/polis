@@ -19,7 +19,7 @@ jest.mock("../../src/config", () => ({
 }));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: mockQuery, queryP_readOnly: mockQuery },
+  default: { queryP: mockQuery, queryP_readOnly: mockQuery, queryP_notification: jest.fn(async () => []) },
 }));
 jest.mock("../../src/utils/logger", () => ({
   __esModule: true,

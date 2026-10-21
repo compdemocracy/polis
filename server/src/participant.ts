@@ -414,7 +414,7 @@ function getSocialParticipants(
 
   const q =
     "with " +
-    "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
+    "p as (select uid, pid, mod from participants p0 where zid = ($1) and EXISTS (SELECT 1 FROM votes v WHERE v.zid=p0.zid AND v.pid=p0.pid)), " +
     "xids_subset as (select * from xids where owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null), " +
     "xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($4)), " +
     "self as (select CAST($2 as INTEGER) as uid, 1000 as priority), " +

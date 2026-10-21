@@ -14,6 +14,7 @@ import { ParticipantFields, ExpressResponse } from "../d";
 import { sql_participants_extended } from "../db/sql";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
+import { participantVoteCountSql } from "../db/activity";
 import { doFamousQuery, getOneConversation } from "../server-helpers";
 
 // basic defaultdict implementation
@@ -62,7 +63,7 @@ function _getParticipant(zid: number, uid?: number) {
     "_getParticipant",
     function (resolve: (arg0: any) => void, reject: (arg0: Error) => any) {
       pg.query_readOnly(
-        "SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);",
+        `SELECT p.*, ${participantVoteCountSql("p")} AS vote_count FROM participants p WHERE zid = ($1) AND uid = ($2);`,
         [zid, uid],
         function (err: any, results: { rows: any[] }) {
           if (err) {
@@ -87,7 +88,7 @@ function handle_GET_participants(
   const zid = req.p.zid;
 
   pg.queryP_readOnly(
-    "select * from participants where uid = ($1) and zid = ($2)",
+    `select p.*, ${participantVoteCountSql("p")} AS vote_count from participants p where uid = ($1) and zid = ($2)`,
     [uid, zid]
   )
     .then(function (rows: string | any[]) {
