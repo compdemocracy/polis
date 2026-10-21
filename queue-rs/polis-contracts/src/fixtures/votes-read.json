@@ -1,0 +1,2674 @@
+[
+  {
+    "id": "empty/pid-zero/list/unauthenticated",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/anonymous",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/anonymous/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-zero/list/anonymous/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/standard",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/standard/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-zero/list/standard/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-owner",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-owner/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-admin",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-admin/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-comments-owner-1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-comments-owner-1/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-comments-moderator",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/oidc-comments-moderator/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/xid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/public-pid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/public-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/public-missing-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/pid-self-no-auth",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&limit=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&offset=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&page=2",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&tid=bad",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&tid=700suffix",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&pid=0&pid=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/list/parameter/&conversation_id=other",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "empty/pid-zero/mine/unauthenticated",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/anonymous",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/anonymous/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-zero/mine/anonymous/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/standard",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/standard/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-zero/mine/standard/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/oidc-owner",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/oidc-admin",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/oidc-comments-owner-1",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/oidc-comments-moderator",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/xid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&limit=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&offset=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&page=2",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&tid=bad",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&tid=700suffix",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&pid=0&pid=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-zero/mine/parameter/&conversation_id=other",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/list/unauthenticated",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/anonymous",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/anonymous/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-nonzero/list/anonymous/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/standard",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/standard/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-nonzero/list/standard/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-owner",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-owner/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-admin",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-admin/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-comments-owner-1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-comments-owner-1/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-comments-moderator",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/oidc-comments-moderator/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/xid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/public-pid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/public-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/public-missing-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/pid-self-no-auth",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&limit=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&offset=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&page=2",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&tid=bad",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&tid=700suffix",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&pid=0&pid=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/list/parameter/&conversation_id=other",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/unauthenticated",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/anonymous",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/anonymous/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-nonzero/mine/anonymous/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/standard",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/standard/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "empty/pid-nonzero/mine/standard/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/oidc-owner",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/oidc-admin",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/oidc-comments-owner-1",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/oidc-comments-moderator",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/xid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&limit=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&offset=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&page=2",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&tid=bad",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&tid=700suffix",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&pid=0&pid=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "empty/pid-nonzero/mine/parameter/&conversation_id=other",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/list/unauthenticated",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/anonymous",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/list/anonymous/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-zero/list/anonymous/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/standard",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/list/standard/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-zero/list/standard/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-owner",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-owner/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-admin",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-admin/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-comments-owner-1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-comments-owner-1/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-comments-moderator",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/oidc-comments-moderator/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/xid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/list/public-pid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/list/public-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/list/public-missing-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/pid-self-no-auth",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&limit=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&offset=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&page=2",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&tid=bad",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&tid=700suffix",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&pid=0&pid=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/list/parameter/&conversation_id=other",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "single/pid-zero/mine/unauthenticated",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/anonymous",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/mine/anonymous/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-zero/mine/anonymous/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/mine/standard",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/mine/standard/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-zero/mine/standard/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/mine/oidc-owner",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/mine/oidc-admin",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/mine/oidc-comments-owner-1",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/mine/oidc-comments-moderator",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-zero/mine/xid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&limit=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&offset=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&page=2",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&tid=bad",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&tid=700suffix",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&pid=0&pid=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-zero/mine/parameter/&conversation_id=other",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/list/unauthenticated",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/anonymous",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/anonymous/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-nonzero/list/anonymous/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/standard",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/standard/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-nonzero/list/standard/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-owner",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-owner/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-admin",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-admin/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-comments-owner-1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-comments-owner-1/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-comments-moderator",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/oidc-comments-moderator/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/xid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/public-pid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/public-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/list/public-missing-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/pid-self-no-auth",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&limit=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&offset=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&page=2",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&tid=bad",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&tid=700suffix",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&pid=0&pid=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/list/parameter/&conversation_id=other",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "single/pid-nonzero/mine/unauthenticated",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/anonymous",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/anonymous/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-nonzero/mine/anonymous/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/standard",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/standard/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "single/pid-nonzero/mine/standard/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/oidc-owner",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/oidc-admin",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/oidc-comments-owner-1",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/oidc-comments-moderator",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/xid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&limit=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&offset=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&page=2",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&tid=bad",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&tid=700suffix",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&pid=0&pid=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "single/pid-nonzero/mine/parameter/&conversation_id=other",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/list/unauthenticated",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/anonymous",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/list/anonymous/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-zero/list/anonymous/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/standard",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/list/standard/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-zero/list/standard/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-owner",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-owner/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-admin",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-admin/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-comments-owner-1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-comments-owner-1/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-comments-moderator",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/oidc-comments-moderator/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/xid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/list/public-pid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/list/public-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/list/public-missing-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/pid-self-no-auth",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&limit=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&offset=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&page=2",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&tid=bad",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&tid=700suffix",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&pid=0&pid=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/list/parameter/&conversation_id=other",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "multiple/pid-zero/mine/unauthenticated",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/anonymous",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/anonymous/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-zero/mine/anonymous/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/standard",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/standard/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-zero/mine/standard/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/oidc-owner",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/oidc-admin",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/oidc-comments-owner-1",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/oidc-comments-moderator",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/xid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&limit=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&offset=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&page=2",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&tid=bad",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&tid=700suffix",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&pid=0&pid=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-zero/mine/parameter/&conversation_id=other",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/unauthenticated",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/anonymous",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/anonymous/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-nonzero/list/anonymous/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/standard",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/standard/head",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-nonzero/list/standard/pid-override",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-owner",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-owner/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-admin",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-admin/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-comments-owner-1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-comments-owner-1/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-comments-moderator",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/oidc-comments-moderator/self",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/xid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/public-pid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/public-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/public-missing-filter",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/pid-self-no-auth",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&limit=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&offset=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&page=2",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&tid=bad",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&tid=700suffix",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&pid=0&pid=1",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/list/parameter/&conversation_id=other",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/unauthenticated",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/anonymous",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/anonymous/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/anonymous/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/standard",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/standard/head",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/standard/pid-override",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/oidc-owner",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/oidc-admin",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/oidc-comments-owner-1",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/oidc-comments-moderator",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/xid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":1,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"},{\"pid\":1,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"created\":\"1700000000123\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"2p027r61003\"}]"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&limit=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&offset=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&page=2",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&tid=bad",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&tid=700suffix",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&pid=0&pid=1",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "multiple/pid-nonzero/mine/parameter/&conversation_id=other",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "boundary/list/missing",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"},{\"pid\":0,\"tid\":701,\"vote\":1,\"weight_x_32767\":123,\"modified\":\"1700000000123\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "boundary/list/wrongPid",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "boundary/list/expired",
+    "mine": false,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}"
+  },
+  {
+    "id": "boundary/list/future",
+    "mine": false,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt not active\"}"
+  },
+  {
+    "id": "boundary/list/wrongIssuer",
+    "mine": false,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt issuer invalid. expected: https://pol.is/\"}"
+  },
+  {
+    "id": "boundary/list/wrongAudience",
+    "mine": false,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt audience invalid. expected: participants\"}"
+  },
+  {
+    "id": "boundary/list/tampered",
+    "mine": false,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}"
+  },
+  {
+    "id": "boundary/list/foreign-conversation",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "boundary/list/bad-token",
+    "mine": false,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}"
+  },
+  {
+    "id": "boundary/list/cookie",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "boundary/list/body",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "boundary/list/unknown-conversation",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "boundary/list/missing-conversation",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "boundary/mine/missing",
+    "mine": true,
+    "head": false,
+    "status": 500,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"polis_err_getting_pid\",\"message\":\"polis_err_getting_pid\",\"status\":500}"
+  },
+  {
+    "id": "boundary/mine/wrongPid",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "boundary/mine/expired",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}"
+  },
+  {
+    "id": "boundary/mine/future",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt not active\"}"
+  },
+  {
+    "id": "boundary/mine/wrongIssuer",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt issuer invalid. expected: https://pol.is/\"}"
+  },
+  {
+    "id": "boundary/mine/wrongAudience",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt audience invalid. expected: participants\"}"
+  },
+  {
+    "id": "boundary/mine/tampered",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}"
+  },
+  {
+    "id": "boundary/mine/foreign-conversation",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "boundary/mine/bad-token",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}"
+  },
+  {
+    "id": "boundary/mine/cookie",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "boundary/mine/body",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "boundary/mine/unknown-conversation",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "boundary/mine/missing-conversation",
+    "mine": true,
+    "head": false,
+    "status": 401,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"No authentication token found\"}"
+  },
+  {
+    "id": "authenticated-boundary/list/unknown-conversation",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "authenticated-boundary/list/missing-conversation",
+    "mine": false,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "authenticated-boundary/list/no-membership",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[]"
+  },
+  {
+    "id": "authenticated-boundary/mine/unknown-conversation",
+    "mine": true,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "authenticated-boundary/mine/missing-conversation",
+    "mine": true,
+    "head": false,
+    "status": 400,
+    "content_type": "text/html; charset=utf-8",
+    "body": "Bad Request\n"
+  },
+  {
+    "id": "authenticated-boundary/mine/no-membership",
+    "mine": true,
+    "head": false,
+    "status": 500,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"error\":\"polis_err_getting_pid\",\"message\":\"polis_err_getting_pid\",\"status\":500}"
+  },
+  {
+    "id": "values/agree/list",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/agree/mine",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":-1,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/disagree/list",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":1,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/disagree/mine",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":1,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/pass/list",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":0,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/pass/mine",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":0,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/null/list",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":null,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/null/mine",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":null,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/invalid/list",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "values/invalid/mine",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/false/gzip",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/false/deflate",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/false/identity",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/false/gzip, deflate",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/false/*",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "fresh/false",
+    "mine": false,
+    "head": false,
+    "status": 304,
+    "content_type": "",
+    "body": ""
+  },
+  {
+    "id": "head/false",
+    "mine": false,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "encoding/true/gzip",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/true/deflate",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/true/identity",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/true/gzip, deflate",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "encoding/true/*",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "fresh/true",
+    "mine": true,
+    "head": false,
+    "status": 304,
+    "content_type": "",
+    "body": ""
+  },
+  {
+    "id": "head/true",
+    "mine": true,
+    "head": true,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": ""
+  },
+  {
+    "id": "closed/false",
+    "mine": false,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"modified\":\"9223372036854775807\",\"conversation_id\":\"2p027r61033\"}]"
+  },
+  {
+    "id": "closed/true",
+    "mine": true,
+    "head": false,
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "[{\"pid\":0,\"tid\":700,\"vote\":7,\"weight_x_32767\":null,\"created\":\"9223372036854775807\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"2p027r61033\"}]"
+  }
+]

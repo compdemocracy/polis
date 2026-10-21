@@ -94,6 +94,11 @@ The real nginx reload helper receives `RUST_API_ROUTES` empty and then every
 switch in `routes.json`, retaining the proxy container and its project-owned
 routing volume. After old workers drain, the harness clears the access log
 for each phase's independent counts. The route-template census rejects missing entries.
+Selectors covering multiple paths also declare `paths` contracts; the runner
+checks each path independently as well as the selector total. `votesRead`
+exercises `vote list` and `vote mine` with empty and single-row results served
+from Rust, then requires a Node handoff for each multi-row read. Vote POSTs
+remain Node requests and count separately from the read successes.
 Each entry requires an exact request count, a minimum number of sole Rust
 HTTP200 responses, and an exact count of scoped Node handoffs with a reason.
 These counts cover this generated fixture only. Unexercised routes explicitly

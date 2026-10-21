@@ -443,6 +443,32 @@
     "expected_node_handoffs": 0,
     "scope": "Rust-only public importance counts. The generated report case precedes all votes: both participant-visible comments must have zero counts. Node-off display retains statements with explicitly unavailable null counts; the named contract check preserves every other field."
   },
+  "votesRead": {
+    "path": "^/api/v3/votes(/me)?$",
+    "minimum_rust_successes": 4,
+    "expected_requests": 8,
+    "expected_node_handoffs": 2,
+    "commands": ["vote list", "vote mine", "vote"],
+    "scope": "Empty and single-row reads serve from Rust. Each path hands its multi-row read to Node because the source query promises no row order. The two vote POSTs bypass Rust.",
+    "paths": [
+      {
+        "path": "/api/v3/votes",
+        "minimum_rust_successes": 2,
+        "expected_requests": 5,
+        "expected_node_handoffs": 1,
+        "commands": ["vote list", "vote list single", "vote list multiple", "vote", "vote important"],
+        "scope": "The original owner read is empty; account-authenticated reads target the PID returned by the participant's vote after one and two votes. Empty and single-row latest reads serve from Rust; the multi-row read hands to Node. Both POSTs stay on Node."
+      },
+      {
+        "path": "/api/v3/votes/me",
+        "minimum_rust_successes": 2,
+        "expected_requests": 3,
+        "expected_node_handoffs": 1,
+        "commands": ["vote mine empty", "vote mine single", "vote mine"],
+        "scope": "The owner's empty history and the participant's single-row history serve from Rust. The existing later participant history scenario has two rows and must hand to Node without inventing an order."
+      }
+    ]
+  },
   "delphiLogs": {
     "path": "/api/v3/delphi/logs",
     "minimum_rust_successes": 0,

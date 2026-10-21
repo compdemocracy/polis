@@ -1,5 +1,5 @@
 import unittest
-from run import differences, census, check_census, route_lines, routing_counts, rust_only_checks, serving_matches, RUST_ONLY
+from run import differences, census, check_census, route_lines, route_contracts, routing_counts, rust_only_checks, serving_matches, RUST_ONLY
 
 class ComparatorTests(unittest.TestCase):
     def test_exact_route_log_matching_does_not_accept_neighbors(self):
@@ -39,6 +39,25 @@ class ComparatorTests(unittest.TestCase):
 
 
 class RoutingContractTests(unittest.TestCase):
+    def test_selector_total_cannot_hide_failure_of_one_path(self):
+        path_contracts = [dict(path=path, minimum_rust_successes=1,
+                               expected_requests=2, expected_node_handoffs=1)
+                          for path in ['/api/v3/votes', '/api/v3/votes/me']]
+        routes = {'votesRead': dict(path='^/api/v3/votes(/me)?$',
+                  minimum_rust_successes=2, expected_requests=4,
+                  expected_node_handoffs=2, paths=path_contracts)}
+        # The selector total is correct, but both successes came from one path.
+        log = '\n'.join([
+            'GET /api/v3/votes 127.0.0.1:5100 200',
+            'GET /api/v3/votes 127.0.0.1:5100 200',
+            'GET /api/v3/votes/me 127.0.0.1:5100 : 127.0.0.1:5000 502 : 200',
+            'GET /api/v3/votes/me 127.0.0.1:5100 : 127.0.0.1:5000 502 : 200',
+            'GET /api/v3/votes/meSuffix 127.0.0.1:5100 200'])
+        checks = {name: serving_matches(routing_counts(route_lines(log, contract)), contract)
+                  for name, contract in route_contracts(routes)}
+        self.assertEqual(checks, {'votesRead': True, 'votesRead:/api/v3/votes': False,
+                                 'votesRead:/api/v3/votes/me': False})
+
     def test_scoped_handoff_cannot_hide_lost_success_or_an_extra_fallback(self):
         contract={'minimum_rust_successes':2,'expected_node_handoffs':1,'expected_requests':3}
         self.assertTrue(serving_matches({'rust_200':2,'rust_fallbacks':1,'requests':3},contract))

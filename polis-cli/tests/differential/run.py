@@ -16,7 +16,7 @@ import tempfile
 import time
 
 from harness import (HERE, RUST_ONLY, Cli, Stack, differences, load_routes, route_lines,  # noqa: F401
-                     routing_counts, run_phases, rust_only_checks, serving_matches)
+                     route_contracts, routing_counts, run_phases, rust_only_checks, serving_matches)
 from cases import cases
 
 
@@ -62,6 +62,20 @@ def main():
             # The same participant marks a second statement important, after the
             # participant proof below has counted the first, unmarked vote.
             rows.insert(next(i for i,r in enumerate(rows) if r['command']=='comment')+1,dict(command='vote',scenario='vote important',args=['vote','2p027generated','--statement','1','--agree','--important'],expected_exit=0,scope='live',actor='participant'))
+            # The owner has an empty history. Once the participant has voted,
+            # read its one-row and two-row results; the latter stay on Node.
+            for anchor, commands, state in [
+                ('join', ['vote mine'], 'empty'),
+                ('vote', ['vote list', 'vote mine'], 'single'),
+                ('vote important', ['vote list'], 'multiple'),
+            ]:
+                index = next(i for i, row in enumerate(rows) if row.get('scenario', row['command']) == anchor) + 1
+                rows[index:index] = [dict(command=command, scenario=command+' '+state,
+                    args=command.split()+['--conversation','2p027generated']+(['--account'] if state=='empty' else []),
+                    expected_exit=0,scope='live',
+                    actor='owner' if command=='vote list' or state=='empty' else 'participant',
+                    participant_pid=command=='vote list',
+                    vote_rows={'empty':0,'single':1,'multiple':2}[state]) for command in commands]
             rows += [dict(command=name,args=name.split(),expected_exit=8,scope='planned',actor='owner') for name,implemented in sorted(nodes.items()) if not implemented]
             captured={}
             for phase in run_phases(stack,cli,[('node',''),('rust',','.join(sorted(routes)))]):
@@ -89,7 +103,15 @@ def main():
                         report[phase+'_admin_fixture']=json.loads(stack.dc('exec','-T','server','node','/differential/admin-seed.cjs').stdout)
                     stack.begin(hashlib.sha256(row.get('scenario',row['command']).encode()).hexdigest()[:12],'cli'+str(index))
                     command_start=time.monotonic()
-                    value=invoke(row)
+                    invocation = dict(row, args=row['args']+['--pid',str(participant_id)]) if row.get('participant_pid') else row
+                    value=invoke(invocation)
+                    if 'vote_rows' in row:
+                        data = value['json'].get('data') or {}
+                        votes = data.get('votes' if row['command']=='vote list' else 'data')
+                        if value['exit'] != 0 or not isinstance(votes, list) or len(votes) != row['vote_rows']:
+                            raise RuntimeError('vote read fixture row count failed: '+row['scenario'])
+                        if votes and any(vote.get('pid') != participant_id for vote in votes):
+                            raise RuntimeError('vote read fixture participant failed: '+row['scenario'])
                     timings.append({'command':row.get('scenario',row['command']),'seconds':round(time.monotonic()-command_start,3)})
                     print(phase+' '+row['command']+' exit='+str(value['exit']),file=sys.stderr,flush=True)
                     stack.barrier(row['command'])
@@ -141,7 +163,7 @@ def main():
                 log=stack.nginx_log()
                 report[phase+'_routing']={}
                 serving_failures=[]
-                for route,contract in routes.items():
+                for route,contract in route_contracts(routes):
                     matched_lines=route_lines(log,contract)
                     counts=routing_counts(matched_lines)
                     served=counts['rust_200'];fallback=counts['rust_fallbacks']

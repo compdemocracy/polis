@@ -110,6 +110,14 @@ def serving_matches(counts, contract):
             and counts['requests'] == contract['expected_requests'])
 
 
+def route_contracts(routes):
+    """Check each selector's total and each explicitly inventoried path."""
+    for route, contract in routes.items():
+        yield route, contract
+        for path in contract.get('paths', []):
+            yield route + ':' + path['path'], path
+
+
 def load_routes():
     """The switch set under test; refuses a template census that differs."""
     routes=json.loads((HERE/'routes.json').read_text())

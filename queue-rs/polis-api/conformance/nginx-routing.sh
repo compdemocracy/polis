@@ -1340,3 +1340,27 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/delphi/logs node "Logs handoff"
 echo "ok 62 Logs off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+# Both vote read paths share a selector; POST remains entirely on Node.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/votes node "vote reads off"
+expect /api/v3/votes/me node "personal reads off"
+start votesRead,votesRead
+for path in /api/v3/votes /api/v3/votes/me; do
+  expect "$path" rust "vote reads on"
+  expect_upstream polis-api HEAD "$path"
+  expect_upstream server OPTIONS "$path"
+  expect_upstream server POST "$path" $'Content-Length: 2\r\n' '{}'
+  expect_upstream server GET "$path" $'Content-Length: 2\r\n' '{}'
+done
+[[ $(included | grep -c 'location = /api/v3/votes {') == 1 ]] || fail "vote reads duplicated"
+[[ $(included | grep -c 'location = /api/v3/votes/me {') == 1 ]] || fail "personal reads duplicated"
+expect /api/v3/nextComment node "vote reads leave participation alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/votes node "vote reads handoff"
+expect /api/v3/votes/me node "personal reads handoff"
+echo "ok vote read routes: off/on/deduplicated, methods/body, fallback"
