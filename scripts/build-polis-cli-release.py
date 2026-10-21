@@ -94,14 +94,27 @@ def package(outdir, binary, version, commit, target, source, compiler, lock, lic
     return archive
 
 
+def check_tag(tag, version):
+    if not re.fullmatch(r"cli-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag) or tag != f"cli-v{version}":
+        raise ValueError("Release tag must be cli-v followed by the exact stable workspace version.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=TARGETS, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--target", choices=TARGETS)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--check-tag")
     parser.add_argument("--source-commit")
     parser.add_argument("--allow-unverified-source", action="store_true")
     args = parser.parse_args()
     try:
+        if args.check_tag is not None:
+            version = tomllib.loads((ROOT / "polis-cli/Cargo.toml").read_text())["workspace"]["package"]["version"]
+            check_tag(args.check_tag, version)
+            print("Release tag matches workspace version.")
+            return
+        if args.target is None or args.output is None:
+            raise ValueError("Building requires --target and --output.")
         commit, source = provenance(ROOT, args.source_commit, args.allow_unverified_source)
         workspace = ROOT / "polis-cli"
         compiler = output(["rustc", "-vV"], workspace)

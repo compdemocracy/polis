@@ -35,6 +35,7 @@ mod seeds;
 mod setup;
 mod sites;
 mod sizes;
+mod update;
 mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
@@ -732,6 +733,17 @@ fn main() -> ExitCode {
         return render("unresolved", Err(Error::input(
             "CSV is available for read results only. Use --json, or the export command's --format and --output options."
         )), false);
+    }
+    if path == "update" {
+        return render(
+            "unresolved",
+            update::execute(
+                leaf.get_one::<String>("release-base-url")
+                    .map(String::as_str),
+                *root.get_one::<u64>("timeout").unwrap(),
+            ),
+            json_mode,
+        );
     }
     profiles::noninteractive(root.get_flag("no-interactive"));
     // Help and schema never depend on credentials or profile files.
