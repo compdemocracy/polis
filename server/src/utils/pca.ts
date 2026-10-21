@@ -746,6 +746,46 @@ export function getLatestPcaTick(zid: number): Promise<number | undefined> {
 /** A generation's `comment-priorities`: tid -> selection weight. */
 export type CommentPriorities = Record<string | number, number>;
 
+/** The math generation a priorities map was read from. */
+export type CommentPrioritiesGeneration = { mathTick: number; mathEnv: string };
+
+// Every map getLatestCommentPriorities hands out, keyed by the object itself,
+// so a caller can name the generation of the exact map it used (the serve log
+// in nextComment.ts) without a second read that a newer generation could race.
+const prioritiesGenerations = new WeakMap<
+  object,
+  CommentPrioritiesGeneration
+>();
+
+function withGeneration<T extends CommentPriorities | undefined>(
+  priorities: T,
+  mathTick: unknown,
+  mathEnv: string
+): T {
+  if (
+    priorities &&
+    typeof priorities === "object" &&
+    typeof mathTick === "number" &&
+    !isUncommittedTick(mathTick)
+  ) {
+    prioritiesGenerations.set(priorities, { mathTick, mathEnv });
+  }
+  return priorities;
+}
+
+/**
+ * The committed `math_tick` and `math_env` of a map returned by
+ * `getLatestCommentPriorities`; `undefined` for anything else (no map, or a
+ * map that did not come from a committed generation).
+ */
+export function commentPrioritiesGeneration(
+  priorities: CommentPriorities | undefined
+): CommentPrioritiesGeneration | undefined {
+  return priorities && typeof priorities === "object"
+    ? prioritiesGenerations.get(priorities)
+    : undefined;
+}
+
 type PrioritiesEntry = {
   mathTick: number;
   priorities: CommentPriorities;
@@ -786,6 +826,9 @@ const PRIORITIES_WINDOW_MS = 3000;
  * `undefined` when there is no committed generation (no row, or a row whose
  * tick is not committed yet), where `getLatestExistingPca` gives no math. A
  * failed read rejects, as the whole-row read did.
+ *
+ * The returned map's generation is available from
+ * `commentPrioritiesGeneration(map)`.
  */
 export function getLatestCommentPriorities(
   zid: number
@@ -814,13 +857,17 @@ export function getLatestCommentPriorities(
         expiration: cached.expiration,
       });
     }
-    return Promise.resolve(priorities);
+    return Promise.resolve(withGeneration(priorities, mathTick, mathEnv));
   }
   const entry = prioritiesEntries.get(key);
   if (entry && entry.expiration > now) {
-    return Promise.resolve(entry.priorities);
+    return Promise.resolve(
+      withGeneration(entry.priorities, entry.mathTick, mathEnv)
+    );
   }
-  return readLatestPriorities(mathEnv, zid).then((read) => read?.priorities);
+  return readLatestPriorities(mathEnv, zid).then((read) =>
+    read ? withGeneration(read.priorities, read.mathTick, mathEnv) : undefined
+  );
 }
 
 function readLatestPriorities(

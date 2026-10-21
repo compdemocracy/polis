@@ -89,6 +89,27 @@ export default {
     return val;
   },
 
+  // ROUTING_EPSILON: the probability, per served statement, that nextComment
+  // draws uniformly over the whole eligible set instead of running the
+  // priority lottery (the ε-arm; nextComment.ts). Parsed like
+  // TOPICAL_COMMENT_RATIO: empty, non-finite or outside [0, 1] -> null.
+  // null or 0 means the arm is off and no extra random draw is made.
+  getValidRoutingEpsilon(): number | null {
+    const raw = process.env.ROUTING_EPSILON;
+    if (raw === undefined || raw === null || raw === "") return null;
+    const val = parseFloat(raw);
+    if (!Number.isFinite(val)) return null;
+    if (val < 0 || val > 1) return null;
+    return val;
+  },
+
+  // ROUTING_SERVE_LOG: one comment_serve_log row per next-statement choice,
+  // with the served statement's propensity (nextComment.ts). On unless set
+  // to 0/false. Read when asked, like TOPICAL_COMMENT_RATIO.
+  get routingServeLog(): boolean {
+    return isTrueOrBlank(process.env.ROUTING_SERVE_LOG);
+  },
+
   adminEmailDataExport: process.env.ADMIN_EMAIL_DATA_EXPORT as string,
   adminEmailDataExportTest: process.env.ADMIN_EMAIL_DATA_EXPORT_TEST as string,
   adminEmailEmailTest: process.env.ADMIN_EMAIL_EMAIL_TEST as string,

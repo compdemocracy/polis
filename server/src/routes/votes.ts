@@ -241,7 +241,7 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
     }
 
     // 4. Get next comment
-    const nextComment = await getNextComment(zid, pid, [], lang);
+    const nextComment = await getNextComment(zid, pid, [], lang, uid);
 
     // 5. Build result
     const result: PidReadyResult = {};

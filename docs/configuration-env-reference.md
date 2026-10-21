@@ -1,6 +1,6 @@
 # Environment read reference
 
-Source snapshot `0985a1a58870f665e6cd30b57558db0c7a9954bc`. The census covers 499 tracked code/build/notebook files (Python, TypeScript/JavaScript, Rust, shell, Clojure, Dockerfiles, Makefile, two scoped Compose files, two archived Python copies, two notebook code-cell inventories) under `server/src/`, `delphi/`, `coordinator-rs/`, and `cdk/`: **233 named inputs at 680 read sites**, plus **46 dynamic/map sites** below.
+Source snapshot `0985a1a58870f665e6cd30b57558db0c7a9954bc`. The census covers 499 tracked code/build/notebook files (Python, TypeScript/JavaScript, Rust, shell, Clojure, Dockerfiles, Makefile, two scoped Compose files, two archived Python copies, two notebook code-cell inventories) under `server/src/`, `delphi/`, `coordinator-rs/`, and `cdk/`: **236 named inputs at 683 read sites**, plus **46 dynamic/map sites** below.
 
 This is a static source inventory, not a declaration that every script runs in deployment. Python/TypeScript syntax trees identify direct lookups; Rust literal lookups, local wrappers, finite loops, known environment-map aliases, and embedded child scripts are resolved separately. Reads in tests, certification tools, and Cargo build scripts are included and labeled. Comments, assignment-only writes, vendored dependencies, and dependency-internal environment lookups are not named application reads. A shared helper can accept names supplied by future/external callers; inherited subprocess and SDK environments are open-ended. See the explicit boundaries below.
 
@@ -10,7 +10,7 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 
 ## `server/src/`
 
-85 distinct names; 100 named read sites. A name read in two scopes contributes to both scope counts.
+87 distinct names; 102 named read sites. A name read in two scopes contributes to both scope counts.
 
 | Name | Source read site | Absent-value behavior / fallback | Secret? | Surface |
 | --- | --- | --- | --- | --- |
@@ -97,6 +97,8 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 | `POLIS_REACHABLE_ERROR_HANDLER` | [server/src/config.ts:25](../server/src/config.ts#L25) | false when absent (isTrue conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `PORT` | [server/src/config.ts:10](../server/src/config.ts#L10) | fallback expression: process.env.API_SERVER_PORT &#124;&#124; process.env.PORT &#124;&#124; "5000" | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `READ_ONLY_DATABASE_URL` | [server/src/config.ts:143](../server/src/config.ts#L143) | credential-bearing fallback/expression; value omitted, inspect source | Yes / may carry credentials | application / script / infrastructure; TypeScript AST |
+| `ROUTING_EPSILON` | [server/src/config.ts:98](../server/src/config.ts#L98) | undefined at lookup; empty, non-finite or outside [0, 1] gives null (ε-arm off) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
+| `ROUTING_SERVE_LOG` | [server/src/config.ts:110](../server/src/config.ts#L110) | true when absent or empty (isTrueOrBlank conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `RUN_PERIODIC_EXPORT_TESTS` | [server/src/config.ts:144](../server/src/config.ts#L144) | false when absent (isTrue conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `SERVER_LOG_LEVEL` | [server/src/config.ts:116](../server/src/config.ts#L116) | undefined at lookup; no fallback in this expression | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `SERVER_LOG_TO_FILE` | [server/src/config.ts:117](../server/src/config.ts#L117) | false when absent (isTrue conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
@@ -117,7 +119,7 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 
 ## `delphi/`
 
-112 distinct names; 468 named read sites. A name read in two scopes contributes to both scope counts.
+113 distinct names; 469 named read sites. A name read in two scopes contributes to both scope counts.
 
 | Name | Source read site | Absent-value behavior / fallback | Secret? | Surface |
 | --- | --- | --- | --- | --- |
@@ -460,6 +462,7 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 | `MATH_POLLER_DUMP_DIR` | [delphi/polismath/poller/service.py:268](../delphi/polismath/poller/service.py#L268) | "scratch/errorconv" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |
 | `MATH_POLLER_RECONCILE_INTERVAL_MS` | [delphi/polismath/poller/service.py:272](../delphi/polismath/poller/service.py#L272) | "60000" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |
 | `MATH_POLLER_RETRY_CAP` | [delphi/polismath/poller/service.py:269](../delphi/polismath/poller/service.py#L269) | "1" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |
+| `MATH_PRIORITIES_HISTORY` | [delphi/polismath/poller/service.py:546](../delphi/polismath/poller/service.py#L546) | first nonempty of MATH_PRIORITIES_HISTORY; otherwise "0" (parse_bool_flag: 1/true = on, default off) | No (configuration/identifier; may still be private) | application / script / infrastructure; Resolved helper |
 | `MATH_SHARD_COUNT` | [delphi/polismath/poller/service.py:265](../delphi/polismath/poller/service.py#L265) | first nonempty of POLL_SHARD_COUNT, MATH_SHARD_COUNT; otherwise '1' | No (configuration/identifier; may still be private) | application / script / infrastructure; Resolved helper |
 | `MATH_SHARD_INDEX` | [delphi/polismath/poller/service.py:262](../delphi/polismath/poller/service.py#L262) | first nonempty of POLL_SHARD_INDEX, MATH_SHARD_INDEX; otherwise '0' | No (configuration/identifier; may still be private) | application / script / infrastructure; Resolved helper |
 | `MATH_WORKER_POOL_SIZE` | [delphi/polismath/poller/service.py:267](../delphi/polismath/poller/service.py#L267) | "4" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |

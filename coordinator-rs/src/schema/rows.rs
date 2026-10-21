@@ -36,6 +36,28 @@ row! {
 }
 
 row! {
+    CommentServeLogRow, "comment_serve_log", "server/postgres/migrations/000044_routing_propensities.sql:28";
+    id: i64 => ("id", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:29"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:30"),
+    pid: i32 => ("pid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:31"),
+    uid: Option<i32> => ("uid", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:32"),
+    tid: Option<i32> => ("tid", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:33"),
+    branch: String => ("branch", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:34"),
+    epsilon: PgFloat8 => ("epsilon", "float8", false, "server/postgres/migrations/000044_routing_propensities.sql:35"),
+    topical_ratio: Option<PgFloat8> => ("topical_ratio", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:36"),
+    math_env: Option<String> => ("math_env", "varchar", true, "server/postgres/migrations/000044_routing_propensities.sql:37"),
+    math_tick: Option<i64> => ("math_tick", "int8", true, "server/postgres/migrations/000044_routing_propensities.sql:38"),
+    pool_size: i32 => ("pool_size", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:39"),
+    eligible_count: Option<i32> => ("eligible_count", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:40"),
+    weight: Option<PgFloat8> => ("weight", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:41"),
+    weight_sum: Option<PgFloat8> => ("weight_sum", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:42"),
+    propensity: Option<PgFloat8> => ("propensity", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:43"),
+    random_n: Option<PgFloat8> => ("random_n", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:44"),
+    topical_pool_size: Option<i32> => ("topical_pool_size", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:45"),
+    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:46"),
+}
+
+row! {
     CommentTranslationsRow, "comment_translations", "server/postgres/migrations/000000_initial.sql:570";
     zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000000_initial.sql:571"),
     tid: i32 => ("tid", "int4", false, "server/postgres/migrations/000000_initial.sql:572"),
@@ -520,6 +542,15 @@ row! {
 }
 
 row! {
+    MathPrioritiesHistoryRow, "math_priorities_history", "server/postgres/migrations/000044_routing_propensities.sql:62";
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:63"),
+    math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:64"),
+    math_tick: i64 => ("math_tick", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:65"),
+    priorities: PgJson => ("priorities", "jsonb", false, "server/postgres/migrations/000044_routing_propensities.sql:66"),
+    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:67"),
+}
+
+row! {
     MathProfileRow, "math_profile", "server/postgres/migrations/000000_initial.sql:670";
     zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000000_initial.sql:671"),
     math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000000_initial.sql:672"),
@@ -534,6 +565,17 @@ row! {
     math_tick: i64 => ("math_tick", "int8", false, "server/postgres/migrations/000000_initial.sql:682"),
     data: PgJson => ("data", "jsonb", false, "server/postgres/migrations/000000_initial.sql:683"),
     modified: Option<i64> => ("modified", "int8", true, "server/postgres/migrations/000000_initial.sql:684"),
+}
+
+row! {
+    MathRecomputeLogRow, "math_recompute_log", "server/postgres/migrations/000044_routing_propensities.sql:51";
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:52"),
+    math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:53"),
+    math_tick: i64 => ("math_tick", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:54"),
+    last_vote_timestamp: Option<i64> => ("last_vote_timestamp", "int8", true, "server/postgres/migrations/000044_routing_propensities.sql:55"),
+    n_votes: Option<i32> => ("n_votes", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:56"),
+    n_comments: Option<i32> => ("n_comments", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:57"),
+    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:58"),
 }
 
 row! {
@@ -1221,6 +1263,12 @@ pub const TABLES: &[Table] = &[
         decode: decode::<ByodImportJobsRow>,
     },
     Table {
+        name: "comment_serve_log",
+        columns: CommentServeLogRow::COLUMNS,
+        roundtrip: roundtrip::<CommentServeLogRow>,
+        decode: decode::<CommentServeLogRow>,
+    },
+    Table {
         name: "comment_translations",
         columns: CommentTranslationsRow::COLUMNS,
         roundtrip: roundtrip::<CommentTranslationsRow>,
@@ -1467,6 +1515,12 @@ pub const TABLES: &[Table] = &[
         decode: decode::<MathMainRow>,
     },
     Table {
+        name: "math_priorities_history",
+        columns: MathPrioritiesHistoryRow::COLUMNS,
+        roundtrip: roundtrip::<MathPrioritiesHistoryRow>,
+        decode: decode::<MathPrioritiesHistoryRow>,
+    },
+    Table {
         name: "math_profile",
         columns: MathProfileRow::COLUMNS,
         roundtrip: roundtrip::<MathProfileRow>,
@@ -1477,6 +1531,12 @@ pub const TABLES: &[Table] = &[
         columns: MathPtptstatsRow::COLUMNS,
         roundtrip: roundtrip::<MathPtptstatsRow>,
         decode: decode::<MathPtptstatsRow>,
+    },
+    Table {
+        name: "math_recompute_log",
+        columns: MathRecomputeLogRow::COLUMNS,
+        roundtrip: roundtrip::<MathRecomputeLogRow>,
+        decode: decode::<MathRecomputeLogRow>,
     },
     Table {
         name: "math_report_correlationmatrix",

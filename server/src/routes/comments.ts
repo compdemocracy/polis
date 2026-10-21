@@ -708,7 +708,8 @@ async function handle_GET_nextComment(
         req.p.zid!,
         pid ?? -1,
         req.p.initial_tid,
-        req.p.lang
+        req.p.lang,
+        req.p.uid
       );
       if (!req.timedout)
         res.status(200).json({
@@ -722,7 +723,8 @@ async function handle_GET_nextComment(
       req.p.zid,
       pid,
       req.p.without,
-      req.p.lang
+      req.p.lang,
+      req.p.uid
     );
 
     if (req.timedout) return;
