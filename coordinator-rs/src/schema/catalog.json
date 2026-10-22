@@ -305,7 +305,7 @@
     },
     {
       "table": "comment_serve_log",
-      "introduced": "server/postgres/migrations/000044_routing_propensities.sql:28",
+      "introduced": "server/postgres/migrations/000044_routing_propensities.sql:26",
       "columns": [
         {
           "table": "comment_serve_log",
@@ -316,7 +316,7 @@
           "default": "nextval('comment_serve_log_id_seq'::regclass)",
           "ordinal": 1,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:29"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:27"
         },
         {
           "table": "comment_serve_log",
@@ -327,7 +327,7 @@
           "default": null,
           "ordinal": 2,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:30"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:28"
         },
         {
           "table": "comment_serve_log",
@@ -338,7 +338,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:31"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:29"
         },
         {
           "table": "comment_serve_log",
@@ -349,7 +349,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:32"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:30"
         },
         {
           "table": "comment_serve_log",
@@ -360,7 +360,7 @@
           "default": null,
           "ordinal": 5,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:33"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:31"
         },
         {
           "table": "comment_serve_log",
@@ -371,7 +371,7 @@
           "default": null,
           "ordinal": 6,
           "definition_type": "character varying(32)",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:34"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:32"
         },
         {
           "table": "comment_serve_log",
@@ -382,7 +382,7 @@
           "default": null,
           "ordinal": 7,
           "definition_type": "double precision",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:35"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:33"
         },
         {
           "table": "comment_serve_log",
@@ -393,7 +393,7 @@
           "default": null,
           "ordinal": 8,
           "definition_type": "double precision",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:36"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:34"
         },
         {
           "table": "comment_serve_log",
@@ -404,7 +404,7 @@
           "default": null,
           "ordinal": 9,
           "definition_type": "character varying(999)",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:37"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:35"
         },
         {
           "table": "comment_serve_log",
@@ -415,7 +415,7 @@
           "default": null,
           "ordinal": 10,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:38"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:36"
         },
         {
           "table": "comment_serve_log",
@@ -426,7 +426,7 @@
           "default": null,
           "ordinal": 11,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:39"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:37"
         },
         {
           "table": "comment_serve_log",
@@ -437,7 +437,7 @@
           "default": null,
           "ordinal": 12,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:40"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:38"
         },
         {
           "table": "comment_serve_log",
@@ -448,7 +448,7 @@
           "default": null,
           "ordinal": 13,
           "definition_type": "double precision",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:41"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:39"
         },
         {
           "table": "comment_serve_log",
@@ -459,7 +459,7 @@
           "default": null,
           "ordinal": 14,
           "definition_type": "double precision",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:42"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:40"
         },
         {
           "table": "comment_serve_log",
@@ -470,7 +470,7 @@
           "default": null,
           "ordinal": 15,
           "definition_type": "double precision",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:43"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:41"
         },
         {
           "table": "comment_serve_log",
@@ -481,7 +481,7 @@
           "default": null,
           "ordinal": 16,
           "definition_type": "double precision",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:44"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:42"
         },
         {
           "table": "comment_serve_log",
@@ -492,7 +492,7 @@
           "default": null,
           "ordinal": 17,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:45"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:43"
         },
         {
           "table": "comment_serve_log",
@@ -503,7 +503,7 @@
           "default": "now_as_millis()",
           "ordinal": 18,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:46"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:44"
         }
       ],
       "indexes": [
@@ -5649,81 +5649,6 @@
       ]
     },
     {
-      "table": "math_priorities_history",
-      "introduced": "server/postgres/migrations/000044_routing_propensities.sql:62",
-      "columns": [
-        {
-          "table": "math_priorities_history",
-          "name": "zid",
-          "sql_type": "integer",
-          "udt": "int4",
-          "nullable": "NO",
-          "default": null,
-          "ordinal": 1,
-          "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:63"
-        },
-        {
-          "table": "math_priorities_history",
-          "name": "math_env",
-          "sql_type": "character varying",
-          "udt": "varchar",
-          "nullable": "NO",
-          "default": null,
-          "ordinal": 2,
-          "definition_type": "character varying(999)",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:64"
-        },
-        {
-          "table": "math_priorities_history",
-          "name": "math_tick",
-          "sql_type": "bigint",
-          "udt": "int8",
-          "nullable": "NO",
-          "default": null,
-          "ordinal": 3,
-          "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:65"
-        },
-        {
-          "table": "math_priorities_history",
-          "name": "priorities",
-          "sql_type": "jsonb",
-          "udt": "jsonb",
-          "nullable": "NO",
-          "default": null,
-          "ordinal": 4,
-          "definition_type": "jsonb",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:66"
-        },
-        {
-          "table": "math_priorities_history",
-          "name": "created",
-          "sql_type": "bigint",
-          "udt": "int8",
-          "nullable": "NO",
-          "default": "now_as_millis()",
-          "ordinal": 5,
-          "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:67"
-        }
-      ],
-      "indexes": [
-        {
-          "table": "math_priorities_history",
-          "name": "math_priorities_history_pkey",
-          "definition": "CREATE UNIQUE INDEX math_priorities_history_pkey ON public.math_priorities_history USING btree (zid, math_env, math_tick)"
-        }
-      ],
-      "constraints": [
-        {
-          "table": "math_priorities_history",
-          "name": "math_priorities_history_pkey",
-          "definition": "PRIMARY KEY (zid, math_env, math_tick)"
-        }
-      ]
-    },
-    {
       "table": "math_profile",
       "introduced": "server/postgres/migrations/000000_initial.sql:670",
       "columns": [
@@ -5884,7 +5809,7 @@
     },
     {
       "table": "math_recompute_log",
-      "introduced": "server/postgres/migrations/000044_routing_propensities.sql:51",
+      "introduced": "server/postgres/migrations/000044_routing_propensities.sql:49",
       "columns": [
         {
           "table": "math_recompute_log",
@@ -5895,7 +5820,7 @@
           "default": null,
           "ordinal": 1,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:52"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:50"
         },
         {
           "table": "math_recompute_log",
@@ -5906,7 +5831,7 @@
           "default": null,
           "ordinal": 2,
           "definition_type": "character varying(999)",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:53"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:51"
         },
         {
           "table": "math_recompute_log",
@@ -5917,7 +5842,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:54"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:52"
         },
         {
           "table": "math_recompute_log",
@@ -5928,7 +5853,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:55"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:53"
         },
         {
           "table": "math_recompute_log",
@@ -5939,7 +5864,7 @@
           "default": null,
           "ordinal": 5,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:56"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:54"
         },
         {
           "table": "math_recompute_log",
@@ -5950,7 +5875,7 @@
           "default": null,
           "ordinal": 6,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:57"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:55"
         },
         {
           "table": "math_recompute_log",
@@ -5961,7 +5886,7 @@
           "default": "now_as_millis()",
           "ordinal": 7,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:58"
+          "introduced": "server/postgres/migrations/000044_routing_propensities.sql:56"
         }
       ],
       "indexes": [
@@ -13217,7 +13142,7 @@
     },
     {
       "path": "server/postgres/migrations/000044_routing_propensities.sql",
-      "sha256": "787e787ac7bf17fc1468c83a2a1987470f9d50789e17c09867689e95026f5287"
+      "sha256": "f492a3bf5de944e84fbc33d8f25f5d034e4e2208249f0e704a6ad2994756333b"
     }
   ]
 }

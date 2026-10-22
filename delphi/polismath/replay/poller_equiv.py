@@ -301,9 +301,9 @@ CREATE TABLE math_profile (
 );
 """
 
-# math_recompute_log / math_priorities_history: py-write-only, inside the
-# publication transaction (postgres.py write_recompute_log), so the py poller
-# cannot publish without them; never compared. Verbatim from
+# math_recompute_log: py-write-only, inside the publication transaction
+# (postgres.py write_recompute_log), so the py poller cannot publish without
+# it; never compared. Verbatim from
 # server/postgres/migrations/000044_routing_propensities.sql.
 CREATE_MATH_RECOMPUTE_LOG = """
 CREATE TABLE math_recompute_log (
@@ -313,17 +313,6 @@ CREATE TABLE math_recompute_log (
   last_vote_timestamp BIGINT,
   n_votes INTEGER,
   n_comments INTEGER,
-  created BIGINT NOT NULL DEFAULT now_as_millis(),
-  PRIMARY KEY (zid, math_env, math_tick)
-);
-"""
-
-CREATE_MATH_PRIORITIES_HISTORY = """
-CREATE TABLE math_priorities_history (
-  zid INTEGER NOT NULL,
-  math_env VARCHAR(999) NOT NULL,
-  math_tick BIGINT NOT NULL,
-  priorities JSONB NOT NULL,
   created BIGINT NOT NULL DEFAULT now_as_millis(),
   PRIMARY KEY (zid, math_env, math_tick)
 );
@@ -342,7 +331,6 @@ SCHEMA_STATEMENTS: list[str] = [
     CREATE_MATH_BIDTOPID,
     CREATE_MATH_PROFILE,
     CREATE_MATH_RECOMPUTE_LOG,
-    CREATE_MATH_PRIORITIES_HISTORY,
 ]
 
 # Joined form for introspection/documentation (parse_schema_columns operates

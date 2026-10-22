@@ -36,25 +36,25 @@ row! {
 }
 
 row! {
-    CommentServeLogRow, "comment_serve_log", "server/postgres/migrations/000044_routing_propensities.sql:28";
-    id: i64 => ("id", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:29"),
-    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:30"),
-    pid: i32 => ("pid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:31"),
-    uid: Option<i32> => ("uid", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:32"),
-    tid: Option<i32> => ("tid", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:33"),
-    branch: String => ("branch", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:34"),
-    epsilon: PgFloat8 => ("epsilon", "float8", false, "server/postgres/migrations/000044_routing_propensities.sql:35"),
-    topical_ratio: Option<PgFloat8> => ("topical_ratio", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:36"),
-    math_env: Option<String> => ("math_env", "varchar", true, "server/postgres/migrations/000044_routing_propensities.sql:37"),
-    math_tick: Option<i64> => ("math_tick", "int8", true, "server/postgres/migrations/000044_routing_propensities.sql:38"),
-    pool_size: i32 => ("pool_size", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:39"),
-    eligible_count: Option<i32> => ("eligible_count", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:40"),
-    weight: Option<PgFloat8> => ("weight", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:41"),
-    weight_sum: Option<PgFloat8> => ("weight_sum", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:42"),
-    propensity: Option<PgFloat8> => ("propensity", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:43"),
-    random_n: Option<PgFloat8> => ("random_n", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:44"),
-    topical_pool_size: Option<i32> => ("topical_pool_size", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:45"),
-    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:46"),
+    CommentServeLogRow, "comment_serve_log", "server/postgres/migrations/000044_routing_propensities.sql:26";
+    id: i64 => ("id", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:27"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:28"),
+    pid: i32 => ("pid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:29"),
+    uid: Option<i32> => ("uid", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:30"),
+    tid: Option<i32> => ("tid", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:31"),
+    branch: String => ("branch", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:32"),
+    epsilon: PgFloat8 => ("epsilon", "float8", false, "server/postgres/migrations/000044_routing_propensities.sql:33"),
+    topical_ratio: Option<PgFloat8> => ("topical_ratio", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:34"),
+    math_env: Option<String> => ("math_env", "varchar", true, "server/postgres/migrations/000044_routing_propensities.sql:35"),
+    math_tick: Option<i64> => ("math_tick", "int8", true, "server/postgres/migrations/000044_routing_propensities.sql:36"),
+    pool_size: i32 => ("pool_size", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:37"),
+    eligible_count: Option<i32> => ("eligible_count", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:38"),
+    weight: Option<PgFloat8> => ("weight", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:39"),
+    weight_sum: Option<PgFloat8> => ("weight_sum", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:40"),
+    propensity: Option<PgFloat8> => ("propensity", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:41"),
+    random_n: Option<PgFloat8> => ("random_n", "float8", true, "server/postgres/migrations/000044_routing_propensities.sql:42"),
+    topical_pool_size: Option<i32> => ("topical_pool_size", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:43"),
+    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:44"),
 }
 
 row! {
@@ -542,15 +542,6 @@ row! {
 }
 
 row! {
-    MathPrioritiesHistoryRow, "math_priorities_history", "server/postgres/migrations/000044_routing_propensities.sql:62";
-    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:63"),
-    math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:64"),
-    math_tick: i64 => ("math_tick", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:65"),
-    priorities: PgJson => ("priorities", "jsonb", false, "server/postgres/migrations/000044_routing_propensities.sql:66"),
-    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:67"),
-}
-
-row! {
     MathProfileRow, "math_profile", "server/postgres/migrations/000000_initial.sql:670";
     zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000000_initial.sql:671"),
     math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000000_initial.sql:672"),
@@ -568,14 +559,14 @@ row! {
 }
 
 row! {
-    MathRecomputeLogRow, "math_recompute_log", "server/postgres/migrations/000044_routing_propensities.sql:51";
-    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:52"),
-    math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:53"),
-    math_tick: i64 => ("math_tick", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:54"),
-    last_vote_timestamp: Option<i64> => ("last_vote_timestamp", "int8", true, "server/postgres/migrations/000044_routing_propensities.sql:55"),
-    n_votes: Option<i32> => ("n_votes", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:56"),
-    n_comments: Option<i32> => ("n_comments", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:57"),
-    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:58"),
+    MathRecomputeLogRow, "math_recompute_log", "server/postgres/migrations/000044_routing_propensities.sql:49";
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000044_routing_propensities.sql:50"),
+    math_env: String => ("math_env", "varchar", false, "server/postgres/migrations/000044_routing_propensities.sql:51"),
+    math_tick: i64 => ("math_tick", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:52"),
+    last_vote_timestamp: Option<i64> => ("last_vote_timestamp", "int8", true, "server/postgres/migrations/000044_routing_propensities.sql:53"),
+    n_votes: Option<i32> => ("n_votes", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:54"),
+    n_comments: Option<i32> => ("n_comments", "int4", true, "server/postgres/migrations/000044_routing_propensities.sql:55"),
+    created: i64 => ("created", "int8", false, "server/postgres/migrations/000044_routing_propensities.sql:56"),
 }
 
 row! {
@@ -1513,12 +1504,6 @@ pub const TABLES: &[Table] = &[
         columns: MathMainRow::COLUMNS,
         roundtrip: roundtrip::<MathMainRow>,
         decode: decode::<MathMainRow>,
-    },
-    Table {
-        name: "math_priorities_history",
-        columns: MathPrioritiesHistoryRow::COLUMNS,
-        roundtrip: roundtrip::<MathPrioritiesHistoryRow>,
-        decode: decode::<MathPrioritiesHistoryRow>,
     },
     Table {
         name: "math_profile",

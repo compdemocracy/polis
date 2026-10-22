@@ -1,6 +1,6 @@
 -- 000044: routing propensities (PROPENSITY-LOGGING-DESIGN.md section 5).
 --
--- Three new tables, nothing else:
+-- Two new tables, nothing else:
 --
 --   comment_serve_log        one row per next-statement choice, written by the
 --                            API (server/src/nextComment.ts) after it chooses,
@@ -12,18 +12,16 @@
 --                            the Python math engine in the same transaction as
 --                            math_ticks/math_main), fixing which votes each
 --                            generation saw.
---   math_priorities_history  the comment-priorities map of each generation,
---                            written only when MATH_PRIORITIES_HISTORY is on.
 --
 -- Compatibility: additive. No existing table, column, function, index or row
 -- changes. A release that does not list this migration never reads or writes
 -- these tables, so it runs unchanged beside them. CREATE TABLE and CREATE
 -- INDEX on a new, empty table take locks only on that table.
 --
--- Reversal: drop the three tables (this loses the logged serves and
--- recomputes, nothing else). The writers stop once ROUTING_SERVE_LOG=0 and
--- MATH_PRIORITIES_HISTORY is unset; an API that still logs serves after the
--- drop only logs the failed insert (polis_err_comment_serve_log).
+-- Reversal: drop the two tables (this loses the logged serves and
+-- recomputes, nothing else). The API stops writing once ROUTING_SERVE_LOG=0;
+-- an API that still logs serves after the drop only logs the failed insert
+-- (polis_err_comment_serve_log).
 
 CREATE TABLE comment_serve_log (
   id BIGSERIAL PRIMARY KEY,
@@ -55,15 +53,6 @@ CREATE TABLE math_recompute_log (
   last_vote_timestamp BIGINT,
   n_votes INTEGER,                      -- votes in the batch that triggered the recompute, NULL if unknown
   n_comments INTEGER,                   -- comments with a priority in this generation
-  created BIGINT NOT NULL DEFAULT now_as_millis(),
-  PRIMARY KEY (zid, math_env, math_tick)
-);
-
-CREATE TABLE math_priorities_history (
-  zid INTEGER NOT NULL,
-  math_env VARCHAR(999) NOT NULL,
-  math_tick BIGINT NOT NULL,
-  priorities JSONB NOT NULL,            -- the comment-priorities map of this generation
   created BIGINT NOT NULL DEFAULT now_as_millis(),
   PRIMARY KEY (zid, math_env, math_tick)
 );

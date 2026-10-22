@@ -236,14 +236,9 @@ def empty_contract_payloads(conv, zid, main):
 class MathWriter:
     """Writes a computed conversation's results to Postgres for one cycle."""
 
-    def __init__(
-        self, pg_client: Any, publisher: Any = None, *, priorities_history: bool = False,
-    ) -> None:
+    def __init__(self, pg_client: Any, publisher: Any = None) -> None:
         self._pg = pg_client
         self._publisher = publisher
-        # MATH_PRIORITIES_HISTORY (PollerConfig.priorities_history): also keep
-        # each generation's comment-priorities map in math_priorities_history.
-        self.priorities_history = priorities_history
 
     def write_conv_updates(
         self,
@@ -261,9 +256,7 @@ class MathWriter:
         The same transaction records the generation in ``math_recompute_log``
         (its ``last_vote_timestamp``, ``n_votes`` = the size of the vote batch
         that triggered it, None when the caller does not know, and the number
-        of comments with a priority) and, with ``priorities_history`` on, its
-        ``comment-priorities`` map in ``math_priorities_history``. A tick
-        therefore never commits without its log row, and a failure writing the
+        of comments with a priority). A tick therefore never commits without its log row, and a failure writing the
         log rolls the publication back.
 
         ``before_publish(connection, math_tick)``, when given, runs inside the
@@ -301,7 +294,6 @@ class MathWriter:
         main_json = encode_math_blob(data)
         bidtopid_json = encode_math_blob(bidtopid)
         ptptstats_json = encode_math_blob(ptptstats)
-        priorities_json = encode_math_blob(priorities) if self.priorities_history else None
         if report is not None:
             report["payload_bytes"] = (
                 len(main_json) + len(bidtopid_json) + len(ptptstats_json)
@@ -316,8 +308,7 @@ class MathWriter:
                 before_publish(connection, math_tick)
             self._pg.write_recompute_log(
                 zid, math_tick=math_tick, last_vote_timestamp=last_vote_timestamp,
-                n_votes=n_votes, n_comments=len(priorities),
-                priorities=priorities_json, connection=connection,
+                n_votes=n_votes, n_comments=len(priorities), connection=connection,
             )
             # math_main is written LAST, and deliberately so: it is the statement
             # that allocates caching_tick with MAX(caching_tick)+1, and that

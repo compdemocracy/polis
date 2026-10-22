@@ -127,9 +127,8 @@ _POLIS_PG_MIGRATIONS_DIR = os.path.join(
 # Migrations that establish the votes + votes_latest_unique schema and the
 # on_vote_insert_update_unique_table RULE. 000006 holds the LIVE rule
 # redefinition (idempotent DROP/CREATE) — apply both, in order. 000044 adds
-# math_recompute_log / math_priorities_history, which the poller's publication
-# transaction writes (MathWriter.write_conv_updates): without them every
-# publication rolls back.
+# math_recompute_log, which the poller's publication transaction writes
+# (MathWriter.write_conv_updates): without it every publication rolls back.
 _POLIS_PG_MIGRATIONS = (
     "000000_initial.sql",
     "000006_update_votes_rule.sql",

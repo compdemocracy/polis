@@ -96,7 +96,7 @@ fn main() -> Result<()> {
     }
     tx.rollback()?;
     println!(
-        "schema mapping PASS: {} tables, {mapped} rows, 796 catalog columns",
+        "schema mapping PASS: {} tables, {mapped} rows, 791 catalog columns",
         schema::TABLES.len()
     );
     Ok(())

@@ -116,15 +116,14 @@ valid indexes are reused. See [the runner contract](migrations.md#concurrent-ind
 ## Routing propensity logs
 
 Migration 000044 is required by this release and applies at the next deploy.
-It creates three new, empty tables only: `comment_serve_log` (one row per
+It creates two new, empty tables only: `comment_serve_log` (one row per
 next-statement choice, written by the API while `ROUTING_SERVE_LOG` is on, the
-default), `math_recompute_log` (one row per committed math generation, written
-by the math engine) and `math_priorities_history` (written only when
-`MATH_PRIORITIES_HISTORY` is on). No existing table, function, index or row
+default) and `math_recompute_log` (one row per committed math generation,
+written by the math engine). No existing table, function, index or row
 changes, and the earlier application never reads or writes these tables, so it
 runs unchanged beside them (declared additive). It is an ordinary file: the
 tables and their history receipt commit together, and its locks are only on
 the new tables. Expect `comment_serve_log` to grow by about one row per vote
 (roughly 2–3 times the size of `votes` for a conversation); set
-`ROUTING_SERVE_LOG=0` to stop writing it. Reversal is dropping the three tables,
+`ROUTING_SERVE_LOG=0` to stop writing it. Reversal is dropping the two tables,
 which loses only the logged serves and recomputes.

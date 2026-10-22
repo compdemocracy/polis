@@ -1,6 +1,6 @@
 # Environment read reference
 
-Source snapshot `0985a1a58870f665e6cd30b57558db0c7a9954bc`. The census covers 499 tracked code/build/notebook files (Python, TypeScript/JavaScript, Rust, shell, Clojure, Dockerfiles, Makefile, two scoped Compose files, two archived Python copies, two notebook code-cell inventories) under `server/src/`, `delphi/`, `coordinator-rs/`, and `cdk/`: **236 named inputs at 683 read sites**, plus **46 dynamic/map sites** below.
+Source snapshot `0985a1a58870f665e6cd30b57558db0c7a9954bc`. The census covers 499 tracked code/build/notebook files (Python, TypeScript/JavaScript, Rust, shell, Clojure, Dockerfiles, Makefile, two scoped Compose files, two archived Python copies, two notebook code-cell inventories) under `server/src/`, `delphi/`, `coordinator-rs/`, and `cdk/`: **235 named inputs at 682 read sites**, plus **46 dynamic/map sites** below.
 
 This is a static source inventory, not a declaration that every script runs in deployment. Python/TypeScript syntax trees identify direct lookups; Rust literal lookups, local wrappers, finite loops, known environment-map aliases, and embedded child scripts are resolved separately. Reads in tests, certification tools, and Cargo build scripts are included and labeled. Comments, assignment-only writes, vendored dependencies, and dependency-internal environment lookups are not named application reads. A shared helper can accept names supplied by future/external callers; inherited subprocess and SDK environments are open-ended. See the explicit boundaries below.
 
@@ -119,7 +119,7 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 
 ## `delphi/`
 
-113 distinct names; 469 named read sites. A name read in two scopes contributes to both scope counts.
+112 distinct names; 468 named read sites. A name read in two scopes contributes to both scope counts.
 
 | Name | Source read site | Absent-value behavior / fallback | Secret? | Surface |
 | --- | --- | --- | --- | --- |
@@ -462,7 +462,6 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 | `MATH_POLLER_DUMP_DIR` | [delphi/polismath/poller/service.py:268](../delphi/polismath/poller/service.py#L268) | "scratch/errorconv" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |
 | `MATH_POLLER_RECONCILE_INTERVAL_MS` | [delphi/polismath/poller/service.py:272](../delphi/polismath/poller/service.py#L272) | "60000" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |
 | `MATH_POLLER_RETRY_CAP` | [delphi/polismath/poller/service.py:269](../delphi/polismath/poller/service.py#L269) | "1" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |
-| `MATH_PRIORITIES_HISTORY` | [delphi/polismath/poller/service.py:546](../delphi/polismath/poller/service.py#L546) | first nonempty of MATH_PRIORITIES_HISTORY; otherwise "0" (parse_bool_flag: 1/true = on, default off) | No (configuration/identifier; may still be private) | application / script / infrastructure; Resolved helper |
 | `MATH_SHARD_COUNT` | [delphi/polismath/poller/service.py:265](../delphi/polismath/poller/service.py#L265) | first nonempty of POLL_SHARD_COUNT, MATH_SHARD_COUNT; otherwise '1' | No (configuration/identifier; may still be private) | application / script / infrastructure; Resolved helper |
 | `MATH_SHARD_INDEX` | [delphi/polismath/poller/service.py:262](../delphi/polismath/poller/service.py#L262) | first nonempty of POLL_SHARD_INDEX, MATH_SHARD_INDEX; otherwise '0' | No (configuration/identifier; may still be private) | application / script / infrastructure; Resolved helper |
 | `MATH_WORKER_POOL_SIZE` | [delphi/polismath/poller/service.py:267](../delphi/polismath/poller/service.py#L267) | "4" | No (configuration/identifier; may still be private) | application / script / infrastructure; Python AST |

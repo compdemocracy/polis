@@ -253,28 +253,6 @@ class MathRecomputeLog(Base):
                 f"math_tick={self.math_tick})>")
 
 
-class MathPrioritiesHistory(Base):
-    """The ``comment-priorities`` map of each generation (migration 000044).
-
-    Written only when ``MATH_PRIORITIES_HISTORY`` is on, beside the
-    generation's ``math_recompute_log`` row and in the same transaction.
-    """
-
-    __tablename__ = "math_priorities_history"
-
-    zid = sa.Column(sa.Integer, primary_key=True)
-    math_env = sa.Column(sa.String, primary_key=True)
-    math_tick = sa.Column(sa.BigInteger, primary_key=True)
-    priorities = sa.Column(JSONB, nullable=False)
-    created = sa.Column(
-        sa.BigInteger, nullable=False, server_default=text("now_as_millis()")
-    )
-
-    def __repr__(self) -> str:
-        return (f"<MathPrioritiesHistory(zid={self.zid}, math_env='{self.math_env}', "
-                f"math_tick={self.math_tick})>")
-
-
 class MathPtptStats(Base):
     """Stores participant statistics."""
 
@@ -461,19 +439,6 @@ COPY_RECOMPUTE_LOG_SQL = """
     do update set last_vote_timestamp = excluded.last_vote_timestamp,
                   n_votes = excluded.n_votes,
                   n_comments = excluded.n_comments,
-                  created = now_as_millis()
-"""
-# The staged generation's comment-priorities snapshot, only if its writer
-# kept one (MATH_PRIORITIES_HISTORY on the large class).
-COPY_PRIORITIES_HISTORY_SQL = """
-    insert into math_priorities_history (zid, math_env, math_tick, priorities)
-    select s.zid, :dst, :tick, h.priorities
-    from math_main s
-    join math_priorities_history h
-      on h.zid = s.zid and h.math_env = s.math_env and h.math_tick = s.math_tick
-    where s.zid = :zid and s.math_env = :src
-    on conflict (zid, math_env, math_tick)
-    do update set priorities = excluded.priorities,
                   created = now_as_millis()
 """
 PROMOTED_POSTCONDITION_SQL = """
@@ -1283,19 +1248,16 @@ class PostgresClient:
         last_vote_timestamp: Optional[int],
         n_votes: Optional[int],
         n_comments: int,
-        priorities: Optional[Any] = None,
         connection: Optional[sa.Connection] = None,
     ) -> None:
-        """Record one published generation in ``math_recompute_log`` and, when
-        ``priorities`` is given, its ``comment-priorities`` map in
-        ``math_priorities_history`` (propensity-logging design §6).
+        """Record one published generation in ``math_recompute_log``
+        (propensity-logging design §6).
 
         The poller calls this inside the publication transaction, right after
         ``increment_math_tick``, so the tick and its log row commit or roll
-        back together. ``priorities`` may be pre-encoded JSON (the poller
-        encodes it before opening the transaction) or a dict.
+        back together.
 
-        Both inserts overwrite on ``(zid, math_env, math_tick)``: the tick
+        The insert overwrites on ``(zid, math_env, math_tick)``: the tick
         sequence restarts when a ``math_ticks`` row is removed, and the
         generation published under a tick number is the one the server can
         serve, so the newest row for that number is the one to keep. A plain
@@ -1320,24 +1282,6 @@ class PostgresClient:
                 "last_vote_timestamp": last_vote_timestamp,
                 "n_votes": n_votes,
                 "n_comments": n_comments,
-            },
-            connection=connection,
-        )
-        if priorities is None:
-            return
-        self._write_returning(
-            """
-            insert into math_priorities_history (zid, math_env, math_tick, priorities)
-            values (:zid, :math_env, :math_tick, cast(:priorities as jsonb))
-            on conflict (zid, math_env, math_tick)
-            do update set priorities = excluded.priorities,
-                          created = now_as_millis();
-            """,
-            {
-                "zid": zid,
-                "math_env": self.config.math_env,
-                "math_tick": math_tick,
-                "priorities": encode_math_blob(priorities),
             },
             connection=connection,
         )
@@ -1379,8 +1323,7 @@ class PostgresClient:
         -> ``superseded``); require the staged bundle to be complete and valid
         by VALID_BUNDLE_SQL and newer than the target (``staged_newer``); copy
         the two companions and the staged generation's ``math_recompute_log``
-        row (``math_priorities_history`` row, if any) to the new tick, then
-        math_main last (its caching_tick allocation stays next to COMMIT);
+        row to the new tick, then math_main last (its caching_tick allocation stays next to COMMIT);
         check the target's four ticks. Any refusal
         raises PromotionRefused and rolls everything back, the tick included.
         Lock order is fixed (target tick, then staged tick); the staged writer
@@ -1422,10 +1365,8 @@ class PostgresClient:
             copy = dict(params, tick=tick)
             conn.execute(text(COPY_BIDTOPID_SQL), copy)
             conn.execute(text(COPY_PTPTSTATS_SQL), copy)
-            # The promoted tick is a publication too: its log row (and the
-            # history row, when the staged writer kept one) commit with it.
+            # The promoted tick is a publication too: its log row commits with it.
             conn.execute(text(COPY_RECOMPUTE_LOG_SQL), copy)
-            conn.execute(text(COPY_PRIORITIES_HISTORY_SQL), copy)
             conn.execute(text(COPY_MAIN_SQL), copy)
             post = conn.execute(text(PROMOTED_POSTCONDITION_SQL), params).mappings().first()
             if post is None or {post["main_tick"], post["bid_tick"], post["stats_tick"],
