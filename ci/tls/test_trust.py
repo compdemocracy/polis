@@ -3,7 +3,10 @@ import hashlib
 import ssl
 import unittest
 import tomllib
-from check_trust import HERE, PEM, POLICY, audit_bundle, verify_chain
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+from check_trust import HERE, PEM, POLICY, audit_bundle, verify_chain, affected_objects, verify_object, audit_objects
 
 
 class TrustTests(unittest.TestCase):
@@ -19,6 +22,11 @@ class TrustTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'trusts'):
                     audit_bundle(root, 'stale')
 
+    def test_non_ascii_bundle_comments_do_not_hide_stale_trust(self):
+        roots = (HERE / 'fixtures/affected-roots.pem').read_text()
+        with self.assertRaisesRegex(ValueError, 'trusts'):
+            audit_bundle('# Autorité de certification\n' + roots, 'rpm-style')
+
     def test_chain_fixtures_are_accepted_by_the_old_roots(self):
         chains = sorted((HERE / 'fixtures').glob('*we-have-a-problem.com.pem'))
         self.assertEqual(len(chains), 12)
@@ -26,6 +34,29 @@ class TrustTests(unittest.TestCase):
             with self.subTest(chain=chain.name):
                 result = verify_chain(HERE / 'fixtures/affected-roots.pem', chain)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_exact_intermediate_identities_and_anchor_rejection(self):
+        for cert in affected_objects():
+            with self.subTest(cert=hashlib.sha256(cert.encode()).hexdigest()):
+                with self.assertRaisesRegex(ValueError, 'trusts'):
+                    audit_bundle(cert, 'affected-intermediate-as-anchor')
+
+    def test_fixture_identity_changes_fail(self):
+        with patch.dict(POLICY, {'intermediates': POLICY['intermediates'][:-1]}):
+            with self.assertRaisesRegex(ValueError, 'sixteen'):
+                affected_objects()
+
+    def test_all_objects_accepted_with_stale_roots_without_tls_eku(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'object.pem'
+            for cert in affected_objects():
+                path.write_text(cert)
+                result = verify_object(HERE / 'fixtures/affected-roots.pem', path)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_stale_store_fails_object_gate(self):
+        with self.assertRaisesRegex(ValueError, 'did not fail for distrust'):
+            audit_objects((HERE / 'fixtures/affected-roots.pem').read_text(), 'stale')
 
     def test_advisory_versions_are_locked(self):
         root = HERE.parents[1]

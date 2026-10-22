@@ -8,6 +8,11 @@ on:
       - '**/uv.lock'
       - 'polis-cli/Cargo.lock'
       - 'ci/tls/**'
+      - 'cdk/lambda/**'
+      - 'cdk/test/dbBackupLambda.test.ts'
+      - 'cdk/package*.json'
+      - 'ci/probe_box/local/**'
+      - 'ci/probe_box/ami/**'
       - 'math/distrust-ca.sh'
       - 'server/mise.toml'
       - '.github/workflows/tls-trust.yml'
@@ -20,6 +25,11 @@ on:
       - '**/uv.lock'
       - 'polis-cli/Cargo.lock'
       - 'ci/tls/**'
+      - 'cdk/lambda/**'
+      - 'cdk/test/dbBackupLambda.test.ts'
+      - 'cdk/package*.json'
+      - 'ci/probe_box/local/**'
+      - 'ci/probe_box/ami/**'
       - 'math/distrust-ca.sh'
       - 'server/mise.toml'
       - '.github/workflows/tls-trust.yml'
@@ -28,7 +38,14 @@ permissions:
   contents: read
 jobs:
   trust:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, python, nginx, postgres, java, api, migrate, oidc, coordinator, file-server, clients, probe]
+    env:
+      TLS_IMAGE_SELECTION: ${{ matrix.image }}
+    # Match the arm64 runtime/probe builds without emulation.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -37,3 +54,13 @@ jobs:
         run: python3 -m unittest discover -s ci/tls -p 'test_*.py'
       - name: Build and inspect effective trust stores
         run: bash ci/tls/check-images.sh
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: matrix.image == 'server'
+        with:
+          node-version: '22.23.4'
+      - name: Hash-checked backup Lambda package
+        if: matrix.image == 'server'
+        working-directory: cdk
+        run: |
+          npm ci
+          npm test -- --runInBand dbBackupLambda
