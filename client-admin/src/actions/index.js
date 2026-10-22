@@ -304,11 +304,11 @@ const postBulkSeedComments = (commentsCSV) => {
 export const handleBulkSeedCommentSubmit = (commentsCSV, cb) => {
   return (dispatch) => {
     dispatch(submitSeedCommentStart())
-    return (
-      postBulkSeedComments(commentsCSV).then((res) => {
+    return postBulkSeedComments(commentsCSV).then(
+      (res) => {
         if (cb) cb()
         return dispatch(submitSeedCommentPostSuccess(res))
-      }),
+      },
       (err) => dispatch(submitSeedCommentPostError(err))
     )
   }
