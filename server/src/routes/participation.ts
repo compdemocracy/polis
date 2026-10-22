@@ -8,7 +8,13 @@ import { getPid, getUser } from "../user";
 import { getVotesForSingleParticipant } from "./votes";
 import { getXidRecord } from "../xids";
 import { getXids } from "./xids";
-import { isConversationOwner, isOwner } from "../utils/common";
+import { isConversationOwner } from "../utils/common";
+import { getConversationInfo } from "../conversation";
+import {
+  assignToPCustom,
+  getConversationIdFetchZid,
+  need,
+} from "../utils/parameter";
 import { MPromise } from "../utils/metered";
 import { ParticipantFields, ExpressResponse } from "../d";
 import { sql_participants_extended } from "../db/sql";
@@ -100,6 +106,35 @@ function handle_GET_participants(
     });
 }
 
+const needParticipationConversationId = need(
+  "conversation_id",
+  (value: unknown) => {
+    if (typeof value === "string" && !value.trim()) {
+      return Promise.reject("polis_fail_parse_string_missing");
+    }
+    return getConversationIdFetchZid(value);
+  },
+  assignToPCustom("zid"),
+  (res, code, err) => {
+    // The resolver rejects this string only for an absent invite; database
+    // Errors, including one with the same message, keep the existing fallback.
+    if (err === "polis_err_fetching_zid_for_conversation_id") {
+      failJson(res, 404, err);
+      return true;
+    }
+    if (
+      err === undefined ||
+      err === "polis_fail_parse_string_missing" ||
+      err === "polis_fail_parse_string_too_long" ||
+      err === "polis_fail_parse_string_too_short"
+    ) {
+      failJson(res, 400, code);
+      return true;
+    }
+    return false;
+  }
+);
+
 function handle_GET_participation(
   req: { p: { zid: number; uid?: number; strict: any } },
   res: ExpressResponse
@@ -107,9 +142,13 @@ function handle_GET_participation(
   const zid = req.p.zid;
   const uid = req.p.uid;
   const strict = req.p.strict;
-  isOwner(zid, uid)
-    .then(function (ok: any) {
-      if (!ok) {
+  getConversationInfo(zid)
+    .then(function (info) {
+      if (!info) {
+        failJson(res, 404, "polis_err_fetching_zid_for_conversation_id");
+        return;
+      }
+      if (info.owner !== uid) {
         failJson(res, 403, "polis_err_get_participation_auth");
         return;
       }
@@ -454,6 +493,7 @@ function handle_POST_query_participants_by_metadata(
 }
 
 export {
+  needParticipationConversationId,
   handle_GET_participants,
   handle_GET_participation,
   handle_GET_participationInit,
