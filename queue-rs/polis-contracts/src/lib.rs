@@ -25,6 +25,7 @@ pub mod einvites_read;
 pub mod integrate_page;
 pub mod legacy_conversations;
 pub mod legacy_pca;
+pub mod link_pages;
 pub mod metadata_answers;
 pub mod metadata_choices;
 pub mod metadata_questions;

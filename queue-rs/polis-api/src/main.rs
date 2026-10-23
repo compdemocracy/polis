@@ -49,6 +49,7 @@ mod integrate_page;
 mod js;
 mod legacy_conversations;
 mod legacy_pca;
+mod link_pages;
 mod lru;
 mod metadata_answers;
 #[allow(dead_code)]
@@ -270,6 +271,14 @@ async fn health(app: &route::App) -> Outgoing {
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
     );
+    for (name, counter) in [
+        ("iipServed", &app.iip_served),
+        ("iipFallback", &app.iip_fallback),
+        ("iimServed", &app.iim_served),
+        ("iimFallback", &app.iim_fallback),
+    ] {
+        body.set(name, js::Js::Num(counter.load(Ordering::Relaxed) as f64));
+    }
     body.set(
         "votesReadServed",
         js::Js::Num(app.votes_read_served.load(Ordering::Relaxed) as f64),
@@ -613,6 +622,7 @@ async fn dispatch_at_clock(
         | votes_read::PATH
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
@@ -1036,6 +1046,19 @@ async fn main() -> Result<()> {
             metadata_answers::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    for (switch, slot, name) in [
+        ("POLIS_API_IIP_READS", &mut state.iip_db, "polis-api-iip/1"),
+        ("POLIS_API_IIM_READS", &mut state.iim_db, "polis-api-iim/1"),
+    ] {
+        if std::env::var(switch).ok().as_deref() == Some("1") {
+            let dsn = std::env::var("POLIS_API_LINK_PAGES_DATABASE_URL")
+                .context("POLIS_API_LINK_PAGES_DATABASE_URL required")?;
+            *slot = Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, name)?,
+                link_pages::pool_limits(),
+            ));
+        }
     }
     if std::env::var("POLIS_API_VOTES_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_VOTES_READ_DATABASE_URL")

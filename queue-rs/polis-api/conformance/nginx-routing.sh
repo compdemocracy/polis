@@ -1364,3 +1364,29 @@ sleep 6
 expect /api/v3/votes node "vote reads handoff"
 expect /api/v3/votes/me node "personal reads handoff"
 echo "ok vote read routes: off/on/deduplicated, methods/body, fallback"
+
+# Each conversation link page has an independent switch.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /iip/4fixture node "participation link off"
+expect /iim/4fixture node "moderation link off"
+for route in iip iim; do
+  start "$route,$route"
+  expect "/$route/4fixture" rust "link page on"
+  expect "/$route/4fixture/" rust "link page trailing slash"
+  expect_upstream polis-api HEAD "/$route/4fixture"
+  expect_upstream server POST "/$route/4fixture" $'Content-Length: 2\r\n' '{}'
+  expect_upstream server OPTIONS "/$route/4fixture"
+  expect_upstream server GET "/$route/4fixture" $'Content-Length: 2\r\n' '{}'
+  expect /api/v3/votes node "link leaves votes alone"
+  expect /api/v3/nextComment node "link leaves next statement alone"
+  if [[ $route == iip ]]; then expect /iim/4fixture node "moderation switch independent"; else expect /iip/4fixture node "participation switch independent"; fi
+done
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+start iip,iim
+expect /iip/4fixture node "participation link fallback"
+expect /iim/4fixture node "moderation link fallback"
+echo "ok conversation links: independent off/on, methods/body, fallback"
