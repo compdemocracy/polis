@@ -7,6 +7,7 @@ const {Pool}=require("pg"),recorder=require("../cli.cjs");
 const {delta,canonical}=require("../core.cjs"),{Normalizer}=require("../normalize.cjs");
 const {comparable}=require("../compare.cjs"),{records,put}=require("../recording.cjs");
 const {assertCommentsAttempts}=require("./admission.cjs");
+const {artifactDirectory}=require("./artifact-path.cjs");
 const pool=new Pool({connectionString:process.env.DATABASE_URL});
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function get(p){const r=await fetch(process.env.P027_CONTROL_URL+p);assert.equal(r.status,200);return r.json();}
@@ -53,7 +54,7 @@ async function main(){
    const n=new Normalizer();wire.response.headers=require("../headers.cjs").headers(wire.response.headers);
    c.response=n.normalize(c.response,"$.response"); // no new credentials in these cases
    if(response.status===200){const row=rows.find(r=>r.pid===(i?0:2));assert.ok(row);assert.equal(response.body.tid,row.tid);assert.equal(response.body.currentPid,row.pid);}
-   const dir=path.join(out,name+"-"+i);fs.mkdirSync(dir,{recursive:true});
+   const dir=path.join(out,artifactDirectory(name+"-"+i));fs.mkdirSync(dir,{recursive:true});
    put(dir,"comparison.json",c);
    for(const [key,value] of Object.entries(records(c)))put(dir,key+".json",value);
    normalized.push(comparable(c));

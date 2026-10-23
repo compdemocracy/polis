@@ -1,6 +1,6 @@
 "use strict";
 // Isolated recorder controls. Loaded before the application; never in production.
-exports.install = (state) => {
+exports.install = (_state) => {
   const { Client } = require("pg");
   const query = Client.prototype.query;
   let fault = null, fired = 0, language = "null-fallback", languageCalls = [];

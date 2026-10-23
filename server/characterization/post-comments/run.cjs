@@ -5,6 +5,7 @@ const {Pool}=require("pg");
 const recorder=require("../cli.cjs");
 const {Normalizer}=require("../normalize.cjs");
 const {hash}=require("../core.cjs");
+const {artifactDirectory}=require("./artifact-path.cjs");
 const {records,put,pin}=require("../recording.cjs");
 const {firstDifference,comparable}=require("../compare.cjs");
 const {canonical}=require("../core.cjs");
@@ -145,7 +146,7 @@ async function main(){
   const after=await recorder.snapshot(tables), fault=await get("/comments-fault-state");
   const comments=r.effects.db["pg:comments"]?.added||[], votes=r.effects.db["pg:votes"]?.added||[];
   r.commentProof={commentsAdded:comments.length,votesAdded:votes.length,storedMeanings:votes.map(v=>convention.storageToSemantic(v.vote)),fault};
-  const dest=path.join(out,String(actual.length).padStart(3,"0")+"-"+spec.name);
+  const dest=path.join(out,artifactDirectory(String(actual.length).padStart(3,"0")+"-"+spec.name));
   fs.mkdirSync(dest,{recursive:true});put(dest,"comparison.json",r);
   for(const [name,value] of Object.entries(records(r)))put(dest,name+".json",value);
   actual.push(r);put(out,"cases.json",actual);

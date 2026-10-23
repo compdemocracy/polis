@@ -44,7 +44,7 @@ jobs:
         run: bash server/characterization/post-comments/check.sh
       - name: Preserve all outcomes, including failed oracles
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: post-comments-recordings
           path: server/characterization/artifacts/comments-ci*

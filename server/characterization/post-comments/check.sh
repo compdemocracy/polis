@@ -12,6 +12,7 @@ ready() {
 }
 dc up -d
 ready
+dc exec -T driver node --test characterization/post-comments/artifact-path.test.cjs
 dc exec -T driver node --test characterization/post-comments/admission.test.cjs
 dc exec -T driver node --test characterization/post-comments/observation.test.cjs
 # Keep the existing expected-differences policy's own regression suite.
