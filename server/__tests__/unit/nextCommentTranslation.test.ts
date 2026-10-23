@@ -50,6 +50,13 @@ jest.mock("../../src/routes/comments", () => ({}));
 jest.mock("../../src/comment", () => ({
   ...jest.requireActual("../../src/comment"),
   getComments: mockComments,
+  // The ordinary draw's candidate ids and chosen row come from the same
+  // fixture rows as the plain list.
+  getNextCommentCandidates: (params: unknown) => mockComments(params),
+  getNextCommentRow: async (zid: number, tid: number) =>
+    ((await mockComments({ zid, tids: [tid] })) as { tid: number }[]).find(
+      (row) => row.tid === tid
+    ),
   getNumberOfCommentsRemaining: async () => [{ total: 1, remaining: 1 }],
 }));
 
