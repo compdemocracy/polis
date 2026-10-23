@@ -9,7 +9,8 @@
 
 ######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
-FROM docker.io/node:24-alpine AS client-admin
+FROM docker.io/node:24.22.1-alpine AS client-admin
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -52,7 +53,8 @@ RUN npm run build:prod
 
 
 ##################### POLIS CLIENT PARTICIPATION #####################
-FROM docker.io/node:24-alpine AS client-participation
+FROM docker.io/node:24.22.1-alpine AS client-participation
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 ARG EMBED_SERVICE_HOSTNAME
 ARG GA_TRACKING_ID
@@ -94,7 +96,8 @@ RUN npm run build:prod
 
 ######################## POLIS CLIENT REPORT ########################
 # FROM client-base AS client-report
-FROM docker.io/node:24-alpine AS client-report
+FROM docker.io/node:24.22.1-alpine AS client-report
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -145,7 +148,8 @@ RUN npm run build:prod
 
 
 ############################ FILE SERVER ############################
-FROM docker.io/node:24-alpine
+FROM docker.io/node:24.22.1-alpine
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV

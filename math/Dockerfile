@@ -1,4 +1,12 @@
-FROM docker.io/clojure:temurin-17-tools-deps
+FROM docker.io/clojure:temurin-17-tools-deps AS trust
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+ && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' \
+           -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+ && update-ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY distrust-ca.sh /tmp/distrust-ca.sh
+RUN sh /tmp/distrust-ca.sh && rm /tmp/distrust-ca.sh
+
+FROM trust AS runtime
 
 WORKDIR /app
 COPY . .

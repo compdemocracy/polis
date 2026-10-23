@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.4
-FROM node:24-alpine
+FROM node:24.22.1-alpine
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 WORKDIR /app
 
 ARG PUBLIC_SERVICE_URL

@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'polis-cli/**'
+      - 'ci/tls/**'
       - 'queue-rs/polis-contracts/**'
       - 'server/__tests__/fixtures/vote-declaration/**'
       - 'scripts/test-polis-cli.sh'
@@ -18,6 +19,7 @@ on:
     branches: [edge, stable]
     paths:
       - 'polis-cli/**'
+      - 'ci/tls/**'
       - 'queue-rs/polis-contracts/**'
       - 'server/__tests__/fixtures/vote-declaration/**'
       - 'scripts/test-polis-cli.sh'
