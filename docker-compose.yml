@@ -133,6 +133,11 @@ services:
       additional_contexts:
         queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
       target: final
+      args:
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
     labels:
       polis_tag: ${TAG:-dev}
     environment:
@@ -231,6 +236,11 @@ services:
       additional_contexts:
         queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
       target: final
+      args:
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
     labels:
       polis_tag: ${TAG:-dev}
     command: ["python", "scripts/math_poller.py"]

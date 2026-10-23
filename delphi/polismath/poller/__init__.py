@@ -144,10 +144,74 @@ dump_dir                MATH_POLLER_DUMP_DIR                            scratch/
 retry_cap               MATH_POLLER_RETRY_CAP                           1
 ======================  ==============================================  =======
 
-Every publication also writes a ``math_recompute_log`` row (tick,
-``last_vote_timestamp``, size of the triggering vote batch or NULL, number of
-prioritised comments) in the same transaction as the tick. Table from
-migration 000044; see ``MathWriter.write_conv_updates``.
+Every publication also writes a ``math_recompute_log`` row in the same
+transaction as the tick (table from migration 000044; see
+``MathWriter.write_conv_updates``). The row is the tick's ``TickInputs``
+(``tick_inputs.py``): everything the engine consumed, so that the generation
+can be recomputed exactly later (PROPENSITY-LOGGING-DESIGN.md §9).
+
+Recording and replay (one function, two callers)
+------------------------------------------------
+``compute_tick(prev_state, inputs, *, zid, ...)`` (``compute_tick.py``) is
+the only engine entry point, and it takes no database handle at all. The live
+path reads the database, builds ``TickInputs``, calls ``compute_tick``, and
+publishes the blob with ``inputs.to_row()``; replay
+(``polismath/replay/tick_replay.py``) calls the same function on the rows read
+back, so an engine input that bypassed ``TickInputs`` would have no way in. A
+tick has one of three start modes:
+
+* ``incremental`` -- the cached conversation of ``prev_math_tick`` plus the
+  votes the poll window delivered (``vote_pids/_tids/_values/_created``, in
+  delivery order, after the window's dedup and superseded-vote drop: one poll
+  is in canonical order, coalesced polls are poll after poll) and, when the
+  batch carried a moderation message, the moderation re-read at compute time
+  (``mod_read``; ``update_moderation`` keeps its sticky sets, reproduced as
+  is). A votes-only batch records ``mod_read = false``. Re-applying the
+  cached sets would change nothing for this engine (``update_votes`` reruns
+  ``_apply_moderation``); the flag records when the sets were read, which
+  replay needs to fold them.
+* ``warm_restore`` -- first touch after a restart, an LRU eviction or a
+  forced rebuild: the ``math_main`` blob of ``prev_math_tick`` restored
+  (``from_dict``), then the full vote history and the full moderation state.
+  The coordinator bridge's ``before_restore`` stage now runs after the
+  history reads and outside the restore's ``try`` (deliberately: a bridge
+  fault there propagates instead of silently rebuilding cold).
+* ``cold`` -- no usable ``math_main`` row (or its restore failed): a fresh
+  conversation plus the full history.
+
+Moderation is handed to the engine in canonical order (sorted tids / pids;
+the engine's sets, and so the blob's ``mod-out``/``mod-in``/``meta-tids``
+lists, follow the order it is given) and logged as deltas
+(``*_added``/``*_removed``) against the previous read of the same chain (a
+rebuild's against the empty sets), so a strictly moderated conversation does
+not store its full sets on every tick.
+
+A rebuild stores a descriptor of its full-history read, not the votes:
+``rebuild_through_created`` (max non-NULL ``created`` read),
+``rebuild_n_votes`` and ``rebuild_digest`` (sha256 over ``tid,pid,created,vote``
+lines in the read's canonical ``zid, tid, pid, created`` order; NULL
+``created`` rows are in the read and spelled ``None``). Replay re-reads
+``votes`` with ``created <= rebuild_through_created`` (or NULL). If the
+digest differs it removes the votes later ticks descending from the rebuild
+delivered (stamped below the read, committed after it) and checks again; if
+it still differs it REFUSES: a vote was committed late and never delivered,
+or deleted, so the tick cannot be reproduced from the database as it stands
+(no wrong answer is returned). Also refused: a row from another (or an
+unknown) ``engine_version`` -- replay runs inside the image that computed the
+ticks, or with ``--allow-engine-mismatch``; an incremental tick with no
+recorded predecessor (a promoted generation: ``COPY_RECOMPUTE_LOG_SQL`` clears
+``prev_math_tick``, which numbers a tick of the staged label; replay it under
+the staged label); a predecessor whose row was written at or after its
+successor's (the tick sequence was reset: ``math_ticks`` removed, and the
+upsert re-stamps ``created`` when a tick number is reused); and a rebuild row
+without a descriptor (published before this log recorded inputs, by a direct
+``MathWriter`` call, or synthesised for a promotion). Replaying a tick costs
+every tick since its chain's last rebuild (and, for a warm restore, the chain
+before it): there are no checkpoints yet. ``engine_version`` is
+``POLIS_GIT_HASH`` (``<tag>+<hash>`` with ``POLIS_BUILD_TAG``; baked into the
+image from the ``GIT_HASH`` build arg), else the installed package version.
+Replay a tick with ``scripts/replay_tick.py`` (see ``delphi/README.md``).
+Ticks minted by the coordinator-rs publish RPC write no log row.
 
 ``POLL_VOTE_INTERVAL_MS`` / ``POLL_MOD_INTERVAL_MS`` / ``POLL_ALLOWLIST`` /
 ``POLL_BLOCKLIST`` are the names already present in

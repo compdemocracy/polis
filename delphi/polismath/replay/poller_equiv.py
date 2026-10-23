@@ -310,11 +310,33 @@ CREATE TABLE math_recompute_log (
   zid INTEGER NOT NULL,
   math_env VARCHAR(999) NOT NULL,
   math_tick BIGINT NOT NULL,
+  start_mode VARCHAR(16) NOT NULL,      -- 'incremental' | 'warm_restore' | 'cold'
+  prev_math_tick BIGINT,                -- generation the state continued or was restored from; NULL on cold
   last_vote_timestamp BIGINT,
-  n_votes INTEGER,
-  n_comments INTEGER,
+  n_votes INTEGER,                      -- votes delivered for this tick (0 for a moderation-only tick)
+  n_comments INTEGER,                   -- comments with a priority in this generation
+  vote_pids INTEGER[],                  -- the delivered votes, in delivery order (incremental ticks)
+  vote_tids INTEGER[],
+  vote_values SMALLINT[],
+  vote_created BIGINT[],
+  rebuild_through_created BIGINT,       -- rebuild ticks: the full-history read, canonical order
+  rebuild_n_votes INTEGER,
+  rebuild_digest VARCHAR(64),           -- sha256 over (tid, pid, created, vote) in canonical order
+  mod_read BOOLEAN NOT NULL,            -- true when this tick re-read moderation and applied it; always true on cold/warm_restore
+  -- Moderation deltas against the previous mod_read row of the chain (a rebuild row's deltas are against the
+  -- empty sets); the engine's full sets are folded from them. All eight NULL exactly when mod_read is false.
+  mod_out_tids_added INTEGER[],
+  mod_out_tids_removed INTEGER[],
+  mod_in_tids_added INTEGER[],
+  mod_in_tids_removed INTEGER[],
+  meta_tids_added INTEGER[],
+  meta_tids_removed INTEGER[],
+  mod_out_pids_added INTEGER[],
+  mod_out_pids_removed INTEGER[],
+  engine_version VARCHAR(128),          -- git sha / image tag of the engine, when known
   created BIGINT NOT NULL DEFAULT now_as_millis(),
-  PRIMARY KEY (zid, math_env, math_tick)
+  PRIMARY KEY (zid, math_env, math_tick),
+  CHECK ((mod_read AND mod_out_tids_added IS NOT NULL AND mod_out_tids_removed IS NOT NULL AND mod_in_tids_added IS NOT NULL AND mod_in_tids_removed IS NOT NULL AND meta_tids_added IS NOT NULL AND meta_tids_removed IS NOT NULL AND mod_out_pids_added IS NOT NULL AND mod_out_pids_removed IS NOT NULL) OR (NOT mod_read AND mod_out_tids_added IS NULL AND mod_out_tids_removed IS NULL AND mod_in_tids_added IS NULL AND mod_in_tids_removed IS NULL AND meta_tids_added IS NULL AND meta_tids_removed IS NULL AND mod_out_pids_added IS NULL AND mod_out_pids_removed IS NULL))
 );
 """
 

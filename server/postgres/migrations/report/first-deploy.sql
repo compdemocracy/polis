@@ -58,7 +58,7 @@
 -- sha256 e6d86397e5b53ed3d75d73278a293353512698bd95be2da288c92e94a935dee2 000041_create_delphi_run_record.sql
 -- sha256 ae12bd2dcce3a8e055adb54b241c090f36861ad4185771e173a87abd278b53f6 000042_tid_auto_transaction_lock.sql
 -- sha256 1c85ef8a67bb0add2bcf6dd7e38fabb977c26fe004994cf78e06fed8eda9b906 000043_add_conversation_activity_indexes.sql
--- sha256 f492a3bf5de944e84fbc33d8f25f5d034e4e2208249f0e704a6ad2994756333b 000044_routing_propensities.sql
+-- sha256 249fce399a0dce83e5f1a99f76d82d95ae47ee16ee65a399a769e0c6192a5f68 000044_routing_propensities.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';

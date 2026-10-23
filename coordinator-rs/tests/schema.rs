@@ -29,6 +29,9 @@ fn pg_type(name: &str) -> Result<Type> {
         "timestamptz" => Type::TIMESTAMPTZ,
         "_text" => Type::TEXT_ARRAY,
         "_float4" => Type::FLOAT4_ARRAY,
+        "_int2" => Type::INT2_ARRAY,
+        "_int4" => Type::INT4_ARRAY,
+        "_int8" => Type::INT8_ARRAY,
         "job_status" => Type::new(
             "job_status".into(),
             99999,
@@ -59,6 +62,9 @@ fn sample(kind: &str) -> Result<Value> {
         "timestamptz" => json!(i64::MAX),
         "_text" => json!(["x", null, ""]),
         "_float4" => json!([f32::NAN.to_bits(), null, (-0.0_f32).to_bits()]),
+        "_int2" => json!([i16::MIN, null, i16::MAX]),
+        "_int4" => json!([i32::MIN, null, i32::MAX]),
+        "_int8" => json!([i64::MIN, null, i64::MAX]),
         "job_status" => json!("pending"),
         _ => anyhow::bail!("missing sample for {kind}"),
     })
@@ -168,7 +174,7 @@ fn schema_all_columns_types_nullability_and_serde() -> Result<()> {
         value.insert("unreviewed_column".into(), json!(1));
         assert!((row.roundtrip)(Value::Object(value)).is_err());
     }
-    assert_eq!(total, 791);
+    assert_eq!(total, 810);
     Ok(())
 }
 

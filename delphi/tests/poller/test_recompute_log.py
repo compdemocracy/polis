@@ -7,7 +7,9 @@ computed, from how many new votes, and over how many prioritised comments. See
 the propensity-logging design, §5 (DDL) and §6 (this write path).
 
 The row is written inside the publication transaction that mints the tick,
-so a tick never commits without its log row. These are unit tests against a
+so a tick never commits without its log row. Its columns are the tick's
+``TickInputs`` (§9: what the engine consumed, enough to replay it) with the
+outputs (``last_vote_timestamp``, ``n_comments``) filled in by the writer. These are unit tests against a
 mocked client; ``test_recompute_log_postgres.py`` runs the same path against a
 real Postgres.
 """
@@ -19,8 +21,9 @@ from unittest.mock import MagicMock
 import pytest
 import sqlalchemy as sa
 
-from polismath.poller.math_writer import MathWriter
+from polismath.poller.math_writer import MathWriter, attach_tick_record
 from polismath.poller.service import MathPollerService, PollerConfig
+from polismath.poller.tick_inputs import COLUMNS, INCREMENTAL, TickInputs
 from polismath.poller.worker_pool import CoalescedBatch
 
 PRIORITIES = {"0": 1.5, "1": 0.25, "2": 9.0}
@@ -41,6 +44,12 @@ def _fake_conv(zid=42, last_updated=1234567, priorities=PRIORITIES):
         blob["comment-priorities"] = dict(priorities)
     conv.to_dict = lambda: dict(blob)
     return conv
+
+
+def _inputs(n_votes=3):
+    votes = [{"pid": p, "tid": 1, "vote": 1, "created": 200 + p} for p in range(n_votes)]
+    return TickInputs.incremental(prev_math_tick=76, votes=votes, moderation=None,
+                                  version="v")
 
 
 def _client(tick=77):
@@ -69,25 +78,43 @@ class TestWriterLogsEveryTick:
     def test_log_row_carries_timestamp_and_comment_count(self):
         client = _client()
         MathWriter(client).write_conv_updates(
-            42, _fake_conv(zid=42, last_updated=1700000000123))
-        kwargs = _log_call(client).kwargs
-        assert kwargs["last_vote_timestamp"] == 1700000000123
-        assert kwargs["n_comments"] == len(PRIORITIES)
+            42, _fake_conv(zid=42, last_updated=1700000000123), inputs=_inputs())
+        inputs = _log_call(client).kwargs["inputs"]
+        assert inputs.last_vote_timestamp == 1700000000123
+        assert inputs.n_comments == len(PRIORITIES)
 
     def test_missing_priorities_count_zero_comments(self):
         client = _client()
-        MathWriter(client).write_conv_updates(42, _fake_conv(priorities=None))
-        assert _log_call(client).kwargs["n_comments"] == 0
+        MathWriter(client).write_conv_updates(42, _fake_conv(priorities=None),
+                                              inputs=_inputs())
+        assert _log_call(client).kwargs["inputs"].n_comments == 0
 
-    def test_n_votes_defaults_to_unknown(self):
+    def test_the_tick_inputs_are_recorded_with_outputs_filled(self):
+        client = _client()
+        given = _inputs(n_votes=13)
+        MathWriter(client).write_conv_updates(42, _fake_conv(), inputs=given)
+        logged = _log_call(client).kwargs["inputs"]
+        assert logged.n_votes == 13 and logged.vote_created == given.vote_created
+        assert logged.start_mode == INCREMENTAL and logged.prev_math_tick == 76
+
+    def test_a_rebuild_record_attached_to_the_conversation_is_taken(self):
+        """The backfill and the engine-rebuild tool publish _load_or_init's
+        conversation without its inputs: the writer takes the attached record
+        (inputs and rendered blob), and removes it from the conversation."""
+        client = _client()
+        conv = _fake_conv()
+        given = _inputs(n_votes=2)
+        attach_tick_record(conv, given, {"lastVoteTimestamp": 5, "comment-priorities": {}})
+        MathWriter(client).write_conv_updates(42, conv)
+        logged = _log_call(client).kwargs["inputs"]
+        assert logged.vote_pids == given.vote_pids and logged.last_vote_timestamp == 5
+        assert not hasattr(conv, "_tick_record")
+
+    def test_no_recorded_inputs_logs_an_unreplayable_row(self):
         client = _client()
         MathWriter(client).write_conv_updates(42, _fake_conv())
-        assert _log_call(client).kwargs["n_votes"] is None
-
-    def test_n_votes_is_passed_through(self):
-        client = _client()
-        MathWriter(client).write_conv_updates(42, _fake_conv(), n_votes=13)
-        assert _log_call(client).kwargs["n_votes"] == 13
+        logged = _log_call(client).kwargs["inputs"]
+        assert logged.rebuild_digest is None and not logged.replayable
 
     def test_log_row_follows_the_tick_and_precedes_math_main(self):
         """math_main stays the last write (its caching_tick allocation sits
@@ -133,31 +160,89 @@ class TestServicePassesBatchSize:
         conv.recompute.return_value = conv
         return conv
 
-    def test_incremental_batch_passes_its_vote_count(self):
+    def test_incremental_batch_records_its_votes_in_delivery_order(self):
         svc, writer = self._service()
-        votes = [{"zid": 5, "pid": p, "tid": 1, "vote": 1, "created": 200 + p}
+        votes = [{"zid": 5, "pid": p, "tid": 1, "vote": 1, "created": 200 - p}
                  for p in range(3)]
+        svc._conv_ticks[5] = 41
+        svc._conv_mod_reads[5] = ((), (), (), ())  # the chain's last read
         svc._compute_and_publish(5, self._cached_conv(), CoalescedBatch(votes=votes))
-        call = writer.write_conv_updates.call_args
-        assert call.kwargs["n_votes"] == 3
+        inputs = writer.write_conv_updates.call_args.kwargs["inputs"]
+        assert inputs.n_votes == 3
+        assert inputs.vote_pids == (0, 1, 2) and inputs.vote_created == (200, 199, 198)
+        assert inputs.prev_math_tick == 41
+        assert inputs.mod_read is False  # no moderation message: cached sets kept
+        svc._pg.poll_moderation.assert_not_called()
 
-    def test_moderation_only_batch_has_zero_votes(self):
+    def test_moderation_only_batch_has_zero_votes_and_reads_moderation(self):
         svc, writer = self._service()
-        svc._pg.poll_moderation.return_value = []
+        svc._pg.poll_moderation.return_value = {
+            "mod_out_tids": [1], "mod_in_tids": [], "meta_tids": [2], "mod_out_ptpts": []}
         svc._compute_and_publish(
             5, self._cached_conv(),
             CoalescedBatch(moderation=[{"zid": 5, "tid": 1, "modified": 300}]))
-        assert writer.write_conv_updates.call_args.kwargs["n_votes"] == 0
+        inputs = writer.write_conv_updates.call_args.kwargs["inputs"]
+        assert inputs.n_votes == 0
+        assert inputs.mod_read and inputs.mod_out_tids == (1,) and inputs.meta_tids == (2,)
 
-    def test_cold_rebuild_leaves_the_count_unknown(self):
-        """A full-history rebuild subsumes the triggering batch: the
-        generation is not "the previous one plus these votes"."""
+    def test_the_published_tick_becomes_the_next_prev_math_tick(self):
+        svc, writer = self._service()
+        writer.write_conv_updates.return_value = 12
+        conv = self._cached_conv()
+        svc._conv_mod_reads[5] = ((), (), (), ())
+        svc._compute_and_publish(5, conv, CoalescedBatch(votes=[]))
+        svc._compute_and_publish(5, conv, CoalescedBatch(votes=[]))
+        assert writer.write_conv_updates.call_args.kwargs["inputs"].prev_math_tick == 12
+
+    def test_moderation_deltas_are_against_the_chain_previous_read(self):
+        """The rebuild's read is the base of the next mod_read tick; a
+        votes-only tick in between keeps it; each read becomes the next base."""
+        svc, writer = self._service()
+        writer.write_conv_updates.return_value = 3
+        rebuilt = self._cached_conv()
+        rebuild = TickInputs.rebuild(
+            "cold", prev_math_tick=None, votes=[], version="v",
+            moderation={"mod_out_tids": [4], "mod_in_tids": [], "meta_tids": [],
+                        "mod_out_ptpts": []})
+        attach_tick_record(rebuilt, rebuild, {})
+        svc._load_or_init = MagicMock(return_value=rebuilt)  # type: ignore[method-assign]
+        svc._compute_and_publish(5, None, CoalescedBatch())
+        conv = svc._convs[5]
+        svc._compute_and_publish(5, conv, CoalescedBatch(votes=[]))
+        svc._pg.poll_moderation.return_value = {
+            "mod_out_tids": [4, 6], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []}
+        svc._compute_and_publish(5, conv, CoalescedBatch(moderation=[{"tid": 6}]))
+        first = writer.write_conv_updates.call_args.kwargs["inputs"]
+        assert first.mod_base == ((4,), (), (), ())
+        assert first.to_row()["mod_out_tids_added"] == [6]
+        svc._pg.poll_moderation.return_value = {
+            "mod_out_tids": [6], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []}
+        svc._compute_and_publish(5, conv, CoalescedBatch(moderation=[{"tid": 4}]))
+        second = writer.write_conv_updates.call_args.kwargs["inputs"]
+        assert second.mod_base == ((4, 6), (), (), ())
+        assert second.to_row()["mod_out_tids_removed"] == [4]
+
+    def test_an_unknown_base_leaves_the_tick_without_a_predecessor(self):
+        """A cached conversation whose chain's last read is unknown (never
+        published by this service) cannot log deltas replay could fold: its
+        tick records no predecessor, so replay refuses it instead."""
+        svc, writer = self._service()
+        svc._conv_ticks[5] = 9
+        svc._pg.poll_moderation.return_value = {
+            "mod_out_tids": [1], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []}
+        svc._compute_and_publish(5, self._cached_conv(), CoalescedBatch(moderation=[{}]))
+        assert writer.write_conv_updates.call_args.kwargs["inputs"].prev_math_tick is None
+
+    def test_cold_rebuild_publishes_the_record_load_or_init_attached(self):
+        """A full-history rebuild subsumes the triggering batch: its inputs
+        come from _load_or_init (attached to the conversation), not from the
+        batch."""
         svc, writer = self._service()
         conv = MagicMock()
         svc._load_or_init = MagicMock(return_value=conv)  # type: ignore[method-assign]
         svc._compute_and_publish(5, None, CoalescedBatch(votes=[{"created": 1}]))
-        call = writer.write_conv_updates.call_args
-        assert call.kwargs.get("n_votes") is None
+        assert writer.write_conv_updates.call_args.args == (5, conv)
+        assert writer.write_conv_updates.call_args.kwargs == {}
 
 
 class TestSQL:
@@ -181,15 +266,17 @@ class TestSQL:
     def test_log_row_insert(self):
         client, calls = self._client_with_recorder()
         conn = MagicMock()
-        client.write_recompute_log(42, math_tick=7, last_vote_timestamp=111,
-                                   n_votes=3, n_comments=2, connection=conn)
+        inputs = _inputs()
+        client.write_recompute_log(42, math_tick=7, inputs=inputs, connection=conn)
         assert len(calls) == 1
         sql, params, used = calls[0]
         assert "insert into math_recompute_log" in sql
         assert "on conflict (zid, math_env, math_tick)" in sql
+        for column in COLUMNS:
+            assert f":{column}" in sql and f"{column} = excluded.{column}" in sql
         assert used is conn
         assert params == {"zid": 42, "math_env": "delphi", "math_tick": 7,
-                          "last_vote_timestamp": 111, "n_votes": 3, "n_comments": 2}
+                          **inputs.to_row()}
 
 class TestDeclaredSchema:
     def test_sqlalchemy_models(self):
@@ -200,8 +287,7 @@ class TestDeclaredSchema:
         assert log.name == "math_recompute_log"
         assert [c.name for c in log.primary_key.columns] == ["zid", "math_env", "math_tick"]
         assert set(log.columns.keys()) == {
-            "zid", "math_env", "math_tick", "last_vote_timestamp", "n_votes",
-            "n_comments", "created"}
+            "zid", "math_env", "math_tick", "created", *COLUMNS}
 
     def test_replay_harness_schema_has_the_log_table(self):
         """The poller-equivalence harness runs the real Python poller against
@@ -211,8 +297,7 @@ class TestDeclaredSchema:
 
         tables = pe.parse_schema_columns()
         assert set(tables["math_recompute_log"]) == {
-            "zid", "math_env", "math_tick", "last_vote_timestamp", "n_votes",
-            "n_comments", "created"}
+            "zid", "math_env", "math_tick", "created", *COLUMNS}
 
 
 class TestSchemaReadiness:

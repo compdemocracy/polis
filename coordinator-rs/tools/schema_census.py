@@ -36,7 +36,8 @@ RUST = {"int2": "i16", "int4": "i32", "int8": "i64", "oid": "u32", "bool": "bool
         "text": "String", "varchar": "String", "name": "String", "uuid": "PgUuid",
         "float4": "PgFloat4", "float8": "PgFloat8", "bytea": "Vec<u8>", "json": "PgJson",
         "jsonb": "PgJson", "timestamptz": "PgTimestamp", "_text": "Vec<Option<String>>",
-        "_float4": "Vec<Option<PgFloat4>>", "job_status": "JobStatus"}
+        "_float4": "Vec<Option<PgFloat4>>", "_int2": "Vec<Option<i16>>",
+        "_int4": "Vec<Option<i32>>", "_int8": "Vec<Option<i64>>", "job_status": "JobStatus"}
 KEYWORDS = {"mod", "type", "ref", "match", "move", "loop", "use", "where", "self", "static", "fn", "in"}
 
 

@@ -34,7 +34,7 @@ class RecordingWriter:
     def __init__(self, pg=None):
         self.writes = []
 
-    def write_conv_updates(self, zid, conv, n_votes=None):
+    def write_conv_updates(self, zid, conv, **_publication):
         self.writes.append(zid)
 
 

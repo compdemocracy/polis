@@ -161,7 +161,10 @@ Migration 000044 creates two new tables for routing propensities:
 the pool sizes, the served statement's lottery weight and its propensity;
 written fire-and-forget by `server/src/nextComment.ts` while
 `ROUTING_SERVE_LOG` is on) and `math_recompute_log` (one row per committed
-math generation). It is an ordinary transactional file that touches no
+math generation: the engine's complete input record for that tick, namely how
+it started, the votes delivered in delivery order or a digest of the
+full-history read, the moderation sets and the engine version, so any past
+generation can be replayed exactly). It is an ordinary transactional file that touches no
 existing object; it applies at the next deployment and is additive beside the
 previous application. Reversal is dropping the two tables, which loses only
 the logged rows.
