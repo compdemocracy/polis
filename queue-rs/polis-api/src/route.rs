@@ -58,6 +58,10 @@ pub struct App {
     pub participants_read_auth_db: Option<Arc<Pool>>,
     pub participants_read_served: AtomicU64,
     pub participants_read_fallback: AtomicU64,
+    pub ptptois_db: Option<Arc<Pool>>,
+    pub ptptois_auth_db: Option<Arc<Pool>>,
+    pub ptptois_served: AtomicU64,
+    pub ptptois_fallback: AtomicU64,
     pub votes_read_db: Option<Arc<Pool>>,
     pub votes_read_auth_db: Option<Arc<Pool>>,
     pub votes_read_served: AtomicU64,
@@ -278,6 +282,10 @@ impl App {
             participants_read_auth_db: None,
             participants_read_served: AtomicU64::new(0),
             participants_read_fallback: AtomicU64::new(0),
+            ptptois_db: None,
+            ptptois_auth_db: None,
+            ptptois_served: AtomicU64::new(0),
+            ptptois_fallback: AtomicU64::new(0),
             votes_read_db: None,
             votes_read_auth_db: None,
             votes_read_served: AtomicU64::new(0),
@@ -1087,6 +1095,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.participants_read_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::ptptois::PATH {
+        if out.status == 502 {
+            app.ptptois_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.ptptois_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if crate::votes_read::matches(req.path()) {
         if out.status == 502 {
             app.votes_read_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1637,6 +1652,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::ptptois::PATH && crate::ptptois::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1941,6 +1959,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::participants_read::PATH {
         return crate::participants_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::ptptois::PATH {
+        return crate::ptptois::handle(app, req, res).await;
     }
     if req.path() == crate::metadata_questions::PATH {
         return crate::metadata_questions::handle(app, req, res).await;
@@ -4006,6 +4027,46 @@ mod tests {
         Arc::get_mut(&mut secure).unwrap().metadata_answers_db = Some(pool);
         let redirect = handle(secure, probe()).await;
         assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn ptptois_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/ptptois?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().ptptois_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().ptptois_auth_db = Some(pool);
+        assert!(crate::ptptois::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/ptptois?conversation_id=4fixture{tail}");
+            assert!(crate::ptptois::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::ptptois::parse(&state, &no_auth).is_some());
+        assert_eq!(state.ptptois_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.ptptois_fallback.load(Ordering::Relaxed), 9);
     }
 
     #[tokio::test]

@@ -70,6 +70,7 @@ mod params;
 mod participants_read;
 mod participation_read;
 mod pca;
+mod ptptois;
 mod recent_activity;
 mod recent_started;
 mod reports_read;
@@ -287,6 +288,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "participantsReadFallback",
         js::Js::Num(app.participants_read_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "ptptoisServed",
+        js::Js::Num(app.ptptois_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "ptptoisFallback",
+        js::Js::Num(app.ptptois_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "votesReadServed",
@@ -611,6 +620,7 @@ async fn dispatch_at_clock(
         | metadata_questions::PATH
         | treevite_waves::PATH
         | participants_read::PATH
+        | ptptois::PATH
         | participation_read::PATH
         | treevite_csv::PATH
         | treevite_invites::PATH
@@ -1090,6 +1100,26 @@ async fn main() -> Result<()> {
             participants_read::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_PTPTOIS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_PTPTOIS_DATABASE_URL")
+            .context("POLIS_API_PTPTOIS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.ptptois_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-ptptois/1")?,
+            ptptois::pool_limits(),
+        ));
+        state.ptptois_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-ptptois-auth/1")?,
+            ptptois::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        state.legacy_admin_uids = recent_started::admin_uids(
+            &std::env::var("ADMIN_UIDS").unwrap_or_else(|_| "[]".into()),
+        )?;
     }
     if std::env::var("POLIS_API_VOTES_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_VOTES_READ_DATABASE_URL")

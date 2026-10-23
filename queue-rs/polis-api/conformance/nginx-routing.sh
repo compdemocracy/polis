@@ -1410,3 +1410,24 @@ stub "$p-rust" polis-api 5100 502 handoff
 sleep 6
 expect /api/v3/participants node "participants fallback"
 echo "ok current participant: off/on/deduplicated, methods/body, fallback"
+
+# Social participant rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/ptptois node "social off"
+start ptptois,ptptois
+expect /api/v3/ptptois rust "social on"
+[[ $(included | grep -c 'location = /api/v3/ptptois {') == 1 ]] || fail "social duplicated"
+expect_upstream polis-api HEAD /api/v3/ptptois
+expect_upstream server OPTIONS /api/v3/ptptois
+expect_upstream server PUT /api/v3/ptptois
+expect_upstream server POST /api/v3/ptptois $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/ptptois $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "social leave votes alone"
+expect /api/v3/nextComment node "social leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/ptptois node "social fallback"
+echo "ok social participant: off/on/deduplicated, methods/body, fallback"
