@@ -90,7 +90,7 @@ function handle_POST_ptptCommentMod(
       }, 100);
     })
     .then(function () {
-      return getNextComment(req.p.zid, pid, [], req.p.lang);
+      return getNextComment(req.p.zid, pid, [], req.p.lang, uid);
     })
     .then(function (nextComment: any) {
       const result: ParticipantCommentModerationResult = {};

@@ -89,11 +89,11 @@ def test_coalesced_newer_revote_wins_over_retried_older(
     fault = FaultInjector(name="write(old)", mode="once")
     real_write = svc._writer.write_conv_updates
 
-    def latched_write(zid, conv):
+    def latched_write(zid, conv, **kwargs):
         if fault.should_fire():
             at_write.block()          # hold the worker here, batch in hand
             raise InjectedFault("old revote write failed")
-        return real_write(zid, conv)
+        return real_write(zid, conv, **kwargs)
 
     svc._writer.write_conv_updates = latched_write
 

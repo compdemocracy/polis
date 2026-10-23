@@ -143,6 +143,15 @@ RUN chmod +x run_delphi.py scripts/setup_ollama.sh
 RUN install -d /opt/polis-unflip && \
     install -m 0755 scripts/engine-rebuild /opt/polis-unflip/engine-rebuild
 
+# The engine's version for math_recompute_log.engine_version
+# (polismath/poller/tick_inputs.py engine_version): the commit and release tag
+# the image was built from, passed as build args like the server and client
+# images. Declared late so a new commit does not invalidate the layers above.
+ARG GIT_HASH=unknown
+ENV POLIS_GIT_HASH=$GIT_HASH
+ARG POLIS_BUILD_TAG=
+ENV POLIS_BUILD_TAG=$POLIS_BUILD_TAG
+
 # The Datadog tracer (the ddtrace package stays installed) wraps the job poller
 # only when DD_TRACE_ENABLED=true. With no Datadog agent listening, ddtrace-run
 # logs a failed-send error and traceback for every flush, which buried the

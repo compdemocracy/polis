@@ -57,7 +57,7 @@ operator session, `psql -X -v ON_ERROR_STOP=1 -f <report>` is equivalent, using
 the normal secret connection environment without a credential argument. On any
 query error, ROLLBACK or close that same client before returning it to a pool.
 
-Expected initial-schema results: 20 `WOULD_ADOPT`, thirteen `WOULD_APPLY`, and four
+Expected initial-schema results: 20 `WOULD_ADOPT`, fourteen `WOULD_APPLY`, and four
 `OUTSIDE_RELEASE` entries. The report conservatively flags any existing queue
 role for migration-session review rather than guessing inherited ADMIN/SET
 authority. Existing ledgers/queues report review-required; they need the exact
@@ -112,3 +112,21 @@ reads and writes continue; competing DDL and long snapshots may delay or fail a
 build. Successful earlier indexes remain after failure. Inspect any invalid index,
 explicitly drop only that expected interrupted index concurrently, and retry;
 valid indexes are reused. See [the runner contract](migrations.md#concurrent-index-file-header).
+
+## Routing propensity logs
+
+Migration 000044 is required by this release and applies at the next deploy.
+It creates two new, empty tables only: `comment_serve_log` (one row per
+next-statement choice, written by the API while `ROUTING_SERVE_LOG` is on, the
+default) and `math_recompute_log` (one row per committed math generation,
+written by the math engine: its complete input record for that tick, for
+exact replay). No existing table, function, index or row
+changes, and the earlier application never reads or writes these tables, so it
+runs unchanged beside them (declared additive). It is an ordinary file: the
+tables and their history receipt commit together, and its locks are only on
+the new tables. Expect `comment_serve_log` to grow by about one row per vote
+(roughly 2–3 times the size of `votes` for a conversation); set
+`ROUTING_SERVE_LOG=0` to stop writing it. `math_recompute_log` carries each
+incremental tick's delivered votes as arrays (about 22 bytes per vote) and
+only a digest for full rebuilds. Reversal is dropping the two tables,
+which loses only the logged serves and recomputes.

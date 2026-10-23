@@ -11,6 +11,7 @@ Recon anchors (Clojure): poller.clj:12-37 (poll loop + watermark + allow/block),
 conv_man.clj:188-207 (load-or-init), :291-388 (actor + error handling).
 """
 
+import dataclasses
 import logging
 import os
 import threading
@@ -27,8 +28,21 @@ from polismath.poller.admission import (
     read_conversation_sizes,
 )
 from polismath.poller.capacity import SMALL, CapacityRouter, CapacitySettings
-from polismath.poller.math_writer import MathWriter, dump_error
+from polismath.poller.compute_tick import RestoreFailed, RestoreSource, compute_tick
+from polismath.poller.math_writer import (
+    MathWriter,
+    attach_tick_record,
+    dump_error,
+    peek_tick_record,
+)
 from polismath.poller.readiness import classify_error
+from polismath.poller.tick_inputs import (
+    COLD,
+    WARM_RESTORE,
+    ModSets,
+    TickInputs,
+    engine_version,
+)
 from polismath.poller.worker_pool import (
     ConversationWorkerPool,
     CoalescedBatch,
@@ -328,6 +342,32 @@ def _env_first(*names: str, default: Optional[str] = None) -> Optional[str]:
         if val is not None and val != "":
             return val
     return default
+
+
+# Every publication writes math_recompute_log (MathWriter.write_conv_updates),
+# so on a database without that table every publication rolls back and the
+# error path parks each active conversation after its retry. The poller checks
+# once at startup and refuses to start instead (scripts/math_poller.py).
+RECOMPUTE_LOG_MIGRATION = "000044_routing_propensities.sql"
+RECOMPUTE_LOG_SCHEMA_SQL = """
+    SELECT to_regclass('math_recompute_log')::text AS recompute_log
+"""
+
+
+class SchemaNotReady(RuntimeError):
+    """The database lacks a table this poller writes on every publication."""
+
+
+def require_recompute_log_schema(pg: Any) -> None:
+    """Raise :class:`SchemaNotReady` unless migration 000044's
+    ``math_recompute_log`` exists (resolved through the connection's
+    search_path, as every write is)."""
+    row = pg.query(RECOMPUTE_LOG_SCHEMA_SQL)[0]
+    if row["recompute_log"] is None:
+        raise SchemaNotReady(
+            "database lacks math_recompute_log: apply migration "
+            f"server/postgres/migrations/{RECOMPUTE_LOG_MIGRATION} before starting the "
+            "math poller (its publication transaction writes it)")
 
 
 def _env_float(name: str, default: Optional[float] = None) -> Optional[float]:
@@ -670,6 +710,18 @@ class MathPollerService:
         # LRU order: most-recently-touched zid last, so popitem(last=False) evicts
         # the coldest (see _remember).
         self._convs: "OrderedDict[int, Conversation]" = OrderedDict()
+        # The math_tick of the conversation last published-then-remembered
+        # per zid (_note_tick): the prev_math_tick of its next incremental
+        # tick (math_recompute_log). Only the zid's own (serialized) worker
+        # sets it, so while a conversation is cached, or held after an
+        # eviction, this is its tick. Never popped on eviction for that
+        # reason (one int per zid).
+        self._conv_ticks: Dict[int, Optional[int]] = {}
+        # Likewise the chain's last moderation read (the base the next read's
+        # math_recompute_log deltas are taken against).
+        self._conv_mod_reads: Dict[int, Optional[ModSets]] = {}
+        # Recorded in every math_recompute_log row (TickInputs.engine_version).
+        self._engine_version = engine_version()
         # One lock covers every cache access, including compound get/touch and
         # store/evict operations. Never hold it across engine work or DB I/O:
         # the pool serializes each zid, and a worker's local reference survives
@@ -1477,43 +1529,59 @@ class MathPollerService:
     def _compute_and_publish(
         self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch
     ) -> None:
+        """One generation for ``zid``: read its inputs, ``compute_tick``,
+        publish with its ``math_recompute_log`` row (PROPENSITY-LOGGING-DESIGN.md
+        §9)."""
         if conv is None:
             # First message (or forced rebuild) for this zid: load-or-init (full
-            # rebuild + compute from authoritative history).
+            # rebuild + compute from authoritative history). _load_or_init
+            # attaches its recorded inputs to the conversation for the writer.
             #
             # M1/M2 (P-019): write BEFORE caching. If the write fails, the cache
             # keeps the last-good (persisted) state rather than an unpersisted
             # rebuild, so a retry re-derives from Postgres and a park leaves a
             # recoverable cache — never a phantom in-memory-only state.
             conv = self._load_or_init(zid)
-            self._writer.write_conv_updates(zid, conv)
+            record = peek_tick_record(conv)
+            tick = self._writer.write_conv_updates(zid, conv)
+            self._note_tick(zid, tick, record[0].mod_sets() if record else None)
             self._remember(zid, conv)
             # The triggering batch is subsumed by the full-history rebuild.
             return
 
-        if coalesced.votes:
-            last_ts = advance_watermark(
-                conv.last_updated,
-                (v.get("created") for v in coalesced.votes),
-            )
-            conv = conv.update_votes(
-                {"votes": coalesced.votes, "lastVoteTimestamp": last_ts},
-                recompute=False,
-            )
-        if coalesced.moderation:
-            # Re-derive the FULL current moderation state (idempotent; also
-            # captures un-moderation), then apply.
-            mods = self._pg.poll_moderation(zid, None)
-            conv = conv.update_moderation(mods, recompute=False)
-
-        conv = conv.recompute()
+        # The window's delivered batch IS the ordered vote list. A moderation
+        # message re-derives the FULL current moderation state (idempotent;
+        # also captures un-moderation); without one the engine keeps its
+        # cached sets and the tick records mod_read=False.
+        mods = self._pg.poll_moderation(zid, None) if coalesced.moderation else None
+        with self._convs_lock:
+            prev_tick = self._conv_ticks.get(zid)
+            base = self._conv_mod_reads.get(zid)
+        if base is None:
+            # Without the chain's last read the deltas could not be folded:
+            # record no predecessor, so replay refuses this tick.
+            prev_tick = None
+        inputs = TickInputs.incremental(prev_math_tick=prev_tick, votes=coalesced.votes,
+                                        moderation=mods, version=self._engine_version,
+                                        mod_base=base)
+        conv, blob = compute_tick(conv, inputs, zid=zid)
         # M2 (P-019): write BEFORE caching so a write failure does not leave the
         # cache holding a state that was never persisted (which a retry would then
         # apply the batch on top of, double-advancing the temporal state). On
         # write failure the cache still holds the pre-batch conv, so the retry
         # re-applies the (idempotent, created-sorted) batch cleanly.
-        self._writer.write_conv_updates(zid, conv)
+        tick = self._writer.write_conv_updates(zid, conv, inputs=inputs, main_data=blob)
+        self._note_tick(zid, tick, inputs.mod_sets() or base)
         self._remember(zid, conv)
+
+    def _note_tick(self, zid: int, math_tick: Optional[int],
+                   mod_read: Optional[ModSets]) -> None:
+        """The tick the conversation about to be remembered was published
+        under, and its chain's last moderation read (its next incremental
+        tick's prev_math_tick and delta base)."""
+        with self._convs_lock:
+            self._conv_ticks[zid] = math_tick
+            self._conv_mod_reads[zid] = mod_read
 
     def _restorable(self, zid: int, row: Dict[str, Any]) -> bool:
         """P-070 review [1447] E: warm state is restored only from a row that
@@ -1556,8 +1624,13 @@ class MathPollerService:
         (dodging the falsy-0 fallback), or the persisted last_vote_timestamp when
         restoring, lets the full-history update_votes below resolve last_updated to
         the true max(created).
+
+        The computation itself is ``compute_tick`` over the inputs read here
+        (PROPENSITY-LOGGING-DESIGN.md §9): ``warm_restore`` from a usable
+        row, else ``cold`` (also when the restore fails). The returned
+        conversation carries those inputs and the rendered blob for its
+        writer (``math_writer.attach_tick_record``).
         """
-        conv: Optional[Conversation] = None
         row = None
         if not getattr(self._cold_start, "active", False):
             try:
@@ -1577,68 +1650,52 @@ class MathPollerService:
         if row and row.get("data") and not self._restorable(zid, row):
             row = None
 
+        restore: Optional[RestoreSource] = None
+        prev_tick: Optional[int] = None
         if row and row.get("data"):
+            # The persisted last_vote_timestamp column, not the blob's
+            # last_updated (which a prior wall-clock write may have poisoned).
+            restore = RestoreSource(row["data"], row.get("last_vote_timestamp"))
+            prev_tick = row.get("math_tick")
+
+        # Full history, ordered (zid, tid, pid, created), semantic sign; then
+        # the full moderation state. Both recorded in the tick's inputs
+        # (votes as a digest descriptor, TickInputs.rebuild). The bridge's
+        # before_restore stage below runs after these reads and outside the
+        # restore's try: a fault there propagates (it used to rebuild cold).
+        votes = self._pg.poll_votes(zid, None)
+        mods = self._pg.poll_moderation(zid, None)
+        inputs = TickInputs.rebuild(WARM_RESTORE if restore is not None else COLD,
+                                    prev_math_tick=prev_tick, votes=votes,
+                                    moderation=mods, version=self._engine_version)
+        announce = self._coordinator_rebuild and restore is not None
+
+        def run(source: Optional[RestoreSource], tick_inputs: TickInputs):
+            return compute_tick(
+                source, tick_inputs, zid=zid, rebuild_votes=votes,
+                # Snapshot replacement must carry un-moderation across a restore.
+                reset_moderation=self._coordinator_rebuild,
+                after_moderation=(lambda: self._bridge_stage("after_restore"))
+                if announce else None)
+
+        if restore is not None:
+            self._bridge_stage("before_restore")
             try:
-                self._bridge_stage("before_restore")
-                conv = Conversation.from_dict(row["data"])
-                # Prefer the persisted last_vote_timestamp column over the blob's
-                # last_updated (which a prior wall-clock write may have poisoned).
-                # A persisted 0 is legitimate (Clojure's floor) and must be
-                # preserved — only a NULL column falls back to the 0 floor. The
-                # constructor's `last_updated or now` footgun does not apply to
-                # this post-construction assignment.
-                persisted_ts = row.get("last_vote_timestamp")
-                conv.last_updated = persisted_ts if persisted_ts is not None else 0
+                conv, blob = run(restore, inputs)
                 logger.info(
                     "load-or-init: restored warm state (pca/moderation) from "
                     "math_main for zid=%s",
                     zid,
                 )
-            except Exception:
+            except RestoreFailed:
                 logger.exception(
                     "from_dict restore failed for zid=%s; cold start", zid
                 )
-                conv = None
-        if conv is None:
-            # NB the nonzero seed dodges the constructor's falsy-0 -> wall-clock
-            # fallback; immediately floor to 0 afterwards (Clojure's floor,
-            # conversation.clj:161-165) so a zero-votes conversation emits
-            # lastVoteTimestamp=0, not the internal seed. Any real vote advances
-            # it via max() in update_votes.
-            #
-            # `zid` (int) passed through AS-IS — NOT str(zid) — since
-            # 2026-07-24 (live poller-equivalence harness finding, session
-            # 3): Conversation.__init__ just does a bare
-            # `self.conversation_id = conversation_id` (no string-specific
-            # logic anywhere on that attribute — every `.conversation_id`
-            # use site was grepped; the only str() casts are at the
-            # DynamoDB boundary, database/dynamodb.py, which already
-            # handles either type defensively) and Clojure holds zid as an
-            # int throughout, so this was a real, live, one-point Type-
-            # mismatch divergence (to_dict()['zid'], every tids[i], every
-            # repness.*.tid all trace back to this same conversation_id).
-            conv = Conversation(zid, last_updated=1)
-            conv.last_updated = 0
-
-        votes = self._pg.poll_votes(zid, None)  # full history, ordered, semantic sign
-        if votes:
-            last_ts = advance_watermark(
-                conv.last_updated, (v.get("created") for v in votes)
-            )
-            conv = conv.update_votes(
-                {"votes": votes, "lastVoteTimestamp": last_ts}, recompute=False
-            )
-
-        mods = self._pg.poll_moderation(zid, None)
-        if self._coordinator_rebuild:
-            # Snapshot replacement must carry un-moderation across a restore.
-            for key in ("mod_out_tids", "mod_in_tids", "meta_tids", "mod_out_ptpts"):
-                setattr(conv, key, set())
-        conv = conv.update_moderation(mods, recompute=False)
-        if self._coordinator_rebuild and row and row.get("data"):
-            self._bridge_stage("after_restore")
-
-        conv = conv.recompute()
+                inputs = dataclasses.replace(inputs, start_mode=COLD, prev_math_tick=None)
+                conv, blob = run(None, inputs)
+        else:
+            conv, blob = run(None, inputs)
+        attach_tick_record(conv, inputs, blob)
         return conv
 
     # -- error handling ----------------------------------------------------- #

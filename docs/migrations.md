@@ -156,6 +156,19 @@ at the next deployment and is additive beside the previous application.
 Reversal, if required, is an explicit concurrent drop of those three indexes;
 it removes only the read acceleration and never restores or changes data.
 
+Migration 000044 creates two new tables for routing propensities:
+`comment_serve_log` (one row per next-statement choice, with the branch taken,
+the pool sizes, the served statement's lottery weight and its propensity;
+written fire-and-forget by `server/src/nextComment.ts` while
+`ROUTING_SERVE_LOG` is on) and `math_recompute_log` (one row per committed
+math generation: the engine's complete input record for that tick, namely how
+it started, the votes delivered in delivery order or a digest of the
+full-history read, the moderation sets and the engine version, so any past
+generation can be replayed exactly). It is an ordinary transactional file that touches no
+existing object; it applies at the next deployment and is additive beside the
+previous application. Reversal is dropping the two tables, which loses only
+the logged rows.
+
 ## Release contents and new migrations
 
 `server/postgres/migrations/release.txt` explicitly selects every required file.
@@ -233,7 +246,7 @@ before. `apply` never runs this release's pending SQL after a tolerated newer
 migration; that order is refused before any change. The rule only helps
 releases that contain it: a release built before it refuses every newer row.
 
-Declarations for 000019–000043 (the older code is the release just before each
+Declarations for 000019–000044 (the older code is the release just before each
 migration, as recorded in `release.txt` history):
 
 | Migration | Declared | Evidence |
@@ -254,9 +267,10 @@ migration, as recorded in `release.txt` history):
 | 000041 Delphi run record | additive | One new read function, `pd_run_record(env, job)`: STABLE, SECURITY DEFINER with a pinned `search_path`, owned by `polis_queue_owner`, EXECUTE granted to `polis_queue_executor` only. No table, row, column or existing function changes and no table grant; nothing in the earlier release calls it, and its one reader (the polis-api run-record route) is off by default and hands back to Node when the function is missing. It takes no table lock. Number 000040 is reserved for another draft. Reversal: `down/000041_drop_delphi_run_record.sql` drops the function (it stores nothing). The runner's `forward.py` tolerates it as additive. |
 | 000042 statement-number lock to commit | additive | `tid_auto` (BEFORE INSERT on `comments`) takes `pg_advisory_xact_lock` instead of the session lock `pg_advisory_lock`, on the same key, so a conversation's statement-number lock is held until the inserting transaction ends rather than released before it commits; `tid_auto_unlock` and its AFTER INSERT trigger are dropped. Numbering is unchanged (MAX(tid) + 1 per conversation, from 0, no gaps); no table, column, index, constraint or row changes. No code in the earlier release calls `tid_auto_unlock` or takes the lock; every writer lets the trigger assign `tid` and reads it back, so an earlier release inserts and numbers statements as before. Locks: `DROP TRIGGER` takes ACCESS EXCLUSIVE on `comments` until the file commits, waiting at most the 5 s `lock_timeout` for transactions already using `comments`; comment reads and writes queue behind it for that wait, once; on timeout nothing changes and the deploy can be retried. Reversal: `down/000042_restore_tid_auto_session_lock.sql` restores both functions and the trigger exactly as `000000_initial.sql` defines them (SHARE ROW EXCLUSIVE on `comments`, bounded at 5 s), and brings back the race this migration removes. The runner's `forward.py` tolerates it as additive. |
 | 000043 activity indexes | additive | Three ordinary btree indexes only; no table, function, row or application SQL changes. Concurrent builds preserve ordinary participation writes. |
+| 000044 routing propensities | additive | Two new tables (`comment_serve_log`, `math_recompute_log`) and two indexes on the first; no existing table, column, function, index or row changes. The earlier release neither reads nor writes them, so it runs unchanged beside them. Locks are taken only on the new tables. Reversal: drop the two tables (loses only the logged serves and recomputes). The runner's `forward.py` tolerates it as additive. |
 
 So a rollback to a release with this rule that lists 000027 starts beside
-000028–000031, 000038, 000039, 000041–000043; a rollback past 000027 (or 000024) refuses, as it must: the
+000028–000031, 000038, 000039, 000041–000044; a rollback past 000027 (or 000024) refuses, as it must: the
 earlier queue daemon would exit on the newer contract.
 
 ## CI and local test stacks

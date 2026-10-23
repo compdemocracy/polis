@@ -16,6 +16,7 @@ import copy
 
 import pytest
 
+from polismath.poller import compute_tick as compute_tick_module
 from polismath.poller import service as service_module
 from polismath.poller.service import MathPollerService, PollerConfig
 from polismath.poller.worker_pool import VOTES
@@ -52,6 +53,10 @@ class FakeConv:
     def update_moderation(self, mods, recompute=False):
         return copy.deepcopy(self)
 
+    def to_dict(self):
+        # compute_tick renders the generation's blob (math_writer.render_main_blob).
+        return {"lastVoteTimestamp": self.last_updated}
+
     def recompute(self):
         if type(self).failures_remaining > 0:
             type(self).failures_remaining -= 1
@@ -81,7 +86,7 @@ class FakePg:
         )
 
     def poll_moderation(self, zid, since):
-        return []
+        return {"mod_out_tids": [], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []}
 
     def find_incomplete_math_snapshots(self):
         return []
@@ -95,7 +100,7 @@ class FakeWriter:
         self.writes = []
         self.before_write = None
 
-    def write_conv_updates(self, zid, conv):
+    def write_conv_updates(self, zid, conv, **_publication):
         if self.before_write is not None:
             cb, self.before_write = self.before_write, None
             cb()  # may raise to inject a write failure
@@ -109,6 +114,8 @@ def _vote(zid, pid, tid, value, created):
 @pytest.fixture
 def svc(monkeypatch):
     monkeypatch.setattr(service_module, "Conversation", FakeConv)
+    # The cold rebuild constructs its Conversation in compute_tick.
+    monkeypatch.setattr(compute_tick_module, "Conversation", FakeConv)
     FakeConv.failures_remaining = 0
     pg = FakePg()
     s = MathPollerService(pg, PollerConfig(worker_pool_size=1, retry_cap=1))

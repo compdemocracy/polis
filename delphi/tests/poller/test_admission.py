@@ -568,6 +568,10 @@ class _Conv:
             self._on_recompute()
         return _Conv()
 
+    def to_dict(self):
+        # compute_tick renders the generation's blob (math_writer.render_main_blob).
+        return {}
+
 
 class TestImmutableReplacementHandoff:
     """Review [1449] A: the recompute caches a replacement whose charge

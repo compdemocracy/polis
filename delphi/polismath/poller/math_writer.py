@@ -21,11 +21,13 @@ import os
 import time
 import traceback
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from dataclasses import replace
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from polismath.database.postgres import encode_math_blob
+from polismath.poller.tick_inputs import TickInputs
 from polismath.utils.clj_hash import clojure_hash_map_key_order
 
 logger = logging.getLogger(__name__)
@@ -219,6 +221,12 @@ def derive_ptptstats(
     }
 
 
+def _empty_companions(zid: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    bid = {"zid": zid, "bidToPid": [], "lastVoteTimestamp": 0}
+    stats = {"zid": zid, "ptptstats": {}, "lastVoteTimestamp": 0}
+    return bid, stats
+
+
 def empty_contract_payloads(conv, zid, main):
     """Serialization-only empty view shared by the poller bridge and adapter."""
     from polismath.empty_output import apply_empty_contract
@@ -228,9 +236,44 @@ def empty_contract_payloads(conv, zid, main):
         "meta-tids": sorted(conv.meta_tids),
         "lastModTimestamp": conv.last_mod_timestamp})
     apply_empty_contract(main, mod_in=conv.mod_in_tids, mod_out=conv.mod_out_tids)
-    bid = {"zid": zid, "bidToPid": [], "lastVoteTimestamp": 0}
-    stats = {"zid": zid, "ptptstats": {}, "lastVoteTimestamp": 0}
+    bid, stats = _empty_companions(zid)
     return main, bid, stats
+
+
+def _is_empty(conv: Any) -> bool:
+    return bool(getattr(getattr(conv, "raw_rating_mat", None), "empty", False))
+
+
+def render_main_blob(conv: Any, zid: int) -> Dict[str, Any]:
+    """The ``math_main`` data of a computed conversation, exactly as
+    :meth:`MathWriter.write_conv_updates` publishes it (before JSON encoding).
+    ``compute_tick`` returns it, so the live path and replay share it."""
+    data = conv.to_dict()
+    if _is_empty(conv):
+        data = empty_contract_payloads(conv, zid, data)[0]
+    return data
+
+
+#: Where a rebuild (``MathPollerService._load_or_init``) leaves its recorded
+#: inputs and rendered blob on the Conversation it returns, for the writer of
+#: that generation to take: the backfill and the engine-rebuild tool publish
+#: ``_load_or_init``'s result without seeing its inputs. Taken (removed) by
+#: the writer, so a cached conversation never carries a stale record.
+_TICK_RECORD = "_tick_record"
+
+
+def attach_tick_record(conv: Any, inputs: TickInputs, blob: Dict[str, Any]) -> None:
+    setattr(conv, _TICK_RECORD, (inputs, blob))
+
+
+def peek_tick_record(conv: Any) -> Optional[Tuple[TickInputs, Dict[str, Any]]]:
+    record = getattr(conv, "__dict__", {}).get(_TICK_RECORD)
+    return record if isinstance(record, tuple) else None
+
+
+def take_tick_record(conv: Any) -> Optional[Tuple[TickInputs, Dict[str, Any]]]:
+    record = getattr(conv, "__dict__", {}).pop(_TICK_RECORD, None)
+    return record if isinstance(record, tuple) else None
 
 
 class MathWriter:
@@ -247,10 +290,23 @@ class MathWriter:
         *,
         before_publish: Optional[Callable[[Any, int], None]] = None,
         report: Optional[Dict[str, Any]] = None,
+        inputs: Optional[TickInputs] = None,
+        main_data: Optional[Dict[str, Any]] = None,
     ) -> int:
         """Atomically mint one math_tick and publish all three data tables.
 
         Returns the math_tick used (handy for logging / tests).
+
+        The same transaction records the generation in ``math_recompute_log``:
+        ``inputs`` (what ``compute_tick`` consumed, PROPENSITY-LOGGING-DESIGN.md
+        §9) with its outputs filled in here (``last_vote_timestamp`` and the
+        number of comments with a priority). Without ``inputs`` the record a
+        rebuild attached to ``conv`` is taken (:func:`take_tick_record`);
+        without either, the row is marked unrecorded (``TickInputs.unrecorded``:
+        replay refuses it). A tick therefore never commits without its log
+        row, and a failure writing the log rolls the publication back.
+        ``main_data`` is the already rendered blob (``compute_tick``'s), so it
+        is not serialised twice; None renders it here.
 
         ``before_publish(connection, math_tick)``, when given, runs inside the
         publication transaction right after the tick upsert has locked this
@@ -264,21 +320,36 @@ class MathWriter:
         """
         if before_publish is not None and self._publisher is not None:
             raise ValueError("before_publish is not supported with a publisher")
+        record = take_tick_record(conv)
+        if inputs is None and record is not None:
+            inputs = record[0]
+            if main_data is None:
+                main_data = record[1]
+        if inputs is None:
+            logger.warning("math_recompute_log: zid=%s published without recorded "
+                           "inputs; its log row is marked unrecorded", zid)
+            inputs = TickInputs.unrecorded()
         if self._publisher is not None:
             self._publisher.stage("after_worker_compute")
-        data = conv.to_dict()
+        data = main_data if main_data is not None else render_main_blob(conv, zid)
         last_vote_timestamp = data.get("lastVoteTimestamp")
         if last_vote_timestamp is None:
             last_vote_timestamp = getattr(conv, "last_updated", None)
 
         # Derive AND encode all three blobs before opening the transaction, so
         # neither derivation nor json.dumps of the (large) math_main blob runs
-        # while the (zid, math_env) row locks are held.
-        bidtopid = derive_bidtopid(conv, zid)
-        ptptstats = derive_ptptstats(conv, zid, data.get("user-vote-counts", {}))
-        if getattr(conv, "raw_rating_mat", None) is not None and conv.raw_rating_mat.empty:
-            data, bidtopid, ptptstats = empty_contract_payloads(conv, zid, data)
-            last_vote_timestamp = data["lastVoteTimestamp"]
+        # while the (zid, math_env) row locks are held. An empty conversation's
+        # main blob already carries the empty contract (render_main_blob).
+        if _is_empty(conv):
+            bidtopid, ptptstats = _empty_companions(zid)
+        else:
+            bidtopid = derive_bidtopid(conv, zid)
+            ptptstats = derive_ptptstats(conv, zid, data.get("user-vote-counts", {}))
+        if last_vote_timestamp is None:
+            # write_math_main's own fallback, resolved here so the log row
+            # carries the same value as the math_main row.
+            last_vote_timestamp = int(time.time() * 1000)
+        priorities = data.get("comment-priorities") or {}
         main_json = encode_math_blob(data)
         bidtopid_json = encode_math_blob(bidtopid)
         ptptstats_json = encode_math_blob(ptptstats)
@@ -294,6 +365,12 @@ class MathWriter:
             math_tick = self._pg.increment_math_tick(zid, connection=connection)
             if before_publish is not None:
                 before_publish(connection, math_tick)
+            self._pg.write_recompute_log(
+                zid, math_tick=math_tick,
+                inputs=replace(inputs, last_vote_timestamp=last_vote_timestamp,
+                               n_comments=len(priorities)),
+                connection=connection,
+            )
             # math_main is written LAST, and deliberately so: it is the statement
             # that allocates caching_tick with MAX(caching_tick)+1, and that
             # allocation is not serializable (R12). Keeping it adjacent to the

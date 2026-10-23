@@ -280,8 +280,8 @@ def test_lost_ack_after_snapshot_commit_recovers(engine, pg_url, make_service):
     committed = []
     real = svc._writer.write_conv_updates
 
-    def lose_first_ack(zid, conv):
-        tick = real(zid, conv)
+    def lose_first_ack(zid, conv, **kwargs):
+        tick = real(zid, conv, **kwargs)
         if not committed:
             tables = read_math_tables(engine, zid, MATH_ENV)
             assert tables_are_coherent(tables) == []

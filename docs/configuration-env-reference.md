@@ -1,6 +1,6 @@
 # Environment read reference
 
-Source snapshot `0985a1a58870f665e6cd30b57558db0c7a9954bc`. The census covers 499 tracked code/build/notebook files (Python, TypeScript/JavaScript, Rust, shell, Clojure, Dockerfiles, Makefile, two scoped Compose files, two archived Python copies, two notebook code-cell inventories) under `server/src/`, `delphi/`, `coordinator-rs/`, and `cdk/`: **233 named inputs at 680 read sites**, plus **46 dynamic/map sites** below.
+Source snapshot `0985a1a58870f665e6cd30b57558db0c7a9954bc`. The census covers 499 tracked code/build/notebook files (Python, TypeScript/JavaScript, Rust, shell, Clojure, Dockerfiles, Makefile, two scoped Compose files, two archived Python copies, two notebook code-cell inventories) under `server/src/`, `delphi/`, `coordinator-rs/`, and `cdk/`: **235 named inputs at 682 read sites**, plus **46 dynamic/map sites** below.
 
 This is a static source inventory, not a declaration that every script runs in deployment. Python/TypeScript syntax trees identify direct lookups; Rust literal lookups, local wrappers, finite loops, known environment-map aliases, and embedded child scripts are resolved separately. Reads in tests, certification tools, and Cargo build scripts are included and labeled. Comments, assignment-only writes, vendored dependencies, and dependency-internal environment lookups are not named application reads. A shared helper can accept names supplied by future/external callers; inherited subprocess and SDK environments are open-ended. See the explicit boundaries below.
 
@@ -10,7 +10,7 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 
 ## `server/src/`
 
-85 distinct names; 100 named read sites. A name read in two scopes contributes to both scope counts.
+87 distinct names; 102 named read sites. A name read in two scopes contributes to both scope counts.
 
 | Name | Source read site | Absent-value behavior / fallback | Secret? | Surface |
 | --- | --- | --- | --- | --- |
@@ -97,6 +97,8 @@ Use [configuration guidance](configuration.md) and [deployment/service inventory
 | `POLIS_REACHABLE_ERROR_HANDLER` | [server/src/config.ts:25](../server/src/config.ts#L25) | false when absent (isTrue conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `PORT` | [server/src/config.ts:10](../server/src/config.ts#L10) | fallback expression: process.env.API_SERVER_PORT &#124;&#124; process.env.PORT &#124;&#124; "5000" | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `READ_ONLY_DATABASE_URL` | [server/src/config.ts:143](../server/src/config.ts#L143) | credential-bearing fallback/expression; value omitted, inspect source | Yes / may carry credentials | application / script / infrastructure; TypeScript AST |
+| `ROUTING_EPSILON` | [server/src/config.ts:98](../server/src/config.ts#L98) | undefined at lookup; empty, non-finite or outside [0, 1] gives null (ε-arm off) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
+| `ROUTING_SERVE_LOG` | [server/src/config.ts:110](../server/src/config.ts#L110) | true when absent or empty (isTrueOrBlank conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `RUN_PERIODIC_EXPORT_TESTS` | [server/src/config.ts:144](../server/src/config.ts#L144) | false when absent (isTrue conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `SERVER_LOG_LEVEL` | [server/src/config.ts:116](../server/src/config.ts#L116) | undefined at lookup; no fallback in this expression | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |
 | `SERVER_LOG_TO_FILE` | [server/src/config.ts:117](../server/src/config.ts#L117) | false when absent (isTrue conversion) | No (configuration/identifier; may still be private) | application / script / infrastructure; TypeScript AST |

@@ -126,8 +126,14 @@ _POLIS_PG_MIGRATIONS_DIR = os.path.join(
 )
 # Migrations that establish the votes + votes_latest_unique schema and the
 # on_vote_insert_update_unique_table RULE. 000006 holds the LIVE rule
-# redefinition (idempotent DROP/CREATE) — apply both, in order.
-_POLIS_PG_MIGRATIONS = ("000000_initial.sql", "000006_update_votes_rule.sql")
+# redefinition (idempotent DROP/CREATE) — apply both, in order. 000044 adds
+# math_recompute_log, which the poller's publication transaction writes
+# (MathWriter.write_conv_updates): without it every publication rolls back.
+_POLIS_PG_MIGRATIONS = (
+    "000000_initial.sql",
+    "000006_update_votes_rule.sql",
+    "000044_routing_propensities.sql",
+)
 
 
 def _free_tcp_port() -> int:
@@ -159,8 +165,10 @@ def require_polis_postgres():
       3. Otherwise skip with a clear reason.
 
     Migrations applied: ``000000_initial.sql`` (votes + votes_latest_unique +
-    the ``on_vote_insert_update_unique_table`` rule) and
-    ``000006_update_votes_rule.sql`` (the LIVE rule redefinition).
+    the ``on_vote_insert_update_unique_table`` rule),
+    ``000006_update_votes_rule.sql`` (the LIVE rule redefinition) and
+    ``000044_routing_propensities.sql`` (the recompute log the math writer
+    fills in its publication transaction).
 
     Shared by ``tests/poller/test_integration_postgres.py`` and
     ``tests/test_generator_vote_copy.py``.

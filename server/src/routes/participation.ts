@@ -374,7 +374,13 @@ async function handle_GET_participationInit(
         pid: effectivePid,
         zid: req.p.zid,
       }),
-      getNextComment(req.p.zid, effectivePid, [], req.p.lang),
+      getNextComment(
+        req.p.zid,
+        effectivePid,
+        [],
+        req.p.lang,
+        effectiveUidForUser
+      ),
       doFamousQuery({
         uid: uid,
         zid: req.p.zid,

@@ -85,7 +85,8 @@ def build():
                '000029_extend_delphi_graph_stages.sql', '000030_create_delphi_writers.sql',
                '000031_scope_delphi_result_reads.sql', '000038_create_delphi_comment_embeddings.sql',
                '000039_clear_zinvites_uuid.sql', '000041_create_delphi_run_record.sql',
-               '000042_tid_auto_transaction_lock.sql', '000043_add_conversation_activity_indexes.sql'}
+               '000042_tid_auto_transaction_lock.sql', '000043_add_conversation_activity_indexes.sql',
+               '000044_routing_propensities.sql'}
     assert selected == {p.name for p in files} | pending, 'report scope differs from release selection'
     assert held == {'000021_create_polis_coordinator.sql'}, 'review changed hold policy'
     numbered = sorted(MIG.glob('*.sql'))

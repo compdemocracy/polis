@@ -4,7 +4,7 @@ Most application settings are environment variables. Copy the repository-root `e
 
 The data export and vote import file formats, including the vote sign every file declares, are described in [export and import file formats](export-format.md).
 
-The [environment read reference](configuration-env-reference.md) records all 233 named inputs and 680 read sites in the scoped API, Delphi, coordinator and CDK source, including file:line, fallback and secret status. The [deployment reference](deployment-configuration.md) connects those settings to all 153 P065 service entries and explains dynamic/SDK input limits.
+The [environment read reference](configuration-env-reference.md) records all 235 named inputs and 682 read sites in the scoped API, Delphi, coordinator and CDK source, including file:line, fallback and secret status. The [deployment reference](deployment-configuration.md) connects those settings to all 153 P065 service entries and explains dynamic/SDK input limits.
 
 </br>
 

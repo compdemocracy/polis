@@ -376,6 +376,9 @@ function _getCommentsList(o: {
   random: any;
   limit: any;
   offset?: any;
+  // Count the rows instead of listing them (countEligibleComments): the same
+  // WHERE clause, with no ORDER BY, LIMIT or OFFSET.
+  countOnly?: boolean;
 }): Promise<CommentRow[]> {
   return MPromise(
     "_getCommentsList",
@@ -385,7 +388,11 @@ function _getCommentsList(o: {
     ) {
       getConversationInfo(o.zid).then(function (conv: ConversationInfo) {
         let q = SQL.sql_comments
-          .select(SQL.sql_comments.star())
+          .select(
+            o.countOnly
+              ? SQL.sql_comments.count("count")
+              : SQL.sql_comments.star()
+          )
           .where(SQL.sql_comments.zid.equals(o.zid));
         if (!_.isUndefined(o.tids)) {
           q = q.and(SQL.sql_comments.tid.in(o.tids));
@@ -419,6 +426,15 @@ function _getCommentsList(o: {
 
         q = q.and(SQL.sql_comments.velocity.gt(0)); // filter muted comments
 
+        if (o.countOnly) {
+          return pg.query(q.toString(), [], function (err: any, docs: Docs) {
+            if (err) {
+              reject(err);
+              return;
+            }
+            resolve(docs.rows || []);
+          });
+        }
         if (!_.isUndefined(o.random)) {
           if (conv.prioritize_seed) {
             q = q.order("is_seed desc, random()");
@@ -450,6 +466,18 @@ function _getCommentsList(o: {
       });
     }
   ) as Promise<CommentRow[]>;
+}
+
+/**
+ * How many statements `getComments(o)` would list with no LIMIT: m, the size
+ * of the eligible set nextComment's ε-arm draws from. The WHERE clause is
+ * built by the same code as the list's (`_getCommentsList` with `countOnly`),
+ * so the two cannot disagree.
+ */
+function countEligibleComments(o: GetCommentsParams): Promise<number> {
+  return _getCommentsList({ ...(o as any), countOnly: true }).then(
+    (rows: CommentRow[]) => Number((rows[0] as { count?: unknown })?.count ?? 0)
+  );
 }
 
 function getNumberOfCommentsRemaining(zid: number, pid: number): Promise<any> {
@@ -596,6 +624,7 @@ async function detectLanguage(
 }
 
 export {
+  countEligibleComments,
   detectLanguage,
   getComment,
   getComments,

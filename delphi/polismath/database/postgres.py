@@ -226,6 +226,52 @@ class MathTicks(Base):
         return f"<MathTicks(zid={self.zid}, math_env='{self.math_env}', math_tick={self.math_tick})>"
 
 
+class MathRecomputeLog(Base):
+    """One row per published math generation (migration 000044).
+
+    Written in the publication transaction that mints the tick
+    (``PostgresClient.write_recompute_log``), so a tick never commits without
+    it. The non-key columns are ``polismath.poller.tick_inputs.COLUMNS``:
+    what the engine consumed for the tick, enough to replay it
+    (PROPENSITY-LOGGING-DESIGN.md §9), moderation as deltas.
+    """
+
+    __tablename__ = "math_recompute_log"
+
+    zid = sa.Column(sa.Integer, primary_key=True)
+    math_env = sa.Column(sa.String, primary_key=True)
+    math_tick = sa.Column(sa.BigInteger, primary_key=True)
+    start_mode = sa.Column(sa.String(16), nullable=False)
+    prev_math_tick = sa.Column(sa.BigInteger)
+    last_vote_timestamp = sa.Column(sa.BigInteger)
+    n_votes = sa.Column(sa.Integer)
+    n_comments = sa.Column(sa.Integer)
+    vote_pids = sa.Column(sa.ARRAY(sa.Integer))
+    vote_tids = sa.Column(sa.ARRAY(sa.Integer))
+    vote_values = sa.Column(sa.ARRAY(sa.SmallInteger))
+    vote_created = sa.Column(sa.ARRAY(sa.BigInteger))
+    rebuild_through_created = sa.Column(sa.BigInteger)
+    rebuild_n_votes = sa.Column(sa.Integer)
+    rebuild_digest = sa.Column(sa.String(64))
+    mod_read = sa.Column(sa.Boolean, nullable=False)
+    mod_out_tids_added = sa.Column(sa.ARRAY(sa.Integer))
+    mod_out_tids_removed = sa.Column(sa.ARRAY(sa.Integer))
+    mod_in_tids_added = sa.Column(sa.ARRAY(sa.Integer))
+    mod_in_tids_removed = sa.Column(sa.ARRAY(sa.Integer))
+    meta_tids_added = sa.Column(sa.ARRAY(sa.Integer))
+    meta_tids_removed = sa.Column(sa.ARRAY(sa.Integer))
+    mod_out_pids_added = sa.Column(sa.ARRAY(sa.Integer))
+    mod_out_pids_removed = sa.Column(sa.ARRAY(sa.Integer))
+    engine_version = sa.Column(sa.String(128))
+    created = sa.Column(
+        sa.BigInteger, nullable=False, server_default=text("now_as_millis()")
+    )
+
+    def __repr__(self) -> str:
+        return (f"<MathRecomputeLog(zid={self.zid}, math_env='{self.math_env}', "
+                f"math_tick={self.math_tick})>")
+
+
 class MathPtptStats(Base):
     """Stores participant statistics."""
 
@@ -387,6 +433,61 @@ COPY_MAIN_SQL = """
                   last_vote_timestamp = excluded.last_vote_timestamp,
                   math_tick = excluded.math_tick,
                   caching_tick = excluded.caching_tick
+"""
+# The staged generation's math_recompute_log row, re-keyed to the promoted
+# tick: every input column is copied except prev_math_tick, which numbers a
+# tick of the STAGED label and would name an unrelated tick under the target
+# label; it is cleared, so replay under the target label refuses a promoted
+# incremental or warm_restore tick (replay it under the staged label) and
+# still replays a promoted cold one. A staged row published before the log
+# existed has none; the target tick still gets one, synthesised from the
+# copied math_main: start_mode 'warm_restore' with no rebuild descriptor
+# (replay refuses it), moderation deltas empty, n_votes unknown, the comment
+# count read from its comment-priorities. The payload may be json
+# (production) or jsonb (the migrations), so only that sub-object is cast.
+# Overwrites on (zid, math_env, math_tick) for the same reason as
+# write_recompute_log: a removed math_ticks row restarts the tick sequence.
+_RECOMPUTE_LOG_INPUTS = (
+    "start_mode", "prev_math_tick", "last_vote_timestamp", "n_votes", "n_comments",
+    "vote_pids", "vote_tids", "vote_values", "vote_created",
+    "rebuild_through_created", "rebuild_n_votes", "rebuild_digest",
+    "mod_read", "engine_version",
+    "mod_out_tids_added", "mod_out_tids_removed", "mod_in_tids_added", "mod_in_tids_removed",
+    "meta_tids_added", "meta_tids_removed", "mod_out_pids_added", "mod_out_pids_removed",
+)
+_RECOMPUTE_LOG_UPDATE = ",\n                  ".join(
+    f"{c} = excluded.{c}" for c in _RECOMPUTE_LOG_INPUTS)
+COPY_RECOMPUTE_LOG_SQL = """
+    insert into math_recompute_log
+        (zid, math_env, math_tick, """ + ", ".join(_RECOMPUTE_LOG_INPUTS) + """)
+    select s.zid, :dst, :tick,
+           COALESCE(l.start_mode, 'warm_restore'),
+           NULL,
+           s.last_vote_timestamp, l.n_votes,
+           COALESCE(l.n_comments, (
+               select count(*) from jsonb_object_keys(
+                   case when jsonb_typeof((s.data -> 'comment-priorities')::jsonb) = 'object'
+                        then (s.data -> 'comment-priorities')::jsonb
+                        else '{}'::jsonb end))),
+           l.vote_pids, l.vote_tids, l.vote_values, l.vote_created,
+           l.rebuild_through_created, l.rebuild_n_votes, l.rebuild_digest,
+           COALESCE(l.mod_read, true),
+           l.engine_version,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.mod_out_tids_added END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.mod_out_tids_removed END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.mod_in_tids_added END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.mod_in_tids_removed END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.meta_tids_added END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.meta_tids_removed END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.mod_out_pids_added END,
+           CASE WHEN l.zid IS NULL THEN '{}'::integer[] ELSE l.mod_out_pids_removed END
+    from math_main s
+    left join math_recompute_log l
+           on l.zid = s.zid and l.math_env = s.math_env and l.math_tick = s.math_tick
+    where s.zid = :zid and s.math_env = :src
+    on conflict (zid, math_env, math_tick)
+    do update set """ + _RECOMPUTE_LOG_UPDATE + """,
+                  created = now_as_millis()
 """
 PROMOTED_POSTCONDITION_SQL = """
     SELECT (SELECT math_tick FROM math_main WHERE zid = :zid AND math_env = :dst) AS main_tick,
@@ -1187,6 +1288,51 @@ class PostgresClient:
         )
         return rows[0]["math_tick"]
 
+    def write_recompute_log(
+        self,
+        zid: int,
+        *,
+        math_tick: int,
+        inputs: Any,
+        connection: Optional[sa.Connection] = None,
+    ) -> None:
+        """Record one published generation in ``math_recompute_log``
+        (propensity-logging design §6, §9): ``inputs.to_row()`` of its
+        ``polismath.poller.tick_inputs.TickInputs``, outputs filled in.
+
+        The poller calls this inside the publication transaction, right after
+        ``increment_math_tick``, so the tick and its log row commit or roll
+        back together.
+
+        The insert overwrites on ``(zid, math_env, math_tick)``: the tick
+        sequence restarts when a ``math_ticks`` row is removed, and the
+        generation published under a tick number is the one the server can
+        serve, so the newest row for that number is the one to keep. A plain
+        insert would instead roll the whole publication back.
+        """
+        row = inputs.to_row()
+        if set(row) != set(_RECOMPUTE_LOG_INPUTS):
+            raise ValueError("TickInputs fields and the math_recompute_log columns "
+                             f"disagree: {sorted(set(row) ^ set(_RECOMPUTE_LOG_INPUTS))}")
+        self._write_returning(
+            "insert into math_recompute_log (zid, math_env, math_tick, "
+            + ", ".join(_RECOMPUTE_LOG_INPUTS) + ") values (:zid, :math_env, :math_tick, "
+            + ", ".join(f":{c}" for c in _RECOMPUTE_LOG_INPUTS) + ")"
+            + " on conflict (zid, math_env, math_tick) do update set "
+            + _RECOMPUTE_LOG_UPDATE + ", created = now_as_millis();",
+            {"zid": zid, "math_env": self.config.math_env, "math_tick": math_tick, **row},
+            connection=connection,
+        )
+
+    def read_recompute_log(self, zid: int, math_env: Optional[str] = None
+                           ) -> List[Dict[str, Any]]:
+        """Every ``math_recompute_log`` row of ``zid`` under ``math_env``
+        (this client's label by default), ascending by tick. Replay's input."""
+        return self.query(
+            "SELECT * FROM math_recompute_log WHERE zid = :zid AND math_env = :env "
+            "ORDER BY math_tick",
+            {"zid": zid, "env": math_env or self.config.math_env})
+
     def math_fingerprints(
         self, zids: List[int], envs: List[str], *, timeout_ms: int = 30000,
     ) -> Dict[Tuple[int, str], Fingerprint]:
@@ -1223,8 +1369,9 @@ class PostgresClient:
         re-read both bundles and compare with what the caller saw (any change
         -> ``superseded``); require the staged bundle to be complete and valid
         by VALID_BUNDLE_SQL and newer than the target (``staged_newer``); copy
-        the two companions, then math_main last (its caching_tick allocation
-        stays next to COMMIT); check the target's four ticks. Any refusal
+        the two companions and the staged generation's ``math_recompute_log``
+        row to the new tick, then math_main last (its caching_tick allocation stays next to COMMIT);
+        check the target's four ticks. Any refusal
         raises PromotionRefused and rolls everything back, the tick included.
         Lock order is fixed (target tick, then staged tick); the staged writer
         only ever locks its own label's rows. Returns the new math_tick.
@@ -1265,6 +1412,8 @@ class PostgresClient:
             copy = dict(params, tick=tick)
             conn.execute(text(COPY_BIDTOPID_SQL), copy)
             conn.execute(text(COPY_PTPTSTATS_SQL), copy)
+            # The promoted tick is a publication too: its log row commits with it.
+            conn.execute(text(COPY_RECOMPUTE_LOG_SQL), copy)
             conn.execute(text(COPY_MAIN_SQL), copy)
             post = conn.execute(text(PROMOTED_POSTCONDITION_SQL), params).mappings().first()
             if post is None or {post["main_tick"], post["bid_tick"], post["stats_tick"],
