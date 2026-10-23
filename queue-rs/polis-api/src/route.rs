@@ -62,6 +62,10 @@ pub struct App {
     pub ptptois_auth_db: Option<Arc<Pool>>,
     pub ptptois_served: AtomicU64,
     pub ptptois_fallback: AtomicU64,
+    pub my_invites_csv_db: Option<Arc<Pool>>,
+    pub my_invites_csv_auth_db: Option<Arc<Pool>>,
+    pub my_invites_csv_served: AtomicU64,
+    pub my_invites_csv_fallback: AtomicU64,
     pub votes_read_db: Option<Arc<Pool>>,
     pub votes_read_auth_db: Option<Arc<Pool>>,
     pub votes_read_served: AtomicU64,
@@ -286,6 +290,10 @@ impl App {
             ptptois_auth_db: None,
             ptptois_served: AtomicU64::new(0),
             ptptois_fallback: AtomicU64::new(0),
+            my_invites_csv_db: None,
+            my_invites_csv_auth_db: None,
+            my_invites_csv_served: AtomicU64::new(0),
+            my_invites_csv_fallback: AtomicU64::new(0),
             votes_read_db: None,
             votes_read_auth_db: None,
             votes_read_served: AtomicU64::new(0),
@@ -795,6 +803,21 @@ pub(crate) fn admin_html(req: &Request, mut res: Res, chunks: Vec<Vec<u8>>) -> O
     out
 }
 
+/// Express CSV download, preserving the ordinary freshness/compression wrapper.
+pub(crate) fn csv_attachment(
+    req: &Request,
+    mut res: Res,
+    filename: &str,
+    body: String,
+) -> Outgoing {
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set(
+        "Content-Disposition",
+        format!("attachment; filename=\"{filename}\""),
+    );
+    send(req, res, Payload::Text(body))
+}
+
 /// Express status(...).json(...) retaining the normal response envelope.
 pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) -> Outgoing {
     res.status = status;
@@ -1100,6 +1123,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.ptptois_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
             app.ptptois_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::my_invites_csv::PATH {
+        if out.status == 502 {
+            app.my_invites_csv_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.my_invites_csv_served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if crate::votes_read::matches(req.path()) {
@@ -1655,6 +1685,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::ptptois::PATH && crate::ptptois::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::my_invites_csv::PATH && crate::my_invites_csv::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1962,6 +1996,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::ptptois::PATH {
         return crate::ptptois::handle(app, req, res).await;
+    }
+    if req.path() == crate::my_invites_csv::PATH {
+        return crate::my_invites_csv::handle(app, req, res).await;
     }
     if req.path() == crate::metadata_questions::PATH {
         return crate::metadata_questions::handle(app, req, res).await;
@@ -4067,6 +4104,46 @@ mod tests {
         assert!(crate::ptptois::parse(&state, &no_auth).is_some());
         assert_eq!(state.ptptois_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.ptptois_fallback.load(Ordering::Relaxed), 9);
+    }
+
+    #[tokio::test]
+    async fn my_invites_csv_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/treevite/myInvites/csv?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().my_invites_csv_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().my_invites_csv_auth_db = Some(pool);
+        assert!(crate::my_invites_csv::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/treevite/myInvites/csv?conversation_id=4fixture{tail}");
+            assert!(crate::my_invites_csv::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::my_invites_csv::parse(&state, &no_auth).is_none());
+        assert_eq!(state.my_invites_csv_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.my_invites_csv_fallback.load(Ordering::Relaxed), 9);
     }
 
     #[tokio::test]

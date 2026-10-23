@@ -1484,3 +1484,5 @@ Conversation link pages (`/iip/:conversation_id`, `/iim/:conversation_id`) have 
 Current participant rows: [contract and admission](PARTICIPANTS-READ.md).
 
 Social participant rows: [contract and admission](PTPTOIS.md).
+
+Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).

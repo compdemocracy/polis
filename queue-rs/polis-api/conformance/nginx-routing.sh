@@ -1431,3 +1431,23 @@ stub "$p-rust" polis-api 5100 502 handoff
 sleep 6
 expect /api/v3/ptptois node "social fallback"
 echo "ok social participant: off/on/deduplicated, methods/body, fallback"
+
+# Participant-owned CSV have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/treevite/myInvites/csv node "invitation CSV off"
+start myInvitesCsv,myInvitesCsv
+expect /api/v3/treevite/myInvites/csv rust "invitation CSV on"
+[[ $(included | grep -c 'location = /api/v3/treevite/myInvites/csv {') == 1 ]] || fail "invitation CSV duplicated"
+expect_upstream polis-api HEAD /api/v3/treevite/myInvites/csv
+expect_upstream server OPTIONS /api/v3/treevite/myInvites/csv
+expect_upstream server POST /api/v3/treevite/myInvites/csv $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/treevite/myInvites/csv $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "invitation CSV leave votes alone"
+expect /api/v3/nextComment node "invitation CSV leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/treevite/myInvites/csv node "invitation CSV fallback"
+echo "ok participant invitation CSV: off/on/deduplicated, methods/body, fallback"
