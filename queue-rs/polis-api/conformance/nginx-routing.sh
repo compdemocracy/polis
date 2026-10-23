@@ -1390,3 +1390,23 @@ start iip,iim
 expect /iip/4fixture node "participation link fallback"
 expect /iim/4fixture node "moderation link fallback"
 echo "ok conversation links: independent off/on, methods/body, fallback"
+
+# Current participant rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/participants node "participants off"
+start participantsRead,participantsRead
+expect /api/v3/participants rust "participants on"
+[[ $(included | grep -c 'location = /api/v3/participants {') == 1 ]] || fail "participants duplicated"
+expect_upstream polis-api HEAD /api/v3/participants
+expect_upstream server OPTIONS /api/v3/participants
+expect_upstream server POST /api/v3/participants $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/participants $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "participants leave votes alone"
+expect /api/v3/nextComment node "participants leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/participants node "participants fallback"
+echo "ok current participant: off/on/deduplicated, methods/body, fallback"
