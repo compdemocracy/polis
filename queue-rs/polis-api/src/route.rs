@@ -66,6 +66,15 @@ pub struct App {
     pub my_invites_csv_auth_db: Option<Arc<Pool>>,
     pub my_invites_csv_served: AtomicU64,
     pub my_invites_csv_fallback: AtomicU64,
+    pub bid_db: Option<Arc<Pool>>,
+    pub bid_auth_db: Option<Arc<Pool>>,
+    pub bid_served: AtomicU64,
+    pub bid_fallback: AtomicU64,
+    pub locations_db: Option<Arc<Pool>>,
+    pub locations_auth_db: Option<Arc<Pool>>,
+    pub locations_served: AtomicU64,
+    pub locations_fallback: AtomicU64,
+    pub math_bundle: crate::math_bundle::Cache,
     pub votes_read_db: Option<Arc<Pool>>,
     pub votes_read_auth_db: Option<Arc<Pool>>,
     pub votes_read_served: AtomicU64,
@@ -294,6 +303,15 @@ impl App {
             my_invites_csv_auth_db: None,
             my_invites_csv_served: AtomicU64::new(0),
             my_invites_csv_fallback: AtomicU64::new(0),
+            bid_db: None,
+            bid_auth_db: None,
+            bid_served: AtomicU64::new(0),
+            bid_fallback: AtomicU64::new(0),
+            locations_db: None,
+            locations_auth_db: None,
+            locations_served: AtomicU64::new(0),
+            locations_fallback: AtomicU64::new(0),
+            math_bundle: crate::math_bundle::Cache::new(cfg.cache_size > 1),
             votes_read_db: None,
             votes_read_auth_db: None,
             votes_read_served: AtomicU64::new(0),
@@ -1132,6 +1150,20 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.my_invites_csv_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::math_membership::BID_PATH {
+        if out.status == 502 {
+            app.bid_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.bid_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::math_membership::LOCATIONS_PATH {
+        if out.status == 502 {
+            app.locations_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.locations_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if crate::votes_read::matches(req.path()) {
         if out.status == 502 {
             app.votes_read_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1689,6 +1721,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if crate::math_membership::matches(req.path())
+        && crate::math_membership::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1984,6 +2021,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::metadata_answers::PATH {
         return crate::metadata_answers::handle(app, req, res).await;
+    }
+    if crate::math_membership::matches(req.path()) {
+        return crate::math_membership::handle(app, req, res).await;
     }
     if crate::votes_read::matches(req.path()) {
         return crate::votes_read::handle(app, req, res).await;
@@ -4144,6 +4184,61 @@ mod tests {
         assert!(crate::my_invites_csv::parse(&state, &no_auth).is_none());
         assert_eq!(state.my_invites_csv_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.my_invites_csv_fallback.load(Ordering::Relaxed), 9);
+    }
+
+    #[tokio::test]
+    async fn math_membership_switches_and_parser_boundaries_are_independent() {
+        let mut state = app(true);
+        for route in ["bid", "locations"] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = format!(
+                "/api/v3/{route}?conversation_id=4fixture{}",
+                if route == "locations" { "&gid=0" } else { "" }
+            );
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().bid_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().bid_auth_db = Some(pool.clone());
+        let mut req = request(
+            "GET",
+            &[("host", "localhost"), ("authorization", "Bearer generated")],
+        );
+        req.target = "/api/v3/locations?conversation_id=4fixture&gid=0".into();
+        assert!(crate::math_membership::parse(&state, &req).is_none());
+        req.target = "/api/v3/bid?conversation_id=4fixture".into();
+        assert!(crate::math_membership::parse(&state, &req).is_some());
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().locations_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().locations_auth_db = Some(pool);
+        for route in ["bid", "locations"] {
+            for (method, tail, headers) in [
+                ("POST", "", vec![]),
+                ("OPTIONS", "", vec![]),
+                ("GET", "&pid=0", vec![]),
+                ("GET", "&conversation_id=other", vec![]),
+                ("GET", "", vec![("cookie", "x=y")]),
+                ("GET", "", vec![("content-length", "2")]),
+            ] {
+                let mut h = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+                h.extend(headers);
+                let mut req = request(method, &h);
+                req.target = format!(
+                    "/api/v3/{route}?conversation_id=4fixture{}{tail}",
+                    if route == "locations" { "&gid=0" } else { "" }
+                );
+                assert!(crate::math_membership::parse(&state, &req).is_none());
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+        }
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/api/v3/locations?conversation_id=4fixture&gid=0".into();
+        assert!(crate::math_membership::parse(&state, &req).is_some());
+        req.target = "/api/v3/bid?conversation_id=4fixture".into();
+        assert!(crate::math_membership::parse(&state, &req).is_none());
     }
 
     #[tokio::test]

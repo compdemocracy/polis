@@ -56,6 +56,8 @@ mod metadata_answers;
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/votes.rs"]
 mod votes;
+mod math_bundle;
+mod math_membership;
 mod metadata_choices;
 mod metadata_questions;
 mod metadata_read;
@@ -305,6 +307,22 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "myInvitesCsvFallback",
         js::Js::Num(app.my_invites_csv_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "bidServed",
+        js::Js::Num(app.bid_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "bidFallback",
+        js::Js::Num(app.bid_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "locationsServed",
+        js::Js::Num(app.locations_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "locationsFallback",
+        js::Js::Num(app.locations_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "votesReadServed",
@@ -628,6 +646,8 @@ async fn dispatch_at_clock(
         | domain_whitelist::PATH
         | metadata_questions::PATH
         | treevite_waves::PATH
+        | math_membership::BID_PATH
+        | math_membership::LOCATIONS_PATH
         | participants_read::PATH
         | ptptois::PATH
         | my_invites_csv::PATH
@@ -1149,6 +1169,40 @@ async fn main() -> Result<()> {
         state.my_invites_csv_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-my-invites-csv-auth/1")?,
             my_invites_csv::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_BID_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_BID_DATABASE_URL")
+            .context("POLIS_API_BID_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.bid_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-bid/1")?,
+            math_membership::pool_limits(),
+        ));
+        state.bid_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-bid-auth/1")?,
+            math_membership::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_LOCATIONS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_LOCATIONS_DATABASE_URL")
+            .context("POLIS_API_LOCATIONS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.locations_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-locations/1")?,
+            math_membership::pool_limits(),
+        ));
+        state.locations_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-locations-auth/1")?,
+            math_membership::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }

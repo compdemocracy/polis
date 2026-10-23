@@ -1451,3 +1451,45 @@ stub "$p-rust" polis-api 5100 502 handoff
 sleep 6
 expect /api/v3/treevite/myInvites/csv node "invitation CSV fallback"
 echo "ok participant invitation CSV: off/on/deduplicated, methods/body, fallback"
+
+# Bid rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/bid node "bid off"
+start bid,bid
+expect /api/v3/bid rust "bid on"
+expect /api/v3/locations node "other math selector remains off"
+[[ $(included | grep -c 'location = /api/v3/bid {') == 1 ]] || fail "bid duplicated"
+expect_upstream polis-api HEAD /api/v3/bid
+expect_upstream server OPTIONS /api/v3/bid
+expect_upstream server POST /api/v3/bid $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/bid $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "bid leave votes alone"
+expect /api/v3/nextComment node "bid leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/bid node "bid fallback"
+echo "ok bid: off/on/deduplicated, methods/body, fallback"
+
+# Locations rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/locations node "locations off"
+start locations,locations
+expect /api/v3/locations rust "locations on"
+expect /api/v3/bid node "other math selector remains off"
+[[ $(included | grep -c 'location = /api/v3/locations {') == 1 ]] || fail "locations duplicated"
+expect_upstream polis-api HEAD /api/v3/locations
+expect_upstream server OPTIONS /api/v3/locations
+expect_upstream server POST /api/v3/locations $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/locations $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "locations leave votes alone"
+expect /api/v3/nextComment node "locations leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/locations node "locations fallback"
+echo "ok locations: off/on/deduplicated, methods/body, fallback"
