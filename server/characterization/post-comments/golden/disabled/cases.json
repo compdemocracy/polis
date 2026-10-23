@@ -1,0 +1,277 @@
+[
+  {
+    "caseId": "post-comments/language-disabled",
+    "case": "language-disabled",
+    "auth": "participant",
+    "seed": "afc975edd39a",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:participant"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment language-disabled"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "anon:3"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 1,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:participant"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IGxhbmd1YWdlLWRpc2FibGVkIn0=",
+              "byte_length": 80,
+              "sha256": "70347d9042abe0a430e15e654913f64c7a2f71a3e0234faaad0d7ab28b79a14a"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-8SXeWElXYLsBVYIi3krn3A\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:25:39 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 41,
+            "bytes": {
+              "base64": "eyJ0aWQiOjIsImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "90963a83e0f648e47de77e8a017c16a5c8b853459f7822713db0a7f9b2882cb2"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 41,
+        "last_byte_ms": 41,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 2
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 40.72977100000003,
+      "ttlbMs": 41.30344100000002
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 2,
+              "tweet_id": null,
+              "txt": "Generated comment language-disabled",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:notification_tasks": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:participants": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 1700000000000,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 2,
+              "subscribed": 0,
+              "uid": 3,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ],
+          "removed": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 0,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 2,
+              "subscribed": 0,
+              "uid": 3,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ]
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  }
+]
