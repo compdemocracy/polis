@@ -1,3 +1,9 @@
+import {
+  assertImportTargetEmpty,
+  lockImportTarget,
+  ImportTargetNotEmptyError,
+  IMPORT_TARGET_MESSAGE,
+} from "../utils/import-target";
 import _ from "underscore";
 import { ManagementClient } from "auth0";
 import { parse } from "csv-parse/sync";
@@ -836,21 +842,6 @@ async function handle_POST_comments_bulk(
     return;
   }
 
-  async function doGetPid(): Promise<number> {
-    if (_.isUndefined(pid) || Number(pid) === -1) {
-      const newPid = await getPidPromise(zid!, uid!, true);
-      if (newPid === -1) {
-        const rows = await addParticipant(zid!, uid!);
-        const ptpt = rows[0];
-        pid = ptpt.pid;
-        return Number(pid);
-      } else {
-        return newPid;
-      }
-    }
-    return Number(pid);
-  }
-
   try {
     // Refuse a non-moderator before resolving a participant. Creating the row
     // first left a refused caller as an existing member, and an invite-only
@@ -865,11 +856,7 @@ async function handle_POST_comments_bulk(
       return;
     }
 
-    const finalPid = await doGetPid();
-    if (finalPid < 0) {
-      failJson(res, 500, "polis_err_post_comment_bad_pid");
-      return;
-    }
+    await assertImportTargetEmpty(zid!, "comments");
 
     const records = parse(String(csv), {
       columns: true,
@@ -877,12 +864,14 @@ async function handle_POST_comments_bulk(
     });
 
     const results = [];
+    const importedTids: number[] = [];
     let lastInteractionTime = new Date(0);
 
     for (const record of records) {
       const txt = record.comment_text;
       const original_id = record.original_id;
 
+      let client: Awaited<ReturnType<typeof pg.connect>> | undefined;
       try {
         if (!txt || txt.trim() === "") {
           results.push({
@@ -890,17 +879,6 @@ async function handle_POST_comments_bulk(
             status: "skipped",
             reason: "polis_err_param_missing_txt",
             original_id,
-          });
-          continue;
-        }
-
-        const commentExistsAlready = await commentExists(zid!, txt);
-        if (commentExistsAlready) {
-          results.push({
-            txt,
-            original_id,
-            status: "skipped",
-            reason: "polis_err_post_comment_duplicate",
           });
           continue;
         }
@@ -923,13 +901,47 @@ async function handle_POST_comments_bulk(
         const lang = detection.language;
         const lang_confidence = detection.confidence;
 
-        const insertedComment: any = await pg.queryP(
+        // Language detection finishes before borrowing a connection. Each
+        // comment uses a short import-only transaction; competing imports and
+        // live data make this request refuse further writes, never merge.
+        client = await pg.connect();
+        await client.query("BEGIN");
+        await client.query("SET LOCAL lock_timeout = '100ms'");
+        await lockImportTarget(client, zid!);
+        if (!importedTids.length) {
+          await assertImportTargetEmpty(zid!, "comments", client);
+        } else {
+          const occupied = await client.query(
+            `SELECT EXISTS (SELECT 1 FROM comments WHERE zid=$1 AND NOT (tid=ANY($2::int[])))
+             OR EXISTS (SELECT 1 FROM votes WHERE zid=$1)
+             OR EXISTS (SELECT 1 FROM votes_latest_unique WHERE zid=$1)
+             OR EXISTS (SELECT 1 FROM participants p JOIN conversations c USING(zid)
+                        WHERE p.zid=$1 AND p.uid IS DISTINCT FROM c.owner AND p.uid IS DISTINCT FROM $3::int) AS occupied`,
+            [zid, importedTids, uid]
+          );
+          if (occupied.rows[0].occupied) throw new ImportTargetNotEmptyError();
+        }
+        if (_.isUndefined(pid) || Number(pid) === -1) {
+          const existing = await client.query("SELECT pid FROM participants WHERE zid=$1 AND uid=$2", [zid, uid]);
+          if (existing.rows.length) pid = existing.rows[0].pid;
+          else {
+            await client.query("INSERT INTO participants_extended (zid,uid) VALUES ($1,$2) ON CONFLICT (zid,uid) DO NOTHING", [zid, uid]);
+            pid = (await client.query("INSERT INTO participants (pid,zid,uid,created) VALUES (NULL,$1,$2,default) RETURNING pid", [zid, uid])).rows[0].pid;
+          }
+        }
+        const duplicate = await client.query("SELECT 1 FROM comments WHERE zid=$1 AND txt=$2 LIMIT 1", [zid, txt]);
+        if (duplicate.rows.length) {
+          await client.query("ROLLBACK");
+          results.push({ txt, original_id, status: "skipped", reason: "polis_err_post_comment_duplicate" });
+          continue;
+        }
+        const insertedComment = await client.query(
           `INSERT INTO COMMENTS
           (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence, original_id)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11, $12)
           RETURNING *;`,
           [
-            finalPid,
+            pid,
             zid,
             txt,
             1,
@@ -944,7 +956,9 @@ async function handle_POST_comments_bulk(
           ]
         );
 
-        const comment = insertedComment[0];
+        await client.query("COMMIT");
+        const comment = insertedComment.rows[0];
+        importedTids.push(comment.tid);
         const tid = comment.tid;
         const createdTimeMillis = safeTimestampToMillis(comment.created);
         const createdTime = new Date(createdTimeMillis);
@@ -963,11 +977,17 @@ async function handle_POST_comments_bulk(
 
         results.push({ txt, status: "success", tid, original_id });
       } catch (err: any) {
+        if (client) await client.query("ROLLBACK");
+        if (!importedTids.length) pid = initialPid;
+        if (err instanceof ImportTargetNotEmptyError || err.code === "55P03") throw new ImportTargetNotEmptyError();
         logger.error("polis_err_bulk_comment_item", { error: err, txt });
         const reason = isDuplicateStatement(err)
           ? "polis_err_post_comment_duplicate"
           : "polis_err_post_comment";
         results.push({ txt, status: "error", reason });
+      } finally {
+        // Failed participant inserts can retain a session advisory lock.
+        if (client) client.release(true);
       }
     }
 
@@ -980,6 +1000,13 @@ async function handle_POST_comments_bulk(
       currentPid: pid,
     });
   } catch (err: any) {
+    if (err instanceof ImportTargetNotEmptyError) {
+      failJson(res, 409, err.code, err, {
+        code: err.code,
+        message: IMPORT_TARGET_MESSAGE,
+      });
+      return;
+    }
     failJson(res, 500, "polis_err_post_comments_bulk", err);
   }
 }

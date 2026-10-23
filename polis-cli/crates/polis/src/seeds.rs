@@ -178,6 +178,17 @@ pub fn submission(raw: &str, origin: &str, conversation: &str) -> Result<(String
     ))
 }
 
+/// The server owns the refusal; give the caller an explicit recovery action.
+pub fn import_error(mut error: polis_contracts::Error) -> polis_contracts::Error {
+    if error.upstream["body"]["error"] == "polis_err_import_target_not_empty"
+        || error.upstream["code"] == "polis_err_import_target_not_empty"
+    {
+        error.message = "This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.".into();
+        error.action = "Run polis seed import with --new-conversation instead of --conversation; keep the same files and --source-agree.";
+    }
+    error
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

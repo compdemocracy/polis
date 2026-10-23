@@ -19,7 +19,17 @@ jest.mock("../../src/config", () => ({
 }));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: mockQuery, queryP_readOnly: mockQuery, queryP_notification: jest.fn(async () => []) },
+  default: {
+    queryP: mockQuery,
+    queryP_readOnly: mockQuery,
+    queryP_notification: jest.fn(async () => []),
+    connect: jest.fn(async () => ({
+      query: async (sql: string, params: unknown[]) => ({
+        rows: await mockQuery(sql, params),
+      }),
+      release: jest.fn(),
+    })),
+  },
 }));
 jest.mock("../../src/utils/logger", () => ({
   __esModule: true,
@@ -85,6 +95,8 @@ function uniqueViolation(constraint: string) {
 /** Every query answers [] except the comment INSERT, which fails with err. */
 function insertFailsWith(err: Error | null) {
   mockQuery.mockImplementation(async (sql: string) => {
+    if (/AS occupied/.test(sql)) return [{ occupied: false }];
+    if (/pg_try_advisory_xact_lock/.test(sql)) return [{ acquired: true }];
     if (/INSERT INTO COMMENTS/.test(sql)) {
       if (err) throw err;
       return [{ tid: 3, created: 10000000000000 }];

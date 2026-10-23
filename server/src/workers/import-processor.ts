@@ -1,3 +1,9 @@
+import type { PoolClient } from "pg";
+import {
+  assertImportTargetEmpty,
+  lockImportTarget,
+  ImportTargetNotEmptyError,
+} from "../utils/import-target";
 import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import { parse } from "csv-parse";
@@ -47,8 +53,15 @@ export async function processImportJob(payload: {
   const { jobId, zid, s3Key, email } = payload;
   const BATCH_SIZE = 1000;
   let processedCount = 0;
+  const state: ImportState = {
+    started: false,
+    participants: new Map(),
+    latest: new Map(),
+    voteCount: 0,
+  };
 
   try {
+    await assertImportTargetEmpty(zid, "votes");
     await pg.queryP(
       "UPDATE byod_import_jobs SET status = 'processing', updated_at = NOW() WHERE id = $1",
       [jobId]
@@ -101,7 +114,7 @@ export async function processImportJob(payload: {
           if (batch.length >= BATCH_SIZE) {
             stream.pause();
             parser.pause();
-            flushBatchToDb(batch)
+            flushBatchToDb(batch, state)
               .then(() => {
                 processedCount += batch.length;
                 batch = [];
@@ -117,7 +130,7 @@ export async function processImportJob(payload: {
         .on("end", async () => {
           if (batch.length > 0) {
             try {
-              await flushBatchToDb(batch);
+              await flushBatchToDb(batch, state);
               processedCount += batch.length;
               resolve();
             } catch (err) {
@@ -130,17 +143,21 @@ export async function processImportJob(payload: {
         .on("error", (err) => reject(err));
     });
 
-    logger.info(`[Worker] Refreshing votes_latest_unique for ZID ${zid}...`);
-    await refreshVotesLatestUnique(zid);
-    logger.info(`[Worker] Syncing participant stats for ZID ${zid}...`);
-    await syncParticipantStats(zid);
-    logger.info(`[Worker] Triggering Math Engine Recalc for ZID ${zid}...`);
-    await triggerMathRecalc(zid);
+    if (!state.started) {
+      await completeEmptyImport(jobId, zid);
+    } else {
+      logger.info(`[Worker] Refreshing votes_latest_unique for ZID ${zid}...`);
+      await refreshVotesLatestUnique(zid, [...state.latest.values()]);
+      logger.info(`[Worker] Syncing participant stats for ZID ${zid}...`);
+      await syncParticipantStats(zid, [...state.participants.values()]);
+      logger.info(`[Worker] Triggering Math Engine Recalc for ZID ${zid}...`);
+      await triggerMathRecalc(zid);
 
-    await pg.queryP(
-      "UPDATE byod_import_jobs SET status = 'completed', stage = 'finished', updated_at = NOW() WHERE id = $1",
-      [jobId]
-    );
+      await pg.queryP(
+        "UPDATE byod_import_jobs SET status = 'completed', stage = 'finished', updated_at = NOW() WHERE id = $1",
+        [jobId]
+      );
+    }
     logger.info(
       `[Worker] Job ${jobId} Completed. Processed ${processedCount} rows.`
     );
@@ -282,7 +299,20 @@ function mapRowData(
   return [zid, internalTid, row.user_id, voteValue, ts];
 }
 
-async function flushBatchToDb(rows: any[][]) {
+type ImportedLatest = {
+  pid: number;
+  tid: number;
+  vote: number;
+  modified: string;
+};
+type ImportState = {
+  started: boolean;
+  voteCount: number;
+  participants: Map<string, number>;
+  latest: Map<string, ImportedLatest>;
+};
+
+async function flushBatchToDb(rows: any[][], state: ImportState) {
   if (rows.length === 0) return;
 
   const zids = rows.map((r) => r[0]);
@@ -295,6 +325,13 @@ async function flushBatchToDb(rows: any[][]) {
 
   try {
     await client.query("BEGIN");
+    await client.query("SET LOCAL lock_timeout = '100ms'");
+    await lockImportTarget(client, zids[0]);
+    if (!state.started) await assertImportTargetEmpty(zids[0], "votes", client);
+    const pidMap = new Map(state.participants);
+    const newUsernames = [...new Set(usernames)].filter(
+      (name) => !pidMap.has(name)
+    );
 
     // 1. Users
     await client.query(
@@ -303,35 +340,59 @@ async function flushBatchToDb(rows: any[][]) {
       SELECT DISTINCT unnest($1::text[]), unnest($1::text[]) || '@import.local', $2::bigint
       ON CONFLICT (email) DO NOTHING
     `,
-      [usernames, timestamps[0]]
+      [newUsernames, timestamps[0]]
     );
 
-    // 2. Participants
-    await client.query(
-      `
-      INSERT INTO participants (uid, zid, created)
-      SELECT DISTINCT u.uid, $1::int, $2::bigint
-      FROM unnest($3::text[]) AS input_username
-      JOIN users u ON u.username = input_username
-      ON CONFLICT (zid, uid) DO NOTHING
-    `,
-      [zids[0], timestamps[0], usernames]
+    // Adopt only memberships returned by this INSERT. An existing member,
+    // including the owner, is never a destination for imported votes.
+    const inserted = await client.query(
+      `INSERT INTO participants (uid, zid, created)
+       SELECT DISTINCT u.uid, $1::int, $2::bigint
+       FROM unnest($3::text[]) AS input_username
+       JOIN users u ON u.username = input_username
+       ON CONFLICT (zid, uid) DO NOTHING
+       RETURNING pid, uid`,
+      [zids[0], timestamps[0], newUsernames]
     );
-
-    // 3. Resolve PIDs
-    const pidResult = await client.query(
-      `
-      SELECT p.pid, u.username 
-      FROM participants p
-      JOIN users u ON p.uid = u.uid
-      WHERE p.zid = $1 
-      AND u.username = ANY($2::text[])
-    `,
-      [zids[0], usernames]
+    const identities = await client.query(
+      `SELECT p.pid, u.username FROM participants p JOIN users u ON p.uid = u.uid
+       WHERE p.zid = $1 AND p.pid = ANY($2::int[])`,
+      [zids[0], inserted.rows.map((row) => row.pid)]
     );
+    for (const row of identities.rows) {
+      if (pidMap.has(row.username)) throw new ImportTargetNotEmptyError();
+      pidMap.set(row.username, row.pid);
+    }
+    if (newUsernames.some((name) => !pidMap.has(name)))
+      throw new ImportTargetNotEmptyError();
 
-    const pidMap = new Map<string, number>();
-    pidResult.rows.forEach((row: any) => pidMap.set(row.username, row.pid));
+    // A later batch may revisit only this invocation's keys. Refuse if live
+    // activity changed one since publication. NOWAIT makes the import yield to
+    // an in-flight writer; no external work occurs while these locks are held.
+    const touched = new Set(rows.map((r) => `${pidMap.get(r[2])}:${r[1]}`));
+    const previous = [...state.latest.values()].filter((v) =>
+      touched.has(`${v.pid}:${v.tid}`)
+    );
+    if (previous.length) {
+      const current = await client.query(
+        `SELECT v.pid, v.tid, v.vote, v.modified FROM votes_latest_unique v
+         JOIN unnest($2::int[], $3::int[]) AS k(pid, tid) USING (pid, tid)
+         WHERE v.zid = $1 FOR UPDATE OF v NOWAIT`,
+        [zids[0], previous.map((v) => v.pid), previous.map((v) => v.tid)]
+      );
+      if (
+        current.rows.length !== previous.length ||
+        current.rows.some((v) => {
+          const expected = state.latest.get(`${v.pid}:${v.tid}`);
+          return (
+            !expected ||
+            v.vote !== expected.vote ||
+            String(v.modified) !== expected.modified
+          );
+        })
+      )
+        throw new ImportTargetNotEmptyError();
+    }
 
     // 4. Re-map data
     const votePids: number[] = [];
@@ -351,6 +412,29 @@ async function flushBatchToDb(rows: any[][]) {
       }
     }
 
+    const keys = new Map(previous.map((v) => [`${v.pid}:${v.tid}`, v]));
+    for (let i = 0; i < votePids.length; i++) {
+      const key = `${votePids[i]}:${voteTids[i]}`;
+      if (!keys.has(key))
+        keys.set(key, {
+          pid: votePids[i],
+          tid: voteTids[i],
+          vote: voteValues[i],
+          modified: String(voteTimestamps[i]),
+        });
+    }
+    const countOwnedVotes = async () =>
+      Number(
+        (
+          await client.query(
+            "SELECT count(*) AS n FROM votes WHERE zid = $1 AND pid = ANY($2::int[])",
+            [zids[0], [...pidMap.values()]]
+          )
+        ).rows[0].n
+      );
+    if ((await countOwnedVotes()) !== state.voteCount)
+      throw new ImportTargetNotEmptyError();
+
     // 5. Insert Votes
     if (votePids.length > 0) {
       await client.query(
@@ -362,9 +446,38 @@ async function flushBatchToDb(rows: any[][]) {
       );
     }
 
+    // If a live writer committed first, its history is now visible, including
+    // the absent-key race. Roll back our history AND the rule's latest update.
+    // A writer still waiting on our latest row commits after us and wins.
+    if ((await countOwnedVotes()) !== state.voteCount + votePids.length)
+      throw new ImportTargetNotEmptyError();
+
+    // The history INSERT rule also writes latest. Restore the newest history
+    // for precisely our keys before commit, including older out-of-order input.
+    await refreshVotesLatestUnique(zids[0], [...keys.values()], client);
+    const published = await client.query(
+      `SELECT v.pid, v.tid, v.vote, v.modified FROM votes_latest_unique v
+       JOIN unnest($2::int[], $3::int[]) AS k(pid, tid) USING (pid, tid)
+       WHERE v.zid = $1`,
+      [
+        zids[0],
+        [...keys.values()].map((v) => v.pid),
+        [...keys.values()].map((v) => v.tid),
+      ]
+    );
     await client.query("COMMIT");
+    state.started = true;
+    state.voteCount += votePids.length;
+    state.participants = pidMap;
+    for (const v of published.rows) {
+      state.latest.set(`${v.pid}:${v.tid}`, {
+        ...v,
+        modified: String(v.modified),
+      });
+    }
   } catch (e) {
     await client.query("ROLLBACK");
+    if (e.code === "55P03") throw new ImportTargetNotEmptyError();
     throw e;
   } finally {
     // The participants INSERT fires pid_auto, whose session advisory lock is
@@ -376,27 +489,62 @@ async function flushBatchToDb(rows: any[][]) {
   }
 }
 
-async function refreshVotesLatestUnique(zid: number) {
+export async function refreshVotesLatestUnique(
+  zid: number,
+  keys: { pid: number; tid: number }[],
+  client?: PoolClient
+) {
+  if (!keys.length) return;
   const query = `
     INSERT INTO votes_latest_unique (zid, pid, tid, vote, modified)
-    SELECT DISTINCT ON (pid, tid)
-      zid,
-      pid,
-      tid,
-      vote,
-      created
-    FROM votes
-    WHERE zid = $1
-    ORDER BY pid, tid, created DESC
+    SELECT DISTINCT ON (v.pid, v.tid)
+      v.zid, v.pid, v.tid, v.vote, v.created
+    FROM votes v
+    JOIN unnest($2::int[], $3::int[]) AS k(pid, tid) USING (pid, tid)
+    WHERE v.zid = $1
+    ORDER BY v.pid, v.tid, v.created DESC
     ON CONFLICT (zid, pid, tid)
     DO UPDATE SET
       vote = EXCLUDED.vote,
-      modified = EXCLUDED.modified;
+      modified = EXCLUDED.modified
+    WHERE EXCLUDED.modified > votes_latest_unique.modified;
   `;
-  await pg.queryP(query, [zid]);
+  // Bound each publication even for a large job. Outside a batch transaction,
+  // each chunk commits independently and releases its row locks immediately.
+  for (let offset = 0; offset < keys.length; offset += 1000) {
+    const chunk = keys.slice(offset, offset + 1000);
+    const params = [zid, chunk.map((k) => k.pid), chunk.map((k) => k.tid)];
+    if (client) await client.query(query, params);
+    else await pg.queryP(query, params);
+  }
 }
 
-async function triggerMathRecalc(zid: number) {
+// A header-only file or one containing only unknown comment IDs never flushes
+// a batch. Its first conversation writes still need the transactional refusal
+// check, after all object reads have finished and before completion side effects.
+async function completeEmptyImport(jobId: number, zid: number) {
+  const client = await pg.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL lock_timeout = '100ms'");
+    await lockImportTarget(client, zid);
+    await assertImportTargetEmpty(zid, "votes", client);
+    await triggerMathRecalc(zid, client);
+    await client.query(
+      "UPDATE byod_import_jobs SET status = 'completed', stage = 'finished', updated_at = NOW() WHERE id = $1",
+      [jobId]
+    );
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.code === "55P03") throw new ImportTargetNotEmptyError();
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function triggerMathRecalc(zid: number, client?: PoolClient) {
   const query = `
     INSERT INTO math_ticks (zid, math_env, math_tick, modified)
     VALUES ($1, 'prod', 1, (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
@@ -405,14 +553,18 @@ async function triggerMathRecalc(zid: number) {
       math_tick = math_ticks.math_tick + 1,
       modified = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint;
   `;
-  await pg.queryP(query, [zid]);
-  await pg.queryP(
-    "UPDATE conversations SET modified = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint WHERE zid = $1",
-    [zid]
-  );
+  const modifiedQuery =
+    "UPDATE conversations SET modified = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint WHERE zid = $1";
+  if (client) {
+    await client.query(query, [zid]);
+    await client.query(modifiedQuery, [zid]);
+  } else {
+    await pg.queryP(query, [zid]);
+    await pg.queryP(modifiedQuery, [zid]);
+  }
 }
 
-async function syncParticipantStats(zid: number) {
+async function syncParticipantStats(zid: number, pids: number[]) {
   const query = `
     WITH ptpt_stats AS (
         SELECT 
@@ -420,7 +572,7 @@ async function syncParticipantStats(zid: number) {
             COUNT(*) as actual_vote_count,
             MAX(created) as last_active
         FROM votes
-        WHERE zid = $1
+        WHERE zid = $1 AND pid = ANY($2::int[])
         GROUP BY pid
     )
     UPDATE participants p
@@ -431,5 +583,5 @@ async function syncParticipantStats(zid: number) {
     WHERE p.zid = $1 
     AND p.pid = ps.pid;
   `;
-  await pg.queryP(query, [zid]);
+  await pg.queryP(query, [zid, pids]);
 }

@@ -1,3 +1,8 @@
+import {
+  assertImportTargetEmpty,
+  ImportTargetNotEmptyError,
+  IMPORT_TARGET_MESSAGE,
+} from "../utils/import-target";
 import _ from "underscore";
 
 import { ConversationInfo, PidReadyResult, RequestWithP } from "../d";
@@ -366,7 +371,7 @@ async function triggerImportWorker(payload: {
 
 async function handle_POST_votes_bulk(
   req: RequestWithP,
-  res: Response & { json: (data: any) => void },
+  res: Response & { json: (data: any) => void }
 ): Promise<void> {
   // Express 3.21.2 invokes a route callback and moves on
   // (express/lib/router/index.js:164): it neither awaits the returned promise
@@ -393,7 +398,7 @@ async function handle_POST_votes_bulk(
   // everywhere in the API.
   try {
     checkImportDeclaration(
-      typeof csv === "string" ? csv.split("\n", 1)[0] : null,
+      typeof csv === "string" ? csv.split("\n", 1)[0] : null
     );
   } catch (err) {
     if (err instanceof VoteDeclarationError) {
@@ -405,6 +410,8 @@ async function handle_POST_votes_bulk(
   }
 
   try {
+    await assertImportTargetEmpty(zid, "votes");
+
     // Validation Check: Ensure this conversation supports external mapping.
     // We check for the existence of AT LEAST ONE comment with a non-null original_id.
     // We do not fetch all IDs here; the Mapping Service handles the heavy lifting later.
@@ -441,6 +448,13 @@ async function handle_POST_votes_bulk(
       message: "Vote import started. This may take a few minutes.",
     });
   } catch (err: any) {
+    if (err instanceof ImportTargetNotEmptyError) {
+      failJson(res, 409, err.code, err, {
+        code: err.code,
+        message: IMPORT_TARGET_MESSAGE,
+      });
+      return;
+    }
     logger.error("polis_err_post_votes_bulk", err);
     failJson(res, 500, "polis_err_post_votes_bulk", err);
   }
