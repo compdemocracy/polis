@@ -99,6 +99,18 @@ checks each path independently as well as the selector total. `votesRead`
 exercises `vote list` and `vote mine` with empty and single-row results served
 from Rust, then requires a Node handoff for each multi-row read. Vote POSTs
 remain Node requests and count separately from the read successes.
+The current-participant, social-profile, bucket, location and participant-owned
+CSV selectors exercise the corresponding CLI reads, including missing membership,
+filtered profiles, owner bucket and absent-group cases. Their process switches
+and independent read pools are enabled only in the generated Compose fixture.
+Seven HTML selectors have supplemental HTTP scenarios because the CLI accepts
+API paths only: GET and HEAD must serve from Rust, while a query parameter must
+hand back to Node. Each case requires HTTP 200 and HTML, and compares status,
+content type and full body bytes between phases. These are reported separately
+under `pages`, without response values; complete header/wire equivalence remains
+the separate byte gate. A fixed participation-page static service runs only on
+its own port, preserving unrelated missing-static scenarios. Every route's exact
+request count is also checked with switches off, with no Rust contact allowed.
 Each entry requires an exact request count, a minimum number of sole Rust
 HTTP200 responses, and an exact count of scoped Node handoffs with a reason.
 These counts cover this generated fixture only. Unexercised routes explicitly
