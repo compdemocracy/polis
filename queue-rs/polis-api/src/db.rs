@@ -126,17 +126,46 @@ pub struct Pool {
     idle: Mutex<Vec<(Client, Instant)>>,
     permits: Arc<Semaphore>,
     limits: Limits,
+    writable: bool,
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) evidence: PoolEvidence,
 }
 
+impl Drop for Pool {
+    fn drop(&mut self) {
+        let idle = std::mem::take(self.idle.get_mut().unwrap_or_else(|e| e.into_inner()));
+        if idle.is_empty() {
+            return;
+        }
+        // Synchronous postgres clients own a runtime. Their destructor cannot
+        // run inside Tokio, including when the last App is released on SIGINT.
+        // A plain thread works even while the outer runtime is shutting down.
+        // Active operations retain an Arc, so the last drop cannot race them.
+        if tokio::runtime::Handle::try_current().is_ok() {
+            let _ = std::thread::spawn(move || drop(idle)).join();
+        } else {
+            drop(idle);
+        }
+    }
+}
+
 impl Pool {
     pub fn new(connector: Connector, limits: Limits) -> Arc<Self> {
+        Self::configured(connector, limits, false)
+    }
+
+    /// Only explicitly configured writers use independent instances of this pool.
+    pub(crate) fn writer(connector: Connector, limits: Limits) -> Arc<Self> {
+        Self::configured(connector, limits, true)
+    }
+
+    fn configured(connector: Connector, limits: Limits, writable: bool) -> Arc<Self> {
         Arc::new(Self {
             connector,
             idle: Mutex::new(Vec::new()),
             permits: Arc::new(Semaphore::new(limits.size)),
             limits,
+            writable,
             #[cfg(all(test, feature = "db-tests"))]
             evidence: PoolEvidence::default(),
         })
@@ -144,11 +173,18 @@ impl Pool {
 
     fn connect(&self) -> Result<Client> {
         let mut client = self.connector.connect()?;
-        // Every statement here is a read; the session refuses writes outright.
+        // Read pools retain their session guard. The writer has independent
+        // slots and bounds lock waits as well as statement execution.
+        let mode = if self.writable { "WRITE" } else { "ONLY" };
         client.batch_execute(&format!(
-            "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY; SET statement_timeout = {}",
+            "SET SESSION CHARACTERISTICS AS TRANSACTION READ {mode}; SET statement_timeout = {}",
             self.limits.statement_timeout.as_millis()
         ))?;
+        if self.writable {
+            client.batch_execute(
+                "SET lock_timeout = 100; SET idle_in_transaction_session_timeout = 1000",
+            )?;
+        }
         Ok(client)
     }
 

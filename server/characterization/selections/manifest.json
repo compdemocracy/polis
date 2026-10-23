@@ -1,0 +1,23 @@
+{
+  "source_commit": "19873803fa2b84ddca841a50cfb57009650554de",
+  "route_cases": 164,
+  "controls": 13,
+  "rust_exact": 40,
+  "rust_handback": 124,
+  "node_source_sha256": {
+    "server/app.ts": "209cee3b1895cac294786e2ec31e2d08df5b2a21b5071a32709f4c13261f9ca6",
+    "server/src/routes/delphi/topicAgenda.ts": "33fe33c20f4bdec47c241ffdbb25dad5eed5b26cd2a331d454f51965c030cce9",
+    "server/src/auth/ensure-participant.ts": "c886c8743c069810996db8c992c6df9b67c7a40c0e0612e275c34b670e9315e3",
+    "server/src/auth/hybrid-jwt.ts": "f548b98012f0011963ec9a6bcf6d42eaee2859f6fc0191f0db50a491075c6553",
+    "server/src/auth/attach-auth-token.ts": "5c9587eefeaeb2d55e98045e80255e0d9d4fefa47dca3282c817c43e1a55f7d7",
+    "queue-rs/polis-auth/src/participant.rs": "ae90da11728a7c03b4f7ba398a4985c9dba6b3e001c16c6bd6d518ffc94e61ab",
+    "server/postgres/migrations/000012_create_topic_agenda_selections.sql": "cc513693124f031ce1d55e7e73b14b4e3c40a4070e65465adbc621e63b1008cf",
+    "server/__tests__/integration/participation-under-load.test.ts": "8db39ea4a536484d74ad5124d6bd4f09490db83bb581bb6c0087f62e6b257c8b"
+  },
+  "corpus_sha256": {
+    "cases.json": "4ce965ff87966d370fbb7a03d8de84b720299187831d4d80b05d650f3405c5ce",
+    "controls.json": "ce0382b8fea96f1559b68e35ee7244c001f8b925488647037f5ac136e23efddb"
+  },
+  "response_comparison": "Status, ordered headers and lexical body bytes; verified issued-token substitution with identity witness; validated Content-Length/ETag derived after token substitution; Date/Connection/Keep-Alive excluded.",
+  "durable_comparison": "Selection rows and memberships, OIDC mappings and newly created account fields. Rust handbacks compare all rows/columns in eight fixture tables."
+}

@@ -33,6 +33,8 @@ use std::sync::{
 pub const PATH: &str = "/api/v3/math/pca2";
 
 pub struct App {
+    pub(crate) mark_writer: Option<crate::mark_writes::Writer>,
+    pub(crate) topic_selection_writer: Option<crate::topic_selection_writes::Writer>,
     pub math_env: String,
     pub dev_mode: bool,
     pub use_network_host: bool,
@@ -453,6 +455,8 @@ impl App {
             dev_mode: cfg.dev_mode,
             use_network_host: cfg.use_network_host,
             production: cfg.production,
+            topic_selection_writer: None,
+            mark_writer: None,
             cors: Cors::from_env(),
             pca: Pca::new(db.clone(), cfg.math_env.clone(), cfg.cache_size),
             db,
@@ -1515,7 +1519,17 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if crate::mark_writes::matches(req.path()) && !crate::mark_writes::eligible(app, req) {
+        return bad_gateway();
+    }
     if req.path() == crate::topic_selections::PATH
+        && matches!(req.method.as_str(), "POST" | "PUT" | "DELETE")
+        && !crate::topic_selection_writes::eligible(app, req)
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::topic_selections::PATH
+        && !matches!(req.method.as_str(), "POST" | "PUT" | "DELETE")
         && crate::topic_selections::parse(app, req).is_none()
     {
         return bad_gateway();
@@ -1730,6 +1744,14 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         let mut res = res;
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
+    }
+    if req.path() == crate::topic_selections::PATH
+        && matches!(req.method.as_str(), "POST" | "PUT" | "DELETE")
+    {
+        return crate::topic_selection_writes::handle(app, req, res).await;
+    }
+    if crate::mark_writes::matches(req.path()) {
+        return crate::mark_writes::handle(app, req, res).await;
     }
     if req.method != "GET" && req.method != "HEAD" {
         return final_handler(app, req, res, None, true);

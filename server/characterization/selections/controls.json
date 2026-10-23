@@ -1,0 +1,334 @@
+[
+  {
+    "name": "lost-first-credentials-tokenless-retry",
+    "statuses": [
+      200,
+      200
+    ],
+    "pids": [
+      "5",
+      "6"
+    ],
+    "state": {
+      "rows": [
+        {
+          "zid": 8700101,
+          "pid": 5,
+          "archetypal_selections": [
+            "first"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        },
+        {
+          "zid": 8700101,
+          "pid": 6,
+          "archetypal_selections": [
+            "retry"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        }
+      ],
+      "members": [
+        {
+          "pid": 0,
+          "uid": 8700201
+        },
+        {
+          "pid": 1,
+          "uid": 8700202
+        },
+        {
+          "pid": 2,
+          "uid": 8700203
+        },
+        {
+          "pid": 3,
+          "uid": 8700204
+        },
+        {
+          "pid": 4,
+          "uid": 8700205
+        },
+        {
+          "pid": 5,
+          "uid": "generated-new-5"
+        },
+        {
+          "pid": 6,
+          "uid": "generated-new-6"
+        }
+      ]
+    },
+    "sameIdentityRecovered": false
+  },
+  {
+    "name": "disconnect-after-selection-commit",
+    "committedBeforeDisconnect": 1,
+    "retryStatus": 200,
+    "identityRecovered": false,
+    "state": {
+      "rows": [
+        {
+          "zid": 8700101,
+          "pid": 5,
+          "archetypal_selections": [
+            "lost-reply"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        },
+        {
+          "zid": 8700101,
+          "pid": 6,
+          "archetypal_selections": [
+            "retry-after-loss"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        }
+      ],
+      "members": [
+        {
+          "pid": 0,
+          "uid": 8700201
+        },
+        {
+          "pid": 1,
+          "uid": 8700202
+        },
+        {
+          "pid": 2,
+          "uid": 8700203
+        },
+        {
+          "pid": 3,
+          "uid": 8700204
+        },
+        {
+          "pid": 4,
+          "uid": 8700205
+        },
+        {
+          "pid": 5,
+          "uid": "generated-new-5"
+        },
+        {
+          "pid": 6,
+          "uid": "generated-new-6"
+        }
+      ]
+    }
+  },
+  {
+    "name": "late-error-after-commit",
+    "status": 500,
+    "body": "{\"status\":\"error\",\"message\":\"Failed to save topic agenda selections\"}",
+    "state": {
+      "rows": [
+        {
+          "zid": 8700101,
+          "pid": 1,
+          "archetypal_selections": [
+            "committed"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        }
+      ],
+      "members": [
+        {
+          "pid": 0,
+          "uid": 8700201
+        },
+        {
+          "pid": 1,
+          "uid": 8700202
+        },
+        {
+          "pid": 2,
+          "uid": 8700203
+        },
+        {
+          "pid": 3,
+          "uid": 8700204
+        },
+        {
+          "pid": 4,
+          "uid": 8700205
+        }
+      ]
+    }
+  },
+  {
+    "name": "put-update-miss-post-insert-put-conflict",
+    "statuses": [
+      200,
+      500
+    ],
+    "body": "{\"status\":\"error\",\"message\":\"Failed to update topic agenda selections\"}",
+    "state": {
+      "rows": [
+        {
+          "zid": 8700101,
+          "pid": 1,
+          "archetypal_selections": [
+            "post"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        }
+      ],
+      "members": [
+        {
+          "pid": 0,
+          "uid": 8700201
+        },
+        {
+          "pid": 1,
+          "uid": 8700202
+        },
+        {
+          "pid": 2,
+          "uid": 8700203
+        },
+        {
+          "pid": 3,
+          "uid": 8700204
+        },
+        {
+          "pid": 4,
+          "uid": 8700205
+        }
+      ]
+    }
+  },
+  {
+    "name": "post-delete-put",
+    "statuses": [
+      200,
+      200
+    ],
+    "bodies": [
+      "{\"status\":\"success\",\"message\":\"Topic agenda selections deleted successfully\"}",
+      "{\"status\":\"success\",\"message\":\"Topic agenda selections created successfully\",\"data\":{\"conversation_id\":\"8700101\",\"participant_id\":\"1\",\"selections_count\":1,\"job_id\":null}}"
+    ],
+    "state": {
+      "rows": [
+        {
+          "zid": 8700101,
+          "pid": 1,
+          "archetypal_selections": [
+            "after-delete"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        }
+      ],
+      "members": [
+        {
+          "pid": 0,
+          "uid": 8700201
+        },
+        {
+          "pid": 1,
+          "uid": 8700202
+        },
+        {
+          "pid": 2,
+          "uid": 8700203
+        },
+        {
+          "pid": 3,
+          "uid": 8700204
+        },
+        {
+          "pid": 4,
+          "uid": 8700205
+        }
+      ]
+    }
+  },
+  {
+    "name": "publication-network-wait-before-write",
+    "lookupEntered": true,
+    "openSelectionTransactions": 0,
+    "state": {
+      "rows": [
+        {
+          "zid": 8700101,
+          "pid": 1,
+          "archetypal_selections": [
+            "lookup"
+          ],
+          "delphi_job_id": null,
+          "total_selections": 1
+        }
+      ],
+      "members": [
+        {
+          "pid": 0,
+          "uid": 8700201
+        },
+        {
+          "pid": 1,
+          "uid": 8700202
+        },
+        {
+          "pid": 2,
+          "uid": 8700203
+        },
+        {
+          "pid": 3,
+          "uid": 8700204
+        },
+        {
+          "pid": 4,
+          "uid": 8700205
+        }
+      ]
+    }
+  },
+  {
+    "name": "immediate-topical-next-comment",
+    "selectedTopic": "generated-topic",
+    "distractorTid": 1,
+    "saveStatus": 200,
+    "nextStatus": 200,
+    "body": "{\"tid\":0,\"txt\":\"Generated topic comment\",\"translations\":[],\"currentPid\":1,\"conversation_id\":\"2selectionfixture\"}",
+    "topicCalls": [
+      "Delphi_CommentClustersLLMTopicNames",
+      "Delphi_CommentHierarchicalClusterAssignments"
+    ]
+  },
+  {
+    "name": "auth-wrapper-object",
+    "status": 500,
+    "body": "{\"error\":\"generated\",\"auth\":{\"token\":\"generated-control\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  {
+    "name": "auth-wrapper-array",
+    "status": 500,
+    "body": "[]"
+  },
+  {
+    "name": "auth-wrapper-existing",
+    "status": 500,
+    "body": "{\"auth\":{\"token\":\"existing\"}}"
+  },
+  {
+    "name": "auth-wrapper-false-auth",
+    "status": 500,
+    "body": "{\"auth\":{\"token\":\"generated-control\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  {
+    "name": "auth-wrapper-null",
+    "status": 500,
+    "body": "null"
+  },
+  {
+    "name": "auth-wrapper-non-json",
+    "body": "plain response"
+  }
+]
