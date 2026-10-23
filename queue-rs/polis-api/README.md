@@ -1488,3 +1488,5 @@ Social participant rows: [contract and admission](PTPTOIS.md).
 Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).
 
 Bucket membership and group locations: [contract and admission](MATH-MEMBERSHIP.md).
+
+Conversation HTML pages: [contract and bounded admission](CONVERSATION-PAGES.md).

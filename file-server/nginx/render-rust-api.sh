@@ -72,6 +72,36 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} metadataAnswers"
       ;;
+    conversationPage)
+      case " $rust_api_locations " in *" conversationPage "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/[0-9][0-9A-Za-z]+ ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} conversationPage"
+      ;;
+    explorePage)
+      case " $rust_api_locations " in *" explorePage "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/explore/[0-9][0-9A-Za-z]+ ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} explorePage"
+      ;;
+    sharePage)
+      case " $rust_api_locations " in *" sharePage "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/share/[0-9][0-9A-Za-z]+ ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} sharePage"
+      ;;
+    summaryPage)
+      case " $rust_api_locations " in *" summaryPage "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/summary/[0-9][0-9A-Za-z]+ ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} summaryPage"
+      ;;
+    oneTimePage)
+      case " $rust_api_locations " in *" oneTimePage "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/ot/[0-9][0-9A-Za-z]+ ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} oneTimePage"
+      ;;
     iip)
       case " $rust_api_locations " in *" iip "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/iip/[^/]+/?$ ${RUST_API_UPSTREAM};
@@ -392,7 +422,7 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 done
 export RUST_API_RESOLVER=${RUST_API_RESOLVER:-127.0.0.11}
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment testConnection testDatabase contexts domainWhitelist metadataQuestions metadataAnswers iip iim locations bid myInvitesCsv participantsRead ptptois votesRead metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead otherConversationsPage integratePage adminPage userLogoutPage settingsPage userLoginPage userCreatePage createPage einvitesRead legacyConversations robots about). Selection rejected." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment testConnection testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage explorePage sharePage summaryPage oneTimePage iip iim locations bid myInvitesCsv participantsRead ptptois votesRead metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead otherConversationsPage integratePage adminPage userLogoutPage settingsPage userLoginPage userCreatePage createPage einvitesRead legacyConversations robots about). Selection rejected." >&2
   exit 1
 elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then

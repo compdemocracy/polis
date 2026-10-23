@@ -6,6 +6,7 @@ pub mod bid_to_pid;
 pub mod collective_statement;
 pub mod connection;
 pub mod contexts;
+pub mod conversation_pages;
 pub mod conversation_preload;
 pub mod conversation_stats;
 pub mod create_page;

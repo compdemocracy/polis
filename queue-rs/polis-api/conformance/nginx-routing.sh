@@ -1493,3 +1493,30 @@ stub "$p-rust" polis-api 5100 502 handoff
 sleep 6
 expect /api/v3/locations node "locations fallback"
 echo "ok locations: off/on/deduplicated, methods/body, fallback"
+
+# Conversation HTML routes retain independent default-off selectors.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+for prefix in / /explore/ /share/ /summary/ /ot/; do expect "${prefix}4fixture" node "conversation page off"; done
+for selector in conversationPage explorePage sharePage summaryPage oneTimePage; do
+ case "$selector" in conversationPage) prefix=/ ;; explorePage) prefix=/explore/ ;; sharePage) prefix=/share/ ;; summaryPage) prefix=/summary/ ;; oneTimePage) prefix=/ot/ ;; esac
+ start "$selector,$selector"
+ expect "${prefix}4fixture" rust "conversation page on"
+ expect "${prefix}4fixture/suffix" rust "conversation page prefix suffix"
+ expect_upstream polis-api HEAD "${prefix}4fixture"
+ expect_upstream server OPTIONS "${prefix}4fixture"
+ expect_upstream server POST "${prefix}4fixture" $'Content-Length: 2\r\n' '{}'
+ expect_upstream server GET "${prefix}4fixture" $'Content-Length: 2\r\n' '{}'
+ for other in / /explore/ /share/ /summary/ /ot/; do
+  if [[ $other != "$prefix" ]]; then expect "${other}4fixture" node "other conversation switch off"; fi
+ done
+ expect /api/v3/votes node "page leaves votes alone"
+ expect /api/v3/nextComment node "page leaves next statement alone"
+done
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+start conversationPage,explorePage,sharePage,summaryPage,oneTimePage
+for prefix in / /explore/ /share/ /summary/ /ot/; do expect "${prefix}4fixture" node "conversation page handback"; done
+echo "ok conversation HTML: five independent switches, suffix, methods/body, fallback"

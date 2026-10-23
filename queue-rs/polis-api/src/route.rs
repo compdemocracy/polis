@@ -48,6 +48,10 @@ pub struct App {
     pub metadata_questions_auth_db: Option<Arc<Pool>>,
     pub metadata_questions_served: AtomicU64,
     pub metadata_questions_fallback: AtomicU64,
+    pub conversation_pages: [Option<crate::conversation_pages::Client>; 5],
+    pub conversation_page_dbs: [Option<Arc<Pool>>; 5],
+    pub conversation_page_served: [AtomicU64; 5],
+    pub conversation_page_fallback: [AtomicU64; 5],
     pub iip_db: Option<Arc<Pool>>,
     pub iim_db: Option<Arc<Pool>>,
     pub iip_served: AtomicU64,
@@ -285,6 +289,10 @@ impl App {
             metadata_questions_auth_db: None,
             metadata_questions_served: AtomicU64::new(0),
             metadata_questions_fallback: AtomicU64::new(0),
+            conversation_pages: std::array::from_fn(|_| None),
+            conversation_page_dbs: std::array::from_fn(|_| None),
+            conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
+            conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
             iip_db: None,
             iim_db: None,
             iip_served: AtomicU64::new(0),
@@ -836,6 +844,22 @@ pub(crate) fn csv_attachment(
     send(req, res, Payload::Text(body))
 }
 
+/// Static conversation HTML after both stream transformations.
+pub(crate) fn conversation_html(
+    req: &Request,
+    mut res: Res,
+    chunks: Vec<Vec<u8>>,
+    no_cache: bool,
+) -> Outgoing {
+    res.set("Content-Type", "text/html");
+    if no_cache {
+        res.set("Cache-Control", "no-cache");
+    }
+    let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
+    out.body = Body::Chunked(chunks);
+    out
+}
+
 /// Express status(...).json(...) retaining the normal response envelope.
 pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) -> Outgoing {
     res.status = status;
@@ -1114,6 +1138,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
                 .fetch_add(1, Ordering::Relaxed);
         } else {
             app.metadata_answers_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if let Some((page, _)) = crate::conversation_pages::page(req.path()) {
+        if out.status == 502 {
+            app.conversation_page_fallback[page.index()].fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
         }
     }
     if crate::link_pages::matches(req.path()) {
@@ -1706,6 +1737,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if crate::conversation_pages::matches(req.path())
+        && crate::conversation_pages::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if crate::link_pages::matches(req.path()) && crate::link_pages::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1848,6 +1884,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     };
     // writeDefaultHead, compress, addCorsHeader.
     let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
+        || crate::conversation_pages::matches(req.path())
         || crate::link_pages::matches(req.path())
         || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
@@ -2027,6 +2064,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::votes_read::matches(req.path()) {
         return crate::votes_read::handle(app, req, res).await;
+    }
+    if crate::conversation_pages::matches(req.path()) {
+        return crate::conversation_pages::handle(app, req, res).await;
     }
     if crate::link_pages::matches(req.path()) {
         return crate::link_pages::handle(app, req, res).await;
@@ -4239,6 +4279,46 @@ mod tests {
         assert!(crate::math_membership::parse(&state, &req).is_some());
         req.target = "/api/v3/bid?conversation_id=4fixture".into();
         assert!(crate::math_membership::parse(&state, &req).is_none());
+    }
+
+    #[tokio::test]
+    async fn five_conversation_page_switches_and_boundaries_are_independent() {
+        let prefixes = ["/", "/explore/", "/share/", "/summary/", "/ot/"];
+        for (index, prefix) in prefixes.iter().enumerate() {
+            let mut state = app(true);
+            let pool = state.db.clone();
+            Arc::get_mut(&mut state).unwrap().conversation_page_dbs[index] = Some(pool);
+            Arc::get_mut(&mut state).unwrap().conversation_pages[index] =
+                Some(crate::conversation_pages::Client::new("127.0.0.1".into(), 1).unwrap());
+            for (other, p) in prefixes.iter().enumerate() {
+                let mut req = request("GET", &[("host", "localhost")]);
+                req.target = format!("{p}4fixture");
+                assert_eq!(
+                    crate::conversation_pages::parse(&state, &req).is_some(),
+                    other == index
+                );
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+            for (method, suffix, headers) in [
+                ("POST", "", vec![]),
+                ("OPTIONS", "", vec![]),
+                ("GET", "?extra=1", vec![]),
+                ("GET", "", vec![("cookie", "x=y")]),
+                ("GET", "", vec![("authorization", "Bearer generated")]),
+                ("GET", "", vec![("content-length", "2")]),
+                ("GET", "", vec![("user-agent", "MSIE 7.0")]),
+                ("GET", "", vec![("accept-encoding", "gzip")]),
+            ] {
+                let mut req = request(method, &headers);
+                req.target = format!("{prefix}4fixture{suffix}");
+                assert!(crate::conversation_pages::parse(&state, &req).is_none());
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+            assert_eq!(
+                state.conversation_page_served[index].load(Ordering::Relaxed),
+                0
+            );
+        }
     }
 
     #[tokio::test]

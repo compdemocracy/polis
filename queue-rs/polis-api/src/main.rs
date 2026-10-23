@@ -15,6 +15,7 @@ mod compress;
 mod config;
 mod connection;
 mod contexts;
+mod conversation_pages;
 mod conversation_preload;
 mod conversation_stats;
 mod cors;
@@ -112,6 +113,25 @@ use std::sync::{Arc, atomic::Ordering};
 async fn health(app: &route::App) -> Outgoing {
     let reachable = app.db.ping().await;
     let mut body = js::Obj::new();
+    for (i, name) in [
+        "conversationPage",
+        "explorePage",
+        "sharePage",
+        "summaryPage",
+        "oneTimePage",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        body.set(
+            &format!("{name}Served"),
+            js::Js::Num(app.conversation_page_served[i].load(Ordering::Relaxed) as f64),
+        );
+        body.set(
+            &format!("{name}Fallback"),
+            js::Js::Num(app.conversation_page_fallback[i].load(Ordering::Relaxed) as f64),
+        );
+    }
     body.set(
         "status",
         js::Js::Str(if reachable { "ok" } else { "degraded" }.into()),
@@ -672,6 +692,7 @@ async fn dispatch_at_clock(
         | votes_read::PATH
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if conversation_pages::matches(path) => route::handle(app, req).await,
         path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
@@ -697,6 +718,30 @@ async fn main() -> Result<()> {
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
+    for (i, switch) in [
+        "POLIS_API_CONVERSATION_PAGE_READS",
+        "POLIS_API_EXPLORE_PAGE_READS",
+        "POLIS_API_SHARE_PAGE_READS",
+        "POLIS_API_SUMMARY_PAGE_READS",
+        "POLIS_API_ONE_TIME_PAGE_READS",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if std::env::var(switch).ok().as_deref() == Some("1") {
+            let dsn = std::env::var("POLIS_API_CONVERSATION_PAGES_DATABASE_URL")
+                .context("POLIS_API_CONVERSATION_PAGES_DATABASE_URL required")?;
+            let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .unwrap_or(dsn);
+            state.conversation_page_dbs[i] = Some(db::Pool::new(
+                config::connector_for_dsn(&read_dsn, "polis-api-conversation-page/1")?,
+                conversation_pages::pool_limits(),
+            ));
+            state.conversation_pages[i] = conversation_pages::Client::from_env_for(switch).await?;
+        }
+    }
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")
