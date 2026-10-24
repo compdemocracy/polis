@@ -343,6 +343,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} testConnection"
       ;;
+    reportExportPg)
+      case " $rust_api_locations " in *" reportExportPg "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/api/v3/reportExport/[^/]+/(?:format[.]json|summary[.]csv|comments[.]csv|votes[.]csv|participant-votes[.]csv|participant-importance[.]csv|comment-groups[.]csv)$ ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} reportExportPg"
+      ;;
     metadataQuery)
       case " $rust_api_locations " in *" metadataQuery "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/query_participants_by_metadata ${RUST_API_UPSTREAM};
@@ -362,7 +368,7 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 done
 export RUST_API_RESOLVER=${RUST_API_RESOLVER:-127.0.0.11}
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers votesRead metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead otherConversationsPage integratePage adminPage userLogoutPage settingsPage userLoginPage userCreatePage createPage einvitesRead legacyConversations robots about). Selection rejected." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers votesRead metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead otherConversationsPage integratePage adminPage userLogoutPage settingsPage userLoginPage userCreatePage createPage einvitesRead legacyConversations robots about). Selection rejected." >&2
   exit 1
 elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then

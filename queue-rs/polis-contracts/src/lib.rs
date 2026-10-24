@@ -39,6 +39,7 @@ pub mod perf_stats;
 pub mod post_votes;
 pub mod recent_activity;
 pub mod recent_started;
+pub mod report_export;
 pub mod reports_read;
 pub mod robots;
 pub mod schema;

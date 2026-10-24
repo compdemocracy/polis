@@ -1400,3 +1400,23 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect_upstream server POST /api/v3/query_participants_by_metadata $'Content-Length: 2\r\n' '{}'
 echo "ok metadata query off/on/deduplicated, POST read admission, fallback"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/reportExport/generated/format.json node "report export off"
+start reportExportPg,reportExportPg
+for subtype in format.json summary.csv comments.csv votes.csv participant-votes.csv participant-importance.csv comment-groups.csv; do
+    expect "/api/v3/reportExport/generated/$subtype" rust "Postgres report on"
+    expect_upstream polis-api HEAD "/api/v3/reportExport/generated/$subtype"
+    expect_upstream server POST "/api/v3/reportExport/generated/$subtype" $'Content-Length: 2\r\n' '{}'
+done
+expect /api/v3/reportExport/generated/comment-clusters.csv node "external subtype stays on Node"
+expect /api/v3/dataExport/results node "S3 path stays on Node"
+expect /api/v3/nextComment node "report selector leaves participation alone"
+[[ $(included | grep -c 'location ~ \^/api/v3/reportExport/') == 1 ]] || fail "report selector duplicated"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/reportExport/generated/format.json node "report export handoff"
+echo "ok Postgres report export subtypes off/on/deduplicated, excluded external routes, methods and fallback"

@@ -233,6 +233,12 @@ pub struct App {
     pub connection_reads: bool,
     pub connection_served: AtomicU64,
     pub connection_fallback: AtomicU64,
+    pub report_export_cache: Arc<crate::report_export::Cache>,
+    pub report_export_db: Option<Arc<Pool>>,
+    pub report_export_lookup_db: Option<Arc<Pool>>,
+    pub report_export_utc: bool,
+    pub report_export_served: AtomicU64,
+    pub report_export_fallback: AtomicU64,
     pub perf_stats_reads: bool,
     pub perf_stats_served: AtomicU64,
     pub perf_stats_fallback: AtomicU64,
@@ -450,6 +456,12 @@ impl App {
             connection_reads: false,
             connection_served: AtomicU64::new(0),
             connection_fallback: AtomicU64::new(0),
+            report_export_cache: Arc::new(crate::report_export::Cache::new(cfg.cache_size)),
+            report_export_db: None,
+            report_export_lookup_db: None,
+            report_export_utc: false,
+            report_export_served: AtomicU64::new(0),
+            report_export_fallback: AtomicU64::new(0),
             perf_stats_reads: false,
             perf_stats_served: AtomicU64::new(0),
             perf_stats_fallback: AtomicU64::new(0),
@@ -778,6 +790,20 @@ pub(crate) fn admin_html(req: &Request, mut res: Res, chunks: Vec<Vec<u8>>) -> O
     res.set("Content-Type", "text/html");
     let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
     out.body = Body::Chunked(chunks);
+    out
+}
+
+/// Identity-encoded CSV writes retain individual Node write() chunks.
+pub(crate) fn report_csv_stream(
+    req: &Request,
+    mut res: Res,
+    chunks: Vec<String>,
+    header_name: &'static str,
+) -> Outgoing {
+    // Node spells this header differently in the vote and participant exports.
+    res.set(header_name, "text/csv");
+    let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
+    out.body = Body::Chunked(chunks.into_iter().map(String::into_bytes).collect());
     out
 }
 
@@ -1416,6 +1442,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.connection_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::report_export::matches(req.path()) {
+        if out.status == 502 {
+            app.report_export_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.report_export_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::perf_stats::PATH {
         if out.status == 502 {
             app.perf_stats_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1682,6 +1715,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::robots::PATH && crate::robots::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if crate::report_export::matches(req.path()) && crate::report_export::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::perf_stats::PATH && crate::perf_stats::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1815,6 +1852,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::robots::PATH {
         return crate::robots::handle(app, req, res);
+    }
+    if crate::report_export::matches(req.path()) {
+        return crate::report_export::handle(app, req, res).await;
     }
     if req.path() == crate::perf_stats::PATH {
         return crate::perf_stats::handle(app, req, res);

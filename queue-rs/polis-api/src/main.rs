@@ -72,6 +72,7 @@ mod participation_read;
 mod pca;
 mod recent_activity;
 mod recent_started;
+mod report_export;
 mod reports_read;
 mod robots;
 mod route;
@@ -127,6 +128,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "connectionFallback",
         js::Js::Num(app.connection_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "reportExportServed",
+        js::Js::Num(app.report_export_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "reportExportFallback",
+        js::Js::Num(app.report_export_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "perfStatsServed",
@@ -644,6 +653,7 @@ async fn dispatch_at_clock(
         path if user_login_page::matches(path) => route::handle(app, req).await,
         path if user_create_page::matches(path) => route::handle(app, req).await,
         path if create_page::matches(path) => route::handle(app, req).await,
+        path if report_export::matches(path) => route::handle(app, req).await,
         path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
@@ -720,6 +730,27 @@ async fn main() -> Result<()> {
     }
     state.perf_stats_reads =
         std::env::var("POLIS_API_PERF_STATS_READS").ok().as_deref() == Some("1");
+    if std::env::var("POLIS_API_REPORT_EXPORT_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_REPORT_EXPORT_DATABASE_URL")
+            .context("POLIS_API_REPORT_EXPORT_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.report_export_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-report-export/1")?,
+            report_export::pool_limits(),
+        ));
+        state.report_export_lookup_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-report-export-lookup/1")?,
+            report_export::pool_limits(),
+        ));
+        state.report_export_utc = std::env::var("TZ").ok().as_deref() == Some("UTC");
+    }
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
