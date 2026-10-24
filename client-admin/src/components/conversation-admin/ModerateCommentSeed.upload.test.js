@@ -45,48 +45,60 @@ describe('seed CSV upload with real actions and reducer', () => {
     jest.resetAllMocks()
   })
 
-  it('shows the server error, re-enables submission, and allows a successful retry', async () => {
-    let rejectUpload
-    PolisNet.polisPost.mockReturnValueOnce(
-      new Promise((resolve, reject) => {
-        rejectUpload = reject
+  it.each([
+    [500, 'The seed CSV could not be imported.'],
+    [
+      400,
+      JSON.stringify({
+        error: 'polis_err_csv_header',
+        message: 'CSV header must be comment_text, optionally with original_id.',
+        status: 400
       })
-    )
-    const onComplete = jest.fn()
-    const { button, store } = await prepareUpload(onComplete)
+    ]
+  ])(
+    'shows a %s error, re-enables submission, and allows a successful retry',
+    async (status, responseText) => {
+      let rejectUpload
+      PolisNet.polisPost.mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          rejectUpload = reject
+        })
+      )
+      const onComplete = jest.fn()
+      const { button, store } = await prepareUpload(onComplete)
 
-    fireEvent.click(button)
-    expect(button).toBeDisabled()
-    expect(button).toHaveTextContent('Saving...')
-    expect(PolisNet.polisPost).toHaveBeenCalledWith('/api/v3/comments-bulk', {
-      csv,
-      conversation_id: 'test-conversation',
-      is_seed: true
-    })
+      fireEvent.click(button)
+      expect(button).toBeDisabled()
+      expect(button).toHaveTextContent('Saving...')
+      expect(PolisNet.polisPost).toHaveBeenCalledWith('/api/v3/comments-bulk', {
+        csv,
+        conversation_id: 'test-conversation',
+        is_seed: true
+      })
 
-    const responseText = 'The seed CSV could not be imported.'
-    await act(async () => {
-      rejectUpload({ status: 500, responseText })
-    })
+      await act(async () => {
+        rejectUpload({ status, responseText })
+      })
 
-    expect(screen.getByText(responseText)).toBeInTheDocument()
-    expect(button).toBeEnabled()
-    expect(button).toHaveTextContent('Submit')
-    expect(store.getState().seed_comments).toMatchObject({
-      loading: false,
-      error: responseText,
-      success: false
-    })
-    expect(onComplete).not.toHaveBeenCalled()
+      expect(screen.getByText(responseText)).toBeInTheDocument()
+      expect(button).toBeEnabled()
+      expect(button).toHaveTextContent('Submit')
+      expect(store.getState().seed_comments).toMatchObject({
+        loading: false,
+        error: responseText,
+        success: false
+      })
+      expect(onComplete).not.toHaveBeenCalled()
 
-    PolisNet.polisPost.mockResolvedValueOnce({})
-    fireEvent.click(button)
-    expect(screen.queryByText(responseText)).not.toBeInTheDocument()
-    await waitFor(() => expect(button).toHaveTextContent('Success!'))
-    expect(button).toBeEnabled()
-    expect(PolisNet.polisPost).toHaveBeenCalledTimes(2)
-    expect(onComplete).toHaveBeenCalledTimes(1)
-  })
+      PolisNet.polisPost.mockResolvedValueOnce({})
+      fireEvent.click(button)
+      expect(screen.queryByText(responseText)).not.toBeInTheDocument()
+      await waitFor(() => expect(button).toHaveTextContent('Success!'))
+      expect(button).toBeEnabled()
+      expect(PolisNet.polisPost).toHaveBeenCalledTimes(2)
+      expect(onComplete).toHaveBeenCalledTimes(1)
+    }
+  )
 
   it.each([true, false])(
     'completes a successful upload (callback provided: %s)',

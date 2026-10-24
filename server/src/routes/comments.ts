@@ -831,6 +831,7 @@ async function handle_POST_comments_bulk(
   // @ts-expect-error body parsing
   const csv = req.body.csv;
   let pid = initialPid;
+  const invalidHeader = new Error("Invalid CSV header");
   if (!csv) {
     failJson(res, 400, "polis_err_param_missing_csv");
     return;
@@ -865,16 +866,34 @@ async function handle_POST_comments_bulk(
       return;
     }
 
+    // Validate before creating a participant or storing any comments. Otherwise
+    // a headerless upload consumes its first comment as column names.
+    let hasHeader = false;
+    const records = parse(String(csv), {
+      bom: true,
+      columns: (header: string[]) => {
+        if (
+          !(
+            (header.length === 1 && header[0] === "comment_text") ||
+            (header.length === 2 &&
+              header.includes("comment_text") &&
+              header.includes("original_id"))
+          )
+        ) {
+          throw invalidHeader;
+        }
+        hasHeader = true;
+        return header;
+      },
+      skip_empty_lines: true,
+    });
+    if (!hasHeader) throw invalidHeader;
+
     const finalPid = await doGetPid();
     if (finalPid < 0) {
       failJson(res, 500, "polis_err_post_comment_bad_pid");
       return;
     }
-
-    const records = parse(String(csv), {
-      columns: true,
-      skip_empty_lines: true,
-    });
 
     const results = [];
     let lastInteractionTime = new Date(0);
@@ -980,6 +999,13 @@ async function handle_POST_comments_bulk(
       currentPid: pid,
     });
   } catch (err: any) {
+    if (err === invalidHeader) {
+      failJson(res, 400, "polis_err_csv_header", undefined, {
+        message:
+          "CSV header must be comment_text, optionally with original_id.",
+      });
+      return;
+    }
     failJson(res, 500, "polis_err_post_comments_bulk", err);
   }
 }
