@@ -479,76 +479,132 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
             }
         }
         "seed add" | "seed import" => {
-            let id = str_arg(m, "conversation");
-            public_id(id)?;
+            let requested_id = str_arg(m, "conversation");
+            let create_new = path == "seed import" && m.get_flag("new-conversation");
+            if !create_new {
+                public_id(requested_id)?;
+            }
             let raw = if path == "seed add" {
                 seeds::single(str_arg(m, "text"))?
             } else {
                 read(str_arg(m, "csv"), 500_000)?
             };
             let rows = seeds::validate(&raw)?;
-            let (submitted, mapping) = seeds::submission(&raw, config.url(site)?, id)?;
-            let votes = if path == "seed import" {
+            let validation_id = if create_new {
+                "new-conversation"
+            } else {
+                requested_id
+            };
+            let (_, validation_mapping) =
+                seeds::submission(&raw, config.url(site)?, validation_id)?;
+            let votes_raw = if path == "seed import" {
                 m.get_one::<String>("votes")
-                    .map(|file| {
-                        read(file, 500_000).and_then(|raw| {
-                            pass4::votes(&raw, str_arg(m, "source-agree"), &mapping)
-                        })
-                    })
+                    .map(|file| read(file, 500_000))
                     .transpose()?
             } else {
                 None
             };
+            if let Some(raw) = &votes_raw {
+                pass4::votes(raw, str_arg(m, "source-agree"), &validation_mapping)?;
+            }
             let c = client(config, site, timeout, true)?;
-            let data = match c.request(
-                "POST",
-                "/api/v3/comments-bulk",
-                &[],
-                Some(json!({"conversation_id":id,"is_seed":true,"csv":submitted})),
-                true,
-            ) {
-                Ok(data) => data,
-                Err(error) if error.outcome == "unknown" => {
-                    return Ok(json!({"state":"partial_or_unknown",
+            let created = if create_new {
+                let topic = m
+                    .get_one::<String>("topic")
+                    .map(String::as_str)
+                    .unwrap_or("Imported conversation");
+                if topic.trim().is_empty() || topic.encode_utf16().count() > 1000 {
+                    return Err(Error::input("Topic must have 1–1000 UTF-16 units."));
+                }
+                Some(c.request(
+                    "POST",
+                    "/api/v3/conversations",
+                    &[],
+                    Some(json!({"topic":topic,"is_draft":true})),
+                    true,
+                )?)
+            } else {
+                None
+            };
+            let id = match &created {
+                Some(receipt) => receipt["conversation_id"].as_str().ok_or_else(|| {
+                    Error::input("Conversation creation returned no ID; read back before retrying.")
+                })?,
+                None => requested_id,
+            };
+            let outcome = (|| -> Result<Value> {
+                let (submitted, mapping) = seeds::submission(&raw, config.url(site)?, id)?;
+                let votes = votes_raw
+                    .as_ref()
+                    .map(|raw| pass4::votes(raw, str_arg(m, "source-agree"), &mapping))
+                    .transpose()?;
+                let data = match c.request(
+                    "POST",
+                    "/api/v3/comments-bulk",
+                    &[],
+                    Some(json!({"conversation_id":id,"is_seed":true,"csv":submitted})),
+                    true,
+                ) {
+                    Ok(data) => data,
+                    Err(error) if error.outcome == "unknown" => {
+                        return Ok(json!({"state":"partial_or_unknown",
                         "seeds":{"state":error.outcome,"submitted":rows.len(),"id_mapping":mapping,"error":error},
                         "votes":{"state":"not_sent"},
                         "receipt":null}));
-                }
-                Err(error) => return Err(error),
-            };
-            let results = data.get("results").and_then(Value::as_array);
-            let complete = results.is_some_and(|r| {
-                r.len() == rows.len() && r.iter().all(|v| v["status"] == "success")
-            });
-            if let Some((csv, count)) = votes {
-                let seeds = json!({"state":if complete {"complete"} else {"partial_or_unknown"},"submitted":rows.len(),"id_mapping":mapping,"receipt":data});
-                if !complete {
-                    return Ok(
-                        json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":"not_sent"},"receipt":data}),
-                    );
-                }
-                return match c.request(
-                    "POST",
-                    "/api/v3/votes-bulk",
-                    &[],
-                    Some(json!({"conversation_id":id,"csv":csv})),
-                    true,
-                ) {
-                    Ok(receipt) if receipt["status"] == "processing" => Ok(
-                        json!({"state":"processing","seeds":seeds,"votes":{"state":"processing","submitted":count,"source_agree":str_arg(m,"source-agree"),"receipt":receipt},"note":"Comment import is complete; votes are queued, not completed. Check the site import notification and read back before retrying."}),
-                    ),
-                    Ok(receipt) => Ok(
-                        json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":"unknown","receipt":receipt},"receipt":data}),
-                    ),
-                    Err(error) => Ok(
-                        json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":error.outcome,"error":error},"receipt":data}),
-                    ),
+                    }
+                    Err(error) => return Err(error),
                 };
-            }
-            // Preserve every per-row receipt, including skipped/failed rows. main sets a failure exit for partial imports.
-            Ok(
-                json!({"state":if complete {"complete"} else {"partial_or_unknown"},"submitted":rows.len(),"id_mapping":mapping,"receipt":data,"retry":"Read back before any retry; import is not atomic or idempotent."}),
-            )
+                let results = data.get("results").and_then(Value::as_array);
+                let complete = results.is_some_and(|r| {
+                    r.len() == rows.len() && r.iter().all(|v| v["status"] == "success")
+                });
+                if let Some((csv, count)) = votes {
+                    let seeds = json!({"state":if complete {"complete"} else {"partial_or_unknown"},"submitted":rows.len(),"id_mapping":mapping,"receipt":data});
+                    if !complete {
+                        return Ok(
+                            json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":"not_sent"},"receipt":data}),
+                        );
+                    }
+                    return match c.request(
+                        "POST",
+                        "/api/v3/votes-bulk",
+                        &[],
+                        Some(json!({"conversation_id":id,"csv":csv})),
+                        true,
+                    ) {
+                        Ok(receipt) if receipt["status"] == "processing" => Ok(
+                            json!({"state":"processing","seeds":seeds,"votes":{"state":"processing","submitted":count,"source_agree":str_arg(m,"source-agree"),"receipt":receipt},"note":"Comment import is complete; votes are queued, not completed. Check the site import notification and read back before retrying."}),
+                        ),
+                        Ok(receipt) => Ok(
+                            json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":"unknown","receipt":receipt},"receipt":data}),
+                        ),
+                        Err(error) => Ok(
+                            json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":error.outcome,"error":seeds::import_error(error)},"receipt":data}),
+                        ),
+                    };
+                }
+                // Preserve every per-row receipt, including skipped/failed rows. main sets a failure exit for partial imports.
+                Ok(
+                    json!({"state":if complete {"complete"} else {"partial_or_unknown"},"submitted":rows.len(),"id_mapping":mapping,"receipt":data,"retry":"Read back before any retry; import is not atomic or idempotent."}),
+                )
+            })();
+            outcome
+                .map(|mut data| {
+                    if create_new {
+                        data["conversation_id"] = json!(id);
+                    }
+                    data
+                })
+                .map_err(|mut error| {
+                    if create_new {
+                        error.message = format!(
+                            "{} Created conversation: {}. Read it back before retrying.",
+                            error.message, id
+                        );
+                        error.upstream["conversation_id"] = json!(id);
+                    }
+                    error
+                })
         }
         "moderate list"
         | "moderate accept"
