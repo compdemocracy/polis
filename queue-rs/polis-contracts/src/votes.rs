@@ -127,3 +127,93 @@ mod storage_tests {
         assert_eq!(StorageConvention::CURRENT.encode(VoteChoice::Agree), -1);
     }
 }
+
+impl StorageConvention {
+    /// Node's CSV onInvalid=keep boundary: null becomes zero; legacy invalid
+    /// integers are scaled from the declared storage sign into the export sign.
+    pub fn export_preserving_invalid(self, raw: Option<i16>) -> i32 {
+        const EXPORT_AGREE: i32 = 1;
+        raw.map_or(0, |value| i32::from(value) * self.agree * EXPORT_AGREE)
+    }
+}
+#[cfg(test)]
+mod export_tests {
+    use super::*;
+    #[test]
+    fn both_storage_conventions_export_semantics_null_and_invalid() {
+        assert_eq!(
+            EXPORT_FORMAT_JSON,
+            include_str!("../../../server/__tests__/fixtures/vote-declaration/format.json")
+        );
+        for agree in [-1, 1] {
+            let storage = StorageConvention { agree };
+            for (meaning, cell) in [
+                (VoteChoice::Agree, 1),
+                (VoteChoice::Disagree, -1),
+                (VoteChoice::Pass, 0),
+            ] {
+                assert_eq!(
+                    storage.export_preserving_invalid(Some(storage.encode(meaning) as i16)),
+                    cell
+                );
+            }
+            assert_eq!(storage.export_preserving_invalid(None), 0);
+            for invalid in [i16::MIN, -2, 2, i16::MAX] {
+                assert_eq!(
+                    storage.export_preserving_invalid(Some(invalid)),
+                    i32::from(invalid) * agree
+                );
+                assert_eq!(storage.decode(Some(i32::from(invalid))), None);
+            }
+        }
+    }
+}
+
+/// The export sidecar, pinned to the server declaration fixture by tests.
+pub const EXPORT_FORMAT_JSON: &str = r#"{
+  "format": "polis-export/1",
+  "vote-convention": "agree=+1;disagree=-1;pass=0;format=polis-export/1",
+  "vote": {
+    "agree": 1,
+    "disagree": -1,
+    "pass": 0
+  },
+  "files": {
+    "summary.csv": {
+      "vote-convention": "declaration"
+    },
+    "votes.csv": {
+      "vote": "vote",
+      "important": "flag"
+    },
+    "participant-votes.csv": {
+      "<comment-id>": "vote",
+      "n-votes": "count",
+      "n-agree": "count",
+      "n-disagree": "count"
+    },
+    "participant-importance.csv": {
+      "<comment-id>": "flag",
+      "n-votes": "count",
+      "n-important": "count"
+    },
+    "comments.csv": {
+      "agrees": "count",
+      "disagrees": "count",
+      "importance": "count"
+    },
+    "comment-groups.csv": {
+      "total-votes": "count",
+      "total-agrees": "count",
+      "total-disagrees": "count",
+      "total-passes": "count",
+      "group-<letter>-votes": "count",
+      "group-<letter>-agrees": "count",
+      "group-<letter>-disagrees": "count",
+      "group-<letter>-passes": "count"
+    },
+    "comment-clusters.csv": {}
+  },
+  "docs": "https://github.com/compdemocracy/polis/blob/edge/docs/export-format.md"
+}
+"#;

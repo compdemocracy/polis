@@ -11,6 +11,7 @@ services:
     volumes:
       - ../../polis-cli/tests/differential:/differential:ro
     environment:
+      TZ: UTC
       OPS_ENABLED: "false"
       P027_MARKERS: '0'
       ADMIN_UIDS: '[2]'
@@ -32,6 +33,12 @@ services:
       POLIS_API_OWNER_DATABASE_URL: postgres://postgres@postgres:5432/p027
       AUTH_ISSUER: https://oidc-simulator:3000/
       AUTH_AUDIENCE: users
+      TZ: UTC
+      POLIS_API_PERF_STATS_READS: "1"
+      POLIS_API_METADATA_QUERY_READS: "1"
+      POLIS_API_METADATA_QUERY_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_REPORT_EXPORT_READS: "1"
+      POLIS_API_REPORT_EXPORT_DATABASE_URL: postgres://postgres@postgres:5432/p027
       POLIS_API_PARTICIPANT_READS: "1"
       POLIS_API_PARTICIPANTS_READS: "1"
       POLIS_API_PTPTOIS_READS: "1"

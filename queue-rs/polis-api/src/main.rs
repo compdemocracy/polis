@@ -22,6 +22,7 @@ mod cors;
 mod create_page;
 mod database;
 mod db;
+mod perf_stats;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
 // on, compiled from the contracts crate as the route contracts are. The
 // run-record route uses only part of them. rustfmt leaves them to their own
@@ -60,6 +61,7 @@ mod votes;
 mod math_bundle;
 mod math_membership;
 mod metadata_choices;
+mod metadata_query;
 mod metadata_questions;
 mod metadata_read;
 mod my_invites_csv;
@@ -77,6 +79,7 @@ mod pca;
 mod ptptois;
 mod recent_activity;
 mod recent_started;
+mod report_export;
 mod reports_read;
 mod robots;
 mod route;
@@ -151,6 +154,22 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "connectionFallback",
         js::Js::Num(app.connection_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "reportExportServed",
+        js::Js::Num(app.report_export_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "reportExportFallback",
+        js::Js::Num(app.report_export_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "perfStatsServed",
+        js::Js::Num(app.perf_stats_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "perfStatsFallback",
+        js::Js::Num(app.perf_stats_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "robotsServed",
@@ -359,6 +378,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "metadataReadFallback",
         js::Js::Num(app.metadata_read_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "metadataQueryServed",
+        js::Js::Num(app.metadata_query_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "metadataQueryFallback",
+        js::Js::Num(app.metadata_query_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "metadataChoicesServed",
@@ -649,6 +676,7 @@ async fn dispatch_at_clock(
         | comments::PATH
         | next_comment::PATH
         | connection::PATH
+        | perf_stats::PATH
         | robots::PATH
         | about::PATH
         | ops_whoami::PATH
@@ -689,6 +717,7 @@ async fn dispatch_at_clock(
         | all_conversations::PATH
         | recent_activity::PATH
         | metadata_read::PATH
+        | metadata_query::PATH
         | votes_read::PATH
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
@@ -705,6 +734,7 @@ async fn dispatch_at_clock(
         path if user_login_page::matches(path) => route::handle(app, req).await,
         path if user_create_page::matches(path) => route::handle(app, req).await,
         path if create_page::matches(path) => route::handle(app, req).await,
+        path if report_export::matches(path) => route::handle(app, req).await,
         path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
         // Not a path this process serves: nginx gives the request to Node.
@@ -802,6 +832,29 @@ async fn main() -> Result<()> {
             )
             .context("invalid participant verifier configuration")?,
         ));
+    }
+    state.perf_stats_reads =
+        std::env::var("POLIS_API_PERF_STATS_READS").ok().as_deref() == Some("1");
+    if std::env::var("POLIS_API_REPORT_EXPORT_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_REPORT_EXPORT_DATABASE_URL")
+            .context("POLIS_API_REPORT_EXPORT_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.report_export_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-report-export/1")?,
+            report_export::pool_limits(),
+        ));
+        state.report_export_lookup_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-report-export-lookup/1")?,
+            report_export::pool_limits(),
+        ));
+        state.report_export_utc = std::env::var("TZ").ok().as_deref() == Some("UTC");
     }
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
@@ -1282,6 +1335,27 @@ async fn main() -> Result<()> {
         state.metadata_read_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-metadata-read-auth/1")?,
             metadata_read::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_METADATA_QUERY_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_METADATA_QUERY_DATABASE_URL")
+            .context("POLIS_API_METADATA_QUERY_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.metadata_query_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-metadata-query/1")?,
+            metadata_query::pool_limits(),
+        ));
+        state.metadata_query_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-metadata-query-auth/1")?,
+            metadata_query::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
