@@ -7,6 +7,7 @@ import Url from "../../util/url";
 const urlPrefix = Url.urlPrefix;
 
 const Content = ({conversation}) => {
+  const topic = typeof conversation.topic === "string" ? conversation.topic.trim() : "";
   return (
     <div style={{
         display: "flex",
@@ -15,14 +16,17 @@ const Content = ({conversation}) => {
         width: "100%",
         paddingBottom: 5,
         borderBottom: "1px solid rgb(130,130,130)",
+        flexWrap: "wrap",
+        gap: 16,
       }}>
       <SmallLogo/>
-      <p style={{
+      <h1 style={{
           fontSize: 36,
           margin: 0,
+          overflowWrap: "anywhere",
         }}>
-        Report
-      </p>
+        {topic ? `Report: ${topic}` : "Report"}
+      </h1>
       <p style={{
           fontSize: 24,
           margin: 0,
