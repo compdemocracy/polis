@@ -87,6 +87,10 @@ const COMMENTS = [
 jest.mock("../../src/comment", () => ({
   __esModule: true,
   getComments: () => Promise.resolve(COMMENTS.map((c) => ({ ...c }))),
+  getNextCommentCandidates: () =>
+    Promise.resolve(COMMENTS.map((c) => ({ tid: c.tid }))),
+  getNextCommentRow: (_zid: number, tid: number) =>
+    Promise.resolve({ ...COMMENTS.find((c) => c.tid === tid) }),
   getNumberOfCommentsRemaining: () =>
     Promise.resolve([{ total: 2, remaining: 2 }]),
   translateAndStoreComment: (c: unknown) => Promise.resolve(c),

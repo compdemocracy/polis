@@ -10,9 +10,10 @@ import Config from "./config";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
 import {
-  CommentRow,
   CommentTranslationRow,
   getComments,
+  getNextCommentCandidates,
+  getNextCommentRow,
   getNumberOfCommentsRemaining,
   translateAndStoreComment,
 } from "./comment";
@@ -65,8 +66,12 @@ async function getNextPrioritizedComment(
     withoutTids,
   });
 
-  const [comments, latestPriorities, remainingRows] = (await Promise.all([
-    getComments(params as GetCommentsParams),
+  const [candidates, latestPriorities, remainingRows] = (await Promise.all([
+    // Every eligible unvoted comment enters the draw, not only the oldest
+    // 999 the plain comment list returns. Only their ids are read here.
+    getNextCommentCandidates(
+      params as Parameters<typeof getNextCommentCandidates>[0]
+    ),
     // The latest committed generation's priorities, NOT `getPca(zid, 0)`. A
     // literal 0 asks for something strictly newer than generation 0, and
     // generation 0 is a conversation's real first generation, so the old call
@@ -79,12 +84,12 @@ async function getNextPrioritizedComment(
     getLatestCommentPriorities(zid),
     getNumberOfCommentsRemaining(zid, pid),
   ])) as [
-    CommentRow[],
+    NextCommentCandidate[],
     CommentPriorities | undefined,
     Array<{ total: number; remaining: number }>
   ];
 
-  if (!comments || comments.length === 0) {
+  if (!candidates || candidates.length === 0) {
     return null;
   }
   if (!remainingRows || remainingRows.length === 0) {
@@ -96,10 +101,13 @@ async function getNextPrioritizedComment(
   const totalCount = Number(remainingRows[0].total);
   const remainingCount = Number(remainingRows[0].remaining);
 
-  const selectedRow = selectProbabilistically(
-    comments,
-    commentPriorities
-  ) as unknown as GetCommentsParams;
+  const chosen = selectProbabilistically(candidates, commentPriorities);
+  // Only the chosen comment's row is read, with the plain list's columns.
+  const row = chosen && (await getNextCommentRow(zid, chosen.tid));
+  const selectedRow = (row && {
+    ...row,
+    randomN: chosen.randomN,
+  }) as unknown as GetCommentsParams;
   selectedRow.remaining = remainingCount;
   selectedRow.total = totalCount;
   return selectedRow;
@@ -140,16 +148,18 @@ export async function checkInitialComment(
   return { status: "eligible" as const, comment };
 }
 
+type NextCommentCandidate = { tid: number; randomN?: number };
+
 function selectProbabilistically(
-  comments: CommentRow[],
+  comments: NextCommentCandidate[],
   priorities: Record<string | number, number>
-): CommentRow {
+): NextCommentCandidate {
   // Here we go through all of the comments we might select for the user and add their priority values
   const lookup = _.reduce(
     comments,
     (
-      o: { lastCount: number; lookup: Array<[number, CommentRow]> },
-      comment: CommentRow
+      o: { lastCount: number; lookup: Array<[number, NextCommentCandidate]> },
+      comment: NextCommentCandidate
     ) => {
       // If we like, we can use nTotal and nRemaining here to figure out how much we should emphasize the
       // priority, potentially. Maybe we end up with different classes of priorities lists for this purpose?
@@ -168,9 +178,9 @@ function selectProbabilistically(
   // simple to reason about all other things being equal.
   const result = _.find(
     lookup.lookup,
-    (x: [number, CommentRow]) => x[0] > randomN
+    (x: [number, NextCommentCandidate]) => x[0] > randomN
   );
-  const c = result?.[1] as CommentRow;
+  const c = result?.[1] as NextCommentCandidate;
   if (c) {
     c.randomN = randomN;
   }
