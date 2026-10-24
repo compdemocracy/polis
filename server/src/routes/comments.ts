@@ -870,6 +870,7 @@ async function handle_POST_comments_bulk(
     // a headerless upload consumes its first comment as column names.
     let hasHeader = false;
     const records = parse(String(csv), {
+      bom: true,
       columns: (header: string[]) => {
         if (
           !(

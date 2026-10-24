@@ -90,9 +90,16 @@ describe("bulk seed CSV header", () => {
     });
   });
 
-  test.each(["text only", "text then ID", "ID then text", "quoted header"])(
-    "keeps a well-formed upload unchanged: %s",
-    async (format) => {
+  test.each(
+    ["text only", "text then ID", "ID then text", "quoted header"].flatMap(
+      (format) => [
+        [format, ""],
+        [format, "\uFEFF"],
+      ]
+    )
+  )(
+    "keeps a well-formed upload unchanged: %s (BOM: %j)",
+    async (format, bom) => {
       const { id, zid } = await conversation();
       const ids = [randomUUID(), randomUUID()];
       const texts = ["First seed", "Second seed"];
@@ -113,7 +120,7 @@ describe("bulk seed CSV header", () => {
       const response = await owner.post("/api/v3/comments-bulk").send({
         conversation_id: id,
         is_seed: true,
-        csv,
+        csv: bom + csv,
       });
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
