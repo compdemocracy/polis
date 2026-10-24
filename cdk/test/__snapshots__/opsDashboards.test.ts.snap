@@ -475,6 +475,16 @@ exports[`flag off snapshot of every IAM policy and the web launch template 1`] =
               "Ref": "ClientReportEnvVarsSecretC29628E7",
             },
           },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "DatabaseSecretAttachmentE5D1B020",
+            },
+          },
         ],
         "Version": "2012-10-17",
       },
