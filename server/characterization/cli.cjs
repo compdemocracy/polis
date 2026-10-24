@@ -287,10 +287,13 @@ async function runCase(c, tokens, tables, normalizer) {
   }
 }
 async function observeCase(c, tokens, tables, normalizer) {
+  const observation = c.observationProfile === undefined
+    ? { oracle }
+    : require("./post-comments/observation.cjs").observation(c);
   await get("/begin?seed=" + c.seed + "&case=" + encodeURIComponent(c.caseId));
   const before = await snapshot(tables),
     obsBefore = await get("/state");
-  const response = await send(c.request, tokens);
+  const response = await send(c.request, tokens, observation.deadlineMs);
   readContext.phase = "after-request";
   // Capture delayed 100 ms writes, then demand quiescence; do not treat an arbitrary delay as proof.
   await wait(200);
@@ -425,9 +428,11 @@ async function observeCase(c, tokens, tables, normalizer) {
     jwts: issued,
     jwtMinted: (obsAfter.jwtIssues || 0) - (obsBefore.jwtIssues || 0),
   };
-  const o = oracle(response, processErrors, c.case === "proxy-tail");
+  const o = observation.oracle(response, processErrors, c.case === "proxy-tail");
   try {
-    assertAttempts(effects.outbound);
+    if (process.env.P027_COMMENTS_PROFILE === "1" && c.caseId.startsWith("post-comments/"))
+      require("./post-comments/admission.cjs").assertCommentsAttempts(effects.outbound, c.notificationPolicy);
+    else assertAttempts(effects.outbound);
   } catch (e) {
     o.pass = false;
     o.failures.push(e.message);

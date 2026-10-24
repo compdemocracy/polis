@@ -1,0 +1,5858 @@
+[
+  {
+    "caseId": "post-comments/pid0-seed-disagree",
+    "case": "pid0-seed-disagree",
+    "auth": "pid0",
+    "seed": "5416f500c22a",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:pid0"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment pid0-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "anon:1"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 0,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:pid0"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHBpZDAtc2VlZC1kaXNhZ3JlZSIsImlzX3NlZWQiOnRydWUsInZvdGUiOjF9",
+              "byte_length": 105,
+              "sha256": "c19eef1d7d4e7c6da95bba94c683f902cf3d42beea2400348912c5abe2c34b97"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-sXN+Gt7azU4GRhQ6lqgvDw\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:26 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 45,
+            "bytes": {
+              "base64": "eyJ0aWQiOjIsImN1cnJlbnRQaWQiOjB9",
+              "byte_length": 24,
+              "sha256": "57a984ccdc14763bd14f2d95d4efec0a9500c17f04bf3cf5e1a75a7cd76cb6fa"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 44,
+        "last_byte_ms": 45,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 0,
+        "tid": 2
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 44.41739199999995,
+      "ttlbMs": 44.990103999999974
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 0,
+              "quote_src_url": null,
+              "tid": 2,
+              "tweet_id": null,
+              "txt": "Generated comment pid0-seed-disagree",
+              "uid": 1,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:notification_tasks": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:participants": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 1700000000000,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 0,
+              "subscribed": 0,
+              "uid": 1,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ],
+          "removed": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 0,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 0,
+              "subscribed": 0,
+              "uid": 1,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ]
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 0,
+              "tid": 2,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 0,
+              "tid": 2,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment pid0-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/pid0-seed-pass",
+    "case": "pid0-seed-pass",
+    "auth": "pid0",
+    "seed": "4b4226ed93fa",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:pid0"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment pid0-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "anon:1"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 0,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:pid0"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHBpZDAtc2VlZC1wYXNzIiwiaXNfc2VlZCI6dHJ1ZSwidm90ZSI6MH0=",
+              "byte_length": 101,
+              "sha256": "6004c0e145445f65dfb8c05d567c48dd0bcaca17ac15b85a5d162dd60d20f582"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-4iexfD77H6IeNk4K5qERaQ\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:26 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 10,
+            "bytes": {
+              "base64": "eyJ0aWQiOjMsImN1cnJlbnRQaWQiOjB9",
+              "byte_length": 24,
+              "sha256": "5830f5baff7e360e0db8c949d01cf1f477a1382b753bd51326ec25d9b2486d35"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 10,
+        "last_byte_ms": 10,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 0,
+        "tid": 3
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 9.771591000000171,
+      "ttlbMs": 10.055051000000049
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 0,
+              "quote_src_url": null,
+              "tid": 3,
+              "tweet_id": null,
+              "txt": "Generated comment pid0-seed-pass",
+              "uid": 1,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 0,
+              "tid": 3,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 0,
+              "tid": 3,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment pid0-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/participant-seed-disagree",
+    "case": "participant-seed-disagree",
+    "auth": "participant",
+    "seed": "7ec802f5ad1e",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:participant"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment participant-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "anon:3"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 1,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:participant"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHBhcnRpY2lwYW50LXNlZWQtZGlzYWdyZWUiLCJpc19zZWVkIjp0cnVlLCJ2b3RlIjoxfQ==",
+              "byte_length": 112,
+              "sha256": "42d880c5cffa6a94e623a2c57ad701bfcc3c97d6ded1321ea1363a25ab4764b2"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-GXsHftw0ijJuA3MFEjGhyA\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:27 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 11,
+            "bytes": {
+              "base64": "eyJ0aWQiOjQsImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "0d96bc3abc0a96c76c4bc1b85a9ec57f70e23899d51401474e210b16e5cb4c67"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 11,
+        "last_byte_ms": 11,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 4
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 10.578303000000005,
+      "ttlbMs": 10.816429999999855
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 4,
+              "tweet_id": null,
+              "txt": "Generated comment participant-seed-disagree",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:participants": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 1700000000000,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 2,
+              "subscribed": 0,
+              "uid": 3,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ],
+          "removed": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 0,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 2,
+              "subscribed": 0,
+              "uid": 3,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ]
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 2,
+              "tid": 4,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 2,
+              "tid": 4,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment participant-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/participant-seed-pass",
+    "case": "participant-seed-pass",
+    "auth": "participant",
+    "seed": "37414bab9c19",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:participant"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment participant-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "anon:3"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 2,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:participant"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHBhcnRpY2lwYW50LXNlZWQtcGFzcyIsImlzX3NlZWQiOnRydWUsInZvdGUiOjB9",
+              "byte_length": 108,
+              "sha256": "9108272f58a3f3f251109caeae92d57eeb2e2a814769d86df4018057148fdd7f"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-01IN0rodJ571Vh3QEN8KNA\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:27 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 12,
+            "bytes": {
+              "base64": "eyJ0aWQiOjUsImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "bfcb44e9bc4bc2050b3e7c6c6be76b8f13c103af2fc2202da77337cda618f728"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 12,
+        "last_byte_ms": 12,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 5
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 11.547350999999708,
+      "ttlbMs": 11.743851999999606
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 5,
+              "tweet_id": null,
+              "txt": "Generated comment participant-seed-pass",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 2,
+              "tid": 5,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 2,
+              "tid": 5,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment participant-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/standard-seed-disagree",
+    "case": "standard-seed-disagree",
+    "auth": "standard",
+    "seed": "5f70ffcaf661",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:standard"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment standard-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-standard"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 3,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:standard"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHN0YW5kYXJkLXNlZWQtZGlzYWdyZWUiLCJpc19zZWVkIjp0cnVlLCJ2b3RlIjoxfQ==",
+              "byte_length": 109,
+              "sha256": "defd22abc6e5989068d9034159704a649f87db8cfa3c30cf1787bdefee935941"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-/yVv3xHFSf2bzCrIYn+POQ\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:28 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 7,
+            "bytes": {
+              "base64": "eyJ0aWQiOjYsImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "b2884cf8b1511b8a1dbe7a97083e145d015670c9a790c6ec5408f9f18c76f595"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 7,
+        "last_byte_ms": 7,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 6
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 7.1235359999996035,
+      "ttlbMs": 7.300994999999602
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 6,
+              "tweet_id": null,
+              "txt": "Generated comment standard-seed-disagree",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 2,
+              "tid": 6,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 2,
+              "tid": 6,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment standard-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/standard-seed-pass",
+    "case": "standard-seed-pass",
+    "auth": "standard",
+    "seed": "3d77d0b2d37b",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:standard"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment standard-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-standard"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 4,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:standard"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHN0YW5kYXJkLXNlZWQtcGFzcyIsImlzX3NlZWQiOnRydWUsInZvdGUiOjB9",
+              "byte_length": 105,
+              "sha256": "db4e2c66bd53357f14f2d07de51cc3da32aa670823366d728b95c8ab9ce2ff55"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-ap/bvH04b8oJy/X9ZF1CTA\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:28 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 9,
+            "bytes": {
+              "base64": "eyJ0aWQiOjcsImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "2d6ca6f41b3945af294f0e466f88dc904f4583bf6e5721df84e842c5cb9380ff"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 9,
+        "last_byte_ms": 9,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 7
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 9.082128999999895,
+      "ttlbMs": 9.298254999999699
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 7,
+              "tweet_id": null,
+              "txt": "Generated comment standard-seed-pass",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 2,
+              "tid": 7,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 2,
+              "tid": 7,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment standard-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/xid-seed-disagree",
+    "case": "xid-seed-disagree",
+    "auth": "xid",
+    "seed": "fcb27c7f5279",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:xid"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment xid-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "xid:generated-member",
+      "xid": "generated-member"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 5,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:xid"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHhpZC1zZWVkLWRpc2FncmVlIiwiaXNfc2VlZCI6dHJ1ZSwidm90ZSI6MX0=",
+              "byte_length": 104,
+              "sha256": "2de210878e40b4589e3b03d4b90181f74cf5563edd9941a23fef9a4e9aebc38d"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-S85YKAqExgjbpvnpqW7RVw\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:29 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 12,
+            "bytes": {
+              "base64": "eyJ0aWQiOjgsImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "a54535cd48ad93552286847d394b0aa75656e500b425de3afc0a614285f1d7b0"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 12,
+        "last_byte_ms": 12,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 8
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 11.715810000000147,
+      "ttlbMs": 11.898769000000357
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 8,
+              "tweet_id": null,
+              "txt": "Generated comment xid-seed-disagree",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 2,
+              "tid": 8,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 2,
+              "tid": 8,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment xid-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/xid-seed-pass",
+    "case": "xid-seed-pass",
+    "auth": "xid",
+    "seed": "26631e91a302",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:xid"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment xid-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "xid:generated-member",
+      "xid": "generated-member"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:xid"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHhpZC1zZWVkLXBhc3MiLCJpc19zZWVkIjp0cnVlLCJ2b3RlIjowfQ==",
+              "byte_length": 100,
+              "sha256": "e676421a7c379a1de4a450460ccc5a9602be643da0c17092a48960de8b5a67a0"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "24",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"18-3WzxQvLy/sJlFvCHhu7kKg\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:29 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 10,
+            "bytes": {
+              "base64": "eyJ0aWQiOjksImN1cnJlbnRQaWQiOjJ9",
+              "byte_length": 24,
+              "sha256": "fe3a8072c0228843f28936712ad28f5d4cc02ae9fb3a25d7e1b7610cae011ddb"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 10,
+        "last_byte_ms": 10,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 2,
+        "tid": 9
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 10.138010000000122,
+      "ttlbMs": 10.311219000000165
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": false,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 0,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 2,
+              "quote_src_url": null,
+              "tid": 9,
+              "tweet_id": null,
+              "txt": "Generated comment xid-seed-pass",
+              "uid": 3,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 2,
+              "tid": 9,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 2,
+              "tid": 9,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment xid-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/owner-seed-disagree",
+    "case": "owner-seed-disagree",
+    "auth": "owner",
+    "seed": "623f4c9f89c8",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:owner"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment owner-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "8f4ca43a4bfe0fa4cbfae8ea"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:owner"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG93bmVyLXNlZWQtZGlzYWdyZWUiLCJpc19zZWVkIjp0cnVlLCJ2b3RlIjoxfQ==",
+              "byte_length": 106,
+              "sha256": "28b65029fc6f2a180c954293eca73b36f951efb777c6682bb71d3583e7500f8d"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-EJABlu4KIoHuK+rnkZ5Ufg\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:29 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 21,
+            "bytes": {
+              "base64": "eyJ0aWQiOjEwLCJjdXJyZW50UGlkIjowfQ==",
+              "byte_length": 25,
+              "sha256": "28f6817c196df79550bc346e727cd45e0926145f6b9167ec6b733d779ea59b47"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 21,
+        "last_byte_ms": 21,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 0,
+        "tid": 10
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 21.2509,
+      "ttlbMs": 21.434526000000005
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 0,
+              "quote_src_url": null,
+              "tid": 10,
+              "tweet_id": null,
+              "txt": "Generated comment owner-seed-disagree",
+              "uid": 1,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 0,
+              "tid": 10,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 0,
+              "tid": 10,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [
+        {
+          "at_ms": 17.70525699999962,
+          "blocked": false,
+          "host": "oidc-simulator",
+          "method": "GET",
+          "path": "/.well-known/jwks.json",
+          "port": 3000,
+          "protocol": "https",
+          "response": "{\"keys\":[{\"kty\":\"RSA\",\"n\":\"wzwwEqR5p7a6CaG61i3od-GLTyype3t_f0pwwtoA9NsZANcjHaAUR_qzqlNRQlLI687vF1OfbETYLeHIT5V36QGrMfrYR_tYAoaKFixC_wOjt8EBPoeHgaTOAyGf3V3YNwocNU-StyV1X4hPmDjCrapNYpbKIcAJwq5Ij0WBKGNXBcUUbAceRtLqgzf_6x2vcQJeE5nJK5gd41f_jtlK9Xge0Ig6CcdKOI7U3agyI_iNF3SL0bnCfvtDRIkgAzzeN5Yj4S3Z4rJVQ1RgzZmqBmnjw8h06G8wDyaQPf19u4F___gF-dL1md_fVRKL5UL7OZg42hIZzwzdhrxOGcXUFQ\",\"e\":\"AQAB\",\"alg\":\"RS256\",\"kid\":\"NkRGQjI5N0RBNUUwMTYwOEMxQUVGQkJBQTJBODBGNTE2MDA5NDM5RA\",\"use\":\"sig\"}]}",
+          "termination": "end"
+        }
+      ],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment owner-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/owner-seed-pass",
+    "case": "owner-seed-pass",
+    "auth": "owner",
+    "seed": "20ea5b29c8af",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:owner"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment owner-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "8f4ca43a4bfe0fa4cbfae8ea"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:owner"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG93bmVyLXNlZWQtcGFzcyIsImlzX3NlZWQiOnRydWUsInZvdGUiOjB9",
+              "byte_length": 102,
+              "sha256": "3bd758852736ac167e9ec9e7f6f603593f26ec848538d134d9a75591e5fce2d3"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-OZ/R5NGCNdHr2iSjF6O/HQ\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:30 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 12,
+            "bytes": {
+              "base64": "eyJ0aWQiOjExLCJjdXJyZW50UGlkIjowfQ==",
+              "byte_length": 25,
+              "sha256": "ee813e8f54668b89e880edbda59c4bc6c29eda30b8882098b914612ebfc4b55b"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 12,
+        "last_byte_ms": 12,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 0,
+        "tid": 11
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 12.25676999999996,
+      "ttlbMs": 12.455270999999811
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 0,
+              "quote_src_url": null,
+              "tid": 11,
+              "tweet_id": null,
+              "txt": "Generated comment owner-seed-pass",
+              "uid": 1,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 0,
+              "tid": 11,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 0,
+              "tid": 11,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment owner-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/admin-seed-disagree",
+    "case": "admin-seed-disagree",
+    "auth": "admin",
+    "seed": "4b76735a698b",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:admin"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment admin-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "d9b4fceaaad12fc20cef8fe6"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:admin"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IGFkbWluLXNlZWQtZGlzYWdyZWUiLCJpc19zZWVkIjp0cnVlLCJ2b3RlIjoxfQ==",
+              "byte_length": 106,
+              "sha256": "85a57f21cf8caebc2e691eabeb3c8b00dcfda3d056a2bf0b5a823bf5345bf296"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-ysr/aMy1pX9ohdvU67Rx7A\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:30 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 10,
+            "bytes": {
+              "base64": "eyJ0aWQiOjEyLCJjdXJyZW50UGlkIjoxfQ==",
+              "byte_length": 25,
+              "sha256": "e6f81894479ee43996699769c370dee02c08cb4fcae81174d05a031a935f3e61"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 10,
+        "last_byte_ms": 10,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 1,
+        "tid": 12
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 10.114008999999896,
+      "ttlbMs": 10.279802000000018
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 1,
+              "quote_src_url": null,
+              "tid": 12,
+              "tweet_id": null,
+              "txt": "Generated comment admin-seed-disagree",
+              "uid": 2,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:participants": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 1700000000000,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 1,
+              "subscribed": 0,
+              "uid": 2,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ],
+          "removed": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 0,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 1,
+              "subscribed": 0,
+              "uid": 2,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ]
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 1,
+              "tid": 12,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 1,
+              "tid": 12,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment admin-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/admin-seed-pass",
+    "case": "admin-seed-pass",
+    "auth": "admin",
+    "seed": "4998bf789997",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:admin"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment admin-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "d9b4fceaaad12fc20cef8fe6"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:admin"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IGFkbWluLXNlZWQtcGFzcyIsImlzX3NlZWQiOnRydWUsInZvdGUiOjB9",
+              "byte_length": 102,
+              "sha256": "0240b39c1f3038da506a83d60d1dbddd7125917762657f3648b20d175380866c"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-v7gu+KuyZ7DP46/S24QdYw\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:31 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 10,
+            "bytes": {
+              "base64": "eyJ0aWQiOjEzLCJjdXJyZW50UGlkIjoxfQ==",
+              "byte_length": 25,
+              "sha256": "2c9388a99b28e2b8d6c6b14aa088e7e441b7423707c21c785f1614323ebde6c9"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 10,
+        "last_byte_ms": 11,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 1,
+        "tid": 13
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 10.385428000000502,
+      "ttlbMs": 10.53330300000016
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 1,
+              "quote_src_url": null,
+              "tid": 13,
+              "tweet_id": null,
+              "txt": "Generated comment admin-seed-pass",
+              "uid": 2,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 1,
+              "tid": 13,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 1,
+              "tid": 13,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment admin-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/site-moderator-seed-disagree",
+    "case": "site-moderator-seed-disagree",
+    "auth": "site-moderator",
+    "seed": "20884e1e8226",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:site-moderator"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment site-moderator-seed-disagree",
+        "is_seed": true,
+        "vote": 1
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-moderator"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:site-moderator"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHNpdGUtbW9kZXJhdG9yLXNlZWQtZGlzYWdyZWUiLCJpc19zZWVkIjp0cnVlLCJ2b3RlIjoxfQ==",
+              "byte_length": 115,
+              "sha256": "85d230a84d1445b70b5e29fec3ae366445190f7623e71c2269dec76ccdf2ae9a"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-LGz7HSCPMBn3DjAabpoDPg\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:31 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 10,
+            "bytes": {
+              "base64": "eyJ0aWQiOjE0LCJjdXJyZW50UGlkIjozfQ==",
+              "byte_length": 25,
+              "sha256": "dbf9da0b0af1651e4ae584cf9bf0c787502db4b3f7e0119301363a9f5bb80300"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 9,
+        "last_byte_ms": 10,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 3,
+        "tid": 14
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 9.492215000000215,
+      "ttlbMs": 9.642839999999524
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 3,
+              "quote_src_url": null,
+              "tid": 14,
+              "tweet_id": null,
+              "txt": "Generated comment site-moderator-seed-disagree",
+              "uid": 100004,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:participants": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 1700000000000,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 3,
+              "subscribed": 0,
+              "uid": 100004,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ],
+          "removed": [
+            {
+              "created": 1700000000000,
+              "last_interaction": 0,
+              "last_notified": 0,
+              "mod": 0,
+              "nsli": 0,
+              "pid": 3,
+              "subscribed": 0,
+              "uid": 100004,
+              "vote_count": 0,
+              "zid": 1
+            }
+          ]
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 3,
+              "tid": 14,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 3,
+              "tid": 14,
+              "vote": 1,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "disagree"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment site-moderator-seed-disagree",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/site-moderator-seed-pass",
+    "case": "site-moderator-seed-pass",
+    "auth": "site-moderator",
+    "seed": "339c5e2f2d8e",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:site-moderator"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment site-moderator-seed-pass",
+        "is_seed": true,
+        "vote": 0
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-moderator"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:site-moderator"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IHNpdGUtbW9kZXJhdG9yLXNlZWQtcGFzcyIsImlzX3NlZWQiOnRydWUsInZvdGUiOjB9",
+              "byte_length": 111,
+              "sha256": "c9f87bacb8ce7b4a7b883b0ee9a5dba2c8fef275eaa98fa690e2d789837c1e04"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 200,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-YeNVkHpwDlqIpY5aUsDoBQ\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:32 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 8,
+            "bytes": {
+              "base64": "eyJ0aWQiOjE1LCJjdXJyZW50UGlkIjozfQ==",
+              "byte_length": 25,
+              "sha256": "9aab2a88924e9c42b5df25778065b06ffd7883a4033b4124a383e2ac9d6fc3f3"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 8,
+        "last_byte_ms": 8,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "currentPid": 3,
+        "tid": 15
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 200,
+      "ttfbMs": 7.804997999999614,
+      "ttlbMs": 7.948956999999609
+    },
+    "effects": {
+      "db": {
+        "pg:comments": {
+          "added": [
+            {
+              "active": true,
+              "anon": false,
+              "created": 1700000000000,
+              "is_meta": false,
+              "is_seed": true,
+              "lang": null,
+              "lang_confidence": null,
+              "mod": 1,
+              "modified": 1700000000000,
+              "original_id": null,
+              "pid": 3,
+              "quote_src_url": null,
+              "tid": 15,
+              "tweet_id": null,
+              "txt": "Generated comment site-moderator-seed-pass",
+              "uid": 100004,
+              "velocity": 1,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes": {
+          "added": [
+            {
+              "created": 1700000000000,
+              "high_priority": false,
+              "pid": 3,
+              "tid": 15,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        },
+        "pg:votes_latest_unique": {
+          "added": [
+            {
+              "modified": 1700000000000,
+              "pid": 3,
+              "tid": 15,
+              "vote": 0,
+              "weight_x_32767": 0,
+              "zid": 1
+            }
+          ],
+          "removed": []
+        }
+      },
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 1,
+      "votesAdded": 1,
+      "storedMeanings": [
+        "pass"
+      ],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": [
+          {
+            "text": "Generated comment site-moderator-seed-pass",
+            "mode": "null-fallback"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-account",
+    "case": "oidc-account",
+    "auth": "comments-owner-2",
+    "seed": "dbcc41c5d702",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:comments-owner-2"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-account"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "23229ecdc3ed7bc3dff205e4"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:comments-owner-2"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtYWNjb3VudCJ9",
+              "byte_length": 75,
+              "sha256": "07cd8107589f58c8d21f31f8c806ebed3cf953f3e49ee40fc90e36f2e757d52f"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 500,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "125",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"7d-UqKD/GEG54Du+As2zHM+Vg\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:32 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 4,
+            "bytes": {
+              "base64": "eyJlcnJvciI6InVzZXJfY3JlYXRpb25fZmFpbGVkIiwibWVzc2FnZSI6IkZhaWxlZCB0byBjcmVhdGUgb3IgbWFwIHVzZXIgYWNjb3VudCIsImRldGFpbHMiOiJnZW5lcmF0ZWQgcmVjb3JkaW5nIFNRTCBmYWlsdXJlIn0=",
+              "byte_length": 125,
+              "sha256": "5c7a8479d2a67811166d7f9019511ed0006c0d813e909daf8e12e306ec88ea00"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 4,
+        "last_byte_ms": 4,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "details": "generated recording SQL failure",
+        "error": "user_creation_failed",
+        "message": "Failed to create or map user account"
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 500,
+      "ttfbMs": 3.600351999999475,
+      "ttlbMs": 3.7262689999997747
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-account-conflict",
+    "case": "oidc-account-conflict",
+    "auth": "comments-owner-2",
+    "seed": "f508ef069943",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:comments-owner-2"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-account-conflict"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "23229ecdc3ed7bc3dff205e4"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:comments-owner-2"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtYWNjb3VudC1jb25mbGljdCJ9",
+              "byte_length": 84,
+              "sha256": "658cc2c24b8058170da6bff610ea5cd9af5efe6a54baa102fa9b75ab878539cb"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 429,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "137",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"89-g0EiXkOEPIAKhOP1UUMeNQ\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:33 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 3,
+            "bytes": {
+              "base64": "eyJlcnJvciI6ImF1dGhlbnRpY2F0aW9uX2NvbmZsaWN0IiwibWVzc2FnZSI6IkF1dGhlbnRpY2F0aW9uIHN5c3RlbSBlbmNvdW50ZXJlZCBhIHRlbXBvcmFyeSBjb25mbGljdC4gUGxlYXNlIHRyeSBhZ2Fpbi4iLCJyZXRyeV9hZnRlciI6MX0=",
+              "byte_length": 137,
+              "sha256": "640d93512642240b6491dbabb6382d0e0e4022052e151d747e0eb84b85c64d0f"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 3,
+        "last_byte_ms": 3,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "error": "authentication_conflict",
+        "message": "Authentication system encountered a temporary conflict. Please try again.",
+        "retry_after": 1
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 429,
+      "ttfbMs": 3.3197250000002896,
+      "ttlbMs": 3.434892000000218
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-account-load",
+    "case": "oidc-account-load",
+    "auth": "comments-owner-2",
+    "seed": "adaf2e820a46",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:comments-owner-2"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-account-load"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "23229ecdc3ed7bc3dff205e4"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:comments-owner-2"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtYWNjb3VudC1sb2FkIn0=",
+              "byte_length": 80,
+              "sha256": "b33367dfe0a0d4ed63a2b9e67328fb14dbf34be77e8d611f4a4257ebb6914e5f"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 429,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "136",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"88-DovMU3Ld3s9Uo3IyS4lolg\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:33 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 3,
+            "bytes": {
+              "base64": "eyJlcnJvciI6InRvb19tYW55X3JlcXVlc3RzIiwibWVzc2FnZSI6IkF1dGhlbnRpY2F0aW9uIHN5c3RlbSBpcyBleHBlcmllbmNpbmcgaGlnaCBsb2FkLiBQbGVhc2UgdHJ5IGFnYWluIGluIGEgbW9tZW50LiIsInJldHJ5X2FmdGVyIjoxfQ==",
+              "byte_length": 136,
+              "sha256": "5393d0dada760406beebf5e37bb8fee5a6ca72f1b1a3120fd77c64244dd49682"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 3,
+        "last_byte_ms": 3,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "error": "too_many_requests",
+        "message": "Authentication system is experiencing high load. Please try again in a moment.",
+        "retry_after": 1
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 429,
+      "ttfbMs": 3.3063499999998385,
+      "ttlbMs": 3.4309339999999793
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-missing-email",
+    "case": "oidc-missing-email",
+    "auth": "oidc-missing-email",
+    "seed": "87fe50875d4d",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:oidc-missing-email"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-missing-email"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-oidc-no-email"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:oidc-missing-email"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtbWlzc2luZy1lbWFpbCJ9",
+              "byte_length": 81,
+              "sha256": "66fe336a01ec01341679611c098259c60c08ba9a8e57aaff8998bf43dd05d87d"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 400,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "95",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"5f-QGxS/pWYjLgdL+brIiLdOw\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:33 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 2,
+            "bytes": {
+              "base64": "eyJlcnJvciI6ImludmFsaWRfdXNlcl9kYXRhIiwibWVzc2FnZSI6IlVzZXIgYWNjb3VudCBpcyBtaXNzaW5nIHJlcXVpcmVkIGluZm9ybWF0aW9uIChlbWFpbCkuIn0=",
+              "byte_length": 95,
+              "sha256": "abea640eb5104ea2feaac9ba82367c9839f9e4c87a67b1fdcc18caa9852df876"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 2,
+        "last_byte_ms": 2,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "error": "invalid_user_data",
+        "message": "User account is missing required information (email)."
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 400,
+      "ttfbMs": 2.2938450000001467,
+      "ttlbMs": 2.406970000000001
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-expired",
+    "case": "oidc-expired",
+    "auth": "oidc-expired",
+    "seed": "af2d9676295d",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:oidc-expired"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-expired"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-oidc-vote-fixture"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:oidc-expired"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtZXhwaXJlZCJ9",
+              "byte_length": 75,
+              "sha256": "480b98357e952b9b9ee37e1d62caa025c4845ec668ff7f5b78641c37a916bcd9"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 401,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "64",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"40-AZECOzOIgn6Jhruy53oRuA\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:34 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 3,
+            "bytes": {
+              "base64": "eyJlcnJvciI6IkludmFsaWQgYXV0aGVudGljYXRpb24gdG9rZW4iLCJkZXRhaWxzIjoiand0IGV4cGlyZWQifQ==",
+              "byte_length": 64,
+              "sha256": "455bdc63aad37bd64cad42fc6de0dd5a76209a92c23d71b764f6b59f24744b02"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 2,
+        "last_byte_ms": 3,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "details": "jwt expired",
+        "error": "Invalid authentication token"
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 401,
+      "ttfbMs": 2.4698459999999614,
+      "ttlbMs": 2.6134710000005725
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-issuer",
+    "case": "oidc-issuer",
+    "auth": "oidc-issuer",
+    "seed": "b00f68631364",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:oidc-issuer"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-issuer"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-oidc-vote-fixture"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:oidc-issuer"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtaXNzdWVyIn0=",
+              "byte_length": 74,
+              "sha256": "673c30dce079253c3c3cb2305f6cd142f1fd5bc3aa998fb556d2872df3f9cc81"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 401,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "88",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"58-HG9z2b+w5WYrQmAW1A3b9g\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:34 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 1,
+            "bytes": {
+              "base64": "eyJlcnJvciI6IkludmFsaWQgdG9rZW4gZm9ybWF0IiwiZGV0YWlscyI6IlRva2VuIGRvZXMgbm90IG1hdGNoIGFueSBzdXBwb3J0ZWQgSldUIHR5cGUifQ==",
+              "byte_length": 88,
+              "sha256": "8a63420d75a3d9036037c407d494e254cc7fd443893999d54d35c56b4702d105"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 1,
+        "last_byte_ms": 1,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "details": "Token does not match any supported JWT type",
+        "error": "Invalid token format"
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 401,
+      "ttfbMs": 0.9100039999993896,
+      "ttlbMs": 1.0082129999991594
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-audience",
+    "case": "oidc-audience",
+    "auth": "oidc-audience",
+    "seed": "088d01eb6b26",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:oidc-audience"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-audience"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-oidc-vote-fixture"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:oidc-audience"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtYXVkaWVuY2UifQ==",
+              "byte_length": 76,
+              "sha256": "c6fcad7be0c7873748a2dc2e29669661873e57bdbde6f7a45ae1a3500c92b447"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 401,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "88",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"58-HG9z2b+w5WYrQmAW1A3b9g\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:35 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 1,
+            "bytes": {
+              "base64": "eyJlcnJvciI6IkludmFsaWQgdG9rZW4gZm9ybWF0IiwiZGV0YWlscyI6IlRva2VuIGRvZXMgbm90IG1hdGNoIGFueSBzdXBwb3J0ZWQgSldUIHR5cGUifQ==",
+              "byte_length": 88,
+              "sha256": "8a63420d75a3d9036037c407d494e254cc7fd443893999d54d35c56b4702d105"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 1,
+        "last_byte_ms": 1,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "details": "Token does not match any supported JWT type",
+        "error": "Invalid token format"
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 401,
+      "ttfbMs": 0.9259629999996832,
+      "ttlbMs": 1.0356300000003102
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-signature",
+    "case": "oidc-signature",
+    "auth": "oidc-signature",
+    "seed": "ab87492a68d0",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:oidc-signature"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-signature"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-oidc-vote-fixture"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:oidc-signature"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtc2lnbmF0dXJlIn0=",
+              "byte_length": 77,
+              "sha256": "0d9e97dc08e4b20230e5e107851563c8bc017d7307c3f5596ad16b818fe580fd"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 401,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "70",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"46-hTUIfGJfxLTn7SPS4Ow0pA\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:35 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 2,
+            "bytes": {
+              "base64": "eyJlcnJvciI6IkludmFsaWQgYXV0aGVudGljYXRpb24gdG9rZW4iLCJkZXRhaWxzIjoiaW52YWxpZCBzaWduYXR1cmUifQ==",
+              "byte_length": 70,
+              "sha256": "df42f92d3421b3031dde54aa025f2205befc9d644ce8f63829f15cf01ec52a34"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 2,
+        "last_byte_ms": 2,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "details": "invalid signature",
+        "error": "Invalid authentication token"
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 401,
+      "ttfbMs": 2.149470000000292,
+      "ttlbMs": 2.26555400000143
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  },
+  {
+    "caseId": "post-comments/oidc-unknown-key",
+    "case": "oidc-unknown-key",
+    "auth": "oidc-unknown-key",
+    "seed": "8e5a35e94373",
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/comments",
+      "query": {},
+      "headers": {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+        "authorization": "$auth:oidc-unknown-key"
+      },
+      "body": {
+        "conversation_id": "2p027generated",
+        "txt": "Generated comment oidc-unknown-key"
+      }
+    },
+    "credentialBinding": {
+      "zid": 1,
+      "oidcSub": "generated-oidc-vote-fixture"
+    },
+    "notificationPolicy": {
+      "template": "comment-moderation",
+      "conversationId": "2p027generated",
+      "pending": 6,
+      "count": 0,
+      "recipients": []
+    },
+    "version": 1,
+    "wire": {
+      "request": {
+        "method": "POST",
+        "target": {
+          "base64": "L2FwaS92My9jb21tZW50cw==",
+          "byte_length": 16,
+          "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+        },
+        "headers": [
+          {
+            "name": "host",
+            "value": "localhost:5000",
+            "credential_ref": null
+          },
+          {
+            "name": "content-type",
+            "value": "application/json",
+            "credential_ref": null
+          },
+          {
+            "name": "x-forwarded-proto",
+            "value": "https",
+            "credential_ref": null
+          },
+          {
+            "name": "authorization",
+            "value": null,
+            "credential_ref": "$auth:oidc-unknown-key"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Transfer-Encoding",
+            "value": "chunked",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 0,
+            "bytes": {
+              "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IG9pZGMtdW5rbm93bi1rZXkifQ==",
+              "byte_length": 79,
+              "sha256": "6759276cf1fc639f49e99d5fc039d58703690095b9221d6bcfb8a70a7de0c2d5"
+            }
+          }
+        ],
+        "encoding": "utf8"
+      },
+      "response": {
+        "status": 401,
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "122",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"7a-oUEsEgBGT38FJAxt6ei/TQ\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 22 Oct 2026 20:31:36 GMT",
+            "credential_ref": null
+          }
+        ],
+        "body": [
+          {
+            "sequence": 0,
+            "at_ms": 6,
+            "bytes": {
+              "base64": "eyJlcnJvciI6IkludmFsaWQgYXV0aGVudGljYXRpb24gdG9rZW4iLCJkZXRhaWxzIjoiVW5hYmxlIHRvIGZpbmQgYSBzaWduaW5nIGtleSB0aGF0IG1hdGNoZXMgJ2dlbmVyYXRlZC11bnB1Ymxpc2hlZC1rZXknIn0=",
+              "byte_length": 122,
+              "sha256": "cdb94aeaa513960c283c83266bd7bb17b12ae387c3052d15d701db21e7ff601a"
+            }
+          }
+        ],
+        "completed": true,
+        "termination": "end",
+        "first_byte_ms": 6,
+        "last_byte_ms": 6,
+        "process_alive_at_end": true
+      },
+      "encoding": "utf8"
+    },
+    "response": {
+      "body": {
+        "details": "Unable to find a signing key that matches 'generated-unpublished-key'",
+        "error": "Invalid authentication token"
+      },
+      "completed": true,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://localhost",
+        "cache-control": "no-cache",
+        "content-type": "application/json; charset=utf-8"
+      },
+      "status": 401,
+      "ttfbMs": 6.3291989999997895,
+      "ttlbMs": 6.486532999999326
+    },
+    "effects": {
+      "db": {},
+      "files": {},
+      "jwtIssued": 0,
+      "jwtMinted": 0,
+      "jwts": [],
+      "outbound": [
+        {
+          "at_ms": 16.268457999998645,
+          "blocked": false,
+          "host": "oidc-simulator",
+          "method": "GET",
+          "path": "/.well-known/jwks.json",
+          "port": 3000,
+          "protocol": "https",
+          "response": "{\"keys\":[{\"kty\":\"RSA\",\"n\":\"wzwwEqR5p7a6CaG61i3od-GLTyype3t_f0pwwtoA9NsZANcjHaAUR_qzqlNRQlLI687vF1OfbETYLeHIT5V36QGrMfrYR_tYAoaKFixC_wOjt8EBPoeHgaTOAyGf3V3YNwocNU-StyV1X4hPmDjCrapNYpbKIcAJwq5Ij0WBKGNXBcUUbAceRtLqgzf_6x2vcQJeE5nJK5gd41f_jtlK9Xge0Ig6CcdKOI7U3agyI_iNF3SL0bnCfvtDRIkgAzzeN5Yj4S3Z4rJVQ1RgzZmqBmnjw8h06G8wDyaQPf19u4F___gF-dL1md_fVRKL5UL7OZg42hIZzwzdhrxOGcXUFQ\",\"e\":\"AQAB\",\"alg\":\"RS256\",\"kid\":\"NkRGQjI5N0RBNUUwMTYwOEMxQUVGQkJBQTJBODBGNTE2MDA5NDM5RA\",\"use\":\"sig\"}]}",
+          "termination": "end"
+        }
+      ],
+      "participantCreated": 0,
+      "participants": []
+    },
+    "process": [],
+    "oracle": {
+      "pass": true,
+      "failures": [],
+      "flag": null
+    },
+    "routeHits": [
+      1,
+      3,
+      44
+    ],
+    "commentProof": {
+      "commentsAdded": 0,
+      "votesAdded": 0,
+      "storedMeanings": [],
+      "fault": {
+        "armed": null,
+        "fired": 0,
+        "languageCalls": []
+      }
+    }
+  }
+]
