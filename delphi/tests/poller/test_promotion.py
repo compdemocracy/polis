@@ -97,7 +97,8 @@ class ReceiptQueue:
         fp = self.pg.fps.get((zid, STAGED))
         return Receipt(job_id=job_id, state="succeeded", output_sha256="0" * 64,
                        math_env=STAGED, math_tick=getattr(fp, "math_tick", None),
-                       vote_hwm=getattr(fp, "lvt", None))
+                       vote_hwm=getattr(fp, "lvt", None), modified_ms=getattr(fp, "modified", None),
+                       target_label=SMALL_LABEL, source_commit="a" * 40)
 
 
 def make(tmp_path=None, *, clock=None, sizes_by_zid=None, adm=None, **kw):
@@ -354,6 +355,106 @@ class TestPromotionPass:
         loop.tick()
         assert "promotion_pass failed (RuntimeError)" in caplog.text
         assert router.disposition(7) == LARGE                   # the record is untouched
+
+
+class ControlledQueue:
+    """The receipt of ``job-7`` is whatever the test says: the job's state
+    and the bundle and admission its finalized manifest names (#677)."""
+
+    def __init__(self):
+        self.state = None
+
+    def enqueue_math_rebuild(self, zid, *, config, staged_label, target_label, known_job=None):
+        return "existing", f"job-{zid}"
+
+    def receipt(self, job_id):
+        from polismath.poller.capacity_queue import Receipt
+
+        if self.state is None:
+            return Receipt(job_id=job_id, state="running", output_sha256=None)
+        state, fp, target, commit, sha = self.state
+        return Receipt(job_id=job_id, state=state, output_sha256=sha, math_env=STAGED,
+                       math_tick=fp.math_tick, vote_hwm=fp.lvt, modified_ms=fp.modified,
+                       target_label=target, source_commit=commit)
+
+
+class TestReceiptInterruptions:
+    """The receipt binds the whole staged fingerprint (tick, newest vote,
+    modified) and the admission (target label, source commit); a staged
+    bundle is promoted only on that. Each boundary interrupted in turn."""
+
+    FP1 = Fingerprint(3, T0, T0 + 5)
+    FP2 = Fingerprint(3, T0, T0 + 9)            # the same tick and newest vote, rewritten
+    MINE = (SMALL_LABEL, "a" * 40)
+
+    def loop(self, tmp_path):
+        loop, router, pg, *_ = make(tmp_path)
+        route(router, 7, input_ms=T0)
+        q = ControlledQueue()
+        loop._queue = q
+        return loop, router, pg, q
+
+    def test_interrupted_after_the_bundle_commit(self, tmp_path):
+        loop, router, pg, q = self.loop(tmp_path)
+        pg.fps[(7, STAGED)] = self.FP1           # the child committed its bundle, then died
+        q.state = ("retry_wait", self.FP1, *self.MINE, None)
+        loop.tick()
+        assert pg.promoted == []                 # no manifest, no receipt
+        # The retry writes the bundle again (same tick, later modified) and
+        # finalizes naming it: promoted.
+        pg.fps[(7, STAGED)] = self.FP2
+        q.state = ("succeeded", self.FP2, *self.MINE, "0" * 64)
+        loop.tick()
+        assert pg.promoted == [7]
+
+    def test_a_receipt_names_only_the_write_it_finalized(self, tmp_path):
+        loop, router, pg, q = self.loop(tmp_path)
+        q.state = ("succeeded", self.FP1, *self.MINE, "0" * 64)
+        pg.fps[(7, STAGED)] = self.FP2           # another write under the staged label since
+        loop.tick()
+        assert pg.promoted == []                 # tick and newest vote agree; modified does not
+
+    def test_interrupted_before_finalize(self, tmp_path):
+        loop, router, pg, q = self.loop(tmp_path)
+        pg.fps[(7, STAGED)] = self.FP1
+        q.state = ("running", self.FP1, *self.MINE, "0" * 64)   # manifest written, not finalized
+        loop.tick()
+        assert pg.promoted == []
+        q.state = ("succeeded", self.FP1, *self.MINE, "0" * 64)
+        loop.tick()
+        assert pg.promoted == [7]
+
+    def test_interrupted_promotion_is_retried_once(self, tmp_path, monkeypatch):
+        loop, router, pg, q = self.loop(tmp_path)
+        pg.fps[(7, STAGED)] = self.FP1
+        q.state = ("succeeded", self.FP1, *self.MINE, "0" * 64)
+        real = pg.promote_bundle
+        calls = []
+
+        def crash_once(*a, **kw):
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError("connection lost inside the promotion transaction")
+            return real(*a, **kw)
+
+        monkeypatch.setattr(pg, "promote_bundle", crash_once)
+        loop.tick()
+        assert pg.promoted == [] and (7, SMALL_LABEL) not in pg.fps
+        assert router.counts()["promoted_total"] == 0
+        loop.tick()
+        assert pg.promoted == [7] and router.counts()["promoted_total"] == 1
+        loop.tick()
+        assert pg.promoted == [7] and len(calls) == 2          # served: not promoted again
+
+    @pytest.mark.parametrize("target, commit", [("prod", "a" * 40), (SMALL_LABEL, "b" * 40),
+                                                (None, "a" * 40), (SMALL_LABEL, None)])
+    def test_a_bundle_admitted_for_another_label_or_deploy_is_not_promoted(
+            self, tmp_path, target, commit):
+        loop, router, pg, q = self.loop(tmp_path)
+        pg.fps[(7, STAGED)] = self.FP1
+        q.state = ("succeeded", self.FP1, target, commit, "0" * 64)
+        loop.tick()
+        assert pg.promoted == []
 
 
 class TestResizeOnABindingChange:
