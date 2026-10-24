@@ -1,15 +1,17 @@
 /** Joining a conversation must never leave its participant lock on a pooled
  * connection, and must never wait on that lock indefinitely.
  *
- * The pid_auto trigger (server/postgres/migrations/000000_initial.sql) takes a
- * SESSION advisory lock per conversation and pid_auto_unlock gives it back only
- * after a successful INSERT. Two joiners racing in one conversation can be
- * handed the same pid: the second takes the lock as soon as the first's INSERT
- * ends, before the first has committed. The second INSERT then fails on
- * (zid, pid), and its session keeps the lock through ROLLBACK. If that
- * connection goes back to the pool, every later joiner of the conversation on
- * any other connection, on this server or another, waits for a lock nobody
- * will release, and holds a read-write connection while it waits.
+ * Before migration 000044, the pid_auto trigger (server/postgres/migrations)
+ * took a SESSION advisory lock per conversation and pid_auto_unlock gave it
+ * back only after a successful INSERT. Two joiners racing in one conversation
+ * could be handed the same pid: the second took the lock as soon as the first's
+ * INSERT ended, before the first had committed. The second INSERT then failed
+ * on (zid, pid), and its session kept the lock through ROLLBACK. If that
+ * connection went back to the pool, every later joiner of the conversation on
+ * any other connection, on this server or another, waited for a lock nobody
+ * would release, and held a read-write connection while it waited. Since 000044
+ * the lock is held to COMMIT or ROLLBACK (participant-numbers.pgtest.ts); these
+ * cases still hold.
  *
  * Generated data only. Needs DATABASE_URL (superuser, migrated); see
  * scripts/test-delphi-result-reads.sh. */
@@ -90,16 +92,17 @@ afterAll(async () => { await pg?.end(); });
 test("a joiner that loses the pid race leaves no lock behind, still gets a participant, and later joiners do not wait", async () => {
   const [uidA, uidB, uidC] = await newUsers(3);
 
-  // Joiner A has run its INSERT (pid_auto took and gave back the lock); its
-  // COMMIT, one round trip later in production, has not arrived yet.
+  // Joiner A has run its INSERT (pid_auto took the lock); its COMMIT, one round
+  // trip later in production, has not arrived yet.
   const a = new Client({ connectionString: process.env.DATABASE_URL });
   await a.connect();
   await a.query("BEGIN");
   await a.query("INSERT INTO participants_extended (zid, uid) VALUES ($1, $2) ON CONFLICT (zid, uid) DO NOTHING", [RACE_ZID, uidA]);
   const pidA = (await a.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid", [RACE_ZID, uidA])).rows[0].pid;
 
-  // Joiner B joins through the server. pid_auto gives it A's pid, because A's
-  // row is not committed, and B then waits on A's conversations row.
+  // Joiner B joins through the server and waits: since 000044 on the
+  // participant lock A holds to commit, then gets the next pid; before it,
+  // pid_auto gave B A's pid and B waited on A's conversations row.
   const lost = timed(addParticipant(RACE_ZID, uidB));
   const deadline = Date.now() + 5000;
   while ((await waitingInserts()) === 0) {

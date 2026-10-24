@@ -34,7 +34,9 @@ const DATABASES = ["m000042_upgrade", "m000042_fresh", "m000042_lock"];
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 let admin: Client;
+// The release just before 000042, and this release up to and including it.
 let before000042: string;
+let through000042: string;
 
 function url(db: string): string {
   const u = new URL(process.env.DATABASE_URL as string);
@@ -73,20 +75,26 @@ function runnerAsync(
   });
 }
 
-/** This release without 000042: the release just before it. */
-function releaseBefore000042(): string {
+/** This release with only the numbered migrations `keep` accepts: their
+ * files and their release.txt and compat.txt lines. */
+function releaseWith(keep: (name: string) => boolean): string {
   const dir = path.join(
     fs.mkdtempSync(path.join(os.tmpdir(), "release-")),
     "migrations"
   );
   fs.cpSync(MIGRATIONS, dir, { recursive: true });
-  fs.rmSync(path.join(dir, NAME));
+  const numbered = (name: string) => /^\d{6}_.*\.sql$/.test(name);
+  for (const name of fs.readdirSync(dir))
+    if (numbered(name) && !keep(name)) fs.rmSync(path.join(dir, name));
   for (const manifest of ["release.txt", "compat.txt"]) {
     const file = path.join(dir, manifest);
     const kept = fs
       .readFileSync(file, "utf8")
       .split("\n")
-      .filter((line) => line.split(" ")[0] !== NAME);
+      .filter((line) => {
+        const name = line.split(" ")[0];
+        return !numbered(name) || keep(name);
+      });
     fs.writeFileSync(file, kept.join("\n"));
   }
   return dir;
@@ -166,14 +174,16 @@ beforeAll(async () => {
   await admin.connect();
   for (const db of DATABASES)
     await admin.query(`DROP DATABASE IF EXISTS ${db} WITH (FORCE)`);
-  before000042 = releaseBefore000042();
+  before000042 = releaseWith((name) => name < NAME);
+  through000042 = releaseWith((name) => name <= NAME);
 });
 afterAll(async () => {
   for (const db of DATABASES)
     await admin?.query(`DROP DATABASE IF EXISTS ${db} WITH (FORCE)`);
   await admin?.end();
-  if (before000042)
-    fs.rmSync(path.dirname(before000042), { recursive: true, force: true });
+  for (const release of [before000042, through000042])
+    if (release)
+      fs.rmSync(path.dirname(release), { recursive: true, force: true });
 });
 
 describe("migration 000042 through the runner", () => {
@@ -188,12 +198,12 @@ describe("migration 000042 through the runner", () => {
       beforeCatalog = await numberingCatalog(client);
       const statements = await storedStatements(client);
 
-      const out = runner("m000042_upgrade", "deploy");
+      const out = runner("m000042_upgrade", "deploy", through000042);
       expect(
         out.split("\n").filter((line) => line.startsWith("APPLIED "))
       ).toEqual([`APPLIED ${NAME}`]);
       expect(out).toContain("applied 1 migration(s)");
-      expect(runner("m000042_upgrade", "check")).toMatch(
+      expect(runner("m000042_upgrade", "check", through000042)).toMatch(
         /^migration check: \d+ ready$/m
       );
       expect(
@@ -275,7 +285,7 @@ describe("migration 000042 through the runner", () => {
       // The operator removes the history row in the same sitting; the release
       // then applies 000042 again.
       await client.query("DELETE FROM migrations WHERE name = $1", [NAME]);
-      const out = runner("m000042_upgrade", "apply");
+      const out = runner("m000042_upgrade", "apply", through000042);
       expect(
         out.split("\n").filter((line) => line.startsWith("APPLIED "))
       ).toEqual([`APPLIED ${NAME}`]);
@@ -301,7 +311,7 @@ describe("migration 000042 through the runner", () => {
         await holder.query("SELECT 'public.comments'::regclass::oid AS oid")
       ).rows[0].oid;
       const started = Date.now();
-      const deploying = runnerAsync("m000042_lock", "deploy");
+      const deploying = runnerAsync("m000042_lock", "deploy", through000042);
       for (;;) {
         const waiting = (
           await admin.query(
@@ -360,7 +370,9 @@ describe("migration 000042 through the runner", () => {
       expect(stored.tid).toBe(4);
 
       // With the transaction gone, the next deploy applies it.
-      expect(runner("m000042_lock", "deploy")).toContain(`APPLIED ${NAME}`);
+      expect(runner("m000042_lock", "deploy", through000042)).toContain(
+        `APPLIED ${NAME}`
+      );
     } finally {
       await holder.end().catch(() => undefined);
       await writer.end().catch(() => undefined);

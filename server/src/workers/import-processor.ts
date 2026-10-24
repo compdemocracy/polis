@@ -367,11 +367,13 @@ async function flushBatchToDb(rows: any[][]) {
     await client.query("ROLLBACK");
     throw e;
   } finally {
-    // The participants INSERT fires pid_auto, whose session advisory lock is
-    // given back only for rows actually inserted: a row skipped by ON CONFLICT
-    // DO NOTHING, or a failed batch, leaves it held on this connection through
-    // COMMIT or ROLLBACK. Close the connection instead of pooling it, so the
-    // lock ends with the session and joiners of this conversation never wait.
+    // The participants INSERT fires pid_auto. Before migration 000044 its
+    // session advisory lock was given back only for rows actually inserted: a
+    // row skipped by ON CONFLICT DO NOTHING, or a failed batch, left it held on
+    // this connection through COMMIT or ROLLBACK. Close the connection instead
+    // of pooling it, so the lock ends with the session and joiners of this
+    // conversation never wait. Since 000044 the lock ends with the transaction;
+    // closing the connection is kept for a database without 000044.
     client.release(true);
   }
 }
