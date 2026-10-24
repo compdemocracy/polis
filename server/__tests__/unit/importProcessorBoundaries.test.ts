@@ -59,6 +59,7 @@ const payload = {
 const header = "vote_id,user_id,vote_value,timestamp,comment_id\n";
 const events: string[] = [];
 let csv: string;
+let resetDatabase: () => void;
 let client: { query: jest.Mock; release: jest.Mock };
 
 function jobUpdates(status: string) {
@@ -76,18 +77,49 @@ beforeEach(() => {
   jest.resetAllMocks();
   events.length = 0;
   csv = header + "v1,public-one,1,2024-01-01T00:00:00Z,comment-one\n";
+  const identities = new Map<string, number>();
+  const latest = new Map<string, any>();
+  let count = 0;
+  resetDatabase = () => {
+    identities.clear();
+    latest.clear();
+    count = 0;
+  };
   client = {
     query: jest.fn(async (sql: unknown, values?: any[]) => {
       const text = String(sql);
       events.push(text.trim().split(/\s+/).slice(0, 3).join(" "));
-      if (text.includes("SELECT p.pid")) {
-        return {
-          rows: [...new Set(values![1])].map((username, pid) => ({
-            username,
-            pid,
-          })),
-        };
+      if (text.includes("AS occupied")) return { rows: [{ occupied: false }] };
+      if (text.includes("pg_try_advisory_xact_lock"))
+        return { rows: [{ acquired: true }] };
+      if (text.includes("INSERT INTO participants")) {
+        const rows = values![2].map((name: string) => {
+          const pid = identities.size;
+          identities.set(name, pid);
+          return { pid, uid: pid };
+        });
+        return { rows };
       }
+      if (text.includes("SELECT p.pid"))
+        return {
+          rows: [...identities]
+            .filter(([, pid]) => values![1].includes(pid))
+            .map(([username, pid]) => ({ username, pid })),
+        };
+      if (text.includes("SELECT count(*)")) return { rows: [{ n: count }] };
+      if (text.includes("INSERT INTO votes (")) {
+        const [, pids, tids, votes, timestamps] = values!;
+        count += pids.length;
+        pids.forEach((pid: number, i: number) =>
+          latest.set(`${pid}:${tids[i]}`, {
+            pid,
+            tid: tids[i],
+            vote: votes[i],
+            modified: String(timestamps[i]),
+          })
+        );
+      }
+      if (text.includes("SELECT v.pid")) return { rows: [...latest.values()] };
       return { rows: [] };
     }),
     release: jest.fn(),
@@ -95,6 +127,7 @@ beforeEach(() => {
   connect.mockResolvedValue(client as never);
   query.mockImplementation(async (sql: string) => {
     events.push(sql.replace(/\s+/g, " ").trim());
+    if (sql.includes("AS occupied")) return [{ occupied: false }];
     return sql.includes("SELECT tid, original_id")
       ? [{ tid: 0, original_id: "comment-one" }]
       : [];
@@ -137,7 +170,11 @@ describe("CSV import transaction and lifecycle boundaries", () => {
     expect(jobUpdates("completed")).toHaveLength(1);
     expect(jobUpdates("failed")).toHaveLength(0);
     expect(events.indexOf("COMMIT")).toBeLessThan(
-      events.findIndex((e) => e.startsWith("INSERT INTO votes_latest_unique"))
+      events.findIndex(
+        (e, i) =>
+          i > events.indexOf("COMMIT") &&
+          e.startsWith("INSERT INTO votes_latest_unique")
+      )
     );
     const completed = events.findIndex((e) => e.includes("'completed'"));
     const latest = events.findIndex((e) =>
@@ -188,7 +225,9 @@ describe("CSV import transaction and lifecycle boundaries", () => {
   });
 
   test("no mapped comments aborts before downloading or opening a transaction", async () => {
-    query.mockResolvedValue([]);
+    query.mockImplementation(async (sql) =>
+      sql.includes("AS occupied") ? [{ occupied: false }] : []
+    );
     await expect(processImportJob(payload)).rejects.toThrow(
       "No comments found"
     );
@@ -325,6 +364,9 @@ describe("a declared vote sign on the import file", () => {
     await processImportJob(payload);
     const undeclared = storedValues();
     jest.clearAllMocks();
+    // This comparison is a new empty target, not redelivery of a prior import.
+    client.query.mockClear();
+    resetDatabase();
     csv = declarationFixture("import-declared.csv");
     await processImportJob(payload);
     expect(voteInserts()).toHaveLength(1);

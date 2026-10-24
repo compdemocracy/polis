@@ -12814,6 +12814,10 @@
     {
       "path": "server/postgres/migrations/000043_add_conversation_activity_indexes.sql",
       "sha256": "1c85ef8a67bb0add2bcf6dd7e38fabb977c26fe004994cf78e06fed8eda9b906"
+    },
+    {
+      "path": "server/postgres/migrations/000044_pid_auto_transaction_lock.sql",
+      "sha256": "8eaffb393aca2b89ffe41264a1a9676f83a74685866a095befd3bb648784903f"
     }
   ]
 }

@@ -181,8 +181,7 @@
      ],
      "rules": [],
      "triggers": [
-      "pid_auto: CREATE TRIGGER pid_auto BEFORE INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION pid_auto()",
-      "pid_auto_unlock: CREATE TRIGGER pid_auto_unlock AFTER INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION pid_auto_unlock()"
+      "pid_auto: CREATE TRIGGER pid_auto BEFORE INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION pid_auto()"
      ]
     },
     "reports": {
