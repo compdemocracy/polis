@@ -80,6 +80,50 @@ class RoutingContractTests(unittest.TestCase):
     def test_unknown_rust_only_contract_cannot_bypass_comparison(self):
         with self.assertRaises(KeyError):rust_only_checks({'contract':'unknown'}, {}, {})
 
+class ReadComparisonTests(unittest.TestCase):
+    def fixture(self):
+        from reads import read_cases
+        return {row['name']: dict(status=200, content_type=row['content_type'],
+                                 body=b'' if row['method'] == 'HEAD' else b'generated')
+                for row in read_cases()}
+
+    def test_body_status_and_type_changes_fail(self):
+        import copy
+        from reads import compare_reads
+        node = self.fixture()
+        self.assertTrue(all(row['equal'] for row in compare_reads(node, node)))
+        for field, value in [('body', b'changed'), ('status', 302), ('content_type', 'text/html')]:
+            rust = copy.deepcopy(node)
+            rust['reportExportPg:votes.csv:get'][field] = value
+            failed = [row for row in compare_reads(node, rust) if not row['equal']]
+            self.assertEqual(failed, [dict(scenario='reportExportPg:votes.csv:get', equal=False,
+                                           different_fields=[field])])
+
+    def test_missing_or_extra_read_cannot_pass(self):
+        from reads import compare_reads
+        node, rust = self.fixture(), self.fixture()
+        del rust['metadataQuery:handoff']
+        with self.assertRaises(RuntimeError):
+            compare_reads(node, rust)
+        with self.assertRaises(RuntimeError):
+            compare_reads(node, dict(node, unexpected={}))
+
+    def test_export_subtype_counts_cannot_hide_a_missing_subtype(self):
+        import json
+        from harness import HERE
+        contract = json.loads((HERE/'routes.json').read_text())['reportExportPg']
+        log = []
+        for subtype in contract['paths']:
+            # All successes have the right selector but the wrong subtype.
+            log += ['GET /api/v3/reportExport/generated/format.json 127.0.0.1:5100 200'] * subtype['minimum_rust_successes']
+            log += ['GET /api/v3/reportExport/generated/format.json 127.0.0.1:5100 : 127.0.0.1:5000 502 : 200'] * subtype['expected_node_handoffs']
+        log = '\n'.join(log)
+        self.assertTrue(serving_matches(routing_counts(route_lines(log, contract)), contract))
+        for subtype in contract['paths']:
+            self.assertFalse(serving_matches(routing_counts(route_lines(log, subtype)), subtype))
+        self.assertEqual(route_lines('GET /api/v3/reportExport/generated/comment-clusters.csv 127.0.0.1:5000 200', contract), [])
+
+
 if __name__=='__main__':unittest.main()
 
 
