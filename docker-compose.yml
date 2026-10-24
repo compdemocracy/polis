@@ -60,13 +60,17 @@ services:
 
   client-participation-alpha:
     build:
-      context: ./client-participation-alpha
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: client-participation-alpha/Dockerfile
       args:
-        - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
-        - PUBLIC_AUTH_NAMESPACE=${AUTH_NAMESPACE}
-        - OIDC_CACHE_KEY_PREFIX=${OIDC_CACHE_KEY_PREFIX}
-        - OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
+        PUBLIC_SERVICE_URL: "${PUBLIC_SERVICE_URL}"
+        PUBLIC_AUTH_NAMESPACE: "${AUTH_NAMESPACE}"
+        OIDC_CACHE_KEY_PREFIX: "${OIDC_CACHE_KEY_PREFIX}"
+        OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: "${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}"
     container_name: client-participation-alpha
     restart: unless-stopped
     networks:
@@ -100,10 +104,14 @@ services:
       - ${SERVER_ENV_FILE:-.env}
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/server:latest
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
       target: prod
       args:
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
         NODE_ENV: production
     labels:
       polis_tag: ${TAG:-dev}
@@ -434,11 +442,12 @@ services:
       polis_tag: ${TAG:-dev}
     environment:
       - API_SERVER_PORT=${API_SERVER_PORT:-5000}
-      # Comma-separated routes polis-api serves instead of Node (today only
-      # "pca2"). Unset: every request goes to Node, as before. Set it only
-      # with the polis-api service running (`--profile rust-api`).
+      # Authoritative selection on every nginx startup, even with an existing
+      # routing volume. Use scripts/rust-api-switch.sh for live reloads.
       - RUST_API_ROUTES=${RUST_API_ROUTES:-}
       - RUST_API_UPSTREAM=${RUST_API_UPSTREAM:-polis-api:5100}
+    volumes:
+      - nginx-routing:/var/lib/polis-routing
     depends_on:
       - "client-participation-alpha"
       - "server"
@@ -487,6 +496,10 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        GIT_HASH: "${GIT_HASH:-${GITHUB_SHA:-unknown}}"
+        POLIS_BUILD_DISTANCE: "${POLIS_BUILD_DISTANCE:-unknown}"
+        POLIS_BUILD_TAG: "${POLIS_BUILD_TAG:-}"
+        POLIS_BUILD_SOURCE: "${POLIS_BUILD_SOURCE:-unverified-archive}"
         ADMIN_UIDS: ${ADMIN_UIDS}
         AUTH_AUDIENCE: ${AUTH_AUDIENCE}
         AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
@@ -497,7 +510,6 @@ services:
         DD_SITE: ${DD_SITE}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
-        GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
         OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
         OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
@@ -560,8 +572,8 @@ services:
     
   import-worker:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
       target: dev
     image: polis-server:dev
     container_name: polis-import-worker
@@ -635,6 +647,8 @@ networks:
   polis-net:
 
 volumes:
+  nginx-routing:
+
   delphi-queue-state:
 
   math-backfill-state:

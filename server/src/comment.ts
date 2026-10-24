@@ -169,6 +169,21 @@ function getCommentsCount(o: GetCommentsParams): Promise<number> {
   });
 }
 
+// The columns a plain (non-moderation) comment list returns, in response
+// order. uid is read here and removed before anything is returned.
+const PLAIN_LIST_COLUMNS = [
+  "txt",
+  "tid",
+  "created",
+  "uid",
+  "quote_src_url",
+  "is_seed",
+  "is_meta",
+  "lang",
+  "pid",
+  "original_id",
+];
+
 function getComments(o: GetCommentsParams): Promise<CommentRow[]> {
   const commentListPromise = o.moderation
     ? _getCommentsForModerationList(o as any)
@@ -177,18 +192,7 @@ function getComments(o: GetCommentsParams): Promise<CommentRow[]> {
   return Promise.all([convPromise, commentListPromise])
     .then(function (a: [any, CommentRow[]]) {
       let rows: CommentRow[] = a[1];
-      const cols = [
-        "txt",
-        "tid",
-        "created",
-        "uid",
-        "quote_src_url",
-        "is_seed",
-        "is_meta",
-        "lang",
-        "pid",
-        "original_id",
-      ];
+      const cols = [...PLAIN_LIST_COLUMNS];
       if (o.moderation) {
         if (!o.participantVisibleOnly) {
           cols.push("velocity");
@@ -376,6 +380,9 @@ function _getCommentsList(o: {
   random: any;
   limit: any;
   offset?: any;
+  // Next-comment routing (getNextCommentCandidates): read only tid, and every
+  // matching comment rather than the default first 999.
+  candidateIdsOnly?: boolean;
 }): Promise<CommentRow[]> {
   return MPromise(
     "_getCommentsList",
@@ -385,7 +392,9 @@ function _getCommentsList(o: {
     ) {
       getConversationInfo(o.zid).then(function (conv: ConversationInfo) {
         let q = SQL.sql_comments
-          .select(SQL.sql_comments.star())
+          .select(
+            o.candidateIdsOnly ? SQL.sql_comments.tid : SQL.sql_comments.star()
+          )
           .where(SQL.sql_comments.zid.equals(o.zid));
         if (!_.isUndefined(o.tids)) {
           q = q.and(SQL.sql_comments.tid.in(o.tids));
@@ -430,7 +439,7 @@ function _getCommentsList(o: {
         }
         if (!_.isUndefined(o.limit)) {
           q = q.limit(o.limit);
-        } else {
+        } else if (!o.candidateIdsOnly) {
           q = q.limit(999); // Default limit for backward compatibility
         }
         if (!_.isUndefined(o.offset)) {
@@ -450,6 +459,38 @@ function _getCommentsList(o: {
       });
     }
   ) as Promise<CommentRow[]>;
+}
+
+/**
+ * Next-comment routing's candidates: the id of every comment the plain list
+ * would offer this participant (the same moderation, vote, `without`, active
+ * and velocity filters, in the same created order), with no row limit. Only
+ * ids are read: the weighted draw needs nothing else, and the chosen comment's
+ * row is read afterwards with getNextCommentRow. The plain list keeps its
+ * default of 999 rows.
+ */
+function getNextCommentCandidates(o: {
+  zid: number;
+  not_voted_by_pid: number;
+  withoutTids?: Array<number | string>;
+}): Promise<Array<{ tid: number }>> {
+  return _getCommentsList({ ...o, candidateIdsOnly: true } as any);
+}
+
+/** One comment's row, with the columns and key order of the plain list. */
+async function getNextCommentRow(
+  zid: number,
+  tid: number
+): Promise<CommentRow | undefined> {
+  const rows = (await pg.queryP(
+    "select * from comments where zid = ($1) and tid = ($2);",
+    [zid, tid]
+  )) as CommentRow[];
+  if (!rows.length) return undefined;
+  return _.pick(
+    rows[0],
+    PLAIN_LIST_COLUMNS.filter((c) => c !== "uid")
+  ) as CommentRow;
 }
 
 function getNumberOfCommentsRemaining(zid: number, pid: number): Promise<any> {
@@ -600,6 +641,8 @@ export {
   getComment,
   getComments,
   getCommentsCount,
+  getNextCommentCandidates,
+  getNextCommentRow,
   getNumberOfCommentsRemaining,
   translateAndStoreComment,
 };

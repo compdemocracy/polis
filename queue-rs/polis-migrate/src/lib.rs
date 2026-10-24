@@ -17,6 +17,7 @@ pub struct Migration {
     pub checksum: String,
     pub body: String,
     pub retired: bool,
+    concurrent_indexes: Option<indexes::ConcurrentIndexes>,
     /// This release's forward-compatibility declaration (compat.txt), if any.
     pub compat: Option<Compat>,
 }
@@ -79,6 +80,7 @@ pub fn load(dir: &Path) -> Result<Release> {
                 name: name.clone(),
                 checksum: format!("{:x}", Sha256::digest(source.as_bytes())),
                 body: sql::body(&source)?,
+                concurrent_indexes: indexes::ConcurrentIndexes::parse(&source)?,
                 retired: matches!(&name[..6], "000004" | "000005" | "000007"),
                 compat: None,
             },
@@ -397,6 +399,20 @@ pub fn apply(client: &mut Client, release: &Release) -> Result<usize> {
     Ok(count)
 }
 
+/// Historical schema harnesses retain their own migration inventory and session.
+/// Prepare only a header-marked file, using the deployment parser, lock, budgets
+/// and catalog checks. This does not create or adopt migration history.
+pub fn prepare_indexes(dsn: &str, source: &str) -> Result<()> {
+    let indexes = indexes::ConcurrentIndexes::parse(source)?
+        .ok_or_else(|| anyhow::anyhow!("prepare-indexes requires the concurrent-indexes header"))?;
+    let mut client = connect(dsn)?;
+    lock(&mut client)?;
+    indexes.prepare(&mut client, "concurrent-indexes")?;
+    indexes.verify(&mut client)?;
+    client.query_one("SELECT pg_advisory_unlock($1)", &[&LOCK])?;
+    Ok(())
+}
+
 fn apply_locked(client: &mut Client, release: &Release) -> Result<usize> {
     let migrations = &release.migrations;
     // Validate history and every pending retirement before CREATE HISTORY or
@@ -464,6 +480,11 @@ fn apply_locked(client: &mut Client, release: &Release) -> Result<usize> {
             );
             indexes::prepare(client)?;
         }
+        if let Some(indexes) = &m.concurrent_indexes {
+            // Restore budgets if an earlier file changed session settings.
+            setup(client)?;
+            indexes.prepare(client, &m.name)?;
+        }
         let mut tx = client.transaction()?;
         tx.batch_execute("SET LOCAL standard_conforming_strings=on; SET LOCAL search_path=public,pg_catalog; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='5min'; SET LOCAL transaction_timeout='5min';")?;
         let status = if m.retired {
@@ -473,6 +494,9 @@ fn apply_locked(client: &mut Client, release: &Release) -> Result<usize> {
                 m.name
             );
             "ADOPTED"
+        } else if let Some(indexes) = &m.concurrent_indexes {
+            indexes.verify(&mut tx)?;
+            "APPLIED"
         } else {
             tx.batch_execute(&m.body).with_context(|| {
                 format!("migration {} failed (transaction not committed)", m.name)

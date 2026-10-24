@@ -272,7 +272,7 @@ test(
         .readdirSync(dir)
         .filter((f) => f.endsWith(".sql"))
         .sort())
-        await db.query(fs.readFileSync(path.join(dir, f), "utf8"));
+        await require("../migrations.cjs").applyMigration(db, path.join(dir, f), appUrl.toString());
       const query = (sql, params) => db.query(sql, params);
       const recorded = await readSchema(query);
       assert.equal(recorded.relations.votes_latest_unique.kind, "table");

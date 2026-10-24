@@ -18,6 +18,7 @@ const allowed = new Set([
   "127.0.0.1",
   "::1",
 ]);
+if (process.env.P027_COMMENTS_PROFILE === "1") allowed.add("comments-ses");
 const state = (global.__p027 = {
   outbound: [],
   process: [],
@@ -31,7 +32,10 @@ const state = (global.__p027 = {
 // Bluebird's shared callback queue otherwise drops AsyncLocalStorage ownership.
 require("bluebird").config({ asyncHooks: true });
 const barrier = (state.barrier = require("./barrier.cjs").createBarrier(
-  () => state.currentCase !== null
+  () => state.currentCase !== null,
+  process.env.P027_VOTES_PROFILE === "1"
+    ? require("./votes/idle-tls.cjs").install()
+    : undefined
 ));
 const { AsyncResource } = require("node:async_hooks");
 const pgPool = require("pg").Pool,
@@ -114,7 +118,8 @@ function recordProcess(event) {
 }
 function check(host, port, protocol, method, path) {
   host = String(host || "localhost").replace(/^\[|\]$/g, "");
-  const blocked = !allowed.has(host);
+  const blocked = !allowed.has(host) ||
+    (host === "comments-ses" && Number(port) !== 8025);
   const attempt = {
     host,
     port: Number(port),
@@ -232,7 +237,7 @@ net.Socket.prototype.connect = function (...args) {
   if (o.path) throw Error("P027 Unix sockets forbidden in application process");
   // Raw TCP, including fetch/undici and SDK transports, cannot bypass the host allowlist.
   const host = o.host || "localhost";
-  if (!allowed.has(host)) check(host, o.port, "tcp");
+  if (!allowed.has(host) || host === "comments-ses") check(host, o.port, "tcp");
   return connect.apply(this, args);
 };
 for (const event of ["unhandledRejection", "uncaughtExceptionMonitor"])

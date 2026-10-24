@@ -7,6 +7,7 @@ import { getZinvite } from "../utils/zinvite";
 import { sql_conversations } from "../db/sql";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
+import { conversationModifiedSql } from "../db/activity";
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
 import {
   doGetConversationPreloadInfo,
@@ -216,7 +217,7 @@ export async function getConversations(req: { p: ConversationType }, res: any) {
 
     // Build and execute main query
     const query = buildConversationsQuery(req, participantInOrSiteAdminOf);
-    let data = (await pg.queryP_readOnly(query.toString())) as any[];
+    let data = (await pg.queryP_readOnly(`SELECT c.*, ${conversationModifiedSql("c")} AS modified FROM (${query.toString()}) c`)) as any[];
 
     // Process the conversation data
     data = await processConversationData(data, req, isSiteAdmin);
@@ -277,7 +278,7 @@ async function handle_GET_all_conversations(
       const ms =
         nowMs - Number(req.p.recently_updated_days) * 24 * 60 * 60 * 1000;
       params.push(ms);
-      where.push(`c.modified >= ($${params.length})`);
+      where.push(`${conversationModifiedSql("c")} >= ($${params.length})`);
     }
     if (!_.isUndefined(req.p.recently_created_days)) {
       const ms =
@@ -306,7 +307,7 @@ async function handle_GET_all_conversations(
     switch (sortByRaw) {
       case "updated":
       case "modified":
-        sortBy = "c.modified";
+        sortBy = conversationModifiedSql("c");
         break;
       case "participant_count":
         sortBy = "pc.participant_count";
@@ -328,7 +329,7 @@ async function handle_GET_all_conversations(
 
     const sql = `
       SELECT 
-        c.*, 
+        c.*, ${conversationModifiedSql("c")} AS modified,
         COALESCE(pc.participant_count, 0) AS participant_count,
         COALESCE(cc.comment_count, 0) AS comment_count,
         u.email AS owner_email
@@ -350,7 +351,7 @@ async function handle_GET_all_conversations(
       ${paginationSql};
     `;
 
-    const rows = (await pg.queryP_readOnly(sql, [
+    const rows = (await pg.queryP_reportExport(sql, [
       ...params,
       ...pagination.params,
     ])) as any[];
@@ -376,7 +377,7 @@ async function handle_GET_all_conversations(
         ${whereSql}
       ) t;
     `;
-    const totalRows = (await pg.queryP_readOnly(totalSql, params)) as Array<{
+    const totalRows = (await pg.queryP_reportExport(totalSql, params)) as Array<{
       count: string;
     }>;
     const total = Number(totalRows?.[0]?.count || 0);
@@ -525,8 +526,8 @@ function doGetConversationsRecent(
     time *= 1000;
   }
   time = parseInt(time);
-  pg.queryP_readOnly(
-    "select * from conversations where " + field + " >= ($1);",
+  pg.queryP_reportExport(
+    `select c.*, ${conversationModifiedSql("c")} AS modified from conversations c where ${field === "modified" ? conversationModifiedSql("c") : "c.created"} >= ($1);`,
     [time]
   )
     .then((rows: any) => {
@@ -981,7 +982,7 @@ function handle_PUT_conversations(
         .returning("*");
       Promise.all([verifyMetaPromise, settingGuard]).then(
         function () {
-          pg.query(q.toString(), function (err: any, result: { rows: any[] }) {
+          pg.query(q.toString() + `, ${conversationModifiedSql("conversations")} AS modified`, function (err: any, result: { rows: any[] }) {
             if (err) {
               failJson(res, 500, "polis_err_update_conversation", err);
               return;

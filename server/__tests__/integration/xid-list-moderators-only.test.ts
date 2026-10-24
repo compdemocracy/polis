@@ -78,7 +78,7 @@ describe("the participant XID list: owner and moderators only", () => {
   const inUseRows = async () =>
     (
       await pool.query(
-        `SELECT p.pid, x.xid, COALESCE(p.vote_count, 0) AS vote_count
+        `SELECT p.pid, x.xid, (SELECT count(*)::int FROM votes v WHERE v.zid=p.zid AND v.pid=p.pid) AS vote_count
            FROM xids x JOIN participants p ON p.uid = x.uid
           WHERE p.zid = $1 AND x.owner = $2
           ORDER BY p.pid`,

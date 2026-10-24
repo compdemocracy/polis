@@ -81,6 +81,7 @@ def pytest_configure(config):
 
 
 ROOT = ROOT if ROOT is not None else _HERE.parents[2]
+
 BINARY = ROOT / "coordinator-rs/target/fault/debug/polis-coordinator"
 REFERENCE = "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a"
 WRITER_REF = "b3262008f"
@@ -138,6 +139,8 @@ def connect(url):
 
 @pytest.fixture(scope="session")
 def template():
+    import runpy
+    apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
     base = os.environ["POLIS_TEST_POSTGRES_URL"]
     name = "p026_template_" + uuid.uuid4().hex[:10]
     admin = connect(base)
@@ -149,7 +152,7 @@ def template():
     try:
         with c.cursor() as cur:
             for path in sorted((ROOT / "server/postgres/migrations").glob("*.sql")):
-                cur.execute(path.read_text())
+                apply_migration(c, path)
             # Exercise the production drift named in CO04: ticks lacks this column.
             cur.execute("ALTER TABLE math_ticks DROP COLUMN caching_tick")
             # The production 000021 migration above supplies all ownership state;

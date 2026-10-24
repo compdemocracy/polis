@@ -136,16 +136,11 @@ fn draw(req: &Request) -> f64 {
     let _ = req;
     rand::random::<f64>()
 }
-fn select(rows: &[Js], priorities: Option<&Obj>, unit: f64) -> Result<(usize, f64)> {
+fn select(tids: &[i32], priorities: Option<&Obj>, unit: f64) -> Result<(usize, f64)> {
     let mut cumulative = Vec::new();
     let mut total = 0.0;
-    for row in rows {
-        let tid = row
-            .as_obj()
-            .and_then(|r| r.get("tid"))
-            .ok_or_else(|| anyhow::anyhow!("missing tid"))?
-            .to_js_string();
-        let weight = match priorities.and_then(|p| p.get(&tid)) {
+    for tid in tids {
+        let weight = match priorities.and_then(|p| p.get(&tid.to_string())) {
             None | Some(Js::Null) | Some(Js::Bool(false)) => 1.0,
             Some(Js::Num(n)) if *n == 0.0 => 1.0,
             Some(Js::Num(n)) if n.is_finite() => *n,
@@ -206,14 +201,16 @@ fn read(
     } else {
         q.without
     };
-    // Preserve Node's created-only order, cap, and comment projection. No
-    // participant resolution runs here; initial eligibility retains Node's
-    // negative participant sentinel when reading existing votes.
-    let rows = c.query(&format!("select * from comments where zid=$1 AND active=true AND velocity>0 AND (($2::boolean AND mod=1) OR (NOT $2::boolean AND mod != {REJECTED_COMMENT_MOD})) AND NOT(tid=ANY($3::integer[])) AND ($4::integer IS NULL OR (tid=$4 AND tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid=$5))) AND ($6::integer IS NULL OR tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid=$6)) order by created limit 999"), &[&zid,&strict,&without,&q.initial,&pid.unwrap_or(ANONYMOUS_PARTICIPANT_ID),&pid])?;
-    let rows = rows
+    // Preserve Node's filters and created-only order. Like Node, read only the
+    // ids of every eligible comment (no row limit) and, after the draw, only
+    // the chosen comment's row. No participant resolution runs here; initial
+    // eligibility retains Node's negative participant sentinel when reading
+    // existing votes.
+    let tids = c.query(&format!("select tid from comments where zid=$1 AND active=true AND velocity>0 AND (($2::boolean AND mod=1) OR (NOT $2::boolean AND mod != {REJECTED_COMMENT_MOD})) AND NOT(tid=ANY($3::integer[])) AND ($4::integer IS NULL OR (tid=$4 AND tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid=$5))) AND ($6::integer IS NULL OR tid NOT IN (select tid from votes_latest_unique where zid=$1 AND pid=$6)) order by created"), &[&zid,&strict,&without,&q.initial,&pid.unwrap_or(ANONYMOUS_PARTICIPANT_ID),&pid])?;
+    let tids = tids
         .iter()
-        .map(comments::project)
-        .collect::<Result<Vec<_>>>()?;
+        .map(|r| r.try_get::<_, i32>(0))
+        .collect::<Result<Vec<_>, _>>()?;
     // Node awaits its parallel math/count reads even when the candidate list
     // is empty. Preserve failure handoff instead of manufacturing an empty 200.
     let data = if q.initial.is_none() {
@@ -221,14 +218,14 @@ fn read(
     } else {
         None
     };
-    let counts = if q.initial.is_none() || !rows.is_empty() {
+    let counts = if q.initial.is_none() || !tids.is_empty() {
         let counts = c.query_one("WITH v AS (select * from votes_latest_unique where zid=$1 AND pid=$2), c AS (select * from get_visible_comments($1)), remaining AS (select count(*) AS n from c LEFT JOIN v ON c.tid=v.tid WHERE v.vote IS NULL), total AS (select count(*) AS n from c) SELECT remaining.n::integer,total.n::integer FROM remaining,total", &[&zid,&pid.or_else(|| q.initial.map(|_| ANONYMOUS_PARTICIPANT_ID))])?;
         Some((counts.try_get::<_, i32>(0)?, counts.try_get::<_, i32>(1)?))
     } else {
         None
     };
     let mut empty = Obj::new();
-    if rows.is_empty() {
+    if tids.is_empty() {
         if let Some(pid) = pid {
             empty.set("currentPid", Js::Num(f64::from(pid)));
         }
@@ -253,10 +250,16 @@ fn read(
             .and_then(Js::as_obj)
             .and_then(|o| o.get("comment-priorities"))
             .and_then(Js::as_obj);
-        let (i, r) = select(&rows, priorities, unit)?;
+        let (i, r) = select(&tids, priorities, unit)?;
         (i, Some(r))
     };
-    let mut selected = rows[index]
+    let row = c
+        .query_opt(
+            "select * from comments where zid=$1 and tid=$2",
+            &[&zid, &tids[index]],
+        )?
+        .ok_or_else(|| anyhow::anyhow!("selected comment missing"))?;
+    let mut selected = comments::project(&row)?
         .as_obj()
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("invalid comment"))?;
@@ -357,14 +360,11 @@ mod tests {
     }
     #[test]
     fn weighted_selection_preserves_zero_fallback_and_random_value() {
-        let rows = vec![
-            js::parse(r#"{"tid":0}"#).unwrap(),
-            js::parse(r#"{"tid":1}"#).unwrap(),
-        ];
+        let tids = [0, 1];
         let p = js::parse(r#"{"0":0,"1":3}"#).unwrap();
-        assert_eq!(select(&rows, p.as_obj(), 0.0).unwrap(), (0, 0.0));
-        assert_eq!(select(&rows, p.as_obj(), 0.25).unwrap(), (1, 1.0));
-        assert_eq!(select(&rows, None, 0.75).unwrap(), (1, 1.5));
+        assert_eq!(select(&tids, p.as_obj(), 0.0).unwrap(), (0, 0.0));
+        assert_eq!(select(&tids, p.as_obj(), 0.25).unwrap(), (1, 1.0));
+        assert_eq!(select(&tids, None, 0.75).unwrap(), (1, 1.5));
     }
     #[cfg(feature = "db-tests")]
     #[test]
@@ -481,6 +481,47 @@ mod tests {
         c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
             .unwrap();
     }
+    #[cfg(feature = "db-tests")]
+    #[test]
+    fn ordinary_reads_draw_from_every_eligible_comment() {
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let mut c = Client::connect(&url, postgres::NoTls).unwrap();
+        let schema = format!("next_all_test_{}", std::process::id());
+        c.batch_execute(&format!("CREATE SCHEMA {schema}; SET search_path={schema};
+        CREATE TABLE zinvites(zid integer,zinvite text); CREATE TABLE conversations(zid integer,strict_moderation boolean);
+        CREATE TABLE comments(zid integer,tid integer,txt text,created bigint,quote_src_url text,is_seed boolean,is_meta boolean,lang text,pid integer,original_id uuid,active boolean,velocity real,mod integer);
+        CREATE TABLE votes_latest_unique(zid integer,pid integer,tid integer,vote integer);
+        CREATE TABLE math_main(zid integer,math_env text,math_tick bigint,data jsonb);
+        CREATE FUNCTION get_visible_comments(integer) RETURNS TABLE(tid integer) LANGUAGE SQL AS 'select tid from comments where zid=$1 AND active=true AND mod>=0';
+        INSERT INTO zinvites VALUES(1,'large'); INSERT INTO conversations VALUES(1,false);
+        INSERT INTO comments SELECT 1,t,'generated '||t,1700000000000+t,null,false,false,'en',0,null,true,1,0 FROM generate_series(0,1199) t;")).unwrap();
+        let mut next = |s: &str, unit: f64| {
+            read(
+                &mut c,
+                Query::parse(&request(s)).unwrap(),
+                "test",
+                unit,
+                &Priorities::new(10),
+                None,
+            )
+            .unwrap()
+            .unwrap()
+        };
+        // 1,200 equal weights: comments past the oldest 999 can be drawn.
+        let v = next("conversation_id=large", 0.9999);
+        let o = v.as_obj().unwrap();
+        assert_eq!(o.get("tid"), Some(&Js::Num(1199.0)));
+        assert_eq!(o.get("txt"), Some(&Js::Str("generated 1199".into())));
+        assert_eq!(o.get("randomN"), Some(&Js::Num(0.9999 * 1200.0)));
+        assert_eq!(o.get("remaining"), Some(&Js::Num(1200.0)));
+        assert_eq!(o.get("total"), Some(&Js::Num(1200.0)));
+        let v = next("conversation_id=large", 0.5);
+        assert_eq!(v.as_obj().unwrap().get("tid"), Some(&Js::Num(600.0)));
+        let v = next("conversation_id=large&without=1199", 0.9999);
+        assert_eq!(v.as_obj().unwrap().get("tid"), Some(&Js::Num(1198.0)));
+        c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+            .unwrap();
+    }
     // A fixed CPU workload measures scheduling contention without calling any
     // database/read code. Thread CPU time calibrates its uncontended baseline
     // on this machine, so a read-path regression cannot move the threshold.
@@ -564,6 +605,38 @@ mod tests {
         app.delphi_result_auth_db = Some(db::Pool::new(
             Connector::Plain(Box::new(pg.clone())),
             crate::delphi_result_read::auth_pool_limits(),
+        ));
+        app.delphi_logs_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_logs::pool_limits(),
+        ));
+        app.delphi_logs_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_logs::auth_pool_limits(),
+        ));
+        app.delphi_visualizations_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_visualizations::pool_limits(),
+        ));
+        app.delphi_visualizations_result_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_visualizations::result_pool_limits(),
+        ));
+        app.delphi_read_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_read::pool_limits(),
+        ));
+        app.delphi_topics_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_topics::pool_limits(),
+        ));
+        app.delphi_narratives_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_narratives::pool_limits(),
+        ));
+        app.delphi_reports_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::delphi_reports::pool_limits(),
         ));
         let app = Arc::new(app);
         async fn park(
@@ -669,6 +742,10 @@ mod tests {
             app.comments_db.as_ref().unwrap(),
             app.comments_count_db.as_ref().unwrap(),
             app.delphi_result_db.as_ref().unwrap(),
+            app.delphi_logs_db.as_ref().unwrap(),
+            app.delphi_visualizations_result_db.as_ref().unwrap(),
+            app.delphi_topics_db.as_ref().unwrap(),
+            app.delphi_narratives_db.as_ref().unwrap(),
         ] {
             for _ in 0..2 {
                 held.push(park(pool.clone()).await);
@@ -678,6 +755,10 @@ mod tests {
         for _ in 0..crate::statement_importance::pool_limits().size {
             held.push(park(app.statement_importance_db.as_ref().unwrap().clone()).await);
         }
+        held.push(park(app.delphi_logs_auth_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.delphi_visualizations_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.delphi_read_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.delphi_reports_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",

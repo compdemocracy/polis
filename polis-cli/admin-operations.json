@@ -555,7 +555,7 @@
     "auth": "public",
     "effect": false,
     "response": "json",
-    "about": "Read report topic statement counts"
+    "about": "Read report topic comment counts"
   },
   {
     "command": "report feed list",
@@ -812,7 +812,7 @@
     "about": "Set this account’s conversation notification preference"
   },
   {
-    "command": "statement translations",
+    "command": "comment translations",
     "method": "GET",
     "path": "/api/v3/comments/translations",
     "parameters": [
@@ -839,10 +839,10 @@
     "auth": "account",
     "effect": true,
     "response": "json",
-    "about": "Read or request stored statement translations"
+    "about": "Read or request stored comment translations"
   },
   {
-    "command": "statement next",
+    "command": "comment next",
     "method": "GET",
     "path": "/api/v3/nextComment",
     "parameters": [
@@ -856,7 +856,7 @@
     "auth": "participant",
     "effect": false,
     "response": "json",
-    "about": "Read the next participant-scoped statement without casting a vote"
+    "about": "Read the next participant-scoped comment without casting a vote"
   },
   {
     "command": "delphi narrative run",
@@ -1046,7 +1046,7 @@
     "auth": "account",
     "effect": true,
     "response": "json",
-    "about": "Moderate explicit statement IDs and/or a stored topic; inspect partial outcomes"
+    "about": "Moderate explicit comment IDs and/or a stored topic; inspect partial outcomes"
   },
   {
     "command": "collective generate",
@@ -1155,7 +1155,7 @@
     "about": "Delete all of this participant’s selections"
   },
   {
-    "command": "statement flag",
+    "command": "comment flag",
     "method": "POST",
     "path": "/api/v3/ptptCommentMod",
     "parameters": [
@@ -1252,10 +1252,10 @@
     "auth": "account",
     "effect": true,
     "response": "json",
-    "about": "Upvote the conversation once; this is not a statement vote"
+    "about": "Upvote the conversation once; this is not a comment vote"
   },
   {
-    "command": "statement star",
+    "command": "comment star",
     "method": "POST",
     "path": "/api/v3/stars",
     "parameters": [
@@ -1285,10 +1285,10 @@
     "auth": "participant",
     "effect": true,
     "response": "json",
-    "about": "Set this participant’s statement star flag"
+    "about": "Set this participant’s comment star flag"
   },
   {
-    "command": "statement trash",
+    "command": "comment trash",
     "method": "POST",
     "path": "/api/v3/trashes",
     "parameters": [
@@ -1318,10 +1318,10 @@
     "auth": "participant",
     "effect": true,
     "response": "json",
-    "about": "Set this participant’s statement trash flag"
+    "about": "Set this participant’s comment trash flag"
   },
   {
-    "command": "report statements select",
+    "command": "report comments select",
     "method": "POST",
     "path": "/api/v3/reportCommentSelections",
     "parameters": [
@@ -1348,7 +1348,7 @@
     "effect": true,
     "response": "json",
     "resolve_report": true,
-    "about": "Set statement inclusion using the report’s own conversation"
+    "about": "Set comment inclusion using the report’s own conversation"
   },
   {
     "command": "account edit",

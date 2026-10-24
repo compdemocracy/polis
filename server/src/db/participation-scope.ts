@@ -3,9 +3,10 @@
  *
  * Votes, comments, the next statement and participationInit enter this scope
  * as the first handler of their routes (app.ts). Everything that request does
- * after it, its middleware, its handler and the bookkeeping it schedules, is
+ * after it, its middleware and its handler, is
  * in the scope, and db/pg-query.ts gives every query made in it a connection
- * from the participation pools. Work that did not come through one of those
+ * from the participation pools. Notification state explicitly uses its bounded
+ * notification pool instead. Work that did not come through one of those
  * routes is never in the scope, so it has no way to reach those pools.
  *
  * The pool is chosen by where the work came from, not at each call site, so

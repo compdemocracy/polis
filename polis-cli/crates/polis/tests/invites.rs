@@ -544,7 +544,16 @@ fn uuid_is_raw_only_when_explicitly_requested_and_errors_never_echo_key() {
         .unwrap();
     assert!(out.status.success());
     assert_eq!(out.stdout, format!("{key}\n").as_bytes());
-    assert!(out.stderr.is_empty());
+    let config: Value =
+        serde_json::from_slice(&std::fs::read(t.path().join("profiles.json")).unwrap()).unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&out.stderr),
+        format!(
+            "Site: local ({})\n",
+            config["sites"]["local"].as_str().unwrap()
+        )
+    );
+    assert!(!String::from_utf8_lossy(&out.stderr).contains(key));
     assert_get(
         &s.join().unwrap()[0],
         "/api/v3/conversationUuid?conversation_id=2demo",

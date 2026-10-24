@@ -44,6 +44,7 @@ function parseArgs(argv) {
 function scratchCopy() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "csrec-mutation-"));
   const dest = path.join(root, "server");
+  fs.copyFileSync(path.join(ROOT, "VERSION"), path.join(root, "VERSION"));
   fs.cpSync(SERVER, dest, {
     recursive: true,
     filter: (src) =>
@@ -54,6 +55,7 @@ function scratchCopy() {
     path.join(dest, "node_modules")
   );
   fs.symlinkSync(path.join(ROOT, "delphi"), path.join(root, "delphi"));
+  fs.symlinkSync(path.join(ROOT, "queue-rs"), path.join(root, "queue-rs"));
   return { root, dest };
 }
 

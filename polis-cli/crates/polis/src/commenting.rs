@@ -1,4 +1,4 @@
-//! Participant statements over the existing Node endpoint.
+//! Participant comments over the existing Node endpoint.
 use crate::{participation, profiles, public_id, str_arg};
 use clap::ArgMatches;
 use polis_client::Client;
@@ -33,7 +33,7 @@ pub fn submit(
     public_id(conversation)?;
     let text = str_arg(m, "text");
     if text.trim().is_empty() {
-        return Err(Error::input("Provide nonempty statement text."));
+        return Err(Error::input("Provide nonempty comment text."));
     }
     let origin = config.url(site)?;
     let scope = profiles::participant_scope(origin, conversation)?;

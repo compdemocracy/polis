@@ -278,7 +278,7 @@ fn important_needs_one_explicit_vote_and_sends_nothing_otherwise() {
         .find(|a| a["name"] == "important")
         .unwrap();
     assert_eq!(important["long"], "important");
-    assert_eq!(important["help"], "Mark this statement as important to you");
+    assert_eq!(important["help"], "Mark this comment as important to you");
 }
 #[test]
 fn invite_vote_reuses_participant_and_preserves_returning_login_secret() {

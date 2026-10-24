@@ -37,12 +37,12 @@ jobs:
           python-version: '3.12'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: "22.23.4"
       - name: Queue toolchain
         working-directory: queue-rs
         run: rustup show active-toolchain
       - name: Install uv
-        run: python -m pip install uv==0.9.2
+        run: python -m pip install uv==0.13.4
       - name: Queue, Postgres results, importer and report with DynamoDB stopped
         run: bash scripts/test-dynamo-removal.sh
       - name: Retain proof logs and report screenshots

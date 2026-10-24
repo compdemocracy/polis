@@ -37,7 +37,7 @@ pub fn name(raw: &str) -> Result<()> {
     }
     Ok(())
 }
-fn path() -> Result<PathBuf> {
+pub(crate) fn path() -> Result<PathBuf> {
     if let Some(dir) = std::env::var_os("POLIS_CONFIG_DIR") {
         return Ok(PathBuf::from(dir).join("profiles.json"));
     }
@@ -46,24 +46,50 @@ fn path() -> Result<PathBuf> {
         .ok_or_else(|| Error::input("Set HOME or POLIS_CONFIG_DIR."))
 }
 impl Config {
-    pub fn load() -> Result<Self> {
-        let mut config = match std::fs::read(path()?) {
+    pub(crate) fn load_saved() -> Result<Self> {
+        match std::fs::read(path()?) {
             Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| {
                 Error::input("Invalid profiles.json. Correct the file before continuing.")
             }),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(_) => Err(Error::input("Cannot read profiles.json.")),
-        }?;
-        if let Ok(site) = std::env::var("POLIS_SITE") {
+        }
+    }
+    pub fn load(selected: Option<&str>) -> Result<Self> {
+        Self::load_saved()?.with_overrides(selected)
+    }
+    pub(crate) fn with_overrides(mut self, selected: Option<&str>) -> Result<Self> {
+        let config = &mut self;
+        if let Some(site) = selected
+            .map(str::to_owned)
+            .or_else(|| std::env::var("POLIS_SITE").ok())
+        {
             name(&site)?;
-            config.default = site;
+            config.default = if site == "default" {
+                default_profile()
+            } else {
+                site
+            };
+        }
+        // The reserved default name always resolves to the built-in profile.
+        // Older custom configurations may not contain that profile yet.
+        let defaults = Self::default();
+        if !config.sites.contains_key(&defaults.default) {
+            config.sites.insert(
+                defaults.default.clone(),
+                defaults.sites[&defaults.default].clone(),
+            );
+            config
+                .auth
+                .entry(defaults.default.clone())
+                .or_insert_with(|| defaults.auth[&defaults.default].clone());
         }
         for (site, origin) in &mut config.sites {
             if let Ok(value) = std::env::var(format!("POLIS_URL_{}", site.to_ascii_uppercase())) {
                 *origin = polis_client::base_url(&value)?.to_string();
             }
         }
-        Ok(config)
+        Ok(self)
     }
 
     pub fn url(&self, site: &str) -> Result<&str> {

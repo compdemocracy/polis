@@ -342,7 +342,7 @@
       "delphi overview",
       "delphi show"
     ],
-    "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+    "scope": "Shared DynamoDB fixture retains two Node handoffs. Dedicated PostgreSQL topics replay proves successful result serving and bounded handback; validation-only behavior remains in DynamoDB mode."
   },
   "delphiReports": {
     "path": "/api/v3/delphi/reports",
@@ -353,7 +353,7 @@
       "delphi results",
       "delphi narrative view"
     ],
-    "scope": "Existing-report DynamoDB results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+    "scope": "Shared DynamoDB fixture retains two Node handoffs. Dedicated PostgreSQL topics replay proves successful result serving and bounded handback; validation-only behavior remains in DynamoDB mode."
   },
   "delphiVisualizations": {
     "path": "/api/v3/delphi/visualizations",
@@ -364,7 +364,7 @@
       "delphi status",
       "delphi visualization view"
     ],
-    "scope": "Existing-report visualizations and DynamoDB/S3 results remain Node; only missing/unknown report validation is staged. Raw replay provides positive serving proof."
+    "scope": "The shared fixture uses DynamoDB, so existing reports and S3 results hand to Node. Dedicated Postgres conformance proves archived/native job metadata, filtering, liveness and serving counts."
   },
   "topicStats": {
     "path": "/api/v3/topicStats",
@@ -437,10 +437,156 @@
     "path": "/api/v3/statements/importance",
     "minimum_rust_successes": 1,
     "commands": [
-      "report statements list"
+      "report comments list"
     ],
     "expected_requests": 1,
     "expected_node_handoffs": 0,
-    "scope": "Rust-only public importance counts. The generated report case precedes all votes: both participant-visible statements must have zero counts. Node-off display retains statements with explicitly unavailable null counts; the named contract check preserves every other field."
+    "scope": "Rust-only public importance counts. The generated report case precedes all votes: both participant-visible comments must have zero counts. Node-off display retains statements with explicitly unavailable null counts; the named contract check preserves every other field."
+  },
+  "votesRead": {
+    "path": "^/api/v3/votes(/me)?$",
+    "minimum_rust_successes": 4,
+    "expected_requests": 8,
+    "expected_node_handoffs": 2,
+    "commands": ["vote list", "vote mine", "vote"],
+    "scope": "Empty and single-row reads serve from Rust. Each path hands its multi-row read to Node because the source query promises no row order. The two vote POSTs bypass Rust.",
+    "paths": [
+      {
+        "path": "/api/v3/votes",
+        "minimum_rust_successes": 2,
+        "expected_requests": 5,
+        "expected_node_handoffs": 1,
+        "commands": ["vote list", "vote list single", "vote list multiple", "vote", "vote important"],
+        "scope": "The original owner read is empty; account-authenticated reads target the PID returned by the participant's vote after one and two votes. Empty and single-row latest reads serve from Rust; the multi-row read hands to Node. Both POSTs stay on Node."
+      },
+      {
+        "path": "/api/v3/votes/me",
+        "minimum_rust_successes": 2,
+        "expected_requests": 3,
+        "expected_node_handoffs": 1,
+        "commands": ["vote mine empty", "vote mine single", "vote mine"],
+        "scope": "The owner's empty history and the participant's single-row history serve from Rust. The existing later participant history scenario has two rows and must hand to Node without inventing an order."
+      }
+    ]
+  },
+  "delphiLogs": {
+    "path": "/api/v3/delphi/logs",
+    "minimum_rust_successes": 0,
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "delphi logs"
+    ],
+    "scope": "The shared differential uses DynamoDB job fixtures, so this Postgres-only route remains disabled and the request hands back to Node. Dedicated Postgres conformance proves archived and native authorized logs and counts every Rust-served case."
+  },
+  "participantsRead": {
+    "path": "/api/v3/participants",
+    "minimum_rust_successes": 3,
+    "expected_requests": 3,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant list",
+      "participant status",
+      "participant status missing"
+    ],
+    "scope": "Existing owner membership and missing membership both serve from Rust."
+  },
+  "ptptois": {
+    "path": "/api/v3/ptptois",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant highlight list",
+      "participant highlight list filtered",
+      "participant highlight set"
+    ],
+    "scope": "Empty social rows with and without a moderation filter serve from Rust; the moderation PUT stays on Node."
+  },
+  "bid": {
+    "path": "/api/v3/bid",
+    "minimum_rust_successes": 2,
+    "expected_requests": 2,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant group",
+      "participant group owner"
+    ],
+    "scope": "Participant and owner reads preserve the missing-bundle null bucket."
+  },
+  "locations": {
+    "path": "/api/v3/locations",
+    "minimum_rust_successes": 2,
+    "expected_requests": 2,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant locations",
+      "participant locations missing group"
+    ],
+    "scope": "Empty location arrays for the generated group and an absent group serve from Rust."
+  },
+  "myInvitesCsv": {
+    "path": "/api/v3/treevite/myInvites/csv",
+    "minimum_rust_successes": 1,
+    "expected_requests": 2,
+    "expected_node_handoffs": 1,
+    "commands": ["invite mine export empty", "invite mine export"],
+    "scope": "Before another conversation code is created, the participant's empty CSV serves from Rust. The later download hands to Node because multiple reverse codes are ambiguous. Both file hashes must match across phases."
+  },
+  "iip": {
+    "path": "^/iip/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "iim": {
+    "path": "^/iim/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "conversationPage": {
+    "path": "^/[0-9][0-9A-Za-z]+",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "explorePage": {
+    "path": "^/explore/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "sharePage": {
+    "path": "^/share/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "summaryPage": {
+    "path": "^/summary/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "oneTimePage": {
+    "path": "^/ot/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
   }
 }

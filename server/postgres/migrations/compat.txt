@@ -7,7 +7,7 @@
 # this file. An undeclared migration counts as breaking. Recorded declarations
 # only ever tighten (additive -> breaking). Every release carries every line
 # forward; a new migration adds its own line in number order, with its evidence
-# in the PR. Evidence for 000019-000042: docs/migrations.md "Forward compatibility".
+# in the PR. Evidence for 000019-000044: docs/migrations.md "Forward compatibility".
 # 000000-000018 predate the runner and were not evaluated: fail closed.
 000000_initial.sql breaking
 000001_update_pwreset_table.sql breaking
@@ -42,3 +42,5 @@
 000039_clear_zinvites_uuid.sql additive
 000041_create_delphi_run_record.sql additive
 000042_tid_auto_transaction_lock.sql additive
+000043_add_conversation_activity_indexes.sql additive
+000044_pid_auto_transaction_lock.sql additive

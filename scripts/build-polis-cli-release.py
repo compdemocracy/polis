@@ -11,12 +11,18 @@ import re
 import subprocess
 import tarfile
 import tomllib
+import importlib.util
+
+_IDENTITY_SPEC = importlib.util.spec_from_file_location("build_identity", Path(__file__).with_name("build_identity.py"))
+_IDENTITY = importlib.util.module_from_spec(_IDENTITY_SPEC)
+_IDENTITY_SPEC.loader.exec_module(_IDENTITY)
+identity = _IDENTITY.identity
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = ("aarch64-apple-darwin", "x86_64-apple-darwin",
            "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu")
 INPUTS = ("polis-cli", "queue-rs/polis-contracts", "scripts/build-polis-cli-release.py",
-          "scripts/test-polis-cli.sh", "LICENSE")
+          "scripts/test-polis-cli.sh", "scripts/build_identity.py", "VERSION", "VERSION_STABLE_COMMIT", "LICENSE")
 
 
 def output(argv, cwd=ROOT, env=None):
@@ -94,14 +100,27 @@ def package(outdir, binary, version, commit, target, source, compiler, lock, lic
     return archive
 
 
+def check_tag(tag, version):
+    if not re.fullmatch(r"cli-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag) or tag != f"cli-v{version}":
+        raise ValueError("Release tag must be cli-v followed by the exact stable workspace version.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=TARGETS, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--target", choices=TARGETS)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--check-tag")
     parser.add_argument("--source-commit")
     parser.add_argument("--allow-unverified-source", action="store_true")
     args = parser.parse_args()
     try:
+        if args.check_tag is not None:
+            version = tomllib.loads((ROOT / "polis-cli/Cargo.toml").read_text())["workspace"]["package"]["version"]
+            check_tag(args.check_tag, version)
+            print("Release tag matches workspace version.")
+            return
+        if args.target is None or args.output is None:
+            raise ValueError("Building requires --target and --output.")
         commit, source = provenance(ROOT, args.source_commit, args.allow_unverified_source)
         workspace = ROOT / "polis-cli"
         compiler = output(["rustc", "-vV"], workspace)
@@ -112,7 +131,9 @@ def main():
         metadata = json.loads(output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], workspace, env))
         subprocess.run(["cargo", "build", "--locked", "--release", "--package", "polis", "--bin", "polis", "--target", args.target], cwd=workspace, env=env, check=True)
         binary = Path(metadata["target_directory"]) / args.target / "release" / "polis"
-        expected = f"polis {version} (commit {commit}; {source})"
+        info = identity(ROOT, env)
+        distance = info["distance"] if info["distance"] is not None else "unknown"
+        expected = f'polis {info["version_display"]} (commit {commit}; distance {distance}; {source})'
         if output([str(binary), "--version"], workspace, env) != expected:
             raise ValueError("Built binary version does not match source metadata.")
         # Version/help must work without a profile, sign-in, or server request.

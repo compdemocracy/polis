@@ -31,13 +31,21 @@ function moveToBody(req: Req, res: any, next: () => void) {
   next();
 }
 
-function need(name: any, parserWhichReturnsPromise: any, assigner: any) {
+type ParameterErrorHandler = (res: any, code: string, err?: any) => boolean;
+
+function need(
+  name: any,
+  parserWhichReturnsPromise: any,
+  assigner: any,
+  onError?: ParameterErrorHandler
+) {
   return _buildCallback({
     name: name,
     extractor: _extractFromBody,
     parserWhichReturnsPromise: parserWhichReturnsPromise,
     assigner: assigner,
     required: true,
+    onError,
   });
 }
 
@@ -97,6 +105,7 @@ function _buildCallback(config: {
   assigner: any;
   required: any;
   defaultVal?: any;
+  onError?: ParameterErrorHandler;
 }) {
   const name = config.name;
   const parserWhichReturnsPromise = config.parserWhichReturnsPromise;
@@ -128,6 +137,9 @@ function _buildCallback(config: {
           function (err: any) {
             const s = `polis_err_param_parse_failed_${name} (val='${val}', error=${err})`;
             logger.error(s, err);
+            if (config.onError?.(res, `polis_err_param_parse_failed_${name}`, err)) {
+              return;
+            }
             res.status(400);
             next(s);
             return;
@@ -145,6 +157,9 @@ function _buildCallback(config: {
     } else {
       const s = "polis_err_param_missing_" + name;
       logger.error(s);
+      if (config.onError?.(res, s)) {
+        return;
+      }
       res.status(400);
       next(s);
     }

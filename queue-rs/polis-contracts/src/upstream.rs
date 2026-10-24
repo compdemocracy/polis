@@ -81,12 +81,12 @@ pub fn guidance(code: &'static str) -> Guidance {
             ("xid_allowlist_fixed", "The external-ID allow-list setting is fixed once participation has started.", "No change was made and none will be retried. Keep the current --external-id setting for this conversation, or start a new conversation for a different one."),
         "polis_err_conversationStats_misc" =>
             ("conversation_stats_unavailable", "The site could not read participation statistics.", "Check the conversation ID and moderator account; ask the operator to inspect statistics reads if this persists."),
-        "polis_err_topicMod_comments_store_missing" => ("topic_statements_unavailable", "Per-topic statement listing is unavailable on this site.", "Use report statements list for visible conversation statements, or ask the operator about topic storage. An empty topic was not returned; retrying will not create the store."),
+        "polis_err_topicMod_comments_store_missing" => ("topic_statements_unavailable", "Per-topic comment listing is unavailable on this site.", "Use report comments list for visible conversation comments, or ask the operator about topic storage. An empty topic was not returned; retrying will not create the store."),
         "polis_err_get_reports_misc" => ("report_read_failed", "The site could not read this report.", "Check the report ID and selected site; ask the operator to inspect report storage if this persists."),
-        "polis_err_get_comments" => ("statements_read_failed", "The site could not read statements.", "Check the conversation/report and pagination parameters. Ask the operator to inspect statement reads if this persists."),
+        "polis_err_get_comments" => ("statements_read_failed", "The site could not read comments.", "Check the conversation/report and pagination parameters. Ask the operator to inspect comment reads if this persists."),
         "polis_err_conversation_is_closed" => ("conversation_closed", "This conversation is closed.", "View its results or ask its owner to reopen it before submitting."),
         "polis_err_post_comment_duplicate" | "polis_err_comment_duplicate" | "polis_err_ptptCommentMod_duplicate" =>
-            ("duplicate_statement", "This statement already exists.", "Find the existing statement rather than submitting another copy."),
+            ("duplicate_statement", "This comment already exists.", "Find the existing comment rather than submitting another copy."),
         s if s == Pca2ErrorCode::MissingConversationId.as_str() =>
             ("invalid_input", "A conversation ID is required.", "Supply the public conversation ID shown in its link."),
         s if s == Pca2ErrorCode::ConversationLookup.as_str() =>

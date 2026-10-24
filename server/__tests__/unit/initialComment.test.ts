@@ -7,6 +7,13 @@ const mockQuery = jest.fn();
 const mockCounts = jest.fn();
 jest.mock("../../src/comment", () => ({
   getComments: mockComments,
+  // The ordinary draw's candidate ids and chosen row come from the same
+  // fixture rows as the plain list.
+  getNextCommentCandidates: (params: unknown) => mockComments(params),
+  getNextCommentRow: async (zid: number, tid: number) =>
+    ((await mockComments({ zid, tids: [tid] })) as { tid: number }[]).find(
+      (row) => row.tid === tid
+    ),
   getNumberOfCommentsRemaining: mockCounts,
   translateAndStoreComment: jest.fn(),
 }));

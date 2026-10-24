@@ -1,0 +1,19 @@
+services:
+  server:
+    environment:
+      P027_VOTES_PROFILE: "1"
+      P027_COMMENTS_PROFILE: "1"
+      SES_ENDPOINT: http://comments-ses:8025
+      SHOULD_USE_TRANSLATION_API: "${POST_COMMENTS_TRANSLATION:-true}"
+      GOOGLE_CREDS_STRINGIFIED: '{}'
+    depends_on:
+      comments-ses: { condition: service_started }
+  driver:
+    environment:
+      P027_COMMENTS_PROFILE: "1"
+  comments-ses:
+    image: ${P027_SERVER_IMAGE:-p027-server}
+    working_dir: /app
+    command: ["node", "characterization/post-comments/ses.cjs"]
+    volumes: ["./:/app/characterization:ro"]
+    networks: [sealed]

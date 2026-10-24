@@ -2075,7 +2075,7 @@ echo "polis-ci bootstrap ready at $(date -u --iso-8601=seconds) sha=$(cat /var/l
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "7627bf1413b97178c1f503313660828dafa457e250ede350f4d2897073221950.zip",
+          "S3Key": "75c3c8d7d6411954e53e87fb05e142ba2e20576b96e96dd1105773c1e1cde61d.zip",
         },
         "EphemeralStorage": {
           "Size": 4096,
@@ -5239,29 +5239,6 @@ rm -fr $TMP_DIR",
             "CidrIp": "0.0.0.0/0",
             "Description": "Allow all outbound traffic by default",
             "IpProtocol": "-1",
-          },
-        ],
-        "SecurityGroupIngress": [
-          {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "Allow SSH",
-            "FromPort": 22,
-            "IpProtocol": "tcp",
-            "ToPort": 22,
-          },
-          {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "Allow HTTP from anywhere",
-            "FromPort": 80,
-            "IpProtocol": "tcp",
-            "ToPort": 80,
-          },
-          {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "Allow HTTPS from anywhere",
-            "FromPort": 443,
-            "IpProtocol": "tcp",
-            "ToPort": 443,
           },
         ],
         "VpcId": {

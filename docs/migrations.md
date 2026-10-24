@@ -90,8 +90,9 @@ the actual migrations (including role administration for the queue).
 
 A database advisory lock serializes runners on the same connection across
 per-file commits. A second runner waits up to five minutes, then reads the
-committed history. Each ordinary file and its APPLIED row commit in one transaction. The two
-000022 index builds are the explicit autocommit exception described below.
+committed history. Each ordinary file and its APPLIED row commit in one transaction.
+Concurrent index files and the two
+000022 index builds are the explicit autocommit exceptions described below.
 An optional historical outer BEGIN/COMMIT pair is removed; any other top-level
 transaction control is rejected. Dollar-quoted function bodies stay intact.
 SQL errors abort the file. Earlier successfully committed files stay applied.
@@ -123,6 +124,37 @@ same-name object requires a reviewed resolution, not that drop instruction.
 If history recording fails after both builds, both valid indexes remain; retry
 records their checked state without rebuilding. Concurrent builds have the
 same bounded statement/lock timeouts; a timeout is not a success receipt.
+
+### Concurrent index file header
+
+New files containing only concurrent index builds opt out of the ordinary file
+transaction with `-- polis-migrate: concurrent-indexes` in the leading line-comment
+header. The runner accepts only `CREATE INDEX CONCURRENTLY IF NOT EXISTS name ON
+[public.]table (column, ...)` statements: simple lowercase identifiers, ordinary
+btree columns, no expressions, predicates, options, transaction control or other
+SQL. Each build is a separate autocommit statement, on the same connection under
+the migration advisory lock. The runner restores the session's 5 s lock wait and
+5 min statement and transaction budgets before the file, even if a previous file
+changed them. These apply to each build; there is no aggregate file timeout.
+
+All named objects are checked before building any index. Exact valid definitions
+are reused; a conflicting or invalid object refuses the file. As with 000022,
+inspect a failed build, explicitly `DROP INDEX CONCURRENTLY public.<name>` only
+if it is the expected interrupted index, and rerun. `IF NOT EXISTS` alone would
+silently accept an invalid index and is not the validity check. The runner never
+drops an index automatically. After all builds, catalog validity is checked again
+in the transaction that records APPLIED. A failed history write leaves the valid
+indexes for the next run. Ordinary files retain atomic SQL/history semantics.
+
+Migration 000043 adds `votes(zid, created)`, `comments(zid, created)` and
+`comments(zid, modified)` for derived activity reads. Existing `votes(zid, pid)`
+already serves participant vote counts. The three builds take SHARE UPDATE
+EXCLUSIVE on their tables, compatible with ordinary INSERT/UPDATE/DELETE and
+SELECT; competing schema work and long snapshots can delay a build until its
+budget fires. No stored value, function or application SQL changes. It applies
+at the next deployment and is additive beside the previous application.
+Reversal, if required, is an explicit concurrent drop of those three indexes;
+it removes only the read acceleration and never restores or changes data.
 
 ## Release contents and new migrations
 
@@ -201,7 +233,7 @@ before. `apply` never runs this release's pending SQL after a tolerated newer
 migration; that order is refused before any change. The rule only helps
 releases that contain it: a release built before it refuses every newer row.
 
-Declarations for 000019–000042 (the older code is the release just before each
+Declarations for 000019–000044 (the older code is the release just before each
 migration, as recorded in `release.txt` history):
 
 | Migration | Declared | Evidence |
@@ -221,9 +253,11 @@ migration, as recorded in `release.txt` history):
 | 000039 clear conversation download keys | additive | Data-only: `UPDATE public.zinvites SET uuid = NULL WHERE uuid IS NOT NULL`. No object is redefined; the `uuid` column stays nullable (000009). Every reader tolerates NULL — `conversationUuid` mints on demand, `getZidForUuid` returns not-found for a cleared key, and new conversations still receive a fresh uuid at creation — and no reader in server, queue-rs, delphi or math expects a non-NULL uuid, so an earlier release runs correctly beside it. The UPDATE takes ROW EXCLUSIVE and per-row locks only, which do not block the participant path's `SELECT`s on `zinvites` (resolved by zinvite code, never uuid). Reversal is impossible: the keys are not stored; `down/000039_restore_zinvites_uuid.sql` is a documented no-op and owners re-mint through the owner-gated route. |
 | 000041 Delphi run record | additive | One new read function, `pd_run_record(env, job)`: STABLE, SECURITY DEFINER with a pinned `search_path`, owned by `polis_queue_owner`, EXECUTE granted to `polis_queue_executor` only. No table, row, column or existing function changes and no table grant; nothing in the earlier release calls it, and its one reader (the polis-api run-record route) is off by default and hands back to Node when the function is missing. It takes no table lock. Number 000040 is reserved for another draft. Reversal: `down/000041_drop_delphi_run_record.sql` drops the function (it stores nothing). The runner's `forward.py` tolerates it as additive. |
 | 000042 statement-number lock to commit | additive | `tid_auto` (BEFORE INSERT on `comments`) takes `pg_advisory_xact_lock` instead of the session lock `pg_advisory_lock`, on the same key, so a conversation's statement-number lock is held until the inserting transaction ends rather than released before it commits; `tid_auto_unlock` and its AFTER INSERT trigger are dropped. Numbering is unchanged (MAX(tid) + 1 per conversation, from 0, no gaps); no table, column, index, constraint or row changes. No code in the earlier release calls `tid_auto_unlock` or takes the lock; every writer lets the trigger assign `tid` and reads it back, so an earlier release inserts and numbers statements as before. Locks: `DROP TRIGGER` takes ACCESS EXCLUSIVE on `comments` until the file commits, waiting at most the 5 s `lock_timeout` for transactions already using `comments`; comment reads and writes queue behind it for that wait, once; on timeout nothing changes and the deploy can be retried. Reversal: `down/000042_restore_tid_auto_session_lock.sql` restores both functions and the trigger exactly as `000000_initial.sql` defines them (SHARE ROW EXCLUSIVE on `comments`, bounded at 5 s), and brings back the race this migration removes. The runner's `forward.py` tolerates it as additive. |
+| 000043 activity indexes | additive | Three ordinary btree indexes only; no table, function, row or application SQL changes. Concurrent builds preserve ordinary participation writes. |
+| 000044 participant-number lock to commit | additive | `pid_auto` (BEFORE INSERT on `participants`) takes `pg_advisory_xact_lock` instead of the session lock `pg_advisory_lock`, on the same key, so a conversation's participant-number lock is held until the inserting transaction ends rather than released before it commits; `pid_auto_unlock` and its AFTER INSERT trigger are dropped. Numbering is unchanged (MAX(pid) + 1 per conversation, from 0, no gaps), as is the `conversations.participant_count` update, whose row lock was already held to commit, so no join waits longer; no table, column, index, constraint or row changes. No code in the earlier release calls `pid_auto_unlock` or takes the lock; every writer lets the trigger assign `pid` and reads it back, so an earlier release joins and numbers participants as before. Locks: `DROP TRIGGER` takes ACCESS EXCLUSIVE on `participants` until the file commits, waiting at most the 5 s `lock_timeout` for transactions already using `participants`; participant reads and writes (votes, comments, nextComment, participationInit) queue behind it for that wait, once; on timeout nothing changes and the deploy can be retried. Reversal: `down/000044_restore_pid_auto_session_lock.sql` restores both functions and the trigger exactly as `000000_initial.sql` defines them (SHARE ROW EXCLUSIVE on `participants`, bounded at 5 s), and brings back the race and the held lock this migration removes. The runner's `forward.py` tolerates it as additive. |
 
 So a rollback to a release with this rule that lists 000027 starts beside
-000028–000031, 000038, 000039, 000041 and 000042; a rollback past 000027 (or 000024) refuses, as it must: the
+000028–000031, 000038, 000039, 000041–000044; a rollback past 000027 (or 000024) refuses, as it must: the
 earlier queue daemon would exit on the newer contract.
 
 ## CI and local test stacks
@@ -266,3 +300,13 @@ predicate must lead to a reviewed forward repair or a documented compatible
 variant, never to manually inserting a migration row. Unknown historical variants remain review cases; this document does not authorize
 a deployment that fails reconciliation. Run the [read-only first-deploy report](migration-upgrade-notes.md)
 before the first transition; it does not replace application-health verification.
+
+Historical schema tests that intentionally replay an older inventory use
+`polis-migrate prepare-indexes --file PATH` only for header-marked index files.
+It shares the deployment parser, advisory lock, budgets, preflight and final
+validity checks, but does not write migration history. The harness must commit
+earlier DDL and release its transaction before invoking it. The Python helper
+`server/bin/apply-test-migration.py` and Node helper
+`server/characterization/migrations.cjs` enforce this boundary; both accept
+`POLIS_MIGRATE_BIN` or build the locked runner with Cargo. Normal installations,
+including database resets, continue to use `apply`/`deploy`.

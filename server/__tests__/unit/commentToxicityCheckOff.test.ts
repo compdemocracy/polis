@@ -26,7 +26,7 @@ jest.mock("../../src/config", () => ({
 }));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: mockQuery, queryP_readOnly: mockQuery },
+  default: { queryP: mockQuery, queryP_readOnly: mockQuery, queryP_notification: jest.fn(async () => []) },
 }));
 jest.mock("../../src/utils/logger", () => ({
   __esModule: true,
@@ -60,6 +60,7 @@ jest.mock("../../src/utils/common", () => ({
 jest.mock("../../src/routes/votes", () => ({ votesPost: jest.fn() }));
 jest.mock("../../src/server-helpers", () => ({
   safeTimestampToMillis: (n: number) => n,
+  updateLastInteractionTimeForConversation: jest.fn(async () => []),
 }));
 jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));

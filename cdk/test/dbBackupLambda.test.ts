@@ -58,12 +58,18 @@ test('nothing in the cdk package depends on the Docker-bundling construct', () =
 
 test('the pinned requirement carries a hash for the Lambda platform wheel', () => {
   const requirements = fs.readFileSync(path.join(__dirname, '..', 'lambda', 'handler', 'requirements.txt'), 'utf8');
-  const pins = requirements.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).join('\n');
-  expect(pins).toMatch(/^psycopg2-binary==\d+\.\d+\.\d+ \\\n\s+--hash=sha256:[0-9a-f]{64}$/);
+  const pins = requirements.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#'))
+    .join('\n').replace(/\s*\\\n\s*/g, ' ').split('\n');
+  expect(pins).toHaveLength(2);
+  expect(pins).toContain('certifi==2026.10.19 --hash=sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b');
+  expect(pins.some((pin) => pin.startsWith('psycopg2-binary=='))).toBe(true);
+  for (const pin of pins) {
+    expect(pin).toMatch(/^[a-z0-9-]+==\d+\.\d+\.\d+ --hash=sha256:[0-9a-f]{64}$/);
+  }
 });
 
 // Runs pip for real (no Docker): the package must hold exactly the handler,
-// its requirements file and the psycopg2 wheel's contents, and nothing else.
+// its requirements file, psycopg2 and the hash-checked certifi trust bundle.
 // Needs python3 with pip and the wheel (network, or a warm pip cache).
 test('packageHandler builds the Lambda package with pip, without Docker', () => {
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 'db-backup-package-'));
@@ -80,6 +86,9 @@ test('packageHandler builds the Lambda package with pip, without Docker', () => 
     expect(files).toContain('dbBackuplambda.py');
     expect(files).toContain('requirements.txt');
     expect(files).toContain('psycopg2/__init__.py');
+    expect(files).toContain('certifi/cacert.pem');
+    expect(files).toContain('certifi-2026.10.19.dist-info/RECORD');
+    expect(fs.readFileSync(path.join(out, 'certifi', '__init__.py'), 'utf8')).toContain('2026.10.19');
     expect(files).toContain('psycopg2/_psycopg.cpython-312-x86_64-linux-gnu.so');
     expect(files.filter((f) => f.startsWith('psycopg2_binary.libs/libpq-'))).toHaveLength(1);
     expect(files.filter((f) => /^psycopg2_binary-\d+\.\d+\.\d+\.dist-info\/RECORD$/.test(f))).toHaveLength(1);

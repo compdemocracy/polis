@@ -1,0 +1,944 @@
+[
+  {
+    "case": "anonymous-first",
+    "status": 200,
+    "body": "{\"tid\":2,\"currentPid\":4,\"auth\":{\"token\":\"$jwt:82842f14c4d2ad82d7c6b278415aa7742d1049a5f6885297ad8b6d8dfcf3cc71\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-no-vote",
+    "status": 200,
+    "body": "{\"tid\":3,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-agree",
+    "status": 200,
+    "body": "{\"tid\":4,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-disagree",
+    "status": 200,
+    "body": "{\"tid\":5,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-pass",
+    "status": 200,
+    "body": "{\"tid\":6,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-seed",
+    "status": 200,
+    "body": "{\"tid\":7,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":8,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-strict",
+    "status": 200,
+    "body": "{\"tid\":9,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-no-vote",
+    "status": 200,
+    "body": "{\"tid\":10,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-agree",
+    "status": 200,
+    "body": "{\"tid\":11,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-disagree",
+    "status": 200,
+    "body": "{\"tid\":12,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-pass",
+    "status": 200,
+    "body": "{\"tid\":13,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-seed",
+    "status": 200,
+    "body": "{\"tid\":14,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":15,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-strict",
+    "status": 200,
+    "body": "{\"tid\":16,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-no-vote",
+    "status": 200,
+    "body": "{\"tid\":17,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-agree",
+    "status": 200,
+    "body": "{\"tid\":18,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-disagree",
+    "status": 200,
+    "body": "{\"tid\":19,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-pass",
+    "status": 200,
+    "body": "{\"tid\":20,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-seed",
+    "status": 200,
+    "body": "{\"tid\":21,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":22,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-strict",
+    "status": 200,
+    "body": "{\"tid\":23,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-no-vote",
+    "status": 200,
+    "body": "{\"tid\":24,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-agree",
+    "status": 200,
+    "body": "{\"tid\":25,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-disagree",
+    "status": 200,
+    "body": "{\"tid\":26,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-pass",
+    "status": 200,
+    "body": "{\"tid\":27,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-seed",
+    "status": 200,
+    "body": "{\"tid\":28,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":29,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-strict",
+    "status": 200,
+    "body": "{\"tid\":30,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-no-vote",
+    "status": 200,
+    "body": "{\"tid\":31,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-agree",
+    "status": 200,
+    "body": "{\"tid\":32,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-disagree",
+    "status": 200,
+    "body": "{\"tid\":33,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-pass",
+    "status": 200,
+    "body": "{\"tid\":34,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-seed",
+    "status": 200,
+    "body": "{\"tid\":35,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":36,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-strict",
+    "status": 200,
+    "body": "{\"tid\":37,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-no-vote",
+    "status": 200,
+    "body": "{\"tid\":38,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-agree",
+    "status": 200,
+    "body": "{\"tid\":39,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-disagree",
+    "status": 200,
+    "body": "{\"tid\":40,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-pass",
+    "status": 200,
+    "body": "{\"tid\":41,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-seed",
+    "status": 200,
+    "body": "{\"tid\":42,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":43,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-strict",
+    "status": 200,
+    "body": "{\"tid\":44,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-no-vote",
+    "status": 200,
+    "body": "{\"tid\":45,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-agree",
+    "status": 200,
+    "body": "{\"tid\":46,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-disagree",
+    "status": 200,
+    "body": "{\"tid\":47,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-pass",
+    "status": 200,
+    "body": "{\"tid\":48,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-seed",
+    "status": 200,
+    "body": "{\"tid\":49,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-seed-explicit-vote",
+    "status": 200,
+    "body": "{\"tid\":50,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-strict",
+    "status": 200,
+    "body": "{\"tid\":51,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-first-use",
+    "status": 200,
+    "body": "{\"tid\":52,\"currentPid\":5}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-repeat",
+    "status": 200,
+    "body": "{\"tid\":53,\"currentPid\":5}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-first-use",
+    "status": 200,
+    "body": "{\"tid\":54,\"currentPid\":6,\"auth\":{\"token\":\"$jwt:86e10d492ae3fa8ed5c7dacc5fac16c6ce08daff77761ae2fffa3282b4a3f1c4\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-existing-bare",
+    "status": 200,
+    "body": "{\"tid\":55,\"currentPid\":2,\"auth\":{\"token\":\"$jwt:ba44042502d5f77fffff3332e52baa5b985690b45ca322ac54905652d1853f0c\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-request-precedence",
+    "status": 200,
+    "body": "{\"tid\":56,\"currentPid\":7,\"auth\":{\"token\":\"$jwt:fcab3f69918d689766943c331f648b8124f036a8ec81d3ea9e897b8467314197\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-required",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_xid_required\",\"message\":\"polis_err_xid_required\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-whitelisted",
+    "status": 200,
+    "body": "{\"tid\":57,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-refused",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_xid_not_allowed\",\"message\":\"polis_err_xid_not_allowed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-pid0",
+    "status": 200,
+    "body": "{\"tid\":58,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-participant",
+    "status": 200,
+    "body": "{\"tid\":59,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-standard",
+    "status": 200,
+    "body": "{\"tid\":60,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-xid",
+    "status": 200,
+    "body": "{\"tid\":61,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-owner",
+    "status": 200,
+    "body": "{\"tid\":62,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-anonymous-refused",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-xid-refused",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-oidc-first-refused",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "foreign-token",
+    "status": 200,
+    "body": "{\"tid\":63,\"currentPid\":8,\"auth\":{\"token\":\"$jwt:36ab7b9fa0f42b528d8ca6b98a06cee1c628264a1e7ced3bd691753044f60bb1\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "auth-expired",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "auth-bad",
+    "status": 401,
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "auth-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-empty",
+    "status": 400,
+    "body": "{\"error\":\"polis_err_param_missing_txt\",\"message\":\"polis_err_param_missing_txt\",\"status\":400,\"auth\":{\"token\":\"$jwt:8b7f516434846f571df5ecef8b3b3eab10ad76f51c1a16743a22a85683f7a6e2\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-spaces",
+    "status": 400,
+    "body": "{\"error\":\"polis_err_param_missing_txt\",\"message\":\"polis_err_param_missing_txt\",\"status\":400,\"auth\":{\"token\":\"$jwt:809cdfce82b9910e52f522c3b880d0d201938f3300966fb76eae35f0c548ed17\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-null",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-number",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-boolean",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-array",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-object",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-too-long",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-utf16-too-long",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-max-length",
+    "status": 200,
+    "body": "{\"tid\":64,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-utf16-boundary",
+    "status": 200,
+    "body": "{\"tid\":65,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-tab",
+    "status": 200,
+    "body": "{\"tid\":66,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-trim",
+    "status": 200,
+    "body": "{\"tid\":67,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-trim-duplicate",
+    "status": 409,
+    "body": "{\"error\":\"polis_err_post_comment_duplicate\",\"message\":\"polis_err_post_comment_duplicate\",\"status\":409}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "duplicate-before-closed",
+    "status": 409,
+    "body": "{\"error\":\"polis_err_post_comment_duplicate\",\"message\":\"polis_err_post_comment_duplicate\",\"status\":409}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "duplicate-exact",
+    "status": 409,
+    "body": "{\"error\":\"polis_err_post_comment_duplicate\",\"message\":\"polis_err_post_comment_duplicate\",\"status\":409}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "duplicate-case-sensitive",
+    "status": 200,
+    "body": "{\"tid\":68,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-null",
+    "status": 200,
+    "body": "{\"tid\":69,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-prefix",
+    "status": 200,
+    "body": "{\"tid\":70,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-fraction-string",
+    "status": 200,
+    "body": "{\"tid\":71,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-invalid-2",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-invalid-0.5",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-invalid-true",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-invalid-\"bad\"",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-invalid-[]",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "vote-invalid-{}",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "seed-number",
+    "status": 200,
+    "body": "{\"tid\":72,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "seed-off",
+    "status": 200,
+    "body": "{\"tid\":73,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "seed-null",
+    "status": 200,
+    "body": "{\"tid\":74,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "seed-invalid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "ignored-fields",
+    "status": 200,
+    "body": "{\"tid\":75,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "missing-conversation",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "unknown-conversation",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "invalid-xid",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "sql-insert",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_post_comment\",\"message\":\"polis_err_post_comment\",\"status\":500,\"auth\":{\"token\":\"$jwt:9d595d5d6fe43e6f426c302eeb98551c9946f1c1ebb2eb73be91c770ed7eb3a3\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "sql-participant",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_post_comment_participant_race_condition\",\"message\":\"polis_err_post_comment_participant_race_condition\",\"status\":500,\"auth\":{\"token\":\"$jwt:d61b6ca0de82d44a9f9d468103aa537603861bb43c1f9bdc1ab4d3417e9ea702\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "sql-foreign",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_post_comment_constraint_violation\",\"message\":\"polis_err_post_comment_constraint_violation\",\"status\":500,\"auth\":{\"token\":\"$jwt:f6e038526918503ca42f9e017412bf391cecb7e416b90b484df3c9b3bc101668\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "sql-duplicate",
+    "status": 409,
+    "body": "{\"error\":\"polis_err_post_comment_duplicate\",\"message\":\"polis_err_post_comment_duplicate\",\"status\":409,\"auth\":{\"token\":\"$jwt:12ae68cbcc3673841c2bf83090bf95c68321477404fffb388ec861e032a78328\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "sql-allocator",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_post_comment\",\"message\":\"polis_err_post_comment\",\"status\":500,\"auth\":{\"token\":\"$jwt:026a54049ec867d916c13bee4f213850b487de01f16268b0639acbc05bf6e556\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "author-vote-failure-after-commit",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_post_comment\",\"message\":\"polis_err_post_comment\",\"status\":500}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "retry-after-vote-failure",
+    "status": 409,
+    "body": "{\"error\":\"polis_err_post_comment_duplicate\",\"message\":\"polis_err_post_comment_duplicate\",\"status\":409}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "language-success",
+    "status": 200,
+    "body": "{\"tid\":77,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "language-error",
+    "status": 200,
+    "body": "{\"tid\":78,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "language-malformed",
+    "status": 200,
+    "body": "{\"tid\":79,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "notification-task-failure",
+    "status": 200,
+    "body": "{\"tid\":81,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "notification-interaction-failure",
+    "status": 200,
+    "body": "{\"tid\":82,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "moderation-count-failure",
+    "status": 200,
+    "body": "{\"tid\":83,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":2,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "pid0-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":3,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":4,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "participant-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":5,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":6,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":7,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":8,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":9,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":10,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "owner-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":11,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":12,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "admin-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":13,\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-seed-disagree",
+    "status": 200,
+    "body": "{\"tid\":14,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-seed-pass",
+    "status": 200,
+    "body": "{\"tid\":15,\"currentPid\":3}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-account",
+    "status": 500,
+    "body": "{\"error\":\"user_creation_failed\",\"message\":\"Failed to create or map user account\",\"details\":\"generated recording SQL failure\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-account-conflict",
+    "status": 429,
+    "body": "{\"error\":\"authentication_conflict\",\"message\":\"Authentication system encountered a temporary conflict. Please try again.\",\"retry_after\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-account-load",
+    "status": 429,
+    "body": "{\"error\":\"too_many_requests\",\"message\":\"Authentication system is experiencing high load. Please try again in a moment.\",\"retry_after\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-missing-email",
+    "status": 400,
+    "body": "{\"error\":\"invalid_user_data\",\"message\":\"User account is missing required information (email).\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-expired",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-issuer",
+    "status": 401,
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-audience",
+    "status": 401,
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-unknown-key",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"Unable to find a signing key that matches 'generated-unpublished-key'\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "language-disabled",
+    "status": 200,
+    "body": "{\"tid\":2,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "concurrent-duplicate/0",
+    "status": 200,
+    "body": "{\"tid\":89,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "concurrent-duplicate/1",
+    "status": 409,
+    "body": "{\"error\":\"polis_err_post_comment_duplicate\",\"message\":\"polis_err_post_comment_duplicate\",\"status\":409}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "concurrent-unique/0",
+    "status": 200,
+    "body": "{\"tid\":87,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "concurrent-unique/1",
+    "status": 200,
+    "body": "{\"tid\":88,\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "language-timeout",
+    "status": 200,
+    "body": "{\"tid\":80,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-first-join",
+    "status": 200,
+    "body": "{\"tid\":84,\"currentPid\":23}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-repeat-join",
+    "status": 200,
+    "body": "{\"tid\":85,\"currentPid\":23}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "text-absent",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "site-moderator-recipient",
+    "status": 200,
+    "body": "{\"tid\":86,\"currentPid\":2}",
+    "recording_oracle_pass": true
+  }
+]

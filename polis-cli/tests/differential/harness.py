@@ -110,6 +110,14 @@ def serving_matches(counts, contract):
             and counts['requests'] == contract['expected_requests'])
 
 
+def route_contracts(routes):
+    """Check each selector's total and each explicitly inventoried path."""
+    for route, contract in routes.items():
+        yield route, contract
+        for path in contract.get('paths', []):
+            yield route + ':' + path['path'], path
+
+
 def load_routes():
     """The switch set under test; refuses a template census that differs."""
     routes=json.loads((HERE/'routes.json').read_text())
@@ -159,19 +167,23 @@ class Stack:
 
     def up(self):
         """Start every service; return the control port's generated tokens."""
-        self.dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server')
+        self.dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server','file-server')
         self.publish_keys()
         self.dc('up','-d','--pull','never','polis-api','proxy','gateway')
         self.ready();self.tokens=self.get('/tokens')
         return self.tokens
 
     def enter_phase(self,switch,*,fresh_backends):
-        """Re-render the proxy with the real renderer and reinstall the fixture.
+        """Reload the proxy with the real route helper and reinstall the fixture.
         Fresh backend processes clear process caches between phases."""
         self.env['RUST_API_ROUTES']=switch
         if fresh_backends:
             self.dc('restart','-t','1','server','dynamodb');self.ready();self.publish_keys();self.dc('restart','-t','1','polis-api')
-        self.dc('up','-d','--no-deps','--force-recreate','--pull','never','proxy')
+        self.dc('exec','-T','-e','RUST_API_ROUTES='+switch,
+                'proxy','/usr/local/bin/polis-rust-routes','--reload')
+        # The proxy survives phase changes. After old workers drain, clear
+        # only the access log so routing counts still describe one phase.
+        self.dc('exec','-T','proxy','sh','-c',': > '+NGINX_LOG)
         fixture=self.dc('exec','-T','server','node','/differential/seed.cjs',input=json.dumps(self.tokens),check=False)
         if fixture.returncode:
             print(fixture.stderr,file=sys.stderr)
@@ -268,7 +280,7 @@ def run_phases(stack,cli,plan):
 
 def importance_display_checks(node, rust):
     """Named fixture contract, not a general normalization of current counts.
-    This command precedes every vote in cases.py; the two participant-visible statements
+    This command precedes every vote in cases.py; the two participant-visible comments
     therefore have zero vote rows. Preserve every other byte-derived value.
     """
     import copy
@@ -285,7 +297,7 @@ def importance_display_checks(node, rust):
         timestamp = meta.pop('read_at_ms')
         checks['timestamp'] = type(timestamp) is int and 0 < timestamp <= 9007199254740991
         checks['metadata'] = meta == {'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed',
-            'scope':'current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs'}
+            'scope':'current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs'}
         checks['fixture_ids'] = [r['tid'] for r in right['comments']] == [0, 1]
         checks['unknown_rows'] = all(r.pop('important') is None and r.pop('voters') is None for r in left['comments'])
         checks['zero_rows'] = all(type(r['important']) is int and type(r['voters']) is int

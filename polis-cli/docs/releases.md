@@ -1,7 +1,11 @@
 # Building, installing and updating the CLI
 
-`polis --version` prints the semantic CLI version, full source commit and source
-status. An ordinary Cargo build without metadata says `commit unknown;
+`polis --version` prints the installed build version, full source commit and
+source status. The CLI is a client of Polis and follows the Polis release version.
+The shared build identity supplies root `VERSION` as `POLIS_VERSION_BASE`, plus
+commit and distance for development display. Until that identity is available,
+the updater compares the version embedded from `polis-cli/Cargo.toml`. It never
+reads a version from the configured site or a runtime environment variable. An ordinary Cargo build without metadata says `commit unknown;
 development`. A native artifact built by the release script says
 `clean-checkout`; an explicitly declared archive rehearsal says
 `unverified-archive`. These are build descriptions, not signatures or proof of
@@ -25,14 +29,15 @@ toolchain, `cargo build --locked --release`, and the actual Cargo target directo
 It builds the production binary without fixture features, checks version/help,
 and refuses modified or untracked build inputs. It never publishes or installs.
 
-The manual **polis-cli release build (no publishing)** workflow uses these same
-commands on native macOS and Linux runners. Its artifacts expire after 14 days;
-they are review inputs, not permanent release URLs. All target jobs must pass
-before a distributor claims that version supports all four targets. A passing
-ARM64 Mac build alone does not qualify Intel or Linux. GNU/Linux binaries use
-the runner's glibc and are not promised to work on older distributions. A source
-build remains available there. Mac archives are unsigned unless a distributor
-separately signs and notarizes them; no signing identity is supplied here.
+The existing native build entry points can prepare review artifacts. Publication
+must follow the shared Polis release checklist below; this updater change does
+not change the build or publication workflow. Legacy `cli-v` publication tooling
+must be migrated before publishing the first shared release. All target jobs
+must pass before publication. A passing ARM64 Mac build alone does not qualify
+Intel or Linux. GNU/Linux binaries use the runner's glibc and are not promised
+to work on older distributions. A source build remains available there. Mac
+archives are unsigned unless a distributor separately signs and notarizes them;
+no signing identity is supplied here.
 
 Archive names contain version, abbreviated commit and target. Each archive has
 one named directory containing `polis`, `manifest.json`, `LICENSE`, and
@@ -51,16 +56,16 @@ that output as a clean release. For ordinary development, use Cargo directly.
 ## Install or replace an explicitly selected artifact
 
 Download the archive for your OS and CPU and its expected checksum from your
-trusted distributor. There is no automatic installer or download in this CLI.
+trusted distributor. For a first installation, select and verify an archive explicitly.
 A checksum verifies bytes against that expected digest; it does not authenticate
 the distributor on its own. In the download directory:
 
 ```sh
 # Use the exact downloaded checksum filename; substitute your chosen artifact.
-shasum -a 256 -c polis-VERSION-COMMIT-TARGET.tar.gz.sha256
+shasum -a 256 -c polis-VERSION-COMMIT12-TARGET.tar.gz.sha256
 mkdir unpacked
 # Substitute the same exact filename; unpack into the new directory.
-tar -xzf polis-VERSION-COMMIT-TARGET.tar.gz -C unpacked
+tar -xzf polis-VERSION-COMMIT12-TARGET.tar.gz -C unpacked
 ```
 
 Inspect the manifest and run the unpacked `polis --version` before installation.
@@ -71,9 +76,9 @@ unpacked artifact directory, install into a directory you own on PATH:
 mkdir -p "$HOME/.local/bin"
 # If replacing an existing binary, first save it under a new backup filename.
 # Stop if that backup filename already exists.
-test ! -e "$HOME/.local/bin/polis.previous" || exit 1
+test ! -e "$HOME/.local/bin/polis.prev" || exit 1
 if test -e "$HOME/.local/bin/polis"; then
-  cp -p "$HOME/.local/bin/polis" "$HOME/.local/bin/polis.previous"
+  cp -p "$HOME/.local/bin/polis" "$HOME/.local/bin/polis.prev"
 fi
 install -m 755 ./polis "$HOME/.local/bin/polis.new"
 "$HOME/.local/bin/polis.new" --version
@@ -88,16 +93,114 @@ backup until the replacement works. To roll back, explicitly restore that saved
 binary and verify its version. No sudo, credential transfer or server mutation
 is required.
 
-Updating repeats the same pinned-artifact procedure. The CLI does not check for
-updates during sign-in, reads, votes or comments. An explicit update-check command
-can be added later; no update network request or automatic replacement exists.
+## Update the installed CLI
 
-## Publication remains separate
+```sh
+polis --version
+polis update
+polis update --json
+# Use a distributor's compatible release API instead of the default:
+polis update --release-base-url https://releases.example.org/cli/releases
+```
 
-The semantic version lives in `polis-cli/Cargo.toml`. A distributor first reviews
-and increments it with its lockfile, qualifies native targets, and records the
-chosen full commit under a CLI-specific release tag such as `cli-v0.1.0`.
-Only then publish the exact reviewed archives and checksums to permanent release
-storage, with the appropriate signing/attestation policy. This build workflow has
-read-only repository permissions and no release creation, tag writes or package
-publishing steps.
+`polis update` is explicit; no update requests run during sign-in, reads, votes,
+comments, or any other command. It does not load profiles or credentials, and
+`--site` does not select the software distributor. The release source is the
+`--release-base-url` flag, then `POLIS_RELEASE_BASE_URL`, then
+`https://api.github.com/repos/compdemocracy/polis/releases`. The URL is a GitHub
+release-list compatible endpoint: an array of objects with `tag_name`, `draft`,
+`prerelease`, optional `body`, and `assets` containing `name` and
+`browser_download_url`. It receives `per_page=100&page=N`; a page shorter than
+100 ends the list. More than ten full pages fails instead of guessing.
+
+The updater chooses the highest numeric stable Polis version tagged exactly
+`vMAJOR.MINOR.PATCH`, across every returned page. It ignores drafts, prereleases,
+tags with prerelease or build suffixes, malformed versions, and other namespaces,
+including the old `cli-v` tags. If only legacy tags exist, the error states the
+required tag format and that legacy tags are ignored. Equal or older versions do
+nothing, even if their commit differs. Comparison uses only major, minor and patch
+from the compiled `POLIS_VERSION_BASE` (or the embedded Cargo version before the
+shared identity is available), never commit ordering or development distance.
+
+A development build such as `2.41.0+dev.7.abcdef123456` is never updated in the
+background. Explicit `polis update` can install a strictly higher base version;
+it leaves an equal-base stable release alone. To replace a development build
+with an equal-base stable build, explicitly select and verify an artifact using
+the installation procedure above. There is no implicit downgrade or force flag.
+
+An installed older updater that only recognizes `cli-v` cannot discover these
+Polis releases. Replace it once using an explicitly selected verified artifact
+containing the new updater; subsequent `polis update` calls follow `v` releases.
+Do not publish compatibility `cli-v` tags or a separate CLI version line.
+The newest release must contain the running platform's archive and its checksum;
+a missing platform fails, without silently selecting an older release.
+
+Downloads require HTTPS, except loopback HTTP for local testing. Credentials in
+URLs are refused; no site token is sent. Up to five redirects are allowed, with
+no HTTPS downgrade. Requests each obey `--timeout`; responses and archive members
+have size limits. Archive SHA256, manifest version/commit/target/source, binary
+SHA256, and the four expected regular archive members are checked before any
+replacement. Downloads are never executed as a verification step. Checksums
+verify integrity against the selected distributor; they do not independently
+authenticate that distributor. Choose the release base URL accordingly.
+
+The running executable must resolve to a regular file named `polis` in a writable
+directory. A launcher symlink resolves to that executable; other installations on
+PATH are unaffected. The updater stages in the same directory, syncs both files,
+saves the installed binary as `polis.prev`, then uses an atomic rename to replace
+`polis`. An existing `polis.prev` is replaced by the immediately previous binary.
+An installation lock serializes replacement; its empty `.polis-update.lock` file
+is retained so overlapping processes always lock the same inode. A changed
+installed binary during download causes a refusal. The old executable remains
+available until rename; interruptions before that leave it in place. A directory
+sync failure after rename is reported as an uncertain outcome (exit 7).
+
+Success reports the old and new version/commit, platform, backup name and release
+notes. `--json` uses the normal CLI envelope, with `data.state` equal to `updated`
+or `up_to_date`; terminal control characters in release notes are escaped.
+Configuration and sign-ins are untouched. Verify with `polis --version` after
+updating. To roll back from the installation directory, keep the backup and
+atomically restore a copy:
+
+```sh
+cp -p polis.prev polis.rollback
+mv -f polis.rollback polis
+./polis --version
+```
+
+## Publish from a reviewed stable promotion
+
+The publication contract is one Polis release, with root `VERSION` as the
+version authority. Generated Cargo versions must match it. The tag is exactly
+`vMAJOR.MINOR.PATCH` on the full stable merge commit, never an edge or version
+preparation commit. Release title: `Polis MAJOR.MINOR.PATCH`. The CLI has no
+separate release numbering stream.
+
+Before publication:
+
+1. Review the computed version and stable promotion, migration list, release
+   notes and exact source commit. A promotion shipping a migration bumps MINOR;
+   otherwise PATCH. Major changes are Colin's decision.
+2. Build and validate all four native targets from that stable commit. Each
+   archive manifest must contain the same Polis version, full stable commit and
+   clean source status. Preserve the `polis-cli-release/1` manifest format and
+   archive layout described above.
+3. Prepare exactly eight assets on that same Polis release: four
+   `polis-VERSION-COMMIT12-TARGET.tar.gz` archives and their four `.sha256` files.
+   `COMMIT12` is the first 12 characters of the stable commit. Targets are
+   `aarch64-apple-darwin`, `x86_64-apple-darwin`,
+   `aarch64-unknown-linux-gnu`, and `x86_64-unknown-linux-gnu`. Asset names do not
+   gain a `v` or `cli-v` prefix.
+4. Colin pushes the reviewed tag and publishes, or the publication workflow does
+   so only after his explicit release-environment approval. Builds and review
+   preparation have read-only permissions. Do not assume existing deployment
+   approval authorizes publication. This change does not enable that workflow;
+   shared publication tooling and its approval gate must be ready first.
+5. Keep the release a draft until all eight assets and release notes validate.
+   A missing target prevents publication. Never silently overwrite published
+   tags or assets. Failed uploads leave a draft for explicit inspection and
+   cleanup or a verified resume. An older stable redeploy reuses its number.
+
+No tag, public release, or workflow execution is needed to test the updater:
+its tests use a loopback release server. Signing/notarization and older glibc
+compatibility remain separate distribution choices.

@@ -19,7 +19,7 @@ pub fn fetch(c: &Client, conversation: &str) -> Result<Response> {
     let value = c.request("GET", PATH, &[("conversation_id".into(),conversation.into())], None, false)
         .map_err(|mut e| { if e.upstream["status"] == 404 {
             e.code="capability_unavailable";e.exit=8;
-            e.message="Statement importance is unavailable for this conversation on this site.".into();
+            e.message="Comment importance is unavailable for this conversation on this site.".into();
             e.action="Ask the operator whether the public importance read is enabled; no counts were invented.";
         } e })?;
     let result: Response = serde_json::from_value(value).map_err(|_| invalid())?;
@@ -30,7 +30,7 @@ pub fn fetch(c: &Client, conversation: &str) -> Result<Response> {
 }
 fn metadata(counts: &Response) -> Value {
     json!({"schema":counts.schema,"conversation_id":counts.conversation_id,"read_at_ms":counts.read_at_ms,
-        "state":"observed","scope":"current active, unmuted, participant-visible statements; latest vote per participant; not verified people or historical job inputs"})
+        "state":"observed","scope":"current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs"})
 }
 /// Optional display reads keep absent counts unknown, never zero.
 pub fn annotate(c: &Client, conversation: &str, value: &mut Value) -> Result<()> {
@@ -133,13 +133,13 @@ pub fn list(
     Ok(
         json!({"comments":rows,"pagination":{"total":total,"limit":limit,"offset":offset,"has_more":offset.saturating_add(limit)<total},
         "importance":metadata(&counts),"order":if sort {"importance_desc_tid_asc"} else {"tid_asc"},
-        "note":"Counts share one read snapshot; statement text is read afterward. Repeated pages are not a stable snapshot."}),
+        "note":"Counts share one read snapshot; comment text is read afterward. Repeated pages are not a stable snapshot."}),
     )
 }
 fn changed() -> Error {
     Error::new(
         "importance_changed",
-        "The selected statements changed or the text response did not match the importance read.",
+        "The selected comments changed or the text response did not match the importance read.",
         "Read again to get a fresh count snapshot. No partial ranking was printed.",
         1,
     )

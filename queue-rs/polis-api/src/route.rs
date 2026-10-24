@@ -48,6 +48,41 @@ pub struct App {
     pub metadata_questions_auth_db: Option<Arc<Pool>>,
     pub metadata_questions_served: AtomicU64,
     pub metadata_questions_fallback: AtomicU64,
+    pub conversation_pages: [Option<crate::conversation_pages::Client>; 5],
+    pub conversation_page_dbs: [Option<Arc<Pool>>; 5],
+    pub conversation_page_served: [AtomicU64; 5],
+    pub conversation_page_fallback: [AtomicU64; 5],
+    pub iip_db: Option<Arc<Pool>>,
+    pub iim_db: Option<Arc<Pool>>,
+    pub iip_served: AtomicU64,
+    pub iip_fallback: AtomicU64,
+    pub iim_served: AtomicU64,
+    pub iim_fallback: AtomicU64,
+    pub participants_read_db: Option<Arc<Pool>>,
+    pub participants_read_auth_db: Option<Arc<Pool>>,
+    pub participants_read_served: AtomicU64,
+    pub participants_read_fallback: AtomicU64,
+    pub ptptois_db: Option<Arc<Pool>>,
+    pub ptptois_auth_db: Option<Arc<Pool>>,
+    pub ptptois_served: AtomicU64,
+    pub ptptois_fallback: AtomicU64,
+    pub my_invites_csv_db: Option<Arc<Pool>>,
+    pub my_invites_csv_auth_db: Option<Arc<Pool>>,
+    pub my_invites_csv_served: AtomicU64,
+    pub my_invites_csv_fallback: AtomicU64,
+    pub bid_db: Option<Arc<Pool>>,
+    pub bid_auth_db: Option<Arc<Pool>>,
+    pub bid_served: AtomicU64,
+    pub bid_fallback: AtomicU64,
+    pub locations_db: Option<Arc<Pool>>,
+    pub locations_auth_db: Option<Arc<Pool>>,
+    pub locations_served: AtomicU64,
+    pub locations_fallback: AtomicU64,
+    pub math_bundle: crate::math_bundle::Cache,
+    pub votes_read_db: Option<Arc<Pool>>,
+    pub votes_read_auth_db: Option<Arc<Pool>>,
+    pub votes_read_served: AtomicU64,
+    pub votes_read_fallback: AtomicU64,
     pub metadata_answers_db: Option<Arc<Pool>>,
     pub metadata_answers_auth_db: Option<Arc<Pool>>,
     pub metadata_answers_served: AtomicU64,
@@ -140,15 +175,27 @@ pub struct App {
     pub read_oidc: Option<Arc<crate::hybrid_read::Oidc>>,
     pub contexts_served: AtomicU64,
     pub contexts_fallback: AtomicU64,
+    pub delphi_narratives_db: Option<Arc<Pool>>,
+    pub delphi_narratives_env: String,
+    pub delphi_narratives_scope: Option<String>,
     pub delphi_reports_db: Option<Arc<Pool>>,
     pub delphi_reports_served: AtomicU64,
     pub delphi_reports_fallback: AtomicU64,
+    pub delphi_visualizations_result_db: Option<Arc<Pool>>,
+    pub delphi_visualizations_env: String,
+    pub delphi_visualizations_scope: Option<String>,
     pub delphi_visualizations_db: Option<Arc<Pool>>,
     pub delphi_visualizations_served: AtomicU64,
     pub delphi_visualizations_fallback: AtomicU64,
     pub topic_stats_db: Option<Arc<Pool>>,
     pub topic_stats_served: AtomicU64,
     pub topic_stats_fallback: AtomicU64,
+    pub delphi_logs_db: Option<Arc<Pool>>,
+    pub delphi_logs_auth_db: Option<Arc<Pool>>,
+    pub delphi_logs_env: String,
+    pub delphi_logs_served: AtomicU64,
+    pub delphi_logs_fallback: AtomicU64,
+    pub delphi_logs_scope: Option<String>,
     pub delphi_run_db: Option<Arc<Pool>>,
     pub delphi_run_auth_db: Option<Arc<Pool>>,
     pub delphi_run_env: String,
@@ -162,6 +209,9 @@ pub struct App {
     pub collective_statement_db: Option<Arc<Pool>>,
     pub collective_statement_served: AtomicU64,
     pub collective_statement_fallback: AtomicU64,
+    pub delphi_topics_db: Option<Arc<Pool>>,
+    pub delphi_topics_env: String,
+    pub delphi_topics_scope: Option<String>,
     pub delphi_read_db: Option<Arc<Pool>>,
     pub delphi_read_served: AtomicU64,
     pub delphi_read_fallback: AtomicU64,
@@ -239,6 +289,41 @@ impl App {
             metadata_questions_auth_db: None,
             metadata_questions_served: AtomicU64::new(0),
             metadata_questions_fallback: AtomicU64::new(0),
+            conversation_pages: std::array::from_fn(|_| None),
+            conversation_page_dbs: std::array::from_fn(|_| None),
+            conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
+            conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
+            iip_db: None,
+            iim_db: None,
+            iip_served: AtomicU64::new(0),
+            iip_fallback: AtomicU64::new(0),
+            iim_served: AtomicU64::new(0),
+            iim_fallback: AtomicU64::new(0),
+            participants_read_db: None,
+            participants_read_auth_db: None,
+            participants_read_served: AtomicU64::new(0),
+            participants_read_fallback: AtomicU64::new(0),
+            ptptois_db: None,
+            ptptois_auth_db: None,
+            ptptois_served: AtomicU64::new(0),
+            ptptois_fallback: AtomicU64::new(0),
+            my_invites_csv_db: None,
+            my_invites_csv_auth_db: None,
+            my_invites_csv_served: AtomicU64::new(0),
+            my_invites_csv_fallback: AtomicU64::new(0),
+            bid_db: None,
+            bid_auth_db: None,
+            bid_served: AtomicU64::new(0),
+            bid_fallback: AtomicU64::new(0),
+            locations_db: None,
+            locations_auth_db: None,
+            locations_served: AtomicU64::new(0),
+            locations_fallback: AtomicU64::new(0),
+            math_bundle: crate::math_bundle::Cache::new(cfg.cache_size > 1),
+            votes_read_db: None,
+            votes_read_auth_db: None,
+            votes_read_served: AtomicU64::new(0),
+            votes_read_fallback: AtomicU64::new(0),
             metadata_answers_db: None,
             metadata_answers_auth_db: None,
             metadata_answers_served: AtomicU64::new(0),
@@ -331,15 +416,27 @@ impl App {
             read_oidc: None,
             contexts_served: AtomicU64::new(0),
             contexts_fallback: AtomicU64::new(0),
+            delphi_narratives_db: None,
+            delphi_narratives_env: String::new(),
+            delphi_narratives_scope: None,
             delphi_reports_db: None,
             delphi_reports_served: AtomicU64::new(0),
             delphi_reports_fallback: AtomicU64::new(0),
+            delphi_visualizations_result_db: None,
+            delphi_visualizations_env: String::new(),
+            delphi_visualizations_scope: None,
             delphi_visualizations_db: None,
             delphi_visualizations_served: AtomicU64::new(0),
             delphi_visualizations_fallback: AtomicU64::new(0),
             topic_stats_db: None,
             topic_stats_served: AtomicU64::new(0),
             topic_stats_fallback: AtomicU64::new(0),
+            delphi_logs_db: None,
+            delphi_logs_auth_db: None,
+            delphi_logs_env: String::new(),
+            delphi_logs_served: AtomicU64::new(0),
+            delphi_logs_fallback: AtomicU64::new(0),
+            delphi_logs_scope: None,
             delphi_run_db: None,
             delphi_run_auth_db: None,
             delphi_run_env: String::new(),
@@ -353,6 +450,9 @@ impl App {
             collective_statement_db: None,
             collective_statement_served: AtomicU64::new(0),
             collective_statement_fallback: AtomicU64::new(0),
+            delphi_topics_db: None,
+            delphi_topics_env: String::new(),
+            delphi_topics_scope: None,
             delphi_read_db: None,
             delphi_read_served: AtomicU64::new(0),
             delphi_read_fallback: AtomicU64::new(0),
@@ -729,6 +829,37 @@ pub(crate) fn admin_html(req: &Request, mut res: Res, chunks: Vec<Vec<u8>>) -> O
     out
 }
 
+/// Express CSV download, preserving the ordinary freshness/compression wrapper.
+pub(crate) fn csv_attachment(
+    req: &Request,
+    mut res: Res,
+    filename: &str,
+    body: String,
+) -> Outgoing {
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set(
+        "Content-Disposition",
+        format!("attachment; filename=\"{filename}\""),
+    );
+    send(req, res, Payload::Text(body))
+}
+
+/// Static conversation HTML after both stream transformations.
+pub(crate) fn conversation_html(
+    req: &Request,
+    mut res: Res,
+    chunks: Vec<Vec<u8>>,
+    no_cache: bool,
+) -> Outgoing {
+    res.set("Content-Type", "text/html");
+    if no_cache {
+        res.set("Cache-Control", "no-cache");
+    }
+    let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
+    out.body = Body::Chunked(chunks);
+    out
+}
+
 /// Express status(...).json(...) retaining the normal response envelope.
 pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) -> Outgoing {
     res.status = status;
@@ -761,6 +892,12 @@ pub(crate) fn empty_end(req: &Request, mut res: Res, status: u16) -> Outgoing {
 
 /// Express text send, retaining the headers installed by writeDefaultHead.
 pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
+    send(req, res, Payload::Text(value.into()))
+}
+
+/// Express HTML send with the normal ETag, freshness and compression envelope.
+pub(crate) fn html(req: &Request, mut res: Res, value: &str) -> Outgoing {
+    res.set("Content-Type", "text/html");
     send(req, res, Payload::Text(value.into()))
 }
 
@@ -1003,6 +1140,68 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.metadata_answers_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if let Some((page, _)) = crate::conversation_pages::page(req.path()) {
+        if out.status == 502 {
+            app.conversation_page_fallback[page.index()].fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::link_pages::matches(req.path()) {
+        let (served, fallback) = if req.path().starts_with("/iip/") {
+            (&app.iip_served, &app.iip_fallback)
+        } else {
+            (&app.iim_served, &app.iim_fallback)
+        };
+        if out.status == 502 {
+            fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::participants_read::PATH {
+        if out.status == 502 {
+            app.participants_read_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.participants_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::ptptois::PATH {
+        if out.status == 502 {
+            app.ptptois_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.ptptois_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::my_invites_csv::PATH {
+        if out.status == 502 {
+            app.my_invites_csv_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.my_invites_csv_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::math_membership::BID_PATH {
+        if out.status == 502 {
+            app.bid_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.bid_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::math_membership::LOCATIONS_PATH {
+        if out.status == 502 {
+            app.locations_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.locations_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if crate::votes_read::matches(req.path()) {
+        if out.status == 502 {
+            app.votes_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.votes_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::metadata_read::PATH {
         if out.status == 502 {
             app.metadata_read_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1202,6 +1401,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.topic_stats_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
             app.topic_stats_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::delphi_logs::PATH {
+        if out.status == 502 {
+            app.delphi_logs_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_logs_served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if req.path() == crate::delphi_run_read::PATH {
@@ -1531,6 +1737,34 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if crate::conversation_pages::matches(req.path())
+        && crate::conversation_pages::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::link_pages::matches(req.path()) && crate::link_pages::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::participants_read::PATH
+        && crate::participants_read::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::ptptois::PATH && crate::ptptois::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::my_invites_csv::PATH && crate::my_invites_csv::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::math_membership::matches(req.path())
+        && crate::math_membership::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::metadata_questions::PATH
         && crate::metadata_questions::parse(app, req).is_none()
     {
@@ -1554,6 +1788,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         return bad_gateway();
     }
     if req.path() == crate::topic_stats::PATH && crate::topic_stats::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::delphi_logs::PATH && crate::delphi_logs::parse(app, req).is_none() {
         return bad_gateway();
     }
     if req.path() == crate::delphi_run_read::PATH
@@ -1647,6 +1884,8 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     };
     // writeDefaultHead, compress, addCorsHeader.
     let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
+        || crate::conversation_pages::matches(req.path())
+        || crate::link_pages::matches(req.path())
         || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
         || crate::other_conversations_page::matches(req.path())
@@ -1729,6 +1968,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::topic_stats::PATH {
         return crate::topic_stats::handle(app, req, res).await;
+    }
+    if req.path() == crate::delphi_logs::PATH {
+        return crate::delphi_logs::handle(app, req, res).await;
     }
     if req.path() == crate::delphi_run_read::PATH {
         return crate::delphi_run_read::handle(app, req, res).await;
@@ -1816,6 +2058,27 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::metadata_answers::PATH {
         return crate::metadata_answers::handle(app, req, res).await;
+    }
+    if crate::math_membership::matches(req.path()) {
+        return crate::math_membership::handle(app, req, res).await;
+    }
+    if crate::votes_read::matches(req.path()) {
+        return crate::votes_read::handle(app, req, res).await;
+    }
+    if crate::conversation_pages::matches(req.path()) {
+        return crate::conversation_pages::handle(app, req, res).await;
+    }
+    if crate::link_pages::matches(req.path()) {
+        return crate::link_pages::handle(app, req, res).await;
+    }
+    if req.path() == crate::participants_read::PATH {
+        return crate::participants_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::ptptois::PATH {
+        return crate::ptptois::handle(app, req, res).await;
+    }
+    if req.path() == crate::my_invites_csv::PATH {
+        return crate::my_invites_csv::handle(app, req, res).await;
     }
     if req.path() == crate::metadata_questions::PATH {
         return crate::metadata_questions::handle(app, req, res).await;
@@ -3884,6 +4147,281 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ptptois_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/ptptois?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().ptptois_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().ptptois_auth_db = Some(pool);
+        assert!(crate::ptptois::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/ptptois?conversation_id=4fixture{tail}");
+            assert!(crate::ptptois::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::ptptois::parse(&state, &no_auth).is_some());
+        assert_eq!(state.ptptois_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.ptptois_fallback.load(Ordering::Relaxed), 9);
+    }
+
+    #[tokio::test]
+    async fn my_invites_csv_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/treevite/myInvites/csv?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().my_invites_csv_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().my_invites_csv_auth_db = Some(pool);
+        assert!(crate::my_invites_csv::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/treevite/myInvites/csv?conversation_id=4fixture{tail}");
+            assert!(crate::my_invites_csv::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::my_invites_csv::parse(&state, &no_auth).is_none());
+        assert_eq!(state.my_invites_csv_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.my_invites_csv_fallback.load(Ordering::Relaxed), 9);
+    }
+
+    #[tokio::test]
+    async fn math_membership_switches_and_parser_boundaries_are_independent() {
+        let mut state = app(true);
+        for route in ["bid", "locations"] {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = format!(
+                "/api/v3/{route}?conversation_id=4fixture{}",
+                if route == "locations" { "&gid=0" } else { "" }
+            );
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().bid_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().bid_auth_db = Some(pool.clone());
+        let mut req = request(
+            "GET",
+            &[("host", "localhost"), ("authorization", "Bearer generated")],
+        );
+        req.target = "/api/v3/locations?conversation_id=4fixture&gid=0".into();
+        assert!(crate::math_membership::parse(&state, &req).is_none());
+        req.target = "/api/v3/bid?conversation_id=4fixture".into();
+        assert!(crate::math_membership::parse(&state, &req).is_some());
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().locations_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().locations_auth_db = Some(pool);
+        for route in ["bid", "locations"] {
+            for (method, tail, headers) in [
+                ("POST", "", vec![]),
+                ("OPTIONS", "", vec![]),
+                ("GET", "&pid=0", vec![]),
+                ("GET", "&conversation_id=other", vec![]),
+                ("GET", "", vec![("cookie", "x=y")]),
+                ("GET", "", vec![("content-length", "2")]),
+            ] {
+                let mut h = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+                h.extend(headers);
+                let mut req = request(method, &h);
+                req.target = format!(
+                    "/api/v3/{route}?conversation_id=4fixture{}{tail}",
+                    if route == "locations" { "&gid=0" } else { "" }
+                );
+                assert!(crate::math_membership::parse(&state, &req).is_none());
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+        }
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/api/v3/locations?conversation_id=4fixture&gid=0".into();
+        assert!(crate::math_membership::parse(&state, &req).is_some());
+        req.target = "/api/v3/bid?conversation_id=4fixture".into();
+        assert!(crate::math_membership::parse(&state, &req).is_none());
+    }
+
+    #[tokio::test]
+    async fn five_conversation_page_switches_and_boundaries_are_independent() {
+        let prefixes = ["/", "/explore/", "/share/", "/summary/", "/ot/"];
+        for (index, prefix) in prefixes.iter().enumerate() {
+            let mut state = app(true);
+            let pool = state.db.clone();
+            Arc::get_mut(&mut state).unwrap().conversation_page_dbs[index] = Some(pool);
+            Arc::get_mut(&mut state).unwrap().conversation_pages[index] =
+                Some(crate::conversation_pages::Client::new("127.0.0.1".into(), 1).unwrap());
+            for (other, p) in prefixes.iter().enumerate() {
+                let mut req = request("GET", &[("host", "localhost")]);
+                req.target = format!("{p}4fixture");
+                assert_eq!(
+                    crate::conversation_pages::parse(&state, &req).is_some(),
+                    other == index
+                );
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+            for (method, suffix, headers) in [
+                ("POST", "", vec![]),
+                ("OPTIONS", "", vec![]),
+                ("GET", "?extra=1", vec![]),
+                ("GET", "", vec![("cookie", "x=y")]),
+                ("GET", "", vec![("authorization", "Bearer generated")]),
+                ("GET", "", vec![("content-length", "2")]),
+                ("GET", "", vec![("user-agent", "MSIE 7.0")]),
+                ("GET", "", vec![("accept-encoding", "gzip")]),
+            ] {
+                let mut req = request(method, &headers);
+                req.target = format!("{prefix}4fixture{suffix}");
+                assert!(crate::conversation_pages::parse(&state, &req).is_none());
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+            assert_eq!(
+                state.conversation_page_served[index].load(Ordering::Relaxed),
+                0
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn participants_read_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/participants?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().participants_read_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().participants_read_auth_db = Some(pool);
+        assert!(crate::participants_read::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/participants?conversation_id=4fixture{tail}");
+            assert!(crate::participants_read::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::participants_read::parse(&state, &no_auth).is_none());
+        assert_eq!(state.participants_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.participants_read_fallback.load(Ordering::Relaxed), 9);
+    }
+
+    #[tokio::test]
+    async fn link_pages_switches_admission_and_unreachable_database() {
+        let mut state = app(true);
+        for prefix in ["iip", "iim"] {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!("/{prefix}/4fixture");
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().iip_db = Some(pool.clone());
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = "/iim/4fixture".into();
+        assert!(crate::link_pages::parse(&state, &req).is_none());
+        req.target = "/iip/4fixture".into();
+        assert!(crate::link_pages::parse(&state, &req).is_some());
+        assert_eq!(handle(state.clone(), req).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().iim_db = Some(pool);
+        for prefix in ["iip", "iim"] {
+            for (method, suffix, headers) in [
+                ("POST", "", vec![]),
+                ("OPTIONS", "", vec![]),
+                ("GET", "?other=1", vec![]),
+                ("GET", "/extra", vec![]),
+                ("GET", "%20", vec![]),
+                ("GET", "", vec![("cookie", "x=y")]),
+                ("GET", "", vec![("authorization", "Bearer bad")]),
+                ("GET", "", vec![("content-length", "2")]),
+            ] {
+                let mut req = request(method, &headers);
+                req.target = format!("/{prefix}/4fixture{suffix}");
+                assert!(crate::link_pages::parse(&state, &req).is_none());
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+        }
+        assert_eq!(state.iip_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.iim_served.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn votes_read_is_off_and_unreachable_database_is_a_handoff() {
+        let mut state = app(true);
+        let probe = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!("{}?conversation_id=fixture", crate::votes_read::PATH);
+            req
+        };
+        assert!(state.votes_read_db.is_none());
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        let pool = state.db.clone(); // This test's existing pool points at refused port 1.
+        Arc::get_mut(&mut state).unwrap().votes_read_db = Some(pool);
+        assert_eq!(handle(state.clone(), probe()).await.status, 502);
+        assert_eq!(state.votes_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.votes_read_fallback.load(Ordering::Relaxed), 2);
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().votes_read_db = Some(pool);
+        let redirect = handle(secure, probe()).await;
+        assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
     async fn metadata_answers_boundaries_are_counted_node_handoffs() {
         let mut state = app(true);
         let pool = state.db.clone();
@@ -3914,6 +4452,39 @@ mod tests {
         }
         assert_eq!(state.metadata_answers_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.metadata_answers_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn votes_read_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().votes_read_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", crate::votes_read::PATH, vec![]),
+            ("OPTIONS", crate::votes_read::PATH, vec![]),
+            ("GET", "/api/v3/votes?unknown=1", vec![]),
+            (
+                "GET",
+                crate::votes_read::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::votes_read::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::votes_read::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.votes_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.votes_read_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]
@@ -5261,6 +5832,35 @@ mod tests {
         assert_eq!(state.delphi_reports_served.load(Ordering::Relaxed), 4);
         assert_eq!(state.delphi_reports_fallback.load(Ordering::Relaxed), 14);
     }
+    #[tokio::test]
+    async fn reports_review_query_decoding_hands_back_express_incompatible_values() {
+        let mut state = app(true);
+        let pool = state.db.clone();
+        let inner = Arc::get_mut(&mut state).unwrap();
+        inner.delphi_reports_db = Some(pool.clone());
+        inner.delphi_narratives_db = Some(pool);
+        for field in ["section", "topic_key", "job_id"] {
+            for value in ["%", "%FF", "a%zz%41", "%C3", "%4", "a+%zz%41", "café"] {
+                let mut req = request("GET", &[("host", "localhost")]);
+                req.target = format!("/api/v3/delphi/reports?report_id=r&{field}={value}");
+                assert!(
+                    crate::delphi_reports::parse(&state, &req).is_none(),
+                    "{field}={value}"
+                );
+                assert_eq!(handle(state.clone(), req).await.status, 502);
+            }
+        }
+        for value in ["a%20b", "a+b", "%25", "%E9%9B%AA", "%C3%A9"] {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target = format!("/api/v3/delphi/reports?report_id=r&section={value}");
+            assert!(
+                crate::delphi_reports::parse(&state, &req).is_some(),
+                "{value}"
+            );
+        }
+        assert_eq!(state.delphi_reports_fallback.load(Ordering::Relaxed), 21);
+        assert_eq!(state.delphi_reports_served.load(Ordering::Relaxed), 0);
+    }
     #[cfg(feature = "db-tests")]
     #[tokio::test]
     async fn delphi_reports_unknown_reports_use_independent_bounded_read_only_pool() {
@@ -5902,6 +6502,85 @@ mod tests {
         }
         assert_eq!(state.ops_catchall_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.ops_catchall_fallback.load(Ordering::Relaxed), 6);
+    }
+    #[tokio::test]
+    async fn delphi_logs_gate_boundaries_and_refusals_without_database() {
+        let mut state = app(true);
+        let req = |target: &str, headers: &[(&str, &str)]| {
+            let mut r = request("GET", headers);
+            r.target = target.into();
+            r
+        };
+        let host = ("host", "localhost");
+        let run = "/api/v3/delphi/logs?job_id=00000000-0000-4000-8000-000000000001";
+        // Off by default: every request is Node's.
+        assert_eq!(handle(state.clone(), req(run, &[host])).await.status, 502);
+        let pool = state.db.clone();
+        {
+            let app = Arc::get_mut(&mut state).unwrap();
+            app.delphi_logs_db = Some(pool.clone());
+            app.delphi_logs_auth_db = Some(pool);
+            app.delphi_logs_env = "local".into();
+        }
+        // No bearer token: hybridAuth's 401, before any read (this database
+        // is unreachable), with or without a job id.
+        for (target, auth) in [
+            (run, None),
+            ("/api/v3/delphi/logs", None),
+            ("/api/v3/delphi/logs?job_id=", None),
+            (run, Some("Basic eDp4")),
+            (run, Some("bearer x.y.z")),
+        ] {
+            let mut headers = vec![host];
+            if let Some(a) = auth {
+                headers.push(("authorization", a));
+            }
+            let out = handle(state.clone(), req(target, &headers)).await;
+            assert_eq!(out.status, 401, "{target} {auth:?}");
+            assert!(
+                matches!(out.body, Body::Fixed(ref b) if b == br#"{"error":"No authentication token found"}"#)
+            );
+        }
+        let mut head = req(run, &[host]);
+        head.method = "HEAD".into();
+        // The writer drops a HEAD answer's body on the wire (http.rs).
+        assert_eq!(handle(state.clone(), head).await.status, 401);
+        // A token this process cannot verify builds no identity: Node's.
+        let out = handle(
+            state.clone(),
+            req(run, &[host, ("authorization", "Bearer x.y.z")]),
+        )
+        .await;
+        assert_eq!(out.status, 502);
+        // Query shapes, bodies and methods the route does not model: Node's.
+        for target in [
+            &format!("{run}&report_id=r"),
+            &format!("{run}&job_id=00000000-0000-4000-8000-000000000001"),
+            "/api/v3/delphi/logs?job_id[]=x",
+            "/api/v3/delphi/logs?jobid=x",
+            &format!("/api/v3/delphi/logs?job_id={}", "a".repeat(101)),
+        ] {
+            assert_eq!(
+                handle(state.clone(), req(target, &[host])).await.status,
+                502,
+                "{target}"
+            );
+        }
+        for header in [("content-length", "1"), ("transfer-encoding", "chunked")] {
+            assert_eq!(
+                handle(state.clone(), req(run, &[host, header]))
+                    .await
+                    .status,
+                502
+            );
+        }
+        for method in ["POST", "OPTIONS", "PUT"] {
+            let mut r = req(run, &[host]);
+            r.method = method.into();
+            assert_eq!(handle(state.clone(), r).await.status, 502, "{method}");
+        }
+        assert_eq!(state.delphi_logs_served.load(Ordering::Relaxed), 6);
+        assert_eq!(state.delphi_logs_fallback.load(Ordering::Relaxed), 12);
     }
     #[tokio::test]
     async fn delphi_run_gate_boundaries_and_refusals_without_database() {

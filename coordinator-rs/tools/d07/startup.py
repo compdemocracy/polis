@@ -18,7 +18,7 @@ import time
 
 import psycopg2
 from psycopg2.extras import execute_values
-from boundary import Boundary, ROOT, SQL, SQL_SHA256, sha, public_census
+from boundary import Boundary, ROOT, SQL, SQL_SHA256, sha, public_census, apply_migration
 sys.path.insert(0,str(ROOT/'coordinator-rs/tools/d05'))
 from tunnel import Tunnel
 sys.path.insert(0,str(ROOT/'delphi/tests'))
@@ -77,7 +77,7 @@ class Startup(Boundary):
         q=lambda sql,args=None:self.query(conn,sql,args)
         migrations=sorted((ROOT/'server/postgres/migrations').glob('*.sql'))
         self.receipt['migrations']={p.name:sha(p.read_bytes()) for p in migrations}
-        for path in migrations:q(path.read_text())
+        for path in migrations:apply_migration(conn, path)
         q('SELECT pg_temp.pc_assert_provenance()')
         self.check('schema',len(migrations)==21)
         q('CREATE ROLE d07_legacy LOGIN; GRANT USAGE ON SCHEMA public TO d07_legacy')

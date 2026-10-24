@@ -28,9 +28,7 @@ import {
   finishOne,
   safeTimestampToMillis,
   sendEmailByUid,
-  updateConversationModifiedTime,
   updateLastInteractionTimeForConversation,
-  updateVoteCount,
 } from "../server-helpers";
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
 
@@ -295,10 +293,10 @@ async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
 }
 
 function addNotificationTask(zid: number): Promise<any> {
-  return pg.queryP(
+  return pg.queryP_notification(
     "insert into notification_tasks (zid) values ($1) on conflict (zid) do update set modified = now_as_millis();",
     [zid]
-  );
+  ).catch((error) => logger.warn("notification_task_deferred", { error }));
 }
 
 export async function isProConvo(owner: number): Promise<boolean> {
@@ -545,15 +543,8 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       addNotificationTask(zid);
     }
 
-    // 9. Schedule async updates
-    const createdTimeMillis = safeTimestampToMillis(comment.created);
-    setTimeout(() => {
-      updateConversationModifiedTime(zid, new Date(createdTimeMillis));
-      updateLastInteractionTimeForConversation(zid, uid);
-      if (!_.isUndefined(vote)) {
-        updateVoteCount(zid, pid);
-      }
-    }, 100);
+    // Notification state cannot occupy a participation connection.
+    void updateLastInteractionTimeForConversation(zid, uid);
 
     // 10. Build response
     const response: any = {
@@ -840,6 +831,7 @@ async function handle_POST_comments_bulk(
   // @ts-expect-error body parsing
   const csv = req.body.csv;
   let pid = initialPid;
+  const invalidHeader = new Error("Invalid CSV header");
   if (!csv) {
     failJson(res, 400, "polis_err_param_missing_csv");
     return;
@@ -874,16 +866,34 @@ async function handle_POST_comments_bulk(
       return;
     }
 
+    // Validate before creating a participant or storing any comments. Otherwise
+    // a headerless upload consumes its first comment as column names.
+    let hasHeader = false;
+    const records = parse(String(csv), {
+      bom: true,
+      columns: (header: string[]) => {
+        if (
+          !(
+            (header.length === 1 && header[0] === "comment_text") ||
+            (header.length === 2 &&
+              header.includes("comment_text") &&
+              header.includes("original_id"))
+          )
+        ) {
+          throw invalidHeader;
+        }
+        hasHeader = true;
+        return header;
+      },
+      skip_empty_lines: true,
+    });
+    if (!hasHeader) throw invalidHeader;
+
     const finalPid = await doGetPid();
     if (finalPid < 0) {
       failJson(res, 500, "polis_err_post_comment_bad_pid");
       return;
     }
-
-    const records = parse(String(csv), {
-      columns: true,
-      skip_empty_lines: true,
-    });
 
     const results = [];
     let lastInteractionTime = new Date(0);
@@ -980,18 +990,22 @@ async function handle_POST_comments_bulk(
       }
     }
 
-    setTimeout(() => {
-      if (lastInteractionTime > new Date(0)) {
-        updateConversationModifiedTime(zid!, lastInteractionTime);
-        updateLastInteractionTimeForConversation(zid!, uid!);
-      }
-    }, 100);
+    if (lastInteractionTime > new Date(0)) {
+      void updateLastInteractionTimeForConversation(zid!, uid!);
+    }
 
     res.json({
       results,
       currentPid: pid,
     });
   } catch (err: any) {
+    if (err === invalidHeader) {
+      failJson(res, 400, "polis_err_csv_header", undefined, {
+        message:
+          "CSV header must be comment_text, optionally with original_id.",
+      });
+      return;
+    }
     failJson(res, 500, "polis_err_post_comments_bulk", err);
   }
 }

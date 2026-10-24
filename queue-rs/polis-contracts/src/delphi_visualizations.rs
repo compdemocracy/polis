@@ -35,3 +35,32 @@ impl Request {
         }
     }
 }
+
+/// PostgreSQL mode has no static visualization artifacts. These are the
+/// existing jobs-list fields, in the order Node writes them.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Job {
+    pub job_id: String,
+    pub status: String,
+    pub created_at: Option<String>,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub results: crate::wire::Json,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archived: Option<bool>,
+    pub work_live: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct JobsResponse {
+    pub status: Success,
+    pub report_id: String,
+    pub visualizations: Vec<crate::wire::Json>,
+    pub jobs: Vec<Job>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Success {
+    Success,
+}

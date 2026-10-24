@@ -1067,6 +1067,7 @@ expect /api/v3/comments node "Delphi report validation leaves comments alone"
 expect /api/v3/votes node "Delphi report validation leaves voting alone"
 [[ $(included | grep -c 'location = /api/v3/delphi') == 1 ]] || fail "Delphi report validation duplicated"
 expect_upstream polis-api GET /api/v3/delphi
+expect_upstream polis-api GET "/api/v3/delphi?report_id=generated-report" $'Authorization: Bearer ignored\r\n'
 expect_upstream polis-api HEAD /api/v3/delphi
 expect_upstream server OPTIONS /api/v3/delphi
 expect_upstream server POST /api/v3/delphi $'Content-Length: 2\r\n' '{}'
@@ -1087,6 +1088,7 @@ expect /api/v3/comments node "Delphi narrative report validation leaves comments
 expect /api/v3/votes node "Delphi narrative report validation leaves voting alone"
 [[ $(included | grep -c 'location = /api/v3/delphi/reports') == 1 ]] || fail "Delphi narrative report validation duplicated"
 expect_upstream polis-api GET /api/v3/delphi/reports
+expect_upstream polis-api GET '/api/v3/delphi/reports?report_id=generated&job_id=old&section=global&topic_key=report_data' $'Authorization: Bearer generated\r\n'
 expect_upstream polis-api HEAD /api/v3/delphi/reports
 expect_upstream server OPTIONS /api/v3/delphi/reports
 expect_upstream server POST /api/v3/delphi/reports $'Content-Length: 2\r\n' '{}'
@@ -1115,6 +1117,11 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/delphi/visualizations node "Delphi visualization validation handoff"
+# Query filters and arbitrary Authorization stay intact on this public route.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start delphiVisualizations
+expect_upstream polis-api GET '/api/v3/delphi/visualizations?report_id=r&job_id=generated-job' $'Authorization: Bearer generated\r\n'
 echo "ok 53 Delphi visualization validation off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 docker rm -f "$p-rust" >/dev/null
@@ -1310,3 +1317,206 @@ handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/statemen
 docker rm -f "$p-node" >/dev/null
 stub "$p-node" server 5000 200 node
 echo "ok 61 Statement importance off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/logs node "Logs off"
+start delphiLogs,delphiLogs
+expect '/api/v3/delphi/logs?job_id=x' rust "Logs on"
+expect /api/v3/delphi/run node "Logs leave run record alone"
+expect /api/v3/delphi/logs/ node "Logs path is exact"
+expect /api/v3/comments node "Logs leave comments alone"
+expect /api/v3/votes node "Logs leave votes alone"
+[[ $(included | grep -c 'location = /api/v3/delphi/logs') == 1 ]] || fail "Logs duplicated"
+expect_upstream polis-api GET /api/v3/delphi/logs $'Authorization: Bearer generated\r\n'
+expect_upstream polis-api HEAD /api/v3/delphi/logs
+expect_upstream server OPTIONS /api/v3/delphi/logs
+expect_upstream server POST /api/v3/delphi/logs $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/logs $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/delphi/logs node "Logs handoff"
+echo "ok 62 Logs off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+# Both vote read paths share a selector; POST remains entirely on Node.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/votes node "vote reads off"
+expect /api/v3/votes/me node "personal reads off"
+start votesRead,votesRead
+for path in /api/v3/votes /api/v3/votes/me; do
+  expect "$path" rust "vote reads on"
+  expect_upstream polis-api HEAD "$path"
+  expect_upstream server OPTIONS "$path"
+  expect_upstream server POST "$path" $'Content-Length: 2\r\n' '{}'
+  expect_upstream server GET "$path" $'Content-Length: 2\r\n' '{}'
+done
+[[ $(included | grep -c 'location = /api/v3/votes {') == 1 ]] || fail "vote reads duplicated"
+[[ $(included | grep -c 'location = /api/v3/votes/me {') == 1 ]] || fail "personal reads duplicated"
+expect /api/v3/nextComment node "vote reads leave participation alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/votes node "vote reads handoff"
+expect /api/v3/votes/me node "personal reads handoff"
+echo "ok vote read routes: off/on/deduplicated, methods/body, fallback"
+
+# Each conversation link page has an independent switch.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /iip/4fixture node "participation link off"
+expect /iim/4fixture node "moderation link off"
+for route in iip iim; do
+  start "$route,$route"
+  expect "/$route/4fixture" rust "link page on"
+  expect "/$route/4fixture/" rust "link page trailing slash"
+  expect_upstream polis-api HEAD "/$route/4fixture"
+  expect_upstream server POST "/$route/4fixture" $'Content-Length: 2\r\n' '{}'
+  expect_upstream server OPTIONS "/$route/4fixture"
+  expect_upstream server GET "/$route/4fixture" $'Content-Length: 2\r\n' '{}'
+  expect /api/v3/votes node "link leaves votes alone"
+  expect /api/v3/nextComment node "link leaves next statement alone"
+  if [[ $route == iip ]]; then expect /iim/4fixture node "moderation switch independent"; else expect /iip/4fixture node "participation switch independent"; fi
+done
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+start iip,iim
+expect /iip/4fixture node "participation link fallback"
+expect /iim/4fixture node "moderation link fallback"
+echo "ok conversation links: independent off/on, methods/body, fallback"
+
+# Current participant rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/participants node "participants off"
+start participantsRead,participantsRead
+expect /api/v3/participants rust "participants on"
+[[ $(included | grep -c 'location = /api/v3/participants {') == 1 ]] || fail "participants duplicated"
+expect_upstream polis-api HEAD /api/v3/participants
+expect_upstream server OPTIONS /api/v3/participants
+expect_upstream server POST /api/v3/participants $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/participants $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "participants leave votes alone"
+expect /api/v3/nextComment node "participants leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/participants node "participants fallback"
+echo "ok current participant: off/on/deduplicated, methods/body, fallback"
+
+# Social participant rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/ptptois node "social off"
+start ptptois,ptptois
+expect /api/v3/ptptois rust "social on"
+[[ $(included | grep -c 'location = /api/v3/ptptois {') == 1 ]] || fail "social duplicated"
+expect_upstream polis-api HEAD /api/v3/ptptois
+expect_upstream server OPTIONS /api/v3/ptptois
+expect_upstream server PUT /api/v3/ptptois
+expect_upstream server POST /api/v3/ptptois $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/ptptois $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "social leave votes alone"
+expect /api/v3/nextComment node "social leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/ptptois node "social fallback"
+echo "ok social participant: off/on/deduplicated, methods/body, fallback"
+
+# Participant-owned CSV have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/treevite/myInvites/csv node "invitation CSV off"
+start myInvitesCsv,myInvitesCsv
+expect /api/v3/treevite/myInvites/csv rust "invitation CSV on"
+[[ $(included | grep -c 'location = /api/v3/treevite/myInvites/csv {') == 1 ]] || fail "invitation CSV duplicated"
+expect_upstream polis-api HEAD /api/v3/treevite/myInvites/csv
+expect_upstream server OPTIONS /api/v3/treevite/myInvites/csv
+expect_upstream server POST /api/v3/treevite/myInvites/csv $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/treevite/myInvites/csv $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "invitation CSV leave votes alone"
+expect /api/v3/nextComment node "invitation CSV leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/treevite/myInvites/csv node "invitation CSV fallback"
+echo "ok participant invitation CSV: off/on/deduplicated, methods/body, fallback"
+
+# Bid rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/bid node "bid off"
+start bid,bid
+expect /api/v3/bid rust "bid on"
+expect /api/v3/locations node "other math selector remains off"
+[[ $(included | grep -c 'location = /api/v3/bid {') == 1 ]] || fail "bid duplicated"
+expect_upstream polis-api HEAD /api/v3/bid
+expect_upstream server OPTIONS /api/v3/bid
+expect_upstream server POST /api/v3/bid $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/bid $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "bid leave votes alone"
+expect /api/v3/nextComment node "bid leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/bid node "bid fallback"
+echo "ok bid: off/on/deduplicated, methods/body, fallback"
+
+# Locations rows have their own default-off selector.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/locations node "locations off"
+start locations,locations
+expect /api/v3/locations rust "locations on"
+expect /api/v3/bid node "other math selector remains off"
+[[ $(included | grep -c 'location = /api/v3/locations {') == 1 ]] || fail "locations duplicated"
+expect_upstream polis-api HEAD /api/v3/locations
+expect_upstream server OPTIONS /api/v3/locations
+expect_upstream server POST /api/v3/locations $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/locations $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "locations leave votes alone"
+expect /api/v3/nextComment node "locations leave next statement alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+expect /api/v3/locations node "locations fallback"
+echo "ok locations: off/on/deduplicated, methods/body, fallback"
+
+# Conversation HTML routes retain independent default-off selectors.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+for prefix in / /explore/ /share/ /summary/ /ot/; do expect "${prefix}4fixture" node "conversation page off"; done
+for selector in conversationPage explorePage sharePage summaryPage oneTimePage; do
+ case "$selector" in conversationPage) prefix=/ ;; explorePage) prefix=/explore/ ;; sharePage) prefix=/share/ ;; summaryPage) prefix=/summary/ ;; oneTimePage) prefix=/ot/ ;; esac
+ start "$selector,$selector"
+ expect "${prefix}4fixture" rust "conversation page on"
+ expect "${prefix}4fixture/suffix" rust "conversation page prefix suffix"
+ expect_upstream polis-api HEAD "${prefix}4fixture"
+ expect_upstream server OPTIONS "${prefix}4fixture"
+ expect_upstream server POST "${prefix}4fixture" $'Content-Length: 2\r\n' '{}'
+ expect_upstream server GET "${prefix}4fixture" $'Content-Length: 2\r\n' '{}'
+ for other in / /explore/ /share/ /summary/ /ot/; do
+  if [[ $other != "$prefix" ]]; then expect "${other}4fixture" node "other conversation switch off"; fi
+ done
+ expect /api/v3/votes node "page leaves votes alone"
+ expect /api/v3/nextComment node "page leaves next statement alone"
+done
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+sleep 6
+start conversationPage,explorePage,sharePage,summaryPage,oneTimePage
+for prefix in / /explore/ /share/ /summary/ /ot/; do expect "${prefix}4fixture" node "conversation page handback"; done
+echo "ok conversation HTML: five independent switches, suffix, methods/body, fallback"

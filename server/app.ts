@@ -13,6 +13,7 @@ import express from "express";
 import morgan from "morgan";
 import timeout from "connect-timeout";
 
+import { handleVersion } from "./src/routes/version";
 import server from "./src/server";
 import Config from "./src/config";
 import { makeFileFetcher } from "./src/utils/file-fetcher";
@@ -132,6 +133,7 @@ import {
 import {
   handle_GET_participants,
   handle_GET_participation,
+  needParticipationConversationId,
   handle_GET_participationInit,
   handle_POST_query_participants_by_metadata,
   handle_PUT_participants_extended,
@@ -368,6 +370,7 @@ export const appReady = helpersInitialized.then(
     ////////////////////////////////////////////
     ////////////////////////////////////////////
 
+    app.get("/api/v3/version", handleVersion);
     app.get("/api/v3/math/pca", handle_GET_math_pca);
 
     app.get(
@@ -760,11 +763,7 @@ export const appReady = helpersInitialized.then(
       "/api/v3/participation",
       moveToBody,
       hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
+      needParticipationConversationId,
       want("strict", getBool, assignToP),
       handle_GET_participation
     );

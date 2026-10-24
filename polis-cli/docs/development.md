@@ -6,7 +6,8 @@ public issuer, native client ID, audience and registered callback port. The
 callback uses HTTP on 127.0.0.1 at that port and the fixed `/oauth/callback` path.
 These public registration values are configuration, not secrets.
 
-For development or tests, select a profile with `POLIS_SITE=local` or
+For saved aliases, use `polis site add/use/list/remove` and `--site NAME`; see
+the README Sites section. For development or tests, select a profile with `POLIS_SITE=local` or
 `POLIS_SITE=preprod`. The latter needs an origin. Environment settings override
 configuration for the matching profile:
 
@@ -29,9 +30,11 @@ provider registrations must use their registered port.
 
 Alternatively put a complete `profiles.json` in `~/.config/polis/`, or set
 `POLIS_CONFIG_DIR` to an isolated directory. `profiles.example.json` shows the
-format. Existing files remain complete overrides, including their `default`;
-upgrading does not rewrite them, move credentials or change their selected server.
-`POLIS_SITE` takes precedence over that default without writing the file. Unknown
+format. Existing files retain their saved default and settings. The built-in
+pol.is profile is available when absent, so `--site default` can select it;
+`site use default` saves that choice. Existing profile origins and auth settings
+are preserved. Loading configuration does not rewrite files or move credentials.
+`--site NAME` takes precedence over `POLIS_SITE`, which takes precedence over that default without writing the file. Unknown
 or unconfigured profiles fail rather than falling back to production. Origins and
 auth overrides apply on fresh installs too. Custom names must first exist in the
 configuration's `sites` map. Auth entries that omit the callback port retain the shipped default port; use
