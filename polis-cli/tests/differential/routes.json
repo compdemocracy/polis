@@ -580,5 +580,115 @@
         "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
       }
     ]
+  },
+  "participantsRead": {
+    "path": "/api/v3/participants",
+    "minimum_rust_successes": 3,
+    "expected_requests": 3,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant list",
+      "participant status",
+      "participant status missing"
+    ],
+    "scope": "Existing owner membership and missing membership both serve from Rust."
+  },
+  "ptptois": {
+    "path": "/api/v3/ptptois",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant highlight list",
+      "participant highlight list filtered",
+      "participant highlight set"
+    ],
+    "scope": "Empty social rows with and without a moderation filter serve from Rust; the moderation PUT stays on Node."
+  },
+  "bid": {
+    "path": "/api/v3/bid",
+    "minimum_rust_successes": 2,
+    "expected_requests": 2,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant group",
+      "participant group owner"
+    ],
+    "scope": "Participant and owner reads preserve the missing-bundle null bucket."
+  },
+  "locations": {
+    "path": "/api/v3/locations",
+    "minimum_rust_successes": 2,
+    "expected_requests": 2,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant locations",
+      "participant locations missing group"
+    ],
+    "scope": "Empty location arrays for the generated group and an absent group serve from Rust."
+  },
+  "myInvitesCsv": {
+    "path": "/api/v3/treevite/myInvites/csv",
+    "minimum_rust_successes": 1,
+    "expected_requests": 2,
+    "expected_node_handoffs": 1,
+    "commands": ["invite mine export empty", "invite mine export"],
+    "scope": "Before another conversation code is created, the participant's empty CSV serves from Rust. The later download hands to Node because multiple reverse codes are ambiguous. Both file hashes must match across phases."
+  },
+  "iip": {
+    "path": "^/iip/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "iim": {
+    "path": "^/iim/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "conversationPage": {
+    "path": "^/[0-9][0-9A-Za-z]+",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "explorePage": {
+    "path": "^/explore/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "sharePage": {
+    "path": "^/share/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "summaryPage": {
+    "path": "^/summary/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "oneTimePage": {
+    "path": "^/ot/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
   }
 }

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "empty/participant",
+    "csv": "invite_code,status,created_at"
+  },
+  {
+    "id": "empty/owner",
+    "csv": "invite_code,status,created_at\n"
+  },
+  {
+    "id": "populated/participant",
+    "csv": "invite_code,status,created_at\ngenerated invite,unused,Sat Feb 29 2020\n\"comma,quote\"\"line\nnext\",unused,Sat Feb 29 2020\ncarriage\rreturn,unused,\nunicode 🙂,unused,Sat Feb 29 2020"
+  }
+]

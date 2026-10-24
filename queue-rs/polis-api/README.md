@@ -1478,3 +1478,15 @@ It requires unique compose/port settings and the three local fixture images.
 The staged [vote read routes](VOTES-READ.md) cover latest/history responses under
 `votesRead`, off by default. The route note names the identity quirks, bounded
 read pools, exact response subset and Node hand-back conditions.
+
+Conversation link pages (`/iip/:conversation_id`, `/iim/:conversation_id`) have independent default-off switches and read-only pools. See [LINK-PAGES.md](LINK-PAGES.md) for the contract, admission limits and replay.
+
+Current participant rows: [contract and admission](PARTICIPANTS-READ.md).
+
+Social participant rows: [contract and admission](PTPTOIS.md).
+
+Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).
+
+Bucket membership and group locations: [contract and admission](MATH-MEMBERSHIP.md).
+
+Conversation HTML pages: [contract and bounded admission](CONVERSATION-PAGES.md).
