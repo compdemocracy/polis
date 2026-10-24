@@ -84,7 +84,7 @@ def main():
                 if v.get('participant_login'):private_values.append(v['participant_login'])
             return values
         def submit(directory,code,expected=0,human=False,text=None):
-            text=text or 'Generated participant statement '+secrets.token_hex(8)
+            text=text or 'Generated participant comment '+secrets.token_hex(8)
             private_values.append(text)
             return call(directory,['comment',code,text],expected,human),text
         first_receipt,text=submit(first,open_code)

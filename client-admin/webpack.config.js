@@ -1,3 +1,6 @@
+import identityTools from '../scripts/build-identity.cjs'
+const { buildIdentity, BuildInfoPlugin } = identityTools
+const buildInfo = buildIdentity()
 import { config } from 'dotenv'
 config()
 import path from 'path'
@@ -126,7 +129,9 @@ export default (env, argv) => {
           }
         ]
       }),
+      new BuildInfoPlugin(buildInfo, 'admin'),
       new webpack.DefinePlugin({
+        'process.env.POLIS_BUILD_INFO': JSON.stringify(buildInfo),
         'process.env.ADMIN_UIDS': JSON.stringify(process.env.ADMIN_UIDS),
         'process.env.AUTH_AUDIENCE': JSON.stringify(process.env.AUTH_AUDIENCE),
         'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),

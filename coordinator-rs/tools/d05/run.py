@@ -20,6 +20,10 @@ import psycopg2
 from tunnel import Tunnel
 
 ROOT = Path(__file__).resolve().parents[3]
+
+import runpy
+apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
+
 sys.path.insert(0, str(ROOT / "delphi/tests"))
 from vote_fixtures import AGREE, DISAGREE, PASS, seed_vote  # noqa: E402  (the fixture vote writer)
 TABLES = ("ticks", "bidtopid", "ptptstats", "main")
@@ -156,7 +160,7 @@ class Campaign:
         self.connection = psycopg2.connect(f"postgresql://postgres@127.0.0.1:{self.port}/p027")
         self.connection.autocommit = True
         for path in sorted((ROOT/"server/postgres/migrations").glob("*.sql")):
-            self.query(path.read_text())
+            apply_migration(self.connection, path)
         self.query("CREATE ROLE d05_control LOGIN; CREATE ROLE d05_publisher LOGIN; CREATE ROLE d05_operator_p LOGIN; CREATE ROLE d05_operator_l LOGIN")
         self.query("GRANT polis_coordinator_control TO d05_control,d05_operator_p,d05_operator_l; GRANT polis_coordinator_publisher TO d05_publisher")
         self.query("GRANT USAGE ON SCHEMA public TO d05_control,d05_publisher,d05_operator_p,d05_operator_l")

@@ -5,7 +5,7 @@ set -euo pipefail
 export DOCKER_BUILDKIT=1
 # Sequential builds bound peak memory; inspect disk receipts when sizing the runner.
 df -h .
-docker build --target prod --build-arg NODE_ENV=production -t p027-server -f server/Dockerfile server
+docker build --target prod --build-arg NODE_ENV=production -t p027-server -f server/Dockerfile .
 docker build --build-context queue-rs=queue-rs -t p027-postgres -f server/Dockerfile-db server
 docker build -t p027-oidc-simulator oidc-simulator
 docker build -t p027-file-server --build-arg NODE_ENV=production \

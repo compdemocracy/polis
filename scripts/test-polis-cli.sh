@@ -32,4 +32,7 @@ cargo clippy --locked -p polis --features fixture-ids --all-targets -- -D warnin
 cargo test --locked -p polis --features fixture-ids --bin polis seeds::fixture_tests
 
 # Release archive/provenance checks share the same local and hosted entry point.
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ../scripts/tests -p test_polis_cli_release.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ../scripts/tests -p 'test_polis_cli_release*.py'
+
+# The documented local member/vote join preserves export cells and unmatched rows.
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/raw_data -p 'test_*.py'

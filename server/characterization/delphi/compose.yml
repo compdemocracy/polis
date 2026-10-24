@@ -24,13 +24,16 @@ services:
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
     ports: ["127.0.0.1:${P2ZERO_DYNAMO_PORT:?set a free DynamoDB port}:8000"]
   server:
-    image: node:22-bookworm-slim
+    build:
+      context: ../../..
+      dockerfile: server/characterization/Dockerfile
     working_dir: /repo/server
     volumes:
       - ../../..:/repo
       - node_modules:/repo/server/node_modules
     environment:
       P2ZERO_PG_ADMIN_URL: postgres://postgres:generatedlocal@postgres:5432/postgres
+      POLIS_MIGRATE_ALLOW_PLAINTEXT: local
       DYNAMODB_ENDPOINT: http://dynamodb:8000
       TZ: UTC
     command:

@@ -131,7 +131,7 @@ async function setupPostgres() {
     .filter((f) => f.endsWith(".sql"))
     .sort();
   for (const f of files)
-    await db.query(fs.readFileSync(path.join(dir, f), "utf8"));
+    await require("../migrations.cjs").applyMigration(db, path.join(dir, f), pgApp.toString());
   await db.query(fs.readFileSync(path.join(FIXTURES, "postgres.sql"), "utf8"));
   await db.end();
   return files.length;
@@ -273,12 +273,12 @@ function oidcSigner() {
 
 // ------------------------------------------------------------------ requests
 
-function request(p, token) {
+function request(p, token, port = APP_PORT) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
         host: "127.0.0.1",
-        port: APP_PORT,
+        port,
         path: p,
         method: "GET",
         agent: false,
@@ -436,6 +436,19 @@ async function main() {
     return issueAnonymousJWT(m.conversation_id, 9 + pid, pid);
   };
 
+  // Optional Rust conformance uses the unchanged fixture and recording oracle.
+  const rust = process.env.P2ZERO_RUST_KEYS
+    ? await require(process.env.P2ZERO_RUST_CHECK === "reports"
+        ? "../../../queue-rs/polis-api/conformance/delphi-reports-pg-check.cjs"
+        : process.env.P2ZERO_RUST_CHECK === "topics"
+        ? "../../../queue-rs/polis-api/conformance/delphi-topics-pg-check.cjs"
+        : process.env.P2ZERO_RUST_CHECK === "visualizations"
+        ? "../../../queue-rs/polis-api/conformance/delphi-visualizations-pg-check.cjs"
+        : "../../../queue-rs/polis-api/conformance/delphi-logs-check.cjs").start({
+        keys: process.env.P2ZERO_RUST_KEYS, jwks: signer.jwks,
+        publicKey: pair.publicKey, request, serialize, oidc,
+        database: pgApp.toString(),
+      }) : null;
   const cases = allCases();
   const index = {
     format: FORMAT,
@@ -456,6 +469,7 @@ async function main() {
     const r = await request(c.path, token);
     statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
     const text = serialize(c, r);
+    if (rust && (rust.matches ? rust.matches(c) : c.route === "GET /api/v3/delphi/logs")) await rust.compare(c, token, text);
     const file = path.join(RECORDINGS, `${c.id}.json`);
     index.cases.push({
       id: c.id,
@@ -493,6 +507,7 @@ async function main() {
         "index.json differs (case list, fixtures, codec or pins changed)"
       );
   }
+  if (rust) await rust.finish();
   server.close();
   stub.server.close();
   console.log(

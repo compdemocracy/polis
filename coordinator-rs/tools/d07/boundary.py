@@ -20,6 +20,10 @@ import sys
 import psycopg2
 
 ROOT = Path(__file__).resolve().parents[3]
+
+import runpy
+apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
+
 SQL = "server/postgres/migrations/000021_create_polis_coordinator.sql"
 SQL_SHA256 = "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82"
 IMAGES = ("postgres:17-alpine", "p027-server", "p027-file-server",
@@ -179,7 +183,7 @@ class Boundary:
         migrations = sorted((ROOT / "server/postgres/migrations").glob("*.sql"))
         self.receipt["migrations"] = {p.name: sha(p.read_bytes()) for p in migrations}
         for path in migrations:
-            q(path.read_text())
+            apply_migration(admin, path)
         catalog = q("SELECT pg_temp.pc_catalog()")[0][0]
         q("SELECT pg_temp.pc_assert_provenance()")
         self.receipt["postgres"] = q("SELECT version()")[0][0]

@@ -121,7 +121,7 @@ fn topic_key_is_one_encoded_segment_and_round_trips_special_characters() {
             t.path(),
             &[
                 "topic",
-                "statements",
+                "comments",
                 "job#0#1?%&猫",
                 "--conversation",
                 "convA"
@@ -154,7 +154,7 @@ fn unsafe_topic_inputs_refuse_before_network() {
         assert_eq!(
             parsed_call(
                 t.path(),
-                &["topic", "statements", key, "--conversation", "convA"]
+                &["topic", "comments", key, "--conversation", "convA"]
             )
             .0,
             2
@@ -247,14 +247,14 @@ fn missing_store_is_not_empty_success_and_diagnostics_are_not_reflected() {
     let s=server(t.path(),vec![(503,"application/json",json!({"error":"polis_err_topicMod_comments_store_missing","details":"private-upstream-detail"}).to_string())]);
     let (exit, v) = parsed_call(
         t.path(),
-        &["topic", "statements", "job#0#1", "--conversation", "convA"],
+        &["topic", "comments", "job#0#1", "--conversation", "convA"],
     );
     assert_eq!(exit, 6);
     assert_eq!(v["error"]["code"], "topic_statements_unavailable");
     assert!(v["error"]["action"]
         .as_str()
         .unwrap()
-        .contains("report statements list"));
+        .contains("report comments list"));
     assert!(!v.to_string().contains("private-upstream-detail"));
     assert_eq!(s.join().unwrap().len(), 1);
 }
@@ -316,14 +316,7 @@ fn report_reads_resolve_the_matching_conversation_and_preserve_fields() {
         ),
         (
             vec![
-                "report",
-                "statements",
-                "list",
-                "rA",
-                "--limit",
-                "2",
-                "--offset",
-                "4",
+                "report", "comments", "list", "rA", "--limit", "2", "--offset", "4",
             ],
             json!({"comments":[{"tid":4,"includeInReport":false}],"pagination":{"total":5}}),
             "/api/v3/comments?conversation_id=convA&report_id=rA&limit=2&offset=4",
@@ -332,7 +325,7 @@ fn report_reads_resolve_the_matching_conversation_and_preserve_fields() {
         let t = tempfile::tempdir().unwrap();
         let mut responses = vec![json_res(report()), json_res(body.clone())];
         let mut expected = body.clone();
-        if args[1] == "statements" {
+        if args[1] == "comments" {
             responses.push((404, "text/html", "Cannot GET importance".into()));
             expected["comments"][0]["important"] = Value::Null;
             expected["comments"][0]["voters"] = Value::Null;
@@ -390,9 +383,9 @@ fn help_describes_read_semantics_and_schema_lists_arguments() {
     let t = tempfile::tempdir().unwrap();
     for (args, expected) in [
         (vec!["help", "topic", "list"], "moderation_available=false"),
-        (vec!["help", "topic", "statements"], "missing"),
+        (vec!["help", "topic", "comments"], "missing"),
         (
-            vec!["help", "report", "statements", "list"],
+            vec!["help", "report", "comments", "list"],
             "participant-visible",
         ),
         (vec!["help", "report", "stats"], "historical event"),

@@ -2,6 +2,7 @@ mod admin;
 mod collective;
 mod collective_read;
 mod commands;
+mod comment_stats;
 mod commenting;
 mod delphi_show;
 mod highlights;
@@ -26,11 +27,15 @@ mod pass9;
 mod preferences;
 mod prioritize;
 mod profiles;
+mod questions;
+mod raw_output;
 mod reads;
 mod reserve;
 mod seeds;
 mod setup;
+mod sites;
 mod sizes;
+mod update;
 mod voting;
 use clap::ArgMatches;
 use polis_client::Client;
@@ -149,6 +154,9 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         return admin::execute(&path, m, config, site, timeout);
     }
     match path.as_str() {
+        "site list" | "site add" | "site use" | "site remove" => {
+            sites::execute(&path, m, config, site)
+        }
         "help" | "schema" => {
             if path == "help"
                 && m.get_many::<String>("command")
@@ -181,6 +189,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                 Ok(json!({"help":cmd.bin_name(full_name).render_long_help().to_string()}))
             }
         }
+        "questions" => Ok(questions::execute()),
         "completion" => {
             let shell = str_arg(m, "shell")
                 .parse::<clap_complete::Shell>()
@@ -213,6 +222,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "participant locations" => locations::execute(m, config, site, timeout),
         "participant highlight list" => highlights::execute(m, config, site, timeout),
         "participant group-members" => membership::execute(m, config, site, timeout),
+        "comment stats" => comment_stats::execute(m, config, site, timeout),
         "math view" => math::execute(m, config, site, timeout),
         "metadata answer add" => pass11::execute(m, config, site, timeout),
         "metadata question delete" | "metadata answer delete" => {
@@ -221,20 +231,20 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
         "metadata question add" | "context create" => {
             pass9::execute(&path, m, config, site, timeout)
         }
-        "statement list"
-        | "statement view"
+        "comment list"
+        | "comment view"
         | "collective list"
         | "collective view"
         | "collective statements" => pass7::execute(&path, m, config, site, timeout),
         "delphi show" => delphi_show::execute(m, config, site, timeout),
         "topic list"
-        | "topic statements"
+        | "topic comments"
         | "topic hierarchy"
         | "topic proximity"
         | "topic stats"
         | "report topics"
         | "report stats"
-        | "report statements list" => pass6::execute(&path, m, config, site, timeout),
+        | "report comments list" => pass6::execute(&path, m, config, site, timeout),
         "account view" | "conversation edit" | "conversation share" | "conversation stats"
         | "report create" => pass5::execute(&path, m, config, site, timeout),
         "conversation close"
@@ -384,7 +394,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     eprintln!("polis: sizes rank only returned owned rows; the site reached --limit, so larger conversations may be absent.");
                 }
             }
-            if m.get_flag("json") {
+            if m.get_flag("json") || m.get_flag("csv-output") {
                 return Ok(listing);
             }
             // People get a table. Its report column needs a second read, which is
@@ -525,7 +535,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     true,
                 ) {
                     Ok(receipt) if receipt["status"] == "processing" => Ok(
-                        json!({"state":"processing","seeds":seeds,"votes":{"state":"processing","submitted":count,"source_agree":str_arg(m,"source-agree"),"receipt":receipt},"note":"Statement import is complete; votes are queued, not completed. Check the site import notification and read back before retrying."}),
+                        json!({"state":"processing","seeds":seeds,"votes":{"state":"processing","submitted":count,"source_agree":str_arg(m,"source-agree"),"receipt":receipt},"note":"Comment import is complete; votes are queued, not completed. Check the site import notification and read back before retrying."}),
                     ),
                     Ok(receipt) => Ok(
                         json!({"state":"partial_or_unknown","seeds":seeds,"votes":{"state":"unknown","receipt":receipt},"receipt":data}),
@@ -707,11 +717,39 @@ fn main() -> ExitCode {
             return ExitCode::from(if display { 0 } else { 2 });
         }
     };
+    let csv_mode = root.get_flag("csv-output");
+    let mut leaf = &root;
+    let mut parts = Vec::new();
+    while let Some((name, child)) = leaf.subcommand() {
+        parts.push(name);
+        leaf = child;
+    }
+    let path = parts.join(" ");
+    if csv_mode
+        && (!raw_output::available(&path)
+            || (path == "topic prioritize" && !leaf.get_flag("show"))
+            || (path == "api" && str_arg(leaf, "method") != "GET"))
+    {
+        return render("unresolved", Err(Error::input(
+            "CSV is available for read results only. Use --json, or the export command's --format and --output options."
+        )), false);
+    }
+    if path == "update" {
+        return render(
+            "unresolved",
+            update::execute(
+                leaf.get_one::<String>("release-base-url")
+                    .map(String::as_str),
+                *root.get_one::<u64>("timeout").unwrap(),
+            ),
+            json_mode,
+        );
+    }
     profiles::noninteractive(root.get_flag("no-interactive"));
     // Help and schema never depend on credentials or profile files.
     if matches!(
         root.subcommand_name(),
-        Some("help" | "schema" | "agent" | "completion" | "tutorial")
+        Some("help" | "schema" | "agent" | "completion" | "tutorial" | "questions")
     ) {
         return render(
             "unresolved",
@@ -723,7 +761,13 @@ fn main() -> ExitCode {
             json_mode || root.subcommand_name() == Some("schema"),
         );
     }
-    let mut config = match profiles::Config::load() {
+    let selected = root.get_one::<String>("site").map(String::as_str);
+    let loaded = if root.subcommand_name() == Some("site") {
+        sites::load(selected)
+    } else {
+        profiles::Config::load(selected)
+    };
+    let mut config = match loaded {
         Ok(c) => c,
         Err(e) => return render("unresolved", Err(e), json_mode),
     };
@@ -731,7 +775,49 @@ fn main() -> ExitCode {
     if let Err(e) = profiles::name(&site) {
         return render(&site, Err(e), json_mode);
     }
+    if selected.is_some() {
+        if let Err(e) = config.url(&site) {
+            return render(&site, Err(e), json_mode);
+        }
+    }
+    let site_command = root.subcommand_name() == Some("site");
+    if !json_mode && !site_command {
+        sites::print_header(&config, &site);
+    }
     let result = execute(&root, &mut config, &site);
+    if csv_mode {
+        return match result.and_then(|value| raw_output::csv(&path, &value)) {
+            Ok(bytes) => {
+                use std::io::Write;
+                match std::io::stdout().lock().write_all(&bytes) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(_) => render(&site, Err(Error::input("Cannot write CSV output.")), false),
+                }
+            }
+            Err(e) => render(&site, Err(e), false),
+        };
+    }
+    if !json_mode && site_command {
+        // Site management reports the effective selection after a successful change.
+        if result.is_ok() {
+            match sites::load(selected) {
+                Ok(updated) => sites::print_header(&updated, &updated.default),
+                Err(_) => sites::print_header(&config, &site),
+            }
+        } else {
+            sites::print_header(&config, &site);
+        }
+    }
+    if !json_mode
+        && root
+            .subcommand_matches("comment")
+            .is_some_and(|m| m.subcommand_name() == Some("stats"))
+    {
+        if let Ok(value) = &result {
+            print!("{}", listing::terminal_text(&comment_stats::text(value)));
+            return ExitCode::SUCCESS;
+        }
+    }
     if root
         .subcommand_matches("delphi")
         .is_some_and(|m| m.subcommand_name() == Some("show"))
@@ -796,7 +882,7 @@ fn main() -> ExitCode {
     {
         if let Ok(value) = &result {
             if let Some(choice) = value["choice"].as_str() {
-                println!("Recorded {choice} for statement {}.", value["statement"]);
+                println!("Recorded {choice} for comment {}.", value["statement"]);
             } else {
                 println!("Voting finished. {} vote(s) recorded.", value["recorded"]);
             }
@@ -816,7 +902,7 @@ fn main() -> ExitCode {
     if !json_mode && root.subcommand_name() == Some("comment") {
         if let Ok(value) = &result {
             println!(
-                "Submitted statement {}. The site determines moderation and visibility.",
+                "Submitted comment {}. The site determines moderation and visibility.",
                 value["statement"]
             );
             return ExitCode::SUCCESS;

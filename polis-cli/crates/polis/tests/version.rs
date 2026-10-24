@@ -16,8 +16,9 @@ fn version_identifies_source_without_credentials_or_network() {
         assert_eq!(
             String::from_utf8(out.stdout).unwrap().trim(),
             format!(
-                "polis {} (commit {commit}; {source})",
-                env!("CARGO_PKG_VERSION")
+                "polis {} (commit {commit}; distance {}; {source})",
+                env!("POLIS_VERSION_DISPLAY"),
+                env!("POLIS_BUILD_DISTANCE")
             )
         );
         assert!(out.stderr.is_empty());

@@ -7,7 +7,7 @@ jest.mock("../../src/db/pg-query", () => {
   return {
     __esModule: true,
     default: {
-      queryP_readOnly: jest.fn(),
+      queryP_reportExport: jest.fn(),
     },
   };
 });
@@ -64,14 +64,14 @@ describe("conversations routes - handle_GET_all_conversations", () => {
       403,
       "polis_err_no_access_for_this_user"
     );
-    expect(pg.queryP_readOnly).not.toHaveBeenCalled();
+    expect(pg.queryP_reportExport).not.toHaveBeenCalled();
   });
 
   it("returns paginated conversations for admin users", async () => {
     (isPolisDev as jest.Mock).mockReturnValue(true);
 
     // First call: main SELECT query (page rows), Second call: COUNT query
-    (pg.queryP_readOnly as jest.Mock)
+    (pg.queryP_reportExport as jest.Mock)
       .mockResolvedValueOnce([
         {
           zid: 1,
@@ -120,6 +120,6 @@ describe("conversations routes - handle_GET_all_conversations", () => {
     });
 
     // Validate that DB was called twice: count and page
-    expect(pg.queryP_readOnly).toHaveBeenCalledTimes(2);
+    expect(pg.queryP_reportExport).toHaveBeenCalledTimes(2);
   });
 });

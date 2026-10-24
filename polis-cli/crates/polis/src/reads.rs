@@ -161,7 +161,7 @@ pub fn execute(
                 .ok_or_else(|| {
                     Error::new(
                         "not_found",
-                        "Statement not found in this moderation view.",
+                        "Comment not found in this moderation view.",
                         "Read the moderation list and check permissions.",
                         1,
                     )

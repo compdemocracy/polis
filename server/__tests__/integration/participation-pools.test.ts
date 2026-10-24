@@ -1,6 +1,6 @@
 /**
- * The participation path runs on pools nothing else uses, and nothing it does
- * can reach another pool (src/db/pg-query.ts, src/db/participation-scope.ts).
+ * Foreground participation runs on pools nothing else uses. Its two kinds of
+ * best-effort notification write have their own bounded pool.
  *
  * - Structure: exactly the four participation routes (POST /votes, POST
  *   /comments, GET /nextComment, GET /participationInit) enter the
@@ -9,8 +9,8 @@
  * - Construction: in that scope every query helper takes its connection from a
  *   participation pool; outside it none does.
  * - Requests: every connection a participation request takes, from its first
- *   middleware to the bookkeeping it schedules, comes from a participation
- *   pool, for every kind of participant and route variant below; other work
+ *   middleware through its response, comes from a participation pool, except
+ *   the explicitly checked notification SQL. Other work
  *   (report tallies, exports, the opinion map, a participant's vote list,
  *   admin reads) never takes one.
  *
@@ -44,6 +44,8 @@ const BOOKKEEPING_MS = 800;
 // Every pooled connection is taken through Pool.prototype.connect (pg-pool's
 // own query() calls it too). Record which pool each one came from.
 let taken: PoolRole[] | null = null;
+let notificationQueries: string[] = [];
+const realPoolQuery = Pool.prototype.query;
 const PoolPrototype = Pool.prototype as unknown as {
   connect: (...args: unknown[]) => unknown;
 };
@@ -54,6 +56,10 @@ const hadOwnConnect = Object.prototype.hasOwnProperty.call(
 const realConnect = PoolPrototype.connect;
 
 beforeAll(() => {
+  Pool.prototype.query = function(this: Pool, ...args: any[]) {
+    if (taken && poolRole(this) === "notification") notificationQueries.push(String(args[0]));
+    return realPoolQuery.apply(this, args);
+  } as typeof Pool.prototype.query;
   PoolPrototype.connect = function (this: Pool, ...args: unknown[]) {
     const role = poolRole(this);
     if (taken && role) taken.push(role);
@@ -61,6 +67,7 @@ beforeAll(() => {
   };
 });
 afterAll(() => {
+  Pool.prototype.query = realPoolQuery;
   if (hadOwnConnect) PoolPrototype.connect = realConnect;
   else delete (PoolPrototype as { connect?: unknown }).connect;
 });
@@ -71,6 +78,7 @@ async function poolsTakenBy(
   settleMs = BOOKKEEPING_MS
 ): Promise<{ roles: PoolRole[]; result: any }> {
   taken = [];
+  notificationQueries = [];
   try {
     const result = await work();
     await wait(settleMs);
@@ -245,7 +253,7 @@ describe("requests", () => {
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
   /** One participation request: it answered 200, and every connection it
-   * and its bookkeeping took came from a participation pool. */
+   * took came from a participation pool, except bounded notification writes. */
   async function participation(name: string, send: () => request.Test) {
     const { roles, result } = await poolsTakenBy(() => send());
     process.stdout.write(
@@ -259,8 +267,12 @@ describe("requests", () => {
     expect(roles.length).toBeGreaterThan(0);
     expect({
       name,
-      other: roles.filter((role) => !isParticipation(role)),
+      other: roles.filter((role) => !isParticipation(role) && role !== "notification"),
     }).toEqual({ name, other: [] });
+    for (const query of notificationQueries) {
+      expect(query).toMatch(/^(update participants set last_interaction = now_as_millis\(\), nsli = 0|insert into notification_tasks \(zid\))/);
+    }
+    expect(roles.filter(role => role === "notification")).toHaveLength(notificationQueries.length);
     return result.body;
   }
 
@@ -282,7 +294,7 @@ describe("requests", () => {
     return roles;
   }
 
-  test("every participation request, of every kind of participant, takes only participation connections", async () => {
+  test("participation uses its pools; only notification state uses the notification pool", async () => {
     const init = (query: string, token?: string) => {
       const sent = request(app).get(`/api/v3/participationInit?${query}`);
       return token ? sent.set(bearer(token)) : sent;

@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: ${DELPHI_REPORTS_PG_POSTGRES_IMAGE:?set a fixture Postgres image}
+    environment: {POSTGRES_HOST_AUTH_METHOD: trust}
+    ports: ["127.0.0.1:${POLIS_RECOVERY_PG_PORT:?set a unique port}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  dynamodb:
+    image: amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+  recorder:
+    image: ${DELPHI_REPORTS_PG_NODE_IMAGE:?set a Node image}
+    working_dir: /app
+    entrypoint: [sh, -c]
+    command: ["cp -a /candidate/. /app/; exec node characterization/delphi/main.cjs replay"]
+    volumes:
+      - ${DELPHI_REPORTS_PG_SOURCE}/server:/candidate:ro
+      - ${DELPHI_REPORTS_PG_SOURCE}/delphi:/delphi
+      - ${DELPHI_REPORTS_PG_SOURCE}/queue-rs:/queue-rs:ro
+      - ${DELPHI_REPORTS_PG_SCRATCH}:/proof
+    environment:
+      P2ZERO_PG_ADMIN_URL: postgres://postgres@postgres:5432/postgres
+      DYNAMODB_ENDPOINT: http://dynamodb:8000
+      DELPHI_RESULT_BACKEND: postgres
+      P2ZERO_RUST_KEYS: /proof
+      P2ZERO_RUST_CHECK: reports
+      TZ: UTC
+    depends_on:
+      postgres: {condition: service_healthy}
+      dynamodb: {condition: service_started}
+  polis-api:
+    image: ${DELPHI_REPORTS_PG_API_IMAGE:?set a fixture-clock API image}
+    network_mode: service:recorder
+    entrypoint: [sh, -c]
+    command: ["while [ ! -f /proof/ready ]; do sleep 1; done; exec /usr/local/bin/polis-api"]
+    volumes: ["${DELPHI_REPORTS_PG_SCRATCH}:/proof:ro"]
+    environment:
+      DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      DATABASE_SSL: 'false'
+      POLIS_API_DB_TRANSPORT: docker-internal
+      POLIS_API_DB_PLAIN_HOSTS: postgres
+      MATH_ENV: p2zero
+      DEV_MODE: 'true'
+      POLIS_API_DELPHI_LOGS_DATABASE_URL: postgres://generated_logs_reader@postgres:5432/p2zero
+      POLIS_API_DELPHI_LOGS_AUTH_DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      POLIS_API_DELPHI_LOGS_READS: '1'
+      POLIS_API_DELPHI_READS: '1'
+      POLIS_API_DELPHI_REPORTS_READS: '1'
+      POLIS_API_DELPHI_REPORTS_DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      POLIS_API_DELPHI_NARRATIVES_DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      POLIS_API_DELPHI_DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      POLIS_API_DELPHI_TOPICS_DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      POLIS_API_DELPHI_VISUALIZATIONS_READS: '1'
+      POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL: postgres://postgres@postgres:5432/p2zero
+      POLIS_API_DELPHI_VISUALIZATIONS_RESULTS_DATABASE_URL: postgres://generated_viz_reader@postgres:5432/p2zero
+      DELPHI_RESULT_BACKEND: postgres
+      DELPHI_RESULT_ENV: p2zero
+      DELPHI_RESULT_SCOPE: delphi
+      POLIS_API_READ_JWKS_FILE: /proof/jwks.json
+      POLIS_API_PARTICIPANT_READS: '1'
+      POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE: /proof/participant.pem
+      POLIS_API_FIXTURE_CLOCK: '1700000000000'
+      AUTH_ISSUER: https://oidc.p2zero.invalid/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/
+      POLIS_JWT_ISSUER: https://pol.is/
+      POLIS_JWT_AUDIENCE: participants
+      ADMIN_UIDS: '[2]'
+      DOMAIN_OVERRIDE: localhost
+      SERVICE_URL: http://localhost
+      NODE_ENV: production
+      TZ: UTC

@@ -135,7 +135,7 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(run.known(step, ['$.json.data.tids[1]'], registry), 'pca2-math-cache-not-shared')
         self.assertIsNone(run.known(step, ['$.json.data.n-cmts', '$.json.data.math_tick'], registry))
         self.assertIsNone(run.known(step, ['$.exit'], registry))
-        self.assertIsNone(run.known({'command': 'statement list'}, ['$.json.data.n-cmts'], registry))
+        self.assertIsNone(run.known({'command': 'comment list'}, ['$.json.data.n-cmts'], registry))
 
     def test_digest_differences_name_columns_not_values(self):
         a = {'t': {'rows': 1, 'digest': 'a', 'columns': {'x': '1', 'y': '2'}}}
@@ -176,7 +176,7 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(run.residual_split(step, ['$.json.data.modified'], registry), ([], {'r': 1}))
         self.assertEqual(run.residual_split(step, ['$.json.data.modified', '$.exit'], registry), (['$.exit'], {'r': 1}))
         self.assertEqual(run.residual_split(step, ['$.json.data.modified_by'], registry), (['$.json.data.modified_by'], {}))
-        self.assertEqual(run.residual_split({'command': 'statement list'}, ['$.json.data.modified'], registry),
+        self.assertEqual(run.residual_split({'command': 'comment list'}, ['$.json.data.modified'], registry),
                          (['$.json.data.modified'], {}))
 
 

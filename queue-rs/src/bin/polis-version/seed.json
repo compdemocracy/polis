@@ -1,0 +1,8 @@
+{
+  "schema": "polis.release-seed/1",
+  "version": "2.34.0",
+  "stable_commit": "fd16f790a01d433aa338c06aea77499cf39b9944",
+  "source_commit": "32a6b388a1cf8dee296ece42c1a0e2dafeef81ed",
+  "date": "2026-10-04T16:27:11-07:00",
+  "promotion_pr": 2957
+}

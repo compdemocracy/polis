@@ -46,6 +46,7 @@ import createWorkerClasses, {
 import createOpsDashboardsAccess, { opsDashboardsEnabled } from '../opsDashboards';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
+import { configureAlbIngress, originHeader } from '../originAccess';
 import { BuildBox } from '../buildBox';
 import { CoordinatorInactiveService } from '../coordinator';
 
@@ -66,7 +67,6 @@ export class CdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: PolisStackProps) {
     super(scope, id, props);
 
-    const defaultSSHRange = '0.0.0.0/0';
     // The Ollama GPU stack is temporarily retired to cut cost. Everything it
     // needs (ASG, GPU launch template, EFS, internal NLB, service-URL secret,
     // SG rules and outputs) is gated behind this flag (CDK_ENABLE_OLLAMA). The
@@ -115,9 +115,15 @@ export class CdkStack extends cdk.Stack {
       );
     }
 
-    // Conditional SSH Access
+    // Conditional SSH Access. Off in production: the instances are reached
+    // through Systems Manager (the instance role carries
+    // AmazonSSMManagedInstanceCore), and CodeDeploy's agent only connects out.
+    // There is no default range: turning SSH on requires naming one.
     if (props.enableSSHAccess) {
-      const sshPeer = ec2.Peer.ipv4(props.sshAllowedIpRange || defaultSSHRange);
+      if (!props.sshAllowedIpRange) {
+        throw new Error('enableSSHAccess requires sshAllowedIpRange (CDK_SSH_ALLOWED_IP_RANGE)');
+      }
+      const sshPeer = ec2.Peer.ipv4(props.sshAllowedIpRange);
       webSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
       mathWorkerSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
       delphiSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
@@ -126,9 +132,12 @@ export class CdkStack extends cdk.Stack {
       }
     }
 
-    webSecurityGroup.addIngressRule(ec2.Peer.ipv4(props.sshAllowedIpRange || defaultSSHRange), ec2.Port.tcp(22), 'Allow SSH'); // Control SSH separately
-    webSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'Allow HTTP from anywhere');
-    webSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'Allow HTTPS from anywhere');
+    // The web instances take traffic only from the load balancer: the target
+    // group adds "port 80 from the load balancer's security group" below
+    // (createALBAndDNS). Nothing else reaches them from outside the VPC; they
+    // keep public addresses for outbound traffic only. (The group's
+    // description still mentions SSH; changing a description replaces the
+    // group, so it is left as is.)
 
 
     // --- Key Pairs
@@ -161,8 +170,9 @@ export class CdkStack extends cdk.Stack {
       description: 'Security group for the load balancer',
       allowAllOutbound: true,
     });
-    lbSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'Allow HTTP from anywhere');
-    lbSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'Allow HTTPS from anywhere');
+    // 80/443 from anywhere unless `-c restrictAlbIngress=true` names the CDN's
+    // ranges (cdk/originAccess.ts).
+    const albAccess = configureAlbIngress(this, lbSecurityGroup);
 
     // Create ECR repos
     const { ecrWebRepository, ecrDelphiRepository, ecrMathRepository, imageTagParameter } = createECRRepos(this, instanceRole);
@@ -427,7 +437,10 @@ export class CdkStack extends cdk.Stack {
       this,
       vpc,
       lbSecurityGroup,
-      asgWeb
+      asgWeb,
+      // `-c requireOriginHeader=true` answers 403 to requests without the
+      // CDN's origin header (cdk/originAccess.ts). Off by default.
+      { openListeners: albAccess.openListeners, originHeader: originHeader(this) }
     );
 
     // --- Operational alarms (P-031 slice 1).

@@ -373,9 +373,9 @@ pub fn execute(
         &topics,
     )?;
     if let Some(i) = groups.iter().position(Vec::is_empty) {
-        return Err(unavailable(i + 1, "has no statements in the conversation's stored topic coordinates, so its representative statements cannot be chosen"));
+        return Err(unavailable(i + 1, "has no comments in the conversation's stored topic coordinates, so its representative comments cannot be chosen"));
     }
-    // The page reads statement text from the moderation listing; its vote
+    // The page reads comment text from the moderation listing; its vote
     // counts are not needed for the text, so they are not requested.
     let texts = texts(
         &c.request(

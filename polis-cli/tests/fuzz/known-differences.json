@@ -101,7 +101,7 @@
         "paths_regex": "^\\$\\.json\\.data\\.modified$"
       },
       "source": "server/src/routes/comments.ts: the bulk statement route updates conversations.modified in a 100 ms setTimeout, conditionally (modified < value); server/src/routes/conversations.ts: the settings PUT sets it to now_as_millis(). conversation new sends its seeds and then its final settings PUT within one step, so the stored value is whichever write lands last; the barrier waits for both but cannot order them",
-      "effect": "a created conversation with seed statements stores one of two values for modified, depending on request timing; phase B's timing differs, so this can look like a switch difference"
+      "effect": "a created conversation with seed comments stores one of two values for modified, depending on request timing; phase B's timing differs, so this can look like a switch difference"
     }
   ]
 }

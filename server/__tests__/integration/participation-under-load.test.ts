@@ -7,8 +7,9 @@
  * them), then has PARTICIPANTS participants of one conversation each send a
  * vote, a comment and a nextComment call at the same moment, the way the
  * participation client sends them. Every one of those requests must answer 200
- * within BUDGET_MS, and every vote and comment sent must end up stored. A last
- * case sends bursts of comments with no slow work at all. The slow work:
+ * within BUDGET_MS, and every vote and comment sent must end up stored. Two last
+ * cases send bursts of comments, and bursts of first votes from new
+ * participants, with no slow work at all. The slow work:
  *
  *   - exports: the conversation's vote exports (votes.csv,
  *     participant-votes.csv, participant-importance.csv, comments.csv), each
@@ -974,5 +975,80 @@ describe("comments sent at the same moment in one conversation", () => {
   test("every one is answered 200 and stored", () => {
     expectPrompt(outcomes, BURST_PARTICIPANTS * BURST_ROUNDS);
     expect(stored).toBe(texts.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Participants joining at the same moment, with no slow work at all.
+
+/** Participants casting their first vote at once (the vote is what makes each
+ * one a participant of the conversation), and how many new groups do it. */
+const JOIN_PARTICIPANTS = 24;
+const JOIN_ROUNDS = 3;
+
+describe("participants joining at the same moment in one conversation", () => {
+  const outcomes: Outcome[] = [];
+  let joined = 0;
+  let pids: number[] = [];
+  let participantCount = 0;
+  beforeAll(async () => {
+    const before = (
+      await admin.query(
+        "SELECT count(*)::int AS n FROM participants WHERE zid = $1",
+        [zid]
+      )
+    ).rows[0].n;
+    for (let round = 0; round < JOIN_ROUNDS; round++) {
+      const joiners = await Promise.all(
+        Array.from({ length: JOIN_PARTICIPANTS }, () =>
+          initializeParticipant(conversationId)
+        )
+      );
+      // Each joiner's own agent, which carries what participationInit gave it.
+      const burst = joiners.map(({ agent }, i) =>
+        timed(
+          round * JOIN_PARTICIPANTS + i,
+          agent.post("/api/v3/votes").send({
+            conversation_id: conversationId,
+            tid: tids[0],
+            vote: semanticToWire("pass"),
+          })
+        )
+      );
+      outcomes.push(...(await Promise.all(burst)));
+    }
+    pids = (
+      await admin.query(
+        "SELECT pid FROM participants WHERE zid = $1 ORDER BY pid",
+        [zid]
+      )
+    ).rows.map((r) => r.pid);
+    joined = pids.length - before;
+    participantCount = (
+      await admin.query(
+        "SELECT participant_count FROM conversations WHERE zid = $1",
+        [zid]
+      )
+    ).rows[0].participant_count;
+    process.stdout.write(
+      `${JSON.stringify({
+        scenario: "participants joining at the same moment",
+        sent: outcomes.length,
+        joined,
+        rejected: outcomes.filter((o) => o.answered && o.status !== 200).length,
+        worst_ms: Math.max(...outcomes.map((o) => o.ms)),
+      })}\n`
+    );
+  }, 120000);
+
+  // The pid_auto trigger numbers a conversation's participants MAX(pid) + 1
+  // under a per-conversation advisory lock held until the inserting
+  // transaction ends (server/postgres/migrations), so participants joining at
+  // the same moment are numbered one after another.
+  test("every first vote is answered 200, and each joiner is a participant with its own number", () => {
+    expectPrompt(outcomes, JOIN_PARTICIPANTS * JOIN_ROUNDS);
+    expect(joined).toBe(JOIN_PARTICIPANTS * JOIN_ROUNDS);
+    expect(pids).toEqual(Array.from({ length: pids.length }, (_, i) => i));
+    expect(participantCount).toBe(pids.length);
   });
 });

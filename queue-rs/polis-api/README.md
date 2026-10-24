@@ -1095,7 +1095,8 @@ serve topics or claim DynamoDB/provider parity.
 
 `GET`/`HEAD /api/v3/delphi/reports` is staged behind `POLIS_API_DELPHI_REPORTS_READS=1`
 and nginx `RUST_API_ROUTES=delphiReports`, both off by default. Set
-`POLIS_API_DELPHI_REPORTS_DATABASE_URL` to Node's read replica. Only missing/empty
+`POLIS_API_DELPHI_REPORTS_DATABASE_URL` to Node's read replica for validation-only
+mode. Without `DELPHI_RESULT_BACKEND=postgres`, only missing/empty
 report IDs and absent reports (both HTTP 200, matching Node) are served, using the shared
 `polis-contracts::delphi_reports` request/response types. Existing reports and
 DynamoDB responses remain Node, as do identity, body, duplicate/structured
@@ -1108,28 +1109,48 @@ contention hand back to Node; cancellation retains the slot until the query
 finishes. `delphiReportsServed` and `delphiReportsFallback` count the outcomes.
 Run `queue-rs/polis-api/conformance/delphi-reports-run.sh result.json` for raw
 Node/Rust byte replay on the generated fixture stack. This slice does not
-serve narrative reports or claim DynamoDB/provider parity.
+serve narrative reports or claim DynamoDB/provider parity. PostgreSQL mode
+extends this route as described in “PostgreSQL narrative reports” below.
 
 
-### Delphi visualization validation
+### Delphi visualization jobs
 
-`GET`/`HEAD /api/v3/delphi/visualizations` is staged behind `POLIS_API_DELPHI_VISUALIZATIONS_READS=1`
-and nginx `RUST_API_ROUTES=delphiVisualizations`, both off by default. Set
-`POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL` to Node's read replica. Only missing/empty
-report IDs (HTTP 400) and absent reports (HTTP 404) are served, using the shared
-`polis-contracts::delphi_visualizations` request/response types. Existing reports and
-DynamoDB responses remain Node, as do identity, body, duplicate/structured
-query, job-filter and unsupported report-ID shapes. Accepted nonempty IDs
-are at most 100 ASCII alphanumeric, underscore or hyphen characters.
-The uncached report lookup has its own one-slot read-only pool: 15 ms acquire,
-50 ms statement and 75 ms caller deadline. It never borrows a participation
-pool or holds a connection over a remote service call. Database errors and
-contention hand back to Node; cancellation retains the slot until the query
-finishes. `delphiVisualizationsServed` and `delphiVisualizationsFallback` count the outcomes.
-Run `queue-rs/polis-api/conformance/delphi-visualizations-run.sh result.json` for raw
-Node/Rust byte replay on the generated fixture stack. This slice does not
-serve visualizations or claim DynamoDB/S3/provider parity.
+`GET`/`HEAD /api/v3/delphi/visualizations` remains behind
+`POLIS_API_DELPHI_VISUALIZATIONS_READS=1` and nginx
+`RUST_API_ROUTES=delphiVisualizations`, both off by default. The existing
+`POLIS_API_DELPHI_VISUALIZATIONS_DATABASE_URL` pool resolves reports (one slot,
+15 ms acquire, 50 ms statement). Without the Postgres result backend, only
+missing/unknown report validation is served and its 75 ms deadline is unchanged;
+existing reports, credentials and S3 work stay with Node.
 
+With `DELPHI_RESULT_BACKEND=postgres`, set `DELPHI_RESULT_ENV`, the same optional
+`DELPHI_RESULT_SCOPE` as Node, and the primary
+`POLIS_API_DELPHI_VISUALIZATIONS_RESULTS_DATABASE_URL`. Its independent read-only
+pool has two slots, 15 ms acquisition and 200 ms statement bounds. It reads the
+existing job views/controls and the same native graph/attempt/provider liveness
+relations as Node; use the existing Node read login's access, without new grants.
+The whole metadata request is bounded at 750 ms; nginx waits up to 1 second.
+No participation connection or lock is shared.
+
+The public response keeps `status`, `report_id`, `visualizations: []` and Node's
+job fields/order. Native rows hide archived copies, current native liveness is
+read separately after the result snapshot, and `job_id` filters the completed
+metadata list. This does not invent a static visualization artifact contract.
+The first result snapshot must fit a conservative single-page bound (512 KiB,
+1,000 jobs); larger listings, unsupported legacy coercions and unavailable reads
+hand back to Node, without a partial list, and so does a liveness sweep that
+cannot finish within these bounds. `delphiVisualizationsServed` and
+`delphiVisualizationsFallback` count outcomes.
+
+`queue-rs/polis-api/conformance/delphi-visualizations-pg-run.sh result.json`
+replays the unchanged Postgres baseline and compares native jobs, filters and
+terminal liveness. Set unique `COMPOSE_PROJECT_NAME`, `POLIS_RECOVERY_PG_PORT`,
+and the local `DELPHI_VISUALIZATIONS_PG_NODE_IMAGE`,
+`DELPHI_VISUALIZATIONS_PG_POSTGRES_IMAGE`, and
+`DELPHI_VISUALIZATIONS_PG_API_IMAGE` (fixture-clock) images. The shared CLI
+DynamoDB differential still proves existing-report handoffs; the dedicated
+Postgres run provides serving proof. No Node handler, schema, writer or
+production switch changes.
 
 ### Topic statistics validation
 
@@ -1359,3 +1380,113 @@ isolated aggregate-only metadata fixture; it is not a Node parity recording.
 The nginx suite covers default-off, opt-in, deduplication, method/body admission
 and the 502-to-Node-404 path. The database suite covers query bounds, real lock
 shedding, read-only enforcement and independent writer/next-statement resources.
+
+
+### Legacy Delphi job logs
+
+`POLIS_API_DELPHI_LOGS_READS=1` and `RUST_API_ROUTES=delphiLogs` opt in to
+`GET`/`HEAD /api/v3/delphi/logs?job_id=…`. Both are off by default. This route
+requires `DELPHI_RESULT_BACKEND=postgres`, `DELPHI_RESULT_ENV` and
+`POLIS_API_DELPHI_LOGS_DATABASE_URL` (a primary read login with the existing
+result views and queue read functions). `DELPHI_RESULT_SCOPE`, when set, must
+match Node. Identity reads use `POLIS_API_DELPHI_LOGS_AUTH_DATABASE_URL`, falling
+back to the ordinary read DSN, through a separate pool. OIDC JWKS, participant
+verification and `ADMIN_UIDS` must match Node as for the run-record route.
+
+The result pool has two slots, 15 ms acquire and 200 ms statement bounds. The
+identity pool has one slot, 15 ms acquire and 50 ms statement bounds. The whole
+request has a 750 ms deadline. Neither pool shares participation connections;
+all sessions are read-only. Native rows take precedence over archived controls;
+job lookup and latest-attempt logs use one repeatable-read snapshot. Native logs
+retain the first 1,000 entries before filtering stdout/stderr, as Node does.
+
+The existing response fields and moderator rule are preserved. A complete
+legacy archive is limited to 4 MiB and the response to 1 MiB. Unsupported archive
+attributes, date grammars, credentials, bounds and database failures hand back
+to Node with 502; no partial logs are returned. Naive legacy ISO timestamps are
+handled only with explicit `TZ=UTC`; other time zones hand back to Node. No
+writer, schema, result contract or production switch changes.
+
+
+Run `queue-rs/polis-api/conformance/delphi-logs-run.sh result.json` with a unique
+`COMPOSE_PROJECT_NAME`, `POLIS_RECOVERY_PG_PORT`, and local
+`DELPHI_LOGS_NODE_IMAGE`, `DELPHI_LOGS_POSTGRES_IMAGE`, and
+`DELPHI_LOGS_API_IMAGE` (built with `fixture-clock`). It replays all 272
+Postgres baseline cases unchanged and compares every log case through Rust,
+then adds native attempts, moderator controls, archive precedence and the
+pre-filter entry limit. Its reader login has only the existing executor role.
+The shared CLI differential retains its DynamoDB fixture and therefore checks
+this route's disabled fallback; it does not claim Postgres log-serving coverage.
+
+### PostgreSQL legacy topics
+
+`POLIS_API_DELPHI_READS=1` and `RUST_API_ROUTES=delphiRead` remain off by default.
+With `DELPHI_RESULT_BACKEND=postgres`, also set `POLIS_API_DELPHI_TOPICS_DATABASE_URL`
+to a primary reader with EXECUTE on `pd_result_page` and SELECT on `reports`
+(`report_id`, `zid`), `DELPHI_RESULT_ENV`
+and optional `DELPHI_RESULT_SCOPE`. Both database URLs must point to the same primary database in PostgreSQL mode.
+The report lookup retains its separate one-slot pool; the new result pool has two read-only slots, 15 ms acquisition and 200 ms statement
+limits, and the whole request is bounded to 750 ms. It shares no participation pool.
+
+The legacy response groups by model/date, keeps last topic per layer/cluster, counts
+all items, and takes its job UUID from the oldest narrative index row. Narrative and
+topics are separate reads, as in Node; this is not an immutable run-result contract.
+Numeric object keys preserve JavaScript order. Missing fields stay absent, stored nulls
+stay null. Local-time ISO dates require `TZ=UTC`; unsupported date/coercion/prototype
+shapes, ambiguous scopes, over 1,000 source rows or 512 KiB of tagged source, and all
+query failures hand back to Node with 502. The SQL byte check runs before rows
+are transferred to Rust. No partial result is returned. DynamoDB
+mode retains validation-only serving. Public auth headers are ignored in PostgreSQL
+mode as they are in Node. No handler, schema, writer or production setting changed.
+
+Conformance with locally built Node, migrated Postgres and fixture-clock API images:
+```sh
+COMPOSE_PROJECT_NAME=topics-proof POLIS_RECOVERY_PG_PORT=58241 \
+DELPHI_TOPICS_PG_NODE_IMAGE=topics-node:local \
+DELPHI_TOPICS_PG_POSTGRES_IMAGE=topics-postgres:local \
+DELPHI_TOPICS_PG_API_IMAGE=topics-api:local \
+queue-rs/polis-api/conformance/delphi-topics-pg-run.sh /tmp/topics-results.json
+```
+The runner replays the unchanged Postgres baseline and checks Rust response bytes,
+served/fallback counters, overwrites, ordering, nulls, publication replacement and
+an explicit bounded fallback. Images use generated fixtures only.
+
+## PostgreSQL narrative reports
+
+With the existing `POLIS_API_DELPHI_REPORTS_READS=1` and
+`RUST_API_ROUTES=delphiReports` switches, `DELPHI_RESULT_BACKEND=postgres`
+enables bounded reads of `/api/v3/delphi/reports`. Both switches remain off by
+default. The response preserves Node's public access, job selection, section
+filters, property ordering and stored timestamp strings, including microseconds
+and offset spelling. No timestamp is converted to a Date. The latest timestamp
+within each run uses string comparison; run ordering uses Node's characterized
+timestamp collation. Unsupported characters remain on Node.
+
+`POLIS_API_DELPHI_NARRATIVES_DATABASE_URL` selects an independent two-connection
+result pool; `POLIS_API_DELPHI_REPORTS_DATABASE_URL` selects the separate
+one-connection validation pool. Both URLs must use the same primary as Node.
+The result login requires EXECUTE on `pd_result_page` and SELECT on `reports`;
+sessions are read-only. No participation pool is used. Requests hand back to
+Node on a pool/query failure, conflicting scopes, unsupported values, more than
+1000 family rows, over 512 KiB of input, or over 1 MiB of output. The complete
+request deadline is 750 ms, with a 200 ms result statement timeout.
+
+`conformance/delphi-reports-pg-run.sh` runs the unchanged Postgres baseline plus
+native publication, timestamp, grouping, filter and bounded-handoff checks.
+It requires unique compose/port settings and the three local fixture images.
+
+The staged [vote read routes](VOTES-READ.md) cover latest/history responses under
+`votesRead`, off by default. The route note names the identity quirks, bounded
+read pools, exact response subset and Node hand-back conditions.
+
+Conversation link pages (`/iip/:conversation_id`, `/iim/:conversation_id`) have independent default-off switches and read-only pools. See [LINK-PAGES.md](LINK-PAGES.md) for the contract, admission limits and replay.
+
+Current participant rows: [contract and admission](PARTICIPANTS-READ.md).
+
+Social participant rows: [contract and admission](PTPTOIS.md).
+
+Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).
+
+Bucket membership and group locations: [contract and admission](MATH-MEMBERSHIP.md).
+
+Conversation HTML pages: [contract and bounded admission](CONVERSATION-PAGES.md).

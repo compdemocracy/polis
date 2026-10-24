@@ -23,6 +23,10 @@ from compressor import observe_node, admit_node
 from replay_pins import child_runtimes, kernel_environment, select_pin, validate_kernel
 
 ROOT = Path(__file__).resolve().parents[2]
+
+import runpy
+apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
+
 CI = ROOT / "coordinator-rs/ci"
 ART = ROOT / "coordinator-rs/artifacts"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
@@ -104,6 +108,7 @@ def main():
     from tls_fixture import TlsFixture
     tls_fixture = TlsFixture()
     env.update(tls_fixture.environment())
+    env["POLIS_MIGRATE_CA_FILE"] = env["COORDINATOR_DB_CA_BUNDLE"]
 
     def run(name, argv, cwd=None, expected=0, command_env=None):
         cwd = ROOT if cwd is None else cwd
@@ -199,10 +204,9 @@ def main():
         conn.close()
         bundle_url = f"postgresql://postgres@127.0.0.1:{port}/d02_bundle"
         conn = psycopg2.connect(bundle_url)
-        with conn:
-            with conn.cursor() as cur:
-                for path in sorted((ROOT / "server/postgres/migrations").glob("*.sql")):
-                    cur.execute(path.read_text())
+        conn.autocommit = True
+        for path in sorted((ROOT / "server/postgres/migrations").glob("*.sql")):
+            apply_migration(conn, path, ca_file=env["POLIS_MIGRATE_CA_FILE"])
         conn.close()
         log = run("pytest", [sys.executable, "-m", "pytest", "-o", "addopts=", "-p", "no:cacheprovider",
                              "-p", "required_inventory", "--confcutdir=delphi/tests/coordinator",

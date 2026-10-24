@@ -13,6 +13,7 @@
     "start": "npm run build && npm run serve",
     "dev": "npm install && npm run build:watch",
     "type:check:watch": "tsc --watch",
+    "pretype:check:watch": "npm run build:identity",
     "format": "prettier --config ./prettier.config.js --no-editorconfig '**/*.ts' --write",
     "format:check": "prettier --config ./prettier.config.js --no-editorconfig '**/*.ts' --check",
     "lint": "eslint --quiet --ext .ts,.js,.cjs .",
@@ -22,7 +23,11 @@
     "test": "if [ -z \"$NODE_EXTRA_CA_CERTS\" ] && command -v mkcert >/dev/null 2>&1; then export NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem; fi && jest",
     "test:unit": "npm test -- /__tests__/unit/",
     "test:integration": "npm test -- /__tests__/integration/",
-    "test:feature": "npm test -- /__tests__/feature/ --testPathIgnorePatterns=[]"
+    "test:feature": "npm test -- /__tests__/feature/ --testPathIgnorePatterns=[]",
+    "build:identity": "python3 ../scripts/build_identity.py --format typescript --output src/generated/build-info.ts",
+    "prebuild": "npm run build:identity",
+    "prebuild:watch": "npm run build:identity",
+    "pretest": "npm run build:identity"
   },
   "repository": {
     "type": "git",

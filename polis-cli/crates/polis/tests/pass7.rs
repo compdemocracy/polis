@@ -100,7 +100,7 @@ fn public_statement_list_is_paginated_and_preserves_rows() {
     let (exit, v) = call(
         t.path(),
         &[
-            "statement",
+            "comment",
             "list",
             "--conversation",
             "convA",
@@ -126,7 +126,7 @@ fn statement_view_filters_exact_tid_and_returns_the_unchanged_row() {
     let s = server(t.path(), vec![json_res(page(json!([row.clone()])))]);
     let (exit, v) = parsed_call(
         t.path(),
-        &["statement", "view", "0", "--conversation", "convA"],
+        &["comment", "view", "0", "--conversation", "convA"],
     );
     assert_eq!(exit, 0);
     assert_eq!(v["data"], row);
@@ -136,8 +136,8 @@ fn statement_view_filters_exact_tid_and_returns_the_unchanged_row() {
 #[test]
 fn empty_list_succeeds_but_hidden_or_missing_single_is_unavailable() {
     for (args, expected) in [
-        (vec!["statement", "list", "--conversation", "convA"], 0),
-        (vec!["statement", "view", "0", "--conversation", "convA"], 1),
+        (vec!["comment", "list", "--conversation", "convA"], 0),
+        (vec!["comment", "view", "0", "--conversation", "convA"], 1),
     ] {
         let t = tempfile::tempdir().unwrap();
         let s = server(t.path(), vec![json_res(page(json!([])))]);
@@ -167,7 +167,7 @@ fn mismatched_duplicate_or_malformed_statement_rows_are_errors() {
         let s = server(t.path(), vec![json_res(body)]);
         let (exit, v) = parsed_call(
             t.path(),
-            &["statement", "view", "0", "--conversation", "convA"],
+            &["comment", "view", "0", "--conversation", "convA"],
         );
         assert_eq!(exit, 1);
         assert_eq!(v["error"]["code"], "invalid_response");
@@ -276,7 +276,7 @@ fn read_failures_keep_status_and_suppress_upstream_prose_without_retry() {
     for status in [200, 500] {
         for args in [
             vec!["collective", "list", "--report", "rA"],
-            vec!["statement", "list", "--conversation", "convA"],
+            vec!["comment", "list", "--conversation", "convA"],
         ] {
             let t = tempfile::tempdir().unwrap();
             let s = server(
@@ -328,17 +328,10 @@ fn invalid_parameters_are_refused_before_http() {
     )
     .unwrap();
     for args in [
-        vec!["statement", "view", "2147483648", "--conversation", "convA"],
-        vec!["statement", "view", "-1", "--conversation", "convA"],
-        vec!["statement", "list", "--conversation", "../x"],
-        vec![
-            "statement",
-            "list",
-            "--conversation",
-            "convA",
-            "--limit",
-            "0",
-        ],
+        vec!["comment", "view", "2147483648", "--conversation", "convA"],
+        vec!["comment", "view", "-1", "--conversation", "convA"],
+        vec!["comment", "list", "--conversation", "../x"],
+        vec!["comment", "list", "--conversation", "convA", "--limit", "0"],
         vec!["collective", "list", "--report", "r?x"],
         vec!["collective", "view", ""],
         vec!["collective", "view", "a\nb"],
@@ -354,8 +347,8 @@ fn invalid_parameters_are_refused_before_http() {
 fn manuals_and_schema_expose_the_stored_read_limits() {
     let t = tempfile::tempdir().unwrap();
     for (args, text) in [
-        (vec!["help", "statement", "list"], "participant"),
-        (vec!["help", "statement", "view"], "statement_unavailable"),
+        (vec!["help", "comment", "list"], "participant"),
+        (vec!["help", "comment", "view"], "statement_unavailable"),
         (vec!["help", "collective", "list"], "deduplication"),
         (vec!["help", "collective", "view"], "JSON strings"),
     ] {
@@ -364,7 +357,7 @@ fn manuals_and_schema_expose_the_stored_read_limits() {
         assert!(v["data"]["help"].as_str().unwrap().contains(text));
     }
     for args in [
-        vec!["schema", "statement", "view"],
+        vec!["schema", "comment", "view"],
         vec!["schema", "collective", "view"],
     ] {
         let (exit, v) = call(t.path(), &args, None, false);

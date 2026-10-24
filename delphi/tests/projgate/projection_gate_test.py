@@ -120,19 +120,20 @@ def dsn() -> Iterator[str]:
         else:
             pytest.skip("postgres container did not become ready in time")
 
-        for path in migrations:
-            with open(path, "rb") as fh:
-                applied = subprocess.run(
-                    [docker, "exec", "-i", cid, "psql", "-v", "ON_ERROR_STOP=1",
-                     "-U", "postgres", "-d", "postgres"],
-                    stdin=fh, capture_output=True, text=True,
-                )
-            if applied.returncode != 0:
-                pytest.skip(
-                    f"migration {os.path.basename(path)} failed to apply: "
-                    f"{applied.stderr[-500:]}"
-                )
-        url = f"postgresql://postgres:test@localhost:{port}/postgres"
+        import runpy
+        from pathlib import Path
+        import psycopg2
+        apply_migration = runpy.run_path(
+            os.path.join(_server_dir, "bin", "apply-test-migration.py")
+        )["apply_migration"]
+        url = f"postgresql://postgres:test@127.0.0.1:{port}/postgres"
+        conn = psycopg2.connect(url)
+        conn.autocommit = True
+        try:
+            for path in migrations:
+                apply_migration(conn, Path(path))
+        finally:
+            conn.close()
         _seed(url)
         yield url
     finally:

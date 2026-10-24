@@ -105,7 +105,7 @@ fn importance_sort_ranks_before_pagination_and_joins_exact_tids() {
     let (exit, v) = call(
         t.path(),
         &[
-            "statement",
+            "comment",
             "list",
             "--conversation",
             "convA",
@@ -144,7 +144,7 @@ fn importance_filter_only_uses_tid_order_and_empty_rank_needs_no_text_read() {
         let (exit, v) = call(
             t.path(),
             &[
-                "statement",
+                "comment",
                 "list",
                 "--conversation",
                 "convA",
@@ -179,7 +179,7 @@ fn importance_ties_reorder_text_exactly_and_preserve_metadata() {
     let (exit, v) = call(
         t.path(),
         &[
-            "statement",
+            "comment",
             "list",
             "--conversation",
             "convA",
@@ -231,7 +231,7 @@ fn importance_invalid_contracts_never_print_partial_rank() {
         let (exit, v) = call(
             t.path(),
             &[
-                "statement",
+                "comment",
                 "list",
                 "--conversation",
                 "convA",
@@ -258,7 +258,7 @@ fn importance_missing_duplicate_or_unrequested_text_fails_closed() {
         let (exit, v) = call(
             t.path(),
             &[
-                "statement",
+                "comment",
                 "list",
                 "--conversation",
                 "convA",
@@ -289,7 +289,7 @@ fn importance_disabled_is_capability_unavailable_without_text_read() {
     let (exit, v) = call(
         t.path(),
         &[
-            "statement",
+            "comment",
             "list",
             "--conversation",
             "convA",
@@ -320,7 +320,7 @@ fn report_statement_counts_include_zero_and_keep_unobserved_unknown() {
     );
     let (exit, v) = call(
         t.path(),
-        &["report", "statements", "list", "repA"],
+        &["report", "comments", "list", "repA"],
         None,
         false,
     );
@@ -346,7 +346,7 @@ fn report_statement_counts_unavailable_remain_unknown_without_hiding_rows() {
     );
     let (exit, v) = call(
         t.path(),
-        &["report", "statements", "list", "repA"],
+        &["report", "comments", "list", "repA"],
         None,
         false,
     );
@@ -358,7 +358,7 @@ fn report_statement_counts_unavailable_remain_unknown_without_hiding_rows() {
 }
 fn assert_statement_list_rejects(args: &[&str]) {
     let t = tempfile::tempdir().unwrap();
-    let mut full = vec!["statement", "list", "--conversation", "convA"];
+    let mut full = vec!["comment", "list", "--conversation", "convA"];
     full.extend(args);
     let (exit, _) = call(t.path(), &full, None, false);
     assert_eq!(exit, 2, "{args:?}");

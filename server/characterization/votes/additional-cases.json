@@ -1,0 +1,410 @@
+[
+  {
+    "case": "moderator-new",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.945560598745942,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":7}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "moderator-changed",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.7287952080368996,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":7}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "moderator-repeated",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":7.731962572783232,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":7}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "moderator-moderated-out",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 1\",\"tid\":4,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.175868894904852,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":7}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "moderator-missing-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.416025808081031,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":7}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "moderator-closed",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "lost-first-reply",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.4451679736375809,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":9,\"auth\":{\"token\":\"$jwt:fecc3bb8a54d811e99090147cb2fa2fd192642524f48de982191b05f51ad4789\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "lost-first-reply-retry-without-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 1\",\"tid\":4,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.791366457939148,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":10,\"auth\":{\"token\":\"$jwt:f036bae09edcc8e13f18e694a54cf1b4af3b877cdbc828a463009ef0b0e6f6da\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "fresh-parser-refusal",
+    "status": 400,
+    "body": "Bad Request\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "parser-refusal-retry-without-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 1\",\"tid\":4,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.6598544400185347,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":12,\"auth\":{\"token\":\"$jwt:96a355de6c25f982866d831ffa64c5333c90915537fb985ae442bf96981078d2\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "fresh-handler-error-auth",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500,\"auth\":{\"token\":\"$jwt:8de4cf5b42fda6295003ed528cdaa952281bc660ff3ca6f2e582f12cb5093030\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "fresh-star-error-auth",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500,\"auth\":{\"token\":\"$jwt:703323536124d38ea69b1dde6a7c6f1d9edcd7f8bccc9a0770e764f0c49d67d1\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "fresh-next-error-auth",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500,\"auth\":{\"token\":\"$jwt:b3cf2db614be9978d03c930c28d9fd9d430457b5b4e0a6bd6c6fc0ce56c51c38\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "missing-membership-valid-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":4.439899494871497,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":70}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "revoked-membership-valid-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated statement B\",\"tid\":1,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.4345246385782957,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":8}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "foreign-standard-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.5737164095044136,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2,\"auth\":{\"token\":\"$jwt:64b4ab092c122392a47a94012e839470f3a0a34260accd3aa9846b6550a5f509\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "foreign-xid-same-owner",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.671350329183042,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2,\"auth\":{\"token\":\"$jwt:ba44042502d5f77fffff3332e52baa5b985690b45ca322ac54905652d1853f0c\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "foreign-xid-different-owner",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.3820808436721563,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2,\"auth\":{\"token\":\"$jwt:ba44042502d5f77fffff3332e52baa5b985690b45ca322ac54905652d1853f0c\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-request-overrides-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 3\",\"tid\":6,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":4.472501611337066,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":16,\"auth\":{\"token\":\"$jwt:f16aaf7c423cc141c53e2a815edf63a220389d56839aebecd7ed30e1caa27661\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-blank-preserves-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.24504826683551073,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-whitespace-preserves-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.989465515129268,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-tab-preserves-token",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.532578356564045,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "anonymous-blank-xid",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":6.15921669639647,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":17,\"auth\":{\"token\":\"$jwt:57d6cb05328aebca978458433e2c3cb2ca4a72b628dc3d91eb9a5fe3b3616372\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "signed-xid-removed-from-list",
+    "status": 403,
+    "body": "{\"error\":\"polis_err_xid_not_allowed\",\"message\":\"polis_err_xid_not_allowed\",\"status\":403}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "bare-xid-existing-member",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.5501168305054307,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2,\"auth\":{\"token\":\"$jwt:ba44042502d5f77fffff3332e52baa5b985690b45ca322ac54905652d1853f0c\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-lookup-without-pid",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.666884991340339,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-foreign-standard-member",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.106368969194591,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2,\"auth\":{\"token\":\"$jwt:64b4ab092c122392a47a94012e839470f3a0a34260accd3aa9846b6550a5f509\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-foreign-xid-member",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.7218953128904104,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2,\"auth\":{\"token\":\"$jwt:ba44042502d5f77fffff3332e52baa5b985690b45ca322ac54905652d1853f0c\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-pid-zero",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.095566085539758,\"remaining\":6,\"total\":9,\"translations\":[]},\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-new-xid",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-new-standard",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-new-oidc",
+    "status": 401,
+    "body": "{\"error\":\"polis_err_treevite_auth_required\",\"message\":\"polis_err_treevite_auth_required\",\"status\":401}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-first-contact",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 1\",\"tid\":4,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.7162996530532837,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":18}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-account-failure",
+    "status": 500,
+    "body": "{\"error\":\"user_creation_failed\",\"message\":\"Failed to create or map user account\",\"details\":\"generated recording SQL failure\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-account-conflict",
+    "status": 429,
+    "body": "{\"error\":\"authentication_conflict\",\"message\":\"Authentication system encountered a temporary conflict. Please try again.\",\"retry_after\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-account-load",
+    "status": 429,
+    "body": "{\"error\":\"too_many_requests\",\"message\":\"Authentication system is experiencing high load. Please try again in a moment.\",\"retry_after\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "anonymous-expired",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "anonymous-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "anonymous-issuer",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt issuer invalid. expected: https://pol.is/\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "anonymous-audience",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt audience invalid. expected: participants\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-expired",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-issuer",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt issuer invalid. expected: https://pol.is/\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "standard-audience",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt audience invalid. expected: participants\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-expired",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-issuer",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt issuer invalid. expected: https://pol.is/\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "xid-audience",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt audience invalid. expected: participants\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "star-saved-before-next-failure",
+    "status": 500,
+    "body": "{\"error\":\"polis_err_vote\",\"message\":\"polis_err_vote\",\"status\":500}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "ignored-caller-pid-weight",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.0532677806913853,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "backdated-latest-replacement",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 0\",\"tid\":3,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":0.512346007861197,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "retained-latest-weight",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 5\",\"tid\":8,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":2.586590542457998,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "translated-next-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 2\",\"tid\":5,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.937946015968919,\"remaining\":8,\"total\":9,\"translations\":[{\"zid\":1,\"tid\":5,\"src\":0,\"txt\":\"Texte traduit\",\"lang\":\"fr\",\"created\":\"1700000000000\",\"modified\":\"1700000000000\"}]},\"currentPid\":19,\"auth\":{\"token\":\"$jwt:f85c3e5e37023919a359ec0376b016899675c6520a8130bae303aa33b1c19fbd\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "translation-read-fallback",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 2\",\"tid\":5,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.118407469242811,\"remaining\":8,\"total\":9,\"translations\":[]},\"currentPid\":20,\"auth\":{\"token\":\"$jwt:555048a0624e394ee50b2e2b7ab921990cddb00ce58acfa7370880615563c330\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "topical-next-comment",
+    "status": 200,
+    "body": "{\"nextComment\":{\"zid\":1,\"tid\":1,\"txt\":\"Generated statement B\",\"translations\":[]},\"currentPid\":7}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "topical-empty-agenda-fallback",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated moderator statement\",\"tid\":9,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":3.8279955610632896,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "topical-exhausted-fallback",
+    "status": 200,
+    "body": "{\"nextComment\":{\"txt\":\"Generated identity statement 4\",\"tid\":7,\"created\":\"1700000000000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.7232847986742854,\"remaining\":4,\"total\":9,\"translations\":[]},\"currentPid\":2}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "treevite-owner-without-membership",
+    "status": 200,
+    "body": "{\"currentPid\":0}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "fresh-admin-join",
+    "status": 200,
+    "body": "{\"currentPid\":1}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-missing-email",
+    "status": 400,
+    "body": "{\"error\":\"invalid_user_data\",\"message\":\"User account is missing required information (email).\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-expired",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-issuer",
+    "status": 401,
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-audience",
+    "status": 401,
+    "body": "{\"error\":\"Invalid token format\",\"details\":\"Token does not match any supported JWT type\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-signature",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"invalid signature\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "oidc-unknown-key",
+    "status": 401,
+    "body": "{\"error\":\"Invalid authentication token\",\"details\":\"Unable to find a signing key that matches 'generated-unpublished-key'\"}",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "parser-body-too-large",
+    "status": 413,
+    "body": "Payload Too Large\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "parser-unsupported-charset",
+    "status": 415,
+    "body": "Unsupported Media Type\n",
+    "recording_oracle_pass": true
+  },
+  {
+    "case": "parser-unsupported-content-encoding",
+    "status": 415,
+    "body": "Unsupported Media Type\n",
+    "recording_oracle_pass": true
+  }
+]

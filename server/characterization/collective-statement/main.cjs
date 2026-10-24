@@ -197,7 +197,7 @@ async function setupPostgres() {
     .filter((f) => f.endsWith(".sql"))
     .sort();
   for (const f of files)
-    await db.query(fs.readFileSync(path.join(dir, f), "utf8"));
+    await require("../migrations.cjs").applyMigration(db, path.join(dir, f), pgApp.toString());
   // The shape the recordings stand on, read after the migrations and before
   // the fixture (which replaces now_as_millis() and adds rows, not shape).
   const schema = await readSchema((sql, params) => db.query(sql, params));

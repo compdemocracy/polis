@@ -180,7 +180,7 @@ poller_identity() {
 # from the workflow, not from this box's env document, so refuse an image built
 # with other values than this box would have built it with.
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
-  WEB_ARGS_SHA256=$(sudo /usr/local/bin/docker-compose config --format json | jq -cS '.services["client-participation-alpha"].build.args' | sha256sum | cut -d' ' -f1)
+  WEB_ARGS_SHA256=$(sudo /usr/local/bin/docker-compose config --format json | jq -cS '.services["client-participation-alpha"].build.args | del(.GIT_HASH, .POLIS_BUILD_DISTANCE, .POLIS_BUILD_TAG, .POLIS_BUILD_SOURCE)' | sha256sum | cut -d' ' -f1)
   if [ "$WEB_ARGS_SHA256" != "$(image_ref web-build-args-sha256)" ]; then
     echo "Error: client-participation-alpha was built with other public settings (PUBLIC_SERVICE_URL, AUTH_NAMESPACE, OIDC_CACHE_KEY_PREFIX, OIDC_CACHE_KEY_ID_TOKEN_SUFFIX) than this box's env document gives it; refusing to deploy"
     exit 1

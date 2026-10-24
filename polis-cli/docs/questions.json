@@ -1,0 +1,66 @@
+{
+  "schema": "polis-questions/1",
+  "intro": "Start with shared ground, then examine differences. A comment is a participant's contribution; a statement is a collective statement. Replace CONV with a conversation ID, REPORT with its report ID, PID with a participant number, and UNTIL_MS with an exclusive positive UTC epoch-millisecond cutoff. These commands read existing data. This guide itself is offline and does not sign in or run any command.",
+  "questions": [
+    {
+      "id": "shared-ground",
+      "question": "What did everyone agree on?",
+      "commands": ["polis comment stats --conversation CONV --sort consensus --by-group", "polis comment stats --conversation CONV --sort agree --json"],
+      "look_for": "Comments with high support in every opinion group, backed by enough votes in each. Consensus here is the lowest group agree percentage, not a claim that every person agreed. The math covers grouped participants only; unknown values and small samples need attention."
+    },
+    {
+      "id": "division",
+      "question": "What divided us, and what drew the most disagreement?",
+      "commands": ["polis comment stats --conversation CONV --sort divisive --by-group", "polis comment stats --conversation CONV --sort disagree"],
+      "look_for": "Divisiveness finds an even agree/disagree split; disagreement sorts by the percentage disagreeing. They answer different questions. Compare the group splits and vote counts before interpreting a high rank; all-pass comments have no measured agree/disagree split."
+    },
+    {
+      "id": "groups",
+      "question": "Which groups exist, and what defines each?",
+      "commands": ["polis math view --conversation CONV --key group-clusters --key group-votes --key repness --json"],
+      "look_for": "Read representative comments for each group, then inspect their counts. Group IDs are not array positions. The group-clusters members are base-cluster IDs, not participant IDs. Treat groups as patterns in this served math snapshot, not fixed kinds of people."
+    },
+    {
+      "id": "distinctive-beliefs",
+      "question": "What does one group believe that the others do not?",
+      "commands": ["polis comment stats --conversation CONV --by-group --json", "polis math view --conversation CONV --key repness --json"],
+      "look_for": "Compare one group's agree percentage with every other group's for the same tid. Look for a large gap supported by enough votes, not merely a high within-group percentage. This is a comparison to make from the returned data, not an automatic test of a unique belief. Separate reads can refer to different math snapshots."
+    },
+    {
+      "id": "importance",
+      "question": "What matters most to people?",
+      "commands": ["polis comment stats --conversation CONV --sort important --by-group"],
+      "look_for": "Importance marks identify comments people chose to emphasize; they do not mean agreement. Counts use the current importance read, separately from math. This sort exits 8 if that read is unavailable. Missing counts mean unknown, never zero."
+    },
+    {
+      "id": "new-comments",
+      "question": "What is new in the conversation?",
+      "commands": ["polis comment list --conversation CONV --limit 500 --offset 0 --json"],
+      "look_for": "Inspect created timestamps and compare tids with a saved earlier list. Follow pagination.hasMore with the next offset to inspect later pages. One page is not the whole conversation, and offset pages can change during participation. Newly visible comments can be absent from served math."
+    },
+    {
+      "id": "needs-votes",
+      "question": "Which comments have not received enough votes?",
+      "commands": ["polis comment stats --conversation CONV --sort votes --json"],
+      "look_for": "This sort is descending: examine the smallest observed votes counts, near the end before nulls, or sort data.comments by votes ascending yourself. Keep null counts separate; missing math is not zero votes. Compare coverage across groups. There is no universal enough-votes threshold."
+    },
+    {
+      "id": "change-over-time",
+      "question": "How has participation or agreement changed over time?",
+      "commands": ["polis report stats REPORT --until UNTIL_MS --json", "polis comment stats --conversation CONV --by-group --json", "polis delphi show REPORT --json"],
+      "look_for": "Report stats supplies historical event timing, not historical opinion-group support. Save dated stats snapshots and compare matching tids; group IDs may not identify the same population across runs. Stored Delphi results supply run context. The CLI does not yet provide an automatic consensus timeline or reconstruct old group tallies from an until cutoff."
+    },
+    {
+      "id": "collective-statements",
+      "question": "What do the collective statements say for each topic?",
+      "commands": ["polis collective statements REPORT", "polis delphi show REPORT --json"],
+      "look_for": "Read the topic statements and citations alongside their source comments. Delphi show supplies stored model/run context. These reads show stored results; they do not generate statements or call a model. Missing results are not proof of an empty conversation."
+    },
+    {
+      "id": "participant-against-room",
+      "question": "How did one participant, identified by XID, vote compared with the room?",
+      "commands": ["polis participant xid list --conversation CONV --json", "polis vote list --conversation CONV --pid PID --json", "polis comment stats --conversation CONV --by-group --json", "polis report export REPORT --type format.json --output format.json"],
+      "look_for": "With the required permission, resolve the exact XID to its participant number, then join their votes to comment stats by tid. Preserve XIDs as opaque strings and join only within the same conversation. Access can be restricted; an empty or withheld mapping is not proof of no participant. Do not guess numeric vote signs: vote list returns data.convention for its wire values, while exports have a separate convention. Use that returned declaration and the export format metadata before comparing votes; do not assume wire and storage conventions are interchangeable. No automatic XID join is performed here."
+    }
+  ]
+}
