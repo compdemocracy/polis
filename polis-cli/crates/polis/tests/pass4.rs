@@ -566,3 +566,174 @@ fn adversarial_seed_failure_preserves_mapping_and_unsent_votes() {
     assert!(value["data"]["seeds"]["id_mapping"][0]["submitted_original_id"].is_string());
     assert_eq!(value["data"]["votes"]["state"], "not_sent");
 }
+
+#[test]
+fn votes_import_refusal_offers_new_conversation_without_retry() {
+    let t = tempfile::tempdir().unwrap();
+    let (seed, votes) = inputs(t.path(), "1");
+    let h = server(t.path(), vec![
+        json_res(json!({"results":[{"status":"success","tid":0}]})),
+        (409, "application/json", json!({"code":"polis_err_import_target_not_empty","error":"polis_err_import_target_not_empty","message":"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead."}).to_string()),
+    ]);
+    let (code, result) = call(
+        t.path(),
+        &[
+            "seed",
+            "import",
+            &seed,
+            "--conversation",
+            "3abcdefghi",
+            "--votes",
+            &votes,
+            "--source-agree=+1",
+        ],
+        None,
+        true,
+    );
+    assert_ne!(code, 0);
+    assert_eq!(result["data"]["seeds"]["state"], "complete");
+    let error = &result["data"]["votes"]["error"];
+    assert!(error["message"]
+        .as_str()
+        .unwrap()
+        .contains("Polis does not merge"));
+    assert!(error["action"]
+        .as_str()
+        .unwrap()
+        .contains("--new-conversation"));
+    let requests = h.join().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(requests[0].starts_with("POST /api/v3/comments-bulk"));
+    assert!(requests[1].starts_with("POST /api/v3/votes-bulk"));
+}
+
+#[test]
+fn seed_import_new_conversation_validates_first_and_preserves_created_id() {
+    let t = tempfile::tempdir().unwrap();
+    let (seed, votes) = inputs(t.path(), "1");
+    let h = server(
+        t.path(),
+        vec![
+            (
+                200,
+                "application/json",
+                json!({"conversation_id":"3abcdefghi"}).to_string(),
+            ),
+            (
+                400,
+                "application/json",
+                json!({"error":"polis_err_post_comments_bulk"}).to_string(),
+            ),
+        ],
+    );
+    let (code, result) = call(
+        t.path(),
+        &[
+            "seed",
+            "import",
+            &seed,
+            "--new-conversation",
+            "--topic",
+            "Imported discussion",
+            "--votes",
+            &votes,
+            "--source-agree=+1",
+        ],
+        None,
+        true,
+    );
+    assert_ne!(code, 0);
+    assert!(result["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("Created conversation: 3abcdefghi"));
+    let requests = h.join().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(requests[0].starts_with("POST /api/v3/conversations"));
+    assert!(requests[1].contains("3abcdefghi"));
+}
+
+#[test]
+fn seed_import_new_conversation_invalid_votes_make_no_request() {
+    let t = tempfile::tempdir().unwrap();
+    let (seed, votes) = inputs(t.path(), "invalid");
+    let h = server(t.path(), vec![]);
+    let (code, _) = call(
+        t.path(),
+        &[
+            "seed",
+            "import",
+            &seed,
+            "--new-conversation",
+            "--votes",
+            &votes,
+            "--source-agree=+1",
+        ],
+        None,
+        true,
+    );
+    assert_ne!(code, 0);
+    assert!(h.join().unwrap().is_empty());
+    let (code, _) = call(
+        t.path(),
+        &[
+            "seed",
+            "import",
+            &seed,
+            "--new-conversation",
+            "--conversation",
+            "3abcdefghi",
+        ],
+        None,
+        true,
+    );
+    assert_ne!(code, 0);
+}
+
+#[test]
+fn seed_import_new_conversation_queues_only_after_complete_comments() {
+    let t = tempfile::tempdir().unwrap();
+    let (seed, votes) = inputs(t.path(), "1");
+    let h = server(
+        t.path(),
+        vec![
+            (
+                200,
+                "application/json",
+                json!({"conversation_id":"3abcdefghi"}).to_string(),
+            ),
+            (
+                200,
+                "application/json",
+                json!({"results":[{"status":"success","tid":0}]}).to_string(),
+            ),
+            (
+                200,
+                "application/json",
+                json!({"status":"processing"}).to_string(),
+            ),
+        ],
+    );
+    let (code, result) = call(
+        t.path(),
+        &[
+            "seed",
+            "import",
+            &seed,
+            "--new-conversation",
+            "--votes",
+            &votes,
+            "--source-agree=+1",
+        ],
+        None,
+        true,
+    );
+    assert_eq!(code, 0);
+    assert_eq!(result["data"]["conversation_id"], "3abcdefghi");
+    assert_eq!(result["data"]["state"], "processing");
+    let requests = h.join().unwrap();
+    assert_eq!(requests.len(), 3);
+    assert!(requests[1].starts_with("POST /api/v3/comments-bulk"));
+    assert!(requests[2].starts_with("POST /api/v3/votes-bulk"));
+    assert!(requests[2].contains("# vote-convention:"));
+}
