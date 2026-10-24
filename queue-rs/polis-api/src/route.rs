@@ -33,6 +33,7 @@ use std::sync::{
 pub const PATH: &str = "/api/v3/math/pca2";
 
 pub struct App {
+    pub post_comments: Option<crate::post_comments::Writer>,
     pub math_env: String,
     pub dev_mode: bool,
     pub use_network_host: bool,
@@ -250,6 +251,7 @@ pub struct App {
 impl App {
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
+            post_comments: None,
             domain_whitelist_db: None,
             domain_whitelist_auth_db: None,
             domain_whitelist_served: AtomicU64::new(0),
@@ -1451,6 +1453,12 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    if req.path() == crate::post_comments::PATH
+        && req.method == "POST"
+        && !crate::post_comments::eligible(app, req)
+    {
+        return bad_gateway();
+    }
     if crate::settings_page::matches(req.path()) && crate::settings_page::parse(app, req).is_none()
     {
         return bad_gateway();
@@ -1730,6 +1738,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         let mut res = res;
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
+    }
+    if req.path() == crate::post_comments::PATH && req.method == "POST" {
+        return crate::post_comments::handle(app, req, res).await;
     }
     if req.method != "GET" && req.method != "HEAD" {
         return final_handler(app, req, res, None, true);

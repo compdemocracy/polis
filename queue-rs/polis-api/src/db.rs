@@ -126,17 +126,54 @@ pub struct Pool {
     idle: Mutex<Vec<(Client, Instant)>>,
     permits: Arc<Semaphore>,
     limits: Limits,
+    write_lock_timeout: Option<Duration>,
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) evidence: PoolEvidence,
 }
 
+impl Drop for Pool {
+    fn drop(&mut self) {
+        let idle = std::mem::take(self.idle.get_mut().unwrap_or_else(|e| e.into_inner()));
+        if idle.is_empty() {
+            return;
+        }
+        // Synchronous postgres clients own a runtime. Their destructor cannot
+        // run inside Tokio, including when the last App is released on SIGINT.
+        // A plain thread works even while the outer runtime is shutting down.
+        // Active operations retain an Arc, so the last drop cannot race them.
+        if tokio::runtime::Handle::try_current().is_ok() {
+            let _ = std::thread::spawn(move || drop(idle)).join();
+        } else {
+            drop(idle);
+        }
+    }
+}
+
 impl Pool {
     pub fn new(connector: Connector, limits: Limits) -> Arc<Self> {
+        Self::configured(connector, limits, None)
+    }
+
+    /// Writable lanes have independent pool and lock-wait budgets.
+    pub(crate) fn writer(
+        connector: Connector,
+        limits: Limits,
+        lock_timeout: Duration,
+    ) -> Arc<Self> {
+        Self::configured(connector, limits, Some(lock_timeout))
+    }
+
+    fn configured(
+        connector: Connector,
+        limits: Limits,
+        write_lock_timeout: Option<Duration>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             connector,
             idle: Mutex::new(Vec::new()),
             permits: Arc::new(Semaphore::new(limits.size)),
             limits,
+            write_lock_timeout,
             #[cfg(all(test, feature = "db-tests"))]
             evidence: PoolEvidence::default(),
         })
@@ -144,11 +181,23 @@ impl Pool {
 
     fn connect(&self) -> Result<Client> {
         let mut client = self.connector.connect()?;
-        // Every statement here is a read; the session refuses writes outright.
+        // Read pools retain their session guard. The writer has independent
+        // slots and bounds lock waits as well as statement execution.
+        let mode = if self.write_lock_timeout.is_some() {
+            "WRITE"
+        } else {
+            "ONLY"
+        };
         client.batch_execute(&format!(
-            "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY; SET statement_timeout = {}",
+            "SET SESSION CHARACTERISTICS AS TRANSACTION READ {mode}; SET statement_timeout = {}",
             self.limits.statement_timeout.as_millis()
         ))?;
+        if let Some(lock_timeout) = self.write_lock_timeout {
+            client.batch_execute(&format!(
+                "SET lock_timeout = {}; SET idle_in_transaction_session_timeout = 1000",
+                lock_timeout.as_millis()
+            ))?;
+        }
         Ok(client)
     }
 
