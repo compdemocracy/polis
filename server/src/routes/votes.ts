@@ -410,7 +410,7 @@ async function handle_POST_votes_bulk(
   }
 
   try {
-    await assertImportTargetEmpty(zid, "votes");
+    await assertImportTargetEmpty(zid);
 
     // Validation Check: Ensure this conversation supports external mapping.
     // We check for the existence of AT LEAST ONE comment with a non-null original_id.

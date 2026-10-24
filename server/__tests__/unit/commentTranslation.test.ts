@@ -23,12 +23,6 @@ jest.mock("../../src/db/pg-query", () => ({
   default: {
     queryP: mockQuery,
     queryP_notification: jest.fn().mockResolvedValue([]),
-    connect: jest.fn(async () => ({
-      query: async (sql: string, params: unknown[]) => ({
-        rows: await mockQuery(sql, params),
-      }),
-      release: jest.fn(),
-    })),
   },
 }));
 jest.mock("../../src/utils/logger", () => ({
@@ -116,8 +110,6 @@ beforeEach(() => {
   mockTranslate.mockReset().mockResolvedValue(["A translation", {}]);
   mockVote.mockReset().mockResolvedValue(undefined);
   mockQuery.mockReset().mockImplementation(async (sql: string) => {
-    if (/AS occupied/.test(sql)) return [{ occupied: false }];
-    if (/pg_try_advisory_xact_lock/.test(sql)) return [{ acquired: true }];
     if (/INSERT INTO COMMENTS/.test(sql))
       return [{ tid: 3, created: 10000000000000 }];
     return [];

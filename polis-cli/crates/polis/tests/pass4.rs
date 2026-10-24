@@ -568,26 +568,43 @@ fn adversarial_seed_failure_preserves_mapping_and_unsent_votes() {
 }
 
 #[test]
-fn seed_import_refusal_offers_new_conversation_without_retry() {
+fn votes_import_refusal_offers_new_conversation_without_retry() {
     let t = tempfile::tempdir().unwrap();
-    let (seed, _) = inputs(t.path(), "1");
-    let h = server(t.path(), vec![(409, "application/json", json!({"code":"polis_err_import_target_not_empty","error":"polis_err_import_target_not_empty","message":"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead."}).to_string())]);
+    let (seed, votes) = inputs(t.path(), "1");
+    let h = server(t.path(), vec![
+        json_res(json!({"results":[{"status":"success","tid":0}]})),
+        (409, "application/json", json!({"code":"polis_err_import_target_not_empty","error":"polis_err_import_target_not_empty","message":"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead."}).to_string()),
+    ]);
     let (code, result) = call(
         t.path(),
-        &["seed", "import", &seed, "--conversation", "3abcdefghi"],
+        &[
+            "seed",
+            "import",
+            &seed,
+            "--conversation",
+            "3abcdefghi",
+            "--votes",
+            &votes,
+            "--source-agree=+1",
+        ],
         None,
         true,
     );
     assert_ne!(code, 0);
-    assert!(result["error"]["message"]
+    assert_eq!(result["data"]["seeds"]["state"], "complete");
+    let error = &result["data"]["votes"]["error"];
+    assert!(error["message"]
         .as_str()
         .unwrap()
         .contains("Polis does not merge"));
-    assert!(result["error"]["action"]
+    assert!(error["action"]
         .as_str()
         .unwrap()
         .contains("--new-conversation"));
-    assert_eq!(h.join().unwrap().len(), 1);
+    let requests = h.join().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(requests[0].starts_with("POST /api/v3/comments-bulk"));
+    assert!(requests[1].starts_with("POST /api/v3/votes-bulk"));
 }
 
 #[test]
@@ -603,9 +620,9 @@ fn seed_import_new_conversation_validates_first_and_preserves_created_id() {
                 json!({"conversation_id":"3abcdefghi"}).to_string(),
             ),
             (
-                409,
+                400,
                 "application/json",
-                json!({"code":"polis_err_import_target_not_empty"}).to_string(),
+                json!({"error":"polis_err_post_comments_bulk"}).to_string(),
             ),
         ],
     );

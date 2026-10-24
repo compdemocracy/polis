@@ -61,7 +61,7 @@ export async function processImportJob(payload: {
   };
 
   try {
-    await assertImportTargetEmpty(zid, "votes");
+    await assertImportTargetEmpty(zid);
     await pg.queryP(
       "UPDATE byod_import_jobs SET status = 'processing', updated_at = NOW() WHERE id = $1",
       [jobId]
@@ -327,7 +327,7 @@ async function flushBatchToDb(rows: any[][], state: ImportState) {
     await client.query("BEGIN");
     await client.query("SET LOCAL lock_timeout = '100ms'");
     await lockImportTarget(client, zids[0]);
-    if (!state.started) await assertImportTargetEmpty(zids[0], "votes", client);
+    if (!state.started) await assertImportTargetEmpty(zids[0], client);
     const pidMap = new Map(state.participants);
     const newUsernames = [...new Set(usernames)].filter(
       (name) => !pidMap.has(name)
@@ -528,7 +528,7 @@ async function completeEmptyImport(jobId: number, zid: number) {
     await client.query("BEGIN");
     await client.query("SET LOCAL lock_timeout = '100ms'");
     await lockImportTarget(client, zid);
-    await assertImportTargetEmpty(zid, "votes", client);
+    await assertImportTargetEmpty(zid, client);
     await triggerMathRecalc(zid, client);
     await client.query(
       "UPDATE byod_import_jobs SET status = 'completed', stage = 'finished', updated_at = NOW() WHERE id = $1",

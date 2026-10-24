@@ -89,7 +89,7 @@ async function job(zid: number, csv: string) {
   return { zid, jobId, s3Key, email: "" };
 }
 
-describe("imports refuse existing data and preserve live votes", () => {
+describe("vote imports refuse existing data and preserve live votes", () => {
   let server: http.Server;
   let owner: Agent;
   beforeAll(async () => {
@@ -136,27 +136,22 @@ describe("imports refuse existing data and preserve live votes", () => {
       });
     return { conversationId, zid, originalId };
   }
-  async function refuseRoutes(c: Awaited<ReturnType<typeof conversation>>) {
+  async function refuseVotesImport(
+    c: Awaited<ReturnType<typeof conversation>>
+  ) {
     const before = await snapshot(c.zid);
     const send = jest.spyOn(S3Client.prototype, "send");
     const queue = jest.spyOn(sqsClient, "send").mockResolvedValue({} as never);
-    for (const route of ["comments", "votes"]) {
-      const response = await owner
-        .post(`/api/v3/${route}-bulk`)
-        .send({
-          conversation_id: c.conversationId,
-          csv:
-            route === "votes"
-              ? votesCsv(c.originalId)
-              : `comment_text,original_id\nAnother statement,${randomUUID()}`,
-        });
-      expect(response.status).toBe(409);
-      expect(response.body).toMatchObject({
-        error: IMPORT_TARGET_NOT_EMPTY,
-        code: IMPORT_TARGET_NOT_EMPTY,
-        message: IMPORT_TARGET_MESSAGE,
-      });
-    }
+    const response = await owner.post("/api/v3/votes-bulk").send({
+      conversation_id: c.conversationId,
+      csv: votesCsv(c.originalId),
+    });
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({
+      error: IMPORT_TARGET_NOT_EMPTY,
+      code: IMPORT_TARGET_NOT_EMPTY,
+      message: IMPORT_TARGET_MESSAGE,
+    });
     expect(send).not.toHaveBeenCalled();
     expect(queue).not.toHaveBeenCalled();
     expect(await snapshot(c.zid)).toEqual(before);
@@ -212,21 +207,56 @@ describe("imports refuse existing data and preserve live votes", () => {
           await new Promise<void>((resolve) => setImmediate(resolve));
         }
       }
-      await refuseRoutes(c);
+      await refuseVotesImport(c);
     }
   );
-  test("comments-bulk refuses owner comments, including a repeated comments phase", async () => {
-    const c = await conversation();
-    const before = await snapshot(c.zid);
-    const r = await owner
-      .post("/api/v3/comments-bulk")
-      .send({
+  test.each(["comments only", "owner vote", "other participant"])(
+    "a second comments upload succeeds with %s and preserves existing rows",
+    async (kind) => {
+      const c = await conversation();
+      if (kind === "owner vote")
+        await post(owner, "/api/v3/votes", {
+          conversation_id: c.conversationId,
+          tid: 0,
+          vote: semanticToWire("agree"),
+        });
+      if (kind === "other participant")
+        await post(request.agent(server), "/api/v3/votes", {
+          conversation_id: c.conversationId,
+          tid: 0,
+          vote: semanticToWire("pass"),
+        });
+      const before = await snapshot(c.zid);
+      const originalId = randomUUID();
+      const response = await post(owner, "/api/v3/comments-bulk", {
         conversation_id: c.conversationId,
-        csv: `comment_text,original_id\nAnother,${randomUUID()}`,
+        is_seed: true,
+        csv: `comment_text,original_id\nAnother statement,${originalId}\nA statement for import,${c.originalId}`,
       });
-    expect(r.status).toBe(409);
-    expect(await snapshot(c.zid)).toEqual(before);
-  });
+      expect(response.body.results).toEqual([
+        {
+          txt: "Another statement",
+          original_id: originalId,
+          tid: 1,
+          status: "success",
+        },
+        {
+          txt: "A statement for import",
+          original_id: c.originalId,
+          status: "skipped",
+          reason: "polis_err_post_comment_duplicate",
+        },
+      ]);
+      const after = await snapshot(c.zid);
+      expect(after.comments).toEqual(
+        expect.arrayContaining(before.comments as unknown[])
+      );
+      expect(after.comments).toHaveLength(2);
+      expect(after.votes).toEqual(before.votes);
+      expect(after.votes_latest_unique).toEqual(before.votes_latest_unique);
+      expect(after.participants_extended).toEqual(before.participants_extended);
+    }
+  );
 
   // The previous stale-snapshot diagnostic used these three live operations in
   // both orders. Admission now rejects its non-empty starting state, and the
@@ -474,27 +504,34 @@ describe("imports refuse existing data and preserve live votes", () => {
       ).rows[0].n
     ).toBe(1);
   });
-  test("two competing comment uploads never merge", async () => {
-    const c = await conversation(false);
+  test("two comments uploads can both add statements to an existing conversation", async () => {
+    const c = await conversation();
     const outcomes = await Promise.all(
       ["First", "Second"].map((txt) =>
-        owner
-          .post("/api/v3/comments-bulk")
-          .send({
-            conversation_id: c.conversationId,
-            csv: `comment_text,original_id\n${txt},${randomUUID()}`,
-          })
+        owner.post("/api/v3/comments-bulk").send({
+          conversation_id: c.conversationId,
+          csv: `comment_text,original_id\n${txt},${randomUUID()}`,
+        })
       )
     );
-    expect(outcomes.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(outcomes.map((r) => r.status)).toEqual([200, 200]);
+    for (const response of outcomes)
+      expect(response.body.results).toEqual([
+        expect.objectContaining({ status: "success" }),
+      ]);
     expect(
       (
-        await pool.query(
-          "SELECT count(*)::int AS n FROM comments WHERE zid=$1",
-          [c.zid]
-        )
-      ).rows[0].n
-    ).toBe(1);
+        await pool.query("SELECT txt FROM comments WHERE zid=$1 ORDER BY tid", [
+          c.zid,
+        ])
+      ).rows
+    ).toEqual(
+      expect.arrayContaining([
+        { txt: "A statement for import" },
+        { txt: "First" },
+        { txt: "Second" },
+      ])
+    );
   });
   test("older input in a later batch never moves latest backwards", async () => {
     const c = await conversation();

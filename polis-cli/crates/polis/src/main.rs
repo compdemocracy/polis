@@ -595,8 +595,7 @@ fn execute(root: &ArgMatches, config: &mut profiles::Config, site: &str) -> Resu
                     }
                     data
                 })
-                .map_err(|error| {
-                    let mut error = seeds::import_error(error);
+                .map_err(|mut error| {
                     if create_new {
                         error.message = format!(
                             "{} Created conversation: {}. Read it back before retrying.",

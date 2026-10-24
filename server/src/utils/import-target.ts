@@ -12,21 +12,19 @@ export class ImportTargetNotEmptyError extends Error {
   }
 }
 
-// Admission reads the primary. Owner membership alone is allowed; even deleted
-// comments and historical votes count as data. The votes phase can follow the
-// owner's comments phase, but never an earlier (even partially written) vote job.
+// Vote-import admission reads the primary. Comments and owner membership are
+// allowed. Historical votes or non-owner participants refuse the vote import,
+// including a retry of a partially written job.
 export async function assertImportTargetEmpty(
   zid: number,
-  phase: "comments" | "votes",
   client?: PoolClient
 ): Promise<void> {
   const sql = `SELECT
     EXISTS (SELECT 1 FROM votes WHERE zid = $1) OR
     EXISTS (SELECT 1 FROM votes_latest_unique WHERE zid = $1) OR
     EXISTS (SELECT 1 FROM participants p JOIN conversations c USING (zid)
-            WHERE p.zid = $1 AND p.uid IS DISTINCT FROM c.owner) OR
-    ($2::boolean AND EXISTS (SELECT 1 FROM comments WHERE zid = $1)) AS occupied`;
-  const params = [zid, phase === "comments"];
+            WHERE p.zid = $1 AND p.uid IS DISTINCT FROM c.owner) AS occupied`;
+  const params = [zid];
   const rows = client
     ? (await client.query(sql, params)).rows
     : ((await pg.queryP(sql, params)) as { occupied: boolean }[]);
