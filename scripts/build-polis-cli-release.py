@@ -10,7 +10,6 @@ from pathlib import Path
 import re
 import subprocess
 import tarfile
-import tomllib
 import importlib.util
 
 _IDENTITY_SPEC = importlib.util.spec_from_file_location("build_identity", Path(__file__).with_name("build_identity.py"))
@@ -101,8 +100,8 @@ def package(outdir, binary, version, commit, target, source, compiler, lock, lic
 
 
 def check_tag(tag, version):
-    if not re.fullmatch(r"cli-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag) or tag != f"cli-v{version}":
-        raise ValueError("Release tag must be cli-v followed by the exact stable workspace version.")
+    if not re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag) or tag != f"v{version}":
+        raise ValueError("Release tag must be v followed by the exact root VERSION.")
 
 
 def main():
@@ -115,9 +114,9 @@ def main():
     args = parser.parse_args()
     try:
         if args.check_tag is not None:
-            version = tomllib.loads((ROOT / "polis-cli/Cargo.toml").read_text())["workspace"]["package"]["version"]
+            version = (ROOT / "VERSION").read_text().strip()
             check_tag(args.check_tag, version)
-            print("Release tag matches workspace version.")
+            print("Release tag matches root VERSION.")
             return
         if args.target is None or args.output is None:
             raise ValueError("Building requires --target and --output.")
@@ -125,7 +124,7 @@ def main():
         workspace = ROOT / "polis-cli"
         compiler = output(["rustc", "-vV"], workspace)
         native_target(compiler, args.target)
-        version = tomllib.loads((workspace / "Cargo.toml").read_text())["workspace"]["package"]["version"]
+        version = (ROOT / "VERSION").read_text().strip()
         env = dict(os.environ, POLIS_BUILD_COMMIT=commit, POLIS_BUILD_SOURCE=source)
         # Use Cargo's actual target directory (including CARGO_TARGET_DIR overrides).
         metadata = json.loads(output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], workspace, env))
