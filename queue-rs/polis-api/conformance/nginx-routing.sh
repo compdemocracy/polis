@@ -1384,3 +1384,19 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /perfStats_9182738127 node "metrics handoff"
 echo "ok metrics unavailable hands back to Node"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect_upstream server POST /api/v3/query_participants_by_metadata $'Content-Length: 2\r\n' '{}'
+start metadataQuery,metadataQuery
+expect_upstream polis-api POST /api/v3/query_participants_by_metadata $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/query_participants_by_metadata
+expect_upstream server OPTIONS /api/v3/query_participants_by_metadata
+expect /api/v3/nextComment node "metadata query leaves participation alone"
+[[ $(included | grep -c 'location = /api/v3/query_participants_by_metadata') == 1 ]] || fail "metadata query duplicated"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect_upstream server POST /api/v3/query_participants_by_metadata $'Content-Length: 2\r\n' '{}'
+echo "ok metadata query off/on/deduplicated, POST read admission, fallback"

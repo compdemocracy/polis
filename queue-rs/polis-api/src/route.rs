@@ -60,6 +60,10 @@ pub struct App {
     pub metadata_read_auth_db: Option<Arc<Pool>>,
     pub metadata_read_served: AtomicU64,
     pub metadata_read_fallback: AtomicU64,
+    pub metadata_query_db: Option<Arc<Pool>>,
+    pub metadata_query_auth_db: Option<Arc<Pool>>,
+    pub metadata_query_served: AtomicU64,
+    pub metadata_query_fallback: AtomicU64,
     pub metadata_choices_db: Option<Arc<Pool>>,
     pub metadata_choices_auth_db: Option<Arc<Pool>>,
     pub metadata_choices_served: AtomicU64,
@@ -273,6 +277,10 @@ impl App {
             metadata_read_auth_db: None,
             metadata_read_served: AtomicU64::new(0),
             metadata_read_fallback: AtomicU64::new(0),
+            metadata_query_db: None,
+            metadata_query_auth_db: None,
+            metadata_query_served: AtomicU64::new(0),
+            metadata_query_fallback: AtomicU64::new(0),
             metadata_choices_db: None,
             metadata_choices_auth_db: None,
             metadata_choices_served: AtomicU64::new(0),
@@ -1061,6 +1069,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.metadata_read_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::metadata_query::PATH {
+        if out.status == 502 {
+            app.metadata_query_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_query_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::metadata_choices::PATH {
         if out.status == 502 {
             app.metadata_choices_fallback
@@ -1588,6 +1603,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::metadata_query::PATH && crate::metadata_query::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::metadata_read::PATH && crate::metadata_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1748,6 +1767,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         let mut res = res;
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
+    }
+    if req.path() == crate::metadata_query::PATH {
+        return crate::metadata_query::handle(app, req, res).await;
     }
     if req.method != "GET" && req.method != "HEAD" {
         return final_handler(app, req, res, None, true);
@@ -3886,6 +3908,53 @@ mod tests {
         }
         assert_eq!(state.recent_activity_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.recent_activity_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn metadata_query_is_off_and_noncanonical_posts_hand_back() {
+        let mut state = app(true);
+        let make = |body: &str, method: &str| {
+            let len = body.len().to_string();
+            let mut req = request(
+                method,
+                &[
+                    ("host", "localhost"),
+                    ("authorization", "Bearer fixture"),
+                    ("content-type", "application/json"),
+                    ("content-length", &len),
+                ],
+            );
+            req.target = crate::metadata_query::PATH.into();
+            req.body = body.as_bytes().to_vec();
+            req
+        };
+        let canonical = r#"{"conversation_id":"fixture","pmaids":[]}"#;
+        assert_eq!(
+            handle(state.clone(), make(canonical, "POST")).await.status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_query_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_query_auth_db = Some(pool);
+        assert!(crate::metadata_query::parse(&state, &make(canonical, "POST")).is_some());
+        for (body, method) in [
+            (canonical, "GET"),
+            (canonical, "OPTIONS"),
+            (r#"{"conversation_id":"fixture","pmaids":"1,2"}"#, "POST"),
+            (r#"{"conversation_id":"fixture","pmaids":[1.5]}"#, "POST"),
+            (
+                r#"{"conversation_id":"fixture","pmaids":[],"pmaids":[1]}"#,
+                "POST",
+            ),
+        ] {
+            assert!(crate::metadata_query::parse(&state, &make(body, method)).is_none());
+            assert_eq!(handle(state.clone(), make(body, method)).await.status, 502);
+        }
+        assert_eq!(
+            handle(state.clone(), make(canonical, "POST")).await.status,
+            502
+        );
+        assert_eq!(state.metadata_query_served.load(Ordering::Relaxed), 0);
     }
 
     #[tokio::test]

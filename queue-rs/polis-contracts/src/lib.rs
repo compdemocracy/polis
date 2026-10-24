@@ -27,6 +27,7 @@ pub mod legacy_conversations;
 pub mod legacy_pca;
 pub mod metadata_answers;
 pub mod metadata_choices;
+pub mod metadata_query;
 pub mod metadata_questions;
 pub mod metadata_read;
 pub mod ops_catchall;
