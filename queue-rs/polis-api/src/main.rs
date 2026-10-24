@@ -88,6 +88,7 @@ mod schema;
 mod settings_page;
 mod statement_importance;
 mod topic_prioritize;
+mod topic_selection_writes;
 mod topic_selections;
 mod topic_stats;
 mod treevite_csv;
@@ -790,6 +791,7 @@ async fn main() -> Result<()> {
         state.next_comment_plain =
             std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0");
     }
+    state.topic_selection_writer = topic_selection_writes::Writer::from_env()?;
     if std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1") {
         let path = std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")
             .context("participant public key file required")?;

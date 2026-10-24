@@ -280,6 +280,7 @@ struct Head {
     body_len: usize,
     http10: bool,
     close: bool,
+    hand_back: bool,
 }
 
 fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
@@ -298,20 +299,31 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         .filter(|(k, _)| k.eq_ignore_ascii_case("content-length"))
         .map(|(_, v)| *v)
         .collect();
-    if raw
+    let transfer_encoded = raw
         .iter()
-        .any(|(k, _)| k.eq_ignore_ascii_case("transfer-encoding"))
-    {
+        .any(|(k, _)| k.eq_ignore_ascii_case("transfer-encoding"));
+    let write_path = matches!(req.method, Some("POST" | "PUT" | "DELETE"))
+        && req.path.is_some_and(|p| {
+            p.split('?')
+                .next()
+                .is_some_and(|path| path == crate::topic_selections::PATH)
+        });
+    let mut hand_back = transfer_encoded && write_path;
+    if transfer_encoded && !hand_back {
         bail!("chunked request bodies are not accepted");
     }
-    if lengths.len() > 1 && lengths.windows(2).any(|w| w[0].trim() != w[1].trim()) {
+    if !hand_back && lengths.len() > 1 && lengths.windows(2).any(|w| w[0].trim() != w[1].trim()) {
         bail!("conflicting Content-Length");
     }
-    let body_len = match lengths.first() {
+    let mut body_len = match lengths.first().filter(|_| !hand_back) {
         Some(v) => v.trim().parse::<usize>()?,
         None => 0,
     };
-    if len + body_len > LIMIT {
+    if write_path && body_len > crate::topic_selection_writes::MAX_BODY_BYTES {
+        hand_back = true;
+        body_len = 0;
+    }
+    if len > LIMIT || body_len > LIMIT.saturating_sub(len) {
         bail!("request over limit");
     }
     let http10 = req.version == Some(0);
@@ -334,6 +346,7 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         body_len,
         http10,
         close,
+        hand_back,
     }))
 }
 
@@ -401,6 +414,16 @@ where
             }
         };
         let deadline = started.unwrap_or_else(Instant::now) + REQUEST_DEADLINE;
+        if head.hand_back {
+            // No body is decoded or dispatched. Close so unread body bytes can
+            // never be interpreted as another request on this connection.
+            let mut response = crate::route::bad_gateway();
+            response.close = true;
+            let bytes = write_response_for(&response, false, false, head.http10, &date_now())?;
+            tokio::time::timeout_at(deadline, socket.write_all(&bytes)).await??;
+            socket.shutdown().await.ok();
+            return Ok(());
+        }
         while input.len() < head.len + head.body_len {
             let read = match tokio::time::timeout_at(deadline, socket.read(&mut buf)).await {
                 Ok(r) => r?,
@@ -551,6 +574,39 @@ mod tests {
             String::from_utf8(write_response(&refusal, false, false, "D").unwrap()).unwrap(),
             "HTTP/1.1 400 Bad Request\r\nConnection: close\r\nDate: D\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
         );
+    }
+
+    #[test]
+    fn selection_write_framing_hands_back_without_body_dispatch() {
+        for method in ["POST", "PUT", "DELETE"] {
+            for suffix in ["", "?conversation_id=generated"] {
+                let path = format!("{}{suffix}", crate::topic_selections::PATH);
+                for size in [65537, LIMIT + 1, usize::MAX] {
+                    let head=parse_head(format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {size}\r\n\r\n").as_bytes()).unwrap().unwrap();
+                    assert!(head.hand_back);
+                    assert_eq!(head.body_len, 0);
+                }
+                let head = parse_head(
+                    format!("{method} {path} HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n")
+                        .as_bytes(),
+                )
+                .unwrap()
+                .unwrap();
+                assert!(head.hand_back);
+                assert_eq!(head.body_len, 0);
+            }
+        }
+        let head = parse_head(
+            format!(
+                "POST {} HTTP/1.1\r\nContent-Length: 65536\r\n\r\n",
+                crate::topic_selections::PATH
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!head.hand_back);
+        assert_eq!(head.body_len, 65536);
     }
 
     #[test]
