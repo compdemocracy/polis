@@ -280,6 +280,7 @@ struct Head {
     body_len: usize,
     http10: bool,
     close: bool,
+    hand_back: bool,
 }
 
 fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
@@ -298,20 +299,29 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         .filter(|(k, _)| k.eq_ignore_ascii_case("content-length"))
         .map(|(_, v)| *v)
         .collect();
-    if raw
+    let transfer_encoded = raw
         .iter()
-        .any(|(k, _)| k.eq_ignore_ascii_case("transfer-encoding"))
-    {
+        .any(|(k, _)| k.eq_ignore_ascii_case("transfer-encoding"));
+    let comment_path = req.method == Some("POST")
+        && req
+            .path
+            .is_some_and(|p| p.split('?').next() == Some(crate::post_comments::PATH));
+    let mut hand_back = transfer_encoded && comment_path;
+    if transfer_encoded && !hand_back {
         bail!("chunked request bodies are not accepted");
     }
-    if lengths.len() > 1 && lengths.windows(2).any(|w| w[0].trim() != w[1].trim()) {
+    if !hand_back && lengths.len() > 1 && lengths.windows(2).any(|w| w[0].trim() != w[1].trim()) {
         bail!("conflicting Content-Length");
     }
-    let body_len = match lengths.first() {
+    let mut body_len = match lengths.first().filter(|_| !hand_back) {
         Some(v) => v.trim().parse::<usize>()?,
         None => 0,
     };
-    if len + body_len > LIMIT {
+    if comment_path && body_len > crate::post_comments::MAX_BODY_BYTES {
+        hand_back = true;
+        body_len = 0;
+    }
+    if len > LIMIT || body_len > LIMIT.saturating_sub(len) {
         bail!("request over limit");
     }
     let http10 = req.version == Some(0);
@@ -334,6 +344,7 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         body_len,
         http10,
         close,
+        hand_back,
     }))
 }
 
@@ -401,6 +412,16 @@ where
             }
         };
         let deadline = started.unwrap_or_else(Instant::now) + REQUEST_DEADLINE;
+        if head.hand_back {
+            // No body is decoded or dispatched. Close so unread body bytes can
+            // never be interpreted as another request on this connection.
+            let mut response = crate::route::bad_gateway();
+            response.close = true;
+            let bytes = write_response_for(&response, false, false, head.http10, &date_now())?;
+            tokio::time::timeout_at(deadline, socket.write_all(&bytes)).await??;
+            socket.shutdown().await.ok();
+            return Ok(());
+        }
         while input.len() < head.len + head.body_len {
             let read = match tokio::time::timeout_at(deadline, socket.read(&mut buf)).await {
                 Ok(r) => r?,
@@ -454,6 +475,94 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn oversized_fixed_length_comments_hand_back_without_dispatch_or_body() {
+        for suffix in ["", "?unsupported=true"] {
+            for length in [
+                crate::post_comments::MAX_BODY_BYTES + 1,
+                LIMIT + 1,
+                usize::MAX,
+            ] {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let server = tokio::spawn(async move {
+                    let (socket, _) = listener.accept().await.unwrap();
+                    connection(
+                        socket,
+                        Arc::new(|_| async {
+                            panic!("oversized comment must never be dispatched")
+                        }),
+                    )
+                    .await
+                    .unwrap();
+                });
+                let mut client = TcpStream::connect(address).await.unwrap();
+                client.write_all(format!("POST /api/v3/comments{suffix} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {length}\r\n\r\n").as_bytes()).await.unwrap();
+                let mut response = Vec::new();
+                tokio::time::timeout(Duration::from_secs(1), client.read_to_end(&mut response))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let response = String::from_utf8(response).unwrap();
+                assert!(
+                    response.starts_with("HTTP/1.1 502 Bad Gateway\r\n"),
+                    "{response}"
+                );
+                assert!(response.contains("Connection: close\r\n"));
+                server.await.unwrap();
+            }
+        }
+        // Other routes retain the general limit, including overflow-safe rejection.
+        for length in [LIMIT + 1, usize::MAX] {
+            assert!(parse_head(format!("POST /other HTTP/1.1\r\nHost: localhost\r\nContent-Length: {length}\r\n\r\n").as_bytes()).is_err());
+        }
+        let head = parse_head(
+            format!(
+                "POST /api/v3/comments HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n",
+                crate::post_comments::MAX_BODY_BYTES
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!head.hand_back);
+        assert_eq!(head.body_len, crate::post_comments::MAX_BODY_BYTES);
+    }
+
+    #[tokio::test]
+    async fn chunked_comments_hand_back_before_dispatch_and_close() {
+        for suffix in ["", "?unsupported=true"] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (socket, _) = listener.accept().await.unwrap();
+                connection(
+                    socket,
+                    Arc::new(|_| async {
+                        panic!("transfer-encoded comment must never reach the handler")
+                    }),
+                )
+                .await
+                .unwrap();
+            });
+            let mut client = TcpStream::connect(address).await.unwrap();
+            // Send only the head: hand-back must not wait for unknown framing.
+            client.write_all(format!("POST /api/v3/comments{suffix} HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n").as_bytes()).await.unwrap();
+            let mut response = Vec::new();
+            tokio::time::timeout(Duration::from_secs(1), client.read_to_end(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            let response = String::from_utf8(response).unwrap();
+            assert!(
+                response.starts_with("HTTP/1.1 502 Bad Gateway\r\n"),
+                "{response}"
+            );
+            assert!(response.contains("Connection: close\r\n"));
+            server.await.unwrap();
+        }
+    }
 
     #[test]
     fn dates_print_like_to_utc_string() {

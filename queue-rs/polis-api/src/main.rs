@@ -11,6 +11,17 @@ mod bid_to_pid;
 mod clock;
 mod collective_statement;
 mod comments;
+mod post_comments;
+// These unchanged contract modules target edition 2021, where let chains are
+// unavailable. Preserve their syntax when compiling inside this edition 2024 crate.
+#[allow(dead_code, clippy::collapsible_if)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/post_comments.rs"]
+mod post_comments_contract;
+#[allow(dead_code, clippy::collapsible_if)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/post_votes.rs"]
+mod post_votes;
 mod compress;
 mod config;
 mod connection;
@@ -637,6 +648,7 @@ async fn main() -> Result<()> {
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
+    state.post_comments = post_comments::Writer::from_env()?;
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")

@@ -156,6 +156,11 @@ jobs:
         env:
           POLIS_API_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
         run: cargo test --locked -p polis-api --features db-tests
+      - name: POST comments recorded responses and pre-write handoffs
+        env:
+          POLIS_API_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
+          DOMAIN_OVERRIDE: localhost
+        run: cargo test --locked -p polis-api --features db-tests,fixture-clock post_comments::tests::replay -- --nocapture
       - name: Release build
         run: cargo build --locked --release -p polis-api
       - name: Docker image
