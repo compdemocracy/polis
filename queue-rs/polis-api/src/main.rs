@@ -15,6 +15,7 @@ mod compress;
 mod config;
 mod connection;
 mod contexts;
+mod conversation_pages;
 mod conversation_preload;
 mod conversation_stats;
 mod cors;
@@ -49,15 +50,19 @@ mod integrate_page;
 mod js;
 mod legacy_conversations;
 mod legacy_pca;
+mod link_pages;
 mod lru;
 mod metadata_answers;
 #[allow(dead_code)]
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/votes.rs"]
 mod votes;
+mod math_bundle;
+mod math_membership;
 mod metadata_choices;
 mod metadata_questions;
 mod metadata_read;
+mod my_invites_csv;
 mod negotiate;
 mod next_comment;
 mod ops_catchall;
@@ -66,8 +71,10 @@ mod ops_whoami;
 mod other_conversations_page;
 mod owner;
 mod params;
+mod participants_read;
 mod participation_read;
 mod pca;
+mod ptptois;
 mod recent_activity;
 mod recent_started;
 mod reports_read;
@@ -78,7 +85,6 @@ mod votes_read;
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/schema.rs"]
 mod schema;
-mod mark_writes;
 mod settings_page;
 mod statement_importance;
 mod topic_prioritize;
@@ -108,6 +114,25 @@ use std::sync::{Arc, atomic::Ordering};
 async fn health(app: &route::App) -> Outgoing {
     let reachable = app.db.ping().await;
     let mut body = js::Obj::new();
+    for (i, name) in [
+        "conversationPage",
+        "explorePage",
+        "sharePage",
+        "summaryPage",
+        "oneTimePage",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        body.set(
+            &format!("{name}Served"),
+            js::Js::Num(app.conversation_page_served[i].load(Ordering::Relaxed) as f64),
+        );
+        body.set(
+            &format!("{name}Fallback"),
+            js::Js::Num(app.conversation_page_fallback[i].load(Ordering::Relaxed) as f64),
+        );
+    }
     body.set(
         "status",
         js::Js::Str(if reachable { "ok" } else { "degraded" }.into()),
@@ -271,6 +296,54 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
+    );
+    for (name, counter) in [
+        ("iipServed", &app.iip_served),
+        ("iipFallback", &app.iip_fallback),
+        ("iimServed", &app.iim_served),
+        ("iimFallback", &app.iim_fallback),
+    ] {
+        body.set(name, js::Js::Num(counter.load(Ordering::Relaxed) as f64));
+    }
+    body.set(
+        "participantsReadServed",
+        js::Js::Num(app.participants_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participantsReadFallback",
+        js::Js::Num(app.participants_read_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "ptptoisServed",
+        js::Js::Num(app.ptptois_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "ptptoisFallback",
+        js::Js::Num(app.ptptois_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "myInvitesCsvServed",
+        js::Js::Num(app.my_invites_csv_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "myInvitesCsvFallback",
+        js::Js::Num(app.my_invites_csv_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "bidServed",
+        js::Js::Num(app.bid_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "bidFallback",
+        js::Js::Num(app.bid_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "locationsServed",
+        js::Js::Num(app.locations_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "locationsFallback",
+        js::Js::Num(app.locations_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "votesReadServed",
@@ -594,6 +667,11 @@ async fn dispatch_at_clock(
         | domain_whitelist::PATH
         | metadata_questions::PATH
         | treevite_waves::PATH
+        | math_membership::BID_PATH
+        | math_membership::LOCATIONS_PATH
+        | participants_read::PATH
+        | ptptois::PATH
+        | my_invites_csv::PATH
         | participation_read::PATH
         | treevite_csv::PATH
         | treevite_invites::PATH
@@ -615,6 +693,8 @@ async fn dispatch_at_clock(
         | votes_read::PATH
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if conversation_pages::matches(path) => route::handle(app, req).await,
+        path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
@@ -639,6 +719,30 @@ async fn main() -> Result<()> {
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
+    for (i, switch) in [
+        "POLIS_API_CONVERSATION_PAGE_READS",
+        "POLIS_API_EXPLORE_PAGE_READS",
+        "POLIS_API_SHARE_PAGE_READS",
+        "POLIS_API_SUMMARY_PAGE_READS",
+        "POLIS_API_ONE_TIME_PAGE_READS",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if std::env::var(switch).ok().as_deref() == Some("1") {
+            let dsn = std::env::var("POLIS_API_CONVERSATION_PAGES_DATABASE_URL")
+                .context("POLIS_API_CONVERSATION_PAGES_DATABASE_URL required")?;
+            let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .unwrap_or(dsn);
+            state.conversation_page_dbs[i] = Some(db::Pool::new(
+                config::connector_for_dsn(&read_dsn, "polis-api-conversation-page/1")?,
+                conversation_pages::pool_limits(),
+            ));
+            state.conversation_pages[i] = conversation_pages::Client::from_env_for(switch).await?;
+        }
+    }
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")
@@ -688,7 +792,6 @@ async fn main() -> Result<()> {
             std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0");
     }
     state.topic_selection_writer = topic_selection_writes::Writer::from_env()?;
-    state.mark_writer = mark_writes::Writer::from_env()?;
     if std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1") {
         let path = std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")
             .context("participant public key file required")?;
@@ -1038,6 +1141,115 @@ async fn main() -> Result<()> {
         state.metadata_answers_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-metadata-answers-auth/1")?,
             metadata_answers::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    for (switch, slot, name) in [
+        ("POLIS_API_IIP_READS", &mut state.iip_db, "polis-api-iip/1"),
+        ("POLIS_API_IIM_READS", &mut state.iim_db, "polis-api-iim/1"),
+    ] {
+        if std::env::var(switch).ok().as_deref() == Some("1") {
+            let dsn = std::env::var("POLIS_API_LINK_PAGES_DATABASE_URL")
+                .context("POLIS_API_LINK_PAGES_DATABASE_URL required")?;
+            *slot = Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, name)?,
+                link_pages::pool_limits(),
+            ));
+        }
+    }
+    if std::env::var("POLIS_API_PARTICIPANTS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_PARTICIPANTS_DATABASE_URL")
+            .context("POLIS_API_PARTICIPANTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.participants_read_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-participants/1")?,
+            participants_read::pool_limits(),
+        ));
+        state.participants_read_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-participants-auth/1")?,
+            participants_read::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_PTPTOIS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_PTPTOIS_DATABASE_URL")
+            .context("POLIS_API_PTPTOIS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.ptptois_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-ptptois/1")?,
+            ptptois::pool_limits(),
+        ));
+        state.ptptois_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-ptptois-auth/1")?,
+            ptptois::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        state.legacy_admin_uids = recent_started::admin_uids(
+            &std::env::var("ADMIN_UIDS").unwrap_or_else(|_| "[]".into()),
+        )?;
+    }
+    if std::env::var("POLIS_API_MY_INVITES_CSV_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_MY_INVITES_CSV_DATABASE_URL")
+            .context("POLIS_API_MY_INVITES_CSV_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.my_invites_csv_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-my-invites-csv/1")?,
+            my_invites_csv::pool_limits(),
+        ));
+        state.my_invites_csv_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-my-invites-csv-auth/1")?,
+            my_invites_csv::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_BID_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_BID_DATABASE_URL")
+            .context("POLIS_API_BID_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.bid_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-bid/1")?,
+            math_membership::pool_limits(),
+        ));
+        state.bid_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-bid-auth/1")?,
+            math_membership::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_LOCATIONS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_LOCATIONS_DATABASE_URL")
+            .context("POLIS_API_LOCATIONS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.locations_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-locations/1")?,
+            math_membership::pool_limits(),
+        ));
+        state.locations_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-locations-auth/1")?,
+            math_membership::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }

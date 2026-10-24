@@ -1,0 +1,37 @@
+[
+  {
+    "id": "absent/bid/anonymous",
+    "kind": "bid",
+    "body": "{}"
+  },
+  {
+    "id": "absent/locations/anonymous",
+    "kind": "locations",
+    "body": "[]"
+  },
+  {
+    "id": "zero/bid/anonymous",
+    "kind": "bid",
+    "body": "{\"bid\":42}"
+  },
+  {
+    "id": "zero/bid/admin",
+    "kind": "bid",
+    "body": "{\"bid\":99}"
+  },
+  {
+    "id": "zero/locations/anonymous",
+    "kind": "locations",
+    "body": "[{\"lat\":0,\"lng\":1e+21,\"n\":1}]"
+  },
+  {
+    "id": "gap/bid/anonymous",
+    "kind": "bid",
+    "body": "{\"bid\":-1}"
+  },
+  {
+    "id": "cache/expired/bid",
+    "kind": "bid",
+    "body": "{\"bid\":55}"
+  }
+]

@@ -1,0 +1,6 @@
+[
+  "[]",
+  "[{\"mod\":2,\"pid\":0,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/avatar\",\"x_name\":\"Name & 🙂\"},\"conversation_id\":\"2p027r61033\"}]",
+  "[{\"mod\":2,\"pid\":0,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/avatar\",\"x_name\":null},\"conversation_id\":\"2p027r61033\"}]",
+  "[{\"mod\":2,\"x_profile_image_url\":\"\",\"xid\":\"\",\"pid\":0,\"conversation_id\":\"2p027r61033\"}]"
+]

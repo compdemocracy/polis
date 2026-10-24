@@ -1,0 +1,613 @@
+[
+  {
+    "case": "concurrent-unique",
+    "responses": [
+      {
+        "caseId": "post-comments/concurrent-unique/0",
+        "case": "concurrent-unique/0",
+        "auth": "participant",
+        "request": {
+          "method": "POST",
+          "path": "/api/v3/comments",
+          "query": {},
+          "headers": {
+            "content-type": "application/json",
+            "x-forwarded-proto": "https",
+            "authorization": "$auth:participant"
+          },
+          "body": {
+            "conversation_id": "2p027generated",
+            "txt": "Generated concurrent-unique 0"
+          }
+        },
+        "response": {
+          "body": {
+            "currentPid": 2,
+            "tid": 87
+          },
+          "completed": true,
+          "headers": {
+            "access-control-allow-credentials": "true",
+            "access-control-allow-origin": "https://localhost",
+            "cache-control": "no-cache",
+            "content-type": "application/json; charset=utf-8"
+          },
+          "status": 200
+        },
+        "effects": {
+          "db": {
+            "pg:comments": {
+              "removed": [],
+              "added": [
+                {
+                  "active": true,
+                  "anon": false,
+                  "created": 1700000000000,
+                  "is_meta": false,
+                  "is_seed": false,
+                  "lang": null,
+                  "lang_confidence": null,
+                  "mod": 0,
+                  "modified": 1700000000000,
+                  "original_id": null,
+                  "pid": 2,
+                  "quote_src_url": null,
+                  "tid": 87,
+                  "tweet_id": null,
+                  "txt": "Generated concurrent-unique 0",
+                  "uid": 3,
+                  "velocity": 1,
+                  "zid": 1
+                },
+                {
+                  "active": true,
+                  "anon": false,
+                  "created": 1700000000000,
+                  "is_meta": false,
+                  "is_seed": false,
+                  "lang": null,
+                  "lang_confidence": null,
+                  "mod": 1,
+                  "modified": 1700000000000,
+                  "original_id": null,
+                  "pid": 0,
+                  "quote_src_url": null,
+                  "tid": 88,
+                  "tweet_id": null,
+                  "txt": "Generated concurrent-unique 1",
+                  "uid": 1,
+                  "velocity": 1,
+                  "zid": 1
+                }
+              ]
+            }
+          },
+          "files": {},
+          "outbound": [],
+          "participantCreated": 0,
+          "participants": [],
+          "jwtIssued": 0,
+          "jwts": [],
+          "jwtMinted": 0
+        },
+        "process": [],
+        "routeHits": [],
+        "oracle": {
+          "pass": true,
+          "failures": [],
+          "flag": null
+        },
+        "wireBody": "eyJ0aWQiOjg3LCJjdXJyZW50UGlkIjoyfQ==",
+        "orderedHeaders": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-jL9j2NdbWyRMAa4lKw13lA\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          }
+        ]
+      },
+      {
+        "caseId": "post-comments/concurrent-unique/1",
+        "case": "concurrent-unique/1",
+        "auth": "pid0",
+        "request": {
+          "method": "POST",
+          "path": "/api/v3/comments",
+          "query": {},
+          "headers": {
+            "content-type": "application/json",
+            "x-forwarded-proto": "https",
+            "authorization": "$auth:pid0"
+          },
+          "body": {
+            "conversation_id": "2p027generated",
+            "txt": "Generated concurrent-unique 1"
+          }
+        },
+        "response": {
+          "body": {
+            "currentPid": 0,
+            "tid": 88
+          },
+          "completed": true,
+          "headers": {
+            "access-control-allow-credentials": "true",
+            "access-control-allow-origin": "https://localhost",
+            "cache-control": "no-cache",
+            "content-type": "application/json; charset=utf-8"
+          },
+          "status": 200
+        },
+        "effects": {
+          "db": {
+            "pg:comments": {
+              "removed": [],
+              "added": [
+                {
+                  "active": true,
+                  "anon": false,
+                  "created": 1700000000000,
+                  "is_meta": false,
+                  "is_seed": false,
+                  "lang": null,
+                  "lang_confidence": null,
+                  "mod": 0,
+                  "modified": 1700000000000,
+                  "original_id": null,
+                  "pid": 2,
+                  "quote_src_url": null,
+                  "tid": 87,
+                  "tweet_id": null,
+                  "txt": "Generated concurrent-unique 0",
+                  "uid": 3,
+                  "velocity": 1,
+                  "zid": 1
+                },
+                {
+                  "active": true,
+                  "anon": false,
+                  "created": 1700000000000,
+                  "is_meta": false,
+                  "is_seed": false,
+                  "lang": null,
+                  "lang_confidence": null,
+                  "mod": 1,
+                  "modified": 1700000000000,
+                  "original_id": null,
+                  "pid": 0,
+                  "quote_src_url": null,
+                  "tid": 88,
+                  "tweet_id": null,
+                  "txt": "Generated concurrent-unique 1",
+                  "uid": 1,
+                  "velocity": 1,
+                  "zid": 1
+                }
+              ]
+            }
+          },
+          "files": {},
+          "outbound": [],
+          "participantCreated": 0,
+          "participants": [],
+          "jwtIssued": 0,
+          "jwts": [],
+          "jwtMinted": 0
+        },
+        "process": [],
+        "routeHits": [],
+        "oracle": {
+          "pass": true,
+          "failures": [],
+          "flag": null
+        },
+        "wireBody": "eyJ0aWQiOjg4LCJjdXJyZW50UGlkIjowfQ==",
+        "orderedHeaders": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-zYfKJcrLcDHuSiFutkDr0Q\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          }
+        ]
+      }
+    ],
+    "comments": [
+      {
+        "active": true,
+        "anon": false,
+        "created": 1700000000000,
+        "is_meta": false,
+        "is_seed": false,
+        "lang": null,
+        "lang_confidence": null,
+        "mod": 0,
+        "modified": 1700000000000,
+        "original_id": null,
+        "pid": 2,
+        "quote_src_url": null,
+        "tid": 87,
+        "tweet_id": null,
+        "txt": "Generated concurrent-unique 0",
+        "uid": 3,
+        "velocity": 1,
+        "zid": 1
+      },
+      {
+        "active": true,
+        "anon": false,
+        "created": 1700000000000,
+        "is_meta": false,
+        "is_seed": false,
+        "lang": null,
+        "lang_confidence": null,
+        "mod": 1,
+        "modified": 1700000000000,
+        "original_id": null,
+        "pid": 0,
+        "quote_src_url": null,
+        "tid": 88,
+        "tweet_id": null,
+        "txt": "Generated concurrent-unique 1",
+        "uid": 1,
+        "velocity": 1,
+        "zid": 1
+      }
+    ]
+  },
+  {
+    "case": "concurrent-duplicate",
+    "responses": [
+      {
+        "caseId": "post-comments/concurrent-duplicate/0",
+        "case": "concurrent-duplicate/0",
+        "auth": "participant",
+        "request": {
+          "method": "POST",
+          "path": "/api/v3/comments",
+          "query": {},
+          "headers": {
+            "content-type": "application/json",
+            "x-forwarded-proto": "https",
+            "authorization": "$auth:participant"
+          },
+          "body": {
+            "conversation_id": "2p027generated",
+            "txt": "Generated concurrent-duplicate 0"
+          }
+        },
+        "response": {
+          "body": {
+            "currentPid": 2,
+            "tid": 89
+          },
+          "completed": true,
+          "headers": {
+            "access-control-allow-credentials": "true",
+            "access-control-allow-origin": "https://localhost",
+            "cache-control": "no-cache",
+            "content-type": "application/json; charset=utf-8"
+          },
+          "status": 200
+        },
+        "effects": {
+          "db": {
+            "pg:comments": {
+              "removed": [],
+              "added": [
+                {
+                  "active": true,
+                  "anon": false,
+                  "created": 1700000000000,
+                  "is_meta": false,
+                  "is_seed": false,
+                  "lang": null,
+                  "lang_confidence": null,
+                  "mod": 0,
+                  "modified": 1700000000000,
+                  "original_id": null,
+                  "pid": 2,
+                  "quote_src_url": null,
+                  "tid": 89,
+                  "tweet_id": null,
+                  "txt": "Generated concurrent-duplicate 0",
+                  "uid": 3,
+                  "velocity": 1,
+                  "zid": 1
+                }
+              ]
+            }
+          },
+          "files": {},
+          "outbound": [],
+          "participantCreated": 0,
+          "participants": [],
+          "jwtIssued": 0,
+          "jwts": [],
+          "jwtMinted": 0
+        },
+        "process": [],
+        "routeHits": [],
+        "oracle": {
+          "pass": true,
+          "failures": [],
+          "flag": null
+        },
+        "wireBody": "eyJ0aWQiOjg5LCJjdXJyZW50UGlkIjoyfQ==",
+        "orderedHeaders": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "25",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"19-ay4RZp2UDR92/ssjWUQ5Bw\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          }
+        ]
+      },
+      {
+        "caseId": "post-comments/concurrent-duplicate/1",
+        "case": "concurrent-duplicate/1",
+        "auth": "pid0",
+        "request": {
+          "method": "POST",
+          "path": "/api/v3/comments",
+          "query": {},
+          "headers": {
+            "content-type": "application/json",
+            "x-forwarded-proto": "https",
+            "authorization": "$auth:pid0"
+          },
+          "body": {
+            "conversation_id": "2p027generated",
+            "txt": "Generated concurrent-duplicate 0"
+          }
+        },
+        "response": {
+          "body": {
+            "error": "polis_err_post_comment_duplicate",
+            "message": "polis_err_post_comment_duplicate",
+            "status": 409
+          },
+          "completed": true,
+          "headers": {
+            "access-control-allow-credentials": "true",
+            "access-control-allow-origin": "https://localhost",
+            "cache-control": "no-cache",
+            "content-type": "application/json; charset=utf-8"
+          },
+          "status": 409
+        },
+        "effects": {
+          "db": {
+            "pg:comments": {
+              "removed": [],
+              "added": [
+                {
+                  "active": true,
+                  "anon": false,
+                  "created": 1700000000000,
+                  "is_meta": false,
+                  "is_seed": false,
+                  "lang": null,
+                  "lang_confidence": null,
+                  "mod": 0,
+                  "modified": 1700000000000,
+                  "original_id": null,
+                  "pid": 2,
+                  "quote_src_url": null,
+                  "tid": 89,
+                  "tweet_id": null,
+                  "txt": "Generated concurrent-duplicate 0",
+                  "uid": 3,
+                  "velocity": 1,
+                  "zid": 1
+                }
+              ]
+            }
+          },
+          "files": {},
+          "outbound": [],
+          "participantCreated": 0,
+          "participants": [],
+          "jwtIssued": 0,
+          "jwts": [],
+          "jwtMinted": 0
+        },
+        "process": [],
+        "routeHits": [],
+        "oracle": {
+          "pass": true,
+          "failures": [],
+          "flag": null
+        },
+        "wireBody": "eyJlcnJvciI6InBvbGlzX2Vycl9wb3N0X2NvbW1lbnRfZHVwbGljYXRlIiwibWVzc2FnZSI6InBvbGlzX2Vycl9wb3N0X2NvbW1lbnRfZHVwbGljYXRlIiwic3RhdHVzIjo0MDl9",
+        "orderedHeaders": [
+          {
+            "name": "Content-Type",
+            "value": "application/json; charset=utf-8",
+            "credential_ref": null
+          },
+          {
+            "name": "Cache-Control",
+            "value": "no-cache",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Origin",
+            "value": "https://localhost",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Credentials",
+            "value": "true",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Headers",
+            "value": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+            "credential_ref": null
+          },
+          {
+            "name": "Access-Control-Allow-Methods",
+            "value": "GET, PUT, POST, DELETE, OPTIONS",
+            "credential_ref": null
+          },
+          {
+            "name": "Content-Length",
+            "value": "102",
+            "credential_ref": null
+          },
+          {
+            "name": "ETag",
+            "value": "W/\"66-zCIjZ1CCaueCny6M7+PsGg\"",
+            "credential_ref": null
+          },
+          {
+            "name": "Vary",
+            "value": "Accept-Encoding",
+            "credential_ref": null
+          }
+        ]
+      }
+    ],
+    "comments": [
+      {
+        "active": true,
+        "anon": false,
+        "created": 1700000000000,
+        "is_meta": false,
+        "is_seed": false,
+        "lang": null,
+        "lang_confidence": null,
+        "mod": 0,
+        "modified": 1700000000000,
+        "original_id": null,
+        "pid": 2,
+        "quote_src_url": null,
+        "tid": 89,
+        "tweet_id": null,
+        "txt": "Generated concurrent-duplicate 0",
+        "uid": 3,
+        "velocity": 1,
+        "zid": 1
+      }
+    ]
+  }
+]

@@ -167,7 +167,7 @@ class Stack:
 
     def up(self):
         """Start every service; return the control port's generated tokens."""
-        self.dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server')
+        self.dc('up','-d','--pull','never','postgres','dynamodb','oidc-simulator','server','file-server')
         self.publish_keys()
         self.dc('up','-d','--pull','never','polis-api','proxy','gateway')
         self.ready();self.tokens=self.get('/tokens')

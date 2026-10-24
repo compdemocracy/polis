@@ -80,6 +80,33 @@ class RoutingContractTests(unittest.TestCase):
     def test_unknown_rust_only_contract_cannot_bypass_comparison(self):
         with self.assertRaises(KeyError):rust_only_checks({'contract':'unknown'}, {}, {})
 
+class PageComparisonTests(unittest.TestCase):
+    def fixture(self):
+        from pages import PAGES
+        return {route + ':' + kind: {'status':200, 'content_type':'text/html',
+                                    'body':b'' if kind == 'head' else b'<p>Generated</p>'}
+                for route in PAGES for kind in ['get', 'head', 'handoff']}
+
+    def test_page_body_status_and_type_changes_fail(self):
+        import copy
+        from pages import compare_pages
+        node = self.fixture()
+        self.assertTrue(all(row['equal'] for row in compare_pages(node, node)))
+        for field, value in [('body', b'<p>Changed</p>'), ('status', 302),
+                             ('content_type', 'application/json')]:
+            rust = copy.deepcopy(node)
+            rust['iip:get'][field] = value
+            failed = [row for row in compare_pages(node, rust) if not row['equal']]
+            self.assertEqual(failed, [{'scenario':'iip:get', 'equal':False,
+                                      'different_fields':[field]}])
+
+    def test_missing_page_case_cannot_pass(self):
+        from pages import compare_pages
+        node, rust = self.fixture(), self.fixture()
+        del rust['summaryPage:handoff']
+        with self.assertRaises(RuntimeError):
+            compare_pages(node, rust)
+
 if __name__=='__main__':unittest.main()
 
 

@@ -1,0 +1,170 @@
+{
+  "caseId": "post-comments/language-timeout",
+  "case": "language-timeout",
+  "auth": "participant",
+  "seed": "02ca39bada14",
+  "request": {
+    "method": "POST",
+    "path": "/api/v3/comments",
+    "query": {},
+    "headers": {
+      "content-type": "application/json",
+      "x-forwarded-proto": "https",
+      "authorization": "$auth:participant"
+    },
+    "body": {
+      "conversation_id": "2p027generated",
+      "txt": "Generated comment language-timeout"
+    }
+  },
+  "credentialBinding": {
+    "zid": 1,
+    "oidcSub": "anon:3"
+  },
+  "notificationPolicy": {
+    "template": "comment-moderation",
+    "conversationId": "2p027generated",
+    "pending": 46,
+    "count": 0,
+    "recipients": []
+  },
+  "version": 1,
+  "wire": {
+    "request": {
+      "method": "POST",
+      "target": {
+        "base64": "L2FwaS92My9jb21tZW50cw==",
+        "byte_length": 16,
+        "sha256": "687f88731c96cd6aff976b597ce4b0262de970d5c59a04734b83511d877bb783"
+      },
+      "headers": [
+        {
+          "name": "host",
+          "value": "localhost:5000",
+          "credential_ref": null
+        },
+        {
+          "name": "content-type",
+          "value": "application/json",
+          "credential_ref": null
+        },
+        {
+          "name": "x-forwarded-proto",
+          "value": "https",
+          "credential_ref": null
+        },
+        {
+          "name": "authorization",
+          "value": null,
+          "credential_ref": "$auth:participant"
+        },
+        {
+          "name": "Connection",
+          "value": "keep-alive",
+          "credential_ref": null
+        },
+        {
+          "name": "Transfer-Encoding",
+          "value": "chunked",
+          "credential_ref": null
+        }
+      ],
+      "body": [
+        {
+          "sequence": 0,
+          "at_ms": 0,
+          "bytes": {
+            "base64": "eyJjb252ZXJzYXRpb25faWQiOiIycDAyN2dlbmVyYXRlZCIsInR4dCI6IkdlbmVyYXRlZCBjb21tZW50IGxhbmd1YWdlLXRpbWVvdXQifQ==",
+            "byte_length": 79,
+            "sha256": "17ac8a409c4d3099f84a85617aa0eeda09f891966866933d21003d405fd73485"
+          }
+        }
+      ],
+      "encoding": "utf8"
+    },
+    "response": {
+      "status": null,
+      "headers": [],
+      "body": [],
+      "completed": false,
+      "termination": "deadline",
+      "first_byte_ms": null,
+      "last_byte_ms": 2003,
+      "process_alive_at_end": true
+    },
+    "encoding": "utf8"
+  },
+  "response": {
+    "body": "",
+    "completed": false,
+    "headers": {},
+    "status": null,
+    "ttfbMs": null,
+    "ttlbMs": 2003.0406430000003
+  },
+  "effects": {
+    "db": {
+      "pg:comments": {
+        "added": [
+          {
+            "active": true,
+            "anon": false,
+            "created": 1700000000000,
+            "is_meta": false,
+            "is_seed": false,
+            "lang": null,
+            "lang_confidence": null,
+            "mod": 0,
+            "modified": 1700000000000,
+            "original_id": null,
+            "pid": 2,
+            "quote_src_url": null,
+            "tid": 80,
+            "tweet_id": null,
+            "txt": "Generated comment language-timeout",
+            "uid": 3,
+            "velocity": 1,
+            "zid": 1
+          }
+        ],
+        "removed": []
+      }
+    },
+    "files": {},
+    "jwtIssued": 0,
+    "jwtMinted": 0,
+    "jwts": [],
+    "outbound": [],
+    "participantCreated": 0,
+    "participants": []
+  },
+  "process": [],
+  "oracle": {
+    "pass": false,
+    "failures": [
+      "response timing bound exceeded",
+      "completion deadline exceeded"
+    ],
+    "flag": null
+  },
+  "routeHits": [
+    1,
+    3,
+    44
+  ],
+  "commentProof": {
+    "commentsAdded": 1,
+    "votesAdded": 0,
+    "storedMeanings": [],
+    "fault": {
+      "armed": null,
+      "fired": 0,
+      "languageCalls": [
+        {
+          "text": "Generated comment language-timeout",
+          "mode": "timeout"
+        }
+      ]
+    }
+  }
+}

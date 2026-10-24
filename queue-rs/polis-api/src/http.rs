@@ -304,9 +304,9 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         .any(|(k, _)| k.eq_ignore_ascii_case("transfer-encoding"));
     let write_path = matches!(req.method, Some("POST" | "PUT" | "DELETE"))
         && req.path.is_some_and(|p| {
-            p.split('?').next().is_some_and(|path| {
-                path == crate::topic_selections::PATH || crate::mark_writes::matches(path)
-            })
+            p.split('?')
+                .next()
+                .is_some_and(|path| path == crate::topic_selections::PATH)
         });
     let mut hand_back = transfer_encoded && write_path;
     if transfer_encoded && !hand_back {
@@ -576,21 +576,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn mark_write_framing_hands_back_before_body_read() {
-        for path in ["/api/v3/stars", "/api/v3/trashes"] {
-            for header in [
-                "Content-Length: 65537",
-                "Content-Length: 18446744073709551615",
-                "Transfer-Encoding: chunked",
-            ] {
-                let raw = format!("POST {path} HTTP/1.1\r\nHost: localhost\r\n{header}\r\n\r\n");
-                let head = parse_head(raw.as_bytes()).unwrap().unwrap();
-                assert!(head.hand_back);
-                assert_eq!(head.body_len, 0);
-            }
-        }
-    }
     #[test]
     fn selection_write_framing_hands_back_without_body_dispatch() {
         for method in ["POST", "PUT", "DELETE"] {
