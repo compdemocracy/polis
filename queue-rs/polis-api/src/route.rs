@@ -92,6 +92,10 @@ pub struct App {
     pub metadata_read_auth_db: Option<Arc<Pool>>,
     pub metadata_read_served: AtomicU64,
     pub metadata_read_fallback: AtomicU64,
+    pub metadata_query_db: Option<Arc<Pool>>,
+    pub metadata_query_auth_db: Option<Arc<Pool>>,
+    pub metadata_query_served: AtomicU64,
+    pub metadata_query_fallback: AtomicU64,
     pub metadata_choices_db: Option<Arc<Pool>>,
     pub metadata_choices_auth_db: Option<Arc<Pool>>,
     pub metadata_choices_served: AtomicU64,
@@ -261,6 +265,15 @@ pub struct App {
     pub connection_reads: bool,
     pub connection_served: AtomicU64,
     pub connection_fallback: AtomicU64,
+    pub report_export_cache: Arc<crate::report_export::Cache>,
+    pub report_export_db: Option<Arc<Pool>>,
+    pub report_export_lookup_db: Option<Arc<Pool>>,
+    pub report_export_utc: bool,
+    pub report_export_served: AtomicU64,
+    pub report_export_fallback: AtomicU64,
+    pub perf_stats_reads: bool,
+    pub perf_stats_served: AtomicU64,
+    pub perf_stats_fallback: AtomicU64,
     pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
     pub participant_served: AtomicU64,
     pub participant_fallback: AtomicU64,
@@ -333,6 +346,10 @@ impl App {
             metadata_read_auth_db: None,
             metadata_read_served: AtomicU64::new(0),
             metadata_read_fallback: AtomicU64::new(0),
+            metadata_query_db: None,
+            metadata_query_auth_db: None,
+            metadata_query_served: AtomicU64::new(0),
+            metadata_query_fallback: AtomicU64::new(0),
             metadata_choices_db: None,
             metadata_choices_auth_db: None,
             metadata_choices_served: AtomicU64::new(0),
@@ -502,6 +519,15 @@ impl App {
             connection_reads: false,
             connection_served: AtomicU64::new(0),
             connection_fallback: AtomicU64::new(0),
+            report_export_cache: Arc::new(crate::report_export::Cache::new(cfg.cache_size)),
+            report_export_db: None,
+            report_export_lookup_db: None,
+            report_export_utc: false,
+            report_export_served: AtomicU64::new(0),
+            report_export_fallback: AtomicU64::new(0),
+            perf_stats_reads: false,
+            perf_stats_served: AtomicU64::new(0),
+            perf_stats_fallback: AtomicU64::new(0),
             participant_verifier: None,
             participant_served: AtomicU64::new(0),
             participant_fallback: AtomicU64::new(0),
@@ -828,6 +854,20 @@ pub(crate) fn admin_html(req: &Request, mut res: Res, chunks: Vec<Vec<u8>>) -> O
     res.set("Content-Type", "text/html");
     let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
     out.body = Body::Chunked(chunks);
+    out
+}
+
+/// Identity-encoded CSV writes retain individual Node write() chunks.
+pub(crate) fn report_csv_stream(
+    req: &Request,
+    mut res: Res,
+    chunks: Vec<String>,
+    header_name: &'static str,
+) -> Outgoing {
+    // Node spells this header differently in the vote and participant exports.
+    res.set(header_name, "text/csv");
+    let mut out = finish(req, res, Ending::WriteHeadThenEnd, true);
+    out.body = Body::Chunked(chunks.into_iter().map(String::into_bytes).collect());
     out
 }
 
@@ -1211,6 +1251,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.metadata_read_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::metadata_query::PATH {
+        if out.status == 502 {
+            app.metadata_query_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.metadata_query_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::metadata_choices::PATH {
         if out.status == 502 {
             app.metadata_choices_fallback
@@ -1551,6 +1598,20 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.connection_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if crate::report_export::matches(req.path()) {
+        if out.status == 502 {
+            app.report_export_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.report_export_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::perf_stats::PATH {
+        if out.status == 502 {
+            app.perf_stats_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.perf_stats_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::next_comment::PATH {
         if out.status == 502 {
             app.next_comment_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1738,6 +1799,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::metadata_query::PATH && crate::metadata_query::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::metadata_read::PATH && crate::metadata_read::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1838,6 +1903,13 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::robots::PATH && crate::robots::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if crate::report_export::matches(req.path()) && crate::report_export::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::perf_stats::PATH && crate::perf_stats::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1892,8 +1964,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         }
     };
     // writeDefaultHead, compress, addCorsHeader.
-    let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
-        || crate::conversation_pages::matches(req.path())
+    let origin = match if matches!(
+        req.path(),
+        crate::robots::PATH | crate::about::PATH | crate::perf_stats::PATH
+    ) || crate::conversation_pages::matches(req.path())
         || crate::link_pages::matches(req.path())
         || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
@@ -1920,6 +1994,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         let mut res = res;
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
+    }
+    if req.path() == crate::metadata_query::PATH {
+        return crate::metadata_query::handle(app, req, res).await;
     }
     if req.path() == crate::topic_selections::PATH
         && matches!(req.method.as_str(), "POST" | "PUT" | "DELETE")
@@ -1970,6 +2047,12 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::robots::PATH {
         return crate::robots::handle(app, req, res);
+    }
+    if crate::report_export::matches(req.path()) {
+        return crate::report_export::handle(app, req, res).await;
+    }
+    if req.path() == crate::perf_stats::PATH {
+        return crate::perf_stats::handle(app, req, res);
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
@@ -4081,6 +4164,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn metadata_query_is_off_and_noncanonical_posts_hand_back() {
+        let mut state = app(true);
+        let make = |body: &str, method: &str| {
+            let len = body.len().to_string();
+            let mut req = request(
+                method,
+                &[
+                    ("host", "localhost"),
+                    ("authorization", "Bearer fixture"),
+                    ("content-type", "application/json"),
+                    ("content-length", &len),
+                ],
+            );
+            req.target = crate::metadata_query::PATH.into();
+            req.body = body.as_bytes().to_vec();
+            req
+        };
+        let canonical = r#"{"conversation_id":"fixture","pmaids":[]}"#;
+        assert_eq!(
+            handle(state.clone(), make(canonical, "POST")).await.status,
+            502
+        );
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().metadata_query_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().metadata_query_auth_db = Some(pool);
+        assert!(crate::metadata_query::parse(&state, &make(canonical, "POST")).is_some());
+        for (body, method) in [
+            (canonical, "GET"),
+            (canonical, "OPTIONS"),
+            (r#"{"conversation_id":"fixture","pmaids":"1,2"}"#, "POST"),
+            (r#"{"conversation_id":"fixture","pmaids":[1.5]}"#, "POST"),
+            (
+                r#"{"conversation_id":"fixture","pmaids":[],"pmaids":[1]}"#,
+                "POST",
+            ),
+        ] {
+            assert!(crate::metadata_query::parse(&state, &make(body, method)).is_none());
+            assert_eq!(handle(state.clone(), make(body, method)).await.status, 502);
+        }
+        assert_eq!(
+            handle(state.clone(), make(canonical, "POST")).await.status,
+            502
+        );
+        assert_eq!(state.metadata_query_served.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
     async fn metadata_read_gate_and_missing_auth_configuration_hand_back() {
         let mut state = app(true);
         let probe = || {
@@ -4548,6 +4678,55 @@ mod tests {
         }
         assert_eq!(state.connection_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.connection_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn perf_stats_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::perf_stats::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().perf_stats_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 200); // No HTTPS redirect and no DB wait.
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{}"#));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 200);
+        assert_eq!(state.perf_stats_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.perf_stats_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn perf_stats_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().perf_stats_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::perf_stats::PATH, vec![]),
+            ("OPTIONS", crate::perf_stats::PATH, vec![]),
+            ("GET", "/perfStats_9182738127?unknown=1", vec![]),
+            (
+                "GET",
+                crate::perf_stats::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::perf_stats::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::perf_stats::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.perf_stats_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.perf_stats_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]

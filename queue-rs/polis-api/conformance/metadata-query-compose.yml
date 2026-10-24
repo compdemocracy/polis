@@ -1,0 +1,30 @@
+# Metadata query switch enabled only inside this generated fixture stack.
+services:
+  polis-api:
+    environment:
+      POLIS_API_METADATA_QUERY_READS: "1"
+      POLIS_API_METADATA_QUERY_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      AUTH_ISSUER: https://oidc-simulator:3000/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/
+  polis-api-off:
+    image: ${X54_POLIS_API_IMAGE:-x54pca2-polis-api:conformance}
+    networks: [sealed]
+    environment:
+      MATH_ENV: p027
+      DEV_MODE: "true"
+      NODE_ENV: production
+      DOMAIN_OVERRIDE: localhost
+      DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_DB_TRANSPORT: docker-internal
+      POLIS_API_DB_PLAIN_HOSTS: postgres
+      POLIS_API_LISTEN: 0.0.0.0:5100
+      POLIS_API_FIXTURE_CLOCK: "1700000000000"
+
+  metadata-query-proxy:
+    image: nginx:1.21.5-alpine
+    networks: [sealed]
+    volumes:
+      - ../../queue-rs/polis-api/conformance/metadata-query-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../../file-server/nginx/rust-api/metadataQuery.location.conf.template:/etc/nginx/metadata-query.location.conf:ro
