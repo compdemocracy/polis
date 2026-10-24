@@ -229,6 +229,9 @@ pub struct App {
     pub connection_reads: bool,
     pub connection_served: AtomicU64,
     pub connection_fallback: AtomicU64,
+    pub perf_stats_reads: bool,
+    pub perf_stats_served: AtomicU64,
+    pub perf_stats_fallback: AtomicU64,
     pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
     pub participant_served: AtomicU64,
     pub participant_fallback: AtomicU64,
@@ -439,6 +442,9 @@ impl App {
             connection_reads: false,
             connection_served: AtomicU64::new(0),
             connection_fallback: AtomicU64::new(0),
+            perf_stats_reads: false,
+            perf_stats_served: AtomicU64::new(0),
+            perf_stats_fallback: AtomicU64::new(0),
             participant_verifier: None,
             participant_served: AtomicU64::new(0),
             participant_fallback: AtomicU64::new(0),
@@ -1395,6 +1401,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.connection_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::perf_stats::PATH {
+        if out.status == 502 {
+            app.perf_stats_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.perf_stats_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::next_comment::PATH {
         if out.status == 502 {
             app.next_comment_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1650,6 +1663,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::robots::PATH && crate::robots::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::perf_stats::PATH && crate::perf_stats::parse(app, req).is_none() {
+        return bad_gateway();
+    }
     if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1704,8 +1720,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         }
     };
     // writeDefaultHead, compress, addCorsHeader.
-    let origin = match if matches!(req.path(), crate::robots::PATH | crate::about::PATH)
-        || crate::create_page::matches(req.path())
+    let origin = match if matches!(
+        req.path(),
+        crate::robots::PATH | crate::about::PATH | crate::perf_stats::PATH
+    ) || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
         || crate::other_conversations_page::matches(req.path())
         || crate::integrate_page::matches(req.path())
@@ -1775,6 +1793,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::robots::PATH {
         return crate::robots::handle(app, req, res);
+    }
+    if req.path() == crate::perf_stats::PATH {
+        return crate::perf_stats::handle(app, req, res);
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
@@ -4082,6 +4103,55 @@ mod tests {
         }
         assert_eq!(state.connection_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.connection_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn perf_stats_probe_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method| {
+            let mut req = request(method, &[("host", "localhost")]);
+            req.target = crate::perf_stats::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().perf_stats_reads = true;
+        let out = handle(state.clone(), probe("GET")).await;
+        assert_eq!(out.status, 200); // No HTTPS redirect and no DB wait.
+        assert!(matches!(out.body, Body::Fixed(ref b) if b == br#"{}"#));
+        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 200);
+        assert_eq!(state.perf_stats_served.load(Ordering::Relaxed), 2);
+        assert_eq!(state.perf_stats_fallback.load(Ordering::Relaxed), 1);
+    }
+    #[tokio::test]
+    async fn perf_stats_boundaries_are_counted_node_handoffs() {
+        let mut state = app(true);
+        Arc::get_mut(&mut state).unwrap().perf_stats_reads = true;
+        for (method, target, headers) in [
+            ("POST", crate::perf_stats::PATH, vec![]),
+            ("OPTIONS", crate::perf_stats::PATH, vec![]),
+            ("GET", "/perfStats_9182738127?unknown=1", vec![]),
+            (
+                "GET",
+                crate::perf_stats::PATH,
+                vec![("authorization", "Bearer fixture")],
+            ),
+            (
+                "GET",
+                crate::perf_stats::PATH,
+                vec![("cookie", "fixture=1")],
+            ),
+            (
+                "GET",
+                crate::perf_stats::PATH,
+                vec![("content-length", "1")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        assert_eq!(state.perf_stats_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.perf_stats_fallback.load(Ordering::Relaxed), 6);
     }
 
     #[tokio::test]

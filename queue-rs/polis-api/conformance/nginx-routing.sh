@@ -1364,3 +1364,23 @@ sleep 6
 expect /api/v3/votes node "vote reads handoff"
 expect /api/v3/votes/me node "personal reads handoff"
 echo "ok vote read routes: off/on/deduplicated, methods/body, fallback"
+
+# Independent metrics selector; disabled by default and unrelated to participation.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /perfStats_9182738127 node "metrics off"
+start perfStats,perfStats
+expect /perfStats_9182738127 rust "metrics on"
+expect /api/v3/nextComment node "metrics leaves participation alone"
+[[ $(included | grep -c 'location = /perfStats_9182738127') == 1 ]] || fail "metrics duplicated"
+expect_upstream polis-api HEAD /perfStats_9182738127
+expect_upstream server POST /perfStats_9182738127 $'Content-Length: 0\r\n'
+expect_upstream server GET /perfStats_9182738127 $'Content-Length: 2\r\n' '{}'
+echo "ok metrics off/on/deduplicated and method/body gate"
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /perfStats_9182738127 node "metrics handoff"
+echo "ok metrics unavailable hands back to Node"

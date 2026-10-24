@@ -21,6 +21,7 @@ mod cors;
 mod create_page;
 mod database;
 mod db;
+mod perf_stats;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
 // on, compiled from the contracts crate as the route contracts are. The
 // run-record route uses only part of them. rustfmt leaves them to their own
@@ -125,6 +126,14 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "connectionFallback",
         js::Js::Num(app.connection_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "perfStatsServed",
+        js::Js::Num(app.perf_stats_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "perfStatsFallback",
+        js::Js::Num(app.perf_stats_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "robotsServed",
@@ -575,6 +584,7 @@ async fn dispatch_at_clock(
         | comments::PATH
         | next_comment::PATH
         | connection::PATH
+        | perf_stats::PATH
         | robots::PATH
         | about::PATH
         | ops_whoami::PATH
@@ -698,6 +708,8 @@ async fn main() -> Result<()> {
             .context("invalid participant verifier configuration")?,
         ));
     }
+    state.perf_stats_reads =
+        std::env::var("POLIS_API_PERF_STATS_READS").ok().as_deref() == Some("1");
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
