@@ -80,6 +80,13 @@ pub fn literal_bool(value: bool) -> Schema {
         ..boolean()
     }
 }
+/// TypeBox `Type.Literal(n)` for an exactly representable unsigned integer.
+pub fn literal_u32(value: u32) -> Schema {
+    Schema {
+        constant: Some(serde_json::from_str(&value.to_string()).expect("u32 is a JSON number")),
+        ..integer()
+    }
+}
 pub fn array(items: Schema) -> Schema {
     Schema {
         items: Some(Box::new(items)),

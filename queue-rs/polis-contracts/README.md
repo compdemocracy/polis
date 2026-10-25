@@ -263,3 +263,124 @@ and encodes back to its own bytes.
 `GET /api/v3/delphi/runs/:job_id?families=assignments` route. Success uses the
 unchanged `delphi_job_result` types; the `delphi-run/1` companion supplies
 per-family producer provenance. The two route switches remain off by default.
+
+## Current participant identity wire entries
+
+`auth_envelope`, `participant_token`, and `participation_init` describe the
+current Node responses. Their `/1` versions are documentation identifiers, not
+extra fields sent to clients. They introduce no handler, authentication, database,
+or routing change. Deserializing these types does not verify a JWT, authorize a
+request, or establish that a write succeeded.
+
+`auth-envelope/1` describes `{token,token_type,expires_in}` in that order.
+`ensure-participant.ts` emits `token_type:"Bearer"` and `expires_in:31536000`.
+The **implementation** of `attachAuthToken()` in
+`server/src/auth/attach-auth-token.ts` wraps `res.json`, checks for a token and a
+non-null, non-array object body, and injects unless `body.auth` is JavaScript
+truthy. It has no HTTP status filter: JSON error objects are eligible, including
+`failJson` bodies, if execution reached this middleware and a token exists.
+Earlier middleware errors do not acquire a token retroactively. Null, primitives
+and arrays are unchanged; a truthy existing `auth`, including `{}` or `[]`, wins.
+Falsy existing values (`null`, `false`, `0`, `""`) are replaced in place. A new
+`auth` key is appended; integer keys still enumerate first. The source header's
+success-only description does not match this default function. The separately
+exported conditional/options helpers do filter status codes; they are not this
+entry. The rule concerns `res.json` interception, not direct `send`/`end` calls.
+The expiry is a numeric literal enforced by `auth_envelope::Expiration`; its
+`EXPIRATION_SECONDS` constant also supplies `post_votes::Auth` and
+`post_comments::Auth` validation.
+
+In `server/app.ts`, this middleware is mounted only on POST
+`/api/v3/comments`, `/api/v3/topicAgenda/selections`, and `/api/v3/votes`.
+On comments and votes, parameter checks between `ensureParticipant` and
+`attachAuthToken` can return 400 without `auth`, even after minting a token.
+Other emitters write the same value directly: `routes/participation.ts` attaches
+it to `participationInit`'s 200 body only (its `failJson` 500 gets none), while
+`invites/treevites.ts` writes it in the acceptInvite and login responses.
+
+`participant-token/1` describes `issueParticipantJWT` in
+`server/src/auth/jwt-utils.ts`. `participant-token-header/1` describes its header:
+`{alg:"RS256",typ:"JWT"}`, with no `kid`. The common payload order is `aud,iss,pid,uid,exp,iat,conversation_id,sub`,
+then the kind-specific fields:
+
+| Kind | Subject | Trailing fields |
+| --- | --- | --- |
+| Anonymous | `anon:<uid>` | `anonymous_participant:true` |
+| XID | `xid:<identifier>` | `xid`, `xid_participant:true` |
+| Standard user | `user:<identifier>` | `oidc_sub`, `standard_user_participant:true` |
+
+Audience and issuer are configured strings. XID and OIDC identifiers must be
+nonempty when minting. `exp` is one clock read in whole seconds plus 31536000;
+`iat` is a separate clock read, so their difference is not asserted equal to
+31536000. Claims have no added enum tag. These wire types enforce shape and true
+kind flags; subject/identifier relationships and configuration are minting rules,
+not validation performed by these deserializers. The local wire examples use
+unsigned text. The recording test reads the existing
+public test tokens in `server/__tests__/fixtures/participant-jwt/recordings.json`:
+for each of the three `valid` kinds, both decoded Node header and payload must
+re-encode byte for byte through these types. Those recordings are checked against
+the live minter by the dedicated Jest test on every run of that suite. Re-signed
+boundary variants describe verification behavior, not the minter's wire output,
+and are excluded here. This test decodes wire data; it does not verify signatures.
+The auth injection rule and row objects still lack that live Node characterization
+link; their examples and schema-copy checks alone do not detect Node source drift.
+
+`participation-init-participant/1`, `participation-init-x-info/1`, and
+`participation-init-conversation/1` cover only `ptpt`, **`user.xInfo`**, and
+`conversation`, respectively, inside `GET /api/v3/participationInit`. These do not
+replace the schema for the whole response. `ptpt` starts as null; with no effective user it
+stays null, but a user with no matching participant produces undefined and the
+key is omitted by JSON serialization. `user.xInfo` is absent when no XID record
+exists. `conversation` starts null in the early no-conversation response; the
+normal path supplies the object. The nested row types describe present objects.
+
+The order is **physical-column-order-dependent**. The baseline below comes from
+`server/postgres/migrations/000000_initial.sql` and active migrations `000008`,
+`000013`, `000015`, `000018`: this is the **bootstrap layout**. Archived migrations
+are not applied on a fresh installation. The supported legacy layout documented
+in `docs/migration-legacy-contract.md` has no `branding_type`, retains
+`dataset_explanation`, `is_curated`, and `need_suzinvite`, and may place
+`prioritize_seed` and `use_xid_whitelist` elsewhere because archived migrations
+`db_000004.sql` and `db_000010.sql` appended them with ALTER. The bootstrap
+`Conversation` type rejects that object (`missing field branding_type` or
+`unknown field is_curated`). Pinning a legacy variant needs its own recording;
+changing column order alone is insufficient. Participant and XInfo legacy column
+order is also unverified. Do not replace an explicit projection with a sorted map.
+
+* `ptpt`: `pid,uid,vote_count,last_interaction,subscribed,last_notified,nsli,mod,created`.
+  `_getParticipant` in `server/src/routes/participation.ts` selects `p.*` and an
+  activity-derived `vote_count`. The duplicate name overwrites its value without
+  moving its original position; the route deletes `zid`.
+* `user.xInfo`: `uid,xid,x_profile_image_url,x_name,x_email,modified,zid,pid`.
+  `getXidRecord` in `server/src/xids.ts` selects `*`; `getUser` in
+  `server/src/user.ts` deletes `owner,created`. Migration `000015` appends
+  `zid,pid`. The nested `zid` remains, including null for legacy owner-bound rows.
+* `conversation`: `topic,description,link_url,parent_url,upvotes,participant_count,is_anon,is_active,is_draft,is_public,is_data_open,profanity_filter,spam_filter,strict_moderation,prioritize_seed,vis_type,write_type,help_type,write_hint_type,style_btn,socialbtn_type,subscribe_type,branding_type,bgcolor,help_bgcolor,help_color,email_domain,use_xid_whitelist,owner,org_id,context,course_id,owner_sees_participation_stats,auth_needed_to_vote,auth_needed_to_write,auth_opt_fb,auth_opt_tw,auth_opt_allow_3rdparty,modified,created,importance_enabled,treevite_enabled,xid_required,topics_enabled,site_id,translations,hasMetadata?,ownername?,is_mod,is_owner,conversation_id`.
+  `getOneConversation` in `server/src/server-helpers.ts` selects
+  `conversations.*,u.*` (`uid,site_id`) and computed `modified`. The duplicate
+  `modified` stays in its original position. The helper deletes `uid`, appends
+  its decorations, and the route deletes `zid` and appends `conversation_id`.
+  `translations` is `[]` here because this caller supplies `lang=null`.
+  `hasMetadata` is present only as true. `ownername` may be a string or null;
+  it is absent for context `hongkong2014` (or an undefined owner name).
+  `auth_opt_allow_3rdparty:null` remains null: the helper defaults only undefined.
+
+PostgreSQL BIGINT columns remain JSON strings, including values beyond JavaScript's
+safe integer range; integer columns and the computed `vote_count` are numbers.
+Nullable columns require a present null key. These entries follow the bootstrap
+migration chain's nullability. `participation_init::Participant` follows its NOT
+NULL columns (and omits `zid`); the older `participants_read::Participant` keeps
+all fields optional to replay its existing participant-read recordings. That older
+permissive type does not assert that those SQL columns are nullable.
+Conversation examples use an integer owner and string site ID because the helper
+must successfully resolve the owner; nullable SQL columns do not imply every
+combination can be served.
+
+Six JSON Schema copies live in the existing `queue-rs/schemas/` directory. The
+integration test compares them byte for byte with the Rust schema builders and checks generated
+wire examples, key order, omissions, nullability, kind flags and the auth rule.
+Regenerate from the `polis-cli` workspace with:
+
+```sh
+POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts
+```
