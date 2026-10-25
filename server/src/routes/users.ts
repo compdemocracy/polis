@@ -55,6 +55,8 @@ async function handle_GET_users(
 ): Promise<void> {
   let { uid } = req.p;
   const { xid, owner_uid } = req.p;
+  let lookupXid: string | undefined = xid;
+  let lookupOwnerUid = owner_uid;
 
   if (!uid) {
     failJson(res, 401, "Authentication required");
@@ -62,15 +64,26 @@ async function handle_GET_users(
   }
 
   try {
-    // If looking up by XID, first get the XID user's uid
+    // Authorize the lookup before substituting the XID user's uid.
     if (xid && owner_uid) {
       const xidRecords = await getXidRecord(xid, undefined, owner_uid);
-      if (xidRecords && xidRecords.length > 0) {
-        uid = xidRecords[0].uid;
+      const record = xidRecords?.[0];
+      const mayRead =
+        uid === owner_uid || isPolisDev(uid) || record?.uid === uid;
+      if (!mayRead) {
+        failJson(res, 403, "polis_err_get_user_not_authorized");
+        return;
+      }
+      if (record) {
+        uid = record.uid;
+      } else {
+        // No record was authorized: do not let getUser re-read a newly created XID.
+        lookupXid = undefined;
+        lookupOwnerUid = undefined;
       }
     }
 
-    const user = await getUser(uid, null, xid, owner_uid);
+    const user = await getUser(uid, null, lookupXid, lookupOwnerUid);
     res.status(200).json(user);
   } catch (error) {
     failJson(res, 500, "polis_err_getting_user_info", error);
