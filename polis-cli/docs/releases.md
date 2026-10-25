@@ -31,7 +31,10 @@ and refuses modified or untracked build inputs. It never publishes or installs.
 
 The **Build Polis CLI release assets** reusable workflow uses these same commands
 on native macOS and Linux runners. It is called only by the manually dispatched
-Polis publication workflow; there is no tag-push publisher. Artifacts expire
+Polis publication workflow; there is no tag-push publisher. It adds
+`--release-tag vX.Y.Z --release-commit FULL_SHA`, which makes the script refuse
+unless the binary prints exactly
+`polis X.Y.Z (commit FULL_SHA; distance 0; clean-checkout)`. Artifacts expire
 after 14 days and remain review inputs until the approved publication job
 validates all eight files. All target jobs must pass. A passing
 ARM64 Mac build alone does not qualify

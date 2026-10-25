@@ -25,6 +25,8 @@ PLAN = dict(schema='polis.release-plan/1', rule='effective-selection', kind='pro
             candidate_manifest_blob='0' * 40, previous_tag='v2.41.0', new_number=True)
 NOTES = {'promotion': 20, 'prs': [{'number': 10, 'title': 'Add feature', 'merged_at': '2026-01-01T00:00:00Z'}],
          'direct_commits': []}
+# Kept before setUp replaces it, so the budget tests below exercise the real check.
+REQUIRE_API_BUDGET = m.require_api_budget
 
 
 def packet():
@@ -38,6 +40,10 @@ class ReleaseTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
+        # The rate-limit read is a live gh call; tests that need it use the real one.
+        budget = patch.object(m, 'require_api_budget', return_value=m.PUBLICATION_CALLS)
+        self.budget = budget.start()
+        self.addCleanup(budget.stop)
         (self.root / 'polis-cli').mkdir()
         (self.root / 'VERSION').write_text('2.41.0\n')
         (self.root / 'polis-cli/Cargo.toml').write_text('[workspace.package]\nversion = "2.41.0"\n[dependencies]\nfoo = "1.0"\n')
@@ -361,6 +367,9 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(collect.call_count, 2)  # Preserve the postapproval live check.
             self.assertEqual(len(calls), 605)  # 602 notes reads, release list, tag object/ref.
             publish.assert_called_once()
+            # Rate-limit reads: before the live notes check, then before the tag.
+            self.assertEqual([call.kwargs for call in self.budget.call_args_list],
+                             [{'live_notes': True}, {'live_notes': False}])
             # A later PR title change still refuses before any publication write.
             prs[B]['title'] = 'Changed after review'
             publish.reset_mock()
@@ -667,6 +676,70 @@ class ReleaseTests(unittest.TestCase):
              patch.object(m, 'check_remote_tags'), patch.object(m, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'matching immutable tag'):
                 m.publication(packet(), assets, 'tool', execute=True)
+            run.assert_not_called()
+
+    @staticmethod
+    def rate_limit(remaining):
+        return json.dumps({'resources': {'core': {'limit': 1000, 'remaining': remaining, 'reset': 1700000000}}})
+
+    def test_api_budget_counts_promoted_commits_only_for_the_live_notes_check(self):
+        def read(*args):
+            self.assertEqual(args, ('rev-list', '--count', f'{A}..{B}'))
+            return '300'
+        for live_notes, needed in [(True, 300 + 2 + m.PUBLICATION_CALLS), (False, m.PUBLICATION_CALLS)]:
+            for remaining, allowed in [(needed, True), (needed - 1, False)]:
+                with self.subTest(live_notes=live_notes, remaining=remaining), \
+                     patch.object(m, 'git', side_effect=read) as git, \
+                     patch.object(m, 'run', return_value=self.rate_limit(remaining)) as run:
+                    if allowed:
+                        self.assertEqual(REQUIRE_API_BUDGET(packet(), live_notes=live_notes), needed)
+                    else:
+                        with self.assertRaisesRegex(ValueError, f'{remaining} calls remain, {needed} needed'):
+                            REQUIRE_API_BUDGET(packet(), live_notes=live_notes)
+                    run.assert_called_once_with(['gh', 'api', 'rate_limit'])
+                    self.assertEqual(git.call_count, 1 if live_notes else 0)
+
+    def test_low_budget_refuses_before_live_notes_and_before_the_tag(self):
+        assets = self.bundle()
+        publisher = m.load_publisher()
+        # First read: one call short of three promoted commits plus publication.
+        with patch.object(m, 'require_api_budget', REQUIRE_API_BUDGET), patch.object(m, 'git', return_value='3'), \
+             patch.object(m, 'run', return_value=self.rate_limit(3 + 2 + m.PUBLICATION_CALLS - 1)), \
+             patch.object(m, 'verify_packet') as verify, patch.object(m, 'gate') as gate, \
+             patch.object(m, 'api') as api, patch.object(m, 'load_publisher', return_value=publisher), \
+             patch.object(publisher, 'publish') as publish:
+            with self.assertRaisesRegex(ValueError, 'budget too low'):
+                m.publication(packet(), assets, 'tool', execute=True)
+            verify.assert_not_called()
+            gate.assert_not_called()
+            api.assert_not_called()
+            publish.assert_not_called()
+        # Second read, after approval and the release list: too low for the writes.
+        calls = []
+        def request(repo, path, **kwargs):
+            calls.append(path)
+            if path == 'releases?per_page=100&page=1':
+                return []
+            self.fail(path)
+        with patch.object(m, 'require_api_budget', REQUIRE_API_BUDGET), patch.object(m, 'git', return_value='3'), \
+             patch.object(m, 'run', side_effect=[self.rate_limit(1000), self.rate_limit(m.PUBLICATION_CALLS - 1)]), \
+             patch.object(m, 'verify_packet') as verify, patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
+             patch.object(m, 'api', side_effect=request), patch.object(m, 'remote_head', return_value=C), \
+             patch.object(m, 'tags') as tags, patch.object(m, 'check_remote_tags'), \
+             patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish') as publish:
+            with self.assertRaisesRegex(ValueError, 'budget too low'):
+                m.publication(packet(), assets, 'tool', execute=True)
+            verify.assert_called_once()
+            self.assertEqual(calls, ['releases?per_page=100&page=1'])
+            tags.assert_not_called()
+            publish.assert_not_called()
+
+    def test_review_verification_reads_no_rate_limit(self):
+        assets = self.bundle()
+        with patch.object(m, 'require_api_budget', REQUIRE_API_BUDGET), patch.object(m, 'verify_packet'), \
+             patch.object(m, 'run') as run, patch.object(m, 'tags', return_value={}), \
+             patch.object(m, 'check_remote_tags'):
+            self.assertEqual(len(m.publication(packet(), assets, 'tool')['assets']), 8)
             run.assert_not_called()
 
     def test_cli_entry_plan_writes_review_artifact_only(self):
