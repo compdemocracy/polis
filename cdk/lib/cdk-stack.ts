@@ -48,7 +48,7 @@ import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
 import { configureAlbIngress, originHeader } from '../originAccess';
 import { BuildBox } from '../buildBox';
-import { CoordinatorInactiveService } from '../coordinator';
+import { CoordinatorInactiveService, coordinatorInactiveEnabled } from '../coordinator';
 
 interface PolisStackProps extends cdk.StackProps {
   enableSSHAccess?: boolean; // Make optional, default to false
@@ -523,8 +523,11 @@ export class CdkStack extends cdk.Stack {
       logGroup: logGroup,
     });
 
-    // Present but dormant. This task has no writer executable or migration path.
-    new CoordinatorInactiveService(this, 'CoordinatorInactive', { vpc, database: db });
+    // Off by default. Enabling this requires an image digest and login secret
+    // parameters. This task has no writer executable or migration path.
+    if (coordinatorInactiveEnabled(this)) {
+      new CoordinatorInactiveService(this, 'CoordinatorInactive', { vpc, database: db });
+    }
 
     // --- P-022 E: disposable certification CI worker (OFF by default).
     // Nothing below is synthesized unless `-c enableCiEc2=true` is passed, so a
