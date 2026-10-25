@@ -65,6 +65,17 @@ describe("bulk seed CSV header", () => {
     ["duplicate column", "comment_text,comment_text\nFirst seed,Second seed"],
     ["wrong header with no data", "text"],
     ["no nonempty row", "\n\n"],
+    ["headerless comments with trailing commas", "First seed,\r\nSecond seed,"],
+    ["two trailing empty columns", "comment_text,,\nFirst seed,,"],
+    ["leading empty column", ",comment_text\n,First seed"],
+    [
+      "a value under a trailing comma",
+      "comment_text,\nFirst seed,\nSecond seed,example",
+    ],
+    [
+      "a value under a trailing comma after IDs",
+      `comment_text,original_id,\nFirst seed,${randomUUID()},example`,
+    ],
   ])("refuses %s before storing anything", async (_label, csv) => {
     const { id, zid } = await conversation();
     const before = await stored(zid);
@@ -121,6 +132,63 @@ describe("bulk seed CSV header", () => {
         conversation_id: id,
         is_seed: true,
         csv: bom + csv,
+      });
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        currentPid: 0,
+        results: texts.map((txt, i) => ({
+          txt,
+          tid: i,
+          status: "success",
+          ...(format === "text only" ? {} : { original_id: ids[i] }),
+        })),
+      });
+      const { rows } = await pool.query(
+        "select txt, original_id, is_seed, mod, active from comments where zid = $1 order by tid",
+        [zid]
+      );
+      expect(rows).toEqual(
+        texts.map((txt, i) => ({
+          txt,
+          original_id: format === "text only" ? null : ids[i],
+          is_seed: true,
+          mod: 1,
+          active: true,
+        }))
+      );
+    }
+  );
+
+  // Excel and other spreadsheets often end every row with a comma, which
+  // reads as one more column with no name. It is dropped, so the upload
+  // stores what the same file without it stores.
+  test.each(
+    ["text only", "text then ID", "ID then text"].flatMap((format) => [
+      [format, ""],
+      [format, "\uFEFF"],
+    ])
+  )(
+    "accepts a trailing comma on every row: %s (BOM: %j)",
+    async (format, bom) => {
+      const { id, zid } = await conversation();
+      const ids = [randomUUID(), randomUUID()];
+      const texts = ["First seed", "Second seed"];
+      const lines =
+        format === "text only"
+          ? ["comment_text", ...texts]
+          : format === "text then ID"
+          ? [
+              "comment_text,original_id",
+              ...texts.map((txt, i) => `${txt},${ids[i]}`),
+            ]
+          : [
+              "original_id,comment_text",
+              ...texts.map((txt, i) => `${ids[i]},${txt}`),
+            ];
+      const response = await owner.post("/api/v3/comments-bulk").send({
+        conversation_id: id,
+        is_seed: true,
+        csv: bom + lines.map((line) => `${line},\r\n`).join(""),
       });
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
