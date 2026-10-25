@@ -1,10 +1,10 @@
 import _ from "underscore";
 import { ManagementClient } from "auth0";
-import { parse } from "csv-parse/sync";
 
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
+import { parseSeedCsv } from "../utils/seedCsv";
 import { getConversationInfo } from "../conversation";
 import { getNextComment, checkInitialComment } from "../nextComment";
 import { getPidPromise, getUserInfoForUid2 } from "../user";
@@ -831,7 +831,6 @@ async function handle_POST_comments_bulk(
   // @ts-expect-error body parsing
   const csv = req.body.csv;
   let pid = initialPid;
-  const invalidHeader = new Error("Invalid CSV header");
   if (!csv) {
     failJson(res, 400, "polis_err_param_missing_csv");
     return;
@@ -868,26 +867,14 @@ async function handle_POST_comments_bulk(
 
     // Validate before creating a participant or storing any comments. Otherwise
     // a headerless upload consumes its first comment as column names.
-    let hasHeader = false;
-    const records = parse(String(csv), {
-      bom: true,
-      columns: (header: string[]) => {
-        if (
-          !(
-            (header.length === 1 && header[0] === "comment_text") ||
-            (header.length === 2 &&
-              header.includes("comment_text") &&
-              header.includes("original_id"))
-          )
-        ) {
-          throw invalidHeader;
-        }
-        hasHeader = true;
-        return header;
-      },
-      skip_empty_lines: true,
-    });
-    if (!hasHeader) throw invalidHeader;
+    const records = parseSeedCsv(String(csv));
+    if (!records) {
+      failJson(res, 400, "polis_err_csv_header", undefined, {
+        message:
+          "CSV header must be comment_text, optionally with original_id.",
+      });
+      return;
+    }
 
     const finalPid = await doGetPid();
     if (finalPid < 0) {
@@ -999,13 +986,6 @@ async function handle_POST_comments_bulk(
       currentPid: pid,
     });
   } catch (err: any) {
-    if (err === invalidHeader) {
-      failJson(res, 400, "polis_err_csv_header", undefined, {
-        message:
-          "CSV header must be comment_text, optionally with original_id.",
-      });
-      return;
-    }
     failJson(res, 500, "polis_err_post_comments_bulk", err);
   }
 }
