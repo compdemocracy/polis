@@ -13,8 +13,8 @@ systemd units are touched, and which containers the cleanup removes:
 
   server, delphi, math, an unknown type: exactly as before (no systemctl; the
       cleanup removes every container);
-  server: polis-api is pulled on every deploy and joins the `up` line only
-      when RUST_API_ROUTES, as nginx-proxy receives it, names a route;
+  server: polis-api is pulled on every deploy and starts independently when
+      POLIS_API_START is 1 or nginx-proxy receives a nonempty route selection;
   delphi-large, delphi-worker: no compose service starts; the pulled Delphi
       image is tagged as the unit's image; polis-jobs.service alone is
       restarted (queued); the cleanup spares the polis-jobs container so the
@@ -70,10 +70,10 @@ FAKES = {
     "sudo": '#!/bin/bash\nexec "$@"\n',
     "yum": RECORD,
     "systemctl": RECORD,
-    "docker-compose": RECORD,
+    "docker-compose": RECORD + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # The hook reads RUST_API_ROUTES from the composed config with jq.
-    "jq": RECORD + 'case "$*" in *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *) echo value;; esac\n',
+    "jq": RECORD + 'case "$*" in *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -163,10 +163,13 @@ def _manifest(revision=REVISION, changes=None):
 
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
-            not_on_branch=False, images="default", previous=None, rust_api_routes="", **kw):
+            not_on_branch=False, images="default", previous=None, rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls", **kw):
     root, env = _box(tmp_path, service_type, **kw)
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
     env["FAKE_RUST_API_ROUTES"] = rust_api_routes
+    env["FAKE_POLIS_API_START"] = polis_api_start
+    env["FAKE_POLIS_API_TRANSPORT"] = transport
+    env["FAKE_RUST_START_FAILURE"] = "1" if rust_start_failure else "0"
     env["FAKE_NOT_ON_BRANCH"] = "1" if not_on_branch else ""
     # The deploy workflow writes the bundle's commit and image manifest next to the hook.
     if revision is not None:
@@ -215,7 +218,8 @@ def test_the_other_service_types_behave_as_before(tmp_path, service_type):
     assert [c for c in compose if c.startswith("up")] == UNCHANGED[service_type]
     assert not [c for c in compose if c.startswith("build")]
     if UNCHANGED[service_type]:
-        assert compose.index("down") < compose.index(UNCHANGED[service_type][0])
+        down = "--profile rust-api down" if service_type == "server" else "down"
+        assert compose.index(down) < compose.index(UNCHANGED[service_type][0])
     assert _calls(log, "systemctl") == []
     assert not [c for c in _calls(log, "docker") if c.startswith(("rm ", "system prune"))]
 
@@ -226,17 +230,17 @@ def test_the_other_service_types_behave_as_before(tmp_path, service_type):
     ("", False), (" ", False), (",", False), (" , ,", False),
     ("robots,about", True), ("pca2", True), (" robots ", True),
 ])
-def test_polis_api_starts_only_when_rust_api_routes_names_a_route(tmp_path, routes, starts):
+def test_route_selection_starts_polis_api_without_the_independent_start_flag(tmp_path, routes, starts):
     proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     ups = [c for c in _compose(log) if c.startswith("up")]
     if starts:
-        assert ups == ["up -d server nginx-proxy client-participation-alpha polis-api --no-build --force-recreate"]
+        assert ups == UNCHANGED["server"] + ["up -d --no-deps --no-build --force-recreate polis-api"]
     else:
         assert ups == UNCHANGED["server"]
     # The value is the one nginx-proxy receives: the composed config of the
     # files the `up` line runs.
-    assert f"{COMPOSE_FILES}config --format json" in _calls(log, "docker-compose")
+    assert f"{COMPOSE_FILES}--profile rust-api config --format json" in _calls(log, "docker-compose")
     assert '-r .services["nginx-proxy"].environment.RUST_API_ROUTES // ""' in _calls(log, "jq")
     # Pulled either way, before the migration, so turning the switch on needs
     # no other change to the bundle.
@@ -314,7 +318,7 @@ def test_migration_succeeds_before_any_service_replacement(tmp_path, service_typ
     # Compose calls carry the image override files; compare their subcommands.
     unprefixed = [call.replace(f"docker-compose {COMPOSE_FILES}", "docker-compose ", 1) for call in log]
     replacements = [i for i, call in enumerate(unprefixed) if call.startswith((
-        "docker-compose down", "docker rm ", "docker system prune",
+        "docker-compose down", "docker-compose --profile rust-api down", "docker rm ", "docker system prune",
         "docker-compose up", "systemctl restart"))]
     assert replacements or service_type == "math"
     assert not replacements or log.index(apply) < min(replacements)
@@ -412,3 +416,49 @@ def test_the_previous_deployments_replaced_images_are_removed(tmp_path):
     assert log.index(f"docker image rm {old}") > log.index(
         f"docker-compose {COMPOSE_FILES}{UNCHANGED['server'][0]}")
     assert (tmp_path / "root/opt/polis/deployed-images.txt").read_text() == _manifest()
+
+
+@pytest.mark.parametrize("start", ["", "true", "2", " 1"])
+def test_invalid_start_refuses_before_down(tmp_path, start):
+    proc, log = _deploy(tmp_path, "server", polis_api_start=start)
+    assert proc.returncode != 0
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+@pytest.mark.parametrize("routes", ["", " , ", "pca2"])
+def test_failed_rust_start_only_fails_deploy_when_a_route_is_selected(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", polis_api_start="1", rust_api_routes=routes, rust_start_failure=True)
+    assert (proc.returncode != 0) == (routes == "pca2")
+    if routes != "pca2":
+        assert "continuing the Node deployment" in proc.stderr
+        assert (tmp_path / "root/opt/polis/deployed-images.txt").read_text() == _manifest()
+    calls = _compose(log)
+    assert calls[-2:] == UNCHANGED["server"] + ["up -d --no-deps --no-build --force-recreate polis-api"]
+    assert calls.count("--profile rust-api down") == 1
+
+
+def test_warm_service_starts_with_no_selected_routes(tmp_path):
+    proc, log = _deploy(tmp_path, "server", polis_api_start="1")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["server"] + [
+        "up -d --no-deps --no-build --force-recreate polis-api"]
+
+
+@pytest.mark.parametrize("transport", ["docker-internal", "loopback", "local"])
+def test_web_service_refuses_unverified_transport_before_down(tmp_path, transport):
+    proc, log = _deploy(tmp_path, "server", polis_api_start="1", transport=transport)
+    assert proc.returncode != 0
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+@pytest.mark.parametrize("routes", ["", " , "])
+def test_disabling_the_warm_start_removes_the_previous_profile_container(tmp_path, routes):
+    # Model an already-running profile service: plain down does not remove it.
+    running = tmp_path / "rust-running"
+    running.touch()
+    proc, log = _deploy(tmp_path, "server", polis_api_start="0", rust_api_routes=routes)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not running.exists()
+    calls = _compose(log)
+    assert calls.index("--profile rust-api down") < calls.index(UNCHANGED["server"][0])
+    assert not any(c.startswith("up") and c.endswith("polis-api") for c in calls)

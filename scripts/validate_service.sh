@@ -1,8 +1,24 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
 cd /opt/polis/polis
 role=$(cat /etc/app-info/service_type.txt)
-compose() { sudo /usr/local/bin/docker-compose "$@"; }
+compose() { sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml "$@"; }
+# Resolve once. An invalid start setting fails before polling; config is never logged.
+POLIS_API_HEALTH_REQUIRED=0
+POLIS_API_HEALTH_CHECK=0
+RUST_API_ROUTES=""
+if [ "$role" = server ]; then
+  POLIS_API_START=$(compose --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_START // "0"')
+  RUST_API_ROUTES=$(compose --profile rust-api config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""')
+  case "$POLIS_API_START" in 0|1) ;; *) echo "Invalid POLIS_API_START" >&2; exit 1 ;; esac
+  if [ "$POLIS_API_START" = 1 ] || [ -n "$(printf '%s' "$RUST_API_ROUTES" | tr -d ', \t\r\n')" ]; then
+    POLIS_API_HEALTH_CHECK=1
+  fi
+  # A warm, unrouted process is observed without making Node deployment fail.
+  if [ -n "$(printf '%s' "$RUST_API_ROUTES" | tr -d ', \t\r\n')" ]; then
+    POLIS_API_HEALTH_REQUIRED=1
+  fi
+fi
 containers_ready() {
   local service ids id state
   for service in "$@"; do
@@ -14,6 +30,31 @@ containers_ready() {
     done
   done
 }
+polis_api_ready() {
+    if ! containers_ready polis-api; then
+      echo "polis-api health failed (container absent, stopped or restarting)" >&2
+      return 1
+    fi
+    if ! compose exec -T server node -e '
+      const expected = process.argv[1];
+      fetch("http://polis-api:5100/health", {signal: AbortSignal.timeout(4000)})
+        .then(async r => {
+          const h = await r.json(), p = h.pools?.common;
+          const routes = value => value.split(/[,\s]+/).filter(Boolean).sort().join(",");
+          if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
+              routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
+              h.routing?.enabledSwitches?.length !== 0 ||
+              !p?.readOnly || !p.reachable || p.limit !== 8 ||
+              p.acquireTimeoutMs !== 2000 || p.statementTimeoutMs !== 3000 ||
+              p.maxLifetimeMs !== 300000 || h.version !== process.argv[3] || !h.commit ||
+              h.commit !== process.argv[2]) throw Error("Rust health check failed");
+        }).then(() => process.exit(0)).catch(() => process.exit(1));
+    ' "$RUST_API_ROUTES" "$(sed -n 's/^revision=//p' /opt/polis/deployed-images.txt)" "$(cat VERSION)"; then
+      echo "polis-api health failed (HTTP, database or expected configuration check)" >&2
+      return 1
+    fi
+    echo "polis-api health ok"
+}
 server_ready() {
   containers_ready server nginx-proxy client-participation-alpha || return 1
   # A running container alone is insufficient: exercise the actual HTTP server
@@ -24,7 +65,12 @@ server_ready() {
       const r = await fetch("http://127.0.0.1:" + port + path, {signal: AbortSignal.timeout(4000)});
       if (r.status !== 200 || (await r.json()).status !== "ok") throw Error("health check failed");
     })).then(() => process.exit(0)).catch(() => process.exit(1));
-  '
+  ' || return 1
+  if [ "$POLIS_API_HEALTH_CHECK" = 1 ]; then
+    if ! polis_api_ready; then
+      [ "$POLIS_API_HEALTH_REQUIRED" = 0 ] || return 1
+    fi
+  fi
 }
 ready() {
   case "$role" in
