@@ -107,6 +107,7 @@ mod user_logout_page;
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/wire.rs"]
 mod wire;
+mod users_read;
 mod xid_report;
 
 use anyhow::{Context, Result};
@@ -136,6 +137,14 @@ async fn health(app: &route::App) -> Outgoing {
             js::Js::Num(app.conversation_page_fallback[i].load(Ordering::Relaxed) as f64),
         );
     }
+    body.set(
+        "usersReadServed",
+        js::Js::Num(app.users_read_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "usersReadFallback",
+        js::Js::Num(app.users_read_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set(
         "status",
         js::Js::Str(if reachable { "ok" } else { "degraded" }.into()),
@@ -706,6 +715,7 @@ async fn dispatch_at_clock(
         | metadata_choices::PATH
         | recent_started::PATH
         | treevite_me::PATH
+        | users_read::PATH
         | treevite_my_invites::PATH
         | legacy_conversations::PATH
         | einvites_read::PATH
@@ -1751,6 +1761,34 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_USERS_READS").ok().as_deref() == Some("1") {
+        let dsn = std::env::var("POLIS_API_USERS_DATABASE_URL")
+            .context("POLIS_API_USERS_DATABASE_URL required")?;
+        if users_read::primary_topology(
+            &dsn,
+            std::env::var("DATABASE_URL").ok().as_deref(),
+            std::env::var("READ_ONLY_DATABASE_URL").ok().as_deref(),
+        ) {
+            state.users_read_db = Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-users/1")?,
+                users_read::pool_limits(),
+            ));
+            state.users_read_auth_db = Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-users-auth/1")?,
+                users_read::pool_limits(),
+            ));
+            state.read_oidc = hybrid_read::Oidc::from_env()?;
+            let admins = std::env::var("ADMIN_UIDS")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "[]".into());
+            state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+        } else {
+            eprintln!(
+                "{{\"event\":\"users_read_stays_on_node\",\"reason\":\"database_topology\"}}"
+            );
+        }
     }
     if std::env::var("POLIS_API_XID_REPORT_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_XID_REPORT_DATABASE_URL")

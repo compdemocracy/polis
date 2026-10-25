@@ -1,0 +1,5 @@
+# Test-only default-off regression.
+services:
+  polis-api:
+    environment:
+      POLIS_API_USERS_READS: "0"

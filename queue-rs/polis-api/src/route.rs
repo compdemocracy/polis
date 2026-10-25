@@ -168,6 +168,10 @@ pub struct App {
     pub treevite_me_auth_db: Option<Arc<Pool>>,
     pub treevite_me_served: AtomicU64,
     pub treevite_me_fallback: AtomicU64,
+    pub users_read_db: Option<Arc<Pool>>,
+    pub users_read_auth_db: Option<Arc<Pool>>,
+    pub users_read_served: AtomicU64,
+    pub users_read_fallback: AtomicU64,
     pub xid_report_db: Option<Arc<Pool>>,
     pub xid_report_auth_db: Option<Arc<Pool>>,
     pub xid_report_served: AtomicU64,
@@ -422,6 +426,10 @@ impl App {
             treevite_me_auth_db: None,
             treevite_me_served: AtomicU64::new(0),
             treevite_me_fallback: AtomicU64::new(0),
+            users_read_db: None,
+            users_read_auth_db: None,
+            users_read_served: AtomicU64::new(0),
+            users_read_fallback: AtomicU64::new(0),
             xid_report_db: None,
             xid_report_auth_db: None,
             xid_report_served: AtomicU64::new(0),
@@ -1408,6 +1416,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.treevite_me_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::users_read::PATH {
+        if out.status == 502 {
+            app.users_read_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.users_read_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if crate::xid_report::matches(req.path()) {
         if out.status == 502 {
             app.xid_report_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1704,6 +1719,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         return bad_gateway();
     }
     if req.path() == crate::einvites_read::PATH && crate::einvites_read::parse(app, req).is_none() {
+        return bad_gateway();
+    }
+    if req.path() == crate::users_read::PATH && crate::users_read::parse(app, req).is_none() {
         return bad_gateway();
     }
     if crate::xid_report::matches(req.path()) && crate::xid_report::parse(app, req).is_none() {
@@ -2089,6 +2107,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::einvites_read::PATH {
         return crate::einvites_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::users_read::PATH {
+        return crate::users_read::handle(app, req, res).await;
     }
     if crate::xid_report::matches(req.path()) {
         return crate::xid_report::handle(app, req, res).await;
@@ -3371,6 +3392,102 @@ mod tests {
         }
         assert_eq!(state.recent_started_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.recent_started_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn users_read_gate_and_boundaries_hand_back() {
+        let mut state = app(true);
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = crate::users_read::PATH.into();
+        assert!(state.users_read_db.is_none());
+        assert_eq!(crate::dispatch(state.clone(), None, req).await.status, 502);
+        let pool = state.db.clone();
+        let state_mut = Arc::get_mut(&mut state).unwrap();
+        state_mut.users_read_db = Some(pool.clone());
+        state_mut.users_read_auth_db = Some(pool);
+        for (method, target, headers) in [
+            ("POST", "/api/v3/users", vec![]),
+            ("GET", "/api/v3/users?uid=200", vec![]),
+            ("GET", "/api/v3/users?xid=a&xid=b", vec![]),
+            ("GET", "/api/v3/users", vec![("cookie", "fixture=1")]),
+            (
+                "GET",
+                "/api/v3/users",
+                vec![("authorization", "Bearer invalid")],
+            ),
+        ] {
+            let mut req = request(method, &headers);
+            req.target = target.into();
+            assert_eq!(crate::dispatch(state.clone(), None, req).await.status, 502);
+        }
+        assert_eq!(state.users_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.users_read_fallback.load(Ordering::Relaxed), 6);
+        let mut req = request("GET", &[("host", "localhost")]);
+        req.target = crate::users_read::PATH.into();
+        assert_eq!(crate::dispatch(state.clone(), None, req).await.status, 401);
+    }
+
+    #[tokio::test]
+    async fn users_read_signed_xid_token_hands_back_without_pool_use() {
+        use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+        use openssl::rsa::Rsa;
+        use serde_json::json;
+
+        let rsa = Rsa::generate(2048).unwrap();
+        let key = EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap();
+        let verifier = polis_auth::participant::Verifier::new(
+            &rsa.public_key_to_pem().unwrap(),
+            "participants",
+            "participants",
+        )
+        .unwrap();
+        // Listening without accepting makes even an attempted connection visible.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let config: postgres::Config = format!(
+            "postgresql://fixture@127.0.0.1:{}/fixture",
+            listener.local_addr().unwrap().port(),
+        )
+        .parse()
+        .unwrap();
+        let make_pool = || {
+            Pool::new(
+                polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(config.clone())),
+                crate::users_read::pool_limits(),
+            )
+        };
+        let data = make_pool();
+        let auth = make_pool();
+        let mut state = app(true);
+        let app = Arc::get_mut(&mut state).unwrap();
+        app.users_read_db = Some(data.clone());
+        app.users_read_auth_db = Some(auth.clone());
+        app.participant_verifier = Some(Arc::new(verifier));
+        let now = (crate::clock::now_ms() / 1000.0) as u64;
+        let claims = json!({"uid":200,"pid":0,"sub":"xid:external-user",
+            "conversation_id":"fixture","xid":"external-user","xid_participant":true,
+            "iss":"participants","aud":"participants","iat":now,"exp":now+300});
+        let token = format!(
+            "Bearer {}",
+            encode(&Header::new(Algorithm::RS256), &claims, &key).unwrap()
+        );
+        for method in ["GET", "HEAD"] {
+            let mut req = request(method, &[("authorization", &token)]);
+            req.target = "/api/v3/users?owner_uid=100&xid=external-user".into();
+            assert!(crate::users_read::parse(&state, &req).is_some());
+            assert_eq!(crate::dispatch(state.clone(), None, req).await.status, 502);
+        }
+        assert_eq!(state.users_read_served.load(Ordering::Relaxed), 0);
+        assert_eq!(state.users_read_fallback.load(Ordering::Relaxed), 2);
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        #[cfg(feature = "db-tests")]
+        {
+            assert_eq!(data.evidence.snapshot(), [0; 6]);
+            assert_eq!(auth.evidence.snapshot(), [0; 6]);
+        }
     }
 
     #[tokio::test]
