@@ -32,7 +32,19 @@ merge commit for edge-to-stable promotions. The publication workflow and its
 reusable builder have read-only permissions until the final `publish` job.
 That single writer uses `environment: release`. Both entry workflows share a
 non-cancelling concurrency group to avoid concurrent preparations/publications.
-Do not run a manual publication in parallel with it.
+Do not run a manual publication in parallel with it. Also limit the **release**
+environment's deployment branches to `edge`: the jobs' edge-only condition lives
+in the workflow file, and the branch rule keeps a copy of the file on any other
+branch away from the publish job.
+
+Every job that checks out the dispatched SHA first compares it with the current
+head of `stable` (publication and its native builds) or `edge` (preparation)
+with `git ls-remote`, in the workflow's own code and before the checkout, so the
+code at that SHA never vouches for itself; the scripts then repeat the check.
+`polis-version` is compiled once per run, in a job that gives no step a GitHub
+token (checkout keeps none), and handed to later jobs as the `polis-version-tool`
+artifact. The jobs that pass a token to a step (plan, review, publish,
+preparation) compile nothing, and no native builder step is given a token.
 
 ## Prepare the version and promotion
 
@@ -90,7 +102,12 @@ The reused native matrix builds four archives and four SHA256 files:
 
 Each build first validates the stable source, then creates a **local-only** tag
 in its disposable checkout so the shared identity embeds the stable version and
-zero distance before any public tag exists. It never pushes that tag. Artifact
+zero distance before any public tag exists. It never pushes that tag. The builder
+runs with `--release-tag` and `--release-commit`: it refuses before compiling
+unless that identity is stable for exactly the tag and commit, and refuses after
+compiling unless the binary prints exactly
+`polis X.Y.Z (commit FULL_SHA; distance 0; clean-checkout)`. A runner missing
+`origin/stable` or the local tag fails instead of packaging a `+dev` build. Artifact
 names, archive layout, checksums, target set and updater validation are retained;
 the builder reads root VERSION. A missing or failed target blocks publication.
 The old `cli-v` publication path is retired: the builder is callable only from
@@ -113,6 +130,11 @@ then publishes it as latest. GitHub's generic generated notes are not used:
 our deterministic notes contain the verified promoted PR titles, migration
 filenames and explicit schema line. Releases are source-shipment records,
 not evidence that database migrations ran or production deployed.
+
+Before the live notes check, and again just before creating the tag, the job
+reads `GET /rate_limit`, which does not count against the limit. It refuses,
+with nothing written, when fewer calls remain than it still needs: one per
+promoted commit plus 52 at the first read, then 50.
 
 Use a fresh manual dispatch for retry; rerunning an old run is refused so an earlier approval cannot be reused. A matching existing public release is a no-op only after comparing its title,
 notes, tag object type, exact annotation, stable target and every downloaded asset byte. Different assets/notes or a

@@ -2,6 +2,10 @@ name: Publish Polis release
 
 # Order: promote -> publish the annotated tag and CLI release -> deploy that commit.
 # This workflow never dispatches a deployment.
+# Every job that checks out stable_commit first compares it, in this workflow's
+# own code and before that checkout, with the current stable head. Compiling
+# happens only in jobs that give no run step a GitHub token (checkout keeps
+# none); the jobs that give one compile nothing.
 on:
   workflow_dispatch:
     inputs:
@@ -19,18 +23,65 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tool:
+    if: github.ref == 'refs/heads/edge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Require the current stable head (workflow code, before checkout)
+        env:
+          INPUT_COMMIT: ${{ inputs.stable_commit }}
+          BRANCH: stable
+        run: |
+          expected="$(printf '%s\trefs/heads/%s' "$INPUT_COMMIT" "$BRANCH")"
+          actual="$(git ls-remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/heads/$BRANCH")"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The input commit is not the current $BRANCH head"
+            exit 1
+          fi
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.stable_commit }}
+          persist-credentials: false
+      - name: Build the offline version tool (no step in this job gets a token)
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/version-target
+        run: (cd queue-rs && cargo build --locked --bin polis-version)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: polis-version-tool
+          path: ${{ runner.temp }}/version-target/debug/polis-version
+          if-no-files-found: error
+          retention-days: 14
+
   plan:
+    needs: tool
     if: github.ref == 'refs/heads/edge'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
     steps:
+      - name: Require the current stable head (workflow code, before checkout)
+        env:
+          INPUT_COMMIT: ${{ inputs.stable_commit }}
+          BRANCH: stable
+        run: |
+          expected="$(printf '%s\trefs/heads/%s' "$INPUT_COMMIT" "$BRANCH")"
+          actual="$(git ls-remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/heads/$BRANCH")"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The input commit is not the current $BRANCH head"
+            exit 1
+          fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.stable_commit }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: polis-version-tool
+          path: ${{ runner.temp }}/tool
       - name: Check release protection and prepare immutable review packet
         id: plan
         env:
@@ -38,11 +89,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           POLIS_RELEASE_REVIEWER: ${{ vars.POLIS_RELEASE_REVIEWER }}
           RELEASE_COMMIT: ${{ inputs.stable_commit }}
-          CARGO_TARGET_DIR: ${{ runner.temp }}/version-target
+          VERSION_TOOL: ${{ runner.temp }}/tool/polis-version
         run: |
+          chmod 0755 "$VERSION_TOOL"
           python3 scripts/polis_release.py gate
-          (cd queue-rs && cargo build --locked --bin polis-version)
-          python3 scripts/polis_release.py plan --stable "$RELEASE_COMMIT" --tool "$CARGO_TARGET_DIR/debug/polis-version" --output "$RUNNER_TEMP/review"
+          python3 scripts/polis_release.py plan --stable "$RELEASE_COMMIT" --tool "$VERSION_TOOL" --output "$RUNNER_TEMP/review"
           python3 -c 'import json,os; p=json.load(open(os.environ["RUNNER_TEMP"]+"/review/publication.json")); print("tag="+p["tag"])' >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/review/notes.md" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -64,11 +115,26 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      - name: Require the current stable head (workflow code, before checkout)
+        env:
+          INPUT_COMMIT: ${{ inputs.stable_commit }}
+          BRANCH: stable
+        run: |
+          expected="$(printf '%s\trefs/heads/%s' "$INPUT_COMMIT" "$BRANCH")"
+          actual="$(git ls-remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/heads/$BRANCH")"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The input commit is not the current $BRANCH head"
+            exit 1
+          fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.stable_commit }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: polis-version-tool
+          path: ${{ runner.temp }}/tool
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: polis-release-review
@@ -81,10 +147,10 @@ jobs:
       - name: Show exact inputs and eight checksums before approval
         env:
           GH_TOKEN: ${{ github.token }}
-          CARGO_TARGET_DIR: ${{ runner.temp }}/version-target
+          VERSION_TOOL: ${{ runner.temp }}/tool/polis-version
         run: |
-          (cd queue-rs && cargo build --locked --bin polis-version)
-          python3 scripts/polis_release.py verify --snapshot-notes --commands-output "$RUNNER_TEMP/commands.sh" --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$CARGO_TARGET_DIR/debug/polis-version" > "$RUNNER_TEMP/verified.json"
+          chmod 0755 "$VERSION_TOOL"
+          python3 scripts/polis_release.py verify --snapshot-notes --commands-output "$RUNNER_TEMP/commands.sh" --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$VERSION_TOOL" > "$RUNNER_TEMP/verified.json"
           {
             cat "$RUNNER_TEMP/review/notes.md"
             cat "$RUNNER_TEMP/verified.json"
@@ -102,11 +168,26 @@ jobs:
       contents: write
       actions: read
     steps:
+      - name: Require the current stable head (workflow code, before checkout)
+        env:
+          INPUT_COMMIT: ${{ inputs.stable_commit }}
+          BRANCH: stable
+        run: |
+          expected="$(printf '%s\trefs/heads/%s' "$INPUT_COMMIT" "$BRANCH")"
+          actual="$(git ls-remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/heads/$BRANCH")"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The input commit is not the current $BRANCH head"
+            exit 1
+          fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.stable_commit }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: polis-version-tool
+          path: ${{ runner.temp }}/tool
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: polis-release-review
@@ -120,7 +201,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           POLIS_RELEASE_REVIEWER: ${{ vars.POLIS_RELEASE_REVIEWER }}
-          CARGO_TARGET_DIR: ${{ runner.temp }}/version-target
+          VERSION_TOOL: ${{ runner.temp }}/tool/polis-version
         run: |
-          (cd queue-rs && cargo build --locked --bin polis-version)
-          python3 scripts/polis_release.py publish --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$CARGO_TARGET_DIR/debug/polis-version"
+          chmod 0755 "$VERSION_TOOL"
+          python3 scripts/polis_release.py publish --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$VERSION_TOOL"

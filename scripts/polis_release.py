@@ -17,6 +17,10 @@ SEMVER = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
 BEGIN = '<!-- polis-release-plan -->'
 END = '<!-- /polis-release-plan -->'
 MIRRORS = ('VERSION', 'polis-cli/Cargo.toml', 'polis-cli/Cargo.lock')
+# REST calls publication may still make after the live notes check: the
+# environment, approvals, release list, tag object and ref, and about twelve
+# gh release calls (create, eight uploads, edit), with margin.
+PUBLICATION_CALLS = 50
 
 
 def run(argv, *, cwd=ROOT, data=None):
@@ -359,6 +363,26 @@ def verify_packet(packet, repo, tool, *, snapshot_notes=False):
         raise ValueError('Release inputs or notes changed after review; prepare and approve again')
 
 
+def require_api_budget(packet, *, live_notes):
+    """Refuse while nothing is written if the hourly REST budget cannot finish.
+
+    GET /rate_limit does not count against the limit. The live notes check
+    needs one call per promoted commit, the promotion lookup and a preparation
+    PR file list; publication then needs PUBLICATION_CALLS.
+    """
+    needed = PUBLICATION_CALLS
+    if live_notes:
+        plan = packet['plan']
+        commits = git('rev-list', '--count',
+                      f'{sha(plan["previous_stable_commit"])}..{sha(plan["candidate_commit"])}')
+        needed += int(commits) + 2
+    core = json.loads(run(['gh', 'api', 'rate_limit']))['resources']['core']
+    if core['remaining'] < needed:
+        raise ValueError(f'GitHub API budget too low: {core["remaining"]} calls remain, {needed} needed; '
+                         'dispatch again after the hourly reset')
+    return needed
+
+
 def tag_annotation(packet):
     """One deterministic annotation for API publication and prepared commands."""
     plan = packet['plan']
@@ -388,6 +412,8 @@ def publication(packet, assets, tool, *, execute=False, reviewer='', snapshot_no
     repo, tag, commit = packet['repository'], packet['tag'], packet['stable']
     if execute and snapshot_notes:
         raise ValueError('Publication must recheck live release notes')
+    if execute:
+        require_api_budget(packet, live_notes=True)
     verify_packet(packet, repo, tool, snapshot_notes=snapshot_notes)
     publisher = load_publisher()
     files = publisher.validate(assets, tag, commit)
@@ -422,6 +448,8 @@ def publication(packet, assets, tool, *, execute=False, reviewer='', snapshot_no
     # Re-read the remote immediately before the first public write.
     if remote_head('stable') != commit:
         raise ValueError('Stable moved after approval')
+    # Refuse before the tag rather than run out between the tag and the uploads.
+    require_api_budget(packet, live_notes=False)
     inventory = tags()
     check_remote_tags(inventory)
     if tag not in inventory:

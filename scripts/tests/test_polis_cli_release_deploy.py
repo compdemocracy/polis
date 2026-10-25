@@ -1,4 +1,4 @@
-"""Deploy identity from real disposable Git checkouts; no deployment commands."""
+"""Deploy and release-build identity from real disposable Git checkouts; no deployment commands."""
 import importlib.util
 import os
 from pathlib import Path
@@ -11,6 +11,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('identity', ROOT / 'scripts/build_identity.py')
 identity = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(identity)
+BUILDER_SPEC = importlib.util.spec_from_file_location('builder', ROOT / 'scripts/build-polis-cli-release.py')
+builder = importlib.util.module_from_spec(BUILDER_SPEC)
+BUILDER_SPEC.loader.exec_module(builder)
 
 
 class DeployIdentityTests(unittest.TestCase):
@@ -69,6 +72,26 @@ class DeployIdentityTests(unittest.TestCase):
         self.assertEqual(identity.identity(archive, dict(GIT_HASH=self.commit,
                          POLIS_BUILD_TAG='v2.42.2', POLIS_BUILD_DISTANCE=str(info['distance']),
                          POLIS_BUILD_SOURCE=info['source'])), info)
+
+    def test_release_build_needs_origin_stable_and_the_local_tag(self):
+        # The builder's own environment on a native runner.
+        env = dict(POLIS_BUILD_COMMIT=self.commit, POLIS_BUILD_SOURCE='clean-checkout')
+        runner = self.clone('release-runner')
+        untagged = identity.identity(runner, env)
+        self.assertEqual(untagged['channel'], 'development')
+        with self.assertRaisesRegex(ValueError, 'stable identity'):
+            builder.check_release_identity(untagged, 'v2.42.2', self.commit)
+        # The workflow's local-only tag makes the same checkout a stable build.
+        self.git(runner, 'tag', 'v2.42.2', self.commit)
+        builder.check_release_identity(identity.identity(runner, env), 'v2.42.2', self.commit)
+        self.assertEqual(builder.release_version_line('2.42.2', self.commit),
+                         f'polis 2.42.2 (commit {self.commit}; distance 0; clean-checkout)')
+        # The tag alone is not enough without origin/stable.
+        self.git(runner, 'update-ref', '-d', 'refs/remotes/origin/stable')
+        missing = identity.identity(runner, env)
+        self.assertEqual(missing['channel'], 'development')
+        with self.assertRaisesRegex(ValueError, 'stable identity'):
+            builder.check_release_identity(missing, 'v2.42.2', self.commit)
 
     def test_only_build_images_checkout_requires_complete_history(self):
         workflow = (ROOT / '.github/workflows/deploy-alpha-aws.yml').read_text()

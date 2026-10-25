@@ -104,6 +104,25 @@ def check_tag(tag, version):
         raise ValueError("Release tag must be v followed by the exact root VERSION.")
 
 
+def release_version_line(version, commit):
+    """The exact `polis --version` output of a published binary."""
+    return f"polis {version} (commit {commit_id(commit)}; distance 0; clean-checkout)"
+
+
+def check_release_identity(info, tag, commit):
+    """A published binary is the stable build of exactly this tag and commit.
+
+    A runner without origin/stable or the local tag yields a development
+    identity (VERSION+dev.N.SHA12); that build must never become an asset.
+    """
+    version = tag.removeprefix("v")
+    expected = dict(version_base=version, version_display=version, commit=commit_id(commit),
+                    distance=0, channel="stable", source="clean-checkout")
+    if info != expected:
+        raise ValueError("A release build needs the stable identity of the release tag and commit "
+                         f"(channel stable, distance 0, clean-checkout); got {json.dumps(info, sort_keys=True)}.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", choices=TARGETS)
@@ -111,6 +130,8 @@ def main():
     parser.add_argument("--check-tag")
     parser.add_argument("--source-commit")
     parser.add_argument("--allow-unverified-source", action="store_true")
+    parser.add_argument("--release-tag", help="Refuse unless the binary is the stable build of this vX.Y.Z tag")
+    parser.add_argument("--release-commit", help="Refuse unless the binary is built from this full commit")
     args = parser.parse_args()
     try:
         if args.check_tag is not None:
@@ -126,6 +147,15 @@ def main():
         native_target(compiler, args.target)
         version = (ROOT / "VERSION").read_text().strip()
         env = dict(os.environ, POLIS_BUILD_COMMIT=commit, POLIS_BUILD_SOURCE=source)
+        release = args.release_tag is not None or args.release_commit is not None
+        if release:
+            if args.release_tag is None or args.release_commit is None:
+                raise ValueError("A release build requires both --release-tag and --release-commit.")
+            check_tag(args.release_tag, version)
+            if source != "clean-checkout" or commit != commit_id(args.release_commit):
+                raise ValueError("A release build requires a clean checkout of exactly the release commit.")
+            # Refuse before compiling: the binary embeds this same identity.
+            check_release_identity(identity(ROOT, env), args.release_tag, commit)
         # Use Cargo's actual target directory (including CARGO_TARGET_DIR overrides).
         metadata = json.loads(output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], workspace, env))
         subprocess.run(["cargo", "build", "--locked", "--release", "--package", "polis", "--bin", "polis", "--target", args.target], cwd=workspace, env=env, check=True)
@@ -133,8 +163,12 @@ def main():
         info = identity(ROOT, env)
         distance = info["distance"] if info["distance"] is not None else "unknown"
         expected = f'polis {info["version_display"]} (commit {commit}; distance {distance}; {source})'
-        if output([str(binary), "--version"], workspace, env) != expected:
+        reported = output([str(binary), "--version"], workspace, env)
+        if reported != expected:
             raise ValueError("Built binary version does not match source metadata.")
+        if release and reported != release_version_line(version, commit):
+            raise ValueError("A release binary must report exactly the release version, "
+                             "distance 0, the release commit and clean-checkout.")
         # Version/help must work without a profile, sign-in, or server request.
         subprocess.run([str(binary), "--help"], cwd=workspace, env=env, check=True, stdout=subprocess.DEVNULL)
         archive = package(args.output.resolve(), binary.read_bytes(), version, commit,
