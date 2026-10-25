@@ -22,7 +22,7 @@ Polis uses a hybrid JWT-based authentication system supporting multiple user typ
 
 2. **XID Participants**
    - External ID users from third-party integrations
-   - Conversation-scoped identity (XID valid only within specific conversation)
+   - Owner-scoped identity (the same XID identifies the same user across that owner's conversations)
    - Receive custom JWT tokens
    - Can participate but not create conversations
 
@@ -47,10 +47,10 @@ The hybrid authentication middleware (`hybrid-jwt.ts`) checks tokens in this ord
 
 #### 1. ParticipationInit (`GET /api/v3/participationInit`)
 
-**Does NOT create participants** - only recognizes existing ones:
+**Recognizes existing participants and creates XID participants on first visit**:
 
 - Returns existing participant data if found
-- Issues JWT only for existing participants (all types)
+- Issues JWTs for existing participants and newly created XID participants
 - New anonymous participants receive no JWT (will get one on first action)
 
 #### 2. First Vote (`POST /api/v3/votes`)
@@ -123,18 +123,26 @@ Similar to voting:
 
 ### XID Participants
 
-XIDs are strictly conversation-scoped. The same external ID in different conversations:
+XIDs are scoped to the conversation owner. The same external ID in different conversations:
 
-- Gets different UIDs
-- Gets different PIDs
-- Cannot cross-authenticate between conversations
+- Resolves to the same UID when the conversations have the same owner
+- Has a separate participant record (PID) in each conversation
+- Resolves independently when the conversations have different owners
 
-When an XID participant presents a JWT for a different conversation:
+An XID is an identifier, not a credential that proves who is presenting it. Within an owner's conversations, anyone presenting the same XID can act as that participant.
 
-1. **Case 1**: Valid setup - Token matches conversation, XID matches token
-2. **Case 2**: Token/XID match but wrong conversation → Treated as anonymous
-3. **Case 3**: Token wrong conversation, XID for current → Use XID for current
-4. **Case 4**: Token for current, XID for different → Treated as anonymous
+The embedding site must issue each user's XID from its own authenticated session. Use an unguessable value, such as a per-user random token or an HMAC of the site's user ID computed with a secret key held by the site, and never share an XID across users. Keep the same XID for a user on every visit: store and reuse a random token, or keep the HMAC key stable. A new XID creates a new user and participant. Do not use a public username, email address or sequential user ID directly.
+
+A site that keeps XIDs private from other participants gets per-user identity against those participants; a site that cannot should expect anyone holding an XID to act as that participant. This includes voting, submitting comments, obtaining the participant's token through participationInit, and reading the profile fields the site attached to the XID through GET /users. The conversation owner, moderators on the owner's site and Polis admins can see a conversation's XIDs through GET /xids and the XID export. Per-user identity does not isolate participants from those accounts.
+
+The embed places the XID in the iframe URL, so serve the embedding page only to that signed-in user. Keep XIDs out of shared links and treat tokens containing them as sensitive.
+
+When an XID participant presents a JWT:
+
+1. **Case 1**: Token matches conversation, XID matches token → Use the token's participant identity
+2. **Case 2**: Token/XID match but wrong conversation → Resolve the XID under the requested conversation's owner
+3. **Case 3**: Token for another conversation, request supplies an XID → Resolve the supplied XID under the requested conversation's owner
+4. **Case 4**: Token for requested conversation, request supplies a different XID → Resolve the supplied XID under the requested conversation's owner
 
 ### Anonymous Participants
 
@@ -200,8 +208,8 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 
 - RSA-256 signing with 2048-bit keys
 - 1-year expiration (no refresh mechanism)
-- Conversation-scoped to prevent cross-conversation usage
-- No sensitive data in JWT claims
+- Participant JWTs carry a conversation ID; for XID participants, a token for another conversation supplies no participant identity. The request's XID, or the token's XID if the request names none, is resolved under the requested conversation's owner
+- XID JWT claims contain the XID; keep these tokens private
 
 ### Domain Whitelisting
 
@@ -211,7 +219,7 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 
 ### XID Whitelisting
 
-- Conversations can restrict XIDs via `xid_whitelist`
+- Conversations opt in with `use_xid_whitelist` to their owner's XID allow-list (the `xid_whitelist` table)
 - Only whitelisted XIDs can participate when enabled
 
 ## Testing
