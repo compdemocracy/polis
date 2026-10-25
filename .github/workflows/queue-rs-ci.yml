@@ -12,6 +12,9 @@ on:
       - 'scripts/test-polis-auth.sh'
       # polis-auth mirrors isModerator; a change there re-runs its parity test.
       - 'server/src/utils/common.ts'
+      # Cross-language participant JWT recordings and their Node minter.
+      - 'server/__tests__/fixtures/participant-jwt/**'
+      - 'server/src/auth/jwt-utils.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
       - 'docs/job-graphs.md'
@@ -34,6 +37,9 @@ on:
       - 'scripts/test-polis-auth.sh'
       # polis-auth mirrors isModerator; a change there re-runs its parity test.
       - 'server/src/utils/common.ts'
+      # Cross-language participant JWT recordings and their Node minter.
+      - 'server/__tests__/fixtures/participant-jwt/**'
+      - 'server/src/auth/jwt-utils.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
       - 'docs/job-graphs.md'

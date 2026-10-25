@@ -2,9 +2,9 @@
 
 `Principal` holds an already verified identity. `Authority::for_conversation`
 evaluates one explicit route policy using a caller-owned read connection, and
-`require()` turns denial into a fixed status/code value. This crate has no token
-verifier, participant resolver, pool, HTTP route, middleware registration or
-production switch. It does not accept tokens or mint credentials.
+`require()` turns denial into a fixed status/code value. This crate has no
+pool, HTTP route, middleware registration or production switch. Authority
+evaluation does not accept tokens or mint credentials.
 
 The policies reproduce the current Node rules:
 
@@ -46,3 +46,12 @@ unknown claims, mixed token kinds, aliases, missing/ambiguous membership and
 Treevite conversations return a handoff. It never creates users/participants,
 issues tokens, fetches provider keys or logs credentials. The caller supplies a
 trusted clock and bounded primary-read connection; keys are not fetched remotely.
+
+
+The opt-in `participant::Verifier::verify_for_request` also scopes XID tokens
+and request XIDs, returning an identity without granting membership. It performs
+no lookup or write and is not called by any route; `verify` still hands XID
+tokens back to Node. Cross-language coverage lives in
+`tests/participant_jwt_interop.rs` and
+`server/__tests__/unit/participant-jwt-interop.test.ts`; request identity rules
+are also checked by `server/__tests__/unit/xid-request-identity.test.ts`.

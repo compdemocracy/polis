@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Anonymous,
+    Xid,
     StandardUser,
 }
 /// No Debug implementation: claims must not become diagnostic output.
@@ -21,6 +22,45 @@ impl Verified {
     pub fn uid(&self) -> Uid {
         self.uid
     }
+}
+/// Verified claims scoped to a request, before admission. No Debug implementation:
+/// identity values must not become diagnostic output. This is not membership
+/// evidence and cannot be passed to `resolve`.
+#[derive(Clone)]
+pub struct RequestIdentity {
+    uid: Option<Uid>,
+    pid: Option<Pid>,
+    xid: Option<String>,
+    pub kind: Kind,
+}
+impl RequestIdentity {
+    pub fn uid(&self) -> Option<Uid> {
+        self.uid
+    }
+    pub fn pid(&self) -> Option<Pid> {
+        self.pid
+    }
+    pub fn xid(&self) -> Option<&str> {
+        self.xid.as_deref()
+    }
+}
+
+// Match JavaScript String.trim used by ensureParticipant, including the byte
+// order mark and excluding the next-line character (which Rust trim removes).
+fn request_xid_whitespace(c: char) -> bool {
+    matches!(c, '\u{0009}'..='\u{000d}' | ' ' | '\u{00a0}' | '\u{1680}'
+        | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}'
+        | '\u{205f}' | '\u{3000}' | '\u{feff}')
+}
+
+// Missing XID fields are allowed; explicit null is not an absent field. This
+// keeps every XID-bearing shape out of the existing serving verifier.
+fn present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -37,6 +77,10 @@ struct Claims {
     anonymous_participant: Option<bool>,
     standard_user_participant: Option<bool>,
     oidc_sub: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    xid_participant: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    xid: Option<String>,
 }
 pub struct Verifier {
     key: DecodingKey,
@@ -61,7 +105,63 @@ impl Verifier {
             validation,
         })
     }
+    /// Existing serving entry point: XID tokens still hand back to Node.
     pub fn verify(&self, authorization: &str, conversation: &str, now: u64) -> Option<Verified> {
+        let (c, kind) = self.verify_claims(authorization, now)?;
+        if kind == Kind::Xid || c.conversation_id != conversation {
+            return None;
+        }
+        Some(Verified {
+            uid: Uid(c.uid),
+            pid: Pid(c.pid as u32),
+            kind,
+        })
+    }
+
+    /// Opt-in identity scoping only; not used by serving routes. The request's
+    /// nonblank XID takes precedence for an XID token and becomes the identity of
+    /// an anonymous token presented in another conversation. Crossing conversation
+    /// IDs drops an XID token's UID and PID even for conversations of the same owner.
+    /// The caller must resolve that XID under the requested conversation's owner
+    /// and apply admission gates before using it. No lookup or write happens here.
+    /// Different conversation IDs conservatively require resolution, including
+    /// aliases; this function does not resolve IDs to database conversation IDs.
+    pub fn verify_for_request(
+        &self,
+        authorization: &str,
+        conversation: &str,
+        request_xid: Option<&str>,
+        now: u64,
+    ) -> Option<RequestIdentity> {
+        let (c, kind) = self.verify_claims(authorization, now)?;
+        let same_conversation = c.conversation_id == conversation;
+        let request_xid =
+            request_xid.filter(|xid| !xid.trim_matches(request_xid_whitespace).is_empty());
+        let mut identity = RequestIdentity {
+            uid: Some(Uid(c.uid)),
+            pid: same_conversation.then_some(Pid(c.pid as u32)),
+            xid: None,
+            kind,
+        };
+        match kind {
+            Kind::Xid => {
+                let xid = request_xid.or(c.xid.as_deref())?;
+                if !same_conversation || Some(xid) != c.xid.as_deref() {
+                    identity.uid = None;
+                    identity.pid = None;
+                }
+                identity.xid = Some(xid.to_owned());
+            }
+            Kind::Anonymous if !same_conversation => {
+                identity.uid = None;
+                identity.xid = request_xid.map(str::to_owned);
+            }
+            Kind::Anonymous | Kind::StandardUser => {}
+        }
+        Some(identity)
+    }
+
+    fn verify_claims(&self, authorization: &str, now: u64) -> Option<(Claims, Kind)> {
         let token = authorization.strip_prefix("Bearer ")?;
         if token.is_empty() || token.len() > 16384 {
             return None;
@@ -77,7 +177,6 @@ impl Verifier {
             || c.iat > now
             || c.uid <= 0
             || c.pid < 0
-            || c.conversation_id != conversation
             || c.iss.is_empty()
             || c.aud.is_empty()
         {
@@ -86,21 +185,26 @@ impl Verifier {
         let kind = match (
             c.anonymous_participant,
             c.standard_user_participant,
-            c.oidc_sub,
+            c.oidc_sub.as_deref(),
+            c.xid_participant,
+            c.xid.as_deref(),
         ) {
-            (Some(true), None, None) if c.sub == format!("anon:{}", c.uid) => Kind::Anonymous,
-            (None, Some(true), Some(sub))
+            (Some(true), None, None, None, None) if c.sub == format!("anon:{}", c.uid) => {
+                Kind::Anonymous
+            }
+            (None, Some(true), Some(sub), None, None)
                 if !sub.is_empty() && sub.len() <= 255 && c.sub == format!("user:{sub}") =>
             {
                 Kind::StandardUser
             }
+            (None, None, None, Some(true), Some(xid))
+                if !xid.is_empty() && c.sub == format!("xid:{xid}") =>
+            {
+                Kind::Xid
+            }
             _ => return None,
         };
-        Some(Verified {
-            uid: Uid(c.uid),
-            pid: Pid(c.pid as u32),
-            kind,
-        })
+        Some((c, kind))
     }
 }
 /// Existing membership only. Caller uses the route's bounded, read-only primary
@@ -230,6 +334,190 @@ mod tests {
             assert!(v.verify(raw, "2fixture", 150).is_none());
         }
     }
+    fn xid_claims() -> Value {
+        let mut c = claims();
+        c.as_object_mut().unwrap().remove("anonymous_participant");
+        c["xid_participant"] = json!(true);
+        c["xid"] = json!("fixture-xid");
+        c["sub"] = json!("xid:fixture-xid");
+        c
+    }
+
+    #[test]
+    fn xid_request_precedence_and_conversation_scope_table() {
+        #[derive(Deserialize)]
+        struct Case {
+            name: String,
+            conversation: String,
+            request_xid: Option<String>,
+            uid: Option<i32>,
+            pid: Option<u32>,
+            xid: String,
+        }
+        let cases: Vec<Case> =
+            serde_json::from_str(include_str!("../tests/fixtures/xid-request-identity.json"))
+                .unwrap();
+        let (v, k) = keys();
+        let token = sign(&xid_claims(), &k);
+        for case in cases {
+            let identity = v
+                .verify_for_request(&token, &case.conversation, case.request_xid.as_deref(), 150)
+                .unwrap();
+            assert_eq!(identity.kind, Kind::Xid, "{}", case.name);
+            assert_eq!(identity.uid(), case.uid.map(Uid), "{}", case.name);
+            assert_eq!(identity.pid(), case.pid.map(Pid), "{}", case.name);
+            assert_eq!(identity.xid(), Some(case.xid.as_str()), "{}", case.name);
+            // Adding the kind does not admit any new serving request class.
+            assert!(v.verify(&token, &case.conversation, 150).is_none());
+        }
+    }
+
+    #[test]
+    fn xid_claims_must_be_complete_consistent_and_exclusive() {
+        let (v, k) = keys();
+        for (field, value) in [
+            ("xid", json!("")),
+            ("xid", json!(null)),
+            ("xid", json!(7)),
+            ("xid", json!("other")),
+            ("xid_participant", json!(false)),
+            ("xid_participant", json!(null)),
+            ("xid_participant", json!("true")),
+            ("sub", json!("xid:other")),
+            ("sub", json!("anon:3")),
+            ("anonymous_participant", json!(true)),
+            ("anonymous_participant", json!(false)),
+            ("standard_user_participant", json!(true)),
+            ("oidc_sub", json!("issuer|fixture")),
+            ("uid", json!(0)),
+            ("pid", json!(-1)),
+            ("exp", json!(150)),
+            ("nbf", json!(151)),
+            ("iat", json!(151)),
+            ("iss", json!("other")),
+            ("aud", json!("other")),
+            ("unknown", json!(true)),
+        ] {
+            let mut c = xid_claims();
+            c[field] = value;
+            assert!(
+                v.verify_for_request(&sign(&c, &k), "2fixture", None, 150)
+                    .is_none(),
+                "{field}"
+            );
+        }
+        for field in [
+            "xid",
+            "xid_participant",
+            "sub",
+            "uid",
+            "pid",
+            "conversation_id",
+            "exp",
+            "iat",
+            "iss",
+            "aud",
+        ] {
+            let mut c = xid_claims();
+            c.as_object_mut().unwrap().remove(field);
+            assert!(
+                v.verify_for_request(&sign(&c, &k), "2fixture", None, 150)
+                    .is_none(),
+                "{field}"
+            );
+        }
+        // These fields used to be unknown, even when null. Keep the old entry
+        // point closed to them on anonymous and standard-user token shapes.
+        for field in ["xid", "xid_participant"] {
+            let mut c = claims();
+            c[field] = json!(null);
+            assert!(v.verify(&sign(&c, &k), "2fixture", 150).is_none());
+        }
+    }
+
+    #[test]
+    fn xid_request_identity_requires_a_valid_signature_algorithm_and_clock() {
+        let (v, k) = keys();
+        let (_, other) = keys();
+        let c = xid_claims();
+        assert!(
+            v.verify_for_request(&sign(&c, &other), "2fixture", None, 150)
+                .is_none()
+        );
+        let hs = encode(
+            &Header::new(Algorithm::HS256),
+            &c,
+            &EncodingKey::from_secret(b"test-only"),
+        )
+        .unwrap();
+        assert!(
+            v.verify_for_request(&format!("Bearer {hs}"), "2fixture", None, 150)
+                .is_none()
+        );
+        let signed = sign(&c, &k);
+        assert!(
+            v.verify_for_request(&signed, "2fixture", None, 199)
+                .is_some()
+        );
+        assert!(
+            v.verify_for_request(&signed, "2fixture", None, 200)
+                .is_none()
+        );
+        for raw in [
+            "".to_owned(),
+            "Bearer bad".to_owned(),
+            signed.replacen("Bearer", "bearer", 1),
+        ] {
+            assert!(v.verify_for_request(&raw, "2fixture", None, 150).is_none());
+        }
+    }
+
+    #[test]
+    fn anonymous_token_in_another_conversation_uses_request_xid() {
+        let (v, k) = keys();
+        let token = sign(&claims(), &k);
+        let identity = v
+            .verify_for_request(&token, "2another", Some("request-xid"), 150)
+            .unwrap();
+        assert_eq!(identity.kind, Kind::Anonymous);
+        assert_eq!(identity.uid(), None);
+        assert_eq!(identity.pid(), None);
+        assert_eq!(identity.xid(), Some("request-xid"));
+    }
+
+    #[test]
+    fn request_xid_does_not_replace_other_token_kinds_in_their_conversation() {
+        let (v, k) = keys();
+        let mut standard = claims();
+        standard
+            .as_object_mut()
+            .unwrap()
+            .remove("anonymous_participant");
+        standard["standard_user_participant"] = json!(true);
+        standard["oidc_sub"] = json!("issuer|fixture");
+        standard["sub"] = json!("user:issuer|fixture");
+        for (c, kind, cross_uid) in [
+            (claims(), Kind::Anonymous, None),
+            (standard, Kind::StandardUser, Some(Uid(3))),
+        ] {
+            let token = sign(&c, &k);
+            for request_xid in [None, Some(""), Some("other-xid")] {
+                let identity = v
+                    .verify_for_request(&token, "2fixture", request_xid, 150)
+                    .unwrap();
+                assert_eq!(identity.kind, kind);
+                assert_eq!(identity.uid(), Some(Uid(3)));
+                assert_eq!(identity.pid(), Some(Pid(0)));
+                assert_eq!(identity.xid(), None);
+            }
+            let identity = v.verify_for_request(&token, "2another", None, 150).unwrap();
+            assert_eq!(identity.uid(), cross_uid);
+            assert_eq!(identity.pid(), None);
+            assert_eq!(identity.xid(), None);
+            assert!(v.verify(&token, "2another", 150).is_none());
+        }
+    }
+
     #[test]
     #[cfg(feature = "db-tests")]
     fn membership_is_existing_exact_and_read_only() {
