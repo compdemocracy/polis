@@ -3,7 +3,7 @@ members = ["crates/polis-client", "crates/polis", "../queue-rs/polis-contracts"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "2.42.2"
 edition = "2021"
 license = "AGPL-3.0-only"
 rust-version = "1.88"
