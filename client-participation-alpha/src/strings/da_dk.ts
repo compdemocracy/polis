@@ -46,7 +46,7 @@ s.submitComment = "Indsend"
 s.tipCommentsRandom = "Kommentarer vises tilfældigt. Du svarer ikke direkte til nogen."
 s.writePrompt = "Del dit perspektiv..."
 s.writeCommentHelpText =
-  "Hvis dit perspektiv ikke er repræsenteret, så <strong>skriv</strong> en kommentar!</i>"
+  "Hvis dit perspektiv ikke er repræsenteret, så <strong>skriv</strong> en kommentar!"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization
