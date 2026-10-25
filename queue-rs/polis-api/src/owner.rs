@@ -143,6 +143,15 @@ impl Verifier {
         self.subject_at(authorization, now)
     }
     pub(crate) fn subject_at(&self, authorization: Option<&str>, now: u64) -> Result<String> {
+        self.subject_observed(authorization, now, &polis_auth::observability::PROCESS)
+    }
+
+    fn subject_observed(
+        &self,
+        authorization: Option<&str>,
+        now: u64,
+        counters: &polis_auth::observability::Counters,
+    ) -> Result<String> {
         let raw = authorization.context("missing bearer")?;
         let (scheme, token) = raw.split_once(' ').context("invalid bearer")?;
         if !scheme.eq_ignore_ascii_case("Bearer") || token.len() > 16384 || token.is_empty() {
@@ -152,10 +161,11 @@ impl Verifier {
         if header.alg != Algorithm::RS256 {
             bail!("wrong algorithm");
         }
-        let key = self
-            .keys
-            .find(header.kid.as_deref().context("missing kid")?)
-            .context("unknown kid")?;
+        let kid = header.kid.as_deref().context("missing kid")?;
+        let Some(key) = self.keys.find(kid) else {
+            counters.record(polis_auth::observability::Event::OidcJwksMiss);
+            bail!("unknown kid");
+        };
         let claims =
             decode::<Claims>(token, &DecodingKey::from_jwk(key)?, &self.validation)?.claims;
         if claims.exp <= now || claims.nbf.is_some_and(|nbf| nbf > now) {
@@ -370,6 +380,34 @@ mod tests {
         let mut header = Header::new(Algorithm::RS256);
         header.kid = Some("fixture".into());
         format!("Bearer {}", encode(&header, &claims, key).unwrap())
+    }
+    #[test]
+    fn jwks_miss_counts_only_an_unknown_key_id_and_never_exposes_it() {
+        use polis_auth::observability::{Counters, Event};
+        let (v, key) = credentials();
+        let counters = Counters::new();
+        let mut header = Header::new(Algorithm::RS256);
+        for kid in [None, Some("fixture"), Some("private-key-id")] {
+            header.kid = kid.map(str::to_owned);
+            let signed = format!("Bearer {}", encode(&header, &claims(), &key).unwrap());
+            assert_eq!(
+                v.subject_observed(Some(&signed), 0, &counters).is_ok(),
+                kid == Some("fixture")
+            );
+        }
+        let (_, other_key) = credentials();
+        assert!(
+            v.subject_observed(Some(&token(&other_key, claims())), 0, &counters)
+                .is_err()
+        );
+        assert!(
+            v.subject_observed(Some("Bearer broken"), 0, &counters)
+                .is_err()
+        );
+        for (label, count) in counters.snapshot() {
+            assert_eq!(count, u64::from(label == Event::OidcJwksMiss.label()));
+            assert!(!label.contains("private-key-id"));
+        }
     }
     #[test]
     fn signed_identity_requires_issuer_audience_expiry_subject_and_rs256() {

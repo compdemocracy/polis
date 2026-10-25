@@ -280,4 +280,5 @@ mod tests {
     }
 }
 
+pub mod observability;
 pub mod participant;

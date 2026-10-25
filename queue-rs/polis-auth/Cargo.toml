@@ -11,6 +11,8 @@ description = "Conversation authority decisions over verified Polis identities"
 db-tests = []
 
 [dependencies]
+base64 = "0.22"
+serde_json = "1"
 postgres = "0.19"
 jsonwebtoken = "9"
 serde = { version = "1", features = ["derive"] }

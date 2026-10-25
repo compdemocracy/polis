@@ -1,5 +1,6 @@
 //! Read-only resolution of Node-issued, conversation-scoped participant tokens.
 //! Unsupported credentials and missing membership always return a Node handoff.
+use crate::observability::{Counters, Event, PROCESS};
 use crate::{Pid, Uid, Zid};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::Deserialize;
@@ -107,6 +108,37 @@ impl Verifier {
     }
     /// Existing serving entry point: XID tokens still hand back to Node.
     pub fn verify(&self, authorization: &str, conversation: &str, now: u64) -> Option<Verified> {
+        self.verify_observed(authorization, conversation, now, &PROCESS)
+    }
+
+    pub fn verify_observed(
+        &self,
+        authorization: &str,
+        conversation: &str,
+        now: u64,
+        counters: &Counters,
+    ) -> Option<Verified> {
+        let result = self.verify_unobserved(authorization, conversation, now);
+        if result.is_none() {
+            let reason = match crate::observability::credential_hints(authorization) {
+                Some(payload) => {
+                    crate::observability::credential_handoff(&payload, Some(conversation))
+                        .unwrap_or(Event::HandoffParticipantVerification)
+                }
+                None => Event::HandoffCredentialShape,
+            };
+            counters.record(reason);
+        }
+        result
+    }
+
+    /// Optional lookup after authentication; failure here is not a hand-back.
+    pub fn verify_unobserved(
+        &self,
+        authorization: &str,
+        conversation: &str,
+        now: u64,
+    ) -> Option<Verified> {
         let (c, kind) = self.verify_claims(authorization, now)?;
         if kind == Kind::Xid || c.conversation_id != conversation {
             return None;
@@ -214,6 +246,27 @@ pub fn resolve(
     zid: Zid,
     identity: &Verified,
 ) -> Result<Option<Pid>, postgres::Error> {
+    resolve_observed(c, zid, identity, &PROCESS)
+}
+
+pub fn resolve_observed(
+    c: &mut impl postgres::GenericClient,
+    zid: Zid,
+    identity: &Verified,
+    counters: &Counters,
+) -> Result<Option<Pid>, postgres::Error> {
+    let result = resolve_inner(c, zid, identity);
+    if matches!(result, Ok(None)) {
+        counters.record(Event::HandoffParticipantMembership);
+    }
+    result
+}
+
+fn resolve_inner(
+    c: &mut impl postgres::GenericClient,
+    zid: Zid,
+    identity: &Verified,
+) -> Result<Option<Pid>, postgres::Error> {
     let rows = c.query("select p.pid from participants p join conversations c on c.zid=p.zid where p.zid=$1 and p.uid=$2 and c.treevite_enabled is not true", &[&zid.0, &identity.uid.0])?;
     if rows.len() != 1 {
         return Ok(None);
@@ -228,6 +281,35 @@ mod tests {
     use super::*;
     use jsonwebtoken::{EncodingKey, Header, encode};
     use serde_json::{Value, json};
+
+    #[test]
+    fn verification_counts_one_handoff_per_failed_attempt_and_no_refusal() {
+        let (verifier, key) = keys();
+        let counters = Counters::new();
+        let valid = sign(&claims(), &key);
+        assert!(
+            verifier
+                .verify_observed(&valid, "2fixture", 150, &counters)
+                .is_some()
+        );
+        for raw in ["Bearer broken", "Basic secret", "", &valid] {
+            assert!(
+                verifier
+                    .verify_observed(raw, "other", 150, &counters)
+                    .is_none()
+            );
+        }
+        for (label, count) in counters.snapshot() {
+            assert_eq!(
+                count,
+                match label {
+                    "handoff_credential_shape" => 3,
+                    "handoff_conversation_scope" => 1,
+                    _ => 0,
+                }
+            );
+        }
+    }
     fn keys() -> (Verifier, EncodingKey) {
         let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
         let public = rsa.public_key_to_pem().unwrap();
@@ -527,9 +609,26 @@ mod tests {
         c.batch_execute(&format!("CREATE SCHEMA {schema}; SET search_path={schema}; CREATE TABLE conversations(zid integer, treevite_enabled boolean); CREATE TABLE participants(zid integer,uid integer,pid integer); INSERT INTO conversations VALUES (1,false),(2,true),(3,false); INSERT INTO participants VALUES (1,3,0),(2,3,0),(3,3,1); SET default_transaction_read_only=on;")).unwrap();
         let (v, k) = keys();
         let a = v.verify(&sign(&claims(), &k), "2fixture", 150).unwrap();
-        assert_eq!(resolve(&mut c, Zid(1), &a).unwrap(), Some(Pid(0)));
+        let counters = Counters::new();
+        assert_eq!(
+            resolve_observed(&mut c, Zid(1), &a, &counters).unwrap(),
+            Some(Pid(0))
+        );
         for zid in [2, 3, 4] {
-            assert_eq!(resolve(&mut c, Zid(zid), &a).unwrap(), None);
+            assert_eq!(
+                resolve_observed(&mut c, Zid(zid), &a, &counters).unwrap(),
+                None
+            );
+        }
+        for (label, count) in counters.snapshot() {
+            assert_eq!(
+                count,
+                if label == Event::HandoffParticipantMembership.label() {
+                    3
+                } else {
+                    0
+                }
+            );
         }
         assert!(
             c.execute("INSERT INTO participants VALUES (1,4,1)", &[])

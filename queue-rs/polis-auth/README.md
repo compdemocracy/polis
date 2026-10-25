@@ -55,3 +55,8 @@ tokens back to Node. Cross-language coverage lives in
 `tests/participant_jwt_interop.rs` and
 `server/__tests__/unit/participant-jwt-interop.test.ts`; request identity rules
 are also checked by `server/__tests__/unit/xid-request-identity.test.ts`.
+
+The `observability` module provides fixed-label process counters; `probes/`
+contains offline aggregate SQL queries. See
+[Identity observability](../polis-api/IDENTITY_OBSERVABILITY.md) for semantics,
+permissions and execution limits.

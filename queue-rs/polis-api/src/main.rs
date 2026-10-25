@@ -47,6 +47,7 @@ mod domain_whitelist;
 mod einvites_read;
 mod http;
 mod hybrid_read;
+mod identity_observability;
 mod integrate_page;
 mod js;
 mod legacy_conversations;
@@ -115,8 +116,16 @@ use std::sync::{Arc, atomic::Ordering};
 
 /// Not a Node route: liveness for the container and the operator.
 async fn health(app: &route::App) -> Outgoing {
+    health_observed(app, &polis_auth::observability::PROCESS).await
+}
+
+async fn health_observed(
+    app: &route::App,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
     let reachable = app.db.ping().await;
     let mut body = js::Obj::new();
+    body.set("identity", identity_observability::snapshot(counters));
     for (i, name) in [
         "conversationPage",
         "explorePage",

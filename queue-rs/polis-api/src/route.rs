@@ -835,7 +835,17 @@ fn send_in(req: &Request, mut res: Res, payload: Payload, installed: bool) -> Ou
 }
 
 /// Express 3 `res.json(value)`.
-pub(crate) fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
+pub(crate) fn json(req: &Request, res: Res, value: &Js) -> Outgoing {
+    json_observed(req, res, value, &polis_auth::observability::PROCESS)
+}
+
+fn json_observed(
+    req: &Request,
+    mut res: Res,
+    value: &Js,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
+    crate::identity_observability::observe_json(counters, res.status, value);
     if res.get("Content-Type").is_none() {
         res.set("Content-Type", "application/json");
     }
@@ -910,7 +920,18 @@ pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) 
 
 /// Express status(...).json(...) for a body already encoded by a contract
 /// type (its own byte-stable JSON), retaining the normal response envelope.
-pub(crate) fn json_text(req: &Request, mut res: Res, status: u16, body: String) -> Outgoing {
+pub(crate) fn json_text(req: &Request, res: Res, status: u16, body: String) -> Outgoing {
+    json_text_observed(req, res, status, body, &polis_auth::observability::PROCESS)
+}
+
+fn json_text_observed(
+    req: &Request,
+    mut res: Res,
+    status: u16,
+    body: String,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
+    crate::identity_observability::observe_json_text(counters, status, &body);
     res.status = status;
     if res.get("Content-Type").is_none() {
         res.set("Content-Type", "application/json");
@@ -2399,6 +2420,46 @@ async fn pca2(app: &App, req: &Request, body: &Js, mut res: Res) -> anyhow::Resu
 mod tests {
     use super::*;
     use crate::http::Headers;
+
+    #[tokio::test]
+    async fn health_has_all_identity_keys_zero_at_start() {
+        let counters = polis_auth::observability::Counters::new();
+        let response = crate::health_observed(&app(false), &counters).await;
+        let Body::Fixed(bytes) = response.body else {
+            panic!("fixed health body")
+        };
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["identity"].as_object().unwrap().len(), 35);
+        for &event in polis_auth::observability::Event::ALL {
+            assert_eq!(body["identity"][event.label()], 0, "{}", event.label());
+        }
+    }
+
+    #[test]
+    fn json_response_constructors_count_refusals_before_head_removes_body() {
+        let counters = polis_auth::observability::Counters::new();
+        let body = r#"{"error":"No authentication token found"}"#;
+        for method in ["GET", "HEAD"] {
+            let req = request(method, &[]);
+            let value = js::parse(body).unwrap();
+            let first = json_observed(&req, Res::new(401), &value, &counters);
+            let second = json_text_observed(&req, Res::new(200), 401, body.into(), &counters);
+            assert_eq!(first.status, 401);
+            assert_eq!(second.status, 401);
+            json_observed(&req, Res::new(200), &value, &counters);
+            json_text_observed(&req, Res::new(200), 200, body.into(), &counters);
+        }
+        for (label, count) in counters.snapshot() {
+            assert_eq!(
+                count,
+                if label == "refusal_no_authentication_token_found" {
+                    4
+                } else {
+                    0
+                }
+            );
+        }
+    }
 
     fn request(method: &str, headers: &[(&str, &str)]) -> Request {
         Request {
