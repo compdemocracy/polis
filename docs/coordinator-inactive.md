@@ -1,9 +1,21 @@
 # Inactive coordinator deployment
 
 `CoordinatorInactiveService` adds a separate 0.25-vCPU / 512-MiB ARM64 Fargate
-service to the existing VPC. Its desired count defaults to zero. It does not
-replace the Clojure math service or apply database migrations. The dedicated
-`coordinator-idle` executable has no writer, worker-dispatch or migration command.
+service to the existing VPC. It is synthesized only when the CDK context flag
+`enableCoordinatorInactive` is `true`, compared case-insensitively
+(`-c enableCoordinatorInactive=true`). Without the flag, `CdkStack` contains
+none of its resources, parameters or output, and no ingress rule is added to
+the database security group.
+
+Once a deploy has included the flag, pass it on every later deploy of
+`CdkStack`. A deploy without it deletes the coordinator's ECS service, cluster
+and task definition, its IAM roles and policy, its security group and the
+ingress rule on the database security group. Only the ECR repository and the
+log group, which are retained, remain.
+
+Its desired count defaults to zero. It does not replace the Clojure math
+service or apply database migrations. The dedicated `coordinator-idle`
+executable has no writer, worker-dispatch or migration command.
 
 Starting one task is a later operational decision. These prerequisites must
 already exist; this code does not create them:

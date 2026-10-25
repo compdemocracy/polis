@@ -2,7 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import { Template, Match } from 'aws-cdk-lib/assertions';
-import { CoordinatorInactiveService } from '../coordinator';
+import { COORDINATOR_INACTIVE_CONTEXT, CoordinatorInactiveService, coordinatorInactiveEnabled } from '../coordinator';
+import { CdkStack } from '../lib/cdk-stack';
 
 function template() {
   const app = new cdk.App();
@@ -56,4 +57,89 @@ test('no Lambda, administrator-secret access or writer policy is introduced', ()
   expect(policies).not.toContain('ssm:');
   expect(policies).not.toContain('DatabaseSecret');
   expect(JSON.stringify(t.toJSON())).not.toContain('polis_coordinator_writer_authority');
+});
+
+// The whole production stack, synthesized the way it is deployed
+// (`-c enableCiEc2=true -c enableBuildBox=true`), without asset bundling
+// so the tests stay hermetic.
+describe(`${COORDINATOR_INACTIVE_CONTEXT} flag`, () => {
+  const synth = (context: Record<string, unknown> = {}) => {
+    const app = new cdk.App({
+      context: { 'aws:cdk:bundling-stacks': [], enableCiEc2: true, enableBuildBox: true, ...context },
+    });
+    const stack = new CdkStack(app, 'CdkStack', {
+      env: { account: '123456789012', region: 'us-east-1' },
+      envFile: '/dev/null',
+      enableSSHAccess: false,
+      enableOllama: false,
+    });
+    return Template.fromStack(stack).toJSON() as Record<string, any>;
+  };
+  const P = 'CoordinatorInactive';
+  const stem = (id: string) => id.replace(/[0-9A-F]{8}$/, '');
+  const off = synth();
+  const on = synth({ [COORDINATOR_INACTIVE_CONTEXT]: true });
+
+  test('defaults to off; only true or "true" in any letter case turns it on', () => {
+    const scope = (value?: unknown) =>
+      new cdk.Stack(new cdk.App(value === undefined ? {} : { context: { [COORDINATOR_INACTIVE_CONTEXT]: value } }), 'S');
+    expect(coordinatorInactiveEnabled(scope())).toBe(false);
+    expect(coordinatorInactiveEnabled(scope(true))).toBe(true);
+    for (const v of ['true', 'TRUE', 'True']) expect(coordinatorInactiveEnabled(scope(v))).toBe(true);
+    for (const v of ['yes', '1', 'false', false]) expect(coordinatorInactiveEnabled(scope(v))).toBe(false);
+  });
+
+  test('flag off: no coordinator resource, parameter, output, DependsOn entry or database ingress', () => {
+    expect(JSON.stringify(off)).not.toContain(P);
+    expect(JSON.stringify(off)).not.toContain('polis/coordinator');
+    expect(Object.keys(off.Parameters).sort()).toEqual([
+      'BootstrapVersion',
+      'SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61arm64C96584B6F00A464EAD1953AFF4B05118Parameter',
+      'SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter',
+    ]);
+    for (const parameter of Object.values(off.Parameters)) {
+      expect(parameter).toHaveProperty('Default');
+    }
+  });
+
+  test('an explicit false synthesizes the same template as no flag', () => {
+    expect(synth({ [COORDINATOR_INACTIVE_CONTEXT]: 'false' })).toEqual(off);
+  });
+
+  test('flag on adds exactly the coordinator and its database ingress rule', () => {
+    const added = Object.keys(on.Resources).filter((id) => !(id in off.Resources))
+      .map((id) => `${on.Resources[id].Type} ${stem(id)}`).sort();
+    expect(Object.keys(off.Resources).filter((id) => !(id in on.Resources))).toEqual([]);
+    expect(added).toEqual([
+      'AWS::EC2::SecurityGroup CoordinatorInactiveSecurityGroup',
+      'AWS::EC2::SecurityGroupEgress CoordinatorInactiveSecurityGrouptoCdkStackDatabaseSecurityGroup606AD3425432',
+      'AWS::EC2::SecurityGroupIngress DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432',
+      'AWS::ECR::Repository CoordinatorInactiveRepository',
+      'AWS::ECS::Cluster CoordinatorInactiveCluster',
+      'AWS::ECS::Service CoordinatorInactiveService',
+      'AWS::ECS::TaskDefinition CoordinatorInactiveTask',
+      'AWS::IAM::Policy CoordinatorInactiveTaskExecutionRoleDefaultPolicy',
+      'AWS::IAM::Role CoordinatorInactiveTaskExecutionRole',
+      'AWS::IAM::Role CoordinatorInactiveTaskTaskRole',
+      'AWS::Logs::LogGroup CoordinatorInactiveLogs',
+    ]);
+    expect(Object.keys(on.Parameters).filter((k) => !(k in off.Parameters)).sort()).toEqual([
+      'CoordinatorInactiveDesiredCount', 'CoordinatorInactiveImageDigest', 'CoordinatorInactiveLoginSecretArn',
+    ]);
+    expect(Object.keys(on.Outputs ?? {}).filter((k) => !(k in (off.Outputs ?? {}))).map(stem))
+      .toEqual(['CoordinatorInactiveImageRepository']);
+  });
+
+  test('flag on changes existing resources only by the database ingress DependsOn entry', () => {
+    const changed = Object.keys(off.Resources)
+      .filter((id) => JSON.stringify(off.Resources[id]) !== JSON.stringify(on.Resources[id]));
+    expect(changed.length).toBe(8);
+    for (const id of changed) {
+      const r = on.Resources[id];
+      expect(r.Type).toMatch(/^AWS::AutoScaling::(AutoScalingGroup|ScalingPolicy)$/);
+      const extra = r.DependsOn.filter((d: string) => !off.Resources[id].DependsOn.includes(d));
+      expect(extra.map(stem)).toEqual(['DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432']);
+      expect({ ...r, DependsOn: r.DependsOn.filter((d: string) => !d.includes(P)) }).toEqual(off.Resources[id]);
+    }
+  });
 });

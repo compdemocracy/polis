@@ -33,56 +33,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         ],
       },
     },
-    "CoordinatorInactiveImageRepositoryF3E3D42F": {
-      "Value": {
-        "Fn::Join": [
-          "",
-          [
-            {
-              "Fn::Select": [
-                4,
-                {
-                  "Fn::Split": [
-                    ":",
-                    {
-                      "Fn::GetAtt": [
-                        "CoordinatorInactiveRepository16C8DC6B",
-                        "Arn",
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-            ".dkr.ecr.",
-            {
-              "Fn::Select": [
-                3,
-                {
-                  "Fn::Split": [
-                    ":",
-                    {
-                      "Fn::GetAtt": [
-                        "CoordinatorInactiveRepository16C8DC6B",
-                        "Arn",
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-            ".",
-            {
-              "Ref": "AWS::URLSuffix",
-            },
-            "/",
-            {
-              "Ref": "CoordinatorInactiveRepository16C8DC6B",
-            },
-          ],
-        ],
-      },
-    },
     "LoadBalancerDNS": {
       "Description": "Public DNS name of the Application Load Balancer",
       "Value": {
@@ -98,25 +48,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
       "Default": "/cdk-bootstrap/hnb659fds/version",
       "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
       "Type": "AWS::SSM::Parameter::Value<String>",
-    },
-    "CoordinatorInactiveDesiredCount": {
-      "AllowedValues": [
-        "0",
-        "1",
-      ],
-      "Default": 0,
-      "Description": "0 keeps deployment dormant; 1 starts only the read-only idle observer after a separate go.",
-      "Type": "Number",
-    },
-    "CoordinatorInactiveImageDigest": {
-      "AllowedPattern": "^sha256:[a-f0-9]{64}$",
-      "Description": "Reviewed ARM64 coordinator idle image digest in polis/coordinator; never a mutable tag.",
-      "Type": "String",
-    },
-    "CoordinatorInactiveLoginSecretArn": {
-      "AllowedPattern": "^arn:[a-z-]+:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$",
-      "Description": "Existing observer-login secret ARN (username/password); never the RDS administrator secret.",
-      "Type": "String",
     },
     "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61arm64C96584B6F00A464EAD1953AFF4B05118Parameter": {
       "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64",
@@ -149,7 +80,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -202,7 +132,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -250,7 +179,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -289,7 +217,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -337,7 +264,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -376,7 +302,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -424,7 +349,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -463,7 +387,6 @@ exports[`enableLargeClass off the stack template is unchanged 1`] = `
         "DatabaseB269D8BB",
         "DatabaseSecretAttachmentE5D1B020",
         "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-        "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
         "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
         "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
         "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -1489,413 +1412,6 @@ echo "polis-ci bootstrap ready at $(date -u --iso-8601=seconds) sha=$(cat /var/l
       },
       "Type": "AWS::IAM::Role",
     },
-    "CoordinatorInactiveClusterA15C82F3": {
-      "Type": "AWS::ECS::Cluster",
-    },
-    "CoordinatorInactiveLogs95EDC376": {
-      "DeletionPolicy": "Retain",
-      "Properties": {
-        "RetentionInDays": 30,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "CoordinatorInactiveRepository16C8DC6B": {
-      "DeletionPolicy": "Retain",
-      "Properties": {
-        "ImageScanningConfiguration": {
-          "ScanOnPush": true,
-        },
-        "ImageTagMutability": "IMMUTABLE",
-        "RepositoryName": "polis/coordinator",
-      },
-      "Type": "AWS::ECR::Repository",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "CoordinatorInactiveSecurityGroupAE9A2322": {
-      "Properties": {
-        "GroupDescription": "CdkStack/CoordinatorInactive/SecurityGroup",
-        "SecurityGroupEgress": [
-          {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "ECR, task logs and Secrets Manager over HTTPS",
-            "FromPort": 443,
-            "IpProtocol": "tcp",
-            "ToPort": 443,
-          },
-        ],
-        "VpcId": {
-          "Ref": "Vpc8378EB38",
-        },
-      },
-      "Type": "AWS::EC2::SecurityGroup",
-    },
-    "CoordinatorInactiveSecurityGrouptoCdkStackDatabaseSecurityGroup606AD3425432C52509FD": {
-      "Properties": {
-        "Description": "Verified TLS to the primary",
-        "DestinationSecurityGroupId": {
-          "Fn::GetAtt": [
-            "DatabaseSecurityGroup5C91FDCB",
-            "GroupId",
-          ],
-        },
-        "FromPort": 5432,
-        "GroupId": {
-          "Fn::GetAtt": [
-            "CoordinatorInactiveSecurityGroupAE9A2322",
-            "GroupId",
-          ],
-        },
-        "IpProtocol": "tcp",
-        "ToPort": 5432,
-      },
-      "Type": "AWS::EC2::SecurityGroupEgress",
-    },
-    "CoordinatorInactiveServiceA2EFCA12": {
-      "DependsOn": [
-        "CoordinatorInactiveTaskTaskRole170574F4",
-      ],
-      "Properties": {
-        "Cluster": {
-          "Ref": "CoordinatorInactiveClusterA15C82F3",
-        },
-        "DeploymentConfiguration": {
-          "Alarms": {
-            "AlarmNames": [],
-            "Enable": false,
-            "Rollback": false,
-          },
-          "DeploymentCircuitBreaker": {
-            "Enable": true,
-            "Rollback": true,
-          },
-          "MaximumPercent": 200,
-          "MinimumHealthyPercent": 50,
-        },
-        "DeploymentController": {
-          "Type": "ECS",
-        },
-        "DesiredCount": {
-          "Ref": "CoordinatorInactiveDesiredCount",
-        },
-        "EnableECSManagedTags": false,
-        "EnableExecuteCommand": false,
-        "LaunchType": "FARGATE",
-        "NetworkConfiguration": {
-          "AwsvpcConfiguration": {
-            "AssignPublicIp": "DISABLED",
-            "SecurityGroups": [
-              {
-                "Fn::GetAtt": [
-                  "CoordinatorInactiveSecurityGroupAE9A2322",
-                  "GroupId",
-                ],
-              },
-            ],
-            "Subnets": [
-              {
-                "Ref": "VpcPrivateWithEgressSubnet1Subnet980F0B3D",
-              },
-              {
-                "Ref": "VpcPrivateWithEgressSubnet2SubnetA337C6C2",
-              },
-            ],
-          },
-        },
-        "TaskDefinition": {
-          "Ref": "CoordinatorInactiveTaskC480F619",
-        },
-      },
-      "Type": "AWS::ECS::Service",
-    },
-    "CoordinatorInactiveTaskC480F619": {
-      "Properties": {
-        "ContainerDefinitions": [
-          {
-            "Environment": [
-              {
-                "Name": "DATABASE_URL",
-                "Value": {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "postgresql://polis_coordinator_observer_login@",
-                      {
-                        "Fn::GetAtt": [
-                          "DatabaseB269D8BB",
-                          "Endpoint.Address",
-                        ],
-                      },
-                      ":",
-                      {
-                        "Fn::GetAtt": [
-                          "DatabaseB269D8BB",
-                          "Endpoint.Port",
-                        ],
-                      },
-                      "/polisdb?sslmode=verify-full",
-                    ],
-                  ],
-                },
-              },
-              {
-                "Name": "COORDINATOR_DB_HOST_ALLOWLIST",
-                "Value": {
-                  "Fn::GetAtt": [
-                    "DatabaseB269D8BB",
-                    "Endpoint.Address",
-                  ],
-                },
-              },
-              {
-                "Name": "COORDINATOR_DB_CA_BUNDLE",
-                "Value": "/etc/polis/rds-ca.pem",
-              },
-              {
-                "Name": "COORDINATOR_DB_PASSWORD_FILE",
-                "Value": "/run/coordinator/password",
-              },
-              {
-                "Name": "COORDINATOR_MODE",
-                "Value": "inactive",
-              },
-              {
-                "Name": "COORDINATOR_WRITER_ENABLED",
-                "Value": "false",
-              },
-              {
-                "Name": "P026_RESERVATION_BYTES",
-                "Value": "0",
-              },
-            ],
-            "Essential": true,
-            "Image": {
-              "Fn::Join": [
-                "",
-                [
-                  {
-                    "Fn::Select": [
-                      4,
-                      {
-                        "Fn::Split": [
-                          ":",
-                          {
-                            "Fn::GetAtt": [
-                              "CoordinatorInactiveRepository16C8DC6B",
-                              "Arn",
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  ".dkr.ecr.",
-                  {
-                    "Fn::Select": [
-                      3,
-                      {
-                        "Fn::Split": [
-                          ":",
-                          {
-                            "Fn::GetAtt": [
-                              "CoordinatorInactiveRepository16C8DC6B",
-                              "Arn",
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  ".",
-                  {
-                    "Ref": "AWS::URLSuffix",
-                  },
-                  "/",
-                  {
-                    "Ref": "CoordinatorInactiveRepository16C8DC6B",
-                  },
-                  "@",
-                  {
-                    "Ref": "CoordinatorInactiveImageDigest",
-                  },
-                ],
-              ],
-            },
-            "LogConfiguration": {
-              "LogDriver": "awslogs",
-              "Options": {
-                "awslogs-group": {
-                  "Ref": "CoordinatorInactiveLogs95EDC376",
-                },
-                "awslogs-region": "us-east-1",
-                "awslogs-stream-prefix": "idle",
-              },
-            },
-            "MountPoints": [
-              {
-                "ContainerPath": "/run/coordinator",
-                "ReadOnly": false,
-                "SourceVolume": "password",
-              },
-            ],
-            "Name": "Idle",
-            "ReadonlyRootFilesystem": true,
-            "Secrets": [
-              {
-                "Name": "COORDINATOR_BOOTSTRAP_USERNAME",
-                "ValueFrom": {
-                  "Fn::Join": [
-                    "",
-                    [
-                      {
-                        "Ref": "CoordinatorInactiveLoginSecretArn",
-                      },
-                      ":username::",
-                    ],
-                  ],
-                },
-              },
-              {
-                "Name": "COORDINATOR_BOOTSTRAP_PASSWORD",
-                "ValueFrom": {
-                  "Fn::Join": [
-                    "",
-                    [
-                      {
-                        "Ref": "CoordinatorInactiveLoginSecretArn",
-                      },
-                      ":password::",
-                    ],
-                  ],
-                },
-              },
-            ],
-            "User": "10001:10001",
-          },
-        ],
-        "Cpu": "256",
-        "ExecutionRoleArn": {
-          "Fn::GetAtt": [
-            "CoordinatorInactiveTaskExecutionRoleC239A571",
-            "Arn",
-          ],
-        },
-        "Family": "CdkStackCoordinatorInactiveTask206E3CD6",
-        "Memory": "512",
-        "NetworkMode": "awsvpc",
-        "RequiresCompatibilities": [
-          "FARGATE",
-        ],
-        "RuntimePlatform": {
-          "CpuArchitecture": "ARM64",
-          "OperatingSystemFamily": "LINUX",
-        },
-        "TaskRoleArn": {
-          "Fn::GetAtt": [
-            "CoordinatorInactiveTaskTaskRole170574F4",
-            "Arn",
-          ],
-        },
-        "Volumes": [
-          {
-            "Name": "password",
-          },
-        ],
-      },
-      "Type": "AWS::ECS::TaskDefinition",
-    },
-    "CoordinatorInactiveTaskExecutionRoleC239A571": {
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Statement": [
-            {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": {
-                "Service": "ecs-tasks.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "CoordinatorInactiveTaskExecutionRoleDefaultPolicy51BA7A89": {
-      "Properties": {
-        "PolicyDocument": {
-          "Statement": [
-            {
-              "Action": [
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-              ],
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::GetAtt": [
-                  "CoordinatorInactiveLogs95EDC376",
-                  "Arn",
-                ],
-              },
-            },
-            {
-              "Action": [
-                "secretsmanager:GetSecretValue",
-                "secretsmanager:DescribeSecret",
-              ],
-              "Effect": "Allow",
-              "Resource": {
-                "Ref": "CoordinatorInactiveLoginSecretArn",
-              },
-            },
-            {
-              "Action": [
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchGetImage",
-              ],
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::GetAtt": [
-                  "CoordinatorInactiveRepository16C8DC6B",
-                  "Arn",
-                ],
-              },
-            },
-            {
-              "Action": "ecr:GetAuthorizationToken",
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "CoordinatorInactiveTaskExecutionRoleDefaultPolicy51BA7A89",
-        "Roles": [
-          {
-            "Ref": "CoordinatorInactiveTaskExecutionRoleC239A571",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "CoordinatorInactiveTaskTaskRole170574F4": {
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Statement": [
-            {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": {
-                "Service": "ecs-tasks.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::IAM::Role",
-    },
     "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
       "DependsOn": [
         "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
@@ -2377,27 +1893,6 @@ echo "polis-ci bootstrap ready at $(date -u --iso-8601=seconds) sha=$(cat /var/l
         },
       },
       "Type": "AWS::EC2::SecurityGroup",
-    },
-    "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A": {
-      "Properties": {
-        "Description": "Inactive coordinator observer",
-        "FromPort": 5432,
-        "GroupId": {
-          "Fn::GetAtt": [
-            "DatabaseSecurityGroup5C91FDCB",
-            "GroupId",
-          ],
-        },
-        "IpProtocol": "tcp",
-        "SourceSecurityGroupId": {
-          "Fn::GetAtt": [
-            "CoordinatorInactiveSecurityGroupAE9A2322",
-            "GroupId",
-          ],
-        },
-        "ToPort": 5432,
-      },
-      "Type": "AWS::EC2::SecurityGroupIngress",
     },
     "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5": {
       "Properties": {
@@ -5306,7 +4801,6 @@ exports[`enableLargeClass on the DelphiLarge class its resources match the snaps
       "DatabaseB269D8BB",
       "DatabaseSecretAttachmentE5D1B020",
       "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-      "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
       "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
       "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
       "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
@@ -6367,7 +5861,6 @@ exports[`enableLargeClass on the WorkerDelphi class its resources match the snap
       "DatabaseB269D8BB",
       "DatabaseSecretAttachmentE5D1B020",
       "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
-      "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
       "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
       "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
       "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
