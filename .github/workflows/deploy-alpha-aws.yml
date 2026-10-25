@@ -112,10 +112,18 @@ jobs:
       - name: Upload US deployment package to S3
         run: aws s3 cp deployment-us.zip "s3://$DEPLOY_BUCKET/deployments/deployment.zip"
 
-      - name: Create US CodeDeploy deployment
+      - name: Create US CodeDeploy deployment (web)
         run: |
           aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisDeploymentGroup \
+            --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
+            --region us-east-1
+
+      - name: Create US CodeDeploy deployment (workers)
+        run: |
+          aws deploy create-deployment \
+            --application-name PolisApplication \
+            --deployment-group-name PolisWorkersDeploymentGroup \
             --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
             --region us-east-1
