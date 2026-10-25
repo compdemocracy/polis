@@ -215,7 +215,7 @@ the clock one step at a time; the default build ignores the header.
 
 ## Credits
 
-The HTTP compatibility work started in draft PR #2741 (`server-rs`): the
+The HTTP compatibility work started in the draft [`server-rs` pull request](https://github.com/compdemocracy/polis/pull/2741): the
 compression negotiation (`negotiate.rs`), the CORS rules (`cors.rs`) and the
 vendored Node zlib come from there. This crate moves it into the `queue-rs`
 workspace, onto the shared database transport, and up to the route's current
@@ -1490,3 +1490,49 @@ Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).
 Bucket membership and group locations: [contract and admission](MATH-MEMBERSHIP.md).
 
 Conversation HTML pages: [contract and bounded admission](CONVERSATION-PAGES.md).
+
+### User records (off by default)
+
+`GET /api/v3/users` has a separate staging switch, `POLIS_API_USERS_READS=1`,
+which requires `POLIS_API_USERS_DATABASE_URL`. No nginx selector enables this
+route. With the default configuration it hands back to Node without opening
+its pools.
+
+An XID and owner together may select a record only for that owner, a numeric
+`ADMIN_UIDS` administrator, or the record's own user. Other callers receive
+403 `polis_err_get_user_not_authorized` before reading user or profile data.
+An owner or administrator naming a missing XID gets their own user record,
+without XID details or a second XID lookup. Without the pair the caller gets
+their own record. Missing authentication returns 401.
+
+Existing OIDC mappings and verified anonymous/standard participant identities
+use the shared read verifier. XID tokens, cookies, invalid tokens, unsupported
+query shapes, and read failures hand back to Node; token hints never authorize
+a lookup. The request parser accepts only canonical integer owner IDs and one
+nonempty XID of at most 999 UTF-16 units. Malformed escapes, invalid UTF-8,
+raw non-ASCII queries, NUL and replacement characters stay on Node. GET and
+HEAD use the usual response encoding, cache and CORS machinery.
+
+Two independent one-connection, read-only primary pools resolve identity and
+read records, with 15 ms acquisition and 50 ms statement limits and a 75 ms
+request bound. No participant pool, write, transaction, explicit lock, external
+provider request, or connection held across such a request is added. The adapter
+admits only a single-database topology: `POLIS_API_USERS_DATABASE_URL` must equal
+Node's nonempty `DATABASE_URL`, and `READ_ONLY_DATABASE_URL` must be unset, empty,
+or equal to `DATABASE_URL`. Otherwise requests stay on Node, preserving its
+separate replica projection, and startup logs one line explaining the handback.
+Health reports `usersReadServed` and `usersReadFallback`. These counters
+describe staging only; the route remains outside the nginx map.
+
+The generated-fixture comparison is `conformance/users-read-run.sh <output.json>`
+with the characterization stack's unique project, ports and prebuilt images.
+It records complete Node and Rust responses with the switch off and on, tests
+owner/self/admin access and refusals, and separately records XID-token handbacks,
+including the same XID under different owners. It uses the existing sign-aware
+comment fixture loader and adds no math output or vote writer.
+
+Before serving this route:
+
+- Probe the deployed `xids` column order and column set with `pg_attribute`.
+  Node builds `xInfo` from `SELECT *`, so the response keys follow the physical
+  table. The recorded byte comparison covers the fresh migration schema only.

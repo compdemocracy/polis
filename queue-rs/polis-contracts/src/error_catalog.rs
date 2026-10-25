@@ -110,6 +110,7 @@ pub const CATALOG: &[&str] = &[
     "polis_err_get_pid_for_participant_missing",
     "polis_err_get_reports_misc",
     "polis_err_get_reports_should_not_specify_both_report_id_and_conversation_id",
+    "polis_err_get_user_not_authorized",
     "polis_err_get_votes_by_me",
     "polis_err_get_xidAllowList",
     "polis_err_get_xidAllowList_authentication_required",
