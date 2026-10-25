@@ -1,5 +1,5 @@
 /*
- * CO08/D4 first-generation route coverage, from the second reviewer's round-2 probe
+ * CO08/D4 first-generation route coverage, from the review's round-2 probe
  * (a Node review script kept outside this repository), committed unchanged in
  * substance.
  *

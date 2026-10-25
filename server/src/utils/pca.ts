@@ -1093,7 +1093,7 @@ export function processMathObject(o: { [x: string]: any }) {
 
   // A malformed group-clusters entry (null, or not an object with a numeric
   // id) is refused, not dereferenced: the whole field is presented as having
-  // no groups and the refusal is logged (P-070 review [1447] B). The writer's
+  // no groups and the refusal is logged. The writer's
   // validity rule never publishes such a bundle; this guards older rows.
   const isPlainObject = (v: any) =>
     v !== null && typeof v === "object" && !Array.isArray(v);
@@ -1111,7 +1111,7 @@ export function processMathObject(o: { [x: string]: any }) {
   }
 
   // repness and group-votes are keyed objects ({gid: entry}) and `toObj`
-  // below dereferences every entry. P-070 review [1449] B: an array such as
+  // below dereferences every entry. An array such as
   // `[null]` reached `a[i].val` and threw, and `[1]` / `[{}]` were silently
   // presented as empty. Each entry is now checked against the producer's
   // shape before anything dereferences it; a field with any malformed entry

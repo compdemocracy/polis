@@ -249,7 +249,7 @@ class TestSelection:
             counts = store.label_counts(cutoff)
             assert counts["source_rows"] == 6 and counts["missing"] == 2
             # z[4] has no votes at all while its source claims 1000: the
-            # aggregate counts it as source-ahead ([1447] C), not stale; the
+            # aggregate counts it as source-ahead, not stale; the
             # page still selects it (old) so a rebuild confirms it.
             assert counts["incomplete"] == 1 and counts["stale"] == 0
             assert counts["source_ahead"] == 1 and counts["live_lag"] == 0
@@ -431,7 +431,7 @@ def assert_switch_ready(results, n):
 
 
 # --------------------------------------------------------------------------- #
-# Review [1443] acceptance cases
+# Shared admission, publication integrity and bounded retries
 # --------------------------------------------------------------------------- #
 def backfill_once(svc):
     """Admit one backfill job and wait for the pool to finish it."""
@@ -444,7 +444,7 @@ def backfill_once(svc):
 
 class TestSharedAdmission:
     def test_large_backfill_and_new_live_rebuild_do_not_overlap(self, pg_url, db, labels):
-        """R1: the reviewer's witness with the real service, pool and scheduler.
+        """The reviewer's witness with the real service, pool and scheduler.
         A large backfill job is blocked inside its first-touch rebuild; a
         different live REBUILD must not enter _load_or_init until it ends."""
         src, tgt = labels
@@ -505,7 +505,7 @@ CORRUPTIONS = {
     "false_empty": "UPDATE math_main SET data=jsonb_set(data::jsonb,'{n}','0'::jsonb) "
                    "WHERE zid=%s AND math_env=%s",
 }
-# Review [1447] B: the seven nested corruptions that passed every switch
+# Regression: the seven nested corruptions that passed every switch
 # condition of the previous rule (the reviewer's exact expressions).
 NESTED = [
     ("group_null", "math_main", "jsonb_set(data::jsonb, '{group-clusters}', '[null]'::jsonb)"),
@@ -522,7 +522,7 @@ NESTED = [
     ("bid_timestamp", "math_bidtopid", "jsonb_set(data::jsonb, '{lastVoteTimestamp}', '-99'::jsonb)"),
     ("stats_timestamp", "math_ptptstats", "jsonb_set(data::jsonb, '{lastVoteTimestamp}', '-99'::jsonb)"),
 ]
-# Review [1449] B: reader-driven entries. group-votes [null] passed every
+# Regression: reader-driven entries. group-votes [null] passed every
 # switch condition and crashed the server's processMathObject; [1] / [{}]
 # passed and were presented as empty. The rest cover each field the readers
 # dereference inside a group-votes or repness entry.
@@ -576,7 +576,7 @@ class TestValidity:
     @pytest.mark.parametrize("corruption", sorted(CORRUPTIONS))
     def test_malformed_publication_is_selected_repaired_and_verified(
             self, pg_url, db, labels, corruption):
-        """R2: each corruption of a real engine publication fails the shipped
+        """Each corruption of a real engine publication fails the shipped
         verifier, is selected for repair, and a backfill run repairs it."""
         src, tgt = labels
         (zid,) = fresh_zids(1)
@@ -606,7 +606,7 @@ class TestValidity:
             pg.shutdown()
 
     def test_real_group_votes_and_repness_are_the_valid_control(self, pg_url, db, labels):
-        """[1449] B control: a real engine publication carries keyed,
+        """Control: a real engine publication carries keyed,
         non-empty group-votes and repness, and passes every layer."""
         src, tgt = labels
         (zid,) = fresh_zids(1)
@@ -627,7 +627,7 @@ class TestValidity:
 
     @pytest.mark.parametrize("value", ["[null]", "[1]", "[{}]"])
     def test_malformed_group_votes_is_never_restored_live(self, pg_url, db, labels, value):
-        """[1449] B, Python layer: load_math_main's same-snapshot validity
+        """Python layer: load_math_main's same-snapshot validity
         refuses the row, so a live first touch rebuilds cold and republishes
         a valid bundle instead of restoring (and re-serving) the corruption."""
         src, tgt = labels
@@ -672,7 +672,7 @@ class TestValidity:
 
 class TestCatchUp:
     def test_recent_source_does_not_hide_an_old_target(self, pg_url, db, labels):
-        """R3: the reviewer's witness. An old valid target behind a source
+        """The reviewer's witness. An old valid target behind a source
         stamped now is stale in the verifier and in selection; the rebuild
         proves every vote is in, so it is source_ahead, not complete."""
         src, tgt = labels
@@ -686,7 +686,7 @@ class TestCatchUp:
             assert generations(db, zid, tgt)[4] == old_lvt
             cutoff = now - 3600 * 1000
             v = run_verification(db, src, tgt, cutoff)
-            # [1447] C: it reflects every vote, so it is source-ahead, not
+            # It reflects every vote, so it is source-ahead, not
             # stale and not complete; the switch condition is not met.
             assert (v[1][0]["behind_source_stale"], v[1][0]["source_ahead"],
                     v[1][0]["complete"], v[1][0]["live_lag"]) == (0, 1, 0, 0)
@@ -899,7 +899,7 @@ class TestOperatorSignals:
 
 
 # --------------------------------------------------------------------------- #
-# Review [1447] acceptance cases
+# Source-ahead reconciliation and terminal exclusions
 # --------------------------------------------------------------------------- #
 class TestRecentSourceAhead:
     def test_recent_target_cannot_hide_a_source_ahead_of_every_vote(self, pg_url, db, labels):

@@ -29,7 +29,7 @@ our work, while commit messages and PR descriptions serve reviewers.
   - `test_edge_cases.py::test_insufficient_data_for_pca` — repness returns empty dict for no-group case
   - `test_repness_smoke.py` × 2 — repness empty due to D9/D5/D7 (the very discrepancies we're fixing)
 - **Note**: CI runs on `main` which has different code — these failures are specific to this stacked branch.
-  4 of them were already known (documented in MEMORY.md under "Known pre-existing test failures in #2393").
+  4 of them were already known (known pre-existing test failures in PR #2393).
 
 ### Datasets Available
 
@@ -247,10 +247,10 @@ Will re-record after those are resolved and rebased.
 - Tests unchanged: 5 passed, 2 skipped, 18 xfailed, 5 xpassed
 - Renamed journal and plan to `CLJ-PARITY-FIXES-*.md`, amended introducing commits, rebased chain
 - Set up private data repo infrastructure:
-  - Pushed data to bare repo at `~/polis/github/real_data_private`
+  - Pushed data to a private bare repository
   - Created `link-to-polis-worktree.sh` for per-worktree clones with post-checkout branch sync
   - Linked `.local` to this worktree, created `series-of-fixes` branch in private repo
-- Created `CLAUDE.local.md` (via stow) and `CLAUDE.md` in private data repo
+- Added local agent instructions in the private data repo
 - D2 fix (TDD):
   - Baseline (public only): 205 passed, 3 failed (2 D2 + 1 DynamoDB)
   - Red: removed xfail from D2 tests, biodiversity fails (Python=428, Clojure=441)
@@ -278,7 +278,7 @@ Will re-record after those are resolved and rebased.
 - Updated plan: added D2c (vote count source, 2 xfail tests) and D2d (monotonicity, 6 tests
   guarding against future delta-processing refactor). Ref: compdemocracy/polis#2358.
 - Corrected earlier journal entry that said `raw_rating_mat` was "not needed" — it IS needed.
-- Added terminology rule to CLAUDE.local.md: always say "moderated-out" or "moderated-in",
+- Added a terminology rule: always say "moderated-out" or "moderated-in",
   never just "moderated".
 - Committed plan update (`f2bf77c38`)
 
@@ -868,7 +868,7 @@ All commits are now on a single `spr-stack` bookmark. Old PRs (#2401–#2453) we
 and replaced by spr-managed PRs (#2508–#2524). See `.spr.yml` for config.
 
 Old stack scripts (`rebase-stack.sh`, `update-stack-titles.sh`, `update-stack-links.sh`)
-and `.claude/STACK` are obsoleted.
+and the local stack file are obsoleted.
 
 ---
 
@@ -1086,7 +1086,7 @@ Adopted a per-PR cadence that splices Copilot deferred items *and* audit finding
 4. TDD cycle: baseline → red → green → full suite (compare against pre-fix baseline).
 5. Push via `jj spr update`.
 6. Reply on each thread + resolve via
-   `.claude/skills/copilot-review/resolve-specific-threads.sh <PR> <comment_id>+`.
+   a local thread-resolving script.
 
 ### What's Next
 
@@ -1213,8 +1213,7 @@ ever appears in real Polis data. It does.
   not in these client trees). 201 rows from 67 conversations across many
   years is "rare but real".
 - Specific zids/zinvites and per-conversation pollution percentages are kept
-  out of this committed doc; the unredacted findings are in Claude's
-  per-project memory store (`~/.claude/projects/...`). Open a follow-up
+  out of this committed doc; the unredacted findings are kept privately. Open a follow-up
   discussion with the team before any user-facing action.
 
 ## Session: PR 14a — Scalar deletion (2026-06-11)
@@ -1316,7 +1315,7 @@ at `delphi/.venv` but did NOT set any rule overrides, so default-mode
 `reportArgumentType` / `reportIndexIssue` errors surface for valid pandas code.
 Verified pre-existing on edge HEAD (not introduced by PR 14a).
 
-Handoff written: `~/polis/HANDOFF_PYRIGHT_PANDAS_STUBS.md`. Do NOT just turn
+Handoff written (kept outside this repository). Do NOT just turn
 off rules globally — investigate pandas-stubs version, community patterns,
 targeted ignores. Tracked as Claude task #8.
 
@@ -1415,7 +1414,7 @@ session entry preserved).
 
 Landed in `/goal` mode (autonomous run targeting D10 + D11 + D12 + goldens
 as a stacked PR series). Decisions made without inline user check are
-documented in `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` for batch review.
+documented in the goldens decision notes (kept outside this repository) for batch review.
 
 ### What landed
 
@@ -1491,7 +1490,7 @@ verified via the 18 public-fixture helper + boundary tests above.
 
 ### Decisions made autonomously (under `/goal` mode)
 
-See `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md`. Highlights:
+See the goldens decision notes (kept outside this repository). Highlights:
 - **S1**: Python convention key names (`repful`, `best_agree`, `n_agree`)
   instead of Clojure hyphens. Math blob alignment is a future PR.
 - **S2**: `select_rep_comments_df` returns `List[Dict[str, Any]]` instead
@@ -1510,7 +1509,7 @@ PR 9 (D11) on top of D10 in the same spr stack.
 ## Session: PR 9 — D11 consensus comment selection (2026-06-11)
 
 Landed in `/goal` mode. Decisions documented in
-`~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` (D11.x section).
+the goldens decision notes (kept outside this repository) (D11.x section).
 
 ### What landed
 
@@ -1591,7 +1590,7 @@ PR 11 (D12) on top of D11 in the same spr stack.
 ## Session: PR 11 — D12 comment priorities (2026-06-11)
 
 Landed in `/goal` mode. Decisions documented in
-`~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` (D12.x section).
+the goldens decision notes (kept outside this repository) (D12.x section).
 
 ### What landed
 
@@ -2401,7 +2400,7 @@ new tests; the postgres integration tests ran this time).
 - **TDD calibration approved (Julien)**: RED-when-pinning (written
   justification suffices for trivially-derivable guards), full-suite gate per
   PUSH not per commit, and gates DELEGATED to Sonnet/Haiku subagents that
-  return only summary + tracebacks + stall reports (Fable never reads raw
+  return only summary + tracebacks + stall reports (the top-level session never reads raw
   suite output). Encoded in `GOAL_R1_PARITY.md` Constraints.
 
 ### What's Next

@@ -104,7 +104,7 @@ class RunSpec(unittest.TestCase):
                                  ('max_readiness_age_seconds', 59, 'VERIFY_RUN_SPEC'),
                                  ('max_readiness_age_seconds', 3601, 'VERIFY_RUN_SPEC'),
                                  ('max_discovery_gap_seconds', 9, 'VERIFY_DISCOVERY_GAP'),
-                                 # Option (a) of review [1459] is refused by name, not configurable.
+                                 # A wider discovery gap is refused by name, not configurable.
                                  ('max_discovery_gap_seconds', 121, 'VERIFY_DISCOVERY_GAP'),
                                  ('max_discovery_gap_seconds', 600, 'VERIFY_DISCOVERY_GAP'),
                                  ('max_discovery_gap_seconds', 120.0, 'VERIFY_RUN_SPEC'),
@@ -471,7 +471,7 @@ class Receipts(unittest.TestCase):
                   'orphan_bidtopid', 'orphan_ptptstats', 'orphan_ticks', 'behind_input_at_cutoff',
                   'source_ahead_of_input', 'complete-short', 'history-missing', 'future-publication-clock'):
             self.assertIn(n, BLOCKING)
-        # The receipt's vocabulary has no current or expiry names and no READY (review [1459]).
+        # The receipt's vocabulary has no current or expiry names and no READY.
         for n in ('live_lag', 'live_tail_after_cutoff', 'target_only_main', 'poller-not-live', 'history-expired',
                   'readiness-expired', 'READY'):
             self.assertNotIn(n, BLOCKING)
@@ -487,7 +487,7 @@ def with_published(source=None, target=None):
 
 
 class Liveness(unittest.TestCase):
-    """Review [1453] R1: publication maxima are catch-up evidence; progress comes from the bound history."""
+    """Regression: publication maxima are catch-up evidence; progress comes from the bound history."""
 
     def verdict(self, results=None, **spec):
         r, j = export(results, j=job(**spec))
@@ -570,7 +570,7 @@ class Liveness(unittest.TestCase):
 
 
 class History(unittest.TestCase):
-    """Review [1459], design (b): the bound history is judged at its own observation;
+    """Regression: the bound history is judged at its own observation;
     probe latency between capture and snapshot never decides the verdict."""
     GAP = 120_000
     BOUND = 900_000
@@ -634,7 +634,7 @@ class History(unittest.TestCase):
         self.assertEqual(bv.readiness_failures(v, spec, now), ['discovery-stale', 'monitoring-not-ok', 'expired'])
 
     def test_compounded_future_tolerance_is_refused(self):
-        """Review [1455] R2: observation reference + 4,000 ms, discovery reference + 8,000 ms."""
+        """Regression: observation reference + 4,000 ms, discovery reference + 8,000 ms."""
         r = self.verdict(ready(observed=SNAPSHOT + 4_000, discovery={'last_success_ms': SNAPSHOT + 8_000}))
         self.assertEqual((r['verdict'], r['snapshot']['clock']), ('INCOMPLETE', 'UNKNOWN'))
         self.assertIn('future-history-clock', r['blocking'])
@@ -663,7 +663,7 @@ class History(unittest.TestCase):
 
 
 class Controls(unittest.TestCase):
-    """Review [1459]: the fixed vectors follow the job's limits, so no supported
+    """Regression: the fixed vectors follow the job's limits, so no supported
     configuration can fail a control through a mismatched embedded vector."""
 
     def test_every_supported_limit_keeps_every_control(self):
@@ -734,7 +734,7 @@ def shifted_alert(delta):
 
 
 class Handoff(unittest.TestCase):
-    """Review [1459], design (b): only the hand-off asserts current switch readiness."""
+    """Regression: only the hand-off asserts current switch readiness."""
     GAP = 120_000
 
     def setUp(self):
@@ -917,7 +917,7 @@ class Handoff(unittest.TestCase):
         self.assertRefused(self.gate(current('0' * 64, self.now - 1_000)), 'current-for-other-receipt')
         self.assertRefused(self.gate(cur, receipts=[self.rs, '0' * 64]), 'newer-receipt-exists')
         self.assertRefused(self.gate(cur, receipts=[]), 'newer-receipt-exists')
-        # One READY decision per proof (review [1463]); the ledger's own cases are in AttemptLedger.
+        # One READY decision per proof; the ledger's own cases are in AttemptLedger.
         first = self.gate(cur)
         record = bv.handoff_record(self.r, first, self.proof, self.rs, cur)
         self.assertRefused(self.gate(cur, previous=[record]), 'newer-handoff-exists', 'current-reused',
@@ -964,7 +964,7 @@ class Handoff(unittest.TestCase):
         self.assertEqual(r['verdict'], 'BACKFILL-INCOMPLETE')
         self.assertEqual(bv.consumption(r, SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
         out = bv.handoff(r, self.cur(), self.now, proof=None, receipt_sha256=self.rs, job_sha256=sha(j))
-        # The input is still observed (review [1467] R1), never authorized.
+        # The input is still observed, never authorized.
         self.assertEqual((out['status'], out['observation'], out['current']),
                          ('NOT_COMPLETE', 'valid', bv.readiness_digest(self.cur())))
 
@@ -974,7 +974,7 @@ def rehashed(ev):
 
 
 class AlertTestProvenance(unittest.TestCase):
-    """Review [1469] R1: the alert-test evidence (/3) binds the drill's private
+    """Regression: the alert-test evidence (/3) binds the drill's private
     trace, collection manifest and selected notifications; /2 is refused."""
 
     def setUp(self):
@@ -1105,8 +1105,8 @@ class AlertTestProvenance(unittest.TestCase):
 
 
 class AttemptLedger(unittest.TestCase):
-    """Review [1463] R1: every attempt, refusals included, is remembered for the proof;
-    C1: the proof's clock tolerance matches the receipt phase's."""
+    """Regression: every attempt, refusals included, is remembered for the proof;
+    the proof's clock tolerance matches the receipt phase's."""
     NOW = SNAPSHOT + 90_000
 
     def setUp(self):
@@ -1228,7 +1228,7 @@ class AttemptLedger(unittest.TestCase):
         self.assertRefused(self.attempt(refused, self.NOW + 1_000), 'current-reused')
         self.assertRefused(self.attempt(self.cur(self.NOW + 500, 43), self.NOW + 1_000), 'newer-attempt-exists')
         # No input observes nothing; an input with no readable record observes nothing but is
-        # a barrier (review [1467] R1): only a record captured after it may follow.
+        # a barrier: only a record captured after it may follow.
         self.setUp()
         self.attempt(None, self.NOW)
         self.attempt({'schema': 'unreadable'}, self.NOW + 1_000)
@@ -1303,7 +1303,7 @@ class AttemptLedger(unittest.TestCase):
         self.assertRefused(h, 'attempt-ledger-invalid', 'proof-consumed')
 
     def test_proof_clock_matches_the_receipt_tolerance(self):
-        """C1: a receipt taken 1 s before the snapshot (inside the receipt's 5 s tolerance)
+        """A receipt taken 1 s before the snapshot (inside the receipt's 5 s tolerance)
         writes a proof that the hand-off accepts; it was UNKNOWN forever before."""
         tol = bv.CLOCK_TOLERANCE_MS
         early = SNAPSHOT - 1_000
@@ -1327,7 +1327,7 @@ class AttemptLedger(unittest.TestCase):
 
 
 class RejectedInput(unittest.TestCase):
-    """Review [1467] R1: a rejected current envelope keeps its independently valid
+    """Regression: a rejected current envelope keeps its independently valid
     readiness observation; an input with no valid readiness record is a barrier."""
     NOW, ADVERSE = AttemptLedger.NOW, AttemptLedger.ADVERSE
     setUp, attempt, cur, adverse, assertRefused = (AttemptLedger.setUp, AttemptLedger.attempt, AttemptLedger.cur,
@@ -1458,8 +1458,8 @@ class RejectedInput(unittest.TestCase):
 
 
 class PresentedInput(unittest.TestCase):
-    """Review [1471]: a supplied JSON null (R1) is an unknown input with its digest,
-    never absence; the current file is read once, hashed and judged as the same bytes (R2)."""
+    """Regression: a supplied JSON null is an unknown input with its digest,
+    never absence; the current file is read once, hashed and judged as the same bytes."""
     NOW, ADVERSE = AttemptLedger.NOW, AttemptLedger.ADVERSE
     setUp, attempt, cur, adverse, assertRefused = (AttemptLedger.setUp, AttemptLedger.attempt, AttemptLedger.cur,
                                                    AttemptLedger.adverse, AttemptLedger.assertRefused)
@@ -1581,7 +1581,7 @@ class PresentedInput(unittest.TestCase):
 
 
 class Consumption(unittest.TestCase):
-    """Review [1453] R2: the cutoff at consumption; archival decode unchanged."""
+    """Regression: the cutoff at consumption; archival decode unchanged."""
 
     def setUp(self):
         self.r, self.j = export()
@@ -1675,7 +1675,7 @@ class Postgres(unittest.TestCase):
         return r
 
     def test_publication_clocks_are_not_poller_liveness(self):
-        """Review [1453] R1 through the real PG17 chain: a stopped writer in a quiet database."""
+        """Regression through the real PG17 chain: a stopped writer in a quiet database."""
         now = self.clean(-86_400_000)
         r = self.receipt(now, None)
         self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['history-missing']))
@@ -1690,7 +1690,7 @@ class Postgres(unittest.TestCase):
                                                                                       observed=now))))
 
     def test_history_is_judged_at_its_observation(self):
-        """Review [1459], design (b), through the real PG17 chain: the history captured 480 s
+        """Regression through the real PG17 chain: the history captured 480 s
         before the snapshot (discovery 485 s old then) proves completeness historically; a
         history already stale when captured does not."""
         now = self.clean()

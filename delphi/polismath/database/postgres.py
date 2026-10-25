@@ -945,7 +945,7 @@ class PostgresClient:
         ticks are incomplete, even if both companions are missing/NULL alike.
         """
         # bundle_valid: the backfill's shared validity rule over the same
-        # snapshot (P-070 review [1447] E). The live restore uses warm state
+        # snapshot. The live restore uses warm state
         # only from a valid bundle, so a malformed row (a wrong body zid, say)
         # is never restored into its own replacement. Imported here to keep
         # the database layer free of an import-time dependency on the poller.

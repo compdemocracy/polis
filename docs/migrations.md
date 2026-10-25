@@ -262,7 +262,7 @@ earlier queue daemon would exit on the newer contract.
 
 ## CI and local test stacks
 
-The migration-runner CI fresh-image step and the mm2/mm5 proof use exactly:
+The migration-runner CI fresh-image step and the local proof use exactly:
 
 ```sh
 COMPOSE_PROJECT_NAME=polis-migrate-test-my-owned-run \

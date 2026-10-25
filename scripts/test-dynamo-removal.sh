@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The hosted CI and mm5 entry point. Generated/public fixture data only.
+# The hosted CI and local entry point. Generated/public fixture data only.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=$PWD
@@ -67,7 +67,7 @@ docker run --rm --network none "$image" python -m pytest --noconftest -o addopts
  tests/poller/test_enqueue_math_rebuild.py tests/test_delphi_legacy_import.py tests/test_delphi_storage_codec.py \
  tests/test_delphi_postgres_results.py tests/test_delphi_result_resource.py tests/job_graph/test_numerical_stages.py \
  tests/test_narrative_audit.py > "$proof/python-unit.log" 2>&1
-# The same server tests and SQL boundary campaign run in hosted CI and on mm5.
+# The same server tests and SQL boundary campaign run in hosted CI and locally.
 server_image=${DYNAMO_PROOF_SERVER_IMAGE:-${COMPOSE_PROJECT_NAME}:server}
 if [[ -z "${DYNAMO_PROOF_SERVER_IMAGE:-}" ]]; then
  docker build --target dev -t "$server_image" -f server/Dockerfile . > "$proof/server-image-build.log" 2>&1

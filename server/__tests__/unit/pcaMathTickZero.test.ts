@@ -243,7 +243,7 @@ describe("getPca and a committed math generation of tick 0", () => {
 });
 
 describe("prefetchLatestPcaData column authority at zero", () => {
-  // The second reviewer's review noted the prefetch guards had no direct committed test.
+  // The review noted the prefetch guards had no direct committed test.
   // These pin both of them, and the ONE place where the fix intentionally
   // changes bytes even at a positive math_tick.
   beforeEach(() => {
@@ -321,7 +321,7 @@ describe("getLatestExistingPca", () => {
   });
 
   test("returns undefined after exactly one query when there is no math row", async () => {
-    // The cheap no-row path the second reviewer required: never createEmptyPcaStructure's
+    // The cheap no-row path the reviewer required: never createEmptyPcaStructure's
     // second query. Contrast with getPca(zid), which synthesizes.
     serveNoRows();
     expect(await getLatestExistingPca(freshZid())).toBeUndefined();
@@ -350,7 +350,7 @@ describe("latest-existing cache provenance (review R2-F1)", () => {
   });
 
   test("Review: latest-existing refuses a synthesized warm cache entry", async () => {
-    // The second reviewer's acceptance test, verbatim in behaviour: ordinary latest
+    // The review's acceptance test, verbatim in behaviour: ordinary latest
     // synthesizes and caches an empty presentation for a conversation with no
     // row; latest-existing must not adopt it.
     serveNoRows();
@@ -361,7 +361,7 @@ describe("latest-existing cache provenance (review R2-F1)", () => {
   });
 
   test("it re-reads the store, so a first publication after the warm-up is visible", async () => {
-    // The second reviewer's step 3: the fallback entry must not hide a generation that was
+    // The review's step 3: the fallback entry must not hide a generation that was
     // committed after it was cached.
     const zid = freshZid();
     serveNoRows();

@@ -1181,7 +1181,7 @@ def test_r3f4_the_ads_tally_shape_is_key_scoped_not_field_scoped():
 
 # ---------------------------------------------------------------------------
 # Round 5 — regressions for the two residual findings in the round-4 review
-# (R4-F1, R4-F2). The second reviewer's seven reproductions, plus the cases they imply.
+# (R4-F1, R4-F2). The review's seven reproductions, plus the cases they imply.
 # ---------------------------------------------------------------------------
 def _recording_pair(tmp_path, mutate_b, *, target="doc"):
     """Two real on-disk recordings, the second corrupted. Exercises the PUBLIC

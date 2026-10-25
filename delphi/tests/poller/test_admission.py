@@ -410,7 +410,7 @@ class TestServicePaths:
 
 
 # --------------------------------------------------------------------------- #
-# Review [1447] A: a cached object a worker holds stays counted
+# Regression: a cached object a worker holds stays counted
 # --------------------------------------------------------------------------- #
 def counted_bytes(a):
     return a.base_bytes + a.retained_total() + sum(r.nbytes for r in a.granted())
@@ -458,7 +458,7 @@ class TestHeldObjects:
         return svc, a, a.retained_of(1)
 
     def test_reviewer_witness_cache_cap_eviction_keeps_the_held_charge(self):
-        """The [1447] witness: a second _remember hits the count cap while
+        """The review's witness: a second _remember hits the count cap while
         zid 1 is held inside compute. The cache evicts it, but its charge
         stays until the worker releases, so every grant keeps held state +
         reservations <= budget."""
@@ -570,7 +570,7 @@ class _Conv:
 
 
 class TestImmutableReplacementHandoff:
-    """Review [1449] A: the recompute caches a replacement whose charge
+    """Regression: the recompute caches a replacement whose charge
     replaces zid 1's, while _run_engine still referenced the old object. The
     old reference and hold must end while the compute reservation still
     covers them, i.e. before the release wakes anyone."""

@@ -203,7 +203,7 @@ def alert_doc(lines=None, **kwargs):
 
 def alert_ev(lines=None, **kwargs):
     """The alert test as ``record`` and ``current`` take it: the document with
-    its private trace, collection report and received files (review [1469] R1)."""
+    its private trace, collection report and received files."""
     lines = lines if lines is not None else fixture_log()[0]
     hist = kwargs.pop("hist", history(T0))
     return collect.alert_evidence(lines, hist, NONCE, described=kwargs.pop("desc", described()),
@@ -507,7 +507,7 @@ def _emitted(lines):
     return _latest_holder_index(lines)[1]["emitted_ms"]
 
 
-# R3 ------------------------------------------------------------------------ #
+# Queue age at collection
 def test_queue_age_is_aged_from_the_line_to_the_collection():
     """Reviewer's case: 20 s of pending work at emission, collected 110 s
     later. The record must say 130 s, and the verifier must refuse it."""
@@ -771,8 +771,8 @@ def _snapshot_resources(text):
 
 
 def test_alarm_config_matches_the_cdk_snapshot():
-    """The accepted shape is the synthesized one, field for field (review
-    [1461] R1): the alarms set exactly ALARM_CONFIG's fields, no dimensions,
+    """The accepted shape is the synthesized one, field for field:
+    the alarms set exactly ALARM_CONFIG's fields, no dimensions,
     no unit, no other alarm form and no INSUFFICIENT_DATA action; each reads
     the metric its log filter publishes (same namespace and name, no
     dimensions, unit Count, which an alarm without a unit matches)."""
@@ -952,7 +952,7 @@ def test_write_create_only_is_0600_and_refuses_overwrite(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# P-072 review round 2 ([1461]) acceptance
+# Readiness alarm acceptance
 # --------------------------------------------------------------------------- #
 import contextlib  # noqa: E402
 
@@ -982,7 +982,7 @@ def real_verifier():
             sys.modules.pop("backfill_verify_queries", None)
 
 
-# R1: the whole metric identity ---------------------------------------------- #
+# The whole metric identity ---------------------------------------------- #
 @pytest.mark.parametrize("name", collect.ALARMS)
 @pytest.mark.parametrize("field,value", [
     ("Dimensions", [{"Name": "InstanceId", "Value": "i-0unrelated"}]),
@@ -1088,7 +1088,7 @@ def test_r1_the_digest_binds_dimensions_and_unit():
         collect.encoded(checked)).hexdigest()
 
 
-# R2: one event per fired alarm ---------------------------------------------- #
+# One event per fired alarm ---------------------------------------------- #
 OLD_OK_MAIL = ('Subject: OK: "' + STALE + '"\nDate: Tue, 01 Jan 2019 00:00:00 +0000\n\n'
                'This alarm entered the OK state.').encode()
 
@@ -1308,7 +1308,7 @@ def test_r2_saved_heartbeat_evidence_is_rechecked():
         collect.check_alert_test(_rehash(standby))
 
 
-# R3: holder and record select the same evidence ----------------------------- #
+# Holder and record select the same evidence ----------------------------- #
 BROKEN_STANDBY = "math_poller readiness/1 role=standby progress=waiting {"
 
 
@@ -1517,8 +1517,8 @@ def test_cli_current_file_mode(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Review [1465]: run lifecycle per instance (R1), one notification per event
-# (R2) and malformed drill evidence (R3), through to the real hand-off.
+# Regression: run lifecycle per instance, one notification per event
+# and malformed drill evidence, through to the real hand-off.
 # --------------------------------------------------------------------------- #
 @contextlib.contextmanager
 def real_pipeline(tmp_path):
@@ -1706,7 +1706,7 @@ def test_1465_r1_current_to_real_handoff(tmp_path, monkeypatch, restarted):
             _handoff(p, lines)
 
 
-# R2 ------------------------------------------------------------------------ #
+# One notification per fired alarm
 def _both_fired():
     """Both alarms change state at one evaluation boundary inside both drill
     windows (the reviewer's arrangement)."""
@@ -1834,7 +1834,7 @@ def test_1465_r2_wrong_state_time_or_missing_message_refuse():
         alert_doc(lines, hist=hist, receipt=[])
 
 
-# R3 ------------------------------------------------------------------------ #
+# Malformed evidence within the drill
 def _truncated_in_place(kind):
     """The reviewer's cases: a heartbeat of another run, or the tested run's
     standby transition, inside the evaluated silence; complete, and with
@@ -1926,8 +1926,8 @@ def test_1465_the_reviewer_handoff_cases_never_reach_ready(tmp_path, monkeypatch
     with real_pipeline(tmp_path) as mods:
         lines = _drill_log(tested_is_holder=True)
         fired, both = _both_fired()
-        # One raw file of two concatenated e-mails is now refused as a whole
-        # (review [1469] R2), so neither alarm is received from it.
+        # One raw file of two concatenated e-mails is now refused as a whole,
+        # so neither alarm is received from it.
         with pytest.raises(collect.Refused, match="ALERT_TEST_RECEIPT_UNRELATED"):
             alert_doc(lines, hist=both, receipt=_mail(STALE, fired) + b"\n" + OLD_HB_OK)
         for kind in ("heartbeat", "standby"):
@@ -1942,9 +1942,9 @@ def test_1465_the_reviewer_handoff_cases_never_reach_ready(tmp_path, monkeypatch
 
 
 # --------------------------------------------------------------------------- #
-# Review [1469]: bound drill provenance and validation on reuse (R1), one
-# complete notification per message (R2), and malformed drill lines placed
-# only under a proven clock order (R3).
+# Regression: bound drill provenance and validation on reuse, one
+# complete notification per message, and malformed drill lines placed
+# only under a proven clock order.
 # --------------------------------------------------------------------------- #
 PREVIOUS = "b8eae77f9"
 
@@ -2201,7 +2201,7 @@ def test_1469_r1_cli_record_and_current_reuse_only_with_the_private_files(tmp_pa
     assert run.returncode == 2 and "ALERT_TEST_PROVENANCE:receipt-files" in run.stderr
 
 
-# R2 ------------------------------------------------------------------------ #
+# Complete notification boundaries
 PARTIAL_OLD_HB = ('Subject: ALARM: "' + HB + '"\n'
                   'Date: Tue, 1 Jan 2019 00:00:00 +0000\n\n'
                   'Saved heartbeat message is truncated before its state-change time.\n').encode()
@@ -2284,7 +2284,7 @@ def test_1469_r2_two_timestamps_refuse_whatever_the_order_and_the_guard_is_neede
         assert ns["_mail_fields"](raw) is not None
 
 
-# R3 ------------------------------------------------------------------------ #
+# Clock order for malformed evidence
 @pytest.mark.parametrize("kind", ["heartbeat", "standby"])
 def test_1469_r3_a_later_clock_logged_earlier_never_excludes_a_malformed_line(kind, tmp_path):
     """Reviewer's case: a well-formed other-instance standby line at

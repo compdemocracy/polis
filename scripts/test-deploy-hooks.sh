@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared mm5/CI entry point. Requires an already-running Delphi test container.
+# Shared local/CI entry point. Requires an already-running Delphi test container.
 # Usage: bash scripts/test-deploy-hooks.sh [-f compose.yml --env-file .env ...]
 # Compose global options are passed through; this never starts/stops services.
 # DEPLOY_HOOKS_COPY_ONLY=1 copies the inputs and tests into the container and

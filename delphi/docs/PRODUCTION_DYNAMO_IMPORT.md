@@ -141,7 +141,7 @@ The private worker log/journal is retained for diagnosis. Do not upload it from 
 
 ## Executable proof
 
-Hosted CI and mm5 both run:
+Hosted CI and a local Docker host both run:
 
 ```sh
 bash scripts/test-production-import.sh

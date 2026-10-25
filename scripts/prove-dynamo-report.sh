@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local mm5 report smoke against an already published generated Postgres run.
+# Local report smoke against an already published generated Postgres run.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo_root=$PWD

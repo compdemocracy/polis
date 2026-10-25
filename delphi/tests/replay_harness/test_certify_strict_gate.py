@@ -925,7 +925,7 @@ def test_declared_alias_pair_admits_the_empty_and_singleton_group_states():
         "py: step-000")
 
 
-#: The six mutations the second reviewer's out-of-tree alias probe
+#: The six mutations the review's out-of-tree alias probe
 #: drove through raw validation AND a full strict ``run_battery`` to PASS/exit 0
 #: under the first cut of policy v2: four raw-schema escapes (F1) and two
 #: well-typed but WRONG unfolded values (F2). Each mutates the UNFOLDED view of
@@ -1036,7 +1036,7 @@ R2_BAD_MAPPINGS = {
 
 def _many_to_one_twin_blob():
     """A minimal VALID many-to-one pair: one base cluster folding two
-    participants, one group, exact sign negation. The second reviewer's r2 probe base."""
+    participants, one group, exact sign negation. The review's r2 probe base."""
     return copy.deepcopy({
         **VALID_BASE,
         "n": 2,

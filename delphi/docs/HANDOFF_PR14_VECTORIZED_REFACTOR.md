@@ -98,7 +98,7 @@ Update all tests that called the scalar API.
 ### 5. Cascade rebase
 
 Rebase D5→D6→D7→D8→D15→k-divergence→D10→D11→D3→D12→D1→PR15 on top.
-Use `.claude/skills/pr-stack/rebase-stack.sh` for the cascade.
+Rebase the stack in order for the cascade.
 
 ### 6. Add per-PR vectorized blob injection tests
 

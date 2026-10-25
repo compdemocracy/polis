@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared hosted-CI/mm5 entry point. Generated data only; no AWS endpoint.
+# Shared hosted-CI/local entry point. Generated data only; no AWS endpoint.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=$PWD

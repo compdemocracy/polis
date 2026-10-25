@@ -464,7 +464,7 @@ export function bidsForPids(
   const indexToBid = bundle.main["base-clusters"]?.id || [];
   const result: Record<number, number | undefined> = {};
   // A malformed mapping entry (not an array) is refused, not dereferenced:
-  // it places no pid (P-070 review [1447] B). Logged once per call.
+  // it places no pid. Logged once per call.
   let malformed = 0;
   for (const pid of pids) {
     let bidi = -1;
