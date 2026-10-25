@@ -88,9 +88,9 @@
     {
       "case": "I/votes-bulk-declared/queued",
       "find": "7",
-      "replace": "4",
-      "why": "The three refused posts are not queued: 4 in-test queue messages instead of 7 (a consequence of the three refusals above, not a separate change).",
-      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+      "replace": "0",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I3/declared-export-convention/import-job",
@@ -104,16 +104,16 @@
     {
       "case": "I3/declared-storage-convention/import-job",
       "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
-      "replace": "polis_err_vote_convention_declaration_mismatch\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_mismatch",
-      "why": "The import worker fails a file declaring another sign with polis_err_vote_convention_declaration_mismatch before reading a row. Edge failed it with Invalid Record Length.",
-      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+      "replace": "This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I3/declared-malformed/import-job",
       "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
-      "replace": "polis_err_vote_convention_declaration_malformed\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_malformed",
-      "why": "The import worker fails a malformed declaration with polis_err_vote_convention_declaration_malformed before reading a row. Edge failed it with Invalid Record Length.",
-      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+      "replace": "This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I3/after-import/db/votes",
@@ -272,17 +272,19 @@
     },
     {
       "case": "I/after-import/db/votes",
-      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},",
-      "replace": "",
-      "why": "The uploader's three automatic pass rows (pid 0, tid 0-2) are gone; the rows written by the vote import are unchanged.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]",
+      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
     },
     {
       "case": "I/after-import/db/votes_latest_unique",
-      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},",
-      "replace": "",
-      "why": "As I/after-import/db/votes, in votes_latest_unique.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":3",
+      "replace": "1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I/owner/votes-pid-0",
@@ -304,54 +306,54 @@
     },
     {
       "case": "I/comments/moderation-voting-patterns",
-      "find": "\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3",
-      "replace": "\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":1,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":2,\"count\":2",
-      "why": "Each uploaded seed's counts no longer include the uploader's automatic pass: pass_count 1 -> 0, 2 -> 1 and 3 -> 2, and count (seen) 3 -> 2 on each. agree_count and disagree_count are unchanged.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "2,\"disagree_count\":0,\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3",
+      "replace": "1,\"disagree_count\":0,\"pass_count\":0,\"count\":1,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":0,\"count\":1,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":1,\"count\":1",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I/comments/moderation-voting-patterns-mod-in",
-      "find": "\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3",
-      "replace": "\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":1,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":2,\"count\":2",
-      "why": "As I/comments/moderation-voting-patterns: each uploaded seed's pass_count falls by one and its count goes 3 -> 2.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "2,\"disagree_count\":0,\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3",
+      "replace": "1,\"disagree_count\":0,\"pass_count\":0,\"count\":1,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":0,\"count\":1,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":1,\"count\":1",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I/reportExport/votes.csv",
-      "find": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,0,0\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,0,0\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2,0\n<s>,<datetime>,2,0,0\n<s>,<datetime>,2,1,0\n<s>,<datetime>,2,3,1\n<s>,<datetime>,2,3,0\n",
-      "replace": "timestamp,datetime,comment-id,voter-id,vote,important\n<s>,<datetime>,0,1,1,0\n<s>,<datetime>,0,2,-1,0\n<s>,<datetime>,0,2,1,0\n<s>,<datetime>,1,1,-1,0\n<s>,<datetime>,1,2,0,0\n<s>,<datetime>,2,1,0,0\n<s>,<datetime>,2,3,1,0\n<s>,<datetime>,2,3,0,0\n",
-      "whole_response": true,
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote; ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
-      "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
-      "why": "votes.csv no longer has the three rows for the uploader's automatic passes (voter-id 0 on comment-id 0, 1 and 2); the imported votes are unchanged. Also: votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
+      "find": "\n<s>,<datetime>,0,0,0\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,0,0\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2,0\n<s>,<datetime>,2,0,0\n<s>,<datetime>,2,1,0\n<s>,<datetime>,2,3,1\n<s>,<datetime>,2,3",
+      "replace": ",important\n<s>,<datetime>,0,1,1,0\n<s>,<datetime>,1,1,-1,0\n<s>,<datetime>,2,1,0",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I/reportExport/participant-votes.csv",
-      "find": "\n0,,3,3,0,0,0,0,0",
-      "replace": "",
-      "why": "participant-votes.csv no longer has a row for the owner (participant 0, three votes, all pass): a participant with no votes has no row.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "0,,3,3,0,0,0,0,0\n1,,0,3,1,1,1,-1,0\n2,,0,2,<counts:consistent>,<counts:consistent>,<changed-vote:in-history>,0,\n3,,0,1,<counts:consistent>,<counts:consistent>,,,<changed-vote:in-history>",
+      "replace": "1,,0,3,1,1,1,-1,0",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I/reportExport/participant-importance.csv",
-      "find": "0,,3,3,0,0,0,0\n",
-      "replace": "",
-      "why": "participant-importance.csv no longer has a row for the owner (participant 0): a participant with no votes has no row.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "0,,3,3,0,0,0,0\n1,,0,3,0,0,0,0\n2,,0,2,0,0,0,\n3,,0,1,0,,",
+      "replace": "1,,0,3,0,0,0",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I/after-votes-bulk-route/db/votes",
-      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},",
-      "replace": "",
-      "why": "As I/after-import/db/votes: the uploader's three automatic pass rows are gone; the imported rows are unchanged.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]",
+      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
     },
     {
       "case": "I/after-votes-bulk-route/db/votes_latest_unique",
-      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},",
-      "replace": "",
-      "why": "As I/after-import/db/votes_latest_unique.",
-      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+      "find": "0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":3",
+      "replace": "1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "E/reportExport/comments.csv",
@@ -396,10 +398,10 @@
     },
     {
       "case": "I/reportExport/comments.csv",
-      "find": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,2,1,1,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,\"Vote path import statement b\"\n<s>,<datetime>,2,0,1,0,1",
-      "replace": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n<s>,<datetime>,0,0,2,1,1,0,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,0,\"Vote path import statement b\"\n<s>,<datetime>,2,0,1,0,1,0",
-      "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
-      "why": "comments.csv gains the importance column for this conversation, whose importance_enabled is false: the header gains `importance` before `comment-body` and every row a count (0 here) in that place. The export no longer reads importance_enabled; every other byte is unchanged."
+      "find": "comment-body\n<s>,<datetime>,0,0,2,1,1,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,\"Vote path import statement b\"\n<s>,<datetime>,2,0,1,0,1",
+      "replace": "importance,comment-body\n<s>,<datetime>,0,0,1,0,1,0,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,0,\"Vote path import statement b\"\n<s>,<datetime>,2,0,0,0,1,0",
+      "why": "Existing seed-vote and source-convention expectations are retained. Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
     },
     {
       "case": "I2/reportExport/comments.csv",
@@ -432,6 +434,120 @@
       "ruling": "ruled:Colin 2026-10-19, importance is permanent: always collected and always exported",
       "whole_response_reason": "Every row of the response gains a cell, so the change covers the whole text.",
       "why": "votes.csv gains the important column for this conversation, whose importance_enabled is false: the header gains `important` and every row a last 0/1 cell (0 here: no vote was marked important). The export no longer reads importance_enabled; every other byte is unchanged."
+    },
+    {
+      "case": "I/file-u2/import-job",
+      "find": "completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null",
+      "replace": "threw: This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\"",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
+    },
+    {
+      "case": "I/file-u3/import-job",
+      "find": "completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null",
+      "replace": "threw: This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\"",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
+    },
+    {
+      "case": "I/file-changed-votes/import-job",
+      "find": "completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null",
+      "replace": "threw: This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\"",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
+    },
+    {
+      "case": "I/owner/votes-pid-2",
+      "find": "[{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]",
+      "replace": "[]",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/owner/votes-pid-3",
+      "find": "[{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]",
+      "replace": "[]",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I2/unparseable/import-job",
+      "find": "invalid input syntax for type integer: \\\"NaN\\\"\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"invalid input syntax for type integer: \\\"NaN\\\"",
+      "replace": "This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge"
+    },
+    {
+      "case": "I/votes-bulk-route-admin",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "status": 409,
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/votes-bulk-route-admin/queued-message",
+      "find": "[{\"keys\":[\"jobId\",\"zid\",\"s3Key\",\"email\"],\"zidMatches\":true,\"jobIdIsNumber\":true,\"s3KeyShape\":true,\"email\":\"admin@polis.test\",\"attributes\":{\"JobType\":{\"DataType\":\"String\",\"StringValue\":\"ImportMapping\"}}}]",
+      "replace": "[]",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/votes-bulk-route-admin/job",
+      "find": "{\"job\":{\"status\":\"pending\",\"stage\":\"mapping\",\"error_message\":null,\"s3_key_shape\":true},\"object\":\"uploaded, bytes equal to the posted csv\"}",
+      "replace": "{\"job\":null,\"object\":\"absent\"}",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/votes-bulk-declared/line-export-convention",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "status": 409,
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/votes-bulk-declared/format-object-export-convention",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "status": 409,
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/votes-bulk-declared/format-field-string",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "status": 409,
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+    },
+    {
+      "case": "I/votes-bulk-declared/format-object-wire-convention",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
+      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
+      "ruling": "ruled:imports-refuse-existing-data-no-merge",
+      "status": 409,
+      "whole_response": true,
+      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
     }
   ]
 }

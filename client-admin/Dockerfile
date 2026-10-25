@@ -5,7 +5,8 @@
 # the docker compose configuration.
 # Build from the repository root: docker build -f client-admin/Dockerfile .
 
-FROM docker.io/node:24-alpine
+FROM docker.io/node:24.22.1-alpine
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV

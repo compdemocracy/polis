@@ -5,7 +5,8 @@
 # the docker compose configuration.
 # Build from the repository root: docker build -f client-participation/Dockerfile .
 
-FROM docker.io/node:24-alpine
+FROM docker.io/node:24.22.1-alpine
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 ARG EMBED_SERVICE_HOSTNAME
 ARG GA_TRACKING_ID

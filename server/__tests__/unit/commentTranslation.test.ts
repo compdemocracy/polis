@@ -20,7 +20,10 @@ jest.mock("../../src/config", () => ({
 }));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: mockQuery, queryP_notification: jest.fn().mockResolvedValue([]) },
+  default: {
+    queryP: mockQuery,
+    queryP_notification: jest.fn().mockResolvedValue([]),
+  },
 }));
 jest.mock("../../src/utils/logger", () => ({
   __esModule: true,
@@ -70,7 +73,13 @@ function post(seed = true) {
   const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
   const done = handle_POST_comments(
     {
-      p: { zid: 7, uid: 11, pid: 0, txt: "A public-fixture comment", is_seed: seed },
+      p: {
+        zid: 7,
+        uid: 11,
+        pid: 0,
+        txt: "A public-fixture comment",
+        is_seed: seed,
+      },
       headers: {},
     },
     res
@@ -288,7 +297,9 @@ describe("optional stored translations", () => {
   test("provider rejection logs once and does not write a translation", async () => {
     const err = new Error("public-fixture translation failure");
     mockTranslate.mockRejectedValue(err);
-    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBeNull();
+    expect(
+      await translateAndStoreComment(7, 3, "public-fixture", "fr")
+    ).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledWith(
@@ -300,7 +311,9 @@ describe("optional stored translations", () => {
     [null, [], [null], [{}], [""], [["nested"]]].map((value) => [value])
   )("invalid translation %p is not stored", async (value) => {
     mockTranslate.mockResolvedValue(value);
-    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBeNull();
+    expect(
+      await translateAndStoreComment(7, 3, "public-fixture", "fr")
+    ).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
@@ -323,7 +336,9 @@ describe("optional stored translations", () => {
   test("success stores the original translation and returns the database row", async () => {
     const row = { zid: 7, tid: 3, txt: "A translation", lang: "fr", src: -1 };
     mockQuery.mockResolvedValue([row]);
-    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBe(row);
+    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBe(
+      row
+    );
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining("insert into comment_translations"),
       [7, 3, "A translation", "fr", -1]

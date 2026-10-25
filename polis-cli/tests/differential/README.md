@@ -99,6 +99,36 @@ checks each path independently as well as the selector total. `votesRead`
 exercises `vote list` and `vote mine` with empty and single-row results served
 from Rust, then requires a Node handoff for each multi-row read. Vote POSTs
 remain Node requests and count separately from the read successes.
+The performance collector, metadata selection and Postgres report export selectors
+exercise the real CLI reads, with every export subtype downloaded and hashed
+through an anonymous CLI profile. The original signed-in format download retains
+its explicit Node handoff because the Rust export subset excludes credentials.
+A separate generated report without stored math covers the restricted summary,
+participant and group exports. Populated comment/vote downloads run after the
+CLI has written votes, retaining the shared vote convention and semantic checks.
+Supplemental requests check GET/HEAD and query-bearing handoffs for the collector
+and all seven export subtypes, plus authenticated empty metadata POSTs with and
+without a query parameter. Each requires HTTP 200 and its declared content type;
+collector and empty metadata responses also require their exact expected body.
+The phases compare full body bytes, status and content type, reporting only
+scenario names and differing fields under `reads`. Full HTTP header equivalence
+remains the separate wire gate. Export subtypes have independent serving counts;
+switches off require exact request totals and no Rust contact for every route.
+Only the generated Compose fixture enables these process switches and independent
+read pools; both backends explicitly use UTC for date-bearing CSV exports.
+
+The current-participant, social-profile, bucket, location and participant-owned
+CSV selectors exercise the corresponding CLI reads, including missing membership,
+filtered profiles, owner bucket and absent-group cases. Their process switches
+and independent read pools are enabled only in the generated Compose fixture.
+Seven HTML selectors have supplemental HTTP scenarios because the CLI accepts
+API paths only: GET and HEAD must serve from Rust, while a query parameter must
+hand back to Node. Each case requires HTTP 200 and HTML, and compares status,
+content type and full body bytes between phases. These are reported separately
+under `pages`, without response values; complete header/wire equivalence remains
+the separate byte gate. A fixed participation-page static service runs only on
+its own port, preserving unrelated missing-static scenarios. Every route's exact
+request count is also checked with switches off, with no Rust contact allowed.
 Each entry requires an exact request count, a minimum number of sole Rust
 HTTP200 responses, and an exact count of scoped Node handoffs with a reason.
 These counts cover this generated fixture only. Unexercised routes explicitly

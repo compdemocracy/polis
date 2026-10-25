@@ -478,5 +478,217 @@
       "delphi logs"
     ],
     "scope": "The shared differential uses DynamoDB job fixtures, so this Postgres-only route remains disabled and the request hands back to Node. Dedicated Postgres conformance proves archived and native authorized logs and counts every Rust-served case."
+  },
+  "perfStats": {
+    "path": "/perfStats_9182738127",
+    "minimum_rust_successes": 3,
+    "expected_requests": 4,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "ops performance"
+    ],
+    "scope": "The public CLI read and supplemental GET/HEAD serve the disabled collector empty object. The query-bearing GET hands back to Node."
+  },
+  "metadataQuery": {
+    "path": "/api/v3/query_participants_by_metadata",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [
+      "participant query"
+    ],
+    "scope": "The real account-authenticated CLI POST selects participants. Supplemental authenticated empty selection serves from Rust; query-bearing POST hands back. This selector is a read despite its POST method."
+  },
+  "reportExportPg": {
+    "path": "^/api/v3/reportExport/[^/]+/(?:format\\.json|summary\\.csv|comments\\.csv|votes\\.csv|participant-votes\\.csv|participant-importance\\.csv|comment-groups\\.csv)$",
+    "minimum_rust_successes": 23,
+    "expected_requests": 31,
+    "expected_node_handoffs": 8,
+    "commands": [
+      "report export"
+    ],
+    "scope": "Each Postgres subtype has independent counts and anonymous CLI file/body equality. The original signed-in format download and query-bearing requests hand back. A generated report has no stored math; populated comment/vote exports retain real CLI-written votes. External subtypes are outside this selector.",
+    "paths": [
+      {
+        "path": "^/api/v3/reportExport/[^/]+/format\\.json$",
+        "minimum_rust_successes": 3,
+        "expected_requests": 5,
+        "expected_node_handoffs": 2,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve. The original signed-in CLI download and the query-bearing GET hand back to Node."
+      },
+      {
+        "path": "^/api/v3/reportExport/[^/]+/summary\\.csv$",
+        "minimum_rust_successes": 3,
+        "expected_requests": 4,
+        "expected_node_handoffs": 1,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
+      },
+      {
+        "path": "^/api/v3/reportExport/[^/]+/comments\\.csv$",
+        "minimum_rust_successes": 4,
+        "expected_requests": 5,
+        "expected_node_handoffs": 1,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
+      },
+      {
+        "path": "^/api/v3/reportExport/[^/]+/votes\\.csv$",
+        "minimum_rust_successes": 4,
+        "expected_requests": 5,
+        "expected_node_handoffs": 1,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
+      },
+      {
+        "path": "^/api/v3/reportExport/[^/]+/participant-votes\\.csv$",
+        "minimum_rust_successes": 3,
+        "expected_requests": 4,
+        "expected_node_handoffs": 1,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
+      },
+      {
+        "path": "^/api/v3/reportExport/[^/]+/participant-importance\\.csv$",
+        "minimum_rust_successes": 3,
+        "expected_requests": 4,
+        "expected_node_handoffs": 1,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
+      },
+      {
+        "path": "^/api/v3/reportExport/[^/]+/comment-groups\\.csv$",
+        "minimum_rust_successes": 3,
+        "expected_requests": 4,
+        "expected_node_handoffs": 1,
+        "commands": [
+          "report export"
+        ],
+        "scope": "Anonymous CLI download and supplemental GET/HEAD must serve; query-bearing GET hands back. Comments and votes also download populated exports through the CLI."
+      }
+    ]
+  },
+  "participantsRead": {
+    "path": "/api/v3/participants",
+    "minimum_rust_successes": 3,
+    "expected_requests": 3,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant list",
+      "participant status",
+      "participant status missing"
+    ],
+    "scope": "Existing owner membership and missing membership both serve from Rust."
+  },
+  "ptptois": {
+    "path": "/api/v3/ptptois",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant highlight list",
+      "participant highlight list filtered",
+      "participant highlight set"
+    ],
+    "scope": "Empty social rows with and without a moderation filter serve from Rust; the moderation PUT stays on Node."
+  },
+  "bid": {
+    "path": "/api/v3/bid",
+    "minimum_rust_successes": 2,
+    "expected_requests": 2,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant group",
+      "participant group owner"
+    ],
+    "scope": "Participant and owner reads preserve the missing-bundle null bucket."
+  },
+  "locations": {
+    "path": "/api/v3/locations",
+    "minimum_rust_successes": 2,
+    "expected_requests": 2,
+    "expected_node_handoffs": 0,
+    "commands": [
+      "participant locations",
+      "participant locations missing group"
+    ],
+    "scope": "Empty location arrays for the generated group and an absent group serve from Rust."
+  },
+  "myInvitesCsv": {
+    "path": "/api/v3/treevite/myInvites/csv",
+    "minimum_rust_successes": 1,
+    "expected_requests": 2,
+    "expected_node_handoffs": 1,
+    "commands": ["invite mine export empty", "invite mine export"],
+    "scope": "Before another conversation code is created, the participant's empty CSV serves from Rust. The later download hands to Node because multiple reverse codes are ambiguous. Both file hashes must match across phases."
+  },
+  "iip": {
+    "path": "^/iip/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "iim": {
+    "path": "^/iim/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "conversationPage": {
+    "path": "^/[0-9][0-9A-Za-z]+",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "explorePage": {
+    "path": "^/explore/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "sharePage": {
+    "path": "^/share/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "summaryPage": {
+    "path": "^/summary/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "oneTimePage": {
+    "path": "^/ot/",
+    "minimum_rust_successes": 2,
+    "expected_requests": 3,
+    "expected_node_handoffs": 1,
+    "commands": [],
+    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
   }
 }

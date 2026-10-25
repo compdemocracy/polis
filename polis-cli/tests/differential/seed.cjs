@@ -24,6 +24,9 @@ const {Pool}=require('/app/node_modules/pg');
  await p.query("INSERT INTO einvites(einvite,email) VALUES('generated-verification','owner@example.invalid')");
  await p.query("INSERT INTO participants_extended(zid,uid) VALUES(1,1)");
  await p.query("INSERT INTO conversations(zid,owner,topic,is_active) VALUES(2,1,'Generated account enrollment',true); INSERT INTO zinvites(zid,zinvite) VALUES(2,'2generatedjoin'); SELECT setval('conversations_zid_seq',2,true)");
+ // A separate report without stored math exercises every Postgres export subtype.
+ await p.query("UPDATE conversations SET description='Generated no-math export' WHERE zid=2");
+ await p.query("INSERT INTO reports(zid,report_id,created,modified) VALUES(2,'r2generatedempty',1700000000000,1700000000000)");
  await p.end();
  console.log('generated fixture installed');
 })().catch(error=>{console.error(JSON.stringify({stage:'generated-fixture',code:error.code,table:error.table,column:error.column}));process.exit(1)});

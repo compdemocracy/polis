@@ -29,7 +29,7 @@ botocore==1.34.162
     #   s3transfer
 bytecode==0.17.0
     # via ddtrace
-certifi==2025.11.12
+certifi==2026.10.19
     # via
     #   httpcore
     #   httpx

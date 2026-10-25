@@ -1,3 +1,4 @@
+certifi==2026.10.19
 boto3==1.43.89
 botocore==1.43.89
 cloudpickle==3.1.2

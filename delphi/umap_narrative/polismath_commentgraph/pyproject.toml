@@ -14,6 +14,7 @@ requires-python = ">=3.10"
 # Install parent project in development mode
 # This gives us access to all dependencies including evoc
 dependencies = [
+    "certifi==2026.10.19",
     # Core Lambda runtime dependencies (keep in sync with requirements.txt)
     "boto3>=1.26.0",
     "numpy>=1.20.0",

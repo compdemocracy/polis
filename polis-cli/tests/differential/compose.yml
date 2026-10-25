@@ -11,12 +11,16 @@ services:
     volumes:
       - ../../polis-cli/tests/differential:/differential:ro
     environment:
+      TZ: UTC
       OPS_ENABLED: "false"
       P027_MARKERS: '0'
       ADMIN_UIDS: '[2]'
       CLI_DIFFERENTIAL_FIXTURE: '1'
+      STATIC_FILES_PARTICIPATION_PORT: "8081"
   file-server:
-    profiles: [unused]
+    image: ${CLI_DIFF_NODE_IMAGE:?build the local Node image}
+    command: [node, /differential/page-static.cjs]
+    volumes: [../../polis-cli/tests/differential:/differential:ro]
   driver:
     profiles: [unused]
   polis-api:
@@ -29,7 +33,33 @@ services:
       POLIS_API_OWNER_DATABASE_URL: postgres://postgres@postgres:5432/p027
       AUTH_ISSUER: https://oidc-simulator:3000/
       AUTH_AUDIENCE: users
+      TZ: UTC
+      POLIS_API_PERF_STATS_READS: "1"
+      POLIS_API_METADATA_QUERY_READS: "1"
+      POLIS_API_METADATA_QUERY_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_REPORT_EXPORT_READS: "1"
+      POLIS_API_REPORT_EXPORT_DATABASE_URL: postgres://postgres@postgres:5432/p027
       POLIS_API_PARTICIPANT_READS: "1"
+      POLIS_API_PARTICIPANTS_READS: "1"
+      POLIS_API_PTPTOIS_READS: "1"
+      POLIS_API_BID_READS: "1"
+      POLIS_API_LOCATIONS_READS: "1"
+      POLIS_API_MY_INVITES_CSV_READS: "1"
+      POLIS_API_IIP_READS: "1"
+      POLIS_API_IIM_READS: "1"
+      POLIS_API_CONVERSATION_PAGE_READS: "1"
+      POLIS_API_EXPLORE_PAGE_READS: "1"
+      POLIS_API_SHARE_PAGE_READS: "1"
+      POLIS_API_SUMMARY_PAGE_READS: "1"
+      POLIS_API_ONE_TIME_PAGE_READS: "1"
+      POLIS_API_PARTICIPANTS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_PTPTOIS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_BID_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_LOCATIONS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_MY_INVITES_CSV_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_LINK_PAGES_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_CONVERSATION_PAGES_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      STATIC_FILES_PARTICIPATION_PORT: "8081"
       POLIS_API_VOTES_READS: "1"
       POLIS_API_VOTES_READ_DATABASE_URL: postgres://postgres@postgres:5432/p027
       POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE: /artifacts/participant-public.pem

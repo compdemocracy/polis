@@ -1,0 +1,53 @@
+name: POST comments recordings
+on:
+  pull_request:
+    branches: [edge, stable]
+    paths: ['server/**', 'queue-rs/polis-contracts/**', 'ci/post_comments_golden_guard.sh', '.github/workflows/post-comments-recordings.yml']
+  push:
+    branches: [edge]
+    paths: ['server/**', 'queue-rs/polis-contracts/**', 'ci/post_comments_golden_guard.sh', '.github/workflows/post-comments-recordings.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: post-comments-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  recordings:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: post-comments-ci
+      POLIS_RECOVERY_PG_PORT: '56441'
+      P027_HTTP_PORT: '56442'
+      P027_CONTROL_PORT: '56443'
+      P027_SERVER_IMAGE: post-comments-server
+      P027_POSTGRES_IMAGE: post-comments-postgres
+      P027_OIDC_IMAGE: post-comments-oidc
+      P027_FILE_SERVER_IMAGE: post-comments-files
+      P027_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Protect the recorded behavior and its comparison rules
+        if: github.event_name == 'pull_request'
+        run: sh ci/post_comments_golden_guard.sh "origin/${{ github.base_ref }}"
+      - name: Build dependencies before starting the sealed network
+        run: |
+          docker build --target prod --build-arg NODE_ENV=production -t "$P027_SERVER_IMAGE" -f server/Dockerfile .
+          docker build --build-context queue-rs=queue-rs -t "$P027_POSTGRES_IMAGE" -f server/Dockerfile-db server
+          docker build -t "$P027_OIDC_IMAGE" oidc-simulator
+          docker build -t "$P027_FILE_SERVER_IMAGE" --build-arg NODE_ENV=production --build-arg AUTH_AUDIENCE=users --build-arg AUTH_CLIENT_ID=dev-client-id --build-arg AUTH_ISSUER=https://localhost:3000/ --build-arg AUTH_NAMESPACE=https://pol.is/ --build-arg EMBED_SERVICE_HOSTNAME=localhost --build-arg GIT_HASH=characterization -f file-server/Dockerfile .
+      - name: Replay comments and concurrent writers
+        run: bash server/characterization/post-comments/check.sh
+      - name: Preserve all outcomes, including failed oracles
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: post-comments-recordings
+          path: server/characterization/artifacts/comments-ci*
+      - name: Remove the owned stack
+        if: always()
+        run: docker compose -f server/characterization/compose.yml -f server/characterization/post-comments/compose.yml down -v --remove-orphans
