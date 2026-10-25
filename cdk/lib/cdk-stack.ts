@@ -293,11 +293,29 @@ export class CdkStack extends cdk.Stack {
       : [];
     const workerWiring = workerClasses ? { roles: workerRoleList, extraGroups: extraWorkerGroups } : undefined;
 
+    // Create the web target group before CodeDeploy so it can drain web boxes.
+    const {
+      lb,
+      webTargetGroup,
+      httpListener,
+      httpsListener,
+      webScalingPolicy
+    } = createALBAndDNS(
+      this,
+      vpc,
+      lbSecurityGroup,
+      asgWeb,
+      // `-c requireOriginHeader=true` answers 403 to requests without the
+      // CDN's origin header (cdk/originAccess.ts). Off by default.
+      { openListeners: albAccess.openListeners, originHeader: originHeader(this) }
+    );
+
     // --- DEPLOY STUFF
     const {
       application,
       deploymentBucket,
-      deploymentGroup
+      deploymentGroup,
+      workersDeploymentGroup
     } = createCodedeployConfig(
       this,
       instanceRole,
@@ -306,6 +324,7 @@ export class CdkStack extends cdk.Stack {
       asgDelphiSmall,
       asgDelphiLarge,
       codeDeployRole,
+      webTargetGroup,
       workerWiring
     );
 
@@ -317,7 +336,10 @@ export class CdkStack extends cdk.Stack {
         vpc,
         deploymentBucket,
         codeDeployApplicationName: application.applicationName,
-        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        codeDeployDeploymentGroupNames: [
+          deploymentGroup.deploymentGroupName,
+          workersDeploymentGroup.deploymentGroupName,
+        ],
         githubRepo: (this.node.tryGetContext('buildBoxGithubRepo') as string | undefined) ?? 'compdemocracy/polis',
         // Must equal the `environment:` and branch of the deploy workflow's jobs.
         githubEnvironment: 'production',
@@ -426,23 +448,6 @@ export class CdkStack extends cdk.Stack {
 
     db.connections.allowFrom(lambda, ec2.Port.tcp(5432), 'Allow connection from backup Lambda');
 
-    // ALB & DNS
-    const {
-      lb,
-      webTargetGroup,
-      httpListener,
-      httpsListener,
-      webScalingPolicy
-    } = createALBAndDNS(
-      this,
-      vpc,
-      lbSecurityGroup,
-      asgWeb,
-      // `-c requireOriginHeader=true` answers 403 to requests without the
-      // CDN's origin header (cdk/originAccess.ts). Off by default.
-      { openListeners: albAccess.openListeners, originHeader: originHeader(this) }
-    );
-
     // --- Operational alarms (P-031 slice 1).
     // Off unless synthesized with `-c enableAlarms=true -c alarmEmail=...`.
     // Seven alarms on metrics that already exist, one SNS topic, and one
@@ -457,6 +462,7 @@ export class CdkStack extends cdk.Stack {
         webTargetGroupFullName: webTargetGroup.targetGroupFullName,
         codeDeployApplicationName: application.applicationName,
         codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        codeDeployWorkerDeploymentGroupName: workersDeploymentGroup.deploymentGroupName,
         // A06 is notBreaching and A07 is ignore, as deployed. The health-pair
         // check reads those settings off the synthesized alarms rather than
         // taking them on trust from here.

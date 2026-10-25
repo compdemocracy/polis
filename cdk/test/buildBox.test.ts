@@ -99,4 +99,35 @@ describe('enableBuildBox on', () => {
     expect(workflowEnv('BUILD_BOX_TEMPLATE')).toBe(template.LaunchTemplateName);
     expect(workflowEnv('BUILD_BOX_TYPES').split(/\s+/)).toEqual(BUILD_BOX_INSTANCE_TYPES);
   });
+
+  test('every workflow deployment targets an authorized group in the application', () => {
+    const application = only(resources, 'AWS::CodeDeploy::Application', 'CodeDeployApplication');
+    const applicationId = Object.keys(resources).find((id) => resources[id].Type === 'AWS::CodeDeploy::Application')!;
+    const groups = Object.entries(resources).filter(([, r]) => r.Type === 'AWS::CodeDeploy::DeploymentGroup');
+    const targets = [...workflow.matchAll(/--deployment-group-name (\S+)/g)].map((m) => m[1]);
+    expect(targets.sort()).toEqual(['PolisDeploymentGroup', 'PolisWorkersDeploymentGroup']);
+    expect(groups.map(([, r]) => r.Properties.DeploymentGroupName).sort()).toEqual(targets);
+    const applications = [...workflow.matchAll(/--application-name (\S+)/g)].map((m) => m[1]);
+    expect(applications).toEqual([application.ApplicationName, application.ApplicationName]);
+    for (const [, group] of groups) {
+      expect(group.Properties.ApplicationName).toEqual({ Ref: applicationId });
+    }
+
+    const groupArn = (id: string) => ({ 'Fn::Join': ['', [
+      'arn:', { Ref: 'AWS::Partition' }, ':codedeploy:us-east-1:123456789012:deploymentgroup:',
+      { Ref: applicationId }, '/', { Ref: id },
+    ]] });
+    const grants = deployPolicy.filter((s) => s.Action.includes('codedeploy:CreateDeployment'));
+    expect(grants).toHaveLength(1);
+    expect(grants[0].Effect).toBe('Allow');
+    expect(grants[0].Action).toEqual(['codedeploy:CreateDeployment', 'codedeploy:GetDeployment']);
+    expect(grants[0].Resource).toHaveLength(2);
+    expect(grants[0].Resource).toEqual(expect.arrayContaining(groups.map(([id]) => groupArn(id))));
+    const revision = deployPolicy.find((s) => s.Sid === 'RegisterTheRevision');
+    expect(revision.Action).toEqual(['codedeploy:RegisterApplicationRevision', 'codedeploy:GetApplicationRevision']);
+    expect(revision.Resource).toEqual({ 'Fn::Join': ['', [
+      'arn:', { Ref: 'AWS::Partition' }, ':codedeploy:us-east-1:123456789012:application:',
+      { Ref: applicationId },
+    ]] });
+  });
 });
