@@ -71,6 +71,12 @@ Then refresh the version preparation and open the promotion PR with `edge`
 itself as its head. Merge with a merge commit whose tree equals the promoted
 source, as required by [release validation](release-promotion.md).
 
+If the previous stable merge's second parent is not a commit on `edge` (a
+promotion made from a side branch), `polis-version plan` refuses the next
+promotion. Number that recovery promotion with the bump rule, tag the earlier
+and the new stable merge commits by hand in the annotated tag format, and use
+`edge` itself as the head of every promotion after it.
+
 ### Verifying the Sync
 
 After syncing, verify the branches match:
