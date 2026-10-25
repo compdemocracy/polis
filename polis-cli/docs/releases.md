@@ -29,11 +29,15 @@ toolchain, `cargo build --locked --release`, and the actual Cargo target directo
 It builds the production binary without fixture features, checks version/help,
 and refuses modified or untracked build inputs. It never publishes or installs.
 
-The existing native build entry points can prepare review artifacts. Publication
-must follow the shared Polis release checklist below; this updater change does
-not change the build or publication workflow. Legacy `cli-v` publication tooling
-must be migrated before publishing the first shared release. All target jobs
-must pass before publication. A passing ARM64 Mac build alone does not qualify
+The **Build Polis CLI release assets** reusable workflow uses these same commands
+on native macOS and Linux runners. It is called only by the manually dispatched
+Polis publication workflow; there is no tag-push publisher. It adds
+`--release-tag vX.Y.Z --release-commit FULL_SHA`, which makes the script refuse
+unless the binary prints exactly
+`polis X.Y.Z (commit FULL_SHA; distance 0; clean-checkout)`. Artifacts expire
+after 14 days and remain review inputs until the approved publication job
+validates all eight files. All target jobs must pass. A passing
+ARM64 Mac build alone does not qualify
 Intel or Linux. GNU/Linux binaries use the runner's glibc and are not promised
 to work on older distributions. A source build remains available there. Mac
 archives are unsigned unless a distributor separately signs and notarizes them;
@@ -168,39 +172,29 @@ mv -f polis.rollback polis
 ./polis --version
 ```
 
-## Publish from a reviewed stable promotion
+## Publish the reviewed Polis promotion
 
-The publication contract is one Polis release, with root `VERSION` as the
-version authority. Generated Cargo versions must match it. The tag is exactly
-`vMAJOR.MINOR.PATCH` on the full stable merge commit, never an edge or version
-preparation commit. Release title: `Polis MAJOR.MINOR.PATCH`. The CLI has no
-separate release numbering stream.
+Root `VERSION` is authoritative. Preparation computes the number and opens a
+review PR with VERSION and generated Cargo mirrors. A `vMAJOR.MINOR.PATCH` tag
+identifies the stable promotion merge. All eight files keep the
+`polis-VERSION-COMMIT12-TARGET.tar.gz[.sha256]` names and attach to one Polis
+release. No tag push or merge starts publication.
 
-Before publication:
+Colin uses the prepared manual commands or approves the final **release**
+environment job after reviewing the exact stable SHA, number, migration notes,
+PR titles and eight checksums. Only that workflow job has release write
+permission; it creates the tag and a draft, uploads the complete set, then
+publishes as latest. A failed upload leaves a draft for explicit review. A
+matching completed release is a verified no-op; different content is never
+overwritten. Signing/notarization and older glibc compatibility remain separate.
 
-1. Review the computed version and stable promotion, migration list, release
-   notes and exact source commit. A promotion shipping a migration bumps MINOR;
-   otherwise PATCH. Major changes are Colin's decision.
-2. Build and validate all four native targets from that stable commit. Each
-   archive manifest must contain the same Polis version, full stable commit and
-   clean source status. Preserve the `polis-cli-release/1` manifest format and
-   archive layout described above.
-3. Prepare exactly eight assets on that same Polis release: four
-   `polis-VERSION-COMMIT12-TARGET.tar.gz` archives and their four `.sha256` files.
-   `COMMIT12` is the first 12 characters of the stable commit. Targets are
-   `aarch64-apple-darwin`, `x86_64-apple-darwin`,
-   `aarch64-unknown-linux-gnu`, and `x86_64-unknown-linux-gnu`. Asset names do not
-   gain a `v` or `cli-v` prefix.
-4. Colin pushes the reviewed tag and publishes, or the publication workflow does
-   so only after his explicit release-environment approval. Builds and review
-   preparation have read-only permissions. Do not assume existing deployment
-   approval authorizes publication. This change does not enable that workflow;
-   shared publication tooling and its approval gate must be ready first.
-5. Keep the release a draft until all eight assets and release notes validate.
-   A missing target prevents publication. Never silently overwrite published
-   tags or assets. Failed uploads leave a draft for explicit inspection and
-   cleanup or a verified resume. An older stable redeploy reuses its number.
+The canonical-tag updater must land before publication is enabled; the
+publication validator checks this prerequisite on the promoted source. Already
+installed legacy updaters only recognize `cli-v` and need the explicit verified
+artifact replacement procedure above once. Then the canonical updater follows
+the single Polis release series. Do not add compatibility `cli-v` tags.
 
-No tag, public release, or workflow execution is needed to test the updater:
-its tests use a loopback release server. Signing/notarization and older glibc
-compatibility remain separate distribution choices.
+See [promotion and publication](../../docs/release-promotion.md) for dispatch
+inputs, required reviewer configuration, manual commands and retry rules.
+Tests mock publication and use a loopback updater server; no public mutation
+is needed to test this code.

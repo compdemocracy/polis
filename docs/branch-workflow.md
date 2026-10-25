@@ -36,68 +36,46 @@ git push -u origin feature/my-feature
 
 ### Deploying to Production
 
-When ready to deploy, merge `edge` into `stable`:
+Follow [Preparing and publishing a Polis release](release-promotion.md):
 
-```bash
-git checkout stable
-git pull origin stable
-git merge edge
-git push origin stable
-```
+1. Run the preparation workflow and review and merge its version preparation PR
+   into `edge`. It updates `VERSION` and the Cargo version mirrors together.
+2. Refresh the promotion plan for the new `edge` SHA. Open or update the promotion
+   pull request with **`edge` itself as the head** and `stable` as the base, then
+   merge it with a **merge commit** through the required review.
+3. Run the gated publication workflow for that exact stable merge commit. After
+   approval, it creates the annotated `vX.Y.Z` tag and publishes the CLI release.
+4. Deploy that published stable commit through the existing deployment gates.
 
-This should always be a fast-forward or clean merge. If there are conflicts, something went wrong (see Recovery section below).
-
-### Marking Deployments
-
-Use tags instead of commits to mark production deployments:
-
-```bash
-git tag prod-YYYY-MM-DD stable
-git push origin prod-YYYY-MM-DD
-```
-
-This keeps the commit history clean while still tracking what was deployed when.
+The annotated version tag is the canonical release marker. Publication must
+finish before the deployment build reads the commit's version identity.
 
 ### Hotfixes
 
-If a critical fix is needed in production:
-
-**Option A: Fix on edge first (preferred)**
-1. Make the fix on `edge`
-2. Merge `edge` into `stable`
-3. Deploy
-
-**Option B: Cherry-pick (if urgent)**
-1. Make the fix directly on `stable`
-2. Cherry-pick the commit to `edge` to keep them in sync:
-   ```bash
-   git checkout edge
-   git cherry-pick <commit-hash>
-   ```
+Make the fix through a reviewed PR to `edge`, then follow the same version
+preparation, promotion PR, gated publication and deployment sequence above.
+The publication workflow does not support a separate stable-only hotfix path.
 
 ## What to Avoid
 
 - **Merging stable into edge** - This creates bidirectional merge commits and causes divergence
-- **Making commits directly on stable** - Except for true emergencies requiring Option B above
-- **Deploy marker commits** - Use tags instead (e.g., `prod-2024-12-06`)
+- **Making commits directly on stable** - Use reviewed edge-to-stable promotion PRs
+- **Deploy marker commits** - Use the annotated `vX.Y.Z` release tag
 
 ## Recovery: Syncing Diverged Branches
 
-If `stable` and `edge` diverge due to improper merges, use this technique to reset `stable` to match `edge` exactly while preserving history:
+If `stable` and `edge` diverge due to improper merges, stop the promotion and
+review the differing commits and trees. Resolve the divergence through reviewed
+changes to `edge`, preserving the stable ruleset; do not push directly to stable.
+Then refresh the version preparation and open the promotion PR with `edge`
+itself as its head. Merge with a merge commit whose tree equals the promoted
+source, as required by [release validation](release-promotion.md).
 
-```bash
-git checkout stable
-git merge -s ours --no-commit edge
-git read-tree edge
-git checkout-index -f -a
-git commit -m "Sync stable with edge"
-git push origin stable
-```
-
-This creates a merge commit that:
-- Records `edge` as a parent (proper merge history)
-- Results in `stable` having identical content to `edge`
-- Does not require force-push (no history rewriting)
+If the previous stable merge's second parent is not a commit on `edge` (a
+promotion made from a side branch), `polis-version plan` refuses the next
+promotion. Number that recovery promotion with the bump rule, tag the earlier
+and the new stable merge commits by hand in the annotated tag format, and use
+`edge` itself as the head of every promotion after it.
 
 ### Verifying the Sync
 
@@ -116,5 +94,5 @@ git log --oneline stable..edge | wc -l
 Maintaining one-way flow ensures:
 - Clean merge history
 - Predictable deployments
-- Easy rollbacks (just deploy an earlier `edge` commit)
+- Easy rollbacks (redeploy an earlier published stable commit)
 - No "merge conflict roulette" when deploying

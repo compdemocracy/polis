@@ -99,7 +99,51 @@ fn server(mode: &str) -> (Server, Vec<u8>) {
         tar.append_data(&mut header, format!("{root}/linked"), &b""[..])
             .unwrap();
     }
-    let archive = tar.into_inner().unwrap().finish().unwrap();
+    let mut archive = tar.into_inner().unwrap().finish().unwrap();
+    if mode == "packaged" {
+        // Use the publisher's real package bytes, not a second implementation
+        // of its layout. All four targets must pass publication validation.
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("binary"), &binary).unwrap();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let out = Command::new("python3")
+            .current_dir(root)
+            .args([
+                "-c",
+                r#"import importlib.util, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('publish', 'scripts/publish-polis-cli-release.py')
+publish = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(publish)
+root, version, commit = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+for target in publish.build.TARGETS:
+    publish.build.package(root / 'assets', (root / 'binary').read_bytes(), version,
+                          commit, target, 'clean-checkout', 'rustc fixture', b'lock', b'license')
+publish.validate(root / 'assets', 'v' + version, commit)
+"#,
+            ])
+            .arg(directory.path())
+            .arg(&version)
+            .arg(&commit)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        archive = fs::read(directory.path().join("assets").join(&name)).unwrap();
+        assert_eq!(
+            fs::read_to_string(
+                directory
+                    .path()
+                    .join("assets")
+                    .join(format!("{name}.sha256"))
+            )
+            .unwrap(),
+            format!("{}  {name}\n", digest(&archive))
+        );
+    }
     let checksum = format!(
         "{}  {name}\n",
         if mode == "mismatch" {
@@ -137,7 +181,7 @@ fn server(mode: &str) -> (Server, Vec<u8>) {
             .push(json!({"tag_name":tag,"draft":false,"prerelease":false,"assets":[]}));
     }
     // Numeric ordering must win over listing order and lexicographic ordering.
-    if matches!(mode, "match" | "paged") {
+    if matches!(mode, "match" | "paged" | "packaged") {
         releases.as_array_mut().unwrap().push(json!({"tag_name":format!("v{}.9.0", current_version().major + 1),"draft":false,"prerelease":false,"assets":[]}));
     }
     if mode == "missing" {
@@ -298,7 +342,7 @@ fn run(mode: &str, json_mode: bool, env_source: bool) {
     let out = output.unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let stderr = String::from_utf8(out.stderr).unwrap();
-    let updated = matches!(mode, "match" | "paged");
+    let updated = matches!(mode, "match" | "paged" | "packaged");
     let success = updated || matches!(mode, "old" | "lower");
     assert_eq!(out.status.success(), success, "{stdout}\n{stderr}");
     assert!(!stdout.contains('\u{1b}'));
@@ -374,6 +418,10 @@ fn run(mode: &str, json_mode: bool, env_source: bool) {
 #[test]
 fn checksum_match_atomically_installs_and_keeps_previous() {
     run("match", true, false);
+}
+#[test]
+fn published_python_archives_install_through_canonical_release() {
+    run("packaged", true, false);
 }
 #[test]
 fn checksum_mismatch_keeps_installed_binary_and_backup() {
@@ -456,6 +504,10 @@ fn permission_denied_install_directory_preserves_installation() {
 }
 #[test]
 fn version_plain_and_json_make_no_release_or_proxy_requests() {
+    assert_eq!(
+        env!("POLIS_VERSION_BASE"),
+        include_str!("../../../../VERSION").trim()
+    );
     let (server, _) = server("match");
     let dir = tempfile::tempdir().unwrap();
     let profile = dir.path().join("profiles.json");

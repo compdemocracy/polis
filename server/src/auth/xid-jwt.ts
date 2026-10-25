@@ -7,13 +7,13 @@
  *    - Pollute the user database with temporary records
  *    - Incur unnecessary API calls and potential rate limits
  *    - Add complexity without benefit
- * 3. XID users need tokens scoped to specific conversations
+ * 3. XID users receive participant tokens carrying a conversation ID
  * 4. This approach maintains JWT consistency while keeping anonymous users separate
  *
  * Security considerations:
  * - Uses RSA-256 with 2048-bit keys (industry standard)
  * - Tokens are long-lived (1 year)
- * - Tokens are scoped to specific conversations
+ * - XID identity is resolved under the requested conversation's owner
  * - No refresh mechanism (participants must re-initialize)
  */
 

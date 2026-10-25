@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tarfile
@@ -96,6 +97,103 @@ class ReleaseTests(unittest.TestCase):
                 release.package(Path(d), b"binary", "../bad", COMMIT, TARGET,
                                 "clean-checkout", "rustc", b"lock", b"license")
             self.assertEqual(list(Path(d).iterdir()), [])
+
+
+STABLE = dict(version_base="2.42.2", version_display="2.42.2", commit=COMMIT,
+              distance=0, channel="stable", source="clean-checkout")
+DEVELOPMENT = dict(STABLE, version_display="2.42.2+dev.0." + COMMIT[:12], channel="development")
+STABLE_LINE = f"polis 2.42.2 (commit {COMMIT}; distance 0; clean-checkout)"
+DEVELOPMENT_LINE = f"polis 2.42.2+dev.0.{COMMIT[:12]} (commit {COMMIT}; distance 0; clean-checkout)"
+
+
+class ReleaseIdentityTests(unittest.TestCase):
+    def test_only_the_stable_identity_of_the_tag_and_commit_is_a_release(self):
+        release.check_release_identity(dict(STABLE), "v2.42.2", COMMIT)
+        self.assertEqual(release.release_version_line("2.42.2", COMMIT), STABLE_LINE)
+        for change in [dict(channel="development"), dict(version_display="2.42.2+dev.0." + COMMIT[:12]),
+                       dict(distance=1), dict(distance=None), dict(commit="b" * 40),
+                       dict(source="unverified-archive"), dict(version_base="2.42.1")]:
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "stable identity"):
+                release.check_release_identity(dict(STABLE, **change), "v2.42.2", COMMIT)
+        with self.assertRaisesRegex(ValueError, "stable identity"):
+            release.check_release_identity(dict(STABLE), "v2.42.3", COMMIT)
+
+    def build(self, *flags, identities=(STABLE, STABLE), reported=STABLE_LINE,
+              provenance=(COMMIT, "clean-checkout")):
+        """Drive the real entry point with generated toolchain replies; nothing is compiled."""
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        (root / "VERSION").write_text("2.42.2\n")
+        (root / "LICENSE").write_text("license")
+        (root / "polis-cli").mkdir()
+        (root / "polis-cli/Cargo.lock").write_text("lock")
+        binary = root / "target" / TARGET / "release" / "polis"
+        binary.parent.mkdir(parents=True)
+        binary.write_bytes(b"generated binary")
+        def output(argv, cwd=None, env=None):
+            if argv[:2] == ["rustc", "-vV"]:
+                return f"rustc fixture\nhost: {TARGET}"
+            if argv[:2] == ["cargo", "metadata"]:
+                return json.dumps({"target_directory": str(root / "target")})
+            if argv == [str(binary), "--version"]:
+                return reported
+            self.fail(argv)
+        argv = ["build-polis-cli-release.py", "--target", TARGET, "--output", str(root / "out"), *flags]
+        with patch.object(release, "ROOT", root), patch.object(release, "provenance", return_value=provenance), \
+             patch.object(release, "output", side_effect=output), \
+             patch.object(release, "identity", side_effect=list(identities)) as identity, \
+             patch.object(release.subprocess, "run") as run, \
+             patch.object(release, "package", return_value=root / "out/archive.tar.gz") as package, \
+             patch("sys.argv", argv), patch("sys.stdout", new_callable=io.StringIO), \
+             patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            try:
+                release.main()
+                failure = None
+            except SystemExit as error:
+                self.assertEqual(error.code, 1)
+                failure = stderr.getvalue()
+        return failure, run, package, identity
+
+    def test_release_build_packages_only_a_stable_binary(self):
+        flags = ("--release-tag", "v2.42.2", "--release-commit", COMMIT)
+        failure, run, package, _ = self.build(*flags)
+        self.assertIsNone(failure)
+        self.assertEqual(run.call_args_list[0].args[0][:2], ["cargo", "build"])
+        package.assert_called_once()
+        # A runner without origin/stable or the local tag: refused before compiling.
+        failure, run, package, identity = self.build(*flags, identities=(DEVELOPMENT,))
+        self.assertIn("stable identity", failure)
+        self.assertIn('"channel": "development"', failure)
+        self.assertEqual(identity.call_count, 1)
+        run.assert_not_called()
+        package.assert_not_called()
+        # A binary that reports a development build after compiling is not packaged.
+        failure, run, package, _ = self.build(*flags, identities=(STABLE, DEVELOPMENT),
+                                              reported=DEVELOPMENT_LINE)
+        self.assertIn("must report exactly the release version", failure)
+        package.assert_not_called()
+
+    def test_release_build_requires_the_exact_tag_commit_and_clean_checkout(self):
+        for flags, provenance, message in [
+                (("--release-tag", "v2.42.2"), (COMMIT, "clean-checkout"), "both --release-tag"),
+                (("--release-commit", COMMIT), (COMMIT, "clean-checkout"), "both --release-tag"),
+                (("--release-tag", "v2.42.3", "--release-commit", COMMIT), (COMMIT, "clean-checkout"), "exact root VERSION"),
+                (("--release-tag", "cli-v2.42.2", "--release-commit", COMMIT), (COMMIT, "clean-checkout"), "exact root VERSION"),
+                (("--release-tag", "v2.42.2", "--release-commit", "b" * 40), (COMMIT, "clean-checkout"), "exactly the release commit"),
+                (("--release-tag", "v2.42.2", "--release-commit", "short"), (COMMIT, "clean-checkout"), "full lowercase"),
+                (("--release-tag", "v2.42.2", "--release-commit", COMMIT), (COMMIT, "unverified-archive"), "exactly the release commit")]:
+            with self.subTest(flags=flags, provenance=provenance):
+                failure, run, package, identity = self.build(*flags, provenance=provenance)
+                self.assertIn(message, failure)
+                identity.assert_not_called()
+                run.assert_not_called()
+                package.assert_not_called()
+
+    def test_rehearsal_builds_without_release_flags_are_unchanged(self):
+        failure, _, package, _ = self.build(identities=(DEVELOPMENT,), reported=DEVELOPMENT_LINE)
+        self.assertIsNone(failure)
+        package.assert_called_once()
 
 
 if __name__ == "__main__":

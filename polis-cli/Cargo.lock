@@ -747,7 +747,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "polis"
-version = "0.1.0"
+version = "2.42.2"
 dependencies = [
  "base64 0.22.1",
  "clap",
@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "polis-client"
-version = "0.1.0"
+version = "2.42.2"
 dependencies = [
  "flate2",
  "polis-contracts",
