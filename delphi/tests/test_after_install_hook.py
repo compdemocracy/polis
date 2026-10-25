@@ -72,8 +72,10 @@ FAKES = {
     "systemctl": RECORD,
     "docker-compose": RECORD + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
+    # Real jq consumes its input; the fake must too, or pipefail can report
+    # SIGPIPE from the producer when this reader exits before it writes.
     # The hook reads RUST_API_ROUTES from the composed config with jq.
-    "jq": RECORD + 'case "$*" in *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *) echo value;; esac\n',
+    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -86,6 +88,7 @@ FAKES = {
         '  *) echo \'{"username":"u","password":"p","dbname":"d"}\';;\n'
         'esac\n'),
     "docker": RECORD + (
+        'if [ "$1" = login ]; then cat >/dev/null; fi\n'
         'if [ "$1" = "$FAKE_MIGRATION_FAILURE" ]; then exit 17; fi\n'
         'if [ "$1" = ps ]; then\n'
         '  filter=""\n'
@@ -95,6 +98,25 @@ FAKES = {
         '  done < "$FAKE_CONTAINERS"\n'
         'fi\n'),
 }
+
+
+@pytest.mark.parametrize("command", [
+    ["jq", "-r", ".username"],
+    ["jq", "-r", '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""'],
+    ["docker", "login", "--username", "AWS", "--password-stdin", "registry.invalid"],
+])
+def test_pipeline_fakes_consume_all_input(tmp_path, command):
+    _, env = _box(tmp_path, "server")
+    payload = tmp_path / "input"
+    # Larger than a pipe buffer: a non-reading fake cannot pass just because
+    # the producer happened to finish before the consumer exited.
+    payload.write_bytes(b"x" * (1024 * 1024))
+    proc = subprocess.run(
+        ["bash", "-o", "pipefail", "-c", 'cat "$1" | "${@:2}"',
+         "pipeline", str(payload), *command],
+        env=env, capture_output=True, text=True, timeout=10,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def _rewrite(text, root, rules):
