@@ -49,7 +49,7 @@ jobs:
           CARGO_TARGET_DIR: ${{ runner.temp }}/version-target
         run: |
           (cd queue-rs && cargo build --locked --bin polis-version)
-          python3 scripts/polis_release.py plan --stable "$RELEASE_COMMIT" --tool "$CARGO_TARGET_DIR/debug/polis-version" --output "$RUNNER_TEMP/review"
+          python3 scripts/polis_release.py source --stable "$RELEASE_COMMIT" --tool "$CARGO_TARGET_DIR/debug/polis-version"
           python3 scripts/build-polis-cli-release.py --check-tag "$RELEASE_TAG"
           # Local-only tag gives the existing identity builder stable provenance.
           # Public ref creation happens only in the final approved job.

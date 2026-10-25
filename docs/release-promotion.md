@@ -16,7 +16,7 @@ build reads Git identity. Deploy the same stable commit that was published.
 An administrator must create the **release** GitHub environment, set **Colin's
 GitHub user as its sole required reviewer**, and disable administrator bypass
 in the settings UI. The public REST environment response does not expose that
-bypass setting.
+bypass setting. Leave **Prevent self-review** off: one maintainer dispatches and approves.
 Set the repository variable `POLIS_RELEASE_REVIEWER` to that same login. Both
 planning and publication read the environment configuration and refuse if the
 reviewer is missing, different, a team, or accompanied by another reviewer.
@@ -74,7 +74,12 @@ promoted source, unchanged shipped SQL (through the compute tool), and version
 mirrors. It snapshots PR associations and titles, including explicit commit
 entries for changes without exactly one verified PR association. Preparation
 PRs changing only version metadata and the enclosing promotion are excluded
-from change bullets; the promotion remains linked in the header.
+from change bullets; the promotion remains linked in the header. The plan collects
+this notes snapshot once. Native builds validate source and tags without fetching
+PR notes; preapproval verification reuses the snapshot and emits manual commands
+from that same verification. Publication still performs a final live notes check
+after approval, so changed titles or associations require a fresh plan. Only
+reserved preparation PRs need file-list lookups; ordinary PRs do not.
 
 The reused native matrix builds four archives and four SHA256 files:
 

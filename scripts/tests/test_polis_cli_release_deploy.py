@@ -3,6 +3,7 @@ import importlib.util
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -89,7 +90,7 @@ class DeployIdentityTests(unittest.TestCase):
         script = self.repo / 'scripts/build-polis-cli-release.py'
         for tag, valid in [('v2.42.2', True), ('cli-v0.1.0', False), ('cli-v2.42.2', False), ('v0.1.0', False)]:
             with self.subTest(tag=tag):
-                result = subprocess.run(['python3', str(script), '--check-tag', tag],
+                result = subprocess.run([sys.executable, str(script), '--check-tag', tag],
                                         capture_output=True, text=True, check=False)
                 self.assertEqual(result.returncode == 0, valid, result.stderr)
 

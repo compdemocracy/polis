@@ -84,11 +84,11 @@ jobs:
           CARGO_TARGET_DIR: ${{ runner.temp }}/version-target
         run: |
           (cd queue-rs && cargo build --locked --bin polis-version)
-          python3 scripts/polis_release.py verify --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$CARGO_TARGET_DIR/debug/polis-version" > "$RUNNER_TEMP/verified.json"
+          python3 scripts/polis_release.py verify --snapshot-notes --commands-output "$RUNNER_TEMP/commands.sh" --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$CARGO_TARGET_DIR/debug/polis-version" > "$RUNNER_TEMP/verified.json"
           {
             cat "$RUNNER_TEMP/review/notes.md"
             cat "$RUNNER_TEMP/verified.json"
-            python3 scripts/polis_release.py commands --packet "$RUNNER_TEMP/review/publication.json" --assets "$RUNNER_TEMP/assets" --tool "$CARGO_TARGET_DIR/debug/polis-version"
+            cat "$RUNNER_TEMP/commands.sh"
           } >> "$GITHUB_STEP_SUMMARY"
 
   publish:

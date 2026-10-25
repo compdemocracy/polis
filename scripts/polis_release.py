@@ -237,7 +237,7 @@ def notes_data(repo, previous, stable, source):
                  and p.get('base', {}).get('ref') == 'stable']
     if len(promotion) != 1:
         raise ValueError('Expected exactly one merged stable promotion PR')
-    chosen, direct = {}, []
+    chosen, direct, seen = {}, [], set()
     for commit in commits:
         matches = [p for p in pages(repo, f'commits/{commit}/pulls')
                    if p.get('merged_at') and p.get('merge_commit_sha') in all_commits
@@ -246,10 +246,15 @@ def notes_data(repo, previous, stable, source):
             direct.append({'commit': commit, 'title': git('show', '-s', '--format=%s', commit)})
             continue
         pr = matches[0]
-        paths = [f['filename'] for f in pages(repo, f'pulls/{pr["number"]}/files')]
-        # Only the reserved preparation branch with metadata-only files is administrative.
-        if pr.get('head', {}).get('ref', '').startswith('polis-release/prepare-') and paths and set(paths) <= set(MIRRORS):
+        if pr['number'] in seen:
             continue
+        seen.add(pr['number'])
+        # Only reserved preparation branches need a file lookup. Ordinary PRs
+        # remain in the notes even when they happen to change only metadata.
+        if pr.get('head', {}).get('ref', '').startswith('polis-release/prepare-'):
+            paths = [f['filename'] for f in pages(repo, f'pulls/{pr["number"]}/files')]
+            if paths and set(paths) <= set(MIRRORS):
+                continue
         chosen[pr['number']] = {'number': pr['number'], 'title': pr['title'], 'merged_at': pr['merged_at']}
     return {'promotion': promotion[0]['number'],
             'prs': sorted(chosen.values(), key=lambda p: (p['merged_at'], p['number'])),
@@ -274,7 +279,7 @@ def render_notes(repo, plan, stable, notes):
     return '\n'.join(lines)
 
 
-def release_packet(repo, tool, stable):
+def release_source(repo, tool, stable):
     sha(stable)
     if remote_head('stable') != stable or git('rev-parse', 'HEAD') != stable:
         raise ValueError('Publication requires the checked-out current stable head')
@@ -298,9 +303,16 @@ def release_packet(repo, tool, stable):
     updater = git('show', stable + ':polis-cli/crates/polis/src/update.rs')
     if 'strip_prefix("v")' not in updater:
         raise ValueError('The canonical-tag updater must be merged before publication')
-    notes = notes_data(repo, previous, stable, source)
-    result = {'schema': 'polis.publication/1', 'repository': repository(repo), 'stable': stable,
-              'tag': tag, 'plan': plan, 'notes_data': notes}
+    return {'schema': 'polis.publication/1', 'repository': repository(repo), 'stable': stable,
+            'tag': tag, 'plan': plan}
+
+
+def release_packet(repo, tool, stable, *, notes=None):
+    result = release_source(repo, tool, stable)
+    plan = result['plan']
+    if notes is None:
+        notes = notes_data(repo, plan['previous_stable_commit'], stable, plan['candidate_commit'])
+    result['notes_data'] = notes
     result['notes'] = render_notes(repo, plan, stable, notes)
     return result
 
@@ -340,8 +352,9 @@ def load_publisher():
     return module
 
 
-def verify_packet(packet, repo, tool):
-    fresh = release_packet(repo, tool, packet['stable'])
+def verify_packet(packet, repo, tool, *, snapshot_notes=False):
+    fresh = release_packet(repo, tool, packet['stable'],
+                           notes=packet['notes_data'] if snapshot_notes else None)
     if fresh != packet:
         raise ValueError('Release inputs or notes changed after review; prepare and approve again')
 
@@ -371,9 +384,11 @@ def verify_tag_annotation(packet):
         raise ValueError('Release tag annotation or target differs; never overwrite a tag')
 
 
-def publication(packet, assets, tool, *, execute=False, reviewer=''):
+def publication(packet, assets, tool, *, execute=False, reviewer='', snapshot_notes=False):
     repo, tag, commit = packet['repository'], packet['tag'], packet['stable']
-    verify_packet(packet, repo, tool)
+    if execute and snapshot_notes:
+        raise ValueError('Publication must recheck live release notes')
+    verify_packet(packet, repo, tool, snapshot_notes=snapshot_notes)
     publisher = load_publisher()
     files = publisher.validate(assets, tag, commit)
     if not execute:
@@ -385,7 +400,11 @@ def publication(packet, assets, tool, *, execute=False, reviewer=''):
                 'assets': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}}
     environment_id = gate(repo, reviewer)
     approved_run(repo, reviewer, environment_id)
-    existing = api(repo, f'releases/tags/{tag}', missing=True)
+    # The tag endpoint omits drafts, including those left by failed uploads.
+    matches = [release for release in pages(repo, 'releases') if release['tag_name'] == tag]
+    if len(matches) > 1:
+        raise ValueError('Multiple releases for this tag; explicit review/cleanup required')
+    existing = matches[0] if matches else None
     if existing:
         if existing['draft'] or existing['prerelease'] or existing['body'] != packet['notes'] or existing['name'] != f'Polis {tag[1:]}':
             raise ValueError('Existing release differs or is a partial draft; explicit review/cleanup required')
@@ -442,7 +461,7 @@ def commands(packet, assets, tool, packet_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'plan', 'verify', 'commands', 'publish', 'gate'])
+    parser.add_argument('action', choices=['prepare', 'plan', 'source', 'verify', 'commands', 'publish', 'gate'])
     parser.add_argument('--repository', default=os.environ.get('GH_REPO'))
     parser.add_argument('--tool', type=Path)
     parser.add_argument('--candidate')
@@ -451,9 +470,17 @@ def main():
     parser.add_argument('--packet', type=Path)
     parser.add_argument('--assets', type=Path)
     parser.add_argument('--open-pr', action='store_true')
+    parser.add_argument('--snapshot-notes', action='store_true',
+                        help='Reuse planned notes for preapproval verification only')
+    parser.add_argument('--commands-output', type=Path,
+                        help='Write manual commands after the same verification')
     parser.add_argument('--reviewer', default=os.environ.get('POLIS_RELEASE_REVIEWER', ''))
     args = parser.parse_args()
     try:
+        if args.snapshot_notes and args.action != 'verify':
+            raise ValueError('--snapshot-notes is only allowed for verify')
+        if args.commands_output is not None and args.action != 'verify':
+            raise ValueError('--commands-output is only allowed for verify')
         if args.action == 'gate':
             gate(repository(args.repository or ''), args.reviewer)
             return
@@ -462,6 +489,8 @@ def main():
         tool = args.tool.resolve()
         if args.action == 'prepare':
             result = prepare(repository(args.repository or ''), tool, args.candidate or '', open_pr=args.open_pr)
+        elif args.action == 'source':
+            result = release_source(repository(args.repository or ''), tool, args.stable or '')
         elif args.action == 'plan':
             result = release_packet(repository(args.repository or ''), tool, args.stable or '')
             if args.output is None:
@@ -479,7 +508,10 @@ def main():
                 verify_packet(packet, packet['repository'], tool)
                 print(commands(packet, args.assets, tool, args.packet), end='')
                 return
-            result = publication(packet, args.assets, tool, execute=args.action == 'publish', reviewer=args.reviewer)
+            result = publication(packet, args.assets, tool, execute=args.action == 'publish',
+                                 reviewer=args.reviewer, snapshot_notes=args.snapshot_notes)
+            if args.commands_output is not None:
+                args.commands_output.write_text(commands(packet, args.assets, tool, args.packet))
         print(json.dumps(result, indent=2, sort_keys=True))
     except (ValueError, OSError, KeyError, TypeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'Polis release: {error}\n')

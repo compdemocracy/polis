@@ -2,8 +2,9 @@
 
 `polis-version` is an offline repository tool in the existing queue adapter
 package. It uses that package's toolchain and dependencies and is included in
-its normal unit-test and Clippy commands. Nothing invokes it from a workflow or
-serving process. It opens no database or network connection and never applies
+its normal unit-test and Clippy commands. The promotion preparation and
+publication workflows invoke it read-only, with `plan --write` also used during
+preparation. No serving process invokes it. It opens no database or network connection and never applies
 migrations, creates commits or tags, or publishes releases.
 
 Build from `queue-rs`:
@@ -211,7 +212,11 @@ Only `plan --write` writes anything. It requires a nonbare checkout at the exact
 candidate HEAD, clean except for VERSION, and a regular root VERSION file.
 It atomically replaces that file with the computed number and a newline,
 preserving permissions. A previous abandoned VERSION edit is overwritten from
-the stable baseline; it never reserves a number. No Cargo mirror is changed.
+the stable baseline; it never reserves a number. No Cargo mirror is changed by
+this tool. The preparation workflow's `scripts/polis_release.py prepare --open-pr`
+writes `VERSION`, `[workspace.package].version`, and the `polis`/`polis-client`
+versions in `Cargo.lock` together; a VERSION-only preparation makes publication
+refuse. See [release preparation](../../../../docs/release-promotion.md).
 `history --write` and `--kind redeploy --write` are refused. Without `--write`,
 even a plan run inside a dirty checkout is read-only and uses committed inputs.
 

@@ -116,8 +116,10 @@ class ReleaseTests(unittest.TestCase):
         def read(*args):
             if args[0] == 'rev-list': return '\n'.join([B, '2' * 40, '1' * 40, '3' * 40])
             return 'Direct change'
-        with patch.object(m, 'pages', side_effect=query), patch.object(m, 'git', side_effect=read):
+        with patch.object(m, 'pages', side_effect=query) as calls, patch.object(m, 'git', side_effect=read):
             result = m.notes_data(REPO, A, C, B)
+        self.assertEqual(calls.call_count, 6)
+        self.assertNotIn('pulls/10/files', [call.args[1] for call in calls.call_args_list])
         self.assertEqual([p['number'] for p in result['prs']], [10])
         self.assertEqual([p['commit'] for p in result['direct_commits']], ['3' * 40])
 
@@ -305,6 +307,84 @@ class ReleaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'two-parent'):
                     m.release_packet(REPO, 'tool', C)
 
+    def test_workflow_reuses_notes_until_final_live_check_with_bounded_api_calls(self):
+        # Model 300 ordinary promoted commits and drive the same CLI actions as
+        # plan, four native builds, review/commands, and approved publication.
+        commits = [f'{i:040x}' for i in range(1, 300)] + [B]
+        prs = {commit: {'number': i + 1, 'title': f'Change {i}', 'merged_at': '2026-01-01',
+                        'merge_commit_sha': commit, 'head': {'ref': 'feature'},
+                        'base': {'ref': 'edge'}} for i, commit in enumerate(commits)}
+        promotion = dict(prs[B], number=1000, merge_commit_sha=C, base={'ref': 'stable'})
+        calls = []
+        def request(repo, path, **kwargs):
+            calls.append(path)
+            if path == f'commits/{C}/pulls?per_page=100&page=1':
+                return [promotion]
+            if path.startswith('commits/'):
+                return [prs[path.split('/')[1]]]
+            if path == 'releases?per_page=100&page=1':
+                return []
+            if path == 'git/tags':
+                return {'sha': TREE}
+            if path == 'git/refs':
+                return {}
+            self.fail(path)
+        def read(*args):
+            if args[0] == 'rev-list':
+                return '\n'.join(commits)
+            return self.stable_git(*args)
+        def invoke(action, *args):
+            with patch('sys.argv', ['polis_release.py', action, '--tool', __file__, *args]), \
+                 patch('builtins.print'):
+                m.main()
+        assets = self.bundle()
+        publisher = m.load_publisher()
+        review = self.root / 'review'
+        manual = self.root / 'commands.sh'
+        with patch.object(m, 'ROOT', self.root), patch.object(m, 'git', side_effect=read), \
+             patch.object(m, 'remote_head', return_value=C), patch.object(m, 'compute', return_value=PLAN), \
+             patch.object(m, 'api', side_effect=request), patch.object(m, 'gate'), \
+             patch.object(m, 'approved_run'), patch.object(m, 'tags', return_value={}), \
+             patch.object(m, 'check_remote_tags'), patch.object(m, 'load_publisher', return_value=publisher), \
+             patch.object(publisher, 'publish') as publish, \
+             patch.object(m, 'notes_data', wraps=m.notes_data) as collect:
+            invoke('plan', '--stable', C, '--repository', REPO, '--output', str(review))
+            self.assertEqual(len(calls), 301)
+            for _ in range(4):
+                invoke('source', '--stable', C, '--repository', REPO)
+            invoke('verify', '--snapshot-notes', '--commands-output', str(manual),
+                   '--packet', str(review / 'publication.json'), '--assets', str(assets))
+            self.assertEqual(len(calls), 301)
+            self.assertEqual(collect.call_count, 1)
+            self.assertIn('gh release create', manual.read_text())
+            invoke('publish', '--packet', str(review / 'publication.json'), '--assets', str(assets))
+            self.assertEqual(collect.call_count, 2)  # Preserve the postapproval live check.
+            self.assertEqual(len(calls), 605)  # 602 notes reads, release list, tag object/ref.
+            publish.assert_called_once()
+            # A later PR title change still refuses before any publication write.
+            prs[B]['title'] = 'Changed after review'
+            publish.reset_mock()
+            with self.assertRaisesRegex(ValueError, 'notes changed'):
+                m.publication(json.loads((review / 'publication.json').read_text()), assets,
+                              'tool', execute=True)
+            publish.assert_not_called()
+
+    def test_snapshot_verification_still_checks_source_and_rendered_notes(self):
+        with patch.object(m, 'ROOT', self.root), patch.object(m, 'git', side_effect=self.stable_git), \
+             patch.object(m, 'remote_head', return_value=C), patch.object(m, 'compute', return_value=PLAN), \
+             patch.object(m, 'notes_data') as notes:
+            m.verify_packet(packet(), REPO, 'tool', snapshot_notes=True)
+            for changed in [dict(packet(), notes='edited'), dict(packet(), tag='v2.43.0')]:
+                with self.assertRaises(ValueError):
+                    m.verify_packet(changed, REPO, 'tool', snapshot_notes=True)
+            with patch.object(m, 'remote_head', return_value=A), self.assertRaises(ValueError):
+                m.verify_packet(packet(), REPO, 'tool', snapshot_notes=True)
+            notes.assert_not_called()
+        with patch.object(m, 'verify_packet') as verify:
+            with self.assertRaisesRegex(ValueError, 'must recheck live'):
+                m.publication(packet(), self.root, 'tool', execute=True, snapshot_notes=True)
+            verify.assert_not_called()
+
     def test_publication_refuses_each_unprepared_mirror(self):
         for path in m.MIRRORS[1:]:
             def read(*args):
@@ -365,7 +445,7 @@ class ReleaseTests(unittest.TestCase):
         assets = self.bundle()
         publisher = m.load_publisher()
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', side_effect=[None, {'sha': TREE}, {}]) as api, patch.object(m, 'remote_head', return_value=C), \
+             patch.object(m, 'api', side_effect=[[], {'sha': TREE}, {}]) as api, patch.object(m, 'remote_head', return_value=C), \
              patch.object(m, 'tags', return_value={'v2.41.0': A}), patch.object(m, 'check_remote_tags'), \
              patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish') as publish:
             self.assertEqual(m.publication(packet(), assets, 'tool', execute=True), {'published': 'v2.42.0'})
@@ -414,7 +494,7 @@ class ReleaseTests(unittest.TestCase):
         assets = self.bundle()
         publisher = m.load_publisher()
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', return_value=None) as api, patch.object(m, 'remote_head', return_value=C), \
+             patch.object(m, 'api', return_value=[]) as api, patch.object(m, 'remote_head', return_value=C), \
              patch.object(m, 'tags', return_value={'v2.42.0': C}), patch.object(m, 'check_remote_tags'), \
              patch.object(m, 'verify_tag_annotation') as annotation, \
              patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish') as publish:
@@ -444,7 +524,7 @@ class ReleaseTests(unittest.TestCase):
         assets = self.bundle()
         publisher = m.load_publisher()
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', side_effect=[None, {'sha': TREE}, ValueError('ref exists')]) as api, \
+             patch.object(m, 'api', side_effect=[[], {'sha': TREE}, ValueError('ref exists')]) as api, \
              patch.object(m, 'remote_head', return_value=C), patch.object(m, 'tags', return_value={}), \
              patch.object(m, 'check_remote_tags'), patch.object(m, 'load_publisher', return_value=publisher), \
              patch.object(publisher, 'publish') as publish:
@@ -491,8 +571,8 @@ class ReleaseTests(unittest.TestCase):
                                             target, 'clean-checkout', 'rustc fixture', b'lock', b'license')
                 writes = []
                 def api(repo, path, *, data=None, **kwargs):
-                    if path.startswith('releases/tags/'):
-                        return None
+                    if path == 'releases?per_page=100&page=1':
+                        return []
                     writes.append((path, data))
                     if path == 'git/tags':
                         content = (f"object {data['object']}\ntype {data['type']}\ntag {data['tag']}\n"
@@ -531,24 +611,47 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(manual_object.split('\n\n', 1)[1] + '\n', expected)
                 self.assertEqual(manual_object.split('\n\n', 1)[1], api_object.split('\n\n', 1)[1])
 
-    def test_partial_draft_refuses_overwrite(self):
+    def test_partial_draft_on_later_page_refuses_retry_before_any_write(self):
         assets = self.bundle()
+        calls = []
+        def request(repo, path, **kwargs):
+            calls.append(path)
+            self.assertFalse(kwargs)
+            if path == 'releases/tags/v2.42.0':
+                return None  # GitHub's tag endpoint cannot find this draft.
+            if path == 'releases?per_page=100&page=1':
+                return [{'tag_name': f'v1.0.{i}'} for i in range(100)]
+            if path == 'releases?per_page=100&page=2':
+                return [{'tag_name': 'v2.42.0', 'draft': True}]
+            self.fail(path)
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', return_value={'draft': True}), patch.object(m, 'run') as run:
+             patch.object(m, 'api', side_effect=request), patch.object(m, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'partial draft'):
                 m.publication(packet(), assets, 'tool', execute=True)
             run.assert_not_called()
+        self.assertEqual(calls, ['releases?per_page=100&page=1', 'releases?per_page=100&page=2'])
+
+    def test_duplicate_drafts_or_published_plus_draft_refuse(self):
+        assets = self.bundle()
+        for drafts in [(True, True), (False, True)]:
+            releases = [{'tag_name': 'v2.42.0', 'draft': draft} for draft in drafts]
+            with self.subTest(drafts=drafts), patch.object(m, 'verify_packet'), \
+                 patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
+                 patch.object(m, 'api', return_value=releases), patch.object(m, 'run') as run:
+                with self.assertRaisesRegex(ValueError, 'Multiple releases'):
+                    m.publication(packet(), assets, 'tool', execute=True)
+                run.assert_not_called()
 
     def test_successful_retry_compares_every_remote_asset_and_is_noop(self):
         import shutil
         assets = self.bundle()
-        existing = {'draft': False, 'prerelease': False, 'body': packet()['notes'], 'name': 'Polis 2.42.0'}
+        existing = {'tag_name': 'v2.42.0', 'draft': False, 'prerelease': False, 'body': packet()['notes'], 'name': 'Polis 2.42.0'}
         def download(args, **kwargs):
             self.assertEqual(args[:3], ['gh', 'release', 'download'])
             for path in assets.iterdir(): shutil.copy2(path, Path(args[-1]) / path.name)
             return ''
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', return_value=existing) as api, patch.object(m, 'run', side_effect=download), \
+             patch.object(m, 'api', return_value=[existing]) as api, patch.object(m, 'run', side_effect=download), \
              patch.object(m, 'tags', return_value={'v2.42.0': C}), patch.object(m, 'check_remote_tags'), \
              patch.object(m, 'verify_tag_annotation') as annotation:
 
@@ -558,9 +661,9 @@ class ReleaseTests(unittest.TestCase):
 
     def test_existing_release_without_matching_tag_is_not_a_successful_retry(self):
         assets = self.bundle()
-        existing = {'draft': False, 'prerelease': False, 'body': packet()['notes'], 'name': 'Polis 2.42.0'}
+        existing = {'tag_name': 'v2.42.0', 'draft': False, 'prerelease': False, 'body': packet()['notes'], 'name': 'Polis 2.42.0'}
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', return_value=existing), patch.object(m, 'tags', return_value={}), \
+             patch.object(m, 'api', return_value=[existing]), patch.object(m, 'tags', return_value={}), \
              patch.object(m, 'check_remote_tags'), patch.object(m, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'matching immutable tag'):
                 m.publication(packet(), assets, 'tool', execute=True)
@@ -595,6 +698,11 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('contents: write', build)
         self.assertNotIn('push:', build)
         self.assertEqual(build.count('target: '), 4)
+        self.assertIn('polis_release.py source --stable', build)
+        self.assertNotIn('polis_release.py plan', build)
+        self.assertIn('verify --snapshot-notes --commands-output', publication)
+        self.assertNotIn('polis_release.py commands', publication)
+        self.assertNotIn('--snapshot-notes', final)
         self.assertIn('persist-credentials: false', final)
 
 
