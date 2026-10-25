@@ -752,7 +752,7 @@ describe("xid identity integrity", () => {
       expect(await xidRows(ownerAUid, xid)).toHaveLength(1);
     });
 
-    test("fresh allow-listed xid: a bare xid is admitted, gets a token bound to it, and keeps voting with that token (a credential-less request with the known xid still acts as that participant; this changes with the bare-xid decision)", async () => {
+    test("fresh allow-listed xid: bare-xid and token requests act as the same participant", async () => {
       const a = await joinWithXid(allowRevoke, revokeB);
       expect(await xidRows(ownerAUid, revokeB)).toHaveLength(1);
 

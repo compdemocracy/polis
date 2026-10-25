@@ -168,12 +168,14 @@ The middleware includes robust handling for participant creation race conditions
 
 ## JWT Conversation Scoping
 
-The middleware correctly handles the 4 cases of JWT/conversation mismatches:
+For XID participants, the middleware resolves identity under the requested conversation's owner:
 
-1. **Valid Setup** - Token and request for same conversation
-2. **Token/XID Match, Wrong Conversation** - Treated as anonymous
-3. **Token Wrong, XID for Current** - Uses XID for current conversation
-4. **Token Current, XID Wrong** - Treated as anonymous
+1. **Valid Setup** - Token and request name the same conversation and the same XID. The middleware uses the token's participant identity.
+2. **Token/XID Match, Wrong Conversation** - Resolves the XID under the requested conversation's owner
+3. **Token Wrong, Request Supplies XID** - Resolves the supplied XID under the requested conversation's owner
+4. **Token for Requested Conversation, Request Supplies Different XID** - Resolves the supplied XID under the requested conversation's owner
+
+An XID is an identifier, not proof of the presenter's identity. Anyone holding it can act as that participant within the same owner's conversations. The embedding site must issue stable, unguessable, private XIDs from its own authenticated sessions and never share them across users; see [XID Participants](authentication.md#xid-participants).
 
 ## Benefits
 
