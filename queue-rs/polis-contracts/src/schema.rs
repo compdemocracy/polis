@@ -81,9 +81,10 @@ pub fn literal_bool(value: bool) -> Schema {
     }
 }
 /// TypeBox `Type.Literal(n)` for an exactly representable unsigned integer.
+/// Every u32 is a finite JSON number, so the conversion cannot fail.
 pub fn literal_u32(value: u32) -> Schema {
     Schema {
-        constant: Some(serde_json::from_str(&value.to_string()).expect("u32 is a JSON number")),
+        constant: Some(Json::Number(crate::wire::JsNumber::from(value))),
         ..integer()
     }
 }
