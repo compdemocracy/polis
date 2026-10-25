@@ -1,0 +1,34 @@
+#!/bin/bash
+# STAND-IN for `aws secretsmanager get-secret-value` — PROOF ONLY
+# (delphi/tests/poller/worker_boot_proof.py). It answers exactly the call the
+# worker unit's start script makes:
+#   aws secretsmanager get-secret-value --region R --secret-id NAME --query SecretString --output text
+# from the local secret store /srv/standin-secret-store/NAME.json, and logs
+# each read to /srv/standin-secret-store/reads.log. Anything else is refused.
+set -euo pipefail
+store=/srv/standin-secret-store
+if [ "${1:-}" != secretsmanager ] || [ "${2:-}" != get-secret-value ]; then
+  echo "aws (stand-in): only 'secretsmanager get-secret-value' is served" >&2; exit 2
+fi
+shift 2
+id="" query="" output="" region=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --region) region="$2"; shift 2 ;;
+    --secret-id) id="$2"; shift 2 ;;
+    --query) query="$2"; shift 2 ;;
+    --output) output="$2"; shift 2 ;;
+    *) echo "aws (stand-in): unexpected argument $1" >&2; exit 2 ;;
+  esac
+done
+if [ "$query" != SecretString ] || [ "$output" != text ] || [ -z "$region" ]; then
+  echo "aws (stand-in): expected --region R --query SecretString --output text" >&2; exit 2
+fi
+case "$id" in ''|*/*|.*) echo "aws (stand-in): bad secret id" >&2; exit 2 ;; esac
+if [ ! -f "$store/$id.json" ]; then
+  echo "An error occurred (ResourceNotFoundException) when calling the GetSecretValue operation: Secrets Manager can't find the specified secret. (stand-in)" >&2
+  exit 254
+fi
+echo "$(date -u +%FT%TZ) read secret-id=$id region=$region" >> "$store/reads.log"
+cat "$store/$id.json"
+echo
