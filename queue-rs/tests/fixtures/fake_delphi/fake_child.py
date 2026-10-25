@@ -50,7 +50,8 @@ def manifest(outcome, phase, batches=None, recheck_after=None):
         "phase": phase,
         "outcome": outcome,
         "inputs": {"math_env": "test", "math_tick": 3, "math_caching_tick": 3,
-                   "comment_set_sha256": "0" * 64, "vote_hwm": 9},
+                   "comment_set_sha256": "0" * 64, "vote_hwm": 9, "math_modified_ms": None,
+                   "target_label": None, "source_commit": None},
         # A rebuild publishes no DynamoDB rows: its bundle is staged in Postgres.
         "outputs": [] if stage == "math_rebuild" else [
             {"store": "dynamodb", "family": "Delphi_UMAPGraph", "table": "Delphi_UMAPGraph",

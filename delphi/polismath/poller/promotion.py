@@ -185,16 +185,24 @@ class SmallCapacityLoop:
             logger.error("capacity: receipt of zid=%s job %s unavailable (%s)", rec.zid,
                          rec.job_id[:8], exc.__class__.__name__)
             return False
-        if receipt.binds(staged, self.settings.staged_label):
+        if (receipt.binds(staged, self.settings.staged_label)
+                and receipt.admitted_for(self.label, self._source_commit)):
             return True
+        if receipt.binds(staged, self.settings.staged_label):
+            logger.warning("capacity: zid=%s staged bundle not promoted: job %s was admitted for "
+                           "%s at %s, this poller serves %s at %s", rec.zid, rec.job_id[:8],
+                           receipt.target_label, (receipt.source_commit or "unknown")[:12],
+                           self.label, (self._source_commit or "unknown")[:12])
+            return False
         if not receipt.finalized:
             logger.info("capacity: zid=%s staged bundle not promoted: job %s is %s, not "
                         "finalized", rec.zid, rec.job_id[:8], receipt.state)
         else:
             logger.warning("capacity: zid=%s staged bundle not promoted: job %s finalized "
-                           "tick=%s newest_vote=%s under %s, staged is tick=%s newest_vote=%s",
-                           rec.zid, rec.job_id[:8], receipt.math_tick, receipt.vote_hwm,
-                           receipt.math_env, staged.math_tick, staged.lvt)
+                           "tick=%s newest_vote=%s modified=%s under %s, staged is tick=%s "
+                           "newest_vote=%s modified=%s", rec.zid, rec.job_id[:8],
+                           receipt.math_tick, receipt.vote_hwm, receipt.modified_ms,
+                           receipt.math_env, staged.math_tick, staged.lvt, staged.modified)
         return False
 
     def _enqueue(self, zid: int) -> Optional[str]:
