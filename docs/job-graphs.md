@@ -70,7 +70,7 @@ The empty down migration compares the restored catalog with its original `/3`
 state. It refuses once graph data exists. A nonempty installation requires
 compatible `/5` workers and readers; deleting results is not rollback.
 
-Hosted CI and mm5 use exactly the same entry:
+Hosted CI and local runs use exactly the same entry:
 
 ```sh
 COMPOSE_PROJECT_NAME=polis-graph-test-local \

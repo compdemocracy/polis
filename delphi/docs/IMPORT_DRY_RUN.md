@@ -161,7 +161,7 @@ also carries one aggregate pacing line (pages, consumed units, throttles, wait).
 
 ## Local proof and retained importer
 
-Hosted CI and mm5 run exactly `bash scripts/test-production-import.sh`. It uses
+Hosted CI and local runs use exactly `bash scripts/test-production-import.sh`. It uses
 DynamoDB Local and generated multi-conversation data, including pagination,
 quarantine-only conversations, unmapped data, public aliases and description
 truncation. It verifies every public PostgreSQL table before/after reporting,

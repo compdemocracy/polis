@@ -234,7 +234,7 @@ def _assert_statement_allowed(sql: str) -> None:
 
     The round-1 guard stripped ``--`` comments before inspecting the string, so a
     ``--`` inside a *string literal* hid a trailing multi-statement write
-    (the second reviewer reproduced a committed INSERT through this). No comment stripping now:
+    (the reviewer reproduced a committed INSERT through this). No comment stripping now:
     a comment token, a statement separator, or anything but a single leading
     SELECT is rejected outright. There is no ``pglast``/``sqlparse`` in the venv,
     so this is the sanctioned conservative rejection rather than a full parse; it

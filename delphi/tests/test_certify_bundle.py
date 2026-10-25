@@ -1950,7 +1950,7 @@ def test_a_derived_public_fixture_origin_must_satisfy_the_origin_rules(
 
 def test_a_derived_role_cannot_claim_an_origin_its_rule_forbids(
         derived_pair, config):
-    """The second reviewer's witness, failing closed. Relabelling only the BINDING to a
+    """The review's witness, failing closed. Relabelling only the BINDING to a
     public-fixture origin, on a role whose rule offers no replacement and with no
     approval or generator anywhere, previously passed the whole
     verify/admit/push/pull path."""

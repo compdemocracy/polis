@@ -133,8 +133,8 @@ zero differences in the populated cross-writer witness (see evidence). This
 exercises the actual Node modules, including this branch's reader changes. The step-4 S2 slice adds a candidate coherent-read
 `loadBundle` witness (`tools/bundle_reader.cjs`) and makes the Node job
 unconditional (a missing `server/node_modules` now fails rather than skips),
-and the production Node reader is now implemented in this tree. BOARD[633]
-accepts its local1265/0/2 public replay proof. The two r19/r20 row-order
+and the production Node reader is now implemented in this tree.
+Its local1265/0/2 public replay proof is accepted. The two r19/r20 row-order
 residuals remain reported. Exact-inventory required CI now exists; combined
 full-app/private certification remains open.
 

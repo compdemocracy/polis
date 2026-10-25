@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""P-053 step-2 paired-recording producer/verifier, per BOARD [677].
+"""Step-2 paired-recording producer/verifier.
 
 Complete scope: admitted bundle/entries/checkpoints, certify raw schema and
 comparison, symmetric G12 abs1e-6+rel1e-4 with zero outliers. Recovery and serving

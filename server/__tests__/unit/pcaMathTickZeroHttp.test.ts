@@ -12,7 +12,7 @@
 //
 // These tests mount the real exported handlers on a real express app and drive
 // them with real HTTP requests, replicating only app.ts's parameter binding.
-// Confirms the second reviewer's independent probe (an out-of-tree Node review script,
+// Confirms the review's independent probe (an out-of-tree Node review script,
 // step 2 of that review round): pca2 answers 200
 // with ETag "0" at a committed generation 0.
 
@@ -214,7 +214,7 @@ function freshZid() {
  * Reads the `math_tick` default straight out of a route's real registration in
  * server/app.ts, via TypeScript's AST.
  *
- * The second reviewer's review (F1) caught the earlier version of this file hardcoding -1,
+ * The review (F1) caught the earlier version of this file hardcoding -1,
  * which meant reverting the app.ts fix left every test passing. Binding to the
  * registration closes that: change `want("math_tick", getInt, assignToP, -1)`
  * back to `0` and the /api/v3/bid positive test below fails.
@@ -362,7 +362,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
   });
 
   test('GET /api/v3/math/pca2 serves generation 0 with status 200 and ETag "test-math-env-0"', async () => {
-    // The second reviewer's probe result, reproduced here as a route test: the route has no
+    // The review's probe result, reproduced here as a route test: the route has no
     // math_tick default, so routes/math.ts:82 substitutes -1 and the row is
     // served. This route was never broken by the tick-0 guard.
     serveTick("0");
@@ -411,7 +411,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
   });
 
   test('GET /api/v3/math/pca2 with the legacy numeric If-None-Match: "0" answers 200', async () => {
-    // A bare number cannot name the label it came from (review 1439 R2).
+    // A bare number cannot name the label it came from.
     serveTick("0");
     const res = await request(pca2App(freshZid()))
       .get("/route?keys=math_tick,n")
@@ -499,7 +499,7 @@ describe("GET /api/v3/participationInit at a committed math generation of 0", ()
 });
 
 describe("cross-caller cache provenance over HTTP (review R2-F1)", () => {
-  // The defect the second reviewer found: the [math_env, zid] cache is shared, so whichever
+  // The defect the reviewer found: the [math_env, zid] cache is shared, so whichever
   // route warmed it first decided what the existing-only reader returned.
   // participationInit is a REAL route that synthesizes an empty presentation
   // for a conversation with no committed row; the existing-only reader must
@@ -623,20 +623,20 @@ function canonicalWrapper(pca: any) {
 //
 // This is equality of the NORMALIZED DECODED wrapper, not of the compressed
 // bytes on the wire: `expiration` is excluded and the gzip buffer is compared
-// decoded. Compressed-wire equality is established elsewhere, by the second reviewer's
+// decoded. Compressed-wire equality is established elsewhere, by the review's
 // same-process before/after comparisons (44 positive-tick pairs), which is the
 // right instrument for it -- a cross-machine constant cannot be (see round 2).
 const EDGE_PARTICIPATION_WRAPPER_TICK1 =
   "267fc4b792e95eddb6cc3d161ac54ce37b1f4012ed427aa3ca53222a11c93af2";
 
 describe("participationInit's served wrapper matches edge, decoded (review r3)", () => {
-  // The second reviewer's R3 finding: round 3 added an enumerable `synthesized` property to
+  // The review's R3 finding: round 3 added an enumerable `synthesized` property to
   // the cache entry, and participationInit assigns that entire entry to
   // `response.pca` and serializes it. So the wire gained a field production
   // never sent -- for EVERY tick, including 1. Keeping asPOJO/asJSON/the gzip
   // body clean did not protect the wrapper.
   //
-  // The second reviewer's own acceptance tests above pin the key list. This pins the bytes.
+  // The review's own acceptance tests above pin the key list. This pins the bytes.
   beforeEach(() => {
     queryP_readOnly.mockReset();
   });
@@ -677,7 +677,7 @@ function sha256Hex(text: string) {
 // can be lower, higher or EQUAL to the one a browser cached. The API sends
 // `Cache-Control: no-cache`, so browsers revalidate with If-None-Match on every
 // load: the validator must bind the label, or an equal tick answers 304 and the
-// old label's body stays on screen (review 1439 R2 reproduced this in both
+// old label's body stays on screen (a review reproduced this in both
 // directions and at tick 0).
 describe("GET /api/v3/math/pca2 If-None-Match across a served-label switch", () => {
   const mathEnvAtStart = Config.mathEnv;

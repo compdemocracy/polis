@@ -1,6 +1,6 @@
 """Record the candidate S2 witnesses and carry the separately reviewed production proof.
 
-The production slice is closed by BOARD[633]. Overall O1 remains PARTIAL because
+The production slice is closed. Overall O1 remains PARTIAL because
 required CI and combined S5 campaigns remain open. Run this after the full Python
 suite and record_s1; the production receipt verifies its own source custody.
 """

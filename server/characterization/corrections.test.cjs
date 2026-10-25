@@ -414,7 +414,7 @@ function assertC7NamedPair(legacy, corrected) {
 }
 
 test("C7: engine-cutover key-order-only replacement for the two named empty shapes", async () => {
-  // BOARD [488] / DECISIONS.md: Colin approved a NARROW replacement for the
+  // The approved replacement is limited to the
   // empty-math engine cutover. Across the engine change the served body's ONLY
   // permitted difference is the position of the three empty top-level keys
   // `mod-in`, `mod-out`, `meta-tids`; their values stay `[]`, the complete key

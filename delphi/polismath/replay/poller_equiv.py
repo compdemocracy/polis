@@ -150,7 +150,7 @@ _MATH_ROOT = _REPO_ROOT / "math"
 DEFAULT_DBNAME = "polis_equiv"
 DEFAULT_ZID = 1
 # The comment placeholder text is NEVER real content (private-data policy,
-# CLAUDE.local.md — never commit vote/comment CONTENT); a bare "comment {tid}"
+# never commit vote/comment content); a bare "comment {tid}"
 # also satisfies production's UNIQUE(zid, txt) if that constraint is ever
 # reintroduced, though our subset schema does not declare it.
 _PLACEHOLDER_TXT_FMT = "comment {tid}"

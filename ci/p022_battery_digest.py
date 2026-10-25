@@ -2,7 +2,7 @@
 """P-022 §E — canonical digest of the admitted PUBLIC battery inventory.
 
 Round 4 hashed dataset/preset/n_cuts/schedule **names**, stringified. The
-second reviewer's review (R4-F3) showed two consequences:
+review (R4-F3) showed two consequences:
 
   * deleting `restart_after` from `schedules/vw-uniform8-restart4.json` left the
     digest untouched — the seam the battery exists to exercise could be removed

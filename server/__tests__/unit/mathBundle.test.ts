@@ -209,7 +209,7 @@ describe("the accessors are pure and exact", () => {
   });
 
   test("bidsForPids refuses a malformed mapping entry instead of throwing", () => {
-    // P-070 review [1447] B: a null entry at the correct outer length used to
+    // Regression: a null entry at the correct outer length used to
     // throw on indexOf. The valid entries still place their pids.
     const bundle = admittedBundle();
     const b2p = (bundle.bidToPid as any).bidToPid as unknown[];

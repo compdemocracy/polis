@@ -17,7 +17,7 @@ Runs without a docker daemon: the compose files are parsed as YAML and their
 from this file (``POLIS_CHECKOUT_DIR`` overrides), because the CI job copies
 ``delphi/tests`` into the delphi image at ``/app/tests``, where the repo root is
 not an ancestor. ``scripts/test-deploy-hooks.sh`` copies the compose files,
-hooks and Dockerfile into the explicit checkout root in both CI and mm5.
+hooks and Dockerfile into the explicit checkout root in both CI and local runs.
 """
 
 import os

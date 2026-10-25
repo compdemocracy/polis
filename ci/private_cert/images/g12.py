@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""P-044 G12 numeric-policy measurement (round 5, per BOARD [359]/[382]/[395]/[408]).
+"""G12 numeric-policy measurement (round 5).
 
 Measures the PROPOSED G12 numeric policy against the EXISTING Clojure<->Python
 replay recordings on disk, before any Rust row exists (P-044 review Correction
@@ -961,7 +961,7 @@ def self_test(*, counts=False):
         return not summarize(col)["rollup"]["g12_pass"]
 
     probes = [
-        # Round-1 controls ([357]).
+        # Round-1 controls.
         ("uncoupled-signs",
          {"comps": [[1., 2.]], "proj": [[3., 4.]]},
          {"comps": [[-1., -2.]], "proj": [[3., 4.]]}, "output", "walk"),
@@ -973,7 +973,7 @@ def self_test(*, counts=False):
          {"rownames": [1], "colnames": [1], "matrix": [[1.]]}, "proj", "walk"),
         ("integer-array-tolerance",
          [100000], [100001], "group-clusters.members", "walk"),
-        # Round-2 controls ([382]).
+        # Round-2 controls.
         ("trailing-matrix-cell",
          {"rownames": [1], "colnames": [1], "matrix": [[1.0]]},
          {"rownames": [1], "colnames": [1], "matrix": [[1.0, 999.0]]}, "proj", "walk"),
@@ -982,14 +982,14 @@ def self_test(*, counts=False):
         ("float-spelled-count-drift",
          {"user-vote-counts": {"0": 100000.0}},
          {"user-vote-counts": {"0": 100001.0}}, "R13_ptpt_stats", "walk"),
-        # Round-3 controls ([395]).
+        # Round-3 controls.
         ("boolean-membership",
          {"members": [1]}, {"members": [True]}, "group-clusters", "walk"),
         ("equal-invalid-membership",
          {"members": ["A"]}, {"members": ["A"]}, "group-clusters", "walk"),
         ("main-blob-container-dispatch",
          {"0": {"A": 100000.0}}, {"0": {"A": 100001.0}}, "group-votes", "keyed:group-votes"),
-        # Round-4 controls ([408]): container rank, null element, key identity,
+        # Round-4 controls: container rank, null element, key identity,
         # and the previously-ungraded unhashable-label case.
         ("object-in-scalar-count", {}, {}, "n", "keyed:n"),
         ("array-in-scalar-count", [], [], "n", "keyed:n"),
@@ -1016,4 +1016,4 @@ def self_test(*, counts=False):
 
 
 
-# Vendored accepted Q25 metric core; step-2 admission: BOARD [677].
+# Vendored accepted Q25 metric core; step-2 admission.

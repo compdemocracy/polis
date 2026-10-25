@@ -1309,7 +1309,7 @@ class MathPollerService:
                 self.admission.set_retained(
                     zid, self.admission.model.retained_bytes(voters, comments))
             cap = self.config.conv_cache_cap
-            # Review [1447] A: evicting a conversation a worker still holds
+            # Evicting a conversation a worker still holds
             # removes it from the cache, but the accountant keeps its charge
             # until the worker releases it (drop_retained detaches it), so
             # memory still referenced is always counted.
@@ -1444,7 +1444,7 @@ class MathPollerService:
             conv = None if coalesced.rebuild else self._convs.get(zid)
             if conv is not None:
                 self._convs.move_to_end(zid)  # LRU touch
-                # Review [1447] A: hold the object from this lookup, through
+                # Hold the object from this lookup, through
                 # any admission wait and the computation, until release. Taken
                 # under the cache lock, so no eviction can slip in between.
                 self.admission.hold(zid)
@@ -1454,7 +1454,7 @@ class MathPollerService:
             try:
                 self._compute_and_publish(zid, conv, coalesced)
             finally:
-                # Review [1449] A: an immutable recompute caches a distinct
+                # An immutable recompute caches a distinct
                 # replacement whose charge replaces this zid's retained
                 # charge, while this frame still references the old object.
                 # Only the reservation covers that old object, so drop the
@@ -1516,7 +1516,7 @@ class MathPollerService:
         self._remember(zid, conv)
 
     def _restorable(self, zid: int, row: Dict[str, Any]) -> bool:
-        """P-070 review [1447] E: warm state is restored only from a row that
+        """Warm state is restored only from a row that
         passes the shared validity rule (``bundle_valid``, computed by
         ``load_math_main`` in the same snapshot) and whose body names this
         zid. Anything else rebuilds cold, so a live first touch or rebuild

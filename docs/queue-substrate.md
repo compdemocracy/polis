@@ -6,8 +6,7 @@ Delphi or math work can be routed through it. Installing the migration and
 leaving the flag off changes nothing about how the server behaves.
 
 Read this before touching it. The design, its four review rounds and the open
-acceptance gates live outside this repository, in the cost-reduction working
-notes (`P-024-queue-substrate.md` revision 4 and its review rounds).
+acceptance gates live outside this repository.
 
 ## What exists
 
@@ -340,9 +339,8 @@ packaging reason. `POLIS_MIGRATIONS_DIR` overrides the location and makes them
 run in that image too - and an override that does not resolve fails, because
 that is operator error rather than an absent prerequisite.
 
-The language-neutral specification harness stays outside the repository, in the
-cost-reduction notes (`scripts/p024-queue-sql-smoke.py`). This repository's
-regression test is the server integration suite.
+The language-neutral specification harness stays outside the repository.
+This repository's regression test is the server integration suite.
 
 ## polis-queue/2: the Delphi job table (migration 000023)
 
@@ -418,8 +416,7 @@ is gone.
 third contract on the same substrate, on top of 000023. It creates no job
 table. It admits a second worker class, `large`, and one stage for it,
 `math_rebuild` (an oversized conversation's cold rebuild, run on the large box
-as a job instead of through an S3 manifest; design
-`P-073-r2-queue.md`, decision #350). In short, on 000023's objects: the
+as a job instead of through an S3 manifest). On 000023's objects: the
 `worker_class` CHECK admits `large`, the `stage` CHECK admits `math_rebuild`,
 a new CHECK (`pq_stage_large`) binds the two to each other, `delphi_jobs.kind`
 admits `math_rebuild` (so the one-active-job-per-scope guard covers a rebuild

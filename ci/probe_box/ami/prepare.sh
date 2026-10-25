@@ -15,7 +15,7 @@ mkdir -m 0700 "$PROBE_BUILD_DIR"
 # Retain exact NEVRAs and checksums as well, before the offline install.
 printf '%s\n' "$PROBE_RELEASE" > "$PROBE_BUILD_DIR/release.txt"
 rpm -qa --qf '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "$PROBE_BUILD_DIR/base-rpms.txt"
-# These four NEVRAs were observed in the pinned Amazon repository (BOARD [867]).
+# These four NEVRAs were observed in the pinned Amazon repository.
 # No third-party runtime repository or unversioned runtime fallback.
 packages=(docker-25.0.16-1.amzn2023.0.4.aarch64
           containerd-2.2.5-1.amzn2023.0.2.aarch64
