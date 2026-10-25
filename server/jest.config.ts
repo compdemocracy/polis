@@ -14,6 +14,7 @@ export default {
     ],
   },
   moduleNameMapper: {
+    "^supertest$": "<rootDir>/__tests__/setup/supertest.cjs",
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   extensionsToTreatAsEsm: [".ts", ".tsx"],
