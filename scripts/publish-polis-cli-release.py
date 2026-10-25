@@ -16,9 +16,9 @@ SPEC.loader.exec_module(build)
 
 def validate(directory, tag, commit):
     build.commit_id(commit)
-    if not re.fullmatch(r"cli-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag):
-        raise ValueError("Publication requires a stable cli-vMAJOR.MINOR.PATCH tag.")
-    version = tag.removeprefix("cli-v")
+    if not re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag):
+        raise ValueError("Publication requires a stable vMAJOR.MINOR.PATCH tag.")
+    version = tag.removeprefix("v")
     expected = set()
     assets = []
     for target in build.TARGETS:
@@ -54,19 +54,21 @@ def validate(directory, tag, commit):
     return assets
 
 
-def publish(directory, tag, commit, repository):
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+def publish(directory, tag, commit, repository, notes):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*", repository):
         raise ValueError("Invalid release repository.")
     assets = validate(directory, tag, commit)
+    if notes is None or not notes.is_file() or "schema: " not in notes.read_text():
+        raise ValueError("Prepared release notes with schema status are required.")
     # --verify-tag prevents creation of a missing tag. Existing releases cause create
     # to fail: reruns never overwrite a release or silently reuse earlier assets.
     subprocess.run(["gh", "release", "create", tag, "--repo", repository,
-                    "--verify-tag", "--draft", "--title", f"Polis CLI {tag[5:]}",
-                    "--generate-notes"], check=True)
+                    "--verify-tag", "--draft", "--title", f"Polis {tag[1:]}",
+                    "--notes-file", str(notes)], check=True)
     subprocess.run(["gh", "release", "upload", tag, "--repo", repository,
                     *map(str, assets)], check=True)
     subprocess.run(["gh", "release", "edit", tag, "--repo", repository,
-                    "--draft=false", "--latest=false"], check=True)
+                    "--draft=false", "--latest"], check=True)
 
 
 def main():
@@ -76,12 +78,13 @@ def main():
     parser.add_argument("--commit", required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--notes", type=Path)
     args = parser.parse_args()
     try:
         if args.validate_only:
             validate(args.directory, args.tag, args.commit)
         else:
-            publish(args.directory, args.tag, args.commit, args.repository)
+            publish(args.directory, args.tag, args.commit, args.repository, args.notes)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"release publication: {error}\n")
 
