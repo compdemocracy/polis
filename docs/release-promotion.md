@@ -7,6 +7,10 @@ The canonical-tag CLI updater must also be on the promoted source before a
 publication plan is accepted. An older updater needs the explicit verified
 artifact installation described in [CLI releases](../polis-cli/docs/releases.md).
 
+The order is **prepare the version, promote, publish, then deploy**. Publication
+creates the annotated `v<VERSION>` tag and the CLI release before the deploy
+build reads Git identity. Deploy the same stable commit that was published.
+
 ## Repository setup
 
 An administrator must create the **release** GitHub environment, set **Colin's
@@ -40,9 +44,11 @@ otherwise a patch. MAJOR is never selected here. Before the first canonical tag,
 the tool's reviewed history supplies the baseline; after that the previous
 stable head must have its canonical tag. No missing release is skipped.
 
-The workflow invokes `plan --write`, which changes root VERSION locally, and
-prepares the two generated CLI Cargo version mirrors without altering dependency
-versions. It creates a deterministic branch and a review PR against edge with
+The workflow validates the mirrors, invokes `plan --write`, and writes root
+`VERSION`, `polis-cli/Cargo.toml` `[workspace.package].version`, and the `polis`
+and `polis-client` package versions in `polis-cli/Cargo.lock` locally and in the
+preparation PR, without altering dependency versions. It creates a deterministic
+branch and a review PR against edge with
 only those metadata changes. Repeating the same candidate reuses the branch and
 updates the PR body; it refuses to overwrite anyone's edits. A different
 candidate gets a distinct branch/PR: close superseded preparation PRs after
@@ -82,6 +88,8 @@ in its disposable checkout so the shared identity embeds the stable version and
 zero distance before any public tag exists. It never pushes that tag. Artifact
 names, archive layout, checksums, target set and updater validation are retained;
 the builder reads root VERSION. A missing or failed target blocks publication.
+The old `cli-v` publication path is retired: the builder is callable only from
+this workflow, and both build and publication scripts reject `cli-v` tags.
 
 Before the environment prompt, the plan/review job summaries and
 `polis-release-review` artifact show:
@@ -110,6 +118,20 @@ PR titles after review invalidates the packet and needs a fresh plan/approval.
 Only current stable can be newly published; older stable deployment remains a
 redeploy using its existing number. This is the edge-promotion path, not a
 separate hotfix/major/backfill publisher.
+
+## Deploy the published commit
+
+After publication succeeds, use the existing deployment approvals to deploy
+that exact stable commit. The `build-images` checkout fetches full history and
+tags, including `origin/stable` and `v<VERSION>`. `deploy/build-on-box.sh` computes
+the shared identity there before passing it into the source archive build.
+A clean stable commit carrying its matching tag reports `channel: stable`,
+zero distance, and the plain Polis version. An untagged commit still reports a
+development identity; publishing afterward cannot change an already built image.
+
+Verify `/api/v3/version` reports the published version, stable commit and
+`channel: stable` after deployment. Publication does not dispatch a deployment
+or bypass its existing gates. No other deployment step changes.
 
 ## Prepared manual commands
 

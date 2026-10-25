@@ -1,6 +1,7 @@
 name: Build Polis CLI release assets
 
 # Called only by the explicitly dispatched publication workflow. No tag trigger.
+# v<VERSION> is the sole release tag; the retired cli-v path never publishes.
 on:
   workflow_call:
     inputs:

@@ -54,6 +54,13 @@ class PublishTests(unittest.TestCase):
                 with self.assertRaises(ValueError): publish.publish(directory, tag, commit, "example/project", self.notes())
                 run.assert_not_called()
 
+    def test_legacy_tag_cannot_publish_even_with_matching_assets(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(publish.subprocess, "run") as run:
+            self.bundle(Path(d))
+            with self.assertRaisesRegex(ValueError, 'stable vMAJOR'):
+                publish.publish(Path(d), "cli-v1.2.3", COMMIT, "example/project", self.notes())
+            run.assert_not_called()
+
     def test_upload_failure_leaves_release_draft(self):
         with tempfile.TemporaryDirectory() as d, patch.object(publish.subprocess, "run") as run:
             self.bundle(Path(d))

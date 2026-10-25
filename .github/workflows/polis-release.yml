@@ -1,10 +1,12 @@
 name: Publish Polis release
 
+# Order: promote -> publish the annotated tag and CLI release -> deploy that commit.
+# This workflow never dispatches a deployment.
 on:
   workflow_dispatch:
     inputs:
       stable_commit:
-        description: Full current stable merge SHA; publication requires release approval
+        description: Full current stable merge SHA; approve publication before deploying it
         required: true
         type: string
 

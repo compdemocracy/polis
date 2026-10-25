@@ -195,12 +195,16 @@ def prepare(repo, tool, candidate, *, open_pr=False):
     plan = compute(tool, stable, candidate)
     if not open_pr:
         return plan
+    # Validate every mirror before --write changes VERSION. Keep the local
+    # preparation and the review PR on the same version, without resolving deps.
+    changes = mirror_changes(ROOT, plan['version'])
     # --write is deliberately explicit and runs before any PR/ref mutation.
     written = json.loads(run([tool, 'plan', '--repo', ROOT, '--stable', stable,
                               '--candidate', candidate, '--rule', 'effective-selection', '--json', '--write']))
     if written != plan:
         raise ValueError('Plan moved before VERSION write')
-    changes = mirror_changes(ROOT, plan['version'])
+    for path, content in changes.items():
+        (ROOT / path).write_text(content)
     entries = []
     for path, content in changes.items():
         if git('show', f'{candidate}:{path}') + '\n' != content:

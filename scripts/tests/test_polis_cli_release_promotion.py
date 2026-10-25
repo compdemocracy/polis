@@ -7,6 +7,7 @@ import shlex
 from pathlib import Path
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -179,6 +180,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_prepare_writes_version_then_prs_with_only_mirrors(self):
         calls = []
+        original = {path: (self.root / path).read_text() for path in m.MIRRORS}
         def request(repo, path, **kwargs):
             calls.append((path, kwargs))
             if path == 'git/trees': return {'sha': TREE}
@@ -186,7 +188,7 @@ class ReleaseTests(unittest.TestCase):
             return {'sha': C}
         def read(*args):
             if args[0] == 'rev-parse': return B
-            return (self.root / args[1].split(':', 1)[1]).read_text().strip()
+            return original[args[1].split(':', 1)[1]].rstrip('\n')
         with patch.object(m, 'ROOT', self.root), patch.object(m, 'remote_head', side_effect=lambda b: A if b == 'stable' else B), \
              patch.object(m, 'git', side_effect=read), patch.object(m, 'compute', return_value=PLAN), \
              patch.object(m, 'run', return_value=json.dumps(PLAN)) as run, \
@@ -195,9 +197,46 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(result['preparation_needed'])
         self.assertIn('--write', run.call_args.args[0])
         self.assertEqual({e['path'] for e in calls[0][1]['data']['tree']}, set(m.MIRRORS))
+        entries = {e['path']: e['content'] for e in calls[0][1]['data']['tree']}
+        self.assertEqual(entries, {path: (self.root / path).read_text() for path in m.MIRRORS})
+        self.assertEqual(entries['VERSION'], PLAN['version'] + '\n')
+        cargo = tomllib.loads(entries['polis-cli/Cargo.toml'])
+        lock = tomllib.loads(entries['polis-cli/Cargo.lock'])
+        self.assertEqual(cargo['workspace']['package']['version'], PLAN['version'])
+        self.assertEqual({p['name']: p['version'] for p in lock['package']},
+                         {'polis': PLAN['version'], 'polis-client': PLAN['version'], 'dependency': '2.41.0'})
         self.assertEqual(calls[1][0].split('/')[:3], ['git', 'ref', 'heads'])
         self.assertEqual(prs.call_count, 2)
         self.assertEqual(prs.call_args.args[1:3], ('edge', 'stable'))
+
+    def test_prepare_rejects_malformed_mirrors_before_any_write(self):
+        (self.root / 'polis-cli/Cargo.lock').write_text('unexpected')
+        with patch.object(m, 'ROOT', self.root), \
+             patch.object(m, 'remote_head', side_effect=lambda b: A if b == 'stable' else B), \
+             patch.object(m, 'git', return_value=B), patch.object(m, 'compute', return_value=PLAN), \
+             patch.object(m, 'run') as run, patch.object(m, 'api') as api:
+            with self.assertRaisesRegex(ValueError, 'lock mirror'):
+                m.prepare(REPO, 'tool', B, open_pr=True)
+            run.assert_not_called()
+            api.assert_not_called()
+        self.assertEqual((self.root / 'VERSION').read_text(), '2.41.0\n')
+
+    def test_prepared_candidate_needs_no_second_version_pr(self):
+        for path, content in m.mirror_changes(self.root, PLAN['version']).items():
+            (self.root / path).write_text(content)
+        def read(*args):
+            if args[0] == 'rev-parse': return B
+            return (self.root / args[1].split(':', 1)[1]).read_text().rstrip('\n')
+        with patch.object(m, 'ROOT', self.root), \
+             patch.object(m, 'remote_head', side_effect=lambda b: A if b == 'stable' else B), \
+             patch.object(m, 'git', side_effect=read), patch.object(m, 'compute', return_value=PLAN), \
+             patch.object(m, 'run', return_value=json.dumps(PLAN)), patch.object(m, 'api') as api, \
+             patch.object(m, 'upsert_pr', return_value={'html_url': 'url'}) as prs:
+            result = m.prepare(REPO, 'tool', B, open_pr=True)
+            self.assertFalse(result['preparation_needed'])
+            api.assert_not_called()
+            prs.assert_called_once()
+            self.assertEqual(prs.call_args.args[1:3], ('edge', 'stable'))
 
     def test_existing_preparation_branch_never_overwritten(self):
         def request(repo, path, **kwargs):
@@ -265,6 +304,19 @@ class ReleaseTests(unittest.TestCase):
             with patch.object(m, 'git', return_value=C):
                 with self.assertRaisesRegex(ValueError, 'two-parent'):
                     m.release_packet(REPO, 'tool', C)
+
+    def test_publication_refuses_each_unprepared_mirror(self):
+        for path in m.MIRRORS[1:]:
+            def read(*args):
+                if args == ('show', f'{C}:{path}'):
+                    return (self.root / path).read_text().rstrip('\n')
+                return self.stable_git(*args)
+            with self.subTest(path=path), patch.object(m, 'ROOT', self.root), \
+                 patch.object(m, 'git', side_effect=read), patch.object(m, 'remote_head', return_value=C), \
+                 patch.object(m, 'compute', return_value=PLAN), patch.object(m, 'notes_data') as notes:
+                with self.assertRaisesRegex(ValueError, 'mirrors were not prepared'):
+                    m.release_packet(REPO, 'tool', C)
+                notes.assert_not_called()
 
     def test_packet_revalidation_binds_titles_and_all_inputs(self):
         original = packet()

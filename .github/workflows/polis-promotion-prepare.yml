@@ -1,5 +1,6 @@
 name: Prepare Polis promotion
 
+# Merge the version PR, refresh and merge the promotion, then publish before deploy.
 on:
   workflow_dispatch:
     inputs:
