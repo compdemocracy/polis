@@ -90,6 +90,7 @@ FAKES = {
     "docker": RECORD + (
         'if [ "$1" = login ]; then cat >/dev/null; fi\n'
         'if [ "$1" = "$FAKE_MIGRATION_FAILURE" ]; then exit 17; fi\n'
+        'if [ "$1" = pull ] && [ "$2" = "$FAKE_PULL_FAILURE_REF" ]; then exit 17; fi\n'
         'if [ "$1" = ps ]; then\n'
         '  filter=""\n'
         '  while [ $# -gt 0 ]; do [ "$1" = --filter ] && filter="${2#name=}"; shift; done\n'
@@ -176,6 +177,7 @@ ROLE_IMAGES = {"server": ["server", "nginx-proxy", "client-participation-alpha",
                "delphi": ["delphi", "math-python"], "math": [],
                "delphi-large": ["delphi"], "delphi-worker": ["delphi"]}
 COMPOSE_FILES = "-f docker-compose.yml -f docker-compose.images.yml "
+RUST_CONFIG = "-f docker-compose.yml --profile rust-api config --format json"
 
 
 def _manifest(revision=REVISION, changes=None):
@@ -185,9 +187,10 @@ def _manifest(revision=REVISION, changes=None):
 
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
-            not_on_branch=False, images="default", previous=None, rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls", **kw):
+            not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls", **kw):
     root, env = _box(tmp_path, service_type, **kw)
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
+    env["FAKE_PULL_FAILURE_REF"] = pull_failure_ref
     env["FAKE_RUST_API_ROUTES"] = rust_api_routes
     env["FAKE_POLIS_API_START"] = polis_api_start
     env["FAKE_POLIS_API_TRANSPORT"] = transport
@@ -260,9 +263,9 @@ def test_route_selection_starts_polis_api_without_the_independent_start_flag(tmp
         assert ups == UNCHANGED["server"] + ["up -d --no-deps --no-build --force-recreate polis-api"]
     else:
         assert ups == UNCHANGED["server"]
-    # The value is the one nginx-proxy receives: the composed config of the
-    # files the `up` line runs.
-    assert f"{COMPOSE_FILES}--profile rust-api config --format json" in _calls(log, "docker-compose")
+    # Environment comes from the new revision before its image-only override
+    # is written; the old deployment's override is not needed to resolve it.
+    assert RUST_CONFIG in _calls(log, "docker-compose")
     assert '-r .services["nginx-proxy"].environment.RUST_API_ROUTES // ""' in _calls(log, "jq")
     # Pulled either way, before the migration, so turning the switch on needs
     # no other change to the bundle.
@@ -355,11 +358,43 @@ def test_migration_failure_preserves_every_running_service(tmp_path, service_typ
     proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
                         migration_failure=failure)
     assert proc.returncode == 17, proc.stdout + proc.stderr
-    assert [c for c in _compose(log) if c != "config --format json"] == []
+    assert [c for c in _compose(log) if c not in ("config --format json", RUST_CONFIG)] == []
     assert _calls(log, "systemctl") == []
     docker = _calls(log, "docker")
     pulls = ["pull"] * (1 + len(ROLE_IMAGES[service_type]))
     assert [call.split()[0] for call in docker] == (["login", "pull"] if failure == "pull" else ["login", *pulls, "tag", "run"])
+
+
+@pytest.mark.parametrize("start", ["0", "1"])
+@pytest.mark.parametrize("routes", ["", " , ", "pca2"])
+def test_rust_digest_pull_failure_only_fails_when_a_route_is_selected(tmp_path, start, routes):
+    proc, log = _deploy(tmp_path, "server", polis_api_start=start,
+                        rust_api_routes=routes, pull_failure_ref=IMAGES["polis-api"])
+    selected = routes == "pca2"
+    assert proc.returncode == (17 if selected else 0), proc.stdout + proc.stderr
+    pulls = [c for c in _calls(log, "docker") if c.startswith("pull ")]
+    assert pulls == [f"pull {IMAGES[name]}" for name in ["migrate", *ROLE_IMAGES["server"]]]
+    assert log.index(f"docker-compose {RUST_CONFIG}") < log.index(f"docker pull {IMAGES['migrate']}")
+    calls = _compose(log)
+    assert not any(c.startswith("up") and c.endswith("polis-api") for c in calls)
+    assert [c for c in calls if c.startswith("up")] == ([] if selected else UNCHANGED["server"])
+    assert ("--profile rust-api down" in calls) == (not selected)
+    assert proc.stderr.count("Could not pull polis-api;") == (0 if selected else 1)
+    migrations = [c for c in _calls(log, "docker") if c.startswith("run ")]
+    assert bool(migrations) == (not selected)
+    deployed = tmp_path / "root/opt/polis/deployed-images.txt"
+    assert deployed.exists() == (not selected)
+    if not selected:
+        assert deployed.read_text() == _manifest()
+
+
+@pytest.mark.parametrize("name", ["migrate", "server", "nginx-proxy", "client-participation-alpha"])
+def test_required_image_pull_failure_stays_fatal_with_warm_rust(tmp_path, name):
+    proc, log = _deploy(tmp_path, "server", polis_api_start="1", pull_failure_ref=IMAGES[name])
+    assert proc.returncode == 17, proc.stdout + proc.stderr
+    assert not [c for c in _calls(log, "docker") if c.startswith("run ")]
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+    assert "Could not pull polis-api;" not in proc.stderr
 
 
 def test_the_checkout_is_the_bundle_commit_not_the_branch_head(tmp_path):
@@ -398,7 +433,7 @@ def test_every_image_is_pulled_by_digest_and_nothing_is_built(tmp_path, service_
     assert pulls == [IMAGES["migrate"]] + [IMAGES[name] for name in ROLE_IMAGES[service_type]]
     assert not [c for c in _compose(log) if c.startswith("build")]
     # Every replacement runs the override, which names the pulled digests.
-    assert all(c.startswith(COMPOSE_FILES) for c in _calls(log, "docker-compose") if c != "config --format json")
+    assert all(c.startswith(COMPOSE_FILES) for c in _calls(log, "docker-compose") if c not in ("config --format json", RUST_CONFIG))
     override = (tmp_path / "root/opt/polis/polis/docker-compose.images.yml").read_text()
     for name in ROLE_IMAGES[service_type]:
         assert f"  {name}:\n    image: {IMAGES[name]}\n" in override
@@ -419,7 +454,7 @@ def test_a_bundle_without_its_images_deploys_nothing(tmp_path, images, reason):
     assert proc.returncode != 0
     assert reason in proc.stdout
     assert not [c for c in _calls(log, "docker") if c.startswith("run")]
-    assert _calls(log, "docker-compose") == []
+    assert all(c == RUST_CONFIG for c in _compose(log))
 
 
 def test_a_web_image_built_with_other_public_settings_is_refused(tmp_path):
@@ -427,7 +462,7 @@ def test_a_web_image_built_with_other_public_settings_is_refused(tmp_path):
     assert proc.returncode != 0
     assert "other public settings" in proc.stdout
     assert not [c for c in _calls(log, "docker") if c.startswith("run")]
-    assert _compose(log) == ["config --format json"]
+    assert _compose(log) == [RUST_CONFIG, RUST_CONFIG, "config --format json"]
 
 
 def test_the_previous_deployments_replaced_images_are_removed(tmp_path):
