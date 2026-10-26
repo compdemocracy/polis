@@ -27,6 +27,8 @@ on:
       - 'server/Dockerfile-db'
       - 'server/postgres/init-migrations.sh'
       - 'scripts/after_install.sh'
+      - 'scripts/validate_service.sh'
+      - 'scripts/tests/test_api_health.py'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -53,6 +55,8 @@ on:
       - 'server/Dockerfile-db'
       - 'server/postgres/init-migrations.sh'
       - 'scripts/after_install.sh'
+      - 'scripts/validate_service.sh'
+      - 'scripts/tests/test_api_health.py'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -168,6 +172,11 @@ jobs:
         run: cargo build --locked --release -p polis-api
       - name: Docker image
         run: docker build -t polis-api:ci -f polis-api/Dockerfile .
+      - name: Image trust store and deploy health predicate
+        working-directory: .
+        run: |
+          bash queue-rs/polis-api/conformance/image-start.sh
+          python3 -m unittest discover -s scripts/tests -p test_api_health.py -v
       - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh

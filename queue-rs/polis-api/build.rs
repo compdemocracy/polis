@@ -2,6 +2,11 @@
 //! `vendor/node-zlib`) so gzip output is byte-identical to Node's. Stock zlib
 //! produces different bytes for the same input (see README, "Why vendored zlib").
 fn main() {
+    for name in ["GIT_HASH", "POLIS_VERSION"] {
+        println!("cargo:rerun-if-env-changed={name}");
+        let value = std::env::var(name).unwrap_or_else(|_| "unknown".into());
+        println!("cargo:rustc-env={name}={value}");
+    }
     let dir = "vendor/node-zlib";
     println!("cargo:rerun-if-changed={dir}");
     println!("cargo:rerun-if-changed=src/zlib_shim.c");

@@ -13,9 +13,11 @@ else moves.
 
 Only if you turn it on. Two switches, both off by default:
 
-1. Start the program: `docker compose --profile rust-api up -d polis-api`.
+1. Start the program: set `POLIS_API_START=1` for the normal web deployment,
+   or explicitly start the `polis-api` Compose service in a local stack.
 2. Tell nginx to send it the route: `RUST_API_ROUTES=pca2` in the
-   environment of `nginx-proxy`, then recreate `nginx-proxy`.
+   deployment environment. Use the drained switch helper described in
+   `file-server/nginx/README.md` for a live change.
 
 With `RUST_API_ROUTES` unset (production today), nginx's rendered config is
 the same as before this change and every request goes to Node. With it set,
@@ -52,17 +54,18 @@ in CI, including the truncated-reply limit.
 
 ## Before turning it on anywhere real
 
-- **Database transport.** The compose default `docker-internal` is plain TCP
-  to the dev Postgres container. Against RDS set `POLIS_API_DB_TRANSPORT=tls`,
-  `POLIS_API_DB_CA_FILE` and `POLIS_API_DB_HOST_ALLOWLIST`; with the default
-  it refuses the RDS host and exits, and nginx keeps sending pca2 to Node.
+- **Database transport.** Production compose defaults to verified TLS and the
+  bundled RDS certificate authorities. Set `POLIS_API_DB_HOST_ALLOWLIST` to the
+  exact database hostname. Missing trust or a mismatched hostname fails closed.
+  Local stacks with non-TLS Postgres must explicitly select their development
+  transport; the web deployment refuses that transport.
 - **Which database.** Like Node's read pool, it reads `READ_ONLY_DATABASE_URL`
   when that is set and not empty, else `DATABASE_URL`
   (`POLIS_API_DATABASE_URL` overrides both).
 - **Database login.** It uses the same login as Node's read pool. A dedicated
   read-only login (SELECT on `zinvites`, `math_main`, `comments` only) is a
-  role change and is left out until Colin rules on it; until then the
-  session is set read-only, which is the only guard.
+  separate credential and grants configuration. The common pool always sets
+  its sessions read-only.
 - **`NODE_ENV`.** The image defaults to `production`, as the server's prod
   image does, and the shared env file overrides both alike. The error pages
   depend on it.
@@ -1490,3 +1493,79 @@ Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).
 Bucket membership and group locations: [contract and admission](MATH-MEMBERSHIP.md).
 
 Conversation HTML pages: [contract and bounded admission](CONVERSATION-PAGES.md).
+
+
+## Run without selecting a public route
+
+The web deployment can keep this process warm while nginx sends every request
+to Node. Set `POLIS_API_START=1` and leave `RUST_API_ROUTES` empty in the shared
+deployment environment. The start flag defaults to `0`; a nonempty route list
+also starts the process. Only `0` and `1` are valid start values. No route switch
+is derived from this flag. Keep other `POLIS_API_*_READS`, `POLIS_API_*_WRITES`
+and `POLIS_API_OWNER_LIST` switches off for this rollout.
+
+The normal image build and digest-pinned deployment carry the service; no box
+specific override is needed. Node, nginx and the participation client start
+first; Rust starts separately without dependencies. Failed Rust startup leaves
+those services running. It fails the deployment only when a Rust route is
+selected; otherwise the failure is logged and the Node deployment continues.
+The existing full service replacement still needs the deployment's normal
+traffic drain.
+
+Use `POLIS_API_DB_TRANSPORT=tls`, an exact `POLIS_API_DB_HOST_ALLOWLIST`, and
+`POLIS_API_DB_CA_FILE=/etc/polis/rds-global-bundle.pem`. The image includes the
+same digest-pinned public RDS trust store as Node and Delphi; build and every
+container start verify the asset. Other certificate authorities can be supplied
+at a separate path. TLS still verifies both trust and the database hostname.
+No certificate is downloaded at startup. Database selection remains the
+explicit API URL, then the read-only URL, then the primary URL.
+
+Production compose fixes the common read-only pool at eight slots, with 2000 ms
+acquisition timeout, 3000 ms statement timeout and 300000 ms connection lifetime.
+It caps the process at 0.5 CPU and 512 MiB. Node's participation pools remain
+separate. These bounds do not reserve database CPU or I/O; database capacity
+must still be checked before serving traffic. Other route pools remain off.
+
+The internal `GET /health` retains its existing counters and reports:
+
+- `status` (`ok` or `degraded`) and `mathEnv`; database failure returns HTTP 503.
+- `version` (release base from VERSION) and `commit`, embedded at image build.
+  Standalone builds without those inputs explicitly report `unknown`.
+- `pools.common`: read-only status, reachability, limit, available slots and
+  acquisition/statement/lifetime bounds. Reachability is a real common-pool ping;
+  it does not certify unselected routes or their pools.
+- `routing.configuredRoutes` and `routing.enabledSwitches`: the process's route
+  environment and names of explicit enabled route switches. These are desired
+  configuration, not proof of nginx's currently loaded map.
+
+ValidateService checks the running, non-restarting process and requires three
+consecutive HTTP 200/ok/python responses with the expected revision, route
+configuration, common-pool bounds and no additional enabled switches. Requests
+have a four-second abort deadline. When no Rust route is selected, the same
+probe logs its result but a Rust failure does not fail the web deployment.
+Rust startup failure likewise logs and continues after Node starts. Once a
+route is selected, Rust startup and health are required. Invalid deployment
+configuration (including unverified database transport) is still rejected.
+Node's existing readiness checks remain required in every case.
+Health bypasses served/failed route counters, so all-off ingress probes must
+leave those counters unchanged. Check nginx's current/routes separately.
+
+The service has no host-published port or logging override. Its JSON logs inherit
+the web host's existing Docker awslogs group and stream; filter `service=polis-api`.
+An all-off stop uses the existing drained switch helper with an empty list;
+`POLIS_API_START=0` plus empty routes keeps it stopped on the next deploy. A
+profile-enabled project `--profile rust-api down` removes it with the other
+services; a plain `down` can leave it running. The web AfterInstall hook enables
+that profile for teardown, even when the next start flag is `0`.
+
+Before rolling back to a release at or before 2.42.2, stop the service explicitly
+on each web host, using the current Compose files and project:
+
+```sh
+docker-compose -f docker-compose.yml -f docker-compose.images.yml stop polis-api
+```
+
+Those older hooks do not enable the profile during teardown and cannot remove
+the old container themselves. The explicit stop leaves it stopped across the
+rollback. Never stop Rust before selected traffic drains; first use the drained
+switch helper with an empty list when any route is selected.
