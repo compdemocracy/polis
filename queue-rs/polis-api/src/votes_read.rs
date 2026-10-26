@@ -92,7 +92,7 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         )
         .await?;
         let verified = req.headers.get("authorization").and_then(|raw| {
-            app.participant_verifier.as_deref()?.verify(
+            app.participant_verifier.as_deref()?.verify_unobserved(
                 raw,
                 &query.conversation_id,
                 (crate::clock::now_ms() / 1000.0) as u64,

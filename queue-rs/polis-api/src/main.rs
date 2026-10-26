@@ -47,6 +47,7 @@ mod domain_whitelist;
 mod einvites_read;
 mod http;
 mod hybrid_read;
+mod identity_observability;
 mod integrate_page;
 mod js;
 mod legacy_conversations;
@@ -115,9 +116,17 @@ use std::sync::{Arc, atomic::Ordering};
 
 /// Not a Node route: liveness for the container and the operator.
 async fn health(app: &route::App) -> Outgoing {
+    health_observed(app, &polis_auth::observability::PROCESS).await
+}
+
+async fn health_observed(
+    app: &route::App,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
     let reachable = app.db.ping().await;
     health_response(
         app,
+        counters,
         reachable,
         std::env::var("RUST_API_ROUTES").unwrap_or_default(),
         std::env::vars(),
@@ -126,6 +135,7 @@ async fn health(app: &route::App) -> Outgoing {
 
 fn health_response(
     app: &route::App,
+    counters: &polis_auth::observability::Counters,
     reachable: bool,
     configured_routes: String,
     environment: impl Iterator<Item = (String, String)>,
@@ -153,6 +163,7 @@ fn health_response(
     switches.sort_by_key(js::stringify);
     routing.set("enabledSwitches", js::Js::Arr(switches));
     body.set("routing", js::Js::Obj(routing));
+    body.set("identity", identity_observability::snapshot(counters));
     for (i, name) in [
         "conversationPage",
         "explorePage",
@@ -1884,7 +1895,13 @@ mod health_tests {
         let app = app();
         for reachable in [true, false] {
             let body = json_body(
-                health_response(&app, reachable, String::new(), std::iter::empty()),
+                health_response(
+                    &app,
+                    &polis_auth::observability::PROCESS,
+                    reachable,
+                    String::new(),
+                    std::iter::empty(),
+                ),
                 if reachable { 200 } else { 503 },
             );
             assert_eq!(body["version"], env!("POLIS_VERSION"));
@@ -1919,7 +1936,13 @@ mod health_tests {
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()));
         let body = json_body(
-            health_response(&app(), true, "pca2,robots".into(), environment),
+            health_response(
+                &app(),
+                &polis_auth::observability::PROCESS,
+                true,
+                "pca2,robots".into(),
+                environment,
+            ),
             200,
         );
         assert_eq!(

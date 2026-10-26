@@ -2,7 +2,7 @@
 //! Failure means hand the complete request to Node, never anonymous downgrade.
 use crate::{db, owner};
 use anyhow::{Context, Result};
-use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use polis_auth::observability::{Counters, Event, PROCESS, credential_handoff, credential_hints};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -32,17 +32,6 @@ impl Oidc {
                 .unwrap_or_else(|| "null".into()),
         })))
     }
-}
-
-/// Payload fields are only routing/refusal hints. Identity is used only after
-/// the selected existing verifier validates the entire signed token.
-fn hints(raw: &str) -> Option<Value> {
-    let token = raw.strip_prefix("Bearer ")?;
-    if token.is_empty() || token.len() > 16384 {
-        return None;
-    }
-    let bytes = URL_SAFE_NO_PAD.decode(token.split('.').nth(1)?).ok()?;
-    serde_json::from_slice(&bytes).ok()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,49 +72,61 @@ pub async fn resolve_scoped(
     pool: &Arc<db::Pool>,
     conversation: Option<&str>,
 ) -> Option<Identity> {
+    resolve_scoped_observed(raw, participant, oidc, pool, conversation, &PROCESS).await
+}
+
+async fn resolve_scoped_observed(
+    raw: Option<&str>,
+    participant: Option<&polis_auth::participant::Verifier>,
+    oidc: Option<&Oidc>,
+    pool: &Arc<db::Pool>,
+    conversation: Option<&str>,
+    counters: &'static Counters,
+) -> Option<Identity> {
     let Some(raw) = raw else {
         return Some(Identity::Anonymous);
     };
     // Unlike Node's optional-auth path, non-Bearer headers are conservatively
     // handed back. They must never gain signed-in authority in this process.
-    let payload = hints(raw)?;
-    if payload.get("nbf").is_some_and(|v| v.as_u64().is_none()) {
-        return None;
+    let Some(payload) = credential_hints(raw) else {
+        return counters.handoff(Event::HandoffCredentialShape);
+    };
+    if let Some(reason) = credential_handoff(&payload, conversation) {
+        return counters.handoff(reason);
     }
     let now = (crate::clock::now_ms() / 1000.0) as u64;
     if payload.get("anonymous_participant").is_some()
         || payload.get("standard_user_participant").is_some()
     {
-        let cid = payload.get("conversation_id").and_then(Value::as_str)?;
-        if conversation.is_some_and(|requested| requested != cid) {
-            return None;
-        }
-        let identity = participant.and_then(|v| v.verify(raw, cid, now))?;
+        let Some(cid) = payload.get("conversation_id").and_then(Value::as_str) else {
+            return counters.handoff(Event::HandoffCredentialShape);
+        };
+        let Some(participant) = participant else {
+            return counters.handoff(Event::HandoffVerifierUnavailable);
+        };
+        let identity = participant.verify_observed(raw, cid, now, counters)?;
         let cid = cid.to_owned();
         return pool
             .with(move |c| {
                 let Some(zid) = db::zid_for_conversation_id(c, &cid)? else {
-                    return Ok(None);
+                    return Ok(counters.handoff(Event::HandoffConversationMissing));
                 };
-                Ok(
-                    polis_auth::participant::resolve(c, polis_auth::Zid(zid), &identity)?
-                        .map(|_| Identity::User(identity.uid())),
-                )
+                Ok(polis_auth::participant::resolve_observed(
+                    c,
+                    polis_auth::Zid(zid),
+                    &identity,
+                    counters,
+                )?
+                .map(|_| Identity::User(identity.uid())))
             })
             .await
-            .unwrap_or(None);
+            .unwrap_or_else(|_| counters.handoff(Event::HandoffDatabase));
     }
-    // Preserve Node's token-kind priority. Unsupported XID or mixed shapes
-    // never fall through to the OIDC path, even with an OIDC signature.
-    if ["xid", "xid_participant", "oidc_sub"]
-        .iter()
-        .any(|k| payload.get(k).is_some())
-    {
-        return None;
-    }
-    let oidc = oidc?;
+    let Some(oidc) = oidc else {
+        return counters.handoff(Event::HandoffVerifierUnavailable);
+    };
     let Ok(sub) = oidc.verifier.subject_at(Some(raw), now) else {
-        return None;
+        return counters.handoff(Event::HandoffOidcVerification);
     };
     // Node requires email before looking up even an existing mapping. Refuse
     // non-string/empty shapes here; let Node own its error and creation paths.
@@ -133,26 +134,27 @@ pub async fn resolve_scoped(
         .get("email")
         .is_some_and(|v| !v.is_null() && !v.is_string())
     {
-        return None;
+        return counters.handoff(Event::HandoffOidcProfile);
     }
     let email = payload
         .get("email")
         .filter(|v| v.as_str().is_some_and(|s| !s.is_empty()))
         .or_else(|| payload.get(format!("{}email", oidc.namespace)));
     if !email.and_then(Value::as_str).is_some_and(|s| !s.is_empty()) {
-        return None;
+        return counters.handoff(Event::HandoffOidcProfile);
     }
     pool.with(move |c| {
         let rows=c.query("select m.uid from oidc_user_mappings m join users u on u.uid=m.uid where m.oidc_sub=$1", &[&sub])?;
-        if rows.len()!=1 { return Ok(None); }
+        if rows.len()!=1 { return Ok(counters.handoff(Event::HandoffOidcMapping)); }
         let uid=rows[0].try_get::<_,i32>(0)?;
-        Ok((uid>0).then_some(Identity::User(polis_auth::Uid(uid))))
-    }).await.unwrap_or(None)
+        Ok(if uid > 0 { Some(Identity::User(polis_auth::Uid(uid))) } else { counters.handoff(Event::HandoffOidcMapping) })
+    }).await.unwrap_or_else(|_| counters.handoff(Event::HandoffDatabase))
 }
 
 #[cfg(all(test, feature = "db-tests"))]
 mod tests {
     use super::*;
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
     use openssl::rsa::Rsa;
     use serde_json::json;
@@ -305,6 +307,154 @@ mod tests {
         ] {
             assert!(!optional(Some(&raw), Some(&participant), Some(&oidc), &pool).await);
         }
+        // Each failure gets exactly one hand-back reason, isolated from other tests.
+        let mut cases = vec![
+            (
+                "Bearer broken".to_owned(),
+                Some("fixture"),
+                true,
+                true,
+                Event::HandoffCredentialShape,
+            ),
+            (
+                sign(&anon),
+                Some("other"),
+                true,
+                true,
+                Event::HandoffConversationScope,
+            ),
+            (
+                sign(&anon),
+                Some("fixture"),
+                false,
+                true,
+                Event::HandoffVerifierUnavailable,
+            ),
+        ];
+        for (base, field, value, reason) in [
+            (&claims, "xid", json!("x"), Event::HandoffUnsupportedKind),
+            (&claims, "exp", json!(now), Event::HandoffOidcVerification),
+            (&claims, "email", json!(null), Event::HandoffOidcProfile),
+            (&claims, "sub", json!("missing"), Event::HandoffOidcMapping),
+            (
+                &anon,
+                "conversation_id",
+                json!("missing"),
+                Event::HandoffConversationMissing,
+            ),
+            (
+                &anon,
+                "exp",
+                json!(now),
+                Event::HandoffParticipantVerification,
+            ),
+            (&anon, "pid", json!(99), Event::HandoffParticipantMembership),
+        ] {
+            let mut payload = base.clone();
+            payload[field] = value;
+            cases.push((sign(&payload), None, true, true, reason));
+        }
+        let mut xid = anon.clone();
+        xid.as_object_mut().unwrap().remove("anonymous_participant");
+        xid["xid_participant"] = json!(true);
+        xid["xid"] = json!("fixture-xid");
+        xid["sub"] = json!("xid:fixture-xid");
+        for cid in ["fixture", "other"] {
+            cases.push((
+                sign(&xid),
+                Some(cid),
+                true,
+                true,
+                Event::HandoffUnsupportedKind,
+            ));
+        }
+        for (raw, scope, has_participant, has_oidc, reason) in cases {
+            let counters = Box::leak(Box::new(Counters::new()));
+            assert!(
+                resolve_scoped_observed(
+                    Some(&raw),
+                    has_participant.then_some(&participant),
+                    has_oidc.then_some(&oidc),
+                    &pool,
+                    scope,
+                    counters
+                )
+                .await
+                .is_none()
+            );
+            for (label, count) in counters.snapshot() {
+                assert_eq!(
+                    count,
+                    u64::from(label == reason.label()),
+                    "{label}: {reason:?}"
+                );
+            }
+            // The participant-only routes use the same reason table for the
+            // same credential and scope; verification still decides admission.
+            if matches!(
+                reason,
+                Event::HandoffUnsupportedKind
+                    | Event::HandoffConversationScope
+                    | Event::HandoffCredentialShape
+                    | Event::HandoffParticipantVerification
+            ) {
+                let direct = Counters::new();
+                assert!(
+                    participant
+                        .verify_observed(&raw, scope.unwrap_or("fixture"), now, &direct)
+                        .is_none()
+                );
+                assert_eq!(
+                    direct.snapshot().collect::<Vec<_>>(),
+                    counters.snapshot().collect::<Vec<_>>()
+                );
+            }
+        }
+        // votes' optional second lookup must not count an admitted OIDC request
+        // as a participant verification hand-back.
+        let counters = Box::leak(Box::new(Counters::new()));
+        let raw = sign(&claims);
+        assert_eq!(
+            resolve_scoped_observed(
+                Some(&raw),
+                Some(&participant),
+                Some(&oidc),
+                &pool,
+                Some("fixture"),
+                counters
+            )
+            .await,
+            Some(Identity::User(polis_auth::Uid(3)))
+        );
+        assert!(
+            participant
+                .verify_unobserved(&raw, "fixture", now)
+                .is_none()
+        );
+        assert!(counters.snapshot().all(|(_, n)| n == 0));
+        let mut broken_config: postgres::Config = url.parse().unwrap();
+        broken_config.options("-c search_path=missing_identity_tables");
+        let broken_pool = db::Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(broken_config)),
+            crate::contexts::pool_limits(),
+        );
+        let counters = Box::leak(Box::new(Counters::new()));
+        assert!(
+            resolve_scoped_observed(
+                Some(&raw),
+                Some(&participant),
+                Some(&oidc),
+                &broken_pool,
+                None,
+                counters
+            )
+            .await
+            .is_none()
+        );
+        for (label, count) in counters.snapshot() {
+            assert_eq!(count, u64::from(label == Event::HandoffDatabase.label()));
+        }
+        drop(broken_pool);
         // No creation or table mutation: only the original mapping/member remains.
         assert_eq!(
             pool.with(|c| Ok(c
