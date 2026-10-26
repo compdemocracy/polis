@@ -124,7 +124,45 @@ async fn health_observed(
     counters: &polis_auth::observability::Counters,
 ) -> Outgoing {
     let reachable = app.db.ping().await;
+    health_response(
+        app,
+        counters,
+        reachable,
+        std::env::var("RUST_API_ROUTES").unwrap_or_default(),
+        std::env::vars(),
+    )
+}
+
+fn health_response(
+    app: &route::App,
+    counters: &polis_auth::observability::Counters,
+    reachable: bool,
+    configured_routes: String,
+    environment: impl Iterator<Item = (String, String)>,
+) -> Outgoing {
     let mut body = js::Obj::new();
+    body.set("version", js::Js::Str(env!("POLIS_VERSION").into()));
+    body.set("commit", js::Js::Str(env!("GIT_HASH").into()));
+    let mut pools = js::Obj::new();
+    pools.set("common", app.db.health(reachable));
+    body.set("pools", js::Js::Obj(pools));
+    let mut routing = js::Obj::new();
+    routing.set("configuredRoutes", js::Js::Str(configured_routes));
+    // These are explicit process switches, not the effective nginx map. The
+    // deploy's health check compares configured routes with nginx's environment.
+    let mut switches: Vec<_> = environment
+        .filter_map(|(key, value)| {
+            (key.starts_with("POLIS_API_")
+                && value == "1"
+                && (key.ends_with("_READS")
+                    || key.ends_with("_WRITES")
+                    || key == "POLIS_API_OWNER_LIST"))
+                .then_some(js::Js::Str(key))
+        })
+        .collect();
+    switches.sort_by_key(js::stringify);
+    routing.set("enabledSwitches", js::Js::Arr(switches));
+    body.set("routing", js::Js::Obj(routing));
     body.set("identity", identity_observability::snapshot(counters));
     for (i, name) in [
         "conversationPage",
@@ -1814,5 +1852,105 @@ async fn main() -> Result<()> {
     tokio::select! {
         r = http::serve(listener, handler) => r,
         _ = tokio::signal::ctrl_c() => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod health_tests {
+    use super::*;
+    use polis_queue_adapter::jobs::transport::Connector;
+    use serde_json::{Value, json};
+    use std::time::Duration;
+
+    fn app() -> route::App {
+        let cfg = config::Config {
+            listen: String::new(),
+            math_env: "python".into(),
+            cache_size: 1,
+            dev_mode: false,
+            use_network_host: false,
+            production: true,
+            pool: db::Limits {
+                size: 8,
+                acquire_timeout: Duration::from_millis(2000),
+                statement_timeout: Duration::from_millis(3000),
+                max_lifetime: Duration::from_millis(300000),
+            },
+        };
+        let pg = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
+        let pool = db::Pool::new(Connector::Plain(Box::new(pg)), cfg.pool.clone());
+        route::App::new(&cfg, pool)
+    }
+
+    fn json_body(response: Outgoing, status: u16) -> Value {
+        assert_eq!(response.status, status);
+        let Body::Fixed(bytes) = response.body else {
+            panic!("health must be fixed JSON")
+        };
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[test]
+    fn health_reports_the_fields_used_by_deploy_validation() {
+        let app = app();
+        for reachable in [true, false] {
+            let body = json_body(
+                health_response(
+                    &app,
+                    &polis_auth::observability::PROCESS,
+                    reachable,
+                    String::new(),
+                    std::iter::empty(),
+                ),
+                if reachable { 200 } else { 503 },
+            );
+            assert_eq!(body["version"], env!("POLIS_VERSION"));
+            assert_eq!(body["commit"], env!("GIT_HASH"));
+            assert_eq!(body["status"], if reachable { "ok" } else { "degraded" });
+            assert_eq!(body["mathEnv"], "python");
+            assert_eq!(
+                body["routing"],
+                json!({"configuredRoutes": "", "enabledSwitches": []})
+            );
+            assert_eq!(
+                body["pools"]["common"],
+                json!({
+                    "readOnly": true, "reachable": reachable, "limit": 8, "available": 8,
+                    "acquireTimeoutMs": 2000, "statementTimeoutMs": 3000, "maxLifetimeMs": 300000
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn health_reports_only_explicit_route_switches_in_sorted_order() {
+        let environment = [
+            ("POLIS_API_ROBOTS_READS", "1"),
+            ("POLIS_API_OWNER_LIST", "1"),
+            ("POLIS_API_TOPIC_SELECTION_WRITES", "1"),
+            ("POLIS_API_START", "1"),
+            ("POLIS_API_USERS_READS", "true"),
+            ("POLIS_API_VOTES_READS", "0"),
+            ("OTHER_READS", "1"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()));
+        let body = json_body(
+            health_response(
+                &app(),
+                &polis_auth::observability::PROCESS,
+                true,
+                "pca2,robots".into(),
+                environment,
+            ),
+            200,
+        );
+        assert_eq!(
+            body["routing"],
+            json!({
+                "configuredRoutes": "pca2,robots",
+                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
+            })
+        );
     }
 }

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "participant-token-header/1",
+  "$comment": "Generated from polis-contracts participant_token; POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts",
+  "type": "object",
+  "properties": {
+    "alg": {
+      "type": "string",
+      "const": "RS256"
+    },
+    "typ": {
+      "type": "string",
+      "const": "JWT"
+    }
+  },
+  "required": [
+    "alg",
+    "typ"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "participation-init-x-info/1",
+  "$comment": "Generated from polis-contracts participation_init; POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts",
+  "description": "Column-order-dependent XInfo object; see participation_init module and README for migration provenance and omission rules.",
+  "type": "object",
+  "properties": {
+    "uid": {
+      "type": "integer"
+    },
+    "xid": {
+      "type": "string"
+    },
+    "x_profile_image_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "x_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "x_email": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "modified": {
+      "type": "string"
+    },
+    "zid": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pid": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "uid",
+    "xid",
+    "x_profile_image_url",
+    "x_name",
+    "x_email",
+    "modified",
+    "zid",
+    "pid"
+  ],
+  "additionalProperties": false
+}
