@@ -709,7 +709,7 @@ def test_the_delphi_box_writes_the_readiness_identity_before_starting():
     up = next(i for i, line in enumerate(body) if line.startswith(tuple(c + " up" for c in _COMPOSE_CALLS)))
     assert body.index("poller_identity") < up
     text = AFTER_INSTALL_PATH.read_text()
-    assert text.index("poller_identity() {") < text.index('"$SERVICE_FROM_FILE" == "server"')
+    assert text.index("poller_identity() {") < text.index('elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then')
 
 
 @requires_after_install

@@ -1550,8 +1550,17 @@ Node's existing readiness checks remain required in every case.
 Health bypasses served/failed route counters, so all-off ingress probes must
 leave those counters unchanged. Check nginx's current/routes separately.
 
-The service has no host-published port or logging override. Its JSON logs inherit
-the web host's existing Docker awslogs group and stream; filter `service=polis-api`.
+The service has no host-published port or logging override. Its logs inherit
+the web host's existing Docker awslogs group and stream. To include warm startup
+and failure messages, which do not all carry `service=polis-api`, use:
+
+```sh
+docker-compose -f docker-compose.yml -f docker-compose.images.yml logs polis-api
+```
+
+Read the deployment hook output for image pull and startup failures from
+AfterInstall and health results from ValidateService.
+
 An all-off stop uses the existing drained switch helper with an empty list;
 `POLIS_API_START=0` plus empty routes keeps it stopped on the next deploy. A
 profile-enabled project `--profile rust-api down` removes it with the other
