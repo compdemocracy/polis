@@ -10,6 +10,16 @@ if it should survive replacement. `docker compose restart` retains the old
 container environment; use the ordinary deployment/recreation flow to apply
 changed environment settings.
 
+To keep Rust running without routing requests to it, set `POLIS_API_START=1`
+and leave `RUST_API_ROUTES` empty in the normal web deployment environment.
+Deployment validation probes Rust's internal health and logs the result. With
+no route selected, an unhealthy Rust process does not fail Node's deployment;
+with a selected route, Rust health is required. nginx has no dependency on it. This start flag does not change the
+map or enable any route. Production commands must include the deployment's
+`-f docker-compose.images.yml` override so they use the pulled image digests.
+An empty live switch stops Rust after draining, even when the deployment's
+start flag is still `1`; that flag applies on the next normal deployment.
+
 After installing this nginx image, apply the desired complete route list from
 the repository root, with the same Compose project and files as the running
 stack:

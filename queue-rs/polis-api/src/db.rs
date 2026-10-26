@@ -150,6 +150,25 @@ impl Drop for Pool {
 }
 
 impl Pool {
+    pub(crate) fn health(&self, reachable: bool) -> crate::js::Js {
+        let mut body = crate::js::Obj::new();
+        body.set("readOnly", crate::js::Js::Bool(!self.writable));
+        body.set("reachable", crate::js::Js::Bool(reachable));
+        for (key, value) in [
+            ("limit", self.limits.size as u128),
+            ("available", self.permits.available_permits() as u128),
+            ("acquireTimeoutMs", self.limits.acquire_timeout.as_millis()),
+            (
+                "statementTimeoutMs",
+                self.limits.statement_timeout.as_millis(),
+            ),
+            ("maxLifetimeMs", self.limits.max_lifetime.as_millis()),
+        ] {
+            body.set(key, crate::js::Js::Num(value as f64));
+        }
+        crate::js::Js::Obj(body)
+    }
+
     pub fn new(connector: Connector, limits: Limits) -> Arc<Self> {
         Self::configured(connector, limits, false)
     }
@@ -302,6 +321,27 @@ mod tests {
             statement_timeout: Duration::from_millis(300),
             max_lifetime: Duration::from_secs(60),
         }
+    }
+
+    #[test]
+    fn health_uses_configured_limits_and_current_free_slots() {
+        let pg: PgConfig = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
+        let pool = Pool::new(Connector::Plain(Box::new(pg)), limits());
+        let held = pool.permits.try_acquire().unwrap();
+        let body: serde_json::Value =
+            serde_json::from_str(&crate::js::stringify(&pool.health(false))).unwrap();
+        assert_eq!(
+            body,
+            serde_json::json!({
+                "readOnly": true, "reachable": false, "limit": 2, "available": 1,
+                "acquireTimeoutMs": 500, "statementTimeoutMs": 300, "maxLifetimeMs": 60000
+            })
+        );
+        drop(held);
+        let body: serde_json::Value =
+            serde_json::from_str(&crate::js::stringify(&pool.health(true))).unwrap();
+        assert_eq!(body["available"], 2);
+        assert_eq!(body["reachable"], true);
     }
 
     /// Nothing listens on port 1, so every call fails to connect.

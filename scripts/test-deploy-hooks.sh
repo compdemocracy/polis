@@ -12,6 +12,7 @@ if [ "$#" -eq 0 ]; then
 fi
 compose=(docker compose "$@")
 inputs=(
+  VERSION
   scripts/after_install.sh
   scripts/before_install.sh
   scripts/application_stop.sh

@@ -116,6 +116,7 @@ def _build(tmp_path):
     root = tmp_path / "root"
     src = tmp_path / "src"
     (src / "deploy").mkdir(parents=True)
+    (src / "VERSION").write_text("2.0.0\n")
     text = BUILD_PATH.read_text()
     for old in ("/run/polis-build", "/var/log/polis-build"):
         assert old in text, f"build-images.sh no longer uses {old}; update this test's rewrite"
@@ -146,7 +147,7 @@ def test_polis_api_is_built_pushed_and_named_in_the_manifest(tmp_path):
     # One build of every service; polis-api's profile is named.
     builds = [c for c in _calls(tmp_path, "docker-compose") if " build " in f" {c} "]
     assert builds == ["-f docker-compose.yml -f docker-compose.build.yml --profile rust-api build "
-                      f"--build-arg GIT_HASH={REVISION} --build-arg POLIS_BUILD_DISTANCE=unknown "
+                      f"--build-arg GIT_HASH={REVISION} --build-arg POLIS_VERSION=2.0.0 --build-arg POLIS_BUILD_DISTANCE=unknown "
                       "--build-arg POLIS_BUILD_TAG= --build-arg POLIS_BUILD_SOURCE=unverified-archive "
                       "server nginx-proxy client-participation-alpha delphi migrate polis-api"]
     pushes = [c.split()[1] for c in _calls(tmp_path, "docker") if c.startswith("push ")]
