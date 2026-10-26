@@ -48,7 +48,7 @@ impl RequestIdentity {
 
 // Match JavaScript String.trim used by ensureParticipant, including the byte
 // order mark and excluding the next-line character (which Rust trim removes).
-fn request_xid_whitespace(c: char) -> bool {
+pub(crate) fn request_xid_whitespace(c: char) -> bool {
     matches!(c, '\u{0009}'..='\u{000d}' | ' ' | '\u{00a0}' | '\u{1680}'
         | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}'
         | '\u{205f}' | '\u{3000}' | '\u{feff}')

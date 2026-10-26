@@ -25,7 +25,7 @@ separately from a forbidden decision, without leaking database diagnostics.
 
 `PostgresLookup` uses synchronous workspace transport conventions. A future
 async handler must call it through its own bounded blocking/read pool, with
-acquire and statement deadlines. This library creates no pool or locks and is
+acquire and statement deadlines. Authority lookup creates no pool or locks and is
 not connected to the vote, comment or next-statement paths. No load-isolation
 claim follows from these unit tests; deployment and route integration need
 their own conformance and contention tests.
@@ -60,3 +60,56 @@ The `observability` module provides fixed-label process counters; `probes/`
 contains offline aggregate SQL queries. See
 [Identity observability](../polis-api/IDENTITY_OBSERVABILITY.md) for semantics,
 permissions and execution limits.
+
+## Staged admission (switched off and never served)
+
+`admission::admit` has no serving callers, route, environment switch or pool.
+It accepts already verified identity evidence and a caller-owned primary
+connection. It commits user creation, membership, the optional XID binding,
+invite consumption and prepared recovery material in one Rust transaction.
+No migration or Postgres admission function is added. The existing participant
+allocator supplies the PID, including zero, and holds its transaction lock
+until commit. Returning identities are looked up on primary; anonymous UIDs
+are never reused in a different conversation. The exact conversation owner
+keeps the Treevite bypass; moderators and administrators do not acquire it.
+An XID resolving to any conversation owner, owner-flagged account, same-site
+moderator, configured administrator or OIDC-mapped account is refused with
+`polis_err_xid_owner_account`, matching the Node account guard.
+
+The invite row is locked before any identity write. Closed conversations and
+the identity gates refuse without committed writes. Uniqueness races roll
+back the whole attempt and re-resolve, with three attempts maximum. Lock and
+statement timeouts are five seconds; lock timeouts are not retried. A final
+locked open check follows the participant allocator so a concurrent close
+cannot admit a new member, and the conversation/advisory lock order is not
+inverted. Sequence values may be consumed by rollback, as in PostgreSQL;
+participant rows, numbers and counts are rolled back together.
+
+`PreparedRecovery` must come from a bounded crypto worker that generated the
+code and computed bcrypt and the existing peppered lookup before admission.
+Only the inexpensive PID-dependent HMAC runs while holding the allocator lock.
+`VerifiedLogin` is evidence of an external bcrypt check; admission rechecks the
+exact hash, lookup and revocation under a row lock. It does not itself verify
+an untrusted login code. Signing and child-wave issuance are separate work
+after commit, never callbacks inside the transaction. OIDC first-use
+provisioning and retired cookie/single-use-invite paths are outside this module.
+
+This function is not a complete credential endpoint. A commit error is
+`CommitUnknown`, not permission to retry. A lost response, failed post-commit
+signing or child issuance still needs a client-bound recovery/delivery protocol
+before serving can be considered. No new expiry or revocation policy is added.
+The staged function creates no participation traffic or resource contention;
+future integration must use bounded participation capacity and separately
+budget cryptography and child issuance. These tests do not establish full-stack
+load isolation or safe mixed Node/Rust invite admission.
+
+The shared `scripts/test-polis-auth.sh` entry point also runs admission tests
+against isolated fixture schemas, with the real Treevite DDL and the allocator
+function from migration 000044. They force simultaneous invite contenders,
+check the losing identity cannot recover unauthorized membership, inject SQL
+failures at each write boundary and at commit, and exercise concurrent XID and
+account joins. `admission_recordings.rs` compares the admission projection of
+committed Node recordings: UID/PID, row creation, identity links, recovery
+material and exact gate-refusal bodies. It does not claim full HTTP byte parity
+for an endpoint that is not implemented or routed. Node's recorded orphan-user
+and unbound-participant failures are pinned as deliberate atomicity deltas.
