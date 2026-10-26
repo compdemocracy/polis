@@ -551,7 +551,7 @@ module.exports = ConversationView.extend({
     function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
       that.firstMathPollResultDeferred.resolve();
       if (newParticipantCount >= MIN_PTPTS) {
-        if ($("#vis_section:hidden")) {
+        if ($("#vis_section:hidden").length) {
           $("#vis_section").fadeIn(1000, function () {
             that.initPcaVis();
           });
