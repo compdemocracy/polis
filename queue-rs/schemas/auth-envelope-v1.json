@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "auth-envelope/1",
+  "$comment": "Generated from polis-contracts auth_envelope::document; POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts",
+  "description": "Value of auth. ensureParticipant emits expires_in=31536000 seconds. The default attachAuthToken adds it to object JSON bodies with no truthy auth, regardless of HTTP status, including error bodies; arrays, null and primitives are unchanged. A new auth key is last; replacing a falsy auth retains its position. This document describes the value, not the varying surrounding body.",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string"
+    },
+    "token_type": {
+      "type": "string",
+      "const": "Bearer"
+    },
+    "expires_in": {
+      "type": "integer",
+      "const": 31536000
+    }
+  },
+  "required": [
+    "token",
+    "token_type",
+    "expires_in"
+  ],
+  "additionalProperties": false
+}

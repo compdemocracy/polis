@@ -2,6 +2,7 @@
 pub mod about;
 pub mod admin_page;
 pub mod all_conversations;
+pub mod auth_envelope;
 pub mod bid_to_pid;
 pub mod collective_statement;
 pub mod connection;
@@ -38,7 +39,9 @@ pub mod ops_catchall;
 pub mod ops_page;
 pub mod ops_whoami;
 pub mod other_conversations_page;
+pub mod participant_token;
 pub mod participants_read;
+pub mod participation_init;
 pub mod participation_read;
 pub mod perf_stats;
 pub mod post_comments;

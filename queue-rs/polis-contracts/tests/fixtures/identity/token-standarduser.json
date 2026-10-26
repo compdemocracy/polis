@@ -1,0 +1,1 @@
+{"aud":"https://audience.example","iss":"https://issuer.example","pid":0,"uid":42,"exp":1731536000,"iat":1700000000,"conversation_id":"example-conversation","sub":"user:sample-subject","oidc_sub":"sample-subject","standard_user_participant":true}

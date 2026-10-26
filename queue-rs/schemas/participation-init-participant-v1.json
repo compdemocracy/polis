@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "participation-init-participant/1",
+  "$comment": "Generated from polis-contracts participation_init; POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts",
+  "description": "Column-order-dependent Participant object; see participation_init module and README for migration provenance and omission rules.",
+  "type": "object",
+  "properties": {
+    "pid": {
+      "type": "integer"
+    },
+    "uid": {
+      "type": "integer"
+    },
+    "vote_count": {
+      "type": "integer"
+    },
+    "last_interaction": {
+      "type": "string"
+    },
+    "subscribed": {
+      "type": "integer"
+    },
+    "last_notified": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nsli": {
+      "type": "integer"
+    },
+    "mod": {
+      "type": "integer"
+    },
+    "created": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "pid",
+    "uid",
+    "vote_count",
+    "last_interaction",
+    "subscribed",
+    "last_notified",
+    "nsli",
+    "mod",
+    "created"
+  ],
+  "additionalProperties": false
+}

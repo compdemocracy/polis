@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "participant-token/1",
+  "$comment": "Generated from polis-contracts participant_token; POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts",
+  "description": "Payloads currently minted by issueParticipantJWT: sub=anon:<uid>, xid:<xid>, or user:<oidc_sub>. Audience and issuer are configured strings; exp is the current whole second plus 31536000, iat is a separate clock read. XID and OIDC identifiers must be nonempty at minting. No header or signature verification is performed by these types.",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "aud": {
+          "type": "string"
+        },
+        "iss": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "uid": {
+          "type": "integer"
+        },
+        "exp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "iat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "sub": {
+          "type": "string"
+        },
+        "anonymous_participant": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "aud",
+        "iss",
+        "pid",
+        "uid",
+        "exp",
+        "iat",
+        "conversation_id",
+        "sub",
+        "anonymous_participant"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "aud": {
+          "type": "string"
+        },
+        "iss": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "uid": {
+          "type": "integer"
+        },
+        "exp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "iat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "sub": {
+          "type": "string"
+        },
+        "xid": {
+          "type": "string"
+        },
+        "xid_participant": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "aud",
+        "iss",
+        "pid",
+        "uid",
+        "exp",
+        "iat",
+        "conversation_id",
+        "sub",
+        "xid",
+        "xid_participant"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "aud": {
+          "type": "string"
+        },
+        "iss": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "uid": {
+          "type": "integer"
+        },
+        "exp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "iat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "sub": {
+          "type": "string"
+        },
+        "oidc_sub": {
+          "type": "string"
+        },
+        "standard_user_participant": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "aud",
+        "iss",
+        "pid",
+        "uid",
+        "exp",
+        "iat",
+        "conversation_id",
+        "sub",
+        "oidc_sub",
+        "standard_user_participant"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
