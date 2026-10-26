@@ -21,6 +21,11 @@ import { sql_participants_extended } from "../db/sql";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import { participantVoteCountSql } from "../db/activity";
+import {
+  isXidAccountError,
+  requireXidParticipantAccount,
+  respondToXidAccountError,
+} from "../auth/xid-account";
 import { doFamousQuery, getOneConversation } from "../server-helpers";
 
 // basic defaultdict implementation
@@ -329,9 +334,11 @@ async function handle_GET_participationInit(
       try {
         const xidRecords = await getXidRecord(req.p.xid, req.p.zid);
         if (xidRecords && xidRecords.length > 0) {
+          await requireXidParticipantAccount(xidRecords[0].uid);
           effectiveUidForUser = xidRecords[0].uid;
         }
       } catch (err) {
+        if (isXidAccountError(err)) throw err;
         logger.debug("XID not found for user resolution:", err);
       }
     }
@@ -413,6 +420,9 @@ async function handle_GET_participationInit(
 
     res.status(200).json(response);
   } catch (err) {
+    if (isXidAccountError(err)) {
+      return respondToXidAccountError(res, err);
+    }
     logger.error("Error in handle_GET_participationInit:", err);
     failJson(res, 500, "polis_err_get_participationInit", err);
   }

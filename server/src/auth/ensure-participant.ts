@@ -35,6 +35,11 @@ import { issueXidJWT } from "./xid-jwt";
 import { RequestWithP } from "../d";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
+import {
+  isXidAccountError,
+  requireXidParticipantAccount,
+  respondToXidAccountError,
+} from "./xid-account";
 
 // Validation function for conversation_id (same as in parameter.ts)
 function validateConversationId(conversation_id: string): string {
@@ -509,6 +514,17 @@ async function _ensureParticipantInternal(
     }
   }
 
+  // Check a resolved XID before enrolling it or issuing credentials. Existing
+  // XID tokens are checked by hybrid auth; cookie conversion checks before minting.
+  if (
+    req.p.xid &&
+    req.p.uid === undefined &&
+    uid !== undefined &&
+    !legacyCookieToken
+  ) {
+    await requireXidParticipantAccount(uid);
+  }
+
   // Only throw error if we're supposed to create missing participants/users
   // and we don't have an XID (since XID users start with undefined uid)
   if (uid === undefined && createIfMissing && !req.p.xid) {
@@ -673,6 +689,9 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
 
       next();
     } catch (error) {
+      if (isXidAccountError(error)) {
+        return respondToXidAccountError(res, error);
+      }
       logger.error("Error in ensureParticipant middleware", error);
 
       // Handle XID authentication errors with proper status codes
@@ -738,6 +757,9 @@ export function ensureParticipantOptional(
 
       next();
     } catch (error) {
+      if (isXidAccountError(error)) {
+        return respondToXidAccountError(res, error);
+      }
       // Handle XID authentication errors even in optional middleware
       if (
         error instanceof Error &&
