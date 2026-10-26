@@ -14,6 +14,7 @@ on:
       - 'server/src/utils/common.ts'
       # Cross-language participant JWT recordings and their Node minter.
       - 'server/__tests__/fixtures/participant-jwt/**'
+      - 'server/__tests__/fixtures/identity/**'
       - 'server/src/auth/jwt-utils.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
@@ -41,6 +42,7 @@ on:
       - 'server/src/utils/common.ts'
       # Cross-language participant JWT recordings and their Node minter.
       - 'server/__tests__/fixtures/participant-jwt/**'
+      - 'server/__tests__/fixtures/identity/**'
       - 'server/src/auth/jwt-utils.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
