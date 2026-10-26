@@ -119,3 +119,13 @@ remove their own databases after each test:
 POLIS_AUTH_TEST_DATABASE_URL="$TEST_DATABASE_URL" \
   cargo test --locked -p polis-auth --features db-tests --test identity_probes
 ```
+
+The XID account boundary also exposes `xid.refused.admin`,
+`xid.refused.conversation_owner`, `xid.refused.owner_flag`,
+`xid.refused.site_moderator`, `xid.refused.oidc_mapped`, and
+`xid.refused.check_failed`. These match Node's metric labels. Consume the typed
+`polis_auth::xid_account::Refusal` once at the response boundary to record the
+class and its identity-free warning; the generic JSON observer cannot infer
+the class from the shared error body and must not count it again. The current
+serving routes hand XIDs to Node, so these counters stay zero until the foundation
+is connected to admission routes.
