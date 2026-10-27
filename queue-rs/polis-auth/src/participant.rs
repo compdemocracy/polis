@@ -93,6 +93,17 @@ impl Verifier {
         if public_pem.len() > 65536 || issuer.is_empty() || audience.is_empty() {
             return None;
         }
+        Self::from_key(
+            DecodingKey::from_rsa_pem(public_pem).ok()?,
+            issuer,
+            audience,
+        )
+    }
+
+    pub(crate) fn from_key(key: DecodingKey, issuer: &str, audience: &str) -> Option<Self> {
+        if issuer.is_empty() || audience.is_empty() {
+            return None;
+        }
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_issuer(&[issuer]);
         validation.set_audience(&[audience]);
@@ -102,10 +113,7 @@ impl Verifier {
         validation.validate_exp = false;
         validation.validate_nbf = false;
         validation.leeway = 0;
-        Some(Self {
-            key: DecodingKey::from_rsa_pem(public_pem).ok()?,
-            validation,
-        })
+        Some(Self { key, validation })
     }
     /// Existing serving entry point: XID tokens still hand back to Node.
     pub fn verify(&self, authorization: &str, conversation: &str, now: u64) -> Option<Verified> {
