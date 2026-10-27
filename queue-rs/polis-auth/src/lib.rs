@@ -285,6 +285,10 @@ pub mod admission;
 pub mod observability;
 pub mod participant;
 
+pub mod oidc;
+pub mod provider;
+mod transaction;
+
 pub mod xid_account;
 
 pub mod keys;
