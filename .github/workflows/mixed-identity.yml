@@ -1,0 +1,42 @@
+name: Mixed participant admission
+on:
+  pull_request:
+    paths:
+      - "server/src/auth/**"
+      - "server/src/invites/**"
+      - "server/src/participant.ts"
+      - "server/postgres/migrations/**"
+      - "queue-rs/polis-auth/**"
+      - "queue-rs/polis-api/conformance/mixed-identity*"
+      - ".github/workflows/mixed-identity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  small:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: mixed-identity-${{ github.run_id }}-${{ github.run_attempt }}
+      MIXED_PG_PORT: "56498"
+      MIXED_DYNAMO_PORT: "56497"
+      MIXED_NODE_PORT: "56496"
+      MIXED_API_PORT: "56494"
+      POLIS_MIXED_WORKER_PORT: "56493"
+      MIXED_PROVIDER_PORT: "56492"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+      - run: npm ci --no-audit --no-fund
+        working-directory: server
+      - run: docker pull postgres:17-alpine && docker pull amazon/dynamodb-local:3.3.1
+      - run: bash queue-rs/polis-api/conformance/mixed-identity-run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mixed-identity-results
+          path: mixed-identity-artifacts/
