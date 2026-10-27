@@ -6,10 +6,10 @@
 #[path = "support/admission.rs"]
 mod support;
 use polis_auth::{
-    Uid, Zid,
+    Uid, Unavailable, Zid,
     admission::*,
     participant::Verifier,
-    xid_account::{Account, Check, Unavailable},
+    xid_account::{Account, Check},
 };
 
 /// The recordings are of plain participants: the account lookup finds no privileged account.
