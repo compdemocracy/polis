@@ -139,17 +139,21 @@ const mockStalls = {
   topics: new Stall(),
 };
 
-// The identity provider's management API (the owner's plan check).
-jest.mock("auth0", () => ({
-  ManagementClient: jest.fn().mockImplementation(() => ({
-    usersByEmail: {
-      getByEmail: () => mockStalls.identity.call(() => ({ data: [] })),
-    },
-    users: {
-      getRoles: () => mockStalls.identity.call(() => ({ data: [] })),
-    },
-  })),
-}));
+// Keep the removed management API stalled if a future change reintroduces it.
+jest.mock(
+  "auth0",
+  () => ({
+    ManagementClient: jest.fn().mockImplementation(() => ({
+      usersByEmail: {
+        getByEmail: () => mockStalls.identity.call(() => ({ data: [] })),
+      },
+      users: {
+        getRoles: () => mockStalls.identity.call(() => ({ data: [] })),
+      },
+    })),
+  }),
+  { virtual: true }
+);
 // The language provider: detection on every comment, translation of the next
 // statement when its language differs from the participant's.
 jest.mock("@google-cloud/translate", () => ({
@@ -423,13 +427,18 @@ type Evidence = {
   holdsRenewed: number;
   identityWaitingBefore: number;
   identityWaitingAfter: number;
+  identityCalls: number;
   topicLookupCalls: number;
   languageCalls: number;
   votesStored: number;
   commentsStored: number;
 };
 
-type Result = { outcomes: Record<Op, Outcome[]>; evidence: Evidence };
+type Result = {
+  outcomes: Record<Op, Outcome[]>;
+  evidence: Evidence;
+  identityReports: Outcome[];
+};
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -538,18 +547,19 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     `&moderation=true&mod_gt=${level}&include_voting_patterns=true`;
   if (load.topics) mockStalls.topics.hold();
   if (load.language) mockStalls.language.hold();
-  // First the plan checks, so that each one reaches the identity provider
-  // before any database hold could keep it from getting there.
+  // Exercise the former owner-role gate before database holds begin. Report
+  // reads must finish while the management API is unavailable, without ever
+  // constructing its client or calling it.
   let identityWaitingBefore = 0;
+  let identityReports: Outcome[] = [];
   if (load.identity) {
     mockStalls.identity.hold();
-    // A report page that leaves out banned statements checks the owner's plan
-    // with the identity provider first (mod_gt above the "every statement" level).
-    for (let k = 0; k < REPORT_LOADS; k++) slow(reportPage(polisTypes.mod.ban));
-    identityWaitingBefore = await settled(
-      async () => mockStalls.identity.pending,
-      REPORT_LOADS
+    identityReports = await Promise.all(
+      Array.from({ length: REPORT_LOADS }, (_, k) =>
+        timed(k, request(baseUrl).get(reportPage(polisTypes.mod.ban)))
+      )
     );
+    identityWaitingBefore = mockStalls.identity.pending;
   }
   if (load.exports || load.reportTallies || load.otherPools) {
     await admin.query("SELECT pg_advisory_lock($1, $2)", HOLD_LOCK);
@@ -676,6 +686,7 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     : 0;
   const renewed = holdsRenewed.export + holdsRenewed["report tally"];
   const identityWaitingAfter = mockStalls.identity.pending;
+  const identityCalls = mockStalls.identity.calls;
   const topicLookupCalls = mockStalls.topics.calls;
   const languageCalls = mockStalls.language.calls;
   // What was already stored while the slow work held: a request stored but not
@@ -714,6 +725,7 @@ async function runScenario(name: string, load: Load): Promise<Result> {
     holdsRenewed: renewed,
     identityWaitingBefore,
     identityWaitingAfter,
+    identityCalls,
     topicLookupCalls,
     languageCalls,
     votesStored,
@@ -741,7 +753,7 @@ async function runScenario(name: string, load: Load): Promise<Result> {
       ...evidence,
     })}\n`
   );
-  return { outcomes, evidence };
+  return { outcomes, evidence, identityReports };
 }
 
 /** Every request answered 200 within the budget. */
@@ -774,7 +786,7 @@ function guard(
       result = await runScenario(name, load);
     }, 180000);
 
-    test("the slow work held for the whole window, and every vote and comment sent was stored", () => {
+    test("the requested load was exercised, and every vote and comment sent was stored", () => {
       const e = result.evidence;
       // Every check names the evidence it reads, and all that fall short are
       // reported together, so a failure says whether the slow work did not
@@ -791,8 +803,11 @@ function guard(
         checks.push(["heldTalliesAfter", "at least", 1]);
       }
       if (load.identity) {
-        checks.push(["identityWaitingBefore", "at least", 1]);
-        checks.push(["identityWaitingAfter", "at least", 1]);
+        checks.push(["identityWaitingBefore", "exactly", 0]);
+        checks.push(["identityWaitingAfter", "exactly", 0]);
+        checks.push(["identityCalls", "exactly", 0]);
+        expectPrompt(result.identityReports, REPORT_LOADS);
+        expect(require("auth0").ManagementClient).not.toHaveBeenCalled();
       }
       if (load.otherPools) {
         checks.push([

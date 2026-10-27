@@ -42,8 +42,13 @@ fn recorded_identity_tokens_verify_with_their_committed_participants() {
                         &format!("Bearer {token}"),
                         conversation,
                         None,
-                        1_700_000_000
+                        1_700_000_000,
+                        &mut polis_auth::xid_account::Check {
+                            db: &mut |_| Ok(None),
+                            admin_uids: &[]
+                        }
                     )
+                    .unwrap()
                     .is_none(),
                 "{name}"
             );
@@ -63,7 +68,12 @@ fn recorded_identity_tokens_verify_with_their_committed_participants() {
                 conversation,
                 None,
                 1_700_000_000,
+                &mut polis_auth::xid_account::Check {
+                    db: &mut |_| Ok(None),
+                    admin_uids: &[],
+                },
             )
+            .unwrap()
             .unwrap_or_else(|| panic!("returned token refused: {name}"));
         let (kind, index) = match name {
             "anonymous-first-vote"

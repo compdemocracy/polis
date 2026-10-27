@@ -2392,7 +2392,10 @@ mod tests {
             panic!("fixed health body")
         };
         let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(body["identity"].as_object().unwrap().len(), 35);
+        assert_eq!(
+            body["identity"].as_object().unwrap().len(),
+            polis_auth::observability::Event::ALL.len()
+        );
         for &event in polis_auth::observability::Event::ALL {
             assert_eq!(body["identity"][event.label()], 0, "{}", event.label());
         }

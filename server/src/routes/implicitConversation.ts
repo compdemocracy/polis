@@ -7,6 +7,8 @@
 // The routers on client and server will need to be updated for that
 
 import _ from "underscore";
+import type { PoolClient } from "pg";
+import { getEmbedId } from "../utils/parameter";
 import { buildConversationUrl } from "../server-helpers";
 import { ConversationType, ExpressResponse } from "../d";
 import { failJson } from "../utils/fail";
@@ -40,8 +42,13 @@ function buildSeedUrl(req: any, zinvite: string) {
   return buildModerationUrl(req, zinvite) + "/comments/seed";
 }
 
-function registerPageId(site_id: string, page_id: string, zid: number) {
-  return pg.queryP(
+function registerPageId(
+  client: PoolClient,
+  site_id: string,
+  page_id: string,
+  zid: number
+) {
+  return client.query(
     "insert into page_ids (site_id, page_id, zid) values ($1, $2, $3);",
     [site_id, page_id, zid]
   );
@@ -53,117 +60,68 @@ class MissingSiteOwnerError extends Error {
   }
 }
 
-function initializeImplicitConversation(
+async function initializeImplicitConversation(
   site_id: string,
   page_id: string,
-  o: {}
+  o: ConversationType
 ) {
-  // find the user with that site_id.. wow, that will be a big index..
-  // I suppose we could duplicate the site_ids that actually have conversations
-  // into a separate table, and search that first, only searching users if nothing is there.
-  return pg
-    .queryP_readOnly(
-      "select uid from users where site_id = ($1) and site_owner = TRUE;",
-      [site_id]
-    )
-    .then(function (rows: string | any[]) {
-      if (!rows || !rows.length) {
-        throw new MissingSiteOwnerError();
-      }
-      return new Promise(function (
-        resolve: (arg0: {
-          owner: number;
-          zid: number;
-          zinvite: string;
-        }) => void,
-        reject: (arg0: string, arg1?: undefined) => void
-      ) {
-        const uid = rows[0].uid;
-        //    create a conversation for the owner we got,
-        const generateShortUrl = false;
-
-        isUserAllowedToCreateConversations(
-          uid,
-          function (err: any, isAllowed: any) {
-            if (err) {
-              reject(err);
-              return;
-            }
-            if (!isAllowed) {
-              reject(err);
-              return;
-            }
-
-            const params = Object.assign(o, {
-              owner: uid,
-              org_id: uid,
-              // description: req.p.description,
-              is_active: true,
-              is_draft: false,
-              is_public: true, // TODO remove this column
-              is_anon: false,
-              profanity_filter: true, // TODO this could be drawn from config for the owner
-              spam_filter: true, // TODO this could be drawn from config for the owner
-              strict_moderation: false, // TODO this could be drawn from config for the owner
-              // context: req.p.context,
-              owner_sees_participation_stats: false, // TODO think, and test join
-            });
-
-            const q = sql_conversations
-              .insert(params)
-              .returning("*")
-              .toString();
-
-            pg.query(
-              q,
-              [],
-              function (err: any, result: { rows: { zid: number }[] }) {
-                if (err) {
-                  if (isDuplicateKey(err)) {
-                    logger.error(
-                      "polis_err_create_implicit_conv_duplicate_key",
-                      err
-                    );
-                    reject("polis_err_create_implicit_conv_duplicate_key");
-                  } else {
-                    reject("polis_err_create_implicit_conv_db");
-                  }
-                }
-
-                const zid =
-                  result && result.rows && result.rows[0] && result.rows[0].zid;
-
-                Promise.all([
-                  registerPageId(site_id, page_id, zid),
-                  generateAndRegisterZinvite(zid, generateShortUrl),
-                ])
-                  .then(function (o: any[]) {
-                    // let notNeeded = o[0];
-                    const zinvite = o[1];
-                    // NOTE: OK to return conversation_id, because this conversation was just created by this user.
-                    resolve({
-                      owner: uid,
-                      zid: zid,
-                      zinvite: zinvite,
-                    });
-                  })
-                  .catch(function (err: any) {
-                    reject("polis_err_zinvite_create_implicit", err);
-                  });
-              }
-            ); // end insert
-          }
-        ); // end isUserAllowedToCreateConversations
-
-        //    add a record to page_ids
-        //    (put the site_id in the smaller site_ids table)
-        //    redirect to the zinvite url for the conversation
-      });
+  const rows = (await pg.queryP_readOnly(
+    "select uid from users where site_id = ($1) and site_owner = TRUE;",
+    [site_id]
+  )) as { uid: number }[];
+  if (!rows?.length) throw new MissingSiteOwnerError();
+  const uid = rows[0].uid;
+  await new Promise<void>((resolve, reject) => {
+    isUserAllowedToCreateConversations(uid, (err: any, isAllowed: boolean) => {
+      if (err) return reject(err);
+      if (!isAllowed)
+        return reject(new Error("polis_err_create_implicit_forbidden"));
+      resolve();
     });
+  });
+
+  try {
+    return await pg.withTransaction(async (client) => {
+      const params = Object.assign({}, o, {
+        owner: uid,
+        org_id: uid,
+        is_active: true,
+        is_draft: false,
+        is_public: true,
+        is_anon: false,
+        profanity_filter: true,
+        spam_filter: true,
+        strict_moderation: false,
+        owner_sees_participation_stats: false,
+      });
+      const q = sql_conversations.insert(params).returning("*").toString();
+      const { rows } = await client.query(q);
+      const zid = rows[0].zid;
+      await registerPageId(client, site_id, page_id, zid);
+      const zinvite = await generateAndRegisterZinvite(zid, false, client);
+      return { zinvite, created: true };
+    });
+  } catch (err: any) {
+    if (
+      isDuplicateKey(err) &&
+      err.constraint === "page_ids_site_id_page_id_key"
+    ) {
+      // The losing transaction has rolled back, including its conversation.
+      // Read the committed winner on the primary, avoiding replica lag.
+      const winners = (await pg.queryP(
+        `SELECT z.zinvite FROM page_ids p JOIN zinvites z ON z.zid = p.zid
+         WHERE p.site_id = $1 AND p.page_id = $2`,
+        [site_id, page_id]
+      )) as { zinvite: string }[];
+      if (winners.length)
+        return { zinvite: winners[0].zinvite, created: false };
+    }
+    throw err;
+  }
 }
 
 // as will checks like isParticipationView on the client.
-function handle_GET_implicit_conversation_generation(
+async function handle_GET_implicit_conversation_generation(
   req: {
     path: string;
     p: {
@@ -194,11 +152,15 @@ function handle_GET_implicit_conversation_generation(
 ) {
   const site_id_match = /polis_site_id[^\/]*/.exec(req.path) || null;
   const page_id_match = /\S\/([^\/]*)/.exec(req.path) || null;
-  if (!site_id_match?.length || (page_id_match && page_id_match?.length < 2)) {
-    failJson(res, 404, "polis_err_parsing_site_id_or_page_id");
+  let site_id: string;
+  let page_id: string;
+  try {
+    site_id = await getEmbedId(site_id_match?.[0], "site_id");
+    page_id = await getEmbedId(page_id_match?.[1], "page_id");
+  } catch (err: any) {
+    failJson(res, 400, err.message, err);
+    return;
   }
-  const site_id = site_id_match?.[0] as string;
-  const page_id = page_id_match?.[1] as string;
 
   const demo = req.p.demo;
   const ucv = req.p.ucv;
@@ -292,25 +254,26 @@ function handle_GET_implicit_conversation_generation(
       if (!rows || !rows.length) {
         // conv not initialized yet
         initializeImplicitConversation(site_id, page_id, o)
-          .then(function (conv: { zinvite: any }) {
+          .then(function (conv) {
             let url = _.isUndefined(demo)
               ? buildConversationUrl(req, conv.zinvite)
               : buildConversationDemoUrl(req, conv.zinvite);
             const modUrl = buildModerationUrl(req, conv.zinvite);
             const seedUrl = buildSeedUrl(req, conv.zinvite);
-            sendImplicitConversationCreatedEmails(
-              site_id,
-              page_id,
-              url,
-              modUrl,
-              seedUrl
-            )
-              .then(function () {
-                logger.info("email sent");
-              })
-              .catch(function (err: any) {
-                logger.error("email fail", err);
-              });
+            if (conv.created)
+              sendImplicitConversationCreatedEmails(
+                site_id,
+                page_id,
+                url,
+                modUrl,
+                seedUrl
+              )
+                .then(function () {
+                  logger.info("email sent");
+                })
+                .catch(function (err: any) {
+                  logger.error("email fail", err);
+                });
 
             url = appendParams(url);
             res.redirect(url);
