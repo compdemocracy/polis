@@ -5,7 +5,17 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 #[path = "support/admission.rs"]
 mod support;
-use polis_auth::{Zid, admission::*, participant::Verifier};
+use polis_auth::{
+    Uid, Zid,
+    admission::*,
+    participant::Verifier,
+    xid_account::{Account, Check, Unavailable},
+};
+
+/// The recordings are of plain participants: the account lookup finds no privileged account.
+fn plain_lookup() -> impl FnMut(Uid) -> Result<Option<Account>, Unavailable> {
+    |_uid| Ok(None)
+}
 use serde_json::{Value, json};
 use support::*;
 
@@ -187,9 +197,15 @@ fn recorded_node_admission_results_match_on_the_shared_cases() {
         let authorization = evidence["credential"]
             .as_str()
             .map(|s| format!("Bearer {s}"));
+        let mut lookup = plain_lookup();
+        let mut check = Check {
+            db: &mut lookup,
+            admin_uids: &[],
+        };
         let verified = authorization.as_ref().map(|s| {
             verifier
-                .verify_for_request(s, conversation, xid, 1_700_000_000)
+                .verify_for_request(s, conversation, xid, 1_700_000_000, &mut check)
+                .unwrap_or_else(|e| panic!("recorded credential refused: {name}: {e:?}"))
                 .unwrap_or_else(|| panic!("recorded credential did not verify: {name}"))
         });
         let identity = if let Some(identity) = verified.as_ref() {
@@ -263,13 +279,20 @@ fn recorded_node_admission_results_match_on_the_shared_cases() {
                     "{name}"
                 );
                 if let Some(token) = body["auth"]["token"].as_str() {
+                    let mut lookup = plain_lookup();
+                    let mut check = Check {
+                        db: &mut lookup,
+                        admin_uids: &[],
+                    };
                     let expected = verifier
                         .verify_for_request(
                             &format!("Bearer {token}"),
                             conversation,
                             None,
                             1_700_000_000,
+                            &mut check,
                         )
+                        .unwrap()
                         .unwrap();
                     assert_eq!(
                         (Some(p.uid), Some(p.pid)),
