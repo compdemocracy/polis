@@ -2,7 +2,7 @@
   "format": "oidc-provisioning-recordings-v1",
   "source": "server/src/auth/create-user.ts",
   "source_commit": "015b0c49892e55c1c25d5999dbeaaf8e0fa0fc6e",
-  "source_sha256": "9465dec621169f8e8deed7b6bf4ccfb3f93155457933479050c4c5c464c19b2e",
+  "source_sha256": "cfe7c8c3b0377a4bdbabef7148e0d7aef232089b31ec3f27a7a55bf3a5958731",
   "runtime": "v24.21.0",
   "comparison": "Unchanged Node provisioning function with real PostgreSQL and transaction adapter; account/mapping projection only. Random default site IDs and timestamps are structural assertions.",
   "cases": [
