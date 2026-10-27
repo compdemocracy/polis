@@ -34,3 +34,4 @@
 000042_tid_auto_transaction_lock.sql
 000043_add_conversation_activity_indexes.sql
 000044_pid_auto_transaction_lock.sql
+000045_page_ids_width.sql

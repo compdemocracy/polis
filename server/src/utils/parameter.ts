@@ -215,6 +215,19 @@ function getStringLimitLength(min: number, max?: number) {
   };
 }
 
+// Validate the exact embed identity destined for storage. Do not trim or
+// decode: that would change which conversation an existing URL identifies.
+function getEmbedId(s: unknown, name: "site_id" | "page_id"): Promise<string> {
+  if (
+    typeof s !== "string" ||
+    Array.from(s).length < 1 ||
+    Array.from(s).length > 2000
+  ) {
+    return Promise.reject(new Error(`polis_err_${name}_length_1_to_2000`));
+  }
+  return Promise.resolve(s);
+}
+
 function getUrlLimitLength(limit: any) {
   return function (s: any) {
     getStringLimitLength(limit)(s).then(function (s) {
@@ -523,6 +536,7 @@ export {
   getBool,
   getConversationIdFetchZid,
   getEmail,
+  getEmbedId,
   getInt,
   getIntInRange,
   getNumberInRange,
