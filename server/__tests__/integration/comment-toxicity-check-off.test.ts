@@ -77,12 +77,20 @@ describe("the toxicity check is gone from the comment path", () => {
     ]);
   });
 
-  test("the moderation list ignores the removed owner-role filter", async () => {
-    const list = await owner.get(
+  test("the moderation level filter applies without any owner-role lookup", async () => {
+    // mod_gt narrows the moderation list for every conversation now; it used
+    // to apply only when the owner's account carried a paid role, looked up
+    // at the identity provider on each read.
+    const narrowed = await owner.get(
       `/api/v3/comments?conversation_id=${conversationId}&moderation=true&mod_gt=1`
     );
-    expect(list.status).toBe(200);
-    expect(list.body.map((c: { tid: number }) => c.tid)).toContain(tid);
+    expect(narrowed.status).toBe(200);
+    expect(narrowed.body.map((c: { tid: number }) => c.tid)).not.toContain(tid);
+    const all = await owner.get(
+      `/api/v3/comments?conversation_id=${conversationId}&moderation=true&mod_gt=-2`
+    );
+    expect(all.status).toBe(200);
+    expect(all.body.map((c: { tid: number }) => c.tid)).toContain(tid);
     expect(mockManagementClient).not.toHaveBeenCalled();
   });
 
