@@ -44,7 +44,9 @@
  "egress": {
   "selfTest": "api.anthropic.com:443 refused",
   "allowedHosts": "loopback + the Postgres and DynamoDB hosts",
-  "refusedAtServerLoad": [],
+  "refusedAtServerLoad": [
+   "rest.akismet.com:80"
+  ],
   "refusedDuringCases": [],
   "providerStubRequests": 26,
   "providerRequestsRecorded": 26
