@@ -13,7 +13,7 @@ import Config from "./config";
 import { failJson } from "./utils/fail";
 import { fetchAndCacheLatestPcaData } from "./utils/pca";
 import { getPidsForGid } from "./utils/participants";
-import { fetchIndex, makeFileFetcher } from "./utils/file-fetcher";
+import { makeFileFetcher } from "./utils/file-fetcher";
 import { browserSupportsPushState } from "./server-helpers";
 import {
   DetectLanguageResult,
@@ -495,27 +495,6 @@ Email verified! You can close this tab or hit the back button.
     }
   }
 
-  function handle_POST_tutorial(
-    req: { p: { uid?: any; step: any } },
-    res: {
-      status: (arg0: number) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    const uid = req.p.uid;
-    const step = req.p.step;
-    pg.queryP("update users set tut = ($1) where uid = ($2);", [step, uid])
-      .then(function () {
-        res.status(200).json({});
-      })
-      .catch(function (err: any) {
-        failJson(res, 500, "polis_err_saving_tutorial_state", err);
-      });
-  }
-
   function handle_GET_contexts(req: ExpressRequest, res: ExpressResponse) {
     pg.queryP_readOnly(
       "select name from contexts where is_public = TRUE order by name;",
@@ -806,10 +785,6 @@ Thanks for using Polis!
   const hostname: string = Config.staticFilesHost;
   const staticFilesAdminPort: number = Config.staticFilesAdminPort;
 
-  function fetchIndexWithoutPreloadData(req: any, res: any, port: any) {
-    return fetchIndex(req, res, {}, port);
-  }
-
   const fetchIndexForAdminPage = makeFileFetcher(
     hostname,
     staticFilesAdminPort,
@@ -857,7 +832,6 @@ Thanks for using Polis!
     // app helpers
     fetchIndexForAdminPage,
     fetchIndexForReportPage,
-    fetchIndexWithoutPreloadData,
     haltOnTimeout,
     redirectIfHasZidButNoConversationId,
     // handlers
@@ -876,7 +850,6 @@ Thanks for using Polis!
     handle_POST_metrics,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_sendEmailExportReady,
-    handle_POST_tutorial,
     handle_POST_zinvites,
   };
   return returnObject;
