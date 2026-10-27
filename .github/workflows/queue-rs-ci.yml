@@ -130,7 +130,7 @@ jobs:
           persist-credentials: false
       - name: Format, lint and authority parity tests
         env:
-          POLIS_AUTH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/authority_test
+          POLIS_AUTH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/authority_test?sslmode=disable
         run: bash scripts/test-polis-auth.sh
 
   polis-api:

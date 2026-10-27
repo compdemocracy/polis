@@ -150,3 +150,5 @@ pub mod votes;
 pub mod setup;
 
 pub mod topic_selection_writes;
+
+pub mod xid_account;
