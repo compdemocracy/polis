@@ -13,10 +13,6 @@ const methodToEventMap = {
   participationView: {
     category: "Participation",
     action: "participationView"
-  },
-  participationViewWithSuzinvite: {
-    category: "Participation",
-    action: "participationViewWithSuzinvite"
   }
 };
 

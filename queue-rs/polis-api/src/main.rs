@@ -52,7 +52,6 @@ mod integrate_page;
 mod js;
 mod legacy_conversations;
 mod legacy_pca;
-mod link_pages;
 mod lru;
 mod metadata_answers;
 #[allow(dead_code)]
@@ -164,16 +163,7 @@ fn health_response(
     routing.set("enabledSwitches", js::Js::Arr(switches));
     body.set("routing", js::Js::Obj(routing));
     body.set("identity", identity_observability::snapshot(counters));
-    for (i, name) in [
-        "conversationPage",
-        "explorePage",
-        "sharePage",
-        "summaryPage",
-        "oneTimePage",
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    for (i, name) in ["conversationPage"].into_iter().enumerate() {
         body.set(
             &format!("{name}Served"),
             js::Js::Num(app.conversation_page_served[i].load(Ordering::Relaxed) as f64),
@@ -363,14 +353,6 @@ fn health_response(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
     );
-    for (name, counter) in [
-        ("iipServed", &app.iip_served),
-        ("iipFallback", &app.iip_fallback),
-        ("iimServed", &app.iim_served),
-        ("iimFallback", &app.iim_fallback),
-    ] {
-        body.set(name, js::Js::Num(counter.load(Ordering::Relaxed) as f64));
-    }
     body.set(
         "participantsReadServed",
         js::Js::Num(app.participants_read_served.load(Ordering::Relaxed) as f64),
@@ -770,7 +752,6 @@ async fn dispatch_at_clock(
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
-        path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
@@ -796,15 +777,9 @@ async fn main() -> Result<()> {
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
-    for (i, switch) in [
-        "POLIS_API_CONVERSATION_PAGE_READS",
-        "POLIS_API_EXPLORE_PAGE_READS",
-        "POLIS_API_SHARE_PAGE_READS",
-        "POLIS_API_SUMMARY_PAGE_READS",
-        "POLIS_API_ONE_TIME_PAGE_READS",
-    ]
-    .into_iter()
-    .enumerate()
+    for (i, switch) in ["POLIS_API_CONVERSATION_PAGE_READS"]
+        .into_iter()
+        .enumerate()
     {
         if std::env::var(switch).ok().as_deref() == Some("1") {
             let dsn = std::env::var("POLIS_API_CONVERSATION_PAGES_DATABASE_URL")
@@ -1243,19 +1218,6 @@ async fn main() -> Result<()> {
             metadata_answers::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
-    }
-    for (switch, slot, name) in [
-        ("POLIS_API_IIP_READS", &mut state.iip_db, "polis-api-iip/1"),
-        ("POLIS_API_IIM_READS", &mut state.iim_db, "polis-api-iim/1"),
-    ] {
-        if std::env::var(switch).ok().as_deref() == Some("1") {
-            let dsn = std::env::var("POLIS_API_LINK_PAGES_DATABASE_URL")
-                .context("POLIS_API_LINK_PAGES_DATABASE_URL required")?;
-            *slot = Some(db::Pool::new(
-                config::connector_for_dsn(&dsn, name)?,
-                link_pages::pool_limits(),
-            ));
-        }
     }
     if std::env::var("POLIS_API_PARTICIPANTS_READS")
         .ok()

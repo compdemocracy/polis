@@ -53,7 +53,6 @@ var polisRouter = Backbone.Router.extend({
   initialize: function () {
     this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams"); // conversation_id / query params
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView"); // conversation_id / encodedStringifiedJson
-    this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
 
     eb.once(eb.firstRender, function () {
@@ -152,11 +151,6 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
-  participationViewWithSuzinvite: function (conversation_id, suzinvite) {
-    window.suzinvite = suzinvite;
-    return this.participationView(conversation_id, null, suzinvite);
-  },
-
   participationView: function (conversation_id, encodedStringifiedJson) {
     var params = {};
     if (encodedStringifiedJson) {
@@ -180,9 +174,9 @@ var polisRouter = Backbone.Router.extend({
     this.doLaunchConversation2(conversation_id, params);
   },
 
-  getConversationModel: function (conversation_id, suzinvite) {
+  getConversationModel: function (conversation_id) {
     var model;
-    if (window.preloadData && window.preloadData.conversation && !suzinvite) {
+    if (window.preloadData && window.preloadData.conversation) {
       model = new ConversationModel(window.preloadData);
       return Promise.resolve(model);
     }
@@ -190,9 +184,6 @@ var polisRouter = Backbone.Router.extend({
     return preloadHelper.firstConvPromise
       .then(function (conv) {
         model = new ConversationModel(conv);
-        if (suzinvite) {
-          model.set("suzinvite", suzinvite);
-        }
         return model;
       })
       .fail(function (error) {

@@ -97,8 +97,6 @@ import {
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
   handle_GET_conversationStats,
-  handle_GET_iim_conversation,
-  handle_GET_iip_conversation,
   handle_POST_conversation_close,
   handle_POST_conversation_reopen,
   handle_POST_conversations,
@@ -259,7 +257,6 @@ const opsRoutes = createOpsRoutes({
   mathEnv: Config.mathEnv,
 });
 const hostname = Config.staticFilesHost;
-const staticFilesAdminPort = Config.staticFilesAdminPort;
 const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
@@ -351,7 +348,6 @@ export const appReady = helpersInitialized.then(
     app.use(middleware_log_middleware_errors);
 
     app.all("/api/v3/*", addCorsHeader);
-    app.all("/font/*", addCorsHeader);
     app.all("/api/v3/*", middleware_check_if_options);
 
     ////////////////////////////////////////////
@@ -1985,28 +1981,6 @@ export const appReady = helpersInitialized.then(
     );
 
     app.get(
-      "/iip/:conversation_id",
-      moveToBody,
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_iip_conversation
-    );
-
-    app.get(
-      "/iim/:conversation_id",
-      moveToBody,
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_iim_conversation
-    );
-
-    app.get(
       "/api/v3/verify",
       moveToBody,
       need("e", getStringLimitLength(1, 1000), assignToP),
@@ -2047,10 +2021,6 @@ export const appReady = helpersInitialized.then(
     app.get(/^\/nabi$/, makeRedirectorTo("/8ufpzc6fkm")); //
 
     app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
-    app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
-    app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
-    app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // summary view
-    app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view, one-time url
     // TODO consider putting static files on /static, and then using a catch-all to serve the index.
     app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
     app.get(/^\/user\/create(\/.*)?$/, fetchIndexWithoutPreloadData);
@@ -2072,18 +2042,6 @@ export const appReady = helpersInitialized.then(
     app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/dist\/admin_bundle.js$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/dist/admin_bundle.js", {
-        "Content-Type": "application/javascript",
-      })
-    );
-    app.get(
-      /^\/__webpack_hmr$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/__webpack_hmr", {
-        "Content-Type": "eventsource",
-      })
-    );
     app.get(/^\/privacy$/, fetchIndexForAdminPage);
     app.get(/^\/tos$/, fetchIndexForAdminPage);
     app.get(/^\/donate$/, fetchIndexForAdminPage);
@@ -2167,46 +2125,6 @@ export const appReady = helpersInitialized.then(
       }
     );
 
-    app.get(
-      /^\/embed$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embed.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedPreprod$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedPreprod.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedReport$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReport.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedReportPreprod$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesAdminPort,
-        "/embedReportPreprod.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
-    app.get(
-      /^\/styleguide$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesParticipationPort,
-        "/styleguide.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
     // Duplicate url for content at root. Needed so we have something for "About" to link to.
     app.get(/^\/about$/, makeRedirectorTo("/home"));
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
@@ -2225,9 +2143,6 @@ export const appReady = helpersInitialized.then(
     app.get("/", handle_GET_conditionalIndexFetcher);
 
     // proxy static files
-    app.get(/^\/cached\/.*/, proxy);
-    app.get(/^\/font\/.*/, proxy);
-    app.get(/^\/.*embed.*js\/.*/, proxy);
     app.get(/^\/report_bundle.*\.js$/, proxy);
     app.get(/^\/report_style.*\.css$/, proxy);
 
@@ -2253,20 +2168,6 @@ export const appReady = helpersInitialized.then(
         proxy(req, res);
       }
     });
-
-    const missingFilesGet404 = false;
-    if (missingFilesGet404) {
-      // 404 everything else
-      app.get(
-        /^\/[^(api\/)]?.*/,
-        makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
-          "Content-Type": "text/html",
-        })
-      );
-    } else {
-      // proxy everything else
-      app.get(/^\/[^(api\/)]?.*/, proxy);
-    }
 
     // P-038. This is the only position from which `globalErrorHandler` can see
     // errors that a route hands to `next(err)`: Express 3 inserts `app.router`

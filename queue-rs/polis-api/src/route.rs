@@ -49,16 +49,10 @@ pub struct App {
     pub metadata_questions_auth_db: Option<Arc<Pool>>,
     pub metadata_questions_served: AtomicU64,
     pub metadata_questions_fallback: AtomicU64,
-    pub conversation_pages: [Option<crate::conversation_pages::Client>; 5],
-    pub conversation_page_dbs: [Option<Arc<Pool>>; 5],
-    pub conversation_page_served: [AtomicU64; 5],
-    pub conversation_page_fallback: [AtomicU64; 5],
-    pub iip_db: Option<Arc<Pool>>,
-    pub iim_db: Option<Arc<Pool>>,
-    pub iip_served: AtomicU64,
-    pub iip_fallback: AtomicU64,
-    pub iim_served: AtomicU64,
-    pub iim_fallback: AtomicU64,
+    pub conversation_pages: [Option<crate::conversation_pages::Client>; 1],
+    pub conversation_page_dbs: [Option<Arc<Pool>>; 1],
+    pub conversation_page_served: [AtomicU64; 1],
+    pub conversation_page_fallback: [AtomicU64; 1],
     pub participants_read_db: Option<Arc<Pool>>,
     pub participants_read_auth_db: Option<Arc<Pool>>,
     pub participants_read_served: AtomicU64,
@@ -307,12 +301,6 @@ impl App {
             conversation_page_dbs: std::array::from_fn(|_| None),
             conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
             conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
-            iip_db: None,
-            iim_db: None,
-            iip_served: AtomicU64::new(0),
-            iip_fallback: AtomicU64::new(0),
-            iim_served: AtomicU64::new(0),
-            iim_fallback: AtomicU64::new(0),
             participants_read_db: None,
             participants_read_auth_db: None,
             participants_read_served: AtomicU64::new(0),
@@ -958,12 +946,6 @@ pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
     send(req, res, Payload::Text(value.into()))
 }
 
-/// Express HTML send with the normal ETag, freshness and compression envelope.
-pub(crate) fn html(req: &Request, mut res: Res, value: &str) -> Outgoing {
-    res.set("Content-Type", "text/html");
-    send(req, res, Payload::Text(value.into()))
-}
-
 /// Express CSV send with its normal ETag, freshness and compression envelope.
 pub(crate) fn csv(req: &Request, mut res: Res, value: &str) -> Outgoing {
     res.set("Content-Type", "text/csv");
@@ -1208,18 +1190,6 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.conversation_page_fallback[page.index()].fetch_add(1, Ordering::Relaxed);
         } else {
             app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if crate::link_pages::matches(req.path()) {
-        let (served, fallback) = if req.path().starts_with("/iip/") {
-            (&app.iip_served, &app.iip_fallback)
-        } else {
-            (&app.iim_served, &app.iim_fallback)
-        };
-        if out.status == 502 {
-            fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if req.path() == crate::participants_read::PATH {
@@ -1837,9 +1807,6 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if crate::link_pages::matches(req.path()) && crate::link_pages::parse(app, req).is_none() {
-        return bad_gateway();
-    }
     if req.path() == crate::participants_read::PATH
         && crate::participants_read::parse(app, req).is_none()
     {
@@ -1989,7 +1956,6 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         req.path(),
         crate::robots::PATH | crate::about::PATH | crate::perf_stats::PATH
     ) || crate::conversation_pages::matches(req.path())
-        || crate::link_pages::matches(req.path())
         || crate::create_page::matches(req.path())
         || crate::settings_page::matches(req.path())
         || crate::other_conversations_page::matches(req.path())
@@ -2185,9 +2151,6 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::conversation_pages::matches(req.path()) {
         return crate::conversation_pages::handle(app, req, res).await;
-    }
-    if crate::link_pages::matches(req.path()) {
-        return crate::link_pages::handle(app, req, res).await;
     }
     if req.path() == crate::participants_read::PATH {
         return crate::participants_read::handle(app, req, res).await;
@@ -4487,8 +4450,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn five_conversation_page_switches_and_boundaries_are_independent() {
-        let prefixes = ["/", "/explore/", "/share/", "/summary/", "/ot/"];
+    async fn conversation_page_switch_and_boundaries() {
+        let prefixes = ["/"];
         for (index, prefix) in prefixes.iter().enumerate() {
             let mut state = app(true);
             let pool = state.db.clone();
@@ -4564,44 +4527,6 @@ mod tests {
         assert!(crate::participants_read::parse(&state, &no_auth).is_none());
         assert_eq!(state.participants_read_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.participants_read_fallback.load(Ordering::Relaxed), 9);
-    }
-
-    #[tokio::test]
-    async fn link_pages_switches_admission_and_unreachable_database() {
-        let mut state = app(true);
-        for prefix in ["iip", "iim"] {
-            let mut req = request("GET", &[("host", "localhost")]);
-            req.target = format!("/{prefix}/4fixture");
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let pool = state.db.clone();
-        Arc::get_mut(&mut state).unwrap().iip_db = Some(pool.clone());
-        let mut req = request("GET", &[("host", "localhost")]);
-        req.target = "/iim/4fixture".into();
-        assert!(crate::link_pages::parse(&state, &req).is_none());
-        req.target = "/iip/4fixture".into();
-        assert!(crate::link_pages::parse(&state, &req).is_some());
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        Arc::get_mut(&mut state).unwrap().iim_db = Some(pool);
-        for prefix in ["iip", "iim"] {
-            for (method, suffix, headers) in [
-                ("POST", "", vec![]),
-                ("OPTIONS", "", vec![]),
-                ("GET", "?other=1", vec![]),
-                ("GET", "/extra", vec![]),
-                ("GET", "%20", vec![]),
-                ("GET", "", vec![("cookie", "x=y")]),
-                ("GET", "", vec![("authorization", "Bearer bad")]),
-                ("GET", "", vec![("content-length", "2")]),
-            ] {
-                let mut req = request(method, &headers);
-                req.target = format!("/{prefix}/4fixture{suffix}");
-                assert!(crate::link_pages::parse(&state, &req).is_none());
-                assert_eq!(handle(state.clone(), req).await.status, 502);
-            }
-        }
-        assert_eq!(state.iip_served.load(Ordering::Relaxed), 0);
-        assert_eq!(state.iim_served.load(Ordering::Relaxed), 0);
     }
 
     #[tokio::test]
