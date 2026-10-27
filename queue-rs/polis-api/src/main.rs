@@ -23,6 +23,7 @@ mod create_page;
 mod database;
 mod db;
 mod perf_stats;
+mod version;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
 // on, compiled from the contracts crate as the route contracts are. The
 // run-record route uses only part of them. rustfmt leaves them to their own
@@ -723,6 +724,7 @@ async fn dispatch_at_clock(
         route::PATH
         | comments::PATH
         | next_comment::PATH
+        | version::PATH
         | connection::PATH
         | perf_stats::PATH
         | robots::PATH
@@ -905,6 +907,8 @@ async fn main() -> Result<()> {
         ));
         state.report_export_utc = std::env::var("TZ").ok().as_deref() == Some("UTC");
     }
+    version::initialize();
+    state.version_reads = std::env::var("POLIS_API_VERSION_READS").ok().as_deref() == Some("1");
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");

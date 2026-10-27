@@ -201,7 +201,7 @@ queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
 # Byte-for-byte replay (needs Docker and the local characterization images;
 # see the header of run.sh):
 docker build --build-arg FEATURES=fixture-clock -t x54pca2-polis-api:conformance \
-  -f queue-rs/polis-api/Dockerfile queue-rs
+  -f queue-rs/polis-api/Dockerfile .
 docker build -t x54pca2-postgres:local -f server/Dockerfile-db server
 COMPOSE_PROJECT_NAME=p027x54pca2-$(openssl rand -hex 3) \
 P027_PORT_MIN=55479 P027_PORT_MAX=55481 POLIS_RECOVERY_PG_PORT=55479 \
@@ -1578,3 +1578,23 @@ Those older hooks do not enable the profile during teardown and cannot remove
 the old container themselves. The explicit stop leaves it stopped across the
 rollback. Never stop Rust before selected traffic drains; first use the drained
 switch helper with an empty list when any route is selected.
+
+## Build version (opt-in)
+
+`POLIS_API_VERSION_READS=1` and nginx's `RUST_API_ROUTES=version` select
+bodyless GET/HEAD `/api/v3/version`. Both are off by default. The response is
+Node's six-field JSON with `Cache-Control: no-store`, including Express's
+HEAD and conditional GET behavior. Unsupported methods and bodies stay on Node.
+The deploy health check recognizes `version` and compares both processes' bytes.
+
+The Rust image now builds from the repository root. It runs the same
+`scripts/build_identity.py` as Node's prebuild, with the same VERSION files and
+`GIT_HASH`, `POLIS_BUILD_DISTANCE`, `POLIS_BUILD_TAG`, `POLIS_BUILD_SOURCE`
+arguments already passed to both images by the deployment build. Its JSON is
+embedded in the binary; runtime environment changes cannot change the identity.
+A plain Cargo build uses the root VERSION and Node's unknown-provenance fallback.
+The route holds no database connection and does no provider or participant work.
+
+`conformance/version-images.py` compares the real Node handler from a server
+image with the Rust HTTP route, records fixtures in `polis-contracts`, and checks
+HEAD, conditional GET and no-store. See its help for the two image inputs.

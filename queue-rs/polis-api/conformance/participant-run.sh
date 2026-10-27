@@ -12,7 +12,7 @@
 # built from server/Dockerfile-db (P027_POSTGRES_IMAGE, default
 # x54pca2-postgres:local) and the conformance polis-api image:
 #   docker build --build-arg FEATURES=fixture-clock \
-#     -t x54pca2-polis-api:conformance -f queue-rs/polis-api/Dockerfile queue-rs
+#     -t x54pca2-polis-api:conformance -f queue-rs/polis-api/Dockerfile .
 # The project and ports must pass server/characterization/isolation.py. The
 # stack is always removed on exit, volumes included.
 set -euo pipefail
