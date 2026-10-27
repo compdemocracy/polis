@@ -40,6 +40,17 @@
     },
     {
       "method": "GET",
+      "path": "/api/v3/math/pca",
+      "registration": "server/app.ts:371",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 4,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "method": "GET",
       "path": "/api/v3/math/pca2",
       "registration": "server/app.ts:373",
       "middleware": [
@@ -58,6 +69,39 @@
     },
     {
       "method": "GET",
+      "path": "/api/v3/math/correlationMatrix",
+      "registration": "server/app.ts:392",
+      "middleware": [
+        "moveToBody",
+        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
+        "want(\"math_tick\", getInt, assignToP, -1)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 6,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/dataExport",
+      "registration": "server/app.ts:401",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"format\", getStringLimitLength(1, 100), assignToP)",
+        "want(\"unixTimestamp\", getStringLimitLength(99), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 7,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "method": "GET",
       "path": "/api/v3/reportExport/:report_id/:report_type",
       "registration": "server/app.ts:416",
       "middleware": [
@@ -70,6 +114,23 @@
       "conditions": [],
       "registered_in_default_config": true,
       "id": 8,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/dataExport/results",
+      "registration": "server/app.ts:425",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "want(\"filename\", getStringLimitLength(1, 1000), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 9,
       "consumer_family_inferred": "report/export (math also participation)"
     },
     {
@@ -120,6 +181,17 @@
       "consumer_family_inferred": "participation (bulk variants: admin/import)"
     },
     {
+      "method": "POST",
+      "path": "/api/v3/auth/deregister",
+      "registration": "server/app.ts:485",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 13,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
       "method": "GET",
       "path": "/api/v3/zinvites/:zid",
       "registration": "server/app.ts:487",
@@ -163,6 +235,21 @@
       "conditions": [],
       "registered_in_default_config": true,
       "id": 16,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/dummyButton",
+      "registration": "server/app.ts:525",
+      "middleware": [
+        "moveToBody",
+        "need(\"button\", getStringLimitLength(1, 999), assignToP)",
+        "hybridAuthOptional(assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 17,
       "consumer_family_inferred": "admin/participation API; see literal caller evidence"
     },
     {
@@ -271,6 +358,39 @@
       "registered_in_default_config": true,
       "id": 26,
       "consumer_family_inferred": "report page / static assets"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/sendEmailExportReady",
+      "registration": "server/app.ts:601",
+      "middleware": [
+        "need(\"webserver_username\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"webserver_pass\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"email\", getEmail, assignToP)",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"filename\", getStringLimitLength(9999), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 27,
+      "consumer_family_inferred": "notification/email workflow"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/notifyTeam",
+      "registration": "server/app.ts:612",
+      "middleware": [
+        "need(\"webserver_username\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"webserver_pass\", getStringLimitLength(1, 999), assignToP)",
+        "need(\"subject\", getStringLimitLength(9999), assignToP)",
+        "need(\"body\", getStringLimitLength(99999), assignToP)"
+      ],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 28,
+      "consumer_family_inferred": "notification/email workflow"
     },
     {
       "method": "GET",
@@ -411,6 +531,21 @@
       "registered_in_default_config": true,
       "id": 37,
       "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/snapshot",
+      "registration": "server/app.ts:731",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 38,
+      "consumer_family_inferred": "operations/diagnostics"
     },
     {
       "method": "POST",
@@ -1515,6 +1650,22 @@
     },
     {
       "method": "POST",
+      "path": "/api/v3/mathUpdate",
+      "registration": "server/app.ts:1632",
+      "middleware": [
+        "moveToBody",
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"math_update_type\", getStringLimitLength(1, 32), assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 101,
+      "consumer_family_inferred": "report/export (math also participation)"
+    },
+    {
+      "method": "POST",
       "path": "/api/v3/reports",
       "registration": "server/app.ts:1645",
       "middleware": [
@@ -1902,6 +2053,22 @@
       "consumer_family_inferred": "admin/participation API; see literal caller evidence"
     },
     {
+      "method": "POST",
+      "path": "/api/v3/users/invite",
+      "registration": "server/app.ts:1942",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
+        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
+        "need(\"emails\", getArrayOfStringNonEmpty, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 125,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
       "method": "GET",
       "path": "/^\\/polis_site_id.*/",
       "registration": "server/app.ts:1958",
@@ -1979,6 +2146,41 @@
       "registered_in_default_config": true,
       "id": 129,
       "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/contributors",
+      "registration": "server/app.ts:2017",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need(\"agreement_version\", getIntInRange(1, 999999), assignToP)",
+        "need(\"name\", getStringLimitLength(746), assignToP)",
+        "need(\"email\", getStringLimitLength(256), assignToP)",
+        "need(\"github_id\", getStringLimitLength(256), assignToP)",
+        "need(\"company_name\", getStringLimitLength(746), assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 130,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/metrics",
+      "registration": "server/app.ts:2028",
+      "middleware": [
+        "hybridAuthOptional(assignToP)",
+        "need(\"types\", getArrayOfInt, assignToP)",
+        "need(\"times\", getArrayOfInt, assignToP)",
+        "need(\"durs\", getArrayOfInt, assignToP)",
+        "need(\"clientTimestamp\", getInt, assignToP)"
+      ],
+      "auth": "optional hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 131,
+      "consumer_family_inferred": "operations/diagnostics"
     },
     {
       "method": "GET",
@@ -2805,208 +3007,6 @@
       "conditions": [],
       "registered_in_default_config": false,
       "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v3/math/pca",
-      "registration": "server/app.ts:371",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 4,
-      "consumer_family_inferred": "report/export (math also participation)"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v3/math/correlationMatrix",
-      "registration": "server/app.ts:392",
-      "middleware": [
-        "moveToBody",
-        "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
-        "want(\"math_tick\", getInt, assignToP, -1)"
-      ],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 6,
-      "consumer_family_inferred": "report/export (math also participation)"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v3/dataExport",
-      "registration": "server/app.ts:401",
-      "middleware": [
-        "moveToBody",
-        "hybridAuth(assignToP)",
-        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
-        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
-        "want(\"format\", getStringLimitLength(1, 100), assignToP)",
-        "want(\"unixTimestamp\", getStringLimitLength(99), assignToP)"
-      ],
-      "auth": "required hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 7,
-      "consumer_family_inferred": "report/export (math also participation)"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v3/dataExport/results",
-      "registration": "server/app.ts:425",
-      "middleware": [
-        "moveToBody",
-        "hybridAuth(assignToP)",
-        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
-        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
-        "want(\"filename\", getStringLimitLength(1, 1000), assignToP)"
-      ],
-      "auth": "required hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 9,
-      "consumer_family_inferred": "report/export (math also participation)"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/auth/deregister",
-      "registration": "server/app.ts:485",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 13,
-      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v3/dummyButton",
-      "registration": "server/app.ts:525",
-      "middleware": [
-        "moveToBody",
-        "need(\"button\", getStringLimitLength(1, 999), assignToP)",
-        "hybridAuthOptional(assignToP)"
-      ],
-      "auth": "optional hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 17,
-      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/sendEmailExportReady",
-      "registration": "server/app.ts:601",
-      "middleware": [
-        "need(\"webserver_username\", getStringLimitLength(1, 999), assignToP)",
-        "need(\"webserver_pass\", getStringLimitLength(1, 999), assignToP)",
-        "need(\"email\", getEmail, assignToP)",
-        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
-        "need(\"filename\", getStringLimitLength(9999), assignToP)"
-      ],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 27,
-      "consumer_family_inferred": "notification/email workflow"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/notifyTeam",
-      "registration": "server/app.ts:612",
-      "middleware": [
-        "need(\"webserver_username\", getStringLimitLength(1, 999), assignToP)",
-        "need(\"webserver_pass\", getStringLimitLength(1, 999), assignToP)",
-        "need(\"subject\", getStringLimitLength(9999), assignToP)",
-        "need(\"body\", getStringLimitLength(99999), assignToP)"
-      ],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 28,
-      "consumer_family_inferred": "notification/email workflow"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v3/snapshot",
-      "registration": "server/app.ts:731",
-      "middleware": [
-        "moveToBody",
-        "hybridAuth(assignToP)",
-        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
-      ],
-      "auth": "required hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 38,
-      "consumer_family_inferred": "operations/diagnostics"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/mathUpdate",
-      "registration": "server/app.ts:1632",
-      "middleware": [
-        "moveToBody",
-        "hybridAuth(assignToP)",
-        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
-        "need(\"math_update_type\", getStringLimitLength(1, 32), assignToP)"
-      ],
-      "auth": "required hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 101,
-      "consumer_family_inferred": "report/export (math also participation)"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/users/invite",
-      "registration": "server/app.ts:1942",
-      "middleware": [
-        "hybridAuth(assignToP)",
-        "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
-        "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)",
-        "need(\"emails\", getArrayOfStringNonEmpty, assignToP)"
-      ],
-      "auth": "required hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 125,
-      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/contributors",
-      "registration": "server/app.ts:2017",
-      "middleware": [
-        "hybridAuthOptional(assignToP)",
-        "need(\"agreement_version\", getIntInRange(1, 999999), assignToP)",
-        "need(\"name\", getStringLimitLength(746), assignToP)",
-        "need(\"email\", getStringLimitLength(256), assignToP)",
-        "need(\"github_id\", getStringLimitLength(256), assignToP)",
-        "need(\"company_name\", getStringLimitLength(746), assignToP)"
-      ],
-      "auth": "optional hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 130,
-      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/metrics",
-      "registration": "server/app.ts:2028",
-      "middleware": [
-        "hybridAuthOptional(assignToP)",
-        "need(\"types\", getArrayOfInt, assignToP)",
-        "need(\"times\", getArrayOfInt, assignToP)",
-        "need(\"durs\", getArrayOfInt, assignToP)",
-        "need(\"clientTimestamp\", getInt, assignToP)"
-      ],
-      "auth": "optional hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 131,
-      "consumer_family_inferred": "operations/diagnostics"
     }
   ]
 }
