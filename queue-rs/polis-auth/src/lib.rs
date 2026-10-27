@@ -286,3 +286,5 @@ pub mod observability;
 pub mod participant;
 
 pub mod xid_account;
+
+pub mod keys;

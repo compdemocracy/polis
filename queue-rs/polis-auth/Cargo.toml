@@ -14,13 +14,13 @@ db-tests = []
 base64 = "0.22"
 serde_json = "1"
 postgres = "0.19"
+openssl = "0.10"
 jsonwebtoken = "9"
 hmac = "0.13"
 sha2 = "0.11"
 serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
-openssl = "0.10"
 serde_json = "1"
 
 [lints.clippy]
