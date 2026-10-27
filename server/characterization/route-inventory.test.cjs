@@ -84,11 +84,7 @@ test("every historical identity survives migration as live or retired", () => {
     assert.equal(all.filter((r) => r.id === id).length, 1);
   assert.deepEqual(
     current.retired.map((r) => r.id),
-    [
-      21, 25, 39, 132, 133, 134, 140, 141, 142, 143, 144, 147, 149, 158, 159,
-      160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 190,
-      192,
-    ]
+    [21, 25]
   );
   assert.equal(
     current.routes.filter((r) => r.method === "ALL" && r.path === "/api/v3/*")
@@ -101,17 +97,9 @@ test("retired routes are reported separately and never generated", () => {
     { generate } = require("./generate.cjs"),
     scope = require("./scope.json");
   const cases = generate(current, scope);
-  assert.ok(
-    !cases.some((c) =>
-      [
-        21, 25, 39, 132, 133, 134, 140, 141, 142, 143, 144, 147, 149, 158, 159,
-        160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173,
-        190, 192,
-      ].includes(c.routeId)
-    )
-  );
+  assert.ok(!cases.some((c) => [21, 25].includes(c.routeId)));
   const cov = coverage(current, scope, cases);
-  assert.equal(cov.retired.length, 31);
+  assert.equal(cov.retired.length, 2);
   assert.ok(cov.retired.every((r) => r.status === "RETIRED"));
   for (const id of [202, 203, 204, 205, 206, 207])
     assert.equal(cases.filter((c) => c.routeId === id).length, 4);

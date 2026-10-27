@@ -548,6 +548,20 @@
       "consumer_family_inferred": "operations/diagnostics"
     },
     {
+      "method": "POST",
+      "path": "/api/v3/tutorial",
+      "registration": "server/app.ts:743",
+      "middleware": [
+        "hybridAuth(assignToP)",
+        "need(\"step\", getInt, assignToP)"
+      ],
+      "auth": "required hybrid auth",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 39,
+      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
+    },
+    {
       "method": "GET",
       "path": "/api/v3/users",
       "registration": "server/app.ts:750",
@@ -2170,6 +2184,39 @@
     },
     {
       "method": "GET",
+      "path": "/^\\/football$/",
+      "registration": "server/app.ts:2046",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 132,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/pdf$/",
+      "registration": "server/app.ts:2047",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 133,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/nabi$/",
+      "registration": "server/app.ts:2048",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 134,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
       "path": "/^\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
       "registration": "server/app.ts:2050",
       "middleware": [],
@@ -2225,6 +2272,61 @@
     },
     {
       "method": "GET",
+      "path": "/^\\/conversation\\/create(\\/.*)?/",
+      "registration": "server/app.ts:2056",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 140,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/user\\/create(\\/.*)?$/",
+      "registration": "server/app.ts:2057",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 141,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/user\\/login(\\/.*)?$/",
+      "registration": "server/app.ts:2058",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 142,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/settings(\\/.*)?$/",
+      "registration": "server/app.ts:2060",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 143,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/user\\/logout(\\/.*)?$/",
+      "registration": "server/app.ts:2062",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 144,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
       "path": "/^\\/m\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
       "registration": "server/app.ts:2065",
       "middleware": [],
@@ -2243,6 +2345,17 @@
       "conditions": [],
       "registered_in_default_config": true,
       "id": 146,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/other-conversations(\\/.*)?/",
+      "registration": "server/app.ts:2067",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 147,
       "consumer_family_inferred": "admin/page shell"
     },
     {
@@ -2268,6 +2381,17 @@
       "registered_in_default_config": false,
       "id": 208,
       "consumer_family_inferred": "operations"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/bot(\\/.*)?/",
+      "registration": "server/app.ts:2072",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 149,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
     },
     {
       "method": "GET",
@@ -2355,6 +2479,182 @@
       "conditions": [],
       "registered_in_default_config": true,
       "id": 157,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/gov(\\/.*)?/",
+      "registration": "server/app.ts:2093",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 158,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/createuser(\\/.*)?/",
+      "registration": "server/app.ts:2094",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 159,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/contrib(\\/.*)?/",
+      "registration": "server/app.ts:2095",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 160,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/bot\\/install(\\/.*)?/",
+      "registration": "server/app.ts:2097",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 161,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/bot\\/support(\\/.*)?/",
+      "registration": "server/app.ts:2098",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 162,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/inbox(\\/.*)?$/",
+      "registration": "server/app.ts:2100",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 163,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/hk/",
+      "registration": "server/app.ts:2102",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 164,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/s\\//",
+      "registration": "server/app.ts:2103",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 165,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/s$/",
+      "registration": "server/app.ts:2104",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 166,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/hk\\/new/",
+      "registration": "server/app.ts:2105",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 167,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/inboxApiTest/",
+      "registration": "server/app.ts:2106",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 168,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/pwresetinit.*/",
+      "registration": "server/app.ts:2107",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 169,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/demo\\/[0-9][0-9A-Za-z]+/",
+      "registration": "server/app.ts:2108",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 170,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/demo$/",
+      "registration": "server/app.ts:2109",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 171,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/pwreset.*/",
+      "registration": "server/app.ts:2110",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 172,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/company$/",
+      "registration": "server/app.ts:2111",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 173,
       "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
     },
     {
@@ -2535,6 +2835,17 @@
     },
     {
       "method": "GET",
+      "path": "/^\\/about$/",
+      "registration": "server/app.ts:2212",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 190,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
       "path": "/^\\/home(\\/.*)?/",
       "registration": "server/app.ts:2213",
       "middleware": [],
@@ -2542,6 +2853,17 @@
       "conditions": [],
       "registered_in_default_config": true,
       "id": 191,
+      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
+    },
+    {
+      "method": "GET",
+      "path": "/^\\/s\\/CTE\\/?$/",
+      "registration": "server/app.ts:2214",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 192,
       "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
     },
     {
@@ -2685,328 +3007,6 @@
       "conditions": [],
       "registered_in_default_config": false,
       "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/tutorial",
-      "registration": "server/app.ts:743",
-      "middleware": [
-        "hybridAuth(assignToP)",
-        "need(\"step\", getInt, assignToP)"
-      ],
-      "auth": "required hybrid auth",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 39,
-      "consumer_family_inferred": "admin/participation API; see literal caller evidence"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/football$/",
-      "registration": "server/app.ts:2046",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 132,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/pdf$/",
-      "registration": "server/app.ts:2047",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 133,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/nabi$/",
-      "registration": "server/app.ts:2048",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 134,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/conversation\\/create(\\/.*)?/",
-      "registration": "server/app.ts:2056",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 140,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/user\\/create(\\/.*)?$/",
-      "registration": "server/app.ts:2057",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 141,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/user\\/login(\\/.*)?$/",
-      "registration": "server/app.ts:2058",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 142,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/settings(\\/.*)?$/",
-      "registration": "server/app.ts:2060",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 143,
-      "consumer_family_inferred": "admin/page shell"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/user\\/logout(\\/.*)?$/",
-      "registration": "server/app.ts:2062",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 144,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/other-conversations(\\/.*)?/",
-      "registration": "server/app.ts:2067",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 147,
-      "consumer_family_inferred": "admin/page shell"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/bot(\\/.*)?/",
-      "registration": "server/app.ts:2072",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 149,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/gov(\\/.*)?/",
-      "registration": "server/app.ts:2093",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 158,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/createuser(\\/.*)?/",
-      "registration": "server/app.ts:2094",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 159,
-      "consumer_family_inferred": "admin/page shell"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/contrib(\\/.*)?/",
-      "registration": "server/app.ts:2095",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 160,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/bot\\/install(\\/.*)?/",
-      "registration": "server/app.ts:2097",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 161,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/bot\\/support(\\/.*)?/",
-      "registration": "server/app.ts:2098",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 162,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/inbox(\\/.*)?$/",
-      "registration": "server/app.ts:2100",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 163,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/hk/",
-      "registration": "server/app.ts:2102",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 164,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/s\\//",
-      "registration": "server/app.ts:2103",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 165,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/s$/",
-      "registration": "server/app.ts:2104",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 166,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/hk\\/new/",
-      "registration": "server/app.ts:2105",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 167,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/inboxApiTest/",
-      "registration": "server/app.ts:2106",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 168,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/pwresetinit.*/",
-      "registration": "server/app.ts:2107",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 169,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/demo\\/[0-9][0-9A-Za-z]+/",
-      "registration": "server/app.ts:2108",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 170,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/demo$/",
-      "registration": "server/app.ts:2109",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 171,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/pwreset.*/",
-      "registration": "server/app.ts:2110",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 172,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/company$/",
-      "registration": "server/app.ts:2111",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 173,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/about$/",
-      "registration": "server/app.ts:2212",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 190,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
-    },
-    {
-      "method": "GET",
-      "path": "/^\\/s\\/CTE\\/?$/",
-      "registration": "server/app.ts:2214",
-      "middleware": [],
-      "auth": "no route authentication middleware",
-      "conditions": [],
-      "registered_in_default_config": false,
-      "id": 192,
-      "consumer_family_inferred": "page/embed navigation, static proxy or operational caller"
     }
   ]
 }

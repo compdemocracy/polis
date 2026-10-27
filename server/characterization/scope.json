@@ -14,6 +14,24 @@
       "reason": "Static robots.txt response; not part of API replacement."
     },
     {
+      "id": 132,
+      "method": "GET",
+      "path": "/^\\/football$/",
+      "reason": "Vanity/page redirect retained with the existing Node page router."
+    },
+    {
+      "id": 133,
+      "method": "GET",
+      "path": "/^\\/pdf$/",
+      "reason": "Vanity/page redirect retained with the existing Node page router."
+    },
+    {
+      "id": 134,
+      "method": "GET",
+      "path": "/^\\/nabi$/",
+      "reason": "Vanity/page redirect retained with the existing Node page router."
+    },
+    {
       "id": 135,
       "method": "GET",
       "path": "/^\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
@@ -44,6 +62,36 @@
       "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
     },
     {
+      "id": 140,
+      "method": "GET",
+      "path": "/^\\/conversation\\/create(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 141,
+      "method": "GET",
+      "path": "/^\\/user\\/create(\\/.*)?$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 142,
+      "method": "GET",
+      "path": "/^\\/user\\/login(\\/.*)?$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 143,
+      "method": "GET",
+      "path": "/^\\/settings(\\/.*)?$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 144,
+      "method": "GET",
+      "path": "/^\\/user\\/logout(\\/.*)?$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
       "id": 145,
       "method": "GET",
       "path": "/^\\/m\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
@@ -56,9 +104,21 @@
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
+      "id": 147,
+      "method": "GET",
+      "path": "/^\\/other-conversations(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
       "id": 148,
       "method": "GET",
       "path": "/^\\/account(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 149,
+      "method": "GET",
+      "path": "/^\\/bot(\\/.*)?/",
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
@@ -107,6 +167,102 @@
       "id": 157,
       "method": "GET",
       "path": "/^\\/donate$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 158,
+      "method": "GET",
+      "path": "/^\\/gov(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 159,
+      "method": "GET",
+      "path": "/^\\/createuser(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 160,
+      "method": "GET",
+      "path": "/^\\/contrib(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 161,
+      "method": "GET",
+      "path": "/^\\/bot\\/install(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 162,
+      "method": "GET",
+      "path": "/^\\/bot\\/support(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 163,
+      "method": "GET",
+      "path": "/^\\/inbox(\\/.*)?$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 164,
+      "method": "GET",
+      "path": "/^\\/hk/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 165,
+      "method": "GET",
+      "path": "/^\\/s\\//",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 166,
+      "method": "GET",
+      "path": "/^\\/s$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 167,
+      "method": "GET",
+      "path": "/^\\/hk\\/new/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 168,
+      "method": "GET",
+      "path": "/^\\/inboxApiTest/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 169,
+      "method": "GET",
+      "path": "/^\\/pwresetinit.*/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 170,
+      "method": "GET",
+      "path": "/^\\/demo\\/[0-9][0-9A-Za-z]+/",
+      "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
+    },
+    {
+      "id": 171,
+      "method": "GET",
+      "path": "/^\\/demo$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 172,
+      "method": "GET",
+      "path": "/^\\/pwreset.*/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 173,
+      "method": "GET",
+      "path": "/^\\/company$/",
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
@@ -206,9 +362,21 @@
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
+      "id": 190,
+      "method": "GET",
+      "path": "/^\\/about$/",
+      "reason": "Vanity/page redirect retained with the existing Node page router."
+    },
+    {
       "id": 191,
       "method": "GET",
       "path": "/^\\/home(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 192,
+      "method": "GET",
+      "path": "/^\\/s\\/CTE\\/?$/",
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
