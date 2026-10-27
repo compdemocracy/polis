@@ -9,8 +9,18 @@ use openssl::{pkey::PKey, rsa::Rsa, sha::sha256};
 use std::{ffi::OsString, fmt};
 
 /// Deliberately has no Debug or serialization implementation.
+/// The setting the fixtures and the deploy used before the shared loader: a
+/// path to the participant public key alone. Accepted as the path form of the
+/// public key when neither `JWT_PUBLIC_KEY` nor `JWT_PUBLIC_KEY_PATH` is set.
+pub const LEGACY_PUBLIC_KEY_FILE: &str = "POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE";
+
+fn set(get: &impl Fn(&str) -> Option<OsString>, name: &str) -> bool {
+    get(name).filter(|v| !v.is_empty()).is_some()
+}
+
 pub struct Keys {
-    private: EncodingKey,
+    /// Absent on a verifier-only process: nothing mints without it.
+    private: Option<EncodingKey>,
     public: DecodingKey,
     fingerprint: String,
 }
@@ -104,7 +114,8 @@ impl Keys {
             "JWT_PUBLIC_KEY",
             "JWT_PUBLIC_KEY_PATH",
             "/app/keys/jwt-public.pem",
-        ) {
+        ) && !set(&get, LEGACY_PUBLIC_KEY_FILE)
+        {
             return Ok(None);
         }
         Self::from_environment(get).map(Some)
@@ -113,29 +124,57 @@ impl Keys {
     /// An injectable environment reader avoids changing global process state in
     /// tests. Values take precedence independently for each half of the pair.
     pub fn from_environment(get: impl Fn(&str) -> Option<OsString>) -> Result<Self, LoadError> {
-        let (private_pem, private_name) = read_key(
-            &get,
-            "JWT_PRIVATE_KEY",
-            "JWT_PRIVATE_KEY_PATH",
-            "/app/keys/jwt-private.pem",
-        )?;
+        // The private key is optional: a process that only verifies tokens does
+        // not need it. When it is configured, or the default file exists, it
+        // must be valid and must match the public key.
+        let private_configured = set(&get, "JWT_PRIVATE_KEY")
+            || set(&get, "JWT_PRIVATE_KEY_PATH")
+            || std::path::Path::new("/app/keys/jwt-private.pem").exists();
+        let mut private_rsa = None;
+        let mut private_pkey = None;
+        let mut private_name = "JWT_PRIVATE_KEY";
+        if private_configured {
+            let (private_pem, name) = read_key(
+                &get,
+                "JWT_PRIVATE_KEY",
+                "JWT_PRIVATE_KEY_PATH",
+                "/app/keys/jwt-private.pem",
+            )?;
+            private_name = name;
+            let private = PKey::private_key_from_pem_callback(&private_pem, |_| Ok(0))
+                .map_err(|_| invalid(private_name))?;
+            let rsa = private.rsa().map_err(|_| invalid(private_name))?;
+            if !rsa.check_key().map_err(|_| invalid(private_name))? || rsa.size() < 256 {
+                return Err(invalid(private_name));
+            }
+            private_pkey = Some(private);
+            private_rsa = Some(rsa);
+        }
+        // The public key is required; the legacy path setting stands in for
+        // JWT_PUBLIC_KEY_PATH when neither JWT_PUBLIC_KEY form is set.
+        let public_get = |name: &str| -> Option<OsString> {
+            if name == "JWT_PUBLIC_KEY_PATH"
+                && !set(&get, "JWT_PUBLIC_KEY_PATH")
+                && set(&get, LEGACY_PUBLIC_KEY_FILE)
+            {
+                return get(LEGACY_PUBLIC_KEY_FILE);
+            }
+            get(name)
+        };
         let (public_pem, public_name) = read_key(
-            &get,
+            &public_get,
             "JWT_PUBLIC_KEY",
             "JWT_PUBLIC_KEY_PATH",
             "/app/keys/jwt-public.pem",
         )?;
-        let private = PKey::private_key_from_pem_callback(&private_pem, |_| Ok(0))
-            .map_err(|_| invalid(private_name))?;
-        let rsa = private.rsa().map_err(|_| invalid(private_name))?;
-        if !rsa.check_key().map_err(|_| invalid(private_name))? || rsa.size() < 256 {
-            return Err(invalid(private_name));
-        }
         let public = PKey::public_key_from_pem(&public_pem)
             .or_else(|_| Rsa::public_key_from_pem_pkcs1(&public_pem).and_then(PKey::from_rsa))
             .map_err(|_| invalid(public_name))?;
         public.rsa().map_err(|_| invalid(public_name))?;
-        if !private.public_eq(&public) {
+        if private_pkey
+            .as_ref()
+            .is_some_and(|private| !private.public_eq(&public))
+        {
             return Err(LoadError(format!(
                 "{private_name} and {public_name} must be the same RSA key pair"
             )));
@@ -145,11 +184,16 @@ impl Keys {
             .map_err(|_| invalid(public_name))?;
         let fingerprint = sha256(&der).iter().map(|b| format!("{b:02x}")).collect();
         // Normalize PEM envelopes for the JWT library after validating the pair.
-        let private = EncodingKey::from_rsa_pem(
-            &rsa.private_key_to_pem()
+        let private = match private_rsa {
+            Some(rsa) => Some(
+                EncodingKey::from_rsa_pem(
+                    &rsa.private_key_to_pem()
+                        .map_err(|_| invalid(private_name))?,
+                )
                 .map_err(|_| invalid(private_name))?,
-        )
-        .map_err(|_| invalid(private_name))?;
+            ),
+            None => None,
+        };
         let public = DecodingKey::from_rsa_pem(
             &public
                 .public_key_to_pem()
@@ -164,8 +208,9 @@ impl Keys {
     }
 
     /// Reserved for a future minter. Loading a key does not issue a token.
-    pub fn private_key(&self) -> &EncodingKey {
-        &self.private
+    /// None on a verifier-only process.
+    pub fn private_key(&self) -> Option<&EncodingKey> {
+        self.private.as_ref()
     }
 
     /// Lowercase SHA-256 hex of the public key's SPKI DER encoding.
