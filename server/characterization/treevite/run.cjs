@@ -424,7 +424,7 @@ async function main() {
           ),
           "local OIDC verification key"
         );
-        const { at_ms, response, ...metadata } = attempt;
+        const { at_ms: _at_ms, response: _response, ...metadata } = attempt;
         return { ...metadata, response: "$verified-local-jwks" };
       });
     assert.deepEqual(
