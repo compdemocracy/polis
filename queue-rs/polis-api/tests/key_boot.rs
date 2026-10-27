@@ -26,7 +26,7 @@ fn missing_unreadable_malformed_and_mismatched_keys_refuse_boot() {
             "JWT_PRIVATE_KEY must contain a valid RSA key",
         ),
         (
-            vec![],
+            vec![("POLIS_API_PARTICIPANT_READS", "1")],
             "JWT_PRIVATE_KEY_PATH could not be read; set JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH to a readable key file",
         ),
         (
@@ -71,4 +71,18 @@ fn missing_unreadable_malformed_and_mismatched_keys_refuse_boot() {
             format!("Error: {expected}\n")
         );
     }
+}
+
+#[test]
+fn absent_keys_without_a_participant_route_do_not_refuse_boot() {
+    let result = Command::new(env!("CARGO_BIN_EXE_polis-api"))
+        .env_clear()
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(result.stderr).unwrap();
+    assert!(
+        stderr.contains("participant signing keys not configured"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("could not be read"), "{stderr}");
 }

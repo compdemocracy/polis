@@ -803,12 +803,27 @@ async fn dispatch_at_clock(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let participant_keys = polis_auth::keys::Keys::from_env()?;
+    // The participant signing keys are required whenever a route that verifies
+    // participant tokens is selected; otherwise their absence is reported on
+    // the health document rather than refusing to boot (a box that routes
+    // nothing to this service must still start it).
+    let participant_reads =
+        std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1");
+    let participant_keys = if participant_reads {
+        Some(polis_auth::keys::Keys::from_env()?)
+    } else {
+        polis_auth::keys::Keys::from_env_optional()?
+    };
+    if participant_keys.is_none() {
+        eprintln!(
+            "participant signing keys not configured (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH, JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH); participant token routes cannot be selected"
+        );
+    }
     let cfg = config::Config::from_env()?;
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
-    state.participant_keys = Some(participant_keys);
+    state.participant_keys = participant_keys;
     for (i, switch) in [
         "POLIS_API_CONVERSATION_PAGE_READS",
         "POLIS_API_EXPLORE_PAGE_READS",

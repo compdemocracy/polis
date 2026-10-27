@@ -80,6 +80,36 @@ impl Keys {
         Self::from_environment(|name| std::env::var_os(name))
     }
 
+    /// Absent keys are allowed when nothing in the process needs them: a box
+    /// that routes no participant traffic to this service boots without them
+    /// and reports `participantKeysLoaded: false`. A present but malformed,
+    /// unreadable or mismatched pair still refuses to boot.
+    pub fn from_env_optional() -> Result<Option<Self>, LoadError> {
+        Self::from_environment_optional(|name| std::env::var_os(name))
+    }
+
+    pub fn from_environment_optional(
+        get: impl Fn(&str) -> Option<OsString>,
+    ) -> Result<Option<Self>, LoadError> {
+        let absent = |value_name: &str, path_name: &str, default_path: &str| {
+            get(value_name).filter(|v| !v.is_empty()).is_none()
+                && get(path_name).filter(|v| !v.is_empty()).is_none()
+                && !std::path::Path::new(default_path).exists()
+        };
+        if absent(
+            "JWT_PRIVATE_KEY",
+            "JWT_PRIVATE_KEY_PATH",
+            "/app/keys/jwt-private.pem",
+        ) && absent(
+            "JWT_PUBLIC_KEY",
+            "JWT_PUBLIC_KEY_PATH",
+            "/app/keys/jwt-public.pem",
+        ) {
+            return Ok(None);
+        }
+        Self::from_environment(get).map(Some)
+    }
+
     /// An injectable environment reader avoids changing global process state in
     /// tests. Values take precedence independently for each half of the pair.
     pub fn from_environment(get: impl Fn(&str) -> Option<OsString>) -> Result<Self, LoadError> {
