@@ -1,5 +1,6 @@
 //! Read-only resolution of Node-issued, conversation-scoped participant tokens.
-//! Unsupported credentials and missing membership always return a Node handoff.
+//! Serving routes hand off unsupported credentials and missing membership.
+//! The opt-in foundation also returns typed XID account refusals.
 use crate::observability::{Counters, Event, PROCESS};
 use crate::{Pid, Uid, Zid};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
@@ -150,12 +151,12 @@ impl Verifier {
         })
     }
 
-    /// Opt-in identity scoping only; not used by serving routes. The request's
+    /// Opt-in identity scoping and XID account check; not used by serving routes. The request's
     /// nonblank XID takes precedence for an XID token and becomes the identity of
     /// an anonymous token presented in another conversation. Crossing conversation
     /// IDs drops an XID token's UID and PID even for conversations of the same owner.
     /// The caller must resolve that XID under the requested conversation's owner
-    /// and apply admission gates before using it. No lookup or write happens here.
+    /// and apply admission gates before using it. Only XID tokens query here; no writes.
     /// Different conversation IDs conservatively require resolution, including
     /// aliases; this function does not resolve IDs to database conversation IDs.
     pub fn verify_for_request(
@@ -164,8 +165,15 @@ impl Verifier {
         conversation: &str,
         request_xid: Option<&str>,
         now: u64,
-    ) -> Option<RequestIdentity> {
-        let (c, kind) = self.verify_claims(authorization, now)?;
+        check: &mut crate::xid_account::Check<'_, impl crate::xid_account::Lookup>,
+    ) -> Result<Option<RequestIdentity>, crate::xid_account::Refusal> {
+        let Some((c, kind)) = self.verify_claims(authorization, now) else {
+            return Ok(None);
+        };
+        if kind == Kind::Xid {
+            // Check the original signed UID even when request scoping drops it.
+            check.require_participant(Uid(c.uid))?;
+        }
         let same_conversation = c.conversation_id == conversation;
         let request_xid =
             request_xid.filter(|xid| !xid.trim_matches(request_xid_whitespace).is_empty());
@@ -177,7 +185,9 @@ impl Verifier {
         };
         match kind {
             Kind::Xid => {
-                let xid = request_xid.or(c.xid.as_deref())?;
+                let Some(xid) = request_xid.or(c.xid.as_deref()) else {
+                    return Ok(None);
+                };
                 if !same_conversation || Some(xid) != c.xid.as_deref() {
                     identity.uid = None;
                     identity.pid = None;
@@ -190,7 +200,7 @@ impl Verifier {
             }
             Kind::Anonymous | Kind::StandardUser => {}
         }
-        Some(identity)
+        Ok(Some(identity))
     }
 
     fn verify_claims(&self, authorization: &str, now: u64) -> Option<(Claims, Kind)> {
@@ -426,6 +436,65 @@ mod tests {
     }
 
     #[test]
+    fn only_verified_xid_claims_query_account_privileges() {
+        let (verifier, key) = keys();
+        let (_, wrong_key) = keys();
+        let mut unexpected =
+            |_| -> Result<Option<crate::xid_account::Account>, crate::Unavailable> {
+                panic!("non-XID or invalid credentials must not query account privileges")
+            };
+        let mut check = crate::xid_account::Check {
+            db: &mut unexpected,
+            admin_uids: &[],
+        };
+        assert!(
+            verifier
+                .verify_for_request(&sign(&claims(), &key), "2fixture", None, 150, &mut check)
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            verifier
+                .verify_for_request(
+                    &sign(&xid_claims(), &wrong_key),
+                    "2fixture",
+                    None,
+                    150,
+                    &mut check
+                )
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            verifier
+                .verify_for_request(
+                    &sign(&xid_claims(), &key),
+                    "2fixture",
+                    None,
+                    200,
+                    &mut check
+                )
+                .unwrap()
+                .is_none()
+        );
+        let mut unavailable = |_| Err(crate::Unavailable);
+        let mut check = crate::xid_account::Check {
+            db: &mut unavailable,
+            admin_uids: &[],
+        };
+        assert!(matches!(
+            verifier.verify_for_request(
+                &sign(&xid_claims(), &key),
+                "2fixture",
+                None,
+                150,
+                &mut check
+            ),
+            Err(crate::xid_account::Refusal::CheckFailed)
+        ));
+    }
+
+    #[test]
     fn xid_request_precedence_and_conversation_scope_table() {
         #[derive(Deserialize)]
         struct Case {
@@ -443,7 +512,17 @@ mod tests {
         let token = sign(&xid_claims(), &k);
         for case in cases {
             let identity = v
-                .verify_for_request(&token, &case.conversation, case.request_xid.as_deref(), 150)
+                .verify_for_request(
+                    &token,
+                    &case.conversation,
+                    case.request_xid.as_deref(),
+                    150,
+                    &mut crate::xid_account::Check {
+                        db: &mut |_| Ok(None),
+                        admin_uids: &[],
+                    },
+                )
+                .unwrap()
                 .unwrap();
             assert_eq!(identity.kind, Kind::Xid, "{}", case.name);
             assert_eq!(identity.uid(), case.uid.map(Uid), "{}", case.name);
@@ -483,8 +562,18 @@ mod tests {
             let mut c = xid_claims();
             c[field] = value;
             assert!(
-                v.verify_for_request(&sign(&c, &k), "2fixture", None, 150)
-                    .is_none(),
+                v.verify_for_request(
+                    &sign(&c, &k),
+                    "2fixture",
+                    None,
+                    150,
+                    &mut crate::xid_account::Check {
+                        db: &mut |_| Ok(None),
+                        admin_uids: &[]
+                    }
+                )
+                .unwrap()
+                .is_none(),
                 "{field}"
             );
         }
@@ -503,8 +592,18 @@ mod tests {
             let mut c = xid_claims();
             c.as_object_mut().unwrap().remove(field);
             assert!(
-                v.verify_for_request(&sign(&c, &k), "2fixture", None, 150)
-                    .is_none(),
+                v.verify_for_request(
+                    &sign(&c, &k),
+                    "2fixture",
+                    None,
+                    150,
+                    &mut crate::xid_account::Check {
+                        db: &mut |_| Ok(None),
+                        admin_uids: &[]
+                    }
+                )
+                .unwrap()
+                .is_none(),
                 "{field}"
             );
         }
@@ -523,8 +622,18 @@ mod tests {
         let (_, other) = keys();
         let c = xid_claims();
         assert!(
-            v.verify_for_request(&sign(&c, &other), "2fixture", None, 150)
-                .is_none()
+            v.verify_for_request(
+                &sign(&c, &other),
+                "2fixture",
+                None,
+                150,
+                &mut crate::xid_account::Check {
+                    db: &mut |_| Ok(None),
+                    admin_uids: &[]
+                }
+            )
+            .unwrap()
+            .is_none()
         );
         let hs = encode(
             &Header::new(Algorithm::HS256),
@@ -533,24 +642,67 @@ mod tests {
         )
         .unwrap();
         assert!(
-            v.verify_for_request(&format!("Bearer {hs}"), "2fixture", None, 150)
-                .is_none()
+            v.verify_for_request(
+                &format!("Bearer {hs}"),
+                "2fixture",
+                None,
+                150,
+                &mut crate::xid_account::Check {
+                    db: &mut |_| Ok(None),
+                    admin_uids: &[]
+                }
+            )
+            .unwrap()
+            .is_none()
         );
         let signed = sign(&c, &k);
         assert!(
-            v.verify_for_request(&signed, "2fixture", None, 199)
-                .is_some()
+            v.verify_for_request(
+                &signed,
+                "2fixture",
+                None,
+                199,
+                &mut crate::xid_account::Check {
+                    db: &mut |_| Ok(None),
+                    admin_uids: &[]
+                }
+            )
+            .unwrap()
+            .is_some()
         );
         assert!(
-            v.verify_for_request(&signed, "2fixture", None, 200)
-                .is_none()
+            v.verify_for_request(
+                &signed,
+                "2fixture",
+                None,
+                200,
+                &mut crate::xid_account::Check {
+                    db: &mut |_| Ok(None),
+                    admin_uids: &[]
+                }
+            )
+            .unwrap()
+            .is_none()
         );
         for raw in [
             "".to_owned(),
             "Bearer bad".to_owned(),
             signed.replacen("Bearer", "bearer", 1),
         ] {
-            assert!(v.verify_for_request(&raw, "2fixture", None, 150).is_none());
+            assert!(
+                v.verify_for_request(
+                    &raw,
+                    "2fixture",
+                    None,
+                    150,
+                    &mut crate::xid_account::Check {
+                        db: &mut |_| Ok(None),
+                        admin_uids: &[]
+                    }
+                )
+                .unwrap()
+                .is_none()
+            );
         }
     }
 
@@ -559,7 +711,17 @@ mod tests {
         let (v, k) = keys();
         let token = sign(&claims(), &k);
         let identity = v
-            .verify_for_request(&token, "2another", Some("request-xid"), 150)
+            .verify_for_request(
+                &token,
+                "2another",
+                Some("request-xid"),
+                150,
+                &mut crate::xid_account::Check {
+                    db: &mut |_| Ok(None),
+                    admin_uids: &[],
+                },
+            )
+            .unwrap()
             .unwrap();
         assert_eq!(identity.kind, Kind::Anonymous);
         assert_eq!(identity.uid(), None);
@@ -585,14 +747,36 @@ mod tests {
             let token = sign(&c, &k);
             for request_xid in [None, Some(""), Some("other-xid")] {
                 let identity = v
-                    .verify_for_request(&token, "2fixture", request_xid, 150)
+                    .verify_for_request(
+                        &token,
+                        "2fixture",
+                        request_xid,
+                        150,
+                        &mut crate::xid_account::Check {
+                            db: &mut |_| Ok(None),
+                            admin_uids: &[],
+                        },
+                    )
+                    .unwrap()
                     .unwrap();
                 assert_eq!(identity.kind, kind);
                 assert_eq!(identity.uid(), Some(Uid(3)));
                 assert_eq!(identity.pid(), Some(Pid(0)));
                 assert_eq!(identity.xid(), None);
             }
-            let identity = v.verify_for_request(&token, "2another", None, 150).unwrap();
+            let identity = v
+                .verify_for_request(
+                    &token,
+                    "2another",
+                    None,
+                    150,
+                    &mut crate::xid_account::Check {
+                        db: &mut |_| Ok(None),
+                        admin_uids: &[],
+                    },
+                )
+                .unwrap()
+                .unwrap();
             assert_eq!(identity.uid(), cross_uid);
             assert_eq!(identity.pid(), None);
             assert_eq!(identity.xid(), None);

@@ -284,3 +284,5 @@ mod tests {
 pub mod admission;
 pub mod observability;
 pub mod participant;
+
+pub mod xid_account;

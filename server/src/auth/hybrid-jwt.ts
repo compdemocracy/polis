@@ -3,6 +3,11 @@ import Config from "../config";
 import jwt from "jsonwebtoken";
 import logger from "../utils/logger";
 import {
+  isXidAccountError,
+  requireXidParticipantAccount,
+  respondToXidAccountError,
+} from "./xid-account";
+import {
   isAnonymousJWT,
   anonymousJwtValidation,
   anonymousJwtValidationOptional,
@@ -118,6 +123,9 @@ function _createHybridJwtMiddleware(
           });
         });
 
+        // Recheck previously issued XID tokens, including on account routes
+        // that do not run ensureParticipant.
+        await requireXidParticipantAccount((req as any).xidJwtPayload.uid);
         logger.debug("XID JWT validation successful");
         return next();
       } else if (isAnonymousJWT(token)) {
@@ -226,6 +234,9 @@ function _createHybridJwtMiddleware(
         });
       }
     } catch (error) {
+      if (isXidAccountError(error)) {
+        return respondToXidAccountError(res, error);
+      }
       logger.error("JWT validation failed", {
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,

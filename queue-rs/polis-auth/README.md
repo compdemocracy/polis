@@ -50,7 +50,8 @@ trusted clock and bounded primary-read connection; keys are not fetched remotely
 
 The opt-in `participant::Verifier::verify_for_request` also scopes XID tokens
 and request XIDs, returning an identity without granting membership. It performs
-no lookup or write and is not called by any route; `verify` still hands XID
+a primary account lookup for each verified XID token, before request scoping
+can drop its UID, and is not called by any route; `verify` still hands XID
 tokens back to Node. Cross-language coverage lives in
 `tests/participant_jwt_interop.rs` and
 `server/__tests__/unit/participant-jwt-interop.test.ts`; request identity rules
@@ -113,3 +114,38 @@ committed Node recordings: UID/PID, row creation, identity links, recovery
 material and exact gate-refusal bodies. It does not claim full HTTP byte parity
 for an endpoint that is not implemented or routed. Node's recorded orphan-user
 and unbound-participant failures are pinned as deliberate atomicity deltas.
+||||||| 958aa56e5
+
+The XID account guard mirrors Node: configured numeric administrator UIDs,
+conversation owners, the owner flag, users sharing a site with any conversation
+owner, then OIDC mappings. It uses one indexed `EXISTS` query on the primary,
+without writes, row locks, network calls or a new pool. NULL sites do not match;
+empty sites do. Missing accounts retain Node's existing token handling.
+
+Pass `xid_account::Check` to `verify_for_request`. An invalid credential is
+`Ok(None)`; a privileged XID is `Err(Refusal::Privileged(class))`. Query failure
+is `Err(Refusal::CheckFailed)`, never admission. At an HTTP boundary consume the
+refusal with `into_response(&observability::PROCESS)` and return its status and
+body verbatim as JSON. This emits one warning containing only the fixed error
+and class, and increments `xid.refused.<class>` in the existing health document.
+The same code is used for all five 403 classes; the class is not sent to clients.
+Database failure matches Node's 500 participant-creation refusal and
+`xid.refused.check_failed` counter.
+
+Admission and minting are not implemented in this crate yet. Their callers must
+use `Check::require_participant` on the resolved UID before enrolling a bare XID
+or signing/reissuing its credential, including after resolving a request XID
+under another conversation owner. A check is current evidence, not a reusable
+permission to mint. This change adds no routes and admits no new serving traffic.
+The participation path therefore has no new work or shared resources. Future
+callers must use bounded primary connections and the same response boundary.
+
+`conformance/record-xid-accounts.cjs` runs from a built Node server directory
+with the Node account guard installed. It generates local users and keys,
+refuses non-loopback socket connections, then records bare-XID and existing-token
+HTTP responses for every class and a plain participant. Pass the output filename
+as its argument. The committed fixture lives in
+`../polis-contracts/tests/fixtures/xid-account.json`; all identities there are
+generated. No private key is retained. `scripts/test-polis-auth.sh` applies the
+repository migrations to its disposable database before running the real-table
+integration test; it must never point at an existing installation.

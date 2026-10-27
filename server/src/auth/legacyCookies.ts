@@ -2,6 +2,7 @@ import logger from "../utils/logger";
 import { getParticipantByPermanentCookie } from "../participant";
 import { issueAnonymousJWT } from "./anonymous-jwt";
 import { issueXidJWT } from "./xid-jwt";
+import { isXidAccountError, requireXidParticipantAccount } from "./xid-account";
 
 interface LegacyCookieResult {
   uid?: number;
@@ -65,6 +66,7 @@ export async function checkLegacyCookieAndIssueJWT(
     // Issue appropriate JWT
     let token: string;
     if (xid) {
+      await requireXidParticipantAccount(participant.uid);
       token = issueXidJWT(
         xid,
         conversationId,
@@ -95,6 +97,7 @@ export async function checkLegacyCookieAndIssueJWT(
       token,
     };
   } catch (error) {
+    if (isXidAccountError(error)) throw error;
     logger.error("Error checking legacy cookie", error);
     return { needsNewJwt: false };
   }

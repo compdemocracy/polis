@@ -112,6 +112,25 @@ case "$SERVICE_FROM_FILE" in
   *) echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"; exit 1 ;;
 esac
 
+POLIS_API_IMAGE_AVAILABLE=1
+if [ "$SERVICE_FROM_FILE" == "server" ]; then
+  # Resolve the new revision's environment before pulling images. The previous
+  # image override is not needed here. Never print config: it contains credentials.
+  RUST_API_ROUTES_NAMED=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""' | tr -d ', \t\r\n')
+  POLIS_API_START=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_START // "0"')
+  case "$POLIS_API_START" in
+    0|1) ;;
+    *) echo "POLIS_API_START must be 0 or 1; refusing service replacement" >&2; exit 1 ;;
+  esac
+  if [ "$POLIS_API_START" = 1 ] || [ -n "$RUST_API_ROUTES_NAMED" ]; then
+    POLIS_API_TRANSPORT=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_DB_TRANSPORT // "tls"')
+    if [ "$POLIS_API_TRANSPORT" != tls ]; then
+      echo "The web deployment requires verified TLS for polis-api" >&2
+      exit 1
+    fi
+  fi
+fi
+
 # Every image this box runs (and the migration runner) was built once, for
 # exactly this commit, on the deploy workflow's build box (cdk/buildBox.ts,
 # deploy/build-images.sh) and pushed to the registry; the workflow wrote the
@@ -119,7 +138,7 @@ esac
 # only pulls, by digest: building here competed with live traffic for CPU and
 # filled the 8 GB root disks. Every pull, and every check below, happens before
 # the migration and before any service is replaced, so a missing or mismatched
-# image fails the deploy while the healthy revision keeps serving.
+# required image fails the deploy while the healthy revision keeps serving.
 ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com"
 DEPLOY_IMAGES="$HOOK_DIR/deploy-images.txt"
 image_ref() { sed -n "s/^$1=//p" "$DEPLOY_IMAGES" 2>/dev/null | head -n 1; }
@@ -135,11 +154,18 @@ pull_image() {
     echo "Error: the image manifest names no digest in this registry for '$1'; refusing to deploy"
     exit 1
   fi
-  sudo docker pull "$ref"
+  if [ "$1" = polis-api ] && [ -z "$RUST_API_ROUTES_NAMED" ]; then
+    if ! sudo docker pull "$ref"; then
+      POLIS_API_IMAGE_AVAILABLE=0
+      echo "Could not pull polis-api; no Rust route is selected, so skipping its startup and continuing the Node deployment" >&2
+    fi
+  else
+    sudo docker pull "$ref"
+  fi
 }
 # The web box also pulls polis-api (the Rust read routes) on every deploy; it
-# starts only when the env document routes requests to it (the server branch
-# below).
+# starts when warm startup is enabled or a route is selected. Only a selected
+# route makes its image pull required; manifest errors remain fatal.
 case "$SERVICE_FROM_FILE" in
   server) ROLE_IMAGES="server nginx-proxy client-participation-alpha polis-api" ;;
   delphi) ROLE_IMAGES="delphi math-python" ;;
@@ -246,25 +272,10 @@ worker_daemon() {
 }
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
-  # Read the same resolved environment used for startup, including the
-  # profile-gated service. Never print the config: it contains credentials.
-  RUST_API_ROUTES_NAMED=$("${COMPOSE[@]}" --profile rust-api config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""' | tr -d ', \t\r\n')
-  POLIS_API_START=$("${COMPOSE[@]}" --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_START // "0"')
-  case "$POLIS_API_START" in
-    0|1) ;;
-    *) echo "POLIS_API_START must be 0 or 1; refusing service replacement" >&2; exit 1 ;;
-  esac
-  if [ "$POLIS_API_START" = 1 ] || [ -n "$RUST_API_ROUTES_NAMED" ]; then
-    POLIS_API_TRANSPORT=$("${COMPOSE[@]}" --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_DB_TRANSPORT // "tls"')
-    if [ "$POLIS_API_TRANSPORT" != tls ]; then
-      echo "The web deployment requires verified TLS for polis-api" >&2
-      exit 1
-    fi
-  fi
   echo "Starting the pulled 'server', 'nginx-proxy', and 'client-participation-alpha' images"
   "${COMPOSE[@]}" --profile rust-api down
   "${COMPOSE[@]}" up -d server nginx-proxy client-participation-alpha --no-build --force-recreate
-  if [ "$POLIS_API_START" = 1 ] || [ -n "$RUST_API_ROUTES_NAMED" ]; then
+  if [ "$POLIS_API_IMAGE_AVAILABLE" = 1 ] && { [ "$POLIS_API_START" = 1 ] || [ -n "$RUST_API_ROUTES_NAMED" ]; }; then
     # Only a selected route makes Rust startup a requirement of this deploy.
     if ! "${COMPOSE[@]}" up -d --no-deps --no-build --force-recreate polis-api; then
       echo "polis-api start failed" >&2
