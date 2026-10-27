@@ -1,6 +1,7 @@
 //! Authority decisions for already verified identities. This crate does not
 //! issue or log tokens or install HTTP routes. Participant verification and
 //! existing-membership reads are in the participant module.
+//! Staged transactional admission has no serving callers.
 //!
 //! Owner and moderator are distinct policies, not an ordered privilege ladder.
 //! Node's moderator rule uses site equality (SQL NULL never equals NULL) and an
@@ -280,6 +281,7 @@ mod tests {
     }
 }
 
+pub mod admission;
 pub mod observability;
 pub mod participant;
 
