@@ -131,14 +131,6 @@
     "expected_requests": 1,
     "expected_node_handoffs": 1
   },
-  "legacyPca": {
-    "path": "/api/v3/math/pca",
-    "minimum_rust_successes": 0,
-    "commands": [],
-    "scope": "No CLI request reaches this route; no serving coverage claimed.",
-    "expected_requests": 0,
-    "expected_node_handoffs": 0
-  },
   "treeviteWaves": {
     "path": "/api/v3/treevite/waves",
     "minimum_rust_successes": 3,

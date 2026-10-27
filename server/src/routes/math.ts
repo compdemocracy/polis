@@ -7,28 +7,14 @@ import {
 } from "../utils/pca";
 import { presentPca } from "../utils/pcaPresentation";
 import { failJson } from "../utils/fail";
-import pg from "../db/pg-query";
-import Utils from "../utils/common";
-import { getZidForRid } from "../utils/zinvite";
 import { getBidIndexToPidMapping } from "../utils/participants";
-import { bidsForPids, getMathBundle, MathBundleRead } from "../utils/mathBundle";
+import {
+  bidsForPids,
+  getMathBundle,
+  MathBundleRead,
+} from "../utils/mathBundle";
 import Config from "../config";
 import { getPidPromise } from "../user";
-
-function handle_GET_math_pca(
-  req: any,
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      end: { (): void; new (): any };
-    };
-  }
-) {
-  // migrated off this path, old clients were causing timeout issues by polling
-  // repeatedly without waiting for a result for a previous poll.
-  res.status(304).end();
-}
 
 // Cache the knowledge of whether there are any pca results for a given zid.
 // Needed to determine whether to return a 404 or a 304.
@@ -146,7 +132,9 @@ function handle_GET_math_pca2(
       })
       .then(function (data: PcaCacheItem | undefined) {
         const etag =
-          data && !synthesized ? pca2EntityTag(data.asPOJO.math_tick) : undefined;
+          data && !synthesized
+            ? pca2EntityTag(data.asPOJO.math_tick)
+            : undefined;
         if (
           etag !== undefined &&
           heldTags !== undefined &&
@@ -214,134 +202,6 @@ function handle_GET_math_pca2(
     });
 }
 
-function handle_POST_math_update(
-  req: { p: { zid: number; uid?: number; math_update_type: any } },
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: {}): void; new (): any };
-    };
-  }
-) {
-  const zid = req.p.zid;
-  const uid = req.p.uid;
-  const math_env = Config.mathEnv;
-  const math_update_type = req.p.math_update_type;
-
-  Utils.isModerator(zid, uid).then((hasPermission: any) => {
-    if (!hasPermission) {
-      return failJson(res, 500, "handle_POST_math_update_permission");
-    }
-    return pg
-      .queryP(
-        "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);",
-        [
-          JSON.stringify({
-            zid: zid,
-            math_update_type: math_update_type,
-          }),
-          zid,
-          math_env,
-        ]
-      )
-      .then(() => {
-        res.status(200).json({});
-      })
-      .catch((err: any) => {
-        return failJson(res, 500, "polis_err_POST_math_update", err);
-      });
-  });
-}
-
-function handle_GET_math_correlationMatrix(
-  req: { p: { rid: any; math_tick: any } },
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: { status: string }): void; new (): any };
-    };
-    json: (arg0: any) => void;
-  }
-) {
-  const rid = req.p.rid;
-  const math_env = Config.mathEnv;
-  const math_tick = req.p.math_tick;
-
-  function finishAsPending() {
-    res.status(202).json({
-      status: "pending",
-    });
-  }
-
-  function hasCommentSelections() {
-    return pg
-      .queryP(
-        "select * from report_comment_selections where rid = ($1) and selection = 1;",
-        [rid]
-      )
-      .then((rows: string | any[]) => {
-        return rows.length > 0;
-      });
-  }
-
-  const requestExistsPromise = pg.queryP(
-    "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
-      "and task_bucket = ($1) " +
-      // "and attempts < 3 " +
-      "and (task_data->>'math_tick')::int >= ($3) " +
-      "and finished_time is NULL;",
-    [rid, math_env, math_tick]
-  );
-
-  const resultExistsPromise = pg.queryP(
-    "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);",
-    [rid, math_env, math_tick]
-  );
-
-  Promise.all([resultExistsPromise, getZidForRid(rid)])
-    .then((a: any[]) => {
-      const rows = a[0];
-      const zid = a[1];
-      if (!rows || !rows.length) {
-        return requestExistsPromise.then((requests_rows: string | any[]) => {
-          const shouldAddTask = !requests_rows || !requests_rows.length;
-          // const shouldAddTask = true;
-
-          if (shouldAddTask) {
-            return hasCommentSelections().then((hasSelections: any) => {
-              if (!hasSelections) {
-                return res.status(202).json({
-                  status: "polis_report_needs_comment_selection",
-                });
-              }
-              return pg
-                .queryP(
-                  "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);",
-                  [
-                    JSON.stringify({
-                      rid: rid,
-                      zid: zid,
-                      math_tick: math_tick,
-                    }),
-                    rid,
-                    math_env,
-                  ]
-                )
-                .then(finishAsPending);
-            });
-          }
-          finishAsPending();
-        });
-      }
-      res.json(rows[0].data);
-    })
-    .catch((err: any) => {
-      return failJson(res, 500, "polis_err_GET_math_correlationMatrix", err);
-    });
-}
-
 function handle_GET_bidToPid(
   req: { p: { zid: number; math_tick: any } },
   res: {
@@ -394,7 +254,7 @@ async function getBidsForPids(
   ownedRead?: MathBundleRead
 ): Promise<Record<number, number | undefined>> {
   const requested = typeof math_tick === "number" ? math_tick : -1;
-  const read = ownedRead ?? await getMathBundle(zid);
+  const read = ownedRead ?? (await getMathBundle(zid));
   if (read.present && read.mathTick <= requested) {
     throw new Error("polis_err_math_bundle_not_new");
   }
@@ -435,9 +295,10 @@ function handle_GET_bid(
         if ((read.present ? read.mathTick : 0) <= math_tick) {
           throw new Error("polis_err_math_bundle_not_new");
         }
-        const bid = read.present && read.admitted
-          ? bidsForPids(read.bundle, [pid])[pid]
-          : undefined;
+        const bid =
+          read.present && read.admitted
+            ? bidsForPids(read.bundle, [pid])[pid]
+            : undefined;
         res.json({ bid });
       },
       function () {
@@ -453,8 +314,5 @@ export {
   getBidsForPids,
   handle_GET_bid,
   handle_GET_bidToPid,
-  handle_GET_math_correlationMatrix,
-  handle_GET_math_pca,
   handle_GET_math_pca2,
-  handle_POST_math_update,
 };

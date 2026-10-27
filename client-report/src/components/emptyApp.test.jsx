@@ -7,7 +7,6 @@ jest.mock("react-oidc-context", () => ({
   useAuth: () => ({ isAuthenticated: false, isLoading: false, user: null }),
 }));
 jest.mock("./globals", () => ({
-  enableMatrix: false,
   brandColors: { agree: "green", disagree: "red", pass: "gray" },
 }));
 jest.mock("./overview", () => (props) => (

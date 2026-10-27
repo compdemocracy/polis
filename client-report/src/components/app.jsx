@@ -137,7 +137,6 @@ const App = (props) => {
       : "false"
   );
 
-  let corMatRetries;
 
   // Effect to get auth token when authentication state changes
   useEffect(() => {
@@ -340,45 +339,6 @@ const App = (props) => {
     }, authToken);
   };
 
-  const getCorrelationMatrix = (math_tick, authToken = null) => {
-    const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
-      math_tick: math_tick,
-      report_id: report_id,
-    }, authToken);
-
-    return new Promise((resolve, reject) => {
-      attemptResponse.then(
-        (response) => {
-          if (response.status && response.status === "pending") {
-            if (typeof corMatRetries === "number") {
-              corMatRetries = corMatRetries + 1;
-            } else {
-              corMatRetries = 1;
-            }
-            setTimeout(
-              () => {
-                getCorrelationMatrix(math_tick, authToken).then(resolve, reject);
-              },
-              corMatRetries < 10 ? 200 : 3000
-            ); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
-          } else if (
-            globals.enableMatrix &&
-            response &&
-            response.status === "polis_report_needs_comment_selection"
-          ) {
-            setErrorText("Select some comments");
-            reject("Currently, No comments are selected for display in the matrix.");
-          } else {
-            resolve(response);
-          }
-        },
-        (err) => {
-          reject(err);
-        }
-      );
-    });
-  };
-
   const getData = async (authToken = null) => {
     const reportPromise = getReport(report_id, authToken);
     const mathPromise = reportPromise.then((report) => {
@@ -392,12 +352,6 @@ const App = (props) => {
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return getParticipantsOfInterest(report.conversation_id, authToken);
     });
-    const matrixPromise = globals.enableMatrix
-      ? mathPromise.then((math) => {
-          const math_tick = math.math_tick;
-          return getCorrelationMatrix(math_tick, authToken);
-        })
-      : Promise.resolve();
     const conversationPromise = reportPromise.then((report) => {
       return getConversation(report.conversation_id, authToken);
     });
@@ -411,7 +365,6 @@ const App = (props) => {
       mathPromise,
       commentsPromise,
       participantsOfInterestPromise,
-      matrixPromise,
       conversationPromise,
       narrativePromise,
     ])
@@ -421,7 +374,6 @@ const App = (props) => {
           mathResult,
           _comments,
           _participants,
-          correlationHClust,
           _conversation,
           narrative,
         ] = a;
@@ -458,32 +410,6 @@ const App = (props) => {
         var _badTids = {};
         var _filteredTids = {};
         var _filteredProbabilities = {};
-
-        // prep Correlation matrix.
-        if (globals.enableMatrix && correlationHClust) {
-          var probabilities = correlationHClust.matrix;
-          var tids = correlationHClust.comments;
-          for (let row = 0; row < probabilities.length; row++) {
-            if (probabilities[row][0] === "NaN") {
-              let tid = correlationHClust.comments[row];
-              _badTids[tid] = true;
-            }
-          }
-          _filteredProbabilities = probabilities
-            .map((row) => {
-              return row.filter((cell, colNum) => {
-                let colTid = correlationHClust.comments[colNum];
-                return _badTids[colTid] !== true;
-              });
-            })
-            .filter((row, rowNum) => {
-              let rowTid = correlationHClust.comments[rowNum];
-              return _badTids[rowTid] !== true;
-            });
-          _filteredTids = tids.filter((tid /*, index*/) => {
-            return _badTids[tid] !== true;
-          });
-        }
 
         var maxTid = -1;
         for (let i = 0; i < _comments.length; i++) {

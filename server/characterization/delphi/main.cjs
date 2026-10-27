@@ -89,8 +89,6 @@ const PINNED_ENV = {
   POLIS_FROM_ADDRESS: "sender@example.invalid",
   SHOULD_USE_TRANSLATION_API: "false",
   ADMIN_UIDS: "[2]",
-  WEBSERVER_USERNAME: "generated-worker",
-  WEBSERVER_PASS: "generated-worker",
   // Always take the topical next-comment branch so it is recorded.
   TOPICAL_COMMENT_RATIO: "1",
   ANTHROPIC_API_KEY: "",

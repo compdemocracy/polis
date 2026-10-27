@@ -179,7 +179,6 @@ the caps above.
 ### Email Addresses
 
 - **`ADMIN_EMAIL_DATA_EXPORT`** email address from which data export emails are sent.
-- **`ADMIN_EMAIL_DATA_EXPORT_TEST`** email address to receive periodic export test results, if configured below.
 - **`ADMIN_EMAIL_EMAIL_TEST`** email address to receive backup email system test.
 - **`ADMIN_EMAILS`** array of email addresses to receive team notifications.
 - **`POLIS_FROM_ADDRESS`** email address from which other emails are sent.
@@ -188,11 +187,9 @@ the caps above.
 
 (All can be left blank, or `false`)
 
-- **`BACKFILL_COMMENT_LANG_DETECTION`** Set to `true`, if Comment Translation was enabled, to instruct the server upon the next initialization (reboot) to backfill detected language of stored comments. Default `false`.
 - **`CACHE_MATH_RESULTS`** Set this to `true` to instruct the API server to use LRU caching for results from the math service. Default is `true` if left blank.
 - **`DATABASE_SSL`** Set this to `true` for some production environments. Default is `false`.
 - **`DEV_MODE`** Set this to `true` in development and `false` otherwise. Used by API Server to make a variety of assumptions about HTTPS, logging, notifications, etc.
-- **`RUN_PERIODIC_EXPORT_TESTS`** Set this to `true` to run periodic export tests, sent to the **`ADMIN_EMAIL_DATA_EXPORT_TEST`** address.
 - **`SERVER_LOG_TO_FILE`** Set this to `true` to tell Winston.js to also write log files to server/logs/. Defaults to `false`. *Note that if using docker compose, server/logs is mounted as a persistent volume.*
 - **`SHOULD_USE_TRANSLATION_API`** Set this to `true` if using Google translation service. See [Enabling Comment Translation](#enabling-comment-translation) below.
 - **`USE_NETWORK_HOST`** Set this to `true` if using server within an internal network (e.g. AWS) such that SSL is not required.
@@ -260,7 +257,6 @@ Every database read runs in a `READ ONLY` transaction with a 3 s statement timeo
 - **`GA_TRACKING_ID`** For using Google Analytics on client pages.
 - **`GOOGLE_CREDENTIALS_BASE64`** Required if using Google Translate API. (See below).
 - **`GOOGLE_CREDS_STRINGIFIED`** Alternative to **`GOOGLE_CREDENTIALS_BASE64`** (See below).
-- **`MAILGUN_API_KEY`**, **`MAILGUN_DOMAIN`** If using Mailgun as an email transport.
 - **`AWS_REGION`** Used for some data import/export.
 - **`AWS_ACCESS_KEY_ID`**, **`AWS_SECRET_ACCESS_KEY`** Useful for AWS SDK operations.
   Leave both **unset** in production to use the AWS default credential provider
@@ -325,8 +321,6 @@ Deploy hooks: a box whose `/etc/app-info/service_type.txt` says `delphi-large` w
 ### Deprecated
 
 - **`ENCRYPTION_PASSWORD_00001`** (legacy) remains a config input, including the `LOGIN_CODE_PEPPER` fallback ([config:120](../server/src/config.ts#L120)); do not classify it as unread solely because it is in this historical section.
-- **`WEBSERVER_PASS`** (deprecated) basic auth setting for certain requests sent between math and api services.
-- **`WEBSERVER_USERNAME`** (deprecated) basic auth setting for certain requests sent between math and api services.
 
 ## Enabling Comment Translation
 

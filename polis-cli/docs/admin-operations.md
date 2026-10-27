@@ -11,7 +11,6 @@ This reconciles all 77 initially missing application routes against the current 
 | GET | `/api/v3/metadata/choices` | `polis metadata choices` |
 | GET | `/api/v3/conversations/recently_started` | `polis conversation started` |
 | GET | `/api/v3/conversations/recent_activity` | `polis conversation activity` |
-| GET | `/api/v3/math/pca` | Retired: Node always returns 304; use math view (pca2). |
 | GET | `/api/v3/conversations/preload` | `polis conversation preload` |
 | GET | `/api/v3/participation` | `polis participant activity` |
 | GET | `/api/v3/all_conversations` | `polis ops conversations list` |
@@ -27,7 +26,6 @@ This reconciles all 77 initially missing application routes against the current 
 | GET | `/api/v3/xidAllowList/csv` | `polis participant allowlist export` |
 | GET | `/api/v3/votes/famous` | `polis vote famous` |
 | GET | `/api/v3/einvites` | `polis invite email lookup` |
-| GET | `/api/v3/dataExport/results` | `polis report export-results` |
 | GET | `/api/v3/delphi` | `polis delphi overview` |
 | GET | `/api/v3/delphi/logs` | `polis delphi logs` |
 | GET | `/api/v3/topicStats` | `polis report topic-stats` |
@@ -37,10 +35,7 @@ This reconciles all 77 initially missing application routes against the current 
 | GET | `/api/v3/ops/whoami` | `polis ops status` |
 | GET | `/api/v3/ops/page/:id` | `polis ops page` |
 | GET | `/perfStats_9182738127` | `polis ops performance` |
-| GET | `/api/v3/snapshot` | Unavailable: Node throws an explicit unimplemented snapshot error. |
 | POST | `/api/v3/query_participants_by_metadata` | `polis participant query` |
-| GET | `/api/v3/math/correlationMatrix` | `polis math correlation` |
-| GET | `/api/v3/dataExport` | `polis report export-start` |
 | GET | `/api/v3/notifications/subscribe` | `polis notification subscribe` |
 | GET | `/api/v3/notifications/unsubscribe` | `polis notification unsubscribe` |
 | GET | `/api/v3/comments/translations` | `polis comment translations` |
@@ -48,7 +43,6 @@ This reconciles all 77 initially missing application routes against the current 
 | GET | `/api/v3/participationInit` | Already covered: `polis join` |
 | GET | `/api/v3/reportNarrative` | `polis delphi narrative run` |
 | GET | `/api/v3/verify` | `polis account verify` |
-| POST | `/api/v3/auth/deregister` | Not an account deletion API: Node only acknowledges client-side JWT logout; auth logout clears the local sign-in. |
 | POST | `/api/v3/zinvites/:zid` | Already covered: `polis invite code create` |
 | POST | `/api/v3/participants` | Not applicable: unsafe legacy route. Use `polis join` and the first vote or comment. |
 | POST | `/api/v3/convSubscriptions` | `polis notification set` |
@@ -71,7 +65,6 @@ This reconciles all 77 initially missing application routes against the current 
 | POST | `/api/v3/trashes` | `polis comment trash` |
 | POST | `/api/v3/reportCommentSelections` | `polis report comments select` |
 | PUT | `/api/v3/users` | `polis account edit` |
-| POST | `/api/v3/mathUpdate` | `polis math refresh` |
 | PUT | `/api/v3/reports` | `polis report edit` |
 | POST | `/api/v3/sendCreatedLinkToEmail` | `polis conversation email-link` |
 | PUT | `/api/v3/ptptois` | `polis participant highlight set` |
@@ -79,8 +72,6 @@ This reconciles all 77 initially missing application routes against the current 
 | POST | `/api/v3/treevite/acceptInvite` | Already covered: `polis join --invite` |
 | POST | `/api/v3/treevite/login` | Already covered: `polis join --login-code` |
 | POST | `/api/v3/einvites` | `polis invite email send` |
-| POST | `/api/v3/users/invite` | `polis account invite` |
-| POST | `/api/v3/contributors` | `polis support contribute` |
 
 Counts: 65 dedicated operations in this packet, 7 already covered routes, and 5 retired/excluded routes. The dedicated `comment next` command supplements the existing interactive vote loop. A route is not marked implemented merely because generic `api` can reach it.
 
@@ -101,7 +92,6 @@ Wire vote projections are labeled with the existing shared vote contract; no rea
 - `agenda add` and `agenda replace` each save an entire selection array; neither appends. `agenda remove` deletes the participant’s whole selection record.
 - Allowlist import adds to an owner-global list, not a conversation-private replacement.
 - Upvote applies to the conversation and can be submitted once by an account.
-- Export results requires the complete export filename and saves the returned signed HTTPS URL to `--output`. It does not follow the redirect or verify that the object exists; the receipt and saved JSON explicitly say `artifact_verified: false`.
 - Provider/job commands may start paid work when a site enables them; their receipt is not a completed analysis. No provider or worker is started by the CLI itself.
 - Topic moderation can partially apply explicit comment IDs before a missing topic store fails.
 - Recent-conversation feeds and the global conversation list require Node developer authority; ordinary account ownership does not grant it.
@@ -151,7 +141,6 @@ Use `polis help <command>` or `polis schema <command>` for parser discovery. The
 | `participant allowlist export` | `--conversation` id required |
 | `participant allowlist import` | `--conversation` id required; `--from` strings_file required |
 | `invite email lookup` | `--code-file` secret_file required |
-| `report export-results` | `--conversation` id required; `--filename` text (max 1000) required; `--output` private capability destination required |
 | `delphi overview` | `--report` id required |
 | `delphi logs` | `--job` opaque required |
 | `report topic-stats` | `--report` id required |
@@ -162,8 +151,6 @@ Use `polis help <command>` or `polis schema <command>` for parser discovery. The
 | `ops page` | `--page` opaque (max 100) required |
 | `ops performance` |  |
 | `participant query` | `--conversation` id required; `--answers` uints required |
-| `math correlation` | `--report` id required |
-| `report export-start` | `--conversation` id required; `--format` text (max 100) optional; `--timestamp` text (max 99) optional |
 | `notification subscribe` | `--conversation` id required; `--email` text (max 999) required; `--signature-file` secret_file required |
 | `notification unsubscribe` | `--conversation` id required; `--email` text (max 999) required; `--signature-file` secret_file required |
 | `notification set` | `--conversation` id required; `--state` mapped: subscribe, unsubscribe required; `--email` text (max 999) required |
@@ -185,10 +172,7 @@ Use `polis help <command>` or `polis schema <command>` for parser discovery. The
 | `comment trash` | `--conversation` id required; `--statement` uint required; `--state` mapped: on, off required |
 | `report comments select` | `--report` id required; `--statement` uint required; `--include` bool required |
 | `account edit` | `--email` text (max 999) optional; `--name` text (max 9999) optional |
-| `math refresh` | `--conversation` id required; `--type` text: recompute, update required |
 | `report edit` | `--report` id required; `--name` text (max 999) optional; `--label-x-neg` text (max 999) optional; `--label-x-pos` text (max 999) optional; `--label-y-neg` text (max 999) optional; `--label-y-pos` text (max 999) optional; `--label-group-0` text (max 999) optional; `--label-group-1` text (max 999) optional; `--label-group-2` text (max 999) optional; `--label-group-3` text (max 999) optional; `--label-group-4` text (max 999) optional; `--label-group-5` text (max 999) optional; `--label-group-6` text (max 999) optional; `--label-group-7` text (max 999) optional; `--label-group-8` text (max 999) optional; `--label-group-9` text (max 999) optional |
 | `conversation email-link` | `--conversation` id required |
 | `participant highlight set` | `--conversation` id required; `--participant` uint required; `--moderation` int required |
 | `invite email send` | `--email` text (max 999) required |
-| `account invite` | `--conversation` id required; `--emails` strings required |
-| `support contribute` | `--agreement-version` uint (max 999999) required; `--name` text (max 746) required; `--email` text (max 256) required; `--github-id` text (max 256) required; `--company-name` text (max 746) required |

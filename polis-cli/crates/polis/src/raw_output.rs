@@ -36,7 +36,6 @@ pub fn available(path: &str) -> bool {
                 | "report comments list"
                 | "report topics"
                 | "math view"
-                | "math correlation"
                 | "metadata question list"
                 | "metadata answer list"
                 | "context list"

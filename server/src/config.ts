@@ -90,7 +90,6 @@ export default {
   },
 
   adminEmailDataExport: process.env.ADMIN_EMAIL_DATA_EXPORT as string,
-  adminEmailDataExportTest: process.env.ADMIN_EMAIL_DATA_EXPORT_TEST as string,
   adminEmailEmailTest: process.env.ADMIN_EMAIL_EMAIL_TEST as string,
   adminEmails: process.env.ADMIN_EMAILS || "[]",
   adminUIDs: process.env.ADMIN_UIDS || "[]",
@@ -108,9 +107,6 @@ export default {
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
   awsRegion: process.env.AWS_REGION || ("local" as string),
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  backfillCommentLangDetection: isTrue(
-    process.env.BACKFILL_COMMENT_LANG_DETECTION
-  ),
   cacheMathResults: isTrueOrBlank(process.env.CACHE_MATH_RESULTS),
   databaseSSL: isTrue(process.env.DATABASE_SSL),
   databaseURL: process.env.DATABASE_URL as string,
@@ -125,8 +121,6 @@ export default {
     process.env.LOGIN_CODE_PEPPER ||
     process.env.ENCRYPTION_PASSWORD_00001 ||
     "polis_treevite_pepper",
-  mailgunApiKey: process.env.MAILGUN_API_KEY || null,
-  mailgunDomain: process.env.MAILGUN_DOMAIN || null,
   maxReportCacheDuration: parseInt(
     process.env.MAX_REPORT_CACHE_DURATION || "3600000",
     10
@@ -203,7 +197,6 @@ export default {
     process.env.REPORT_EXPORT_STATEMENT_TIMEOUT_MS || "300000",
     10
   ),
-  runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS),
   shouldUseTranslationAPI: setGoogleApplicationCredentials(),
   staticFilesAdminPort: parseInt(
     process.env.STATIC_FILES_ADMIN_PORT ||
@@ -253,8 +246,6 @@ export default {
 
   // Deprecated
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
-  webserverPass: process.env.WEBSERVER_PASS as string,
-  webserverUsername: process.env.WEBSERVER_USERNAME as string,
 };
 
 // A whole number of milliseconds from the environment, or `fallback` when the

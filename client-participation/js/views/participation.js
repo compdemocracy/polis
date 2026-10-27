@@ -993,13 +993,6 @@ module.exports = ConversationView.extend({
 
         // that.visModeModel.set("visMode", VIS_MODE_WAITING);
 
-        $("#getDataButton").on("click", function () {
-          $.get("/api/v3/dummyButton?button=getDataButton");
-          setTimeout(function () {
-            alert("coming soon!");
-          });
-        });
-
         $("#closeConversationButton").on("click", function () {
           $.post("/api/v3/conversation/close", {
             conversation_id: that.conversation_id

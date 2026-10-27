@@ -41,7 +41,6 @@ jest.mock('./globals.js', () => ({
     disagree: 'red',
     pass: 'yellow',
   },
-  enableMatrix: true,
 }));
 
 test('renders nothing to show message if there is no data', async () => {

@@ -326,12 +326,6 @@ describe("Delphi route authorization", () => {
             comment_ids: commentIds,
             action: "reject",
           }),
-          strangerAgent.get(
-            `/api/v3/dataExport?conversation_id=${conversationId}&unixTimestamp=1758000000&format=csv`
-          ),
-          strangerAgent.get(
-            `/api/v3/dataExport/results?conversation_id=${conversationId}&filename=polis-export-${conversationId}-1758000000000.zip`
-          ),
         ]);
 
         for (const response of responses) {

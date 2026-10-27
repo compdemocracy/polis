@@ -17,13 +17,11 @@ jest.mock("../../src/db/pg-query", () => ({
 }));
 
 import { generateToken } from "../../src/auth";
-import { sendTextEmail } from "../../src/email/senders";
 import { getZinvite } from "../../src/utils/zinvite";
 import pg from "../../src/db/pg-query";
 import {
   checkSuzinviteCodeValidity,
   createOneSuzinvite,
-  sendSuzinviteEmail,
 } from "../../src/invites/suzinvites";
 
 beforeEach(() => {
@@ -103,22 +101,5 @@ describe("single-use invitation boundaries", () => {
     ).rejects.toBe(error);
     expect(getZinvite).not.toHaveBeenCalled();
     expect(url).not.toHaveBeenCalled();
-  });
-
-  test("email includes the conversation and invitation in its single-use URL", async () => {
-    await sendSuzinviteEmail(
-      {} as any,
-      "reader@example.invalid",
-      "public-conversation",
-      "public-code"
-    );
-    expect(sendTextEmail).toHaveBeenCalledWith(
-      "sender@example.invalid",
-      "reader@example.invalid",
-      "Join the pol.is conversation!",
-      expect.stringContaining(
-        "https://polis.example.invalid/ot/public-conversation/public-code"
-      )
-    );
   });
 });

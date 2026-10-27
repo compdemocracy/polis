@@ -490,8 +490,6 @@ async function main() {
     POLIS_FROM_ADDRESS: "sender@example.invalid",
     SHOULD_USE_TRANSLATION_API: "false",
     ADMIN_UIDS: "[2]",
-    WEBSERVER_USERNAME: "generated-worker",
-    WEBSERVER_PASS: "generated-worker",
     ANTHROPIC_API_KEY: require("./stub.cjs").GENERATED_KEY,
     ANTHROPIC_BASE_URL: `http://127.0.0.1:${stub.port}`,
     ANTHROPIC_AUTH_TOKEN: "",

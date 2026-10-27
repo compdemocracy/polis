@@ -51,7 +51,6 @@ mod identity_observability;
 mod integrate_page;
 mod js;
 mod legacy_conversations;
-mod legacy_pca;
 mod link_pages;
 mod lru;
 mod metadata_answers;
@@ -460,14 +459,6 @@ fn health_response(
         js::Js::Num(app.recent_activity_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
-        "legacyPcaServed",
-        js::Js::Num(app.legacy_pca_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "legacyPcaFallback",
-        js::Js::Num(app.legacy_pca_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
         "treeviteWavesServed",
         js::Js::Num(app.treevite_waves_served.load(Ordering::Relaxed) as f64),
     );
@@ -728,7 +719,6 @@ async fn dispatch_at_clock(
         | robots::PATH
         | about::PATH
         | ops_whoami::PATH
-        | legacy_pca::PATH
         | delphi_read::PATH
         | collective_statement::PATH
         | topic_stats::PATH
@@ -1481,8 +1471,6 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
-    state.legacy_pca_reads =
-        std::env::var("POLIS_API_LEGACY_PCA_READS").ok().as_deref() == Some("1");
     if std::env::var("POLIS_API_TREEVITE_WAVES_READS")
         .ok()
         .as_deref()
