@@ -1,0 +1,98 @@
+{
+  "contract": "xid-account/1",
+  "now": 1793056270,
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0tCE3c3CppGL42BDPGjg\nmC5aqdRGKOjCzo9ZqvXsSjFkqaBBFsYSKlXkaG3JHYr/kQlZBl32Gk94SZPQFpWn\ngAWrNOP4eD1wxtrqA990oLb3x0+1112i15xHVqMmin/MylEQvnhSw7dmfdHvUOym\nPM2JZwIoyjYcoL5wMz0NeGMcyRZfKtZ+sBh1CEPQHxpJuV3tQSpn9OHWv5cHKkl9\nvtyDS9Bgpaw6oK4wmVlOvVCHVLYMrH5eBO7c3LMhZl0ajueGBA+KoLViQ4Q6xZ+e\nxW9sTISMbMa+/BiU9g8vRzszM4WsBtAHZghHA7wf4il6z6ZVKrNrd1rx9Cah1TP0\nTQIDAQAB\n-----END PUBLIC KEY-----\n",
+  "conversation": "2generatedaccounts3",
+  "cases": [
+    {
+      "account_class": "admin",
+      "uid": 8,
+      "pid": 0,
+      "xid": "generated-admin",
+      "credential": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6OCwiZXhwIjoxODI0NTkyMjcwLCJpYXQiOjE3OTMwNTYyNzAsImNvbnZlcnNhdGlvbl9pZCI6IjJnZW5lcmF0ZWRhY2NvdW50czMiLCJzdWIiOiJ4aWQ6Z2VuZXJhdGVkLWFkbWluIiwieGlkIjoiZ2VuZXJhdGVkLWFkbWluIiwieGlkX3BhcnRpY2lwYW50Ijp0cnVlfQ.sYP8fugXh7Hq18oLpxeWN0vnw9VZaDwKUD6xQBZi2a-VaMNrgWgVNsMlMbWPXHjTpfxgG_wPfkokvBA6-VEPEOY-LVRY1Sz986IYS9HE1i9UBa3XfXO6kZ-3K5LKeVhNGFiRNMDRK_MHwtrw7Zmf5cCl2Jk85GTFdS9fEAdVgBQhsugTfd7awzQHJINaCgR9PMeZc7nF0pA9zXyhlklhjutR5jSmwSLbc6cr9CAgUk7ZYIWdAifBsJirDmHb_TIQmMZMwpdnwLtVpaq_6th4z6Pg0maFJasvEtbNS-XJDzvJjk7H9dFbXvBuNp2hJQvJBTQoUpFO2NSoGE7GpnkshQ",
+      "bare": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      },
+      "existing": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      }
+    },
+    {
+      "account_class": "conversation_owner",
+      "uid": 9,
+      "pid": 1,
+      "xid": "generated-conversation_owner",
+      "credential": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjEsInVpZCI6OSwiZXhwIjoxODI0NTkyMjcwLCJpYXQiOjE3OTMwNTYyNzAsImNvbnZlcnNhdGlvbl9pZCI6IjJnZW5lcmF0ZWRhY2NvdW50czMiLCJzdWIiOiJ4aWQ6Z2VuZXJhdGVkLWNvbnZlcnNhdGlvbl9vd25lciIsInhpZCI6ImdlbmVyYXRlZC1jb252ZXJzYXRpb25fb3duZXIiLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.KY2pp1ROIIMjvPfwCEX48P9LuO8vQIiIXMoMJrv7PFaPFGjQXwe3x2_aL4qBanOixAqwJ3GYt4RGC_P3t52SfZ0MBeJJnxEooiJJ4qkU7p7-w93vqMGPcbjlo5xXEhf9nQsGN_8X-wjJuRICi6T62b-0b9e2tSXWY-CgtpMQhEP_k2LkmFHpKFYn3TBzEiZnT1wtpC5vs2X5qhPyc-V1Ba_CKU9fWcxKvd6R0UUIb_fdPkiYTPYhrL9_7_l3zCZpgss571T2gI4GXLx3rZ9y8oLB7Ka2GnIEOGy7p_SAMYOWiGVvlUSOpRLECINuuCFSjwHKnXsZRKuwabeLBD3Vdw",
+      "bare": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      },
+      "existing": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      }
+    },
+    {
+      "account_class": "owner_flag",
+      "uid": 10,
+      "pid": 2,
+      "xid": "generated-owner_flag",
+      "credential": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjIsInVpZCI6MTAsImV4cCI6MTgyNDU5MjI3MCwiaWF0IjoxNzkzMDU2MjcwLCJjb252ZXJzYXRpb25faWQiOiIyZ2VuZXJhdGVkYWNjb3VudHMzIiwic3ViIjoieGlkOmdlbmVyYXRlZC1vd25lcl9mbGFnIiwieGlkIjoiZ2VuZXJhdGVkLW93bmVyX2ZsYWciLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.t9-Tsw9PKOkyRQaQ6ZBI2msxtNzttBmNizSTzM4ycFtvy3OapSozhJfxiPjXtSlG0-QkXbTEMD-_mRyLm1Z44MVouqnOEiDm2YvfsZMteyfOLIu4isauKGCZ-OEj_-l7gbSRo_dzX2EyiPhc0BHU8RgqVfIPUbOFUy5MUJyDAPHNhMvVi2wMtGbx9nNdsTfEHDRDP2WGwrfklhfJpLiXjEkTc_lGMDNo8P8KdgL_3EaDo_oY9akHLn4W4YlTV-4RnYVLSuGZ3ykIgrvHmUeySmC2DuMhH-oWAvQDdmOA1cwde0c_X51L8GKJ_wRVqql3qjuixOvR9TD5sr0dMkZNNg",
+      "bare": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      },
+      "existing": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      }
+    },
+    {
+      "account_class": "site_moderator",
+      "uid": 11,
+      "pid": 3,
+      "xid": "generated-site_moderator",
+      "credential": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjMsInVpZCI6MTEsImV4cCI6MTgyNDU5MjI3MCwiaWF0IjoxNzkzMDU2MjcwLCJjb252ZXJzYXRpb25faWQiOiIyZ2VuZXJhdGVkYWNjb3VudHMzIiwic3ViIjoieGlkOmdlbmVyYXRlZC1zaXRlX21vZGVyYXRvciIsInhpZCI6ImdlbmVyYXRlZC1zaXRlX21vZGVyYXRvciIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.fHdp-PgIhoyrBWUgadYsDSerkNVwQJoGaR_6ekiv-nynjrXigytQyEIu-E_1xAkBkei4pFGZm5tsz_rR5UBgfDtZQANUqPyPv4Nlto9w3bi_r5qdwG8EUo2y5b8Na31UZv2hpx-bEab9fCrx5FLpD4ukI_zN2BTJynPaUA5adC3V7O0MnwfInwm6XotVuv9iiG-9hc4umXUFTc5B5IXmvoXYx8Kmv2DXicltTxBg3uxV8gQpNPP3e504O6lIfKiNFkXa_j_AyzSPkGAvRPg9xtLYcuKASQX0mc7qVipZgMiwwkaQOjn3UPezgnGEDKWftmUgllo_W1obp0pFTqf1Qg",
+      "bare": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      },
+      "existing": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      }
+    },
+    {
+      "account_class": "oidc_mapped",
+      "uid": 12,
+      "pid": 4,
+      "xid": "generated-oidc_mapped",
+      "credential": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjQsInVpZCI6MTIsImV4cCI6MTgyNDU5MjI3MCwiaWF0IjoxNzkzMDU2MjcwLCJjb252ZXJzYXRpb25faWQiOiIyZ2VuZXJhdGVkYWNjb3VudHMzIiwic3ViIjoieGlkOmdlbmVyYXRlZC1vaWRjX21hcHBlZCIsInhpZCI6ImdlbmVyYXRlZC1vaWRjX21hcHBlZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.rB8L6FeSE7wz4Yp8CSeLhCGzIcJv4RC4RvEksYyXYNCWo43l-T3klgiNOp_hr_Wb2FR0S8HYfcM6X2WNgkzJw7-t0s_5c-ffdR_86erDoBkoUUSfMu57_lFM9cRI1lMIk0mRwz6HaPD_kZszlczmes1B2jfipkbr8orOEfpguuPZBBQ-sqBY7MYosgnOiAuPS3spQyfD5FYKaMLooQnumgzkU6KpKA-ebAY6VAuv8KuO0YH8XhiW3sTetL4IY7upCA--3bT-qOQZzfqe9BRJ8x-zo_f8jn8ed-y6uGYhnWCGl8E85_3_JmWt5KOqJqloVZ0NtspajirrAx7Y00_W0A",
+      "bare": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      },
+      "existing": {
+        "status": 403,
+        "body": "{\"error\":\"polis_err_xid_owner_account\",\"message\":\"polis_err_xid_owner_account\",\"status\":403}"
+      }
+    },
+    {
+      "account_class": "plain_participant",
+      "uid": 13,
+      "pid": 5,
+      "xid": "generated-plain_participant",
+      "credential": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjUsInVpZCI6MTMsImV4cCI6MTgyNDU5MjI3MCwiaWF0IjoxNzkzMDU2MjcwLCJjb252ZXJzYXRpb25faWQiOiIyZ2VuZXJhdGVkYWNjb3VudHMzIiwic3ViIjoieGlkOmdlbmVyYXRlZC1wbGFpbl9wYXJ0aWNpcGFudCIsInhpZCI6ImdlbmVyYXRlZC1wbGFpbl9wYXJ0aWNpcGFudCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.kCt-VaaOAhel_8Wwn0tz4fW63TV8dWw7AWehxVOBp8jxcx3FuDLV9JUFUmKlX-YfvcidJ9xWxmr6ElfucGzGKITFYxhlx-s1YlnMrdmGALPIQhhvOhOawn4UN3rlET3e2rHJHVUBN9bQ1SW2n3v5VVfhgteZKLLCNlyagpt_2wlFUVnHF_SPVbxE9xKXxMb9LsVrtV5Rp-l5g54x8y2EAM-9xhIYnbhAtyA2Fvup6Fm9hPA_LPubAJZveZrQ6GyXNLipkFGTHeUo5NQty-FqEVvbUtfbeCSwnbKTG6wz1e314bG0ZSgYOrYTB7MaVt_aMscsH0Gzdj5sobsEv5ltGQ",
+      "bare": {
+        "status": 200,
+        "body": "{\"user\":{\"uid\":13,\"email\":null,\"hname\":null,\"hasXid\":true,\"xInfo\":{\"uid\":13,\"xid\":\"generated-plain_participant\",\"x_profile_image_url\":null,\"x_name\":null,\"x_email\":null,\"modified\":\"1793056270154\",\"zid\":null,\"pid\":null},\"finishedTutorial\":false,\"site_ids\":[\"generated-account-site-24546-5\"],\"created\":1793056270144},\"ptpt\":{\"pid\":5,\"uid\":13,\"vote_count\":0,\"last_interaction\":\"0\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"1793056270153\"},\"nextComment\":null,\"conversation\":{\"topic\":\"Generated account contract\",\"description\":null,\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":6,\"is_anon\":true,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":true,\"spam_filter\":true,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":14,\"org_id\":null,\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":null,\"auth_needed_to_write\":null,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":null,\"modified\":\"1793056270145\",\"created\":\"1793056270145\",\"importance_enabled\":false,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"generated-account-site-24546-6\",\"translations\":[],\"ownername\":null,\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"2generatedaccounts3\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":0,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[],\"comment-projection\":{}},\"tids\":[],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":1793056270647,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":0,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[],\\\"comment-projection\\\":{}},\\\"tids\\\":[],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":1793056270647,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"type\":\"Buffer\",\"data\":[31,139,8,0,0,0,0,0,0,19,77,144,73,110,195,48,12,69,239,162,181,13,184,67,98,52,119,232,174,200,38,8,10,69,38,82,182,166,36,72,84,6,4,185,123,169,33,129,87,162,62,63,201,71,222,212,49,184,228,123,51,167,200,16,162,218,236,246,157,58,232,8,11,233,166,46,85,191,214,7,167,250,26,151,44,215,144,128,14,173,252,222,181,158,39,199,144,171,159,130,62,235,32,125,157,141,96,99,106,169,20,33,20,107,95,218,53,21,109,246,157,106,115,137,41,39,134,78,121,163,51,143,113,228,243,48,201,238,246,153,4,172,160,138,48,116,67,1,35,18,165,135,11,7,32,228,235,131,183,202,62,184,95,48,140,206,230,97,50,141,113,106,155,219,50,37,128,183,16,27,202,146,87,233,99,0,168,214,9,227,243,39,182,178,109,159,47,87,203,102,29,249,211,77,95,72,16,89,147,87,27,155,230,185,234,91,241,46,18,47,227,199,219,176,90,191,142,195,250,125,92,98,162,11,200,248,56,34,105,254,249,102,52,127,194,120,255,7,104,133,154,0,185,1,0,0]},\"expiration\":1793056273648,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"*\",\"auth\":{\"token\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjUsInVpZCI6MTMsImV4cCI6MTgyNDU5MjI3MCwiaWF0IjoxNzkzMDU2MjcwLCJjb252ZXJzYXRpb25faWQiOiIyZ2VuZXJhdGVkYWNjb3VudHMzIiwic3ViIjoieGlkOmdlbmVyYXRlZC1wbGFpbl9wYXJ0aWNpcGFudCIsInhpZCI6ImdlbmVyYXRlZC1wbGFpbl9wYXJ0aWNpcGFudCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.kCt-VaaOAhel_8Wwn0tz4fW63TV8dWw7AWehxVOBp8jxcx3FuDLV9JUFUmKlX-YfvcidJ9xWxmr6ElfucGzGKITFYxhlx-s1YlnMrdmGALPIQhhvOhOawn4UN3rlET3e2rHJHVUBN9bQ1SW2n3v5VVfhgteZKLLCNlyagpt_2wlFUVnHF_SPVbxE9xKXxMb9LsVrtV5Rp-l5g54x8y2EAM-9xhIYnbhAtyA2Fvup6Fm9hPA_LPubAJZveZrQ6GyXNLipkFGTHeUo5NQty-FqEVvbUtfbeCSwnbKTG6wz1e314bG0ZSgYOrYTB7MaVt_aMscsH0Gzdj5sobsEv5ltGQ\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+      },
+      "existing": {
+        "status": 200,
+        "body": "{\"uid\":13,\"email\":null,\"hname\":null,\"hasXid\":false,\"finishedTutorial\":false,\"site_ids\":[\"generated-account-site-24546-5\"],\"created\":1793056270144}"
+      }
+    }
+  ]
+}
