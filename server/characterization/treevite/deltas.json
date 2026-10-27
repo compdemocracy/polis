@@ -1,0 +1,25 @@
+{
+  "format": "treevite-deliberate-deltas/1",
+  "entries": [
+    {
+      "id": "F2",
+      "cases": ["race-two-accepts"],
+      "baseline": "Two real unused reads; two committed users and participants; exactly one consumed invite and login row. Loser is 400 polis_err_treevite_invite_race_condition and retains membership without a login credential.",
+      "target": "Atomic admission rolls back the loser and returns invalid-or-used. The baseline records a defect, not a compatibility requirement."
+    },
+    {
+      "id": "TQ1",
+      "cases": ["accept-existing-xid-conversion", "login-converted-xid", "converted-anonymous-after-removal", "accept-standard-conversion"],
+      "baseline": "Acceptance retains the existing positive-PID XID/account UID and issues an anonymous login credential. Removing the XID from the allow-list refuses the original XID but not the converted anonymous credential.",
+      "target": "Refuse identity conversion on accept; accept/login create or resume anonymous identities only. Recovery is a separate decision."
+    },
+    {
+      "id": "Q14",
+      "cases": ["accept-pid-zero-forks", "accept-anonymous-other-conversation"],
+      "baseline": "PID zero forks a new user; a positive-PID anonymous token from another conversation reuses its UID.",
+      "target": "Reuse same-conversation PID zero and keep anonymous identity local to its conversation."
+    }
+  ],
+  "surge_ruling": "TQ2: surge is never throttled. This small functional corpus does not measure capacity or add throttling. Conversation and owner ceilings are sanity stops; wave repeat controls and capacity reservation are separate work.",
+  "observed_policy": "Treevite disabled is not a refusal on these routes. An allow-listed bare XID plus invite admits a fresh anonymous participant; a verified existing XID bearer follows the TQ1 conversion case."
+}
