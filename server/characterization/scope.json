@@ -2,6 +2,12 @@
   "version": 1,
   "exclusions": [
     {
+      "id": 2,
+      "method": "ALL",
+      "path": "/font/*",
+      "reason": "Font-path CORS middleware; static asset delivery remains with Node."
+    },
+    {
       "id": 74,
       "method": "GET",
       "path": "/robots.txt",
@@ -29,6 +35,30 @@
       "id": 135,
       "method": "GET",
       "path": "/^\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
+    },
+    {
+      "id": 136,
+      "method": "GET",
+      "path": "/^\\/explore\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
+    },
+    {
+      "id": 137,
+      "method": "GET",
+      "path": "/^\\/share\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
+    },
+    {
+      "id": 138,
+      "method": "GET",
+      "path": "/^\\/summary\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
+      "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
+    },
+    {
+      "id": 139,
+      "method": "GET",
+      "path": "/^\\/ot\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
       "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
     },
     {
@@ -107,6 +137,18 @@
       "id": 152,
       "method": "GET",
       "path": "/^\\/signin(\\/.*)?/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 153,
+      "method": "GET",
+      "path": "/^\\/dist\\/admin_bundle.js$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 154,
+      "method": "GET",
+      "path": "/^\\/__webpack_hmr$/",
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
@@ -290,6 +332,36 @@
       "reason": "HTML preload/page-rendering contract retained in Node, not certified as a pure read or a Rust API route; underlying API registrations are separately driven."
     },
     {
+      "id": 185,
+      "method": "GET",
+      "path": "/^\\/embed$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 186,
+      "method": "GET",
+      "path": "/^\\/embedPreprod$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 187,
+      "method": "GET",
+      "path": "/^\\/embedReport$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 188,
+      "method": "GET",
+      "path": "/^\\/embedReportPreprod$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
+      "id": 189,
+      "method": "GET",
+      "path": "/^\\/styleguide$/",
+      "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
+    },
+    {
       "id": 190,
       "method": "GET",
       "path": "/^\\/about$/",
@@ -314,6 +386,24 @@
       "reason": "HTML shell or asset fetch delegated to the static server; retained with the Node page router."
     },
     {
+      "id": 194,
+      "method": "GET",
+      "path": "/^\\/cached\\/.*/",
+      "reason": "Static proxy/routing tail retained in Node; unmatched API GET behavior is separately recorded by the mandatory proxied-HTML oracle."
+    },
+    {
+      "id": 195,
+      "method": "GET",
+      "path": "/^\\/font\\/.*/",
+      "reason": "Static proxy/routing tail retained in Node; unmatched API GET behavior is separately recorded by the mandatory proxied-HTML oracle."
+    },
+    {
+      "id": 196,
+      "method": "GET",
+      "path": "/^\\/.*embed.*js\\/.*/",
+      "reason": "Static proxy/routing tail retained in Node; unmatched API GET behavior is separately recorded by the mandatory proxied-HTML oracle."
+    },
+    {
       "id": 197,
       "method": "GET",
       "path": "/^\\/report_bundle.*\\.js$/",
@@ -329,6 +419,18 @@
       "id": 199,
       "method": "GET",
       "path": "/.*\\//",
+      "reason": "Static proxy/routing tail retained in Node; unmatched API GET behavior is separately recorded by the mandatory proxied-HTML oracle."
+    },
+    {
+      "id": 200,
+      "method": "GET",
+      "path": "/^\\/[^(api\\/)]?.*/",
+      "reason": "Disabled missingFilesGet404=true branch; absent in default configuration. Must remain absent in runtime census."
+    },
+    {
+      "id": 201,
+      "method": "GET",
+      "path": "/^\\/[^(api\\/)]?.*/",
       "reason": "Static proxy/routing tail retained in Node; unmatched API GET behavior is separately recorded by the mandatory proxied-HTML oracle."
     },
     {
