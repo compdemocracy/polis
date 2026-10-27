@@ -14,6 +14,7 @@ db-tests = []
 base64 = "0.22"
 serde_json = "1"
 postgres = "0.19"
+openssl = "0.10"
 jsonwebtoken = "9"
 hmac = "0.13"
 sha2 = "0.11"
@@ -26,7 +27,6 @@ tracing = "0.1"
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "net", "io-util"] }
 polis-migrate = { path = "../polis-migrate" }
-openssl = "0.10"
 serde_json = "1"
 
 [lints.clippy]
