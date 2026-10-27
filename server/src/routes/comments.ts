@@ -1,5 +1,4 @@
 import _ from "underscore";
-import { ManagementClient } from "auth0";
 
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
@@ -7,12 +6,11 @@ import { failJson } from "../utils/fail";
 import { parseSeedCsv } from "../utils/seedCsv";
 import { getConversationInfo } from "../conversation";
 import { getNextComment, checkInitialComment } from "../nextComment";
-import { getPidPromise, getUserInfoForUid2 } from "../user";
+import { getPidPromise } from "../user";
 import { getZinvite } from "../utils/zinvite";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
-import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import {
@@ -98,12 +96,6 @@ interface PolisRequest {
   };
   timedout?: any;
 }
-
-const managementClient = new ManagementClient({
-  domain: Config.authDomain!,
-  clientId: Config.authClientId!,
-  clientSecret: Config.authClientSecret!,
-});
 
 // The unique index on a conversation's statement texts, (zid, txt). A database
 // built from the migrations names it comments_zid_txt_key; databases whose
@@ -297,36 +289,6 @@ function addNotificationTask(zid: number): Promise<any> {
     "insert into notification_tasks (zid) values ($1) on conflict (zid) do update set modified = now_as_millis();",
     [zid]
   ).catch((error) => logger.warn("notification_task_deferred", { error }));
-}
-
-export async function isProConvo(owner: number): Promise<boolean> {
-  try {
-    const { email } = await getUserInfoForUid2(owner);
-    if (!email) {
-      logger.warn(`No email found for owner ID: ${owner}`);
-      return false;
-    }
-    const users = await managementClient.usersByEmail.getByEmail({ email });
-
-    if (!users || users.data.length === 0) {
-      logger.warn(`No OIDC user found for email: ${email}`);
-      return false;
-    }
-    const user = users.data[0];
-    const userId = user.user_id;
-
-    if (!userId) {
-      logger.error(`OIDC user object for ${email} is missing a user_id.`);
-      return false;
-    }
-    const roles = await managementClient.users.getRoles({ id: userId });
-    const hasRole = roles.data.some((role) => role.name === "delphi-enabled");
-
-    return hasRole;
-  } catch (error) {
-    logger.error(error);
-    return false;
-  }
 }
 
 function moderateCommentQuery(
