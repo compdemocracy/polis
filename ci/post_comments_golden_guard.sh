@@ -13,7 +13,11 @@ status=0
 
 recorded=$(printf '%s\n' "$changed" |
   grep -E '^server/characterization/|^ci/post_comments_golden_guard\.sh$|^\.github/workflows/post-comments-recordings\.yml$' |
-  grep -v '^server/characterization/post-comments/expected-differences\.json$' || true)
+  grep -v '^server/characterization/post-comments/expected-differences\.json$' |
+  # The route inventory and its scope are a census of the registrations the
+  # code declares, not a recording: the identity recordings map observed route
+  # hits through it, so a route removal must update it in the same change.
+  grep -vE '^server/characterization/(inventory\.json|scope\.json)$' || true)
 code=$(printf '%s\n' "$changed" |
   grep -E '^server/(src/|app\.ts$|index\.ts$|package\.json$|package-lock\.json$|postgres/)|^delphi/umap_narrative/reset_conversation\.py$' || true)
 if [ -n "$recorded" ] && [ -n "$code" ]; then

@@ -174,12 +174,18 @@ fn recorded_node_and_rust_tokens_cross_verify() {
                 if let Some(c) = verified {
                     assert_eq!(c, case["claims"]);
                 }
-                let scoped = participant.verify_for_request(
-                    &format!("Bearer {token}"),
-                    CONVERSATION,
-                    None,
-                    NOW,
-                );
+                let scoped = participant
+                    .verify_for_request(
+                        &format!("Bearer {token}"),
+                        CONVERSATION,
+                        None,
+                        NOW,
+                        &mut polis_auth::xid_account::Check {
+                            db: &mut |_| Ok(None),
+                            admin_uids: &[],
+                        },
+                    )
+                    .unwrap();
                 assert_eq!(
                     scoped.is_some(),
                     variant == "valid",

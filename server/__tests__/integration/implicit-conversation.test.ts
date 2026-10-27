@@ -154,4 +154,152 @@ describe("implicit embed conversations", () => {
     });
   });
 
+  async function counts() {
+    const { rows } = await pool.query(
+      `SELECT
+         (SELECT count(*)::int FROM conversations WHERE owner = $1) AS conversations,
+         (SELECT count(*)::int FROM page_ids WHERE site_id = $2) AS pages,
+         (SELECT count(*)::int FROM zinvites z JOIN conversations c ON c.zid = z.zid
+          WHERE c.owner = $1) AS invites`,
+      [owner, siteId]
+    );
+    return rows[0];
+  }
+
+  test.each([150, 2000])(
+    "a %i-character page creates once and the next visit reuses it",
+    async (length) => {
+      const page = "p".repeat(length);
+      const before = await counts();
+      const first = await visit(siteId, page);
+      const second = await visit(siteId, page);
+      expect(first.status).toBe(302);
+      expect(second.status).toBe(302);
+      expect(second.headers.location).toBe(first.headers.location);
+      expect(await pageRows(page)).toHaveLength(1);
+      expect(await counts()).toEqual({
+        conversations: before.conversations + 1,
+        pages: before.pages + 1,
+        invites: before.invites + 1,
+      });
+    }
+  );
+
+  test.each(["page_id", "site_id"])(
+    "a 2,001-character %s answers 400 before any database access",
+    async (name) => {
+      const before = await counts();
+      const transaction = jest.spyOn(pg, "withTransaction");
+      const read = jest.spyOn(pg, "queryP_readOnly");
+      const response = await visit(
+        name === "site_id" ? "polis_site_id" + "s".repeat(1988) : siteId,
+        name === "page_id" ? "p".repeat(2001) : "oversized-site"
+      );
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe(`polis_err_${name}_length_1_to_2000`);
+      expect(transaction).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+      expect(await counts()).toEqual(before);
+    }
+  );
+
+  test("a missing or empty page answers 400 without writes", async () => {
+    const before = await counts();
+    for (const path of [`/${siteId}`, `/${siteId}/`]) {
+      const response = await request(app)
+        .get(path)
+        .query({ parent_url: parentUrl });
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe("polis_err_page_id_length_1_to_2000");
+    }
+    expect(await counts()).toEqual(before);
+  });
+
+  test.each(["page_ids", "zinvites"])(
+    "a failing %s insert rolls back every row",
+    async (table) => {
+      const before = await counts();
+      const transaction = pg.withTransaction.bind(pg);
+      let attemptedZid: number | undefined;
+      jest.spyOn(pg, "withTransaction").mockImplementation((callback) =>
+        transaction(async (client) => {
+          const query = client.query.bind(client);
+          jest.spyOn(client, "query").mockImplementation((async (
+            sql: any,
+            params: any
+          ) => {
+            if (new RegExp(`insert into ${table}`, "i").test(String(sql))) {
+              attemptedZid = table === "page_ids" ? params[2] : params[0];
+              return query("SELECT 1 / 0");
+            }
+            return query(sql, params);
+          }) as any);
+          return callback(client);
+        })
+      );
+      const response = await visit(siteId, `failed-${table}`);
+      expect(response.status).toBe(500);
+      expect(attemptedZid).toEqual(expect.any(Number));
+      expect(await counts()).toEqual(before);
+      for (const tableName of ["conversations", "page_ids", "zinvites"]) {
+        const { rows } = await pool.query(
+          `SELECT zid FROM ${tableName} WHERE zid = $1`,
+          [attemptedZid]
+        );
+        expect(rows).toHaveLength(0);
+      }
+    }
+  );
+
+  test("two simultaneous first visits roll back the loser and redirect to one conversation", async () => {
+    const page = "concurrent-first-visit";
+    const before = await counts();
+    const read = pg.queryP_readOnly.bind(pg);
+    let arrivals = 0;
+    let release!: () => void;
+    const bothLookedUp = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    jest
+      .spyOn(pg, "queryP_readOnly")
+      .mockImplementation(async (sql, params) => {
+        const rows = await read(sql, params);
+        if (
+          String(sql).startsWith("select * from page_ids") &&
+          params[1] === page
+        ) {
+          expect(rows).toEqual([]);
+          if (++arrivals === 2) release();
+          await bothLookedUp;
+        }
+        return rows;
+      });
+    const transaction = pg.withTransaction.bind(pg);
+    let collisions = 0;
+    jest.spyOn(pg, "withTransaction").mockImplementation(async (callback) => {
+      try {
+        return await transaction(callback);
+      } catch (error: any) {
+        if (
+          error.code === "23505" &&
+          error.constraint === "page_ids_site_id_page_id_key"
+        )
+          collisions++;
+        throw error;
+      }
+    });
+    const responses = await Promise.all([
+      visit(siteId, page),
+      visit(siteId, page),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([302, 302]);
+    expect(responses[0].headers.location).toBe(responses[1].headers.location);
+    expect(collisions).toBe(1);
+    expect(await pageRows(page)).toHaveLength(1);
+    expect(await counts()).toEqual({
+      conversations: before.conversations + 1,
+      pages: before.pages + 1,
+      invites: before.invites + 1,
+    });
+  });
 });

@@ -25,7 +25,7 @@ separately from a forbidden decision, without leaking database diagnostics.
 
 `PostgresLookup` uses synchronous workspace transport conventions. A future
 async handler must call it through its own bounded blocking/read pool, with
-acquire and statement deadlines. This library creates no pool or locks and is
+acquire and statement deadlines. Authority lookup creates no pool or locks and is
 not connected to the vote, comment or next-statement paths. No load-isolation
 claim follows from these unit tests; deployment and route integration need
 their own conformance and contention tests.
@@ -50,7 +50,8 @@ trusted clock and bounded primary-read connection; keys are not fetched remotely
 
 The opt-in `participant::Verifier::verify_for_request` also scopes XID tokens
 and request XIDs, returning an identity without granting membership. It performs
-no lookup or write and is not called by any route; `verify` still hands XID
+a primary account lookup for each verified XID token, before request scoping
+can drop its UID, and is not called by any route; `verify` still hands XID
 tokens back to Node. Cross-language coverage lives in
 `tests/participant_jwt_interop.rs` and
 `server/__tests__/unit/participant-jwt-interop.test.ts`; request identity rules
@@ -60,3 +61,91 @@ The `observability` module provides fixed-label process counters; `probes/`
 contains offline aggregate SQL queries. See
 [Identity observability](../polis-api/IDENTITY_OBSERVABILITY.md) for semantics,
 permissions and execution limits.
+
+## Staged admission (switched off and never served)
+
+`admission::admit` has no serving callers, route, environment switch or pool.
+It accepts already verified identity evidence and a caller-owned primary
+connection. It commits user creation, membership, the optional XID binding,
+invite consumption and prepared recovery material in one Rust transaction.
+No migration or Postgres admission function is added. The existing participant
+allocator supplies the PID, including zero, and holds its transaction lock
+until commit. Returning identities are looked up on primary; anonymous UIDs
+are never reused in a different conversation. The exact conversation owner
+keeps the Treevite bypass; moderators and administrators do not acquire it.
+An XID resolving to any conversation owner, owner-flagged account, same-site
+moderator, configured administrator or OIDC-mapped account is refused with
+`polis_err_xid_owner_account`, matching the Node account guard.
+
+The invite row is locked before any identity write. Closed conversations and
+the identity gates refuse without committed writes. Uniqueness races roll
+back the whole attempt and re-resolve, with three attempts maximum. Lock and
+statement timeouts are five seconds; lock timeouts are not retried. A final
+locked open check follows the participant allocator so a concurrent close
+cannot admit a new member, and the conversation/advisory lock order is not
+inverted. Sequence values may be consumed by rollback, as in PostgreSQL;
+participant rows, numbers and counts are rolled back together.
+
+`PreparedRecovery` must come from a bounded crypto worker that generated the
+code and computed bcrypt and the existing peppered lookup before admission.
+Only the inexpensive PID-dependent HMAC runs while holding the allocator lock.
+`VerifiedLogin` is evidence of an external bcrypt check; admission rechecks the
+exact hash, lookup and revocation under a row lock. It does not itself verify
+an untrusted login code. Signing and child-wave issuance are separate work
+after commit, never callbacks inside the transaction. OIDC first-use
+provisioning and retired cookie/single-use-invite paths are outside this module.
+
+This function is not a complete credential endpoint. A commit error is
+`CommitUnknown`, not permission to retry. A lost response, failed post-commit
+signing or child issuance still needs a client-bound recovery/delivery protocol
+before serving can be considered. No new expiry or revocation policy is added.
+The staged function creates no participation traffic or resource contention;
+future integration must use bounded participation capacity and separately
+budget cryptography and child issuance. These tests do not establish full-stack
+load isolation or safe mixed Node/Rust invite admission.
+
+The shared `scripts/test-polis-auth.sh` entry point also runs admission tests
+against isolated fixture schemas, with the real Treevite DDL and the allocator
+function from migration 000044. They force simultaneous invite contenders,
+check the losing identity cannot recover unauthorized membership, inject SQL
+failures at each write boundary and at commit, and exercise concurrent XID and
+account joins. `admission_recordings.rs` compares the admission projection of
+committed Node recordings: UID/PID, row creation, identity links, recovery
+material and exact gate-refusal bodies. It does not claim full HTTP byte parity
+for an endpoint that is not implemented or routed. Node's recorded orphan-user
+and unbound-participant failures are pinned as deliberate atomicity deltas.
+||||||| 958aa56e5
+
+The XID account guard mirrors Node: configured numeric administrator UIDs,
+conversation owners, the owner flag, users sharing a site with any conversation
+owner, then OIDC mappings. It uses one indexed `EXISTS` query on the primary,
+without writes, row locks, network calls or a new pool. NULL sites do not match;
+empty sites do. Missing accounts retain Node's existing token handling.
+
+Pass `xid_account::Check` to `verify_for_request`. An invalid credential is
+`Ok(None)`; a privileged XID is `Err(Refusal::Privileged(class))`. Query failure
+is `Err(Refusal::CheckFailed)`, never admission. At an HTTP boundary consume the
+refusal with `into_response(&observability::PROCESS)` and return its status and
+body verbatim as JSON. This emits one warning containing only the fixed error
+and class, and increments `xid.refused.<class>` in the existing health document.
+The same code is used for all five 403 classes; the class is not sent to clients.
+Database failure matches Node's 500 participant-creation refusal and
+`xid.refused.check_failed` counter.
+
+Admission and minting are not implemented in this crate yet. Their callers must
+use `Check::require_participant` on the resolved UID before enrolling a bare XID
+or signing/reissuing its credential, including after resolving a request XID
+under another conversation owner. A check is current evidence, not a reusable
+permission to mint. This change adds no routes and admits no new serving traffic.
+The participation path therefore has no new work or shared resources. Future
+callers must use bounded primary connections and the same response boundary.
+
+`conformance/record-xid-accounts.cjs` runs from a built Node server directory
+with the Node account guard installed. It generates local users and keys,
+refuses non-loopback socket connections, then records bare-XID and existing-token
+HTTP responses for every class and a plain participant. Pass the output filename
+as its argument. The committed fixture lives in
+`../polis-contracts/tests/fixtures/xid-account.json`; all identities there are
+generated. No private key is retained. `scripts/test-polis-auth.sh` applies the
+repository migrations to its disposable database before running the real-table
+integration test; it must never point at an existing installation.
