@@ -256,7 +256,6 @@ Every database read runs in a `READ ONLY` transaction with a 3 s statement timeo
 
 (Requirements depend on the selected integration and launch path. Missing values do not universally disable a feature cleanly; constructors and request paths can fail. See the [service inventory](deployment-configuration.md#external-service-touchpoints).)
 
-- **`AKISMET_ANTISPAM_API_KEY`** Comment spam detection and filtering.
 - **`GA_TRACKING_ID`** For using Google Analytics on client pages.
 - **`GOOGLE_CREDENTIALS_BASE64`** Required if using Google Translate API. (See below).
 - **`GOOGLE_CREDS_STRINGIFIED`** Alternative to **`GOOGLE_CREDENTIALS_BASE64`** (See below).

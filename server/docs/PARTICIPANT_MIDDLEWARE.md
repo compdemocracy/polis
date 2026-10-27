@@ -98,7 +98,6 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
 async function handle_POST_votes(req: VoteRequest, res: any) {
   // 100+ lines of participant management logic:
   // - Handle JWT conversation mismatches
-  // - Check legacy cookies
   // - Create anonymous users
   // - Get or create participants
   // - Issue JWTs
