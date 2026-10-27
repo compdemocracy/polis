@@ -282,6 +282,7 @@ pub struct App {
     pub next_comment_priorities: Arc<crate::next_comment::Priorities>,
     pub next_comment_db: Option<Arc<Pool>>,
     pub next_comment_plain: bool,
+    pub post_votes: Option<crate::post_votes::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -536,6 +537,7 @@ impl App {
             next_comment_priorities: Arc::new(crate::next_comment::Priorities::new(cfg.cache_size)),
             next_comment_db: None,
             next_comment_plain: false,
+            post_votes: None,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -991,6 +993,11 @@ fn escape_html(s: &str) -> String {
 
 /// connect's `finalhandler@0.4.0` answering `next(err)` (`err` a string) or,
 /// with `err` absent, the 404 for an unmatched route.
+pub(crate) fn parameter_error(app: &App, req: &Request, mut res: Res) -> Outgoing {
+    res.status = 400;
+    final_handler(app, req, res, Some("Bad Request"), true)
+}
+
 fn final_handler(
     app: &App,
     req: &Request,
@@ -1172,7 +1179,7 @@ pub fn bad_gateway() -> Outgoing {
 
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
-    let (out, cache) = crate::pca::CACHE_OUTCOME
+    let (mut out, cache) = crate::pca::CACHE_OUTCOME
         .scope(std::cell::Cell::new("none"), async {
             let out = serve(&app, &req).await;
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
@@ -1258,7 +1265,17 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.locations_served.fetch_add(1, Ordering::Relaxed);
         }
     }
-    if crate::votes_read::matches(req.path()) {
+    if req.path() == crate::post_votes::PATH && req.method == "POST" {
+        if out.status == 502 {
+            crate::post_votes::mark_handback(&mut out);
+        }
+        crate::post_votes::observe(&out);
+    }
+    if crate::votes_read::matches(req.path())
+        && !(req.path() == crate::post_votes::PATH
+            && req.method == "POST"
+            && app.post_votes.is_some())
+    {
         if out.status == 502 {
             app.votes_read_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
@@ -1857,7 +1874,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
+    if crate::votes_read::matches(req.path())
+        && !(req.path() == crate::post_votes::PATH && req.method == "POST")
+        && crate::votes_read::parse(app, req).is_none()
+    {
         return bad_gateway();
     }
     if req.path() == crate::metadata_questions::PATH
@@ -1935,6 +1955,12 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         return bad_gateway();
     }
     if req.path() == crate::next_comment::PATH && !crate::next_comment::eligible(app, req) {
+        return bad_gateway();
+    }
+    if req.path() == crate::post_votes::PATH
+        && req.method == "POST"
+        && !crate::post_votes::eligible(app, req)
+    {
         return bad_gateway();
     }
     // redirectIfNotHttps (domain.ts), ahead of every other middleware.
@@ -2015,6 +2041,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         let mut res = res;
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
+    }
+    if req.path() == crate::post_votes::PATH && req.method == "POST" {
+        return crate::post_votes::handle(app, req, res).await;
     }
     if req.path() == crate::metadata_query::PATH {
         return crate::metadata_query::handle(app, req, res).await;
