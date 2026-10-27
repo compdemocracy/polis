@@ -90,10 +90,15 @@ add("oidc-first-use", "votes", {
 add("oidc-repeat", "votes", { auth: "oidc-first" });
 add("pc-anonymous", "votes", {
   cookie: "generated-anonymous-cookie",
+  users: 1,
+  participants: 1,
   token: "anonymous",
 });
 add("pc-xid", "votes", {
   cookie: "generated-xid-cookie",
+  users: 1,
+  participants: 1,
+  xids: 1,
   token: "xid",
   xid: "generated-cookie-member",
 });

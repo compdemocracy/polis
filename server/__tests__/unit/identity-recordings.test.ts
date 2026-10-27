@@ -65,7 +65,9 @@ it.each(cases)(
     }
     if (spec.name === "pc-xid") {
       expect(e.before.xids.some((x: any) => x.xid === spec.xid)).toBe(false);
-      expect(e.after.xids.some((x: any) => x.xid === spec.xid)).toBe(false);
+      expect(e.after.xids.find((x: any) => x.xid === spec.xid).uid).toBe(
+        (jwt.decode(body.auth.token) as any).uid
+      );
     }
     if (["oidc-account", "oidc-extraction"].includes(spec.name))
       expect(body.details).toBeUndefined();
