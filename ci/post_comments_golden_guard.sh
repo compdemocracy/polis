@@ -22,7 +22,7 @@ recorded=$(printf '%s\n' "$changed" |
   # The route inventory and its scope are a census of the registrations the
   # code declares, not a recording: the identity recordings map observed route
   # hits through it, so a route removal must update it in the same change.
-  grep -vE '^server/characterization/(inventory\.json|scope\.json)$' || true)
+  grep -vE '^server/characterization/(inventory\.json|scope\.json|route-inventory\.cjs|route-inventory\.test\.cjs)$' || true)
 code=$(printf '%s\n' "$changed" |
   grep -E '^server/(src/|app\.ts$|index\.ts$|package\.json$|package-lock\.json$|postgres/)|^delphi/umap_narrative/reset_conversation\.py$' || true)
 if [ -n "$recorded" ] && [ -n "$code" ]; then
