@@ -1,0 +1,19 @@
+{
+  "source_commit": "4ca9f6369850e81c6c5ae4554da2f69e6f91add2",
+  "node_handler": "server/src/routes/version.ts",
+  "node_version": "22.23.3",
+  "recording": "Unchanged Node handleVersion loaded in Express from an offline server conformance image. Source-only fallback has no generated module.",
+  "build_inputs": {
+    "VERSION": "2.42.2",
+    "GIT_HASH": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "POLIS_BUILD_DISTANCE": "7",
+    "POLIS_BUILD_TAG": "",
+    "POLIS_BUILD_SOURCE": "clean-checkout"
+  },
+  "sha256": {
+    "server/src/routes/version.ts": "05180c766267e1bb271de258cb62b56e6800274b29dd242bae97ceb6dcdb3006",
+    "scripts/build_identity.py": "c517ca6f048059b453b32d7d80c5f147ef15febf358187e311850ecb49582796",
+    "queue-rs/polis-contracts/src/fixtures/version.json": "e9c72d8a094c9aa5afeb4dfe7a32de2dd4ededc8ad4f2162a1e9ece18a13515c",
+    "queue-rs/polis-contracts/src/fixtures/version-fallback.json": "15658e0395c56f9c87cb318d7793747e14d33cea20440b1cd2853ed516cc9082"
+  }
+}

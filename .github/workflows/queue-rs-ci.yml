@@ -171,13 +171,18 @@ jobs:
       - name: Release build
         run: cargo build --locked --release -p polis-api
       - name: Docker image
-        run: docker build -t polis-api:ci -f polis-api/Dockerfile .
+        run: docker build --build-arg GIT_HASH="$GITHUB_SHA" -t polis-api:ci -f polis-api/Dockerfile ..
+      - name: Version bytes from both images
+        working-directory: .
+        run: |
+          docker build --build-arg GIT_HASH="$GITHUB_SHA" -t polis-version-server:ci -f server/Dockerfile .
+          python3 queue-rs/polis-api/conformance/version-images.py --node-image polis-version-server:ci --rust-image polis-api:ci
       - name: Image trust store and deploy health predicate
         working-directory: .
         run: |
           bash queue-rs/polis-api/conformance/image-start.sh
           python3 -m unittest discover -s scripts/tests -p test_api_health.py -v
-      - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
+      - name: nginx routing switch, static assets and local 404s
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh
       - name: Public statement importance contract (isolated metadata fixture)

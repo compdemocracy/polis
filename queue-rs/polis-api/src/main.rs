@@ -23,6 +23,7 @@ mod create_page;
 mod database;
 mod db;
 mod perf_stats;
+mod version;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
 // on, compiled from the contracts crate as the route contracts are. The
 // run-record route uses only part of them. rustfmt leaves them to their own
@@ -76,6 +77,15 @@ mod params;
 mod participants_read;
 mod participation_read;
 mod pca;
+mod post_votes;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/auth_envelope.rs"]
+mod auth_envelope;
+#[allow(dead_code, clippy::collapsible_if)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/post_votes.rs"]
+mod post_votes_contract;
 mod ptptois;
 mod recent_activity;
 mod recent_started;
@@ -155,7 +165,8 @@ fn health_response(
                 && value == "1"
                 && (key.ends_with("_READS")
                     || key.ends_with("_WRITES")
-                    || key == "POLIS_API_OWNER_LIST"))
+                    || key == "POLIS_API_OWNER_LIST"
+                    || key == "POLIS_API_POST_VOTES"))
                 .then_some(js::Js::Str(key))
         })
         .collect();
@@ -163,6 +174,7 @@ fn health_response(
     routing.set("enabledSwitches", js::Js::Arr(switches));
     body.set("routing", js::Js::Obj(routing));
     body.set("identity", identity_observability::snapshot(counters));
+    body.set("postVotes", post_votes::health(app));
     body.set(
         "participantKeysLoaded",
         js::Js::Bool(app.participant_keys.is_some()),
@@ -725,6 +737,7 @@ async fn dispatch_at_clock(
         route::PATH
         | comments::PATH
         | next_comment::PATH
+        | version::PATH
         | connection::PATH
         | perf_stats::PATH
         | robots::PATH
@@ -838,6 +851,7 @@ async fn main() -> Result<()> {
             state.conversation_pages[i] = conversation_pages::Client::from_env_for(switch).await?;
         }
     }
+    state.post_votes = post_votes::Writer::from_env()?;
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")
@@ -924,6 +938,8 @@ async fn main() -> Result<()> {
         ));
         state.report_export_utc = std::env::var("TZ").ok().as_deref() == Some("UTC");
     }
+    version::initialize();
+    state.version_reads = std::env::var("POLIS_API_VERSION_READS").ok().as_deref() == Some("1");
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
@@ -1933,7 +1949,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 143);
+            assert_eq!(body.as_object().unwrap().len(), 144);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],
@@ -1961,6 +1977,7 @@ mod health_tests {
     fn health_reports_only_explicit_route_switches_in_sorted_order() {
         let environment = [
             ("POLIS_API_ROBOTS_READS", "1"),
+            ("POLIS_API_POST_VOTES", "1"),
             ("POLIS_API_OWNER_LIST", "1"),
             ("POLIS_API_TOPIC_SELECTION_WRITES", "1"),
             ("POLIS_API_START", "1"),
@@ -1984,7 +2001,7 @@ mod health_tests {
             body["routing"],
             json!({
                 "configuredRoutes": "pca2,robots",
-                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
+                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_POST_VOTES", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
             })
         );
     }

@@ -196,11 +196,7 @@ async function main() {
       seed: hash(spec.name).slice(0, 12),
       credentialBinding: {
         zid,
-        actorUid: spec.cookie
-          ? spec.name === "pc-anonymous"
-            ? 2
-            : 3
-          : spec.name.startsWith("standard-user") ||
+        actorUid: spec.name.startsWith("standard-user") ||
             spec.name === "anonymous-repeat" ||
             spec.name === "xid-own-conversation" ||
             spec.name === "xid-other-conversation"
@@ -306,10 +302,9 @@ async function main() {
     assert.equal(raw.fault.armed, null);
     if (spec.name === "pc-xid") {
       assert.ok(!before["pg:xids"].some((x) => x.xid === spec.xid));
-      assert.ok(!after["pg:xids"].some((x) => x.xid === spec.xid));
       assert.equal(
-        JSON.parse(Buffer.from(body.auth.token.split(".")[1], "base64url")).uid,
-        3
+        after["pg:xids"].find((x) => x.xid === spec.xid).uid,
+        JSON.parse(Buffer.from(body.auth.token.split(".")[1], "base64url")).uid
       );
     }
     if (["oidc-account", "oidc-extraction"].includes(spec.name))

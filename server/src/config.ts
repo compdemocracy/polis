@@ -93,7 +93,6 @@ export default {
   adminEmailEmailTest: process.env.ADMIN_EMAIL_EMAIL_TEST as string,
   adminEmails: process.env.ADMIN_EMAILS || "[]",
   adminUIDs: process.env.ADMIN_UIDS || "[]",
-  akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
   applicationName: process.env.APPLICATION_NAME || null,
   authAudience: process.env.AUTH_AUDIENCE || null,
