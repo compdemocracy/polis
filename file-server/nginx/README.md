@@ -2,7 +2,7 @@
 
 Every nginx startup renders `RUST_API_ROUTES` from its container environment
 (empty by default), including on an initialized routing volume. An unset or
-empty list starts all routes on Node regardless of the persisted selection.
+empty list starts all switchable routes on Node regardless of the persisted selection.
 `/var/lib/polis-routing/current/routes` records the last applied live selection;
 it does not override deployment settings. A hot switch lasts until the next
 switch or startup. Persist the desired list in the deployment environment too
@@ -89,3 +89,34 @@ then removes only that project's containers, network, volume and built image
 tag. Diagnostic logs are printed before cleanup. The second is
 the existing route-contract suite; set `X54_NGINX_PREFIX` uniquely when sharing a
 Docker host.
+
+# Edge routing
+
+The proxy has an explicit route list; see [the routing table](ROUTING.md).
+Known assets go directly to `file-server:${STATIC_FILES_PORT:-8080}`, preserving
+its cache, compression and content headers. Application API and page routes
+keep their existing Node or selected Rust destination. Node's catch-all stays
+registered for page handling, but unmatched edge paths no longer reach it.
+
+An unmatched path uses `return 404` locally. The njs module already shipped in
+the nginx base image formats the same HTML as the file-server's `finalhandler`,
+including the method and escaped original path, omitting the query. HEAD has
+no body and retains the corresponding content length. No upstream is needed
+for this response. `/404.html` is a separate public document, not the body of
+an unknown-path response.
+
+The existing routing conformance entry point also checks every emitted asset
+in the file-server image, API methods and page families in both route selections,
+Node's access log, and local 404s with both Node and file-server stopped:
+
+```sh
+queue-rs/polis-api/conformance/nginx-routing.sh
+```
+
+For an offline run, supply locally built `NGINX_TEST_IMAGE` and
+`NGINX_FILE_SERVER_IMAGE`. The latter must contain the real file-server and
+client build outputs. Additional positive fixtures cover newer asset families
+when that cached image predates them. `NGINX_RENDERED_DIR` optionally saves
+`nginx -T` output for the tested routes-off and routes-on selections. The
+harness owns a unique container/network prefix and uses ephemeral loopback
+ports. `X54_NGINX_PREFIX` can override that prefix.
