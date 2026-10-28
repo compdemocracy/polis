@@ -18,8 +18,39 @@
       "cases": ["accept-pid-zero-forks", "accept-anonymous-other-conversation"],
       "baseline": "PID zero forks a new user; a positive-PID anonymous token from another conversation reuses its UID.",
       "target": "Reuse same-conversation PID zero and keep anonymous identity local to its conversation."
+    },
+    {
+      "id": "wave-atomicity",
+      "cases": [
+        "concurrent-wave-creates",
+        "wave-mid-issuance-failure"
+      ],
+      "ruling": "One transaction per wave; no short waves after failure.",
+      "baseline": "Node allocates MAX(wave) without serialization and autocommits the wave and each root invite before later issuance.",
+      "target": "Rust serializes numbering under a conversation advisory lock and rolls back all wave and invite rows on issuance failure. Successful response bytes are unchanged."
+    },
+    {
+      "id": "wave-sanity-stops",
+      "cases": [
+        "wave-conversation-cap",
+        "wave-owner-cap",
+        "wave-future-capacity"
+      ],
+      "ruling": "TQ2: surge is never throttled. Operator-overridable sanity stops of 250000 codes per conversation and 1000000 per owner. TQ4: no new tables; count inside the wave transaction.",
+      "baseline": "Node has no code ceilings and can promise unbounded child issuance.",
+      "target": "Before any insert, Rust derives every wave reservation from all actual parent codes and outstanding ancestor obligations times invites_per_user plus owner_invites, bounded below by its own actual codes in all statuses; cached response size is separate. It sums these reservations across existing descendants and the proposed wave. The owner lock serializes checks across its conversations. Settings POLIS_API_TREEVITE_CONVERSATION_CODE_CAP and POLIS_API_TREEVITE_OWNER_CODE_CAP override the defaults. Refusal is 409 polis_err_treevite_conversation_code_cap or polis_err_treevite_owner_code_cap with no wave/invite insert."
+    },
+    {
+      "id": "wave-terminal-failures",
+      "cases": [
+        "wave-transaction-deadline",
+        "wave-commit-unknown"
+      ],
+      "ruling": "Bound administrative work on its own pool and deadline; never replay a possibly committed write.",
+      "baseline": "Node reports a generic 500 after partial issuance or a failed final read.",
+      "target": "Rust bounds its entire issuance loop and each statement, rolls back known failures, and never returns a handoff after dispatch. Unknown commit or outer deadline returns 503 polis_err_treevite_wave_outcome_unknown, with no automatic retry."
     }
   ],
-  "surge_ruling": "TQ2: surge is never throttled. This small functional corpus does not measure capacity or add throttling. Conversation and owner ceilings are sanity stops; wave repeat controls and capacity reservation are separate work.",
+  "surge_ruling": "TQ2: surge is never throttled. This small functional corpus does not measure capacity or add throttling. Conversation and owner ceilings are sanity stops. The staged Rust wave writer reserves potential capacity in existing wave rows; repeat controls are separate work.",
   "observed_policy": "Treevite disabled is not a refusal on these routes. An allow-listed bare XID plus invite admits a fresh anonymous participant; a verified existing XID bearer follows the TQ1 conversion case."
 }
