@@ -140,6 +140,7 @@ pub struct Outgoing {
 pub fn reason_text(status: u16) -> &'static str {
     match status {
         200 => "OK",
+        202 => "Accepted",
         204 => "No Content",
         302 => "Found",
         304 => "Not Modified",
@@ -148,6 +149,7 @@ pub fn reason_text(status: u16) -> &'static str {
         403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        406 => "Not Acceptable",
         409 => "Conflict",
         413 => "Payload Too Large",
         500 => "Internal Server Error",
@@ -308,7 +310,11 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
                 .next()
                 .is_some_and(|path| path == crate::topic_selections::PATH)
         });
-    let mut hand_back = transfer_encoded && write_path;
+    let vote_path = req.method == Some("POST")
+        && req
+            .path
+            .is_some_and(|p| p.split('?').next() == Some(crate::post_votes::PATH));
+    let mut hand_back = transfer_encoded && (write_path || vote_path);
     if transfer_encoded && !hand_back {
         bail!("chunked request bodies are not accepted");
     }
@@ -319,7 +325,9 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         Some(v) => v.trim().parse::<usize>()?,
         None => 0,
     };
-    if write_path && body_len > crate::topic_selection_writes::MAX_BODY_BYTES {
+    if (write_path && body_len > crate::topic_selection_writes::MAX_BODY_BYTES)
+        || (vote_path && body_len > crate::post_votes::MAX_BODY_BYTES)
+    {
         hand_back = true;
         body_len = 0;
     }
@@ -418,6 +426,12 @@ where
             // No body is decoded or dispatched. Close so unread body bytes can
             // never be interpreted as another request on this connection.
             let mut response = crate::route::bad_gateway();
+            if head.method == "POST"
+                && head.target.split('?').next() == Some(crate::post_votes::PATH)
+            {
+                crate::post_votes::mark_handback(&mut response);
+                crate::post_votes::observe(&response);
+            }
             response.close = true;
             let bytes = write_response_for(&response, false, false, head.http10, &date_now())?;
             tokio::time::timeout_at(deadline, socket.write_all(&bytes)).await??;
@@ -477,6 +491,89 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn oversized_fixed_length_votes_hand_back_without_dispatch_or_body() {
+        for suffix in ["", "?unsupported=true"] {
+            for length in [crate::post_votes::MAX_BODY_BYTES + 1, LIMIT + 1, usize::MAX] {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let server = tokio::spawn(async move {
+                    let (socket, _) = listener.accept().await.unwrap();
+                    connection(
+                        socket,
+                        Arc::new(|_| async { panic!("oversized vote must never be dispatched") }),
+                    )
+                    .await
+                    .unwrap();
+                });
+                let mut client = TcpStream::connect(address).await.unwrap();
+                client.write_all(format!("POST /api/v3/votes{suffix} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {length}\r\n\r\n").as_bytes()).await.unwrap();
+                let mut response = Vec::new();
+                tokio::time::timeout(Duration::from_secs(1), client.read_to_end(&mut response))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let response = String::from_utf8(response).unwrap();
+                assert!(
+                    response.starts_with("HTTP/1.1 502 Bad Gateway\r\n"),
+                    "{response}"
+                );
+                assert!(response.contains("Connection: close\r\n"));
+                server.await.unwrap();
+            }
+        }
+        // Other routes retain the general limit, including overflow-safe rejection.
+        for length in [LIMIT + 1, usize::MAX] {
+            assert!(parse_head(format!("POST /other HTTP/1.1\r\nHost: localhost\r\nContent-Length: {length}\r\n\r\n").as_bytes()).is_err());
+        }
+        let head = parse_head(
+            format!(
+                "POST /api/v3/votes HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n",
+                crate::post_votes::MAX_BODY_BYTES
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!head.hand_back);
+        assert_eq!(head.body_len, crate::post_votes::MAX_BODY_BYTES);
+    }
+
+    #[tokio::test]
+    async fn chunked_votes_hand_back_before_dispatch_and_close() {
+        for suffix in ["", "?unsupported=true"] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (socket, _) = listener.accept().await.unwrap();
+                connection(
+                    socket,
+                    Arc::new(|_| async {
+                        panic!("transfer-encoded vote must never reach the handler")
+                    }),
+                )
+                .await
+                .unwrap();
+            });
+            let mut client = TcpStream::connect(address).await.unwrap();
+            // Send only the head: hand-back must not wait for unknown framing.
+            client.write_all(format!("POST /api/v3/votes{suffix} HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n").as_bytes()).await.unwrap();
+            let mut response = Vec::new();
+            tokio::time::timeout(Duration::from_secs(1), client.read_to_end(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            let response = String::from_utf8(response).unwrap();
+            assert!(
+                response.starts_with("HTTP/1.1 502 Bad Gateway\r\n"),
+                "{response}"
+            );
+            assert!(response.contains("Connection: close\r\n"));
+            assert!(response.contains("X-Polis-Vote-Dispatch: not-started\r\n"));
+            server.await.unwrap();
+        }
+    }
 
     #[test]
     fn dates_print_like_to_utc_string() {
