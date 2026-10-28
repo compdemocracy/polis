@@ -65,7 +65,7 @@ function send(request,tokens) {
   });
 }
 function refusal(status,code) {return {status,body:`{"error":"${code}","message":"${code}","status":${status}}`};}
-function expectedDelta(spec,before) {
+function expectedDelta(spec,_before) {
   if(["accept-existing-xid-conversion","accept-standard-conversion","login-converted-xid"].includes(spec.name)) return {ruling:"TQ1",...refusal(403,"polis_err_treevite_identity_conversion")};
   if(spec.name === "accept-pid-zero-forks") return {ruling:"TQ1",...refusal(403,"polis_err_xid_owner_account")};
   if(spec.expired && !spec.revoke) return {ruling:"TQ3",...refusal(401,"polis_err_treevite_login_code_expired")};
