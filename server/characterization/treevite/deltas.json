@@ -3,21 +3,100 @@
   "entries": [
     {
       "id": "F2",
-      "cases": ["race-two-accepts"],
+      "cases": [
+        "race-two-accepts"
+      ],
       "baseline": "Two real unused reads; two committed users and participants; exactly one consumed invite and login row. Loser is 400 polis_err_treevite_invite_race_condition and retains membership without a login credential.",
-      "target": "Atomic admission rolls back the loser and returns invalid-or-used. The baseline records a defect, not a compatibility requirement."
+      "target": "Atomic admission rolls back the loser and returns invalid-or-used. The baseline records a defect, not a compatibility requirement.",
+      "ruling": "Q2 atomic admission; TQ4 race loser leaves no rows"
     },
     {
       "id": "TQ1",
-      "cases": ["accept-existing-xid-conversion", "login-converted-xid", "converted-anonymous-after-removal", "accept-standard-conversion"],
+      "cases": [
+        "accept-existing-xid-conversion",
+        "login-converted-xid",
+        "converted-anonymous-after-removal",
+        "accept-standard-conversion",
+        "accept-pid-zero-forks",
+        "fresh_anonymous_cannot_allocate_a_configured_admin_uid"
+      ],
       "baseline": "Acceptance retains the existing positive-PID XID/account UID and issues an anonymous login credential. Removing the XID from the allow-list refuses the original XID but not the converted anonymous credential.",
-      "target": "Refuse identity conversion on accept; accept/login create or resume anonymous identities only. Recovery is a separate decision."
+      "target": "Refuse identity conversion on accept; accept/login create or resume anonymous identities only. Recovery is a separate decision. The recorded PID-zero fixture is also the privileged conversation owner (UID 1), so TQ1 refuses it with polis_err_xid_owner_account; ordinary anonymous PID zero is covered separately by transaction tests. A freshly allocated anonymous UID is checked against configured administrator UIDs before membership insertion.",
+      "ruling": "TQ1 anonymous accept/login only; no identity conversion"
     },
     {
       "id": "Q14",
-      "cases": ["accept-pid-zero-forks", "accept-anonymous-other-conversation"],
+      "cases": [
+        "accept-pid-zero-forks",
+        "accept-anonymous-other-conversation"
+      ],
       "baseline": "PID zero forks a new user; a positive-PID anonymous token from another conversation reuses its UID.",
-      "target": "Reuse same-conversation PID zero and keep anonymous identity local to its conversation."
+      "target": "Reuse same-conversation PID zero and keep anonymous identity local to its conversation.",
+      "ruling": "Q14 conversation-local anonymous identity; existing admission PID-zero semantics"
+    },
+    {
+      "id": "TQ3-invite-lifetime",
+      "ruling": "TQ3, lifetimes; TQ4, existing columns",
+      "cases": [
+        "expired_invite_is_dead_without_any_rows_or_remint"
+      ],
+      "baseline": "Node ignores invite age.",
+      "target": "At 30 days from created_at, refuse with 400 polis_err_treevite_invite_expired under the row lock. No re-mint or new rows."
+    },
+    {
+      "id": "TQ3-login-lifetime",
+      "ruling": "TQ3, lifetimes; TQ4, existing columns",
+      "cases": [
+        "login-expiry-ignored",
+        "login_expiry_is_written_and_rechecked_after_proof"
+      ],
+      "baseline": "Node neither writes nor checks login expires_at.",
+      "target": "Write expires_at one year after issue; refuse expired credentials with 401 polis_err_treevite_login_code_expired. Legacy NULL expiry remains compatible; its last issue time cannot be inferred after a Node replacement. An operator lifecycle policy is required before rollout. Recheck after acquiring the credential row lock."
+    },
+    {
+      "id": "TQ3-session-lifetime",
+      "ruling": "TQ3, one-day sessions",
+      "cases": [
+        "all successful accept and login cases",
+        "sessions_have_node_claim_order_and_exactly_one_day_lifetime"
+      ],
+      "baseline": "JWT exp minus iat and auth.expires_in are 31536000.",
+      "target": "Both are 86400. Preserve signing algorithm, bare header, ordered claims and response fields."
+    },
+    {
+      "id": "TQ3-second-invite",
+      "ruling": "TQ3 amendment, second invite is refused and burned",
+      "cases": [
+        "pid_zero_invitee_is_reused_and_failed_reaccept_preserves_recovery"
+      ],
+      "baseline": "Node replaces an existing login code.",
+      "target": "A live login credential prevents replacement. Commit status=1 with invite_used_by_pid=NULL, then return 409 polis_err_treevite_login_code_exists. Concurrent accepts serialize on a Treevite-specific per-member transaction advisory lock, including when the login row is absent. Participant lookup does not lock the participant row."
+    },
+    {
+      "id": "Q2-closed",
+      "ruling": "Existing admission transaction, closed-conversation enforcement",
+      "cases": [
+        "closed_conversation_refuses_even_owner_and_invitee_without_writes"
+      ],
+      "baseline": "Node Treevite endpoints can admit into closed conversations.",
+      "target": "Refuse with 403 polis_err_conversation_is_closed and no admission writes."
+    },
+    {
+      "id": "bounded-durable-dispatch",
+      "ruling": "TQ2 bounded per-request work; durable write dispatch requirement",
+      "cases": [
+        "abandoned_crypto_waiter_does_not_release_its_worker_capacity",
+        "treevite_resources_are_separate_from_participation",
+        "dispatched_deadline_is_terminal_and_retains_capacity_until_commit",
+        "signing_failure_returns_committed_recovery_and_never_retries_admission",
+        "child_failure_keeps_the_credential_and_login_repairs_only_missing_codes",
+        "refused_accepts_repair_committed_child_gaps_once",
+        "reconciliation_is_bounded_and_completed_allocations_do_not_starve_gaps",
+        "second_accept_cannot_reject_participation",
+        "saturated_treevite_workers_do_not_use_participation_pool_capacity"
+      ],
+      "baseline": "Node has no independent bounded crypto dispatch or durable acceptance receipt.",
+      "target": "Independent Treevite resources shed with typed 503 before admission. A dispatched uncertain outcome is terminal 202, never gateway handback. After acknowledged commit, retain the login code in a typed 202 receipt if token signing has not finished. Child top-up failure retains the successful credential response; later login, spent-invite retry and a second invite from the member retry bounded idempotent top-up from committed consumed parents. Spent invites remain refused and no old credential is returned."
     },
     {
       "id": "wave-atomicity",

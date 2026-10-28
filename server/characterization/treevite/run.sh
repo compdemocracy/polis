@@ -11,6 +11,7 @@ compose=(docker compose -f "$here/compose.yml" -f "$here/treevite/compose.yml")
 if [[ -n $(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME") ]]; then echo "project already has containers" >&2; exit 1; fi
 mkdir -p "$here/artifacts"
 cleanup() {
+  if [[ -n ${P027_TREEVITE_RUST_CLEANUP:-} ]]; then bash "$P027_TREEVITE_RUST_CLEANUP"; fi
   "${compose[@]}" --profile seed down -t 1 -v --remove-orphans >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -34,9 +35,10 @@ for run in "${runs[@]}"; do
   "${compose[@]}" exec -T driver node characterization/cli.cjs seed
   "${compose[@]}" restart -t 1 server dynamodb
   ready
+  if [[ -n ${P027_TREEVITE_RUST_SETUP:-} ]]; then bash "$P027_TREEVITE_RUST_SETUP"; fi
   args=("/artifacts/treevite-$run")
   if [[ "$mode" == --update ]]; then args+=(--update); fi
-  "${compose[@]}" exec -T -e P027_SOURCE_COMMIT="$P027_SOURCE_COMMIT" driver node characterization/treevite/run.cjs "${args[@]}"
+  "${compose[@]}" exec -T -e P027_SOURCE_COMMIT="$P027_SOURCE_COMMIT" -e P027_TREEVITE_RUST_URL="${P027_TREEVITE_RUST_URL:-}" -e P027_TREEVITE_RUST_DATABASE_URL="${P027_TREEVITE_RUST_DATABASE_URL:-}" driver node characterization/treevite/run.cjs "${args[@]}"
 done
 if [[ "$mode" == --update ]]; then
   cp "$here/artifacts/treevite-update/fixture.json" "$here/treevite/recordings.json"

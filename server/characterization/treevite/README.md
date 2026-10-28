@@ -102,3 +102,28 @@ record and both replays against that expectation. Keep recording changes
 separate from serving changes, as required by `ci/post_comments_golden_guard.sh`.
 Future Rust consumers must implement the named security deltas explicitly;
 these vulnerable Node results are evidence, not a requirement to reproduce them.
+
+## Opt-in Rust credential replay
+
+`queue-rs/polis-api/conformance/treevite-write-run.sh` wraps this same record and
+two-replay profile. Set its unique Rust port and an address reachable from the
+sealed driver. The original Node corpus remains the expectation. Each accept
+or login also restores its raw before-state and sequence positions into the
+separate disposable `p027_rust` database and calls the Rust handler. It verifies
+credential derivations, signatures, identity binding, expiry and response bytes.
+The delta ledger names the intended differences. Ordinary profile runs do not
+load or start Rust.
+
+The differential profile alone temporarily shares its generated signing key
+with Rust in mode-0600 artifact files. Cleanup removes those files and stops the
+owned Rust process. No private key or generated credential belongs in a retained
+recording or a test result. Do not point the replay database URL at another
+name: restoration truncates its generated fixture tables.
+
+On a Docker VM host, set `P027_TREEVITE_HOST_BRIDGE=1`, choose another unused
+loopback port as `P027_TREEVITE_HOST_PG_PORT`, and use
+`P027_TREEVITE_RUST_URL=http://treevite-rust-bridge:<Rust port>`. The optional
+adapter forwards two fixed TCP destinations: the disposable PostgreSQL and
+`host.lima.internal:<Rust port>`. It publishes only the database adapter on
+loopback. Node and the recorder remain on their original internal network;
+the adapter does not interpret HTTP or SQL. Cleanup removes it as well.

@@ -93,4 +93,5 @@ http.createServer = function (...args) {
   }
   return createServer.apply(this, args);
 };
+if (process.env.P027_TREEVITE_RUST_KEYS === "1") require("./rust-key.cjs");
 require("../entry.cjs");
