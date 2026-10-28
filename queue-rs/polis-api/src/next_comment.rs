@@ -592,6 +592,14 @@ mod tests {
         let mut app = App::new(&cfg, make());
         app.next_comment_db = Some(make());
         app.next_comment_plain = true;
+        app.participant_comments_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::participant_comments::pool_limits(),
+        ));
+        app.participant_comments_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::participant_comments::pool_limits(),
+        ));
         app.comments_db = Some(make());
         app.comments_count_db = Some(make());
         app.statement_importance_db = Some(db::Pool::new(
@@ -759,6 +767,8 @@ mod tests {
         held.push(park(app.delphi_visualizations_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_read_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_reports_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.participant_comments_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.participant_comments_auth_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",

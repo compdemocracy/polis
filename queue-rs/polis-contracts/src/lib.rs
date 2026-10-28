@@ -39,6 +39,7 @@ pub mod ops_catchall;
 pub mod ops_page;
 pub mod ops_whoami;
 pub mod other_conversations_page;
+pub mod participant_comments;
 pub mod participant_token;
 pub mod participants_read;
 pub mod participation_init;
