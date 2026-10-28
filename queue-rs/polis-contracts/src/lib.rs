@@ -64,6 +64,7 @@ pub mod treevite_waves;
 pub mod user_create_page;
 pub mod user_login_page;
 pub mod user_logout_page;
+pub mod version;
 pub mod votes_read;
 /// Byte-stable JSON shared by the Delphi contracts.
 pub mod wire;

@@ -3,8 +3,7 @@ set -eu
 export API_SERVER_PORT=${API_SERVER_PORT:-5000}
 # Rust API routes. RUST_API_ROUTES is a comma-separated list of routes that
 # polis-api serves instead of Node ("pca2", "owner-conversations", "comments" and "nextComment"). Unset or empty, both
-# include files below stay empty and the rendered config routes everything to
-# Node exactly as before. No value of these settings can take the proxy down:
+# include files below stay empty and API/page requests keep their Node routes. No value of these settings can take the proxy down:
 # a name that is not a known route, an upstream or resolver that is not a
 # plain host[:port] list, or a rendered configuration that nginx -t refuses
 # is reported loudly and every route stays on Node. A route named twice is
@@ -372,6 +371,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/math/pca ${RUST_API_UPSTREAM};
 "
       rust_api_locations="${rust_api_locations} legacyPca"
+      ;;
+    version)
+      case " $rust_api_locations " in *" version "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/version ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} version"
       ;;
     testConnection)
       case " $rust_api_locations " in *" testConnection "*) continue ;; esac

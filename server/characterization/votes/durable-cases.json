@@ -1,0 +1,126 @@
+{
+  "next_fault": {
+    "first": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "degraded",
+        "notifications": "best_effort",
+        "star": "absent"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": false,
+        "tid": 7,
+        "vote": -1
+      }
+    },
+    "historyRows": 1,
+    "retry": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "degraded",
+        "notifications": "best_effort",
+        "star": "absent"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": true,
+        "tid": 7,
+        "vote": -1
+      }
+    }
+  },
+  "star_deadline": {
+    "first": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "degraded",
+        "notifications": "best_effort",
+        "star": "degraded"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": false,
+        "tid": 7,
+        "vote": -1
+      }
+    },
+    "historyRows": 1,
+    "retry": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "degraded",
+        "notifications": "best_effort",
+        "star": "degraded"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": true,
+        "tid": 7,
+        "vote": -1
+      }
+    }
+  },
+  "star_fault": {
+    "first": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "degraded",
+        "notifications": "best_effort",
+        "star": "degraded"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": false,
+        "tid": 7,
+        "vote": -1
+      }
+    },
+    "historyRows": 1,
+    "retry": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "degraded",
+        "notifications": "best_effort",
+        "star": "degraded"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": true,
+        "tid": 7,
+        "vote": -1
+      }
+    }
+  },
+  "success": {
+    "first": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "absent",
+        "notifications": "best_effort",
+        "star": "absent"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": false,
+        "tid": 7,
+        "vote": -1
+      }
+    },
+    "historyRows": 1,
+    "retry": {
+      "currentPid": 0,
+      "followOn": {
+        "nextComment": "absent",
+        "notifications": "best_effort",
+        "star": "absent"
+      },
+      "vote": {
+        "created": 1700000000000,
+        "replayed": true,
+        "tid": 7,
+        "vote": -1
+      }
+    }
+  }
+}

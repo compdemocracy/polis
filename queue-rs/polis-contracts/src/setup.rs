@@ -322,6 +322,13 @@ pub struct Admission {
 /// except invite acceptance and returning invite login, which use their own routes.
 pub fn predict(setup: &ConversationSetup, entry: Entry, action: Action) -> Admission {
     use Entry::*;
+    // The permanent cookie is ignored, even when it names an existing member.
+    // Without a token these requests follow the ordinary first-contact path.
+    let entry = match entry {
+        LegacyCookieMember => Anonymous,
+        CookieMemberXid => NewXidDenied,
+        other => other,
+    };
     let refuse = |status, code| Admission {
         status,
         code: Some(code),
@@ -343,8 +350,7 @@ pub fn predict(setup: &ConversationSetup, entry: Entry, action: Action) -> Admis
     // paths only the new allowed ID is on the list.
     let unlisted_xid = matches!(
         entry,
-        CookieMemberXid
-            | KnownXidMember
+        KnownXidMember
             | KnownXidNonmember
             | XidMemberChangedXid
             | XidSameOwnerUnknownXid
@@ -517,7 +523,8 @@ pub fn entry_proposal(entry: Entry) -> &'static str {
         XidTokenSameOwner|XidTokenOtherOwner|XidOtherOwnerKnownXid|XidSameOwnerUnknownXid=>"Admin should have explicit cross-conversation identity rules; token scope should not silently change identity class.",
         SignedInNew|SignedInMember|SignedInXid|Owner|SiteModeratorNew=>"Admin should choose whether sign-in substitutes for external ID or invitation; owner/moderator exceptions should be consistent.",
         Invite|ReturningInvite=>"Admin should control whether outstanding invite and login codes remain usable after closing or disabling invitations.",
-        LegacyCookieMember|CookieMemberXid=>"Admin should have an explicit legacy-identity migration policy; a cookie must not silently authorize a different external ID.",
+        LegacyCookieMember=>"The old cookie is ignored; without a token this is a fresh anonymous contact subject to the current admission policy.",
+        CookieMemberXid=>"The old cookie is ignored; without a token the supplied external ID follows the new denied-ID admission policy.",
         AnonymousMember|AnonymousMemberXid|XidTokenMember|XidMemberChangedXid=>"Admin should choose which admission changes recheck existing membership and external-ID changes.",
     }
 }

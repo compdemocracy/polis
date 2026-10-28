@@ -54,7 +54,6 @@ jest.mock("../../src/xids", () => ({
 jest.mock("../../src/participant", () => ({
   addParticipantAndMetadata: jest.fn(),
 }));
-jest.mock("../../src/auth/legacyCookies", () => ({}));
 jest.mock("../../src/auth/create-user", () => ({}));
 jest.mock("../../src/user", () => ({}));
 jest.mock("../../src/utils/zinvite", () => ({}));
