@@ -21,14 +21,16 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 p=${X54_NGINX_PREFIX:-x54pca2-nginx}
 net="$p-net"
-image="$p:local"
+image=${X54_NGINX_IMAGE:-$p:local}
 cleanup() {
   docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 cleanup
-docker build -q -t "$image" -f "$root/file-server/nginx.Dockerfile" "$root/file-server" >/dev/null
+if [[ -z ${X54_NGINX_IMAGE:-} ]]; then
+  docker build -q -t "$image" -f "$root/file-server/nginx.Dockerfile" "$root/file-server" >/dev/null
+fi
 docker network create "$net" >/dev/null
 stub() { # container alias port status body
   docker run -d --name "$1" --network "$net" --network-alias "$2" --entrypoint sh nginx:1.21.5-alpine -c \
@@ -229,6 +231,27 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/nextComment node "next comment handoff"
 echo "ok 13 next comment off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/version node "version off"
+start version,version
+expect /api/v3/version rust "version on"
+expect /api/v3/comments node "version leaves comments alone"
+expect /api/v3/votes node "version leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/version') == 1 ]] || fail "version duplicated"
+expect_upstream polis-api GET /api/v3/version
+expect_upstream polis-api HEAD /api/v3/version
+expect_upstream server OPTIONS /api/v3/version
+expect_upstream server POST /api/v3/version $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/version $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/version node "version handoff"
+echo "ok version version off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 docker rm -f "$p-rust" >/dev/null

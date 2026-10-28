@@ -241,6 +241,7 @@ pub struct App {
     pub robots_reads: bool,
     pub robots_served: AtomicU64,
     pub robots_fallback: AtomicU64,
+    pub version_reads: bool,
     pub connection_reads: bool,
     pub connection_served: AtomicU64,
     pub connection_fallback: AtomicU64,
@@ -253,6 +254,7 @@ pub struct App {
     pub perf_stats_reads: bool,
     pub perf_stats_served: AtomicU64,
     pub perf_stats_fallback: AtomicU64,
+    pub participant_keys: Option<polis_auth::keys::Keys>,
     pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
     pub participant_served: AtomicU64,
     pub participant_fallback: AtomicU64,
@@ -261,6 +263,7 @@ pub struct App {
     pub next_comment_priorities: Arc<crate::next_comment::Priorities>,
     pub next_comment_db: Option<Arc<Pool>>,
     pub next_comment_plain: bool,
+    pub post_votes: Option<crate::post_votes::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -474,6 +477,7 @@ impl App {
             robots_reads: false,
             robots_served: AtomicU64::new(0),
             robots_fallback: AtomicU64::new(0),
+            version_reads: false,
             connection_reads: false,
             connection_served: AtomicU64::new(0),
             connection_fallback: AtomicU64::new(0),
@@ -486,6 +490,7 @@ impl App {
             perf_stats_reads: false,
             perf_stats_served: AtomicU64::new(0),
             perf_stats_fallback: AtomicU64::new(0),
+            participant_keys: None,
             participant_verifier: None,
             participant_served: AtomicU64::new(0),
             participant_fallback: AtomicU64::new(0),
@@ -494,6 +499,7 @@ impl App {
             next_comment_priorities: Arc::new(crate::next_comment::Priorities::new(cfg.cache_size)),
             next_comment_db: None,
             next_comment_plain: false,
+            post_votes: None,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -532,7 +538,7 @@ impl Res {
         }
     }
 
-    fn set(&mut self, name: &str, value: impl Into<String>) {
+    pub(crate) fn set(&mut self, name: &str, value: impl Into<String>) {
         let value = value.into();
         match self
             .headers
@@ -949,6 +955,11 @@ fn escape_html(s: &str) -> String {
 
 /// connect's `finalhandler@0.4.0` answering `next(err)` (`err` a string) or,
 /// with `err` absent, the 404 for an unmatched route.
+pub(crate) fn parameter_error(app: &App, req: &Request, mut res: Res) -> Outgoing {
+    res.status = 400;
+    final_handler(app, req, res, Some("Bad Request"), true)
+}
+
 fn final_handler(
     app: &App,
     req: &Request,
@@ -1130,7 +1141,7 @@ pub fn bad_gateway() -> Outgoing {
 
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
-    let (out, cache) = crate::pca::CACHE_OUTCOME
+    let (mut out, cache) = crate::pca::CACHE_OUTCOME
         .scope(std::cell::Cell::new("none"), async {
             let out = serve(&app, &req).await;
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
@@ -1216,7 +1227,17 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.locations_served.fetch_add(1, Ordering::Relaxed);
         }
     }
-    if crate::votes_read::matches(req.path()) {
+    if req.path() == crate::post_votes::PATH && req.method == "POST" {
+        if out.status == 502 {
+            crate::post_votes::mark_handback(&mut out);
+        }
+        crate::post_votes::observe(&out);
+    }
+    if crate::votes_read::matches(req.path())
+        && !(req.path() == crate::post_votes::PATH
+            && req.method == "POST"
+            && app.post_votes.is_some())
+    {
         if out.status == 502 {
             app.votes_read_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
@@ -1735,7 +1756,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
+    if crate::votes_read::matches(req.path())
+        && !(req.path() == crate::post_votes::PATH && req.method == "POST")
+        && crate::votes_read::parse(app, req).is_none()
+    {
         return bad_gateway();
     }
     if req.path() == crate::metadata_questions::PATH
@@ -1806,10 +1830,19 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::perf_stats::PATH && crate::perf_stats::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::version::PATH && !crate::version::eligible(app, req) {
+        return bad_gateway();
+    }
     if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
         return bad_gateway();
     }
     if req.path() == crate::next_comment::PATH && !crate::next_comment::eligible(app, req) {
+        return bad_gateway();
+    }
+    if req.path() == crate::post_votes::PATH
+        && req.method == "POST"
+        && !crate::post_votes::eligible(app, req)
+    {
         return bad_gateway();
     }
     // redirectIfNotHttps (domain.ts), ahead of every other middleware.
@@ -1883,6 +1916,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
     }
+    if req.path() == crate::post_votes::PATH && req.method == "POST" {
+        return crate::post_votes::handle(app, req, res).await;
+    }
     if req.path() == crate::metadata_query::PATH {
         return crate::metadata_query::handle(app, req, res).await;
     }
@@ -1920,6 +1956,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::perf_stats::PATH {
         return crate::perf_stats::handle(app, req, res);
+    }
+    if req.path() == crate::version::PATH {
+        return crate::version::handle(req, res);
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
@@ -4539,6 +4578,75 @@ mod tests {
         }
         assert_eq!(state.votes_read_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.votes_read_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn version_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method, headers: &[(&str, &str)]| {
+            let mut req = request(method, headers);
+            req.target = crate::version::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET", &[])).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().version_reads = true;
+        let out = handle(state.clone(), probe("GET", &[])).await;
+        assert_eq!(out.status, 200);
+        let header = |name: &str| {
+            out.headers
+                .iter()
+                .find(|(k, _)| k == name)
+                .unwrap()
+                .1
+                .clone()
+        };
+        assert_eq!(header("Cache-Control"), "no-store");
+        assert_eq!(header("Content-Type"), "application/json; charset=utf-8");
+        let Body::Fixed(body) = &out.body else {
+            panic!("fixed version JSON")
+        };
+        let info: serde_json::Value = serde_json::from_slice(body).unwrap();
+        assert_eq!(info.as_object().unwrap().len(), 6);
+        assert_eq!(header("Content-Length"), body.len().to_string());
+        let head = handle(state.clone(), probe("HEAD", &[])).await;
+        assert_eq!(head.status, 200);
+        let head_wire = crate::http::write_response(&head, true, false, "fixture date").unwrap();
+        assert!(head_wire.ends_with(b"\r\n\r\n"));
+        let etag = header("ETag");
+        let conditional = handle(state.clone(), probe("GET", &[("if-none-match", &etag)])).await;
+        assert_eq!(conditional.status, 304); // Express freshness still applies to no-store.
+        assert!(
+            conditional
+                .headers
+                .iter()
+                .any(|(k, v)| k == "Cache-Control" && v == "no-store")
+        );
+        for method in ["POST", "OPTIONS"] {
+            assert_eq!(handle(state.clone(), probe(method, &[])).await.status, 502);
+        }
+        for headers in [
+            vec![("content-length", "1")],
+            vec![("transfer-encoding", "chunked")],
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", &headers)).await.status,
+                502
+            );
+        }
+        let mut query = probe(
+            "GET",
+            &[("authorization", "Bearer ignored"), ("cookie", "ignored=1")],
+        );
+        query.target.push_str("?ignored=1");
+        assert_eq!(handle(state.clone(), query).await.status, 200);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().version_reads = true;
+        assert_eq!(
+            handle(secure, probe("GET", &[("host", "localhost")]))
+                .await
+                .status,
+            302
+        );
     }
 
     #[tokio::test]

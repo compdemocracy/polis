@@ -198,6 +198,67 @@ pub struct Success {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<Auth>,
 }
+/// Intentional Rust contract, separate from the unchanged Node decoder above.
+/// See POST_VOTES_DURABLE.md for the latest-choice retry rule and unknown commit.
+pub const DURABLE_CONTRACT: &str = "post-votes-durable/1";
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AcceptedVote {
+    pub tid: i32,
+    /// Wire convention, produced by VoteChoice::wire, never a storage integer.
+    pub vote: i8,
+    pub created: i64,
+    pub replayed: bool,
+}
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FollowOnState {
+    Absent,
+    Complete,
+    Degraded,
+}
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationState {
+    BestEffort,
+    Degraded,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct FollowOn {
+    pub star: FollowOnState,
+    pub next_comment: FollowOnState,
+    pub notifications: NotificationState,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DurableSuccess {
+    #[serde(rename = "nextComment", skip_serializing_if = "Option::is_none")]
+    pub next_comment: Option<NextComment>,
+    #[serde(rename = "currentPid")]
+    pub current_pid: i32,
+    pub vote: AcceptedVote,
+    #[serde(rename = "followOn")]
+    pub follow_on: FollowOn,
+}
+impl DurableSuccess {
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        let value: Self = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+        reject_null_optionals(body, &["nextComment"])?;
+        if ![WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS].contains(&value.vote.vote) {
+            return Err("invalid wire vote".into());
+        }
+        if value.next_comment.is_some() != (value.follow_on.next_comment == FollowOnState::Complete)
+        {
+            return Err("nextComment and followOn disagree".into());
+        }
+        if let Some(next) = &value.next_comment {
+            next.fields().map_err(|e| e.to_string())?;
+        }
+        Ok(value)
+    }
+}
+
 /// The source initializes a fresh result with no shouldMod, so modOptions is
 /// unreachable here. Auth injection also occurs on handler failJson responses.
 #[derive(Debug, Deserialize, Serialize)]
@@ -627,6 +688,43 @@ mod tests {
                 "{}",
                 row["case"]
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod durable_tests {
+    use super::*;
+    #[test]
+    fn recorded_durable_receipts_and_invalid_envelopes() {
+        let cases: Value = serde_json::from_str(include_str!(
+            "../../../server/characterization/votes/durable-cases.json"
+        ))
+        .unwrap();
+        for case in cases.as_object().unwrap().values() {
+            for key in ["first", "retry"] {
+                let value = &case[key];
+                let body = DurableSuccess::decode(&serde_json::to_vec(value).unwrap()).unwrap();
+                assert_eq!(serde_json::to_value(body).unwrap(), *value);
+                assert!(
+                    Response::decode(200, &serde_json::to_vec(value).unwrap()).is_err(),
+                    "Node decoder must not silently accept the deliberate difference"
+                );
+                for (field, bad) in [
+                    ("nextComment", Value::Null),
+                    ("auth", serde_json::json!({})),
+                    ("vote", serde_json::json!({})),
+                ] {
+                    let mut invalid = value.clone();
+                    invalid[field] = bad;
+                    assert!(
+                        DurableSuccess::decode(&serde_json::to_vec(&invalid).unwrap()).is_err()
+                    );
+                }
+                let mut invalid = value.clone();
+                invalid["followOn"]["nextComment"] = serde_json::json!("complete");
+                assert!(DurableSuccess::decode(&serde_json::to_vec(&invalid).unwrap()).is_err());
+            }
         }
     }
 }

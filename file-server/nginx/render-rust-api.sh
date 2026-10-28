@@ -367,6 +367,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} legacyPca"
       ;;
+    version)
+      case " $rust_api_locations " in *" version "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/version ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} version"
+      ;;
     testConnection)
       case " $rust_api_locations " in *" testConnection "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/testConnection ${RUST_API_UPSTREAM};

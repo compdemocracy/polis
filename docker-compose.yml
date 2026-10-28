@@ -465,8 +465,8 @@ services:
     profiles: [rust-api]
     image: polis/polis-api:local
     build:
-      context: ./queue-rs
-      dockerfile: polis-api/Dockerfile
+      context: .
+      dockerfile: queue-rs/polis-api/Dockerfile
       args:
         # NODE_ENV reaches this process exactly as it reaches `server`: the
         # image default (production, as the server's prod target), then the
@@ -484,6 +484,7 @@ services:
       - POLIS_API_DB_CA_FILE=${POLIS_API_DB_CA_FILE:-/etc/polis/rds-global-bundle.pem}
       - POLIS_API_DB_HOST_ALLOWLIST=${POLIS_API_DB_HOST_ALLOWLIST:-}
       - POLIS_API_START=${POLIS_API_START:-0}
+      - POLIS_API_VERSION_READS=${POLIS_API_VERSION_READS:-0}
       - RUST_API_ROUTES=${RUST_API_ROUTES:-}
       - POLIS_API_DB_POOL=8
       - POLIS_API_DB_ACQUIRE_TIMEOUT_MS=2000

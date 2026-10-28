@@ -31,7 +31,7 @@ for selection in ${TLS_IMAGE_SELECTION:-server python nginx postgres java api mi
       python3 ci/tls/check_image.py "$tag-java" --java --manual-distrust
       ;;
     api)
-      docker build --pull -t "$tag-api" -f queue-rs/polis-api/Dockerfile queue-rs
+      docker build --pull -t "$tag-api" -f queue-rs/polis-api/Dockerfile .
       python3 ci/tls/check_image.py "$tag-api"
       ;;
     migrate)
