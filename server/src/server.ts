@@ -2,7 +2,6 @@
 
 "use strict";
 
-import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import { Promise as BluebirdPromise } from "bluebird";
 import _ from "underscore";
@@ -45,19 +44,6 @@ BluebirdPromise.onPossiblyUnhandledRejection(function (err: any) {
 const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
 
 const polisFromAddress = Config.polisFromAddress;
-
-const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
-
-const akismet = akismetLib.client({
-  blog: serverUrl,
-  apiKey: Config.akismetAntispamApiKey,
-});
-
-akismet.verifyKey(function (err: any, verified: any) {
-  if (verified) {
-    logger.debug("Akismet: API key successfully verified.");
-  }
-});
 
 function haltOnTimeout(req: { timedout: any }, res: any, next: () => void) {
   if (req.timedout) {

@@ -16,7 +16,6 @@ import _ from "underscore";
 import { Response, NextFunction } from "express";
 
 import { addParticipantAndMetadata } from "../participant";
-import { checkLegacyCookieAndIssueJWT } from "./legacyCookies";
 import { createAnonUser } from "./create-user";
 import {
   createXidRecord,
@@ -317,18 +316,15 @@ async function _issueJWTIfNeeded(
   pid: number,
   zid: number,
   isNewlyCreated: boolean,
-  needsNewJWT: boolean,
-  legacyCookieToken?: string
+  needsNewJWT: boolean
 ): Promise<{ token?: string; conversationId?: string }> {
   // Only issue JWT for:
   // 1. Newly created participants
   // 2. Participants that need a new JWT (the token presented was for another
   //    conversation, or was bound to another xid than the request named)
-  // 3. Legacy cookie users who need migration
-  // 4. XID participants who don't have a JWT yet (first authenticated action)
+  // 3. XID participants who don't have a JWT yet (first authenticated action)
   // AND when they don't already have a valid JWT for this identity
-  const isXidWithoutJWT =
-    req.p.xid && !req.headers?.authorization && !legacyCookieToken;
+  const isXidWithoutJWT = req.p.xid && !req.headers?.authorization;
   const shouldIssueJWT =
     (isNewlyCreated || needsNewJWT || isXidWithoutJWT) &&
     (!req.headers?.authorization || needsNewJWT);
@@ -425,7 +421,6 @@ async function _ensureParticipantInternal(
   let isNewlyCreatedUser = false;
   let isNewlyCreatedParticipant = false;
   let needsNewJWT = false;
-  let legacyCookieToken: string | undefined;
 
   // An empty or whitespace-only xid in the request names nothing. The
   // identity is then the token's xid when the token is bound to one, and
@@ -470,29 +465,6 @@ async function _ensureParticipantInternal(
   let uid = req.p.uid;
   let pid = req.p.pid;
 
-  // Check for legacy cookie before creating new user
-  if (uid === undefined && !req.p.jwt_conversation_mismatch) {
-    const conversationId = req.p.conversation_id || (await getZinvite(zid));
-    if (conversationId) {
-      const legacyResult = await checkLegacyCookieAndIssueJWT(
-        req,
-        zid,
-        conversationId as string,
-        req.p.xid
-      );
-      if (legacyResult.uid !== undefined && legacyResult.pid !== undefined) {
-        uid = legacyResult.uid;
-        pid = legacyResult.pid;
-        needsNewJWT = legacyResult.needsNewJwt;
-        legacyCookieToken = legacyResult.token;
-        logger.info("Using existing participant from legacy cookie", {
-          uid,
-          pid,
-        });
-      }
-    }
-  }
-
   // Handle user identification
   // For XID users, we always need to look up the UID even if not creating
   if (uid === undefined) {
@@ -515,13 +487,8 @@ async function _ensureParticipantInternal(
   }
 
   // Check a resolved XID before enrolling it or issuing credentials. Existing
-  // XID tokens are checked by hybrid auth; cookie conversion checks before minting.
-  if (
-    req.p.xid &&
-    req.p.uid === undefined &&
-    uid !== undefined &&
-    !legacyCookieToken
-  ) {
+  // XID tokens are checked by hybrid auth.
+  if (req.p.xid && req.p.uid === undefined && uid !== undefined) {
     await requireXidParticipantAccount(uid);
   }
 
@@ -610,30 +577,20 @@ async function _ensureParticipantInternal(
   }
 
   // Issue JWT if needed
-  let token = legacyCookieToken;
+  let token: string | undefined;
   let conversationId: string | undefined;
 
-  if (
-    issueJWT &&
-    !legacyCookieToken &&
-    uid !== undefined &&
-    pid !== undefined &&
-    pid !== -1
-  ) {
+  if (issueJWT && uid !== undefined && pid !== undefined && pid !== -1) {
     const jwtResult = await _issueJWTIfNeeded(
       req,
       uid,
       pid,
       zid,
       isNewlyCreatedParticipant || isNewlyCreatedUser,
-      needsNewJWT,
-      legacyCookieToken
+      needsNewJWT
     );
     token = jwtResult.token;
     conversationId = jwtResult.conversationId;
-  } else if (legacyCookieToken) {
-    conversationId =
-      req.p.conversation_id || ((await getZinvite(zid)) as string);
   }
 
   // Update request with final values (may be undefined for optional middleware)

@@ -442,6 +442,7 @@ services:
       polis_tag: ${TAG:-dev}
     environment:
       - API_SERVER_PORT=${API_SERVER_PORT:-5000}
+      - STATIC_FILES_PORT=${STATIC_FILES_PORT:-8080}
       # Authoritative selection on every nginx startup, even with an existing
       # routing volume. Use scripts/rust-api-switch.sh for live reloads.
       - RUST_API_ROUTES=${RUST_API_ROUTES:-}

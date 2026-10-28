@@ -466,42 +466,10 @@ function getSocialParticipants(
     });
 }
 
-async function getParticipantByPermanentCookie(
-  zid: number,
-  permanentCookie: string
-): Promise<{ uid: number; pid: number } | null> {
-  return new Promise((resolve) => {
-    pg.query(
-      `SELECT pe.uid, p.pid 
-       FROM participants_extended pe
-       INNER JOIN participants p ON pe.uid = p.uid AND pe.zid = p.zid
-       WHERE pe.zid = $1 AND pe.permanent_cookie = $2`,
-      [zid, permanentCookie],
-      (err: any, results: { rows: any[] }) => {
-        if (err) {
-          logger.error("Error looking up participant by permanent cookie", err);
-          resolve(null);
-          return;
-        }
-
-        if (results && results.rows && results.rows.length > 0) {
-          resolve({
-            uid: results.rows[0].uid,
-            pid: results.rows[0].pid,
-          });
-        } else {
-          resolve(null);
-        }
-      }
-    );
-  });
-}
-
 export {
   addExtendedParticipantInfo,
   addParticipant,
   addParticipantAndMetadata,
-  getParticipantByPermanentCookie,
   getSocialParticipants,
   joinConversation,
   referrerWithoutQuery,
