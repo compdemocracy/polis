@@ -23,6 +23,7 @@ mod create_page;
 mod database;
 mod db;
 mod perf_stats;
+mod version;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
 // on, compiled from the contracts crate as the route contracts are. The
 // run-record route uses only part of them. rustfmt leaves them to their own
@@ -77,6 +78,15 @@ mod params;
 mod participants_read;
 mod participation_read;
 mod pca;
+mod post_votes;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/auth_envelope.rs"]
+mod auth_envelope;
+#[allow(dead_code, clippy::collapsible_if)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/post_votes.rs"]
+mod post_votes_contract;
 mod ptptois;
 mod recent_activity;
 mod recent_started;
@@ -156,7 +166,8 @@ fn health_response(
                 && value == "1"
                 && (key.ends_with("_READS")
                     || key.ends_with("_WRITES")
-                    || key == "POLIS_API_OWNER_LIST"))
+                    || key == "POLIS_API_OWNER_LIST"
+                    || key == "POLIS_API_POST_VOTES"))
                 .then_some(js::Js::Str(key))
         })
         .collect();
@@ -164,6 +175,18 @@ fn health_response(
     routing.set("enabledSwitches", js::Js::Arr(switches));
     body.set("routing", js::Js::Obj(routing));
     body.set("identity", identity_observability::snapshot(counters));
+    body.set("postVotes", post_votes::health(app));
+    body.set(
+        "participantKeysLoaded",
+        js::Js::Bool(app.participant_keys.is_some()),
+    );
+    body.set(
+        "participantPublicKeyFingerprint",
+        app.participant_keys
+            .as_ref()
+            .map(|keys| js::Js::Str(keys.fingerprint().into()))
+            .unwrap_or(js::Js::Null),
+    );
     for (i, name) in [
         "conversationPage",
         "explorePage",
@@ -723,6 +746,7 @@ async fn dispatch_at_clock(
         route::PATH
         | comments::PATH
         | next_comment::PATH
+        | version::PATH
         | connection::PATH
         | perf_stats::PATH
         | robots::PATH
@@ -792,10 +816,27 @@ async fn dispatch_at_clock(
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // The participant signing keys are required whenever a route that verifies
+    // participant tokens is selected; otherwise their absence is reported on
+    // the health document rather than refusing to boot (a box that routes
+    // nothing to this service must still start it).
+    let participant_reads =
+        std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1");
+    let participant_keys = if participant_reads {
+        Some(polis_auth::keys::Keys::from_env()?)
+    } else {
+        polis_auth::keys::Keys::from_env_optional()?
+    };
+    if participant_keys.is_none() {
+        eprintln!(
+            "participant signing keys not configured (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH, JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH); participant token routes cannot be selected"
+        );
+    }
     let cfg = config::Config::from_env()?;
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
+    state.participant_keys = participant_keys;
     for (i, switch) in [
         "POLIS_API_CONVERSATION_PAGE_READS",
         "POLIS_API_EXPLORE_PAGE_READS",
@@ -820,6 +861,7 @@ async fn main() -> Result<()> {
             state.conversation_pages[i] = conversation_pages::Client::from_env_for(switch).await?;
         }
     }
+    state.post_votes = post_votes::Writer::from_env()?;
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")
@@ -870,18 +912,19 @@ async fn main() -> Result<()> {
     }
     state.topic_selection_writer = topic_selection_writes::Writer::from_env()?;
     if std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1") {
-        let path = std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")
-            .context("participant public key file required")?;
-        let key = std::fs::read(path).context("read participant public key")?;
         state.participant_verifier = Some(Arc::new(
-            polis_auth::participant::Verifier::new(
-                &key,
-                &std::env::var("POLIS_JWT_ISSUER")?,
-                &std::env::var("POLIS_JWT_AUDIENCE")?,
-            )
-            .context("invalid participant verifier configuration")?,
+            state
+                .participant_keys
+                .as_ref()
+                .context("participant keys required")?
+                .verifier(
+                    &std::env::var("POLIS_JWT_ISSUER")?,
+                    &std::env::var("POLIS_JWT_AUDIENCE")?,
+                )
+                .context("POLIS_JWT_ISSUER and POLIS_JWT_AUDIENCE must not be empty")?,
         ));
     }
+
     state.perf_stats_reads =
         std::env::var("POLIS_API_PERF_STATS_READS").ok().as_deref() == Some("1");
     if std::env::var("POLIS_API_REPORT_EXPORT_READS")
@@ -905,6 +948,8 @@ async fn main() -> Result<()> {
         ));
         state.report_export_utc = std::env::var("TZ").ok().as_deref() == Some("UTC");
     }
+    version::initialize();
+    state.version_reads = std::env::var("POLIS_API_VERSION_READS").ok().as_deref() == Some("1");
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
@@ -1879,7 +1924,19 @@ mod health_tests {
         };
         let pg = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
         let pool = db::Pool::new(Connector::Plain(Box::new(pg)), cfg.pool.clone());
-        route::App::new(&cfg, pool)
+        let mut app = route::App::new(&cfg, pool);
+        let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+        let private = String::from_utf8(rsa.private_key_to_pem().unwrap()).unwrap();
+        let public = String::from_utf8(rsa.public_key_to_pem().unwrap()).unwrap();
+        app.participant_keys = Some(
+            polis_auth::keys::Keys::from_environment(|name| match name {
+                "JWT_PRIVATE_KEY" => Some(private.clone().into()),
+                "JWT_PUBLIC_KEY" => Some(public.clone().into()),
+                _ => None,
+            })
+            .unwrap(),
+        );
+        app
     }
 
     fn json_body(response: Outgoing, status: u16) -> Value {
@@ -1904,6 +1961,12 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
+            assert_eq!(body.as_object().unwrap().len(), 146);
+            assert_eq!(body["participantKeysLoaded"], true);
+            assert_eq!(
+                body["participantPublicKeyFingerprint"],
+                app.participant_keys.as_ref().unwrap().fingerprint()
+            );
             assert_eq!(body["version"], env!("POLIS_VERSION"));
             assert_eq!(body["commit"], env!("GIT_HASH"));
             assert_eq!(body["status"], if reachable { "ok" } else { "degraded" });
@@ -1926,6 +1989,7 @@ mod health_tests {
     fn health_reports_only_explicit_route_switches_in_sorted_order() {
         let environment = [
             ("POLIS_API_ROBOTS_READS", "1"),
+            ("POLIS_API_POST_VOTES", "1"),
             ("POLIS_API_OWNER_LIST", "1"),
             ("POLIS_API_TOPIC_SELECTION_WRITES", "1"),
             ("POLIS_API_START", "1"),
@@ -1949,7 +2013,7 @@ mod health_tests {
             body["routing"],
             json!({
                 "configuredRoutes": "pca2,robots",
-                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
+                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_POST_VOTES", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
             })
         );
     }

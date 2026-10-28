@@ -1,0 +1,42 @@
+{
+  "boundary": "current Node handler and real SQL; controlled follow-on dependencies",
+  "sourceSha256": "15b4b5cce53e60110c5ba4b579d2039425bd183dd5832952fa22aedd69dc6496",
+  "cases": [
+    {
+      "name": "success",
+      "status": 200,
+      "body": {
+        "currentPid": 0
+      },
+      "historyAdded": 1
+    },
+    {
+      "name": "star-failure-after-commit",
+      "status": 500,
+      "body": {
+        "error": "polis_err_vote",
+        "message": "polis_err_vote",
+        "status": 500
+      },
+      "historyAdded": 1
+    },
+    {
+      "name": "next-failure-after-commit",
+      "status": 500,
+      "body": {
+        "error": "polis_err_vote",
+        "message": "polis_err_vote",
+        "status": 500
+      },
+      "historyAdded": 1
+    },
+    {
+      "name": "retry-after-next-failure",
+      "status": 200,
+      "body": {
+        "currentPid": 0
+      },
+      "historyAdded": 1
+    }
+  ]
+}

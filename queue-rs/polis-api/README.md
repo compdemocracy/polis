@@ -201,7 +201,7 @@ queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
 # Byte-for-byte replay (needs Docker and the local characterization images;
 # see the header of run.sh):
 docker build --build-arg FEATURES=fixture-clock -t x54pca2-polis-api:conformance \
-  -f queue-rs/polis-api/Dockerfile queue-rs
+  -f queue-rs/polis-api/Dockerfile .
 docker build -t x54pca2-postgres:local -f server/Dockerfile-db server
 COMPOSE_PROJECT_NAME=p027x54pca2-$(openssl rand -hex 3) \
 P027_PORT_MIN=55479 P027_PORT_MAX=55481 POLIS_RECOVERY_PG_PORT=55479 \
@@ -413,10 +413,10 @@ network latency or a live participation-load campaign.
 Comments and nextComment can serve Node-issued anonymous and standard-user
 participant credentials with `POLIS_API_PARTICIPANT_READS=1`, in addition to
 their existing process and nginx route switches. All remain off by default.
-Configure `POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE` with Node's matching RSA public
-key and `POLIS_JWT_ISSUER` / `POLIS_JWT_AUDIENCE` with Node's exact values. A key
-change requires replacing the configured public-key file and restarting this
-process. No private signing key belongs in polis-api.
+Configure the participant key pair as described below and set
+`POLIS_JWT_ISSUER` / `POLIS_JWT_AUDIENCE` to Node's exact values. The verifier
+uses the public key loaded at startup. `POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE`
+is no longer read.
 
 The shared polis-auth verifier requires an exact conversation-code binding and
 an existing matching `(zid, uid, pid)` membership. PID zero is supported. XID,
@@ -1578,3 +1578,55 @@ Those older hooks do not enable the profile during teardown and cannot remove
 the old container themselves. The explicit stop leaves it stopped across the
 rollback. Never stop Rust before selected traffic drains; first use the drained
 switch helper with an empty list when any route is selected.
+
+## Build version (opt-in)
+
+`POLIS_API_VERSION_READS=1` and nginx's `RUST_API_ROUTES=version` select
+bodyless GET/HEAD `/api/v3/version`. Both are off by default. The response is
+Node's six-field JSON with `Cache-Control: no-store`, including Express's
+HEAD and conditional GET behavior. Unsupported methods and bodies stay on Node.
+The deploy health check recognizes `version` and compares both processes' bytes.
+
+The Rust image now builds from the repository root. It runs the same
+`scripts/build_identity.py` as Node's prebuild, with the same VERSION files and
+`GIT_HASH`, `POLIS_BUILD_DISTANCE`, `POLIS_BUILD_TAG`, `POLIS_BUILD_SOURCE`
+arguments already passed to both images by the deployment build. Its JSON is
+embedded in the binary; runtime environment changes cannot change the identity.
+A plain Cargo build uses the root VERSION and Node's unknown-provenance fallback.
+The route holds no database connection and does no provider or participant work.
+
+`conformance/version-images.py` compares the real Node handler from a server
+image with the Rust HTTP route, records fixtures in `polis-contracts`, and checks
+HEAD, conditional GET and no-store. See its help for the two image inputs.
+||||||| 1ab2922ca
+
+
+### Participant signing keys
+
+The service reads its process environment; Compose supplies the shared env file.
+It does not open a dotenv file itself. Before database setup or listening, every
+startup loads and validates the same RSA pair as Node, even with all routes off:
+
+- `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY`: PEM text, PEM with literal `\n`
+  escapes, or base64-encoded PEM when the value contains no `BEGIN`.
+- An unset or empty value falls back to `JWT_PRIVATE_KEY_PATH` or
+  `JWT_PUBLIC_KEY_PATH`, independently for each key. Unset or empty paths default
+  to `/app/keys/jwt-private.pem` and `/app/keys/jwt-public.pem`, as in Node.
+  Paths must be readable inside the service container.
+
+A nonempty value always wins, including when malformed. Missing, unreadable,
+malformed, non-RSA or mismatched keys stop startup with a message naming the
+setting, never its value or file path. The private key must be at least 2048
+bits for RS256. Keys are parsed once and retained in memory; changing either
+form requires restarting the service. Local fixtures must supply both keys too.
+The private handle is reserved for future signing; this service still mints no
+tokens and adds no key identifier (`kid`). Route switches remain independent.
+
+Internal `/health` adds only `participantKeysLoaded` and
+`participantPublicKeyFingerprint`. The fingerprint is lowercase SHA-256 hex of
+the public key's SPKI DER encoding, independent of PEM wrapping or source form.
+No key bytes appear in health or errors. To compute the same fingerprint in Node,
+hash `createPublicKey(decodedPublicPem).export({type: "spki", format: "der"})`
+with `createHash("sha256")` and `digest("hex")`. The small Node fixture in
+`../polis-auth/tests/fixtures/participant-keys.cjs` checks that calculation and
+Node-signed token verification through the loader; it needs Node but no packages.

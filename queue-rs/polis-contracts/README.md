@@ -384,3 +384,18 @@ Regenerate from the `polis-cli` workspace with:
 ```sh
 POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts
 ```
+
+## Public build version
+
+`version::Response` is the six-field body of `GET /api/v3/version`, in Node's
+field order: `version_base`, `version_display`, `commit`, `distance`, `channel`,
+`source`. It is HTTP 200 JSON with `Cache-Control: no-store`; HEAD has the same
+length without a body, and a matching ETag can produce Express's 304.
+
+`src/fixtures/version.json` and `version-fallback.json` contain the exact Node
+handler response bytes, with no trailing newline. `version-recording.json`
+records the source pin, input values and hashes. The fallback was recorded with
+no generated module. The image differential in
+`../polis-api/conformance/version-images.py` exercises the handler loaded from a
+server image and the real Rust HTTP listener, then compares their response bytes.
+Use `--record <fixture-path>` to refresh a recording from matching image builds.
