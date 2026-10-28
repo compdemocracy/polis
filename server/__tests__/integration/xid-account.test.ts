@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, jest, test } from "@jest/globals";
-import { randomUUID } from "node:crypto";
 import {
   createConversation,
   generateRandomXid,
@@ -42,18 +41,11 @@ describe("XIDs cannot authenticate privileged accounts", () => {
     expect(authenticated.body.user.uid).toBe(first.body.user.uid);
   });
 
-  test("refuses bare XIDs, existing tokens and cookie conversion after an owner upgrade", async () => {
+  test("refuses bare XIDs and existing tokens after an owner upgrade", async () => {
     const xid = generateRandomXid();
     const first = await initializeParticipantWithXid(conversationId, xid);
     expect(first.status).toBe(200);
     const uid = first.body.user.uid;
-    const cookie = randomUUID().replace(/-/g, "");
-    await pool.query(
-      `INSERT INTO participants_extended (zid, uid, permanent_cookie)
-       SELECT zid, uid, $1 FROM participants WHERE uid = $2
-       ON CONFLICT (zid, uid) DO UPDATE SET permanent_cookie = $1`,
-      [cookie, uid]
-    );
     await pool.query("UPDATE users SET is_owner = true WHERE uid = $1", [uid]);
     try {
       const agent = await newAgent();
@@ -68,10 +60,6 @@ describe("XIDs cannot authenticate privileged accounts", () => {
       const accountRoute = await agent
         .get("/api/v3/users")
         .set("Authorization", `Bearer ${token}`);
-      const withCookie = await agent
-        .get("/api/v3/participationInit")
-        .set("Cookie", `pc=${cookie}`)
-        .query({ conversation_id: conversationId, xid });
       // Optional middleware can fall through after a failed lookup. The
       // handler's second resolution must enforce the same refusal.
       const lookup = jest
@@ -94,7 +82,6 @@ describe("XIDs cannot authenticate privileged accounts", () => {
         bare,
         withToken,
         accountRoute,
-        withCookie,
         fallback,
         write,
       ]) {

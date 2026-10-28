@@ -13,7 +13,7 @@ anonymous cross-conversation use; bare XID on participationInit, votes and
 comments with the allow-list off/on and XID required; XID tokens in their own
 conversation, another conversation under the same owner, another owner's
 conversation, and request-XID precedence; standard-user first join and repeat;
-OIDC first use/repeat; both anonymous and XID `pc` cookie migration; Treevite
+OIDC first use/repeat; ignored `pc` cookies on anonymous and XID first contact; Treevite
 accept/login/refusals; and the classifier and OIDC provisioning refusal bodies, including wrong audience
 and issuer for all three participant token kinds.
 
@@ -61,9 +61,10 @@ JWKS rate limiting, production URL selection (with the local domain override),
 and production pool sizes; the sealed network and disposable database remain
 in force. Raw capture is cleared before every request.
 
-The XID cookie request uses an XID absent from `xids` before and after the
-request, and asserts uid 3 with zero new identity rows. It depends on the
-legacy-cookie branch, not the XID table lookup.
+Both cookie requests assert a fresh user and participant, even though the
+cookie names an existing participant. The XID request uses an external ID
+absent before the request and asserts a new binding to the returned JWT's user.
+The cookie does not recover either stored identity.
 
 Every request asserts the exact number of new users, participants, XID bindings
 and OIDC mappings. The Treevite refusal asserts a user without a participant.

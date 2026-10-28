@@ -2,7 +2,7 @@
 
 ## Overview
 
-Polis uses a hybrid JWT-based authentication system supporting multiple user types and authentication pathways. The system maintains backward compatibility with legacy cookie-based authentication while providing modern JWT tokens for all participant types.
+Polis uses a hybrid JWT-based authentication system supporting multiple user types and authentication pathways. All participant types use JWT tokens.
 
 ## Core Concepts
 
@@ -152,16 +152,11 @@ Anonymous JWTs are conversation-scoped. A JWT for one conversation cannot be use
 
 Standard users maintain their identity across conversations but receive conversation-specific participant JWTs. The OIDC identity links all their participations.
 
-## Legacy Cookie Support
+## Retired Permanent Cookies
 
-The system maintains backward compatibility with permanent cookies (`pc`):
-
-1. **Detection**: Checks for `pc` cookie in requests
-2. **Lookup**: Finds existing participant via `participants_extended.permanent_cookie`
-3. **JWT Issuance**: Issues appropriate JWT for the existing participant
-4. **Migration**: One-way migration - participants should use JWT going forward
-
-This is a transitional feature that will be removed once migration is complete.
+Permanent cookies (`pc`) no longer authenticate participants. A request with
+only an old cookie and no token follows the normal first-contact flow and
+joins as a fresh participant when participation is required.
 
 ## Implementation
 
@@ -172,7 +167,6 @@ This is a transitional feature that will be removed once migration is complete.
 - `src/auth/anonymous-jwt.ts` - Anonymous participant JWT handling
 - `src/auth/xid-jwt.ts` - XID participant JWT handling
 - `src/auth/standard-user-jwt.ts` - Standard user participant JWT handling
-- `src/auth/legacyCookies.ts` - Legacy cookie compatibility
 - `src/auth/create-user.ts` - User creation logic
 
 ### Environment Configuration
