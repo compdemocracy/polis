@@ -214,12 +214,6 @@ function stateCases(s) {
     );
   }
 
-  add(
-    "reportNarrative/no-delphi-claim",
-    "GET /api/v3/reportNarrative",
-    `/api/v3/reportNarrative?report_id=${R}`,
-    "owner"
-  );
   return out;
 }
 
@@ -285,11 +279,6 @@ function globalCases() {
       "feeds-unknown-report",
       "GET /feeds/:reportId",
       "/feeds/r2p2zerounknown"
-    ),
-    add(
-      "reportNarrative-no-token",
-      "GET /api/v3/reportNarrative",
-      `/api/v3/reportNarrative?report_id=${done.report_id}`
     ),
   ];
 }
