@@ -146,13 +146,8 @@ fn refuse<T>(status: u16, code: &'static str) -> Result<T, Failure> {
 /// client-bound protocol before this can be served.
 pub fn admit(client: &mut Client, request: &Request<'_>) -> Result<Option<Admitted>, Error> {
     for attempt in 0..3 {
-        let mut tx = client
-            .build_transaction()
-            .isolation_level(postgres::IsolationLevel::ReadCommitted)
-            .start()
-            .map_err(|_| Error::Unavailable)?;
-        let result = tx.batch_execute("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='5s'; SET LOCAL idle_in_transaction_session_timeout='5s'")
-            .map_err(Failure::from).and_then(|()| run(&mut tx, request));
+        let mut tx = crate::transaction::begin(client).map_err(|_| Error::Unavailable)?;
+        let result = run(&mut tx, request);
         match result {
             Ok(admitted) => {
                 tx.commit().map_err(|_| Error::CommitUnknown)?;
