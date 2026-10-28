@@ -262,6 +262,7 @@ pub struct App {
     pub robots_reads: bool,
     pub robots_served: AtomicU64,
     pub robots_fallback: AtomicU64,
+    pub version_reads: bool,
     pub connection_reads: bool,
     pub connection_served: AtomicU64,
     pub connection_fallback: AtomicU64,
@@ -517,6 +518,7 @@ impl App {
             robots_reads: false,
             robots_served: AtomicU64::new(0),
             robots_fallback: AtomicU64::new(0),
+            version_reads: false,
             connection_reads: false,
             connection_served: AtomicU64::new(0),
             connection_fallback: AtomicU64::new(0),
@@ -576,7 +578,7 @@ impl Res {
         }
     }
 
-    fn set(&mut self, name: &str, value: impl Into<String>) {
+    pub(crate) fn set(&mut self, name: &str, value: impl Into<String>) {
         let value = value.into();
         match self
             .headers
@@ -1933,6 +1935,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::perf_stats::PATH && crate::perf_stats::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::version::PATH && !crate::version::eligible(app, req) {
+        return bad_gateway();
+    }
     if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -2076,6 +2081,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::perf_stats::PATH {
         return crate::perf_stats::handle(app, req, res);
+    }
+    if req.path() == crate::version::PATH {
+        return crate::version::handle(req, res);
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
@@ -4695,6 +4703,75 @@ mod tests {
         }
         assert_eq!(state.votes_read_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.votes_read_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn version_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method, headers: &[(&str, &str)]| {
+            let mut req = request(method, headers);
+            req.target = crate::version::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET", &[])).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().version_reads = true;
+        let out = handle(state.clone(), probe("GET", &[])).await;
+        assert_eq!(out.status, 200);
+        let header = |name: &str| {
+            out.headers
+                .iter()
+                .find(|(k, _)| k == name)
+                .unwrap()
+                .1
+                .clone()
+        };
+        assert_eq!(header("Cache-Control"), "no-store");
+        assert_eq!(header("Content-Type"), "application/json; charset=utf-8");
+        let Body::Fixed(body) = &out.body else {
+            panic!("fixed version JSON")
+        };
+        let info: serde_json::Value = serde_json::from_slice(body).unwrap();
+        assert_eq!(info.as_object().unwrap().len(), 6);
+        assert_eq!(header("Content-Length"), body.len().to_string());
+        let head = handle(state.clone(), probe("HEAD", &[])).await;
+        assert_eq!(head.status, 200);
+        let head_wire = crate::http::write_response(&head, true, false, "fixture date").unwrap();
+        assert!(head_wire.ends_with(b"\r\n\r\n"));
+        let etag = header("ETag");
+        let conditional = handle(state.clone(), probe("GET", &[("if-none-match", &etag)])).await;
+        assert_eq!(conditional.status, 304); // Express freshness still applies to no-store.
+        assert!(
+            conditional
+                .headers
+                .iter()
+                .any(|(k, v)| k == "Cache-Control" && v == "no-store")
+        );
+        for method in ["POST", "OPTIONS"] {
+            assert_eq!(handle(state.clone(), probe(method, &[])).await.status, 502);
+        }
+        for headers in [
+            vec![("content-length", "1")],
+            vec![("transfer-encoding", "chunked")],
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", &headers)).await.status,
+                502
+            );
+        }
+        let mut query = probe(
+            "GET",
+            &[("authorization", "Bearer ignored"), ("cookie", "ignored=1")],
+        );
+        query.target.push_str("?ignored=1");
+        assert_eq!(handle(state.clone(), query).await.status, 200);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().version_reads = true;
+        assert_eq!(
+            handle(secure, probe("GET", &[("host", "localhost")]))
+                .await
+                .status,
+            302
+        );
     }
 
     #[tokio::test]
