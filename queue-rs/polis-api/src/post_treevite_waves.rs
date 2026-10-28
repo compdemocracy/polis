@@ -381,6 +381,7 @@ fn create(
             end,
         )?;
     }
+    let repaired = reconcile(&mut tx, zid, id, end)?;
     let count: i32 = tx
         .query_one(
             "select count(*)::int from treevite_invites where wave_id=$1",
@@ -403,7 +404,43 @@ fn create(
     if tx.commit().is_err() {
         return Ok(Err(ErrorCode::OutcomeUnknown));
     }
+    if repaired > 0 {
+        eprintln!("{{\"event\":\"treevite_wave_allocations_repaired\",\"codes\":{repaired}}}");
+    }
     Ok(Ok(response))
+}
+/// Select gaps before limiting, rather than revisiting an already-filled prefix.
+/// Discovery is only a hint: issue rechecks all states under the same member lock
+/// as acceptance. These obligations were already included in the cap reservation.
+fn reconcile(tx: &mut Transaction<'_>, zid: i32, new_wave: i64, end: Instant) -> Result<i64> {
+    check_deadline(end)?;
+    let rows = tx.query(
+        "select child.id, parent_invite.id, parent_invite.invite_used_by_pid, child.invites_per_user
+         from treevite_waves child
+         join treevite_waves parent on parent.zid=child.zid and parent.wave=child.parent_wave
+         join treevite_invites parent_invite on parent_invite.wave_id=parent.id
+         where child.zid=$1 and child.id<>$2 and child.invites_per_user>0
+           and parent_invite.status=1 and parent_invite.invite_used_by_pid is not null
+           and (select count(*) from treevite_invites held
+                where held.wave_id=child.id
+                  and held.invite_owner_pid=parent_invite.invite_used_by_pid)<child.invites_per_user
+         order by child.wave,parent_invite.id
+         limit $3",
+        &[&zid, &new_wave, &contract::RECONCILIATION_ROW_LIMIT],
+    )?;
+    let mut repaired = 0;
+    for row in rows {
+        repaired += issue(
+            tx,
+            zid,
+            row.try_get(0)?,
+            row.try_get(1)?,
+            row.try_get(2)?,
+            row.try_get(3)?,
+            end,
+        )?;
+    }
+    Ok(repaired)
 }
 // Saturation is above every configurable i64 cap, so overflow always refuses.
 fn reservation(parent: u128, per: i32, owner: i32) -> u128 {
@@ -446,7 +483,7 @@ fn issue(
     pid: i32,
     amount: i32,
     end: Instant,
-) -> Result<()> {
+) -> Result<i64> {
     check_deadline(end)?;
     tx.query_one("select pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:per-user-codes', $1::bigint, $2::int)::text,0))", &[&wave,&pid])?;
     let n: i64 = tx
@@ -458,7 +495,7 @@ fn issue(
     for _ in n..i64::from(amount) {
         insert(tx, zid, wave, Some(parent), Some(pid), end)?;
     }
-    Ok(())
+    Ok((i64::from(amount) - n).max(0))
 }
 pub(crate) fn health(app: &App) -> Js {
     let mut obj = crate::js::Obj::new();

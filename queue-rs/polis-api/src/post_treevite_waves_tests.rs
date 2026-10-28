@@ -136,6 +136,107 @@ mod database {
             .unwrap()
     }
     #[test]
+    fn older_child_gaps_are_bounded_and_later_creates_finish_them() {
+        let f = Fixture::new();
+        let mut c = f.connect();
+        wave(&mut c, 1, &fields(3, 0, Some(0)));
+        // PID zero is consumed; a PID on an unused invite and a burned invite
+        // without a PID must not acquire older child codes.
+        c.batch_execute(
+            "update treevite_invites set status=1,invite_used_by_pid=0 where id=1;
+            update treevite_invites set invite_used_by_pid=1 where id=2;
+            update treevite_invites set status=1 where id=3;",
+        )
+        .unwrap();
+        let children = contract::RECONCILIATION_ROW_LIMIT as i32 + 3;
+        c.execute(
+            "insert into treevite_waves(zid,wave,parent_wave,invites_per_user,owner_invites,size)
+            select 1,n,1,2,0,6 from generate_series(2,$1) n",
+            &[&(children + 1)],
+        )
+        .unwrap();
+        // A full revoked/expired allocation must not be replenished. A partial
+        // used allocation must be topped up by exactly one, counting all states.
+        c.batch_execute("insert into treevite_invites(zid,wave_id,parent_invite_id,invite_code,invite_owner_pid,status)
+            values(1,2,1,'revoked',0,2),(1,2,1,'expired',0,3),(1,3,1,'used',0,1)").unwrap();
+        let response = wave(&mut c, 1, &fields(1, 0, Some(0)));
+        assert_eq!(response.invites_created, 1);
+        let filled = |c: &mut Client| -> i64 {
+            c.query_one("select count(*) from treevite_waves w where w.parent_wave=1
+                and (select count(*) from treevite_invites i where i.wave_id=w.id and i.invite_owner_pid=0)=2", &[]).unwrap().get(0)
+        };
+        assert_eq!(filled(&mut c), contract::RECONCILIATION_ROW_LIMIT + 1);
+        assert_eq!(
+            c.query_one(
+                "select count(*) from treevite_invites where invite_owner_pid=1",
+                &[]
+            )
+            .unwrap()
+            .get::<_, i64>(0),
+            0
+        );
+        assert_eq!(wave(&mut c, 1, &fields(1, 0, Some(0))).invites_created, 1);
+        assert_eq!(filled(&mut c), i64::from(children));
+        let before = f.counts();
+        wave(&mut c, 1, &fields(1, 0, Some(0)));
+        assert_eq!(f.counts(), (before.0 + 1, before.1 + 1));
+    }
+
+    #[test]
+    fn older_gaps_span_parent_waves_and_duplicate_members_fill_once() {
+        let f = Fixture::new();
+        let mut c = f.connect();
+        wave(&mut c, 1, &fields(2, 0, Some(0)));
+        wave(&mut c, 1, &fields(0, 2, Some(1)));
+        wave(&mut c, 1, &fields(1, 0, Some(0)));
+        wave(&mut c, 1, &fields(0, 2, Some(3)));
+        c.batch_execute(
+            "update treevite_invites set status=1,invite_used_by_pid=0 where wave_id in (1,3)",
+        )
+        .unwrap();
+        // Reconciliation repairs both old parents after new-wave issuance. The
+        // two consumed invites for the same member still grant only two codes.
+        let new = wave(&mut c, 1, &fields(0, 2, Some(1)));
+        assert_eq!(new.invites_created, 2);
+        for wave_id in [2_i64, 4, new.id.parse().unwrap()] {
+            assert_eq!(
+                c.query_one(
+                    "select count(*) from treevite_invites where wave_id=$1 and invite_owner_pid=0",
+                    &[&wave_id]
+                )
+                .unwrap()
+                .get::<_, i64>(0),
+                2
+            );
+        }
+        assert_eq!(f.counts(), (5, 9));
+    }
+
+    #[test]
+    fn older_gap_lock_or_insert_failure_rolls_back_the_new_wave() {
+        let f = Fixture::new();
+        let mut c = f.connect();
+        wave(&mut c, 1, &fields(1, 0, Some(0)));
+        wave(&mut c, 1, &fields(0, 2, Some(1)));
+        c.batch_execute("update treevite_invites set status=1,invite_used_by_pid=0;
+            create function fail_old_child() returns trigger language plpgsql as $$ begin
+            if new.wave_id=2 then raise exception 'forced old child failure'; end if;
+            return new; end $$;
+            create trigger fail_old_child before insert on treevite_invites for each row execute function fail_old_child();").unwrap();
+        assert!(create(&mut c, 1, 1, &[], &fields(1, 0, Some(0)), caps(), DEADLINE).is_err());
+        assert_eq!(f.counts(), (2, 1));
+        c.batch_execute("drop trigger fail_old_child on treevite_invites")
+            .unwrap();
+        let mut locker = f.connect();
+        locker.batch_execute("begin; select pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:per-user-codes',2::bigint,0::int)::text,0))").unwrap();
+        assert!(create(&mut c, 1, 1, &[], &fields(1, 0, Some(0)), caps(), DEADLINE).is_err());
+        assert_eq!(f.counts(), (2, 1));
+        locker.batch_execute("rollback").unwrap();
+        assert_eq!(wave(&mut c, 1, &fields(1, 0, Some(0))).invites_created, 1);
+        assert_eq!(f.counts(), (3, 4));
+    }
+
+    #[test]
     fn unused_parent_codes_and_descendants_reserve_full_capacity() {
         for cached in ["NULL", "0", "1"] {
             let f = Fixture::new();

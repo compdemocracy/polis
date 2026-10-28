@@ -9,6 +9,11 @@ pub const CONVERSATION_CAP_ENV: &str = "POLIS_API_TREEVITE_CONVERSATION_CODE_CAP
 pub const OWNER_CAP_ENV: &str = "POLIS_API_TREEVITE_OWNER_CODE_CAP";
 pub const DEFAULT_CONVERSATION_CAP: i64 = 250_000;
 pub const DEFAULT_OWNER_CAP: i64 = 1_000_000;
+/// Each create examines at most this many deficient consumed-parent allocations
+/// across older child waves. Completed allocations are excluded before LIMIT,
+/// so later creates (or accept reconciliation) can fill the remainder. Discovery
+/// retains the writer's statement timeout; filling retains its total deadline.
+pub const RECONCILIATION_ROW_LIMIT: i64 = 100;
 
 /// Parsed JavaScript numbers; storage narrowing follows handler validation.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -22,6 +27,7 @@ pub struct Request {
 
 /// Field order is PostgreSQL RETURNING *, followed by invites_created. The
 /// read endpoint has a different order. BIGSERIAL remains a JSON string.
+/// invites_created counts only this wave; older-wave repairs are logged.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Response {
