@@ -67,3 +67,29 @@ they do not simulate identity resolution or prove those branches executed.
 The JWKS fetch remains a synchronous external dependency before voting. Reading
 this contract adds no pool, lock, migration or slow work to participation. These
 recordings do not waive participation load guards or prove resource isolation.
+
+## Durable Rust acceptance (intentional difference)
+
+See `queue-rs/polis-contracts/POST_VOTES_DURABLE.md`. The historical Node fixtures
+above remain unchanged. `durable-node.cjs` additionally invokes the current
+`handle_POST_votes` and real Postgres/convention path, controlling only follow-on
+work and response helpers, to pin success, post-commit star/next failure and
+append-on-retry. `durable-node-cases.json` is its capture. This narrow witness
+is not a new full-middleware/gateway recording; it supplements the sealed corpus.
+
+The Rust route replay retains all 140 identity classifications. Errors before
+commit retain exact Node wire bytes; admitted successes deliberately add a vote
+receipt and followOn states, preserve the legacy nextComment bytes, and compare
+the expected history delta with the latest-choice retry rule. Node 500 after
+commit is explicitly compared with Rust 200. Both original Node transcripts and
+new Rust transcripts are retained separately, not relabeled as byte parity.
+Database safety tests record success, follow-on failure, deadline-after-commit
+and repeat acceptance, and exercise loss of the reply, concurrent same-choice
+requests, unknown commit, rollback and independent notification pressure.
+
+The replay's `vote-failure` and `duplicate-sqlstate` inputs already have the
+requested latest choice. Rust returns the existing receipt without executing
+an INSERT, so those two historical injected INSERT errors become 200 as another
+consequence of deduplication. Fresh-key SQL failures are tested separately:
+500/406 remain terminal, and both history and the provisional latest row roll
+back. No injection or error assertion was removed to make the replay pass.
