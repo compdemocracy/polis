@@ -853,3 +853,143 @@ fn commit_failure_is_unknown_and_retry_can_append_after_rollback() {
         1
     );
 }
+
+/// A loopback-only protocol observer counts statements on the real vote read
+/// connection. It needs no PostgreSQL extension or production instrumentation.
+async fn count_statements(
+    client: tokio::net::TcpStream,
+    backend: tokio::net::TcpStream,
+    counts: Arc<Mutex<std::collections::BTreeMap<String, usize>>>,
+) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (mut cr, mut cw) = client.into_split();
+    let (mut br, mut bw) = backend.into_split();
+    let upstream = async {
+        // This fixture uses NoTls: the initial packet is the startup packet.
+        let length = cr.read_u32().await?;
+        let mut bytes = vec![0; length as usize - 4];
+        cr.read_exact(&mut bytes).await?;
+        bw.write_u32(length).await?;
+        bw.write_all(&bytes).await?;
+        loop {
+            let tag = cr.read_u8().await?;
+            let length = cr.read_u32().await?;
+            let mut bytes = vec![0; length as usize - 4];
+            cr.read_exact(&mut bytes).await?;
+            if matches!(tag, b'P' | b'Q') {
+                let mut strings = bytes.split(|b| *b == 0);
+                if tag == b'P' {
+                    strings.next();
+                } // prepared statement name
+                let sql = std::str::from_utf8(strings.next().unwrap())
+                    .unwrap()
+                    .to_owned();
+                *counts.lock().unwrap().entry(sql).or_default() += 1;
+            }
+            bw.write_u8(tag).await?;
+            bw.write_u32(length).await?;
+            bw.write_all(&bytes).await?;
+        }
+        #[allow(unreachable_code)]
+        Ok::<(), std::io::Error>(())
+    };
+    let downstream = tokio::io::copy(&mut br, &mut cw);
+    tokio::select! { _ = upstream => {}, _ = downstream => {} }
+}
+
+#[test]
+fn revocation_snapshot_adds_no_vote_request_statements() {
+    let db = Database::new("revocation_reads");
+    let (mut app, request) = setup(&db);
+    let mut c = db.connect();
+    c.batch_execute(include_str!(
+        "../../../server/postgres/migrations/000013_create_treevite.sql"
+    ))
+    .unwrap();
+    c.batch_execute("INSERT INTO users(uid) VALUES(2);
+        ALTER TABLE participants DISABLE TRIGGER USER;
+        INSERT INTO participants(zid,pid,uid) VALUES(1,1,2);
+        ALTER TABLE participants ENABLE TRIGGER USER;
+        INSERT INTO treevite_login_codes(zid,pid,login_code_hash,login_code_fingerprint,revoked) VALUES(1,1,'fixture','fixture',true);").unwrap();
+    let snapshot = polis_auth::revocation::Revocations::new(
+        polis_auth::revocation::Snapshot::load(&mut c).unwrap(),
+    );
+    assert!(snapshot.contains("2fixture", 1));
+    runtime().block_on(async {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let backend_port = db.config.get_ports()[0];
+        let backend_host = match &db.config.get_hosts()[0] {
+            postgres::config::Host::Tcp(host) => host.clone(),
+            _ => panic!("loopback test database required"),
+        };
+        let counts = Arc::new(Mutex::new(std::collections::BTreeMap::new()));
+        let observed = counts.clone();
+        let proxy = tokio::spawn(async move {
+            loop {
+                let (client, _) = listener.accept().await.unwrap();
+                let backend = tokio::net::TcpStream::connect((backend_host.as_str(), backend_port))
+                    .await
+                    .unwrap();
+                tokio::spawn(count_statements(client, backend, observed.clone()));
+            }
+        });
+        let mut config = postgres::Config::new();
+        config
+            .host("127.0.0.1")
+            .port(port)
+            .user(db.config.get_user().unwrap())
+            .dbname(db.config.get_dbname().unwrap());
+        if let Some(password) = db.config.get_password() {
+            config.password(password);
+        }
+        Arc::get_mut(&mut app)
+            .unwrap()
+            .post_votes
+            .as_mut()
+            .unwrap()
+            .reads = db::Pool::new(Connector::Plain(Box::new(config)), read_limits());
+        assert_eq!(
+            route::handle(app.clone(), copy_request(&request))
+                .await
+                .status,
+            200
+        );
+        counts.lock().unwrap().clear();
+        assert_eq!(
+            route::handle(app.clone(), copy_request(&request))
+                .await
+                .status,
+            200
+        );
+        let without = std::mem::take(&mut *counts.lock().unwrap());
+        // The route's detached notification task holds only its own pool, not App.
+        Arc::get_mut(&mut app)
+            .unwrap()
+            .post_votes
+            .as_mut()
+            .unwrap()
+            .set_revocations(snapshot);
+        assert_eq!(
+            route::handle(app.clone(), copy_request(&request))
+                .await
+                .status,
+            200
+        );
+        let with = std::mem::take(&mut *counts.lock().unwrap());
+        assert!(!without.is_empty());
+        assert_eq!(
+            with, without,
+            "snapshot must add zero request-time SQL statements"
+        );
+        assert!(with.keys().all(|q| !q.contains("treevite_login_codes")));
+        println!(
+            "vote read statement counts unchanged: {} before and {} with snapshot",
+            without.values().sum::<usize>(),
+            with.values().sum::<usize>()
+        );
+        proxy.abort();
+        let _ = proxy.await;
+        drop(app);
+    });
+}

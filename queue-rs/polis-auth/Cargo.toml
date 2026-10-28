@@ -11,6 +11,7 @@ description = "Conversation authority decisions over verified Polis identities"
 db-tests = []
 
 [dependencies]
+bcrypt = "0.17"
 base64 = "0.22"
 serde_json = "1"
 postgres = "0.19"

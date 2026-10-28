@@ -87,6 +87,7 @@ struct Claims {
 pub struct Verifier {
     key: DecodingKey,
     validation: Validation,
+    revocations: Option<std::sync::Arc<crate::revocation::Revocations>>,
 }
 impl Verifier {
     pub fn new(public_pem: &[u8], issuer: &str, audience: &str) -> Option<Self> {
@@ -113,8 +114,68 @@ impl Verifier {
         validation.validate_exp = false;
         validation.validate_nbf = false;
         validation.leeway = 0;
-        Some(Self { key, validation })
+        Some(Self {
+            key,
+            validation,
+            revocations: None,
+        })
     }
+    pub fn set_revocations(&mut self, snapshot: std::sync::Arc<crate::revocation::Revocations>) {
+        self.revocations = Some(snapshot);
+    }
+
+    pub fn with_revocations(
+        mut self,
+        snapshot: std::sync::Arc<crate::revocation::Revocations>,
+    ) -> Self {
+        self.revocations = Some(snapshot);
+        self
+    }
+
+    /// A terminal refusal, never a hand-back to a verifier without revocation.
+    /// Checks only signed claims, regardless of the request's conversation alias.
+    pub fn check_revocation(&self, authorization: &str, now: u64) -> Result<(), crate::Refusal> {
+        let Some(snapshot) = &self.revocations else {
+            return Ok(());
+        };
+        // Unverified hints can only avoid redundant signature work. They never
+        // grant identity: each serving verifier still checks the complete token.
+        let Some(hints) = crate::observability::credential_hints(authorization) else {
+            return Ok(());
+        };
+        let candidate = hints
+            .get("conversation_id")
+            .and_then(serde_json::Value::as_str)
+            .zip(
+                hints
+                    .get("pid")
+                    .and_then(serde_json::Value::as_i64)
+                    .and_then(|pid| i32::try_from(pid).ok()),
+            );
+        if candidate.is_some_and(|(cid, pid)| snapshot.contains(cid, pid))
+            && let Some((claims, _)) = self.verify_claims(authorization, now)
+            && snapshot.contains(&claims.conversation_id, claims.pid)
+        {
+            return Err(crate::Refusal {
+                status: 401,
+                code: "polis_err_treevite_session_revoked",
+            });
+        }
+        Ok(())
+    }
+
+    /// Typed serving entry point. Unsupported credentials retain their existing
+    /// hand-back result; a revoked signed credential is always terminal.
+    pub fn verify_checked(
+        &self,
+        authorization: &str,
+        conversation: &str,
+        now: u64,
+    ) -> Result<Option<Verified>, crate::Refusal> {
+        self.check_revocation(authorization, now)?;
+        Ok(self.verify(authorization, conversation, now))
+    }
+
     /// Existing serving entry point: XID tokens still hand back to Node.
     pub fn verify(&self, authorization: &str, conversation: &str, now: u64) -> Option<Verified> {
         self.verify_observed(authorization, conversation, now, &PROCESS)
@@ -148,6 +209,7 @@ impl Verifier {
         conversation: &str,
         now: u64,
     ) -> Option<Verified> {
+        self.check_revocation(authorization, now).ok()?;
         let (c, kind) = self.verify_claims(authorization, now)?;
         if kind == Kind::Xid || c.conversation_id != conversation {
             return None;
@@ -175,6 +237,9 @@ impl Verifier {
         now: u64,
         check: &mut crate::xid_account::Check<'_, impl crate::xid_account::Lookup>,
     ) -> Result<Option<RequestIdentity>, crate::xid_account::Refusal> {
+        if self.check_revocation(authorization, now).is_err() {
+            return Ok(None);
+        }
         let Some((c, kind)) = self.verify_claims(authorization, now) else {
             return Ok(None);
         };
