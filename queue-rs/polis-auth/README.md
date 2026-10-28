@@ -149,3 +149,69 @@ as its argument. The committed fixture lives in
 generated. No private key is retained. `scripts/test-polis-auth.sh` applies the
 repository migrations to its disposable database before running the real-table
 integration test; it must never point at an existing installation.
+
+
+## Staged single-sign-on provisioning and provider keys
+
+`oidc::provision` takes verified, mapped claims and a caller-owned primary
+connection. No route calls it. Its future authentication caller must invoke it
+on any authenticated request, including reads, before route field validation.
+`Profile::from_verified_claims` preserves Node's standard/namespaced email and
+name fallbacks, nickname, local part, and whitespace. `email_verified` and the
+namespaced `delphi_enabled` stay request metadata, not database columns.
+
+A mapping hit returns the existing UID without updating the account. A miss
+upserts by email, updates only hname/username on conflict, and installs the
+mapping in the same READ COMMITTED transaction. New accounts have `is_owner`
+true and the database's default site_id/site_owner. An existing email keeps its
+owner rights and site. A new social login for an existing email replaces its old
+mapping. Uniqueness losers roll back all writes and retry from primary at most
+three times, using the same five-second transaction timeout policy as admission.
+A failed COMMIT returns CommitUnknown, never an automatic retry. Sequence gaps
+are possible; orphan accounts from a losing mapping insertion are not.
+
+`provider::Verifier::from_environment` reads AUTH_ISSUER, AUTH_AUDIENCE, AUTH_NAMESPACE
+and JWKS_URI once at startup from the same environment document as Node, and
+records to the process counters already exposed by polis-api health.
+`Verifier::from_snapshot` validates the baked JWKS bytes before creating the
+verifier and dormant refresh worker. There is no network boot fallback. This
+module does not change participant signing keys or add a kid to those tokens.
+
+Only explicitly starting `Refresh::run` creates network work. Its caller chooses
+a schedule of at least one minute (five minutes is a reasonable initial value).
+Scheduled and unknown-kid refreshes share a one-attempt-per-minute cap, including
+failures. Requests immediately refuse unknown kids and count oidc_jwks_misses;
+they only signal the worker. The complete validated set replaces the previous
+set atomically; HTTP errors, timeouts, invalid keys and oversized responses keep
+the old set and count oidc_jwks_refresh_failures. Successful replacements count
+oidc_jwks_refresh_successes. Removed keys cease to verify after replacement.
+
+Unknown-key tracing warnings contain only a SHA-256 digest of the kid, at most
+once per kid per hour. The log limiter holds at most 4096 digests; a distinct-kid
+flood above that cap is still counted but extra logs are suppressed until slots
+expire. A future serving caller must install a tracing subscriber, expose these
+counters to health/monitoring and alert on misses/failures. No token/profile or
+provider response is logged. The worker uses no proxy or redirects, has a ten
+second request deadline and 64 KiB response limit, and permits plaintext HTTP
+only for a loopback test provider. Abort and await its task at shutdown.
+
+All of this remains switched off and never served. No Node, schema, routing or
+production service configuration changes. The participation path gets no new
+pool use, locks or network calls. Future wiring must give provisioning its own
+bounded primary/worker budget; provider refresh never owns a database connection.
+This delivery does not establish a full-stack participation-load guarantee.
+
+Tests use real release migrations and disposable PostgreSQL, force concurrent
+first-use callers to miss before releasing their inserts, and inject mapping
+and COMMIT failures. The local fake JWKS server exercises key rotation, scheduled
+refresh, rate limiting and failure retention under a controlled clock. Committed
+Node HTTP recordings supply first-use/repeat account projections. Additional
+`tests/fixtures/oidc-provisioning.json` records the unchanged Node function with
+a real PostgreSQL transaction adapter across 13 calls: profile fallbacks, repeat,
+email conflicts with/without a prior mapping and missing email. Tests compare
+canonical JSON bytes for UID, profile, rights and mapping fields. Random site IDs
+and database timestamps are structural assertions; full HTTP/signing parity is
+outside this unrouted module. Malformed truthy non-string profile fields fail
+closed in Rust instead of relying on Node/driver coercion. Node's non-atomic
+constraint recovery and its possible concurrent orphan account are deliberately
+replaced by whole-transaction retry.

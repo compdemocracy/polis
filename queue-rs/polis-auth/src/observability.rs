@@ -48,6 +48,8 @@ events! {
     UniqueViolationRetry => "retries_23505",
     LockTimeout => "lock_timeouts_55P03",
     OidcJwksMiss => "oidc_jwks_misses",
+    OidcJwksRefreshFailure => "oidc_jwks_refresh_failures",
+    OidcJwksRefreshSuccess => "oidc_jwks_refresh_successes",
     SigningFailure => "signing_failures",
     HandoffCredentialShape => "handoff_credential_shape",
     HandoffConversationScope => "handoff_conversation_scope",

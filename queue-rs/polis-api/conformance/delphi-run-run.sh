@@ -16,7 +16,7 @@
 # Images: the worker is any image built from delphi/Dockerfile (it carries
 # polis-jobs and the pipeline's dependencies); this checkout's delphi/ is
 # mounted over its /app, so the Python run is this checkout's. polis-api:
-#   docker build -t x54pca2-polis-api:conformance -f queue-rs/polis-api/Dockerfile queue-rs
+#   docker build -t x54pca2-polis-api:conformance -f queue-rs/polis-api/Dockerfile .
 # Also needs cargo (polis-migrate) and node on the host. The worker
 # downloads all-MiniLM-L6-v2 from the Hugging Face hub into DELPHI_RUN_HF_HOME
 # unless it is already cached there. DELPHI_RUN_SCRATCH (default: a new

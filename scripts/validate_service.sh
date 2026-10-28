@@ -43,11 +43,25 @@ polis_api_ready() {
           const routes = value => value.split(/[,\s]+/).filter(Boolean).sort().join(",");
           if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
               routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
-              h.routing?.enabledSwitches?.length !== 0 ||
+              routes((h.routing?.enabledSwitches ?? ["!"]).join(",")) !==
+                (routes(expected).split(",").includes("version") ? "POLIS_API_VERSION_READS" : "") ||
               !p?.readOnly || !p.reachable || p.limit !== 8 ||
               p.acquireTimeoutMs !== 2000 || p.statementTimeoutMs !== 3000 ||
               p.maxLifetimeMs !== 300000 || h.version !== process.argv[3] || !h.commit ||
               h.commit !== process.argv[2]) throw Error("Rust health check failed");
+          if (routes(expected).split(",").includes("version")) {
+            const port = process.env.API_SERVER_PORT || process.env.PORT || "5000";
+            const replies = await Promise.all([
+              "http://polis-api:5100/api/v3/version",
+              "http://127.0.0.1:" + port + "/api/v3/version"
+            ].map(async url => {
+              const response = await fetch(url, {headers: {"X-Forwarded-Proto": "https"}, signal: AbortSignal.timeout(4000)});
+              if (response.status !== 200 || response.headers.get("cache-control") !== "no-store")
+                throw Error("Version route health check failed");
+              return response.text();
+            }));
+            if (replies[0] !== replies[1]) throw Error("Version identity mismatch");
+          }
         }).then(() => process.exit(0)).catch(() => process.exit(1));
     ' "$RUST_API_ROUTES" "$(sed -n 's/^revision=//p' /opt/polis/deployed-images.txt)" "$(cat VERSION)"; then
       echo "polis-api health failed (HTTP, database or expected configuration check)" >&2
