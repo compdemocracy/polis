@@ -113,7 +113,10 @@ SET password_encryption = 'md5';
 ALTER ROLE postgres WITH PASSWORD :'password';
 SQL
 mk CONFIRM_DATA_LOSS=1 rm-volumes
-! docker volume inspect "${COMPOSE_PROJECT_NAME}_custom_data"
+if docker volume inspect "${COMPOSE_PROJECT_NAME}_custom_data" >/dev/null 2>&1; then
+  echo "FAIL: the custom Postgres volume survived the confirmed removal" >&2
+  exit 1
+fi
 docker volume inspect "${COMPOSE_PROJECT_NAME}_backups" >/dev/null
 docker volume inspect "${COMPOSE_PROJECT_NAME}-other-data" >/dev/null
 dump=$(ls -t backups/"$COMPOSE_PROJECT_NAME"-*.sql.gz | head -1)
@@ -190,9 +193,15 @@ cat "$fixture/legacy-existing"
 grep 'Refusing to start: the legacy postgres volume contains a cluster.' "$fixture/legacy-existing"
 # Production composition has neither the backup service nor the legacy mount.
 POSTGRES_VOLUME=postgres_data docker compose -f docker-compose.yml --env-file "$fixture/env" --profile postgres config --services > "$fixture/prod-services"
-! grep -Fx db-backup "$fixture/prod-services"
+if grep -Fx db-backup "$fixture/prod-services"; then
+  echo "FAIL: the production composition includes the db-backup service" >&2
+  exit 1
+fi
 make -n ENV_FILE="$fixture/env" POSTGRES_VOLUME=postgres_data PROD start > "$fixture/prod-make"
 cat "$fixture/prod-make"
-! grep -E 'self-hosted|db-backup' "$fixture/prod-make"
+if grep -E 'self-hosted|db-backup' "$fixture/prod-make"; then
+  echo "FAIL: PROD start references the self-hosted overlay or the backup service" >&2
+  exit 1
+fi
 grep 'docker compose -f docker-compose.yml ' "$fixture/prod-make"
 echo 'PASS: refusals, confirmed dump/removal/restore, restore refusal, nightly retention/failure/connections, concurrent writes, legacy refusal, production exclusion'

@@ -215,6 +215,7 @@ are capped at five seconds.
 ```sh
 make db-backups
 # Copy a listed nightly dump outside Docker before a restore or host migration:
+mkdir -p ./backups
 docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml \
   --profile postgres cp db-backup:/backups/<filename>.sql.gz ./backups/<filename>.sql.gz
 ```
