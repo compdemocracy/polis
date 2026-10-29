@@ -258,6 +258,7 @@ pub struct App {
     pub next_comment_db: Option<Arc<Pool>>,
     pub next_comment_plain: bool,
     pub post_votes: Option<crate::post_votes::Writer>,
+    pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -488,6 +489,7 @@ impl App {
             next_comment_db: None,
             next_comment_plain: false,
             post_votes: None,
+            post_treevite_waves: None,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -1668,7 +1670,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if req.path() == crate::treevite_waves::PATH && crate::treevite_waves::parse(app, req).is_none()
+    if req.path() == crate::treevite_waves::PATH
+        && !(req.method == "POST" && crate::post_treevite_waves::eligible(app, req))
+        && crate::treevite_waves::parse(app, req).is_none()
     {
         return bad_gateway();
     }
@@ -1881,6 +1885,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         let mut res = res;
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
+    }
+    if req.path() == crate::post_treevite_waves::PATH && req.method == "POST" {
+        return crate::post_treevite_waves::handle(app, req, res).await;
     }
     if req.path() == crate::post_votes::PATH && req.method == "POST" {
         return crate::post_votes::handle(app, req, res).await;
