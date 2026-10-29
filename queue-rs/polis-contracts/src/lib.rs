@@ -32,6 +32,7 @@ pub mod metadata_choices;
 pub mod metadata_query;
 pub mod metadata_questions;
 pub mod metadata_read;
+pub mod moderation_comments;
 pub mod my_invites_csv;
 pub mod ops_catchall;
 pub mod ops_page;
