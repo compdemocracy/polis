@@ -37,6 +37,9 @@ If you're interested in using or contributing to Polis, please see the following
 
 If you're trying to set up a Polis deployment or development environment, then please read the rest of this document 👇 ⬇️ 👇
 
+For self-hosted installations, read [database backups, upgrades and restore](docs/self-hosting-upgrades.md)
+before replacing a release or resetting a database. It includes the PostgreSQL 13 to 17 upgrade recipe and default nightly backups.
+
 ---
 
 ## ⚡ Running Polis
@@ -118,13 +121,13 @@ cp example.env .env
 ```
 
 ```sh
-docker compose --profile postgres --profile local-services up --build
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services up --build
 ```
 
 **Math engine.** The math engine is the Python poller, the `math-python` service. In `docker-compose.yml` it sits behind the `math-python` profile, so the plain commands in this section do not start it, and the visualization and groups stay empty. To run it:
 
 - `make start` uses the dev overlay (`docker-compose.dev.yml`), which runs `math-python` with no extra flags. It writes the label the server reads (`MATH_ENV` in `.env`).
-- With the base file alone (plain `docker compose`), add `--profile math-python`. `make PROD start` does not pass that profile, so it runs no math engine. Also set three things in `.env`:
+- Without the development overlay, add `--profile math-python`. `make PROD start` does not pass that profile, so it runs no math engine. Also set three things in `.env`:
   - `MATH_PYTHON_ENV` to the same value as `MATH_ENV`. It must not be `prod`, which the poller refuses.
   - `MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1`.
   - `DELPHI_POLLER_CONTAINER_MEMORY`, which caps the poller's memory and defaults to `16g`.
@@ -136,7 +139,7 @@ To avoid having to use `sudo` in the future (on a Linux or Windows machine with 
 Once you've built the docker images, you can run without `--build`, which may be faster. Run
 
 ```sh
-docker compose --profile postgres --profile local-services up
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services up
 ```
 
 or simply
@@ -152,14 +155,14 @@ If you have only changed configuration values in .env, you can recreate your con
 fully rebuilding them with `--force-recreate`. For example:
 
 ```sh
-docker compose --profile postgres --profile local-services down
-docker compose --profile postgres --profile local-services up --force-recreate
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services down
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services up --force-recreate
 ```
 
 To see what the environment of your containers is going to look like, run:
 
 ```sh
-docker compose --profile postgres --profile local-services convert
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services convert
 ```
 
 #### Using a local or remote (non-docker) database
@@ -193,13 +196,13 @@ If you want to run the stack without the local MinIO and DynamoDB services (e.g.
 Example: Run with the containerized DB but connect to external/real cloud services:
 
 ```sh
-docker compose --profile postgres up
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres up
 ```
 
 Example: Run with an external DB and external/real cloud services (closest to production):
 
 ```sh
-docker compose up
+docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml up
 ```
 
 ### Testing out your instance
@@ -222,7 +225,7 @@ Due to limitations of the OIDC Simulator, you cannot register new admin users in
 
 #### Shutting down
 
-When you're done working, you can end the process using `Ctrl+C`, or typing `docker compose --profile postgres --profile local-services down`
+When you're done working, you can end the process using `Ctrl+C`, or typing `docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services down`
 if you are running in "detached mode".
 
 ### Updating the system
@@ -258,7 +261,7 @@ However, if you are deploying in a high impact context and need help, please [re
 Once you've gotten [Polis running (as described above)](#-running-polis), you can enable developer conveniences by running
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.self-hosted.yml --profile postgres up
 ```
 
 (run with `--build` if this is your first time running, or if you need to rebuild containers)
@@ -272,7 +275,7 @@ This enables:
 - etc.
 
 This command takes advantage of the `docker-compose.dev.yml` _overlay_ file, which layers the developer conveniences describe above into the base system, as described in the `docker-compose.yml` file.
-You can specify these `-f docker-compose.yml -f docker-compose.dev.yml` arguments for any `docker` command which you need to take advantage of these features (not just `docker compose --profile postgres up`).
+You can specify these `-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.self-hosted.yml` arguments for any `docker` command which you need to take advantage of these features (not just `docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres up`).
 
 You can create your own `docker-compose.x.yml` file as an overlay and add or modify any values you need to differ
 from the defaults found in the `docker-compose.yml` file and pass it as the second argument to the `docker compose -f` command above.
@@ -288,10 +291,11 @@ Please see [`e2e/README.md`](/e2e/README.md) for more information on running the
 
 #### Docker Problems
 
-A lot of issues might be resolved by killing all docker containers and/or restarting docker entirely. If that doesn't
-work, this will wipe all of your polis containers and volumes (**INCLUDING THE DATABASE VOLUME, so don't use this in prod!**) and completely rebuild them:
-
-`make start-FULL-REBUILD`
+Use `make stop` and `make start-rebuild` to restart and rebuild while keeping data.
+`make start-FULL-REBUILD` resets this project's data volumes. It refuses a database
+with conversations, votes or comments unless `CONFIRM_DATA_LOSS=1` is supplied;
+with that flag it saves and verifies a host dump before removal. Read the
+[backup and restore guide](docs/self-hosting-upgrades.md) before using it.
 
 see also `make help` for additional commands that might be useful.
 
@@ -305,7 +309,7 @@ git config --local include.path ../.gitconfig
 
 #### Running as a background process
 
-If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, and use `docker compose --profile postgres --profile local-services down` to stop.
+If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, and use `docker compose -f docker-compose.yml -f docker-compose.self-hosted.yml --profile postgres --profile local-services down` to stop.
 
 #### Using Docker Machine as your development environment
 

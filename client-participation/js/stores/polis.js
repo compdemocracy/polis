@@ -43,7 +43,6 @@ module.exports = function (params) {
   var trashesPath = "api/v3/trashes";
   var commentsPath = "api/v3/comments";
   var nextCommentPath = "api/v3/nextComment";
-  var finishedTutorialPath = "api/v3/tutorial";
 
   var pcaPath = "api/v3/math/pca2";
   var votesFamousPath = "api/v3/votes/famous";
@@ -1559,11 +1558,6 @@ module.exports = function (params) {
     return projectedComments;
   }
 
-  function finishedTutorial() {
-    return polisPost(finishedTutorialPath, {
-      step: 1
-    });
-  }
 
   function getParticipantsOfInterestForGid(gid) {
     if (_.isUndefined(gid) || gid === null) {
@@ -1758,7 +1752,6 @@ module.exports = function (params) {
       personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
       prepAndSendVisData();
     },
-    finishedTutorial: finishedTutorial,
     addCommentsAvailableListener: commentsAvailableCallbacks.add,
     createConversation: createConversation,
     getConversations: getConversations,

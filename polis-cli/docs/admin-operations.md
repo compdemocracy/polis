@@ -55,7 +55,6 @@ This reconciles all 77 initially missing application routes against the current 
 | POST | `/api/v3/joinWithInvite` | Excluded legacy admission path; modern anonymous/Treevite entry uses join/vote/comment. |
 | POST | `/api/v3/domainWhitelist` | `polis account domain replace` |
 | POST | `/api/v3/xidAllowList` | `polis participant allowlist import` |
-| POST | `/api/v3/tutorial` | `polis participant tutorial` |
 | POST | `/api/v3/comments` | Already covered: `polis comment` |
 | POST | `/api/v3/delphi/jobs` | `polis delphi run` |
 | POST | `/api/v3/delphi/batchReports` | `polis delphi batch` |
@@ -171,7 +170,6 @@ Use `polis help <command>` or `polis schema <command>` for parser discovery. The
 | `comment next` | `--conversation` id required |
 | `delphi narrative run` | `--report` id required |
 | `account verify` | `--code-file` secret_file required |
-| `participant tutorial` | `--step` uint required |
 | `delphi run` | `--report` id required; `--type` text: FULL_PIPELINE, CREATE_NARRATIVE_BATCH, AWAITING_NARRATIVE_BATCH optional; `--priority` uint (max 100) optional; `--include-moderation` bool optional; `--idempotency-key` text (max 300) optional |
 | `delphi batch` | `--report` id required; `--model` text (max 300) required; `--max-batch-size` uint (max 1000) optional; `--no-cache` bool optional; `--include-moderation` bool optional; `--idempotency-key` text (max 300) optional |
 | `topic moderate` | `--conversation` id required; `--action` text: accept, reject, meta required; `--statements` uints optional; `--topic` text (max 1024) optional |

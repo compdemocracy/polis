@@ -893,23 +893,6 @@
     "about": "Apply an explicitly supplied legacy email-verification capability"
   },
   {
-    "command": "participant tutorial",
-    "method": "POST",
-    "path": "/api/v3/tutorial",
-    "parameters": [
-      {
-        "name": "step",
-        "wire": "step",
-        "kind": "uint",
-        "required": true
-      }
-    ],
-    "auth": "account",
-    "effect": true,
-    "response": "json",
-    "about": "Record this account’s tutorial progress"
-  },
-  {
     "command": "delphi run",
     "method": "POST",
     "path": "/api/v3/delphi/jobs",
