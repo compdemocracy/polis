@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Record retired math-poll responses and
-# compare complete Node/Rust HTTP bytes. Uses only the isolated generated stack.
-# Usage: legacy-pca-run.sh [result.json], with unique project and P027 ports.
+# Record the participant page's two comments calls and compare projected bytes.
+# Usage: participant-comments-run.sh [result.json], with unique project and P027 ports.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 out=${1:-/dev/stdout}
 here="$root/server/characterization"
 (cd "$here" && python3 -c 'import os, isolation; isolation.isolated_environment(os.environ)')
 export P027_POSTGRES_IMAGE=${P027_POSTGRES_IMAGE:-x54pca2-postgres:local}
-compose=(docker compose -f "$here/compose.yml" -f "$root/queue-rs/polis-api/conformance/compose.yml" -f "$root/queue-rs/polis-api/conformance/participant-compose.yml" -f "$root/queue-rs/polis-api/conformance/legacy-pca-compose.yml")
+compose=(docker compose -f "$here/compose.yml" -f "$root/queue-rs/polis-api/conformance/compose.yml" -f "$root/queue-rs/polis-api/conformance/participant-compose.yml" -f "$root/queue-rs/polis-api/conformance/participant-comments-compose.yml")
 if [[ -n $(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME") ]]; then
   echo "project $COMPOSE_PROJECT_NAME already has containers" >&2
   exit 1
@@ -41,18 +40,4 @@ for _ in $(seq 60); do
   if "${compose[@]}" exec -T driver node -e 'fetch("http://polis-api:5100/health").then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))'; then break; fi
   sleep 1
 done
-"${compose[@]}" exec -T driver node /conformance/legacy-pca-replay.cjs >"$out"
-"${compose[@]}" exec -T driver node /conformance/recent-activity-replay.cjs >"${out%.json}-recent-activity-regression.json"
-"${compose[@]}" exec -T driver node /conformance/recent-started-replay.cjs >"${out%.json}-recent-started-regression.json"
-"${compose[@]}" exec -T driver node /conformance/metadata-choices-replay.cjs >"${out%.json}-metadata-choices-regression.json"
-"${compose[@]}" exec -T driver node /conformance/metadata-read-replay.cjs >"${out%.json}-metadata-read-regression.json"
-
-"${compose[@]}" exec -T driver node /conformance/database-replay.cjs >"${out%.json}-database-regression.json"
-"${compose[@]}" exec -T driver node /conformance/about-replay.cjs >"${out%.json}-about-regression.json"
-
-"${compose[@]}" exec -T driver node /conformance/contexts-replay.cjs >"${out%.json}-contexts-regression.json"
-"${compose[@]}" exec -T driver node /conformance/domain-whitelist-replay.cjs >"${out%.json}-domain-whitelist-regression.json"
-
-"${compose[@]}" exec -T driver node /conformance/metadata-questions-replay.cjs >"${out%.json}-metadata-questions-regression.json"
-
-"${compose[@]}" exec -T driver node /conformance/metadata-answers-replay.cjs >"${out%.json}-metadata-answers-regression.json"
+"${compose[@]}" exec -T driver node /conformance/participant-comments-replay.cjs >"$out"

@@ -1,22 +1,11 @@
 import _ from "underscore";
 import { failJson } from "../utils/fail";
-import { getConversationInfo } from "../conversation";
 import { getUser } from "../user";
 import { getXidRecord } from "../xids";
-import { isModerator, isPolisDev } from "../utils/common";
+import { isPolisDev } from "../utils/common";
 import { sql_users } from "../db/sql";
 import pg from "../db/pg-query";
-import {
-  generateSUZinvites,
-  saveSuzinvites,
-  sendSuzinviteEmail,
-} from "../invites/suzinvites";
-import type {
-  UserType,
-  ExpressRequest,
-  ExpressResponse,
-  ConversationInfo,
-} from "../d";
+import type { UserType, ExpressRequest, ExpressResponse } from "../d";
 
 // Types for better type safety
 interface GetUsersRequest extends ExpressRequest {
@@ -33,15 +22,6 @@ interface PutUsersRequest extends ExpressRequest {
     uid_of_user?: number;
     email?: string;
     hname?: string;
-  };
-}
-
-export interface PostUsersInviteRequest extends ExpressRequest {
-  p: {
-    uid?: number;
-    emails: string[];
-    zid: number;
-    conversation_id: string;
   };
 }
 
@@ -133,89 +113,4 @@ async function handle_PUT_users(
   }
 }
 
-// Helper function to record inviter relationship
-async function addInviter(
-  inviter_uid: number,
-  invited_email: string
-): Promise<void> {
-  await pg.queryP(
-    "INSERT INTO inviters (inviter_uid, invited_email) VALUES ($1, $2)",
-    [inviter_uid, invited_email]
-  );
-}
-
-async function handle_POST_users_invite(
-  req: PostUsersInviteRequest,
-  res: StandardResponse
-): Promise<void> {
-  const { uid, emails, zid, conversation_id } = req.p;
-
-  if (!uid) {
-    failJson(res, 403, "Authentication required");
-    return;
-  }
-
-  // Sending join invitations for a conversation, and recording them against its
-  // owner, is work performed on someone else's conversation. Only the owner, or a
-  // moderator on the owner's site, may do it — the same ownership gate the other
-  // conversation-admin routes use. Everyone else is refused before any read,
-  // write or mail is sent.
-  let isMod: boolean;
-  try {
-    isMod = await isModerator(zid, uid);
-  } catch (err) {
-    failJson(res, 500, "polis_err_sending_invite_auth_check", err);
-    return;
-  }
-  if (!isMod) {
-    failJson(res, 403, "polis_err_sending_invite_not_conversation_owner");
-    return;
-  }
-
-  try {
-    // Get conversation info
-    const conversation: ConversationInfo = await getConversationInfo(zid);
-    const { owner } = conversation;
-
-    // Generate invitation tokens
-    const suzinvites = generateSUZinvites(emails.length);
-
-    // Save invites to database
-    await saveSuzinvites(emails, suzinvites, zid, owner);
-
-    // Send emails and record inviter relationships
-    const emailPromises = emails.map(async (email, index) => {
-      const suzinvite = suzinvites[index];
-
-      try {
-        await sendSuzinviteEmail(req, email, conversation_id, suzinvite);
-        await addInviter(uid, email);
-      } catch (error) {
-        throw new Error(`Failed to send invite to ${email}: ${error}`);
-      }
-    });
-
-    await Promise.all(emailPromises);
-
-    res.status(200).json({
-      status: "success",
-    });
-  } catch (error) {
-    // Determine appropriate error message based on the step that failed
-    let errorCode = "polis_err_sending_invite";
-
-    if (error instanceof Error) {
-      if (error.message.includes("conversation")) {
-        errorCode = "polis_err_getting_conversation_info";
-      } else if (error.message.includes("saving")) {
-        errorCode = "polis_err_saving_invites";
-      } else if (error.message.includes("generating")) {
-        errorCode = "polis_err_generating_invites";
-      }
-    }
-
-    failJson(res, 500, errorCode, error);
-  }
-}
-
-export { handle_GET_users, handle_PUT_users, handle_POST_users_invite };
+export { handle_GET_users, handle_PUT_users };

@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, test } from "@jest/globals";
 import {
-  getTestAgent,
   initializeParticipant,
   initializeParticipantWithXid,
   setupAuthAndConvo,
@@ -13,75 +12,8 @@ import type {
   VoteResponse as ActualVoteResponse,
   ParticipantData,
 } from "../../types/test-helpers";
-import { Agent } from "supertest";
 
 describe("Authentication with Supertest", () => {
-  // Define agents
-  let agent: Agent;
-
-  // Initialize agents before tests
-  beforeAll(async () => {
-    agent = await getTestAgent();
-  });
-
-  describe("Deregister (Logout) Endpoint", () => {
-    test("Login, logout, try to access endpoint that requires auth", async () => {
-      const noShowPageResponse: Response = await agent
-        .post("/api/v3/auth/deregister")
-        .send({});
-      expect(noShowPageResponse.status).toBe(200);
-      expect(noShowPageResponse.body).toEqual({
-        status: "success",
-        message: "Logout successful. Please remove your JWT token.",
-      });
-
-      const nullShowPageResponse: Response = await agent
-        .post("/api/v3/auth/deregister")
-        .send({
-          showPage: null,
-        });
-      expect(nullShowPageResponse.status).toBe(200);
-      expect(nullShowPageResponse.body).toEqual({
-        status: "success",
-        message: "Logout successful. Please remove your JWT token.",
-      });
-
-      const showPageResponse: Response = await agent
-        .post("/api/v3/auth/deregister")
-        .send({
-          showPage: true,
-        });
-      expect(showPageResponse.status).toBe(200);
-      expect(showPageResponse.body).toEqual({
-        status: "success",
-        message: "Logout successful. Please remove your JWT token.",
-      });
-    });
-
-    test("JWT logout returns 200 without any server-side action", async () => {
-      // Use a pooled test user that exists in the OIDC simulator
-      const pooledUser = {
-        email: "test.user.0@polis.test",
-        hname: "Test User 0",
-        password: "Te$tP@ssw0rd*",
-      };
-      const { agent } = await getJwtAuthenticatedAgent(pooledUser);
-
-      // Call deregister with JWT auth
-      const response = await agent.post("/api/v3/auth/deregister").send({});
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        status: "success",
-        message: "Logout successful. Please remove your JWT token.",
-      });
-
-      // Verify the JWT still works (server doesn't invalidate JWTs)
-      const testResponse = await agent.get("/api/v3/users");
-      expect(testResponse.status).toBe(200);
-    });
-  });
-
   describe("JWT Authentication", () => {
     test("should authenticate with OIDC JWT token", async () => {
       // Create a pooled test user that exists in the OIDC simulator

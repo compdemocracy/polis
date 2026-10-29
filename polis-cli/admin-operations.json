@@ -483,30 +483,6 @@
     "about": "Inspect an explicitly supplied email-invitation capability"
   },
   {
-    "command": "report export-results",
-    "method": "GET",
-    "path": "/api/v3/dataExport/results",
-    "parameters": [
-      {
-        "name": "conversation",
-        "wire": "conversation_id",
-        "kind": "id",
-        "required": true
-      },
-      {
-        "name": "filename",
-        "wire": "filename",
-        "kind": "text",
-        "required": true,
-        "max": 1000
-      }
-    ],
-    "auth": "account",
-    "effect": false,
-    "response": "capability",
-    "about": "Save the site-issued export download URL privately; does not verify or fetch the artifact"
-  },
-  {
     "command": "delphi overview",
     "method": "GET",
     "path": "/api/v3/delphi",
@@ -668,54 +644,6 @@
     "effect": false,
     "response": "json",
     "about": "Query participants matching metadata answer IDs"
-  },
-  {
-    "command": "math correlation",
-    "method": "GET",
-    "path": "/api/v3/math/correlationMatrix",
-    "parameters": [
-      {
-        "name": "report",
-        "wire": "report_id",
-        "kind": "id",
-        "required": true
-      }
-    ],
-    "auth": "public",
-    "effect": true,
-    "response": "json",
-    "about": "Request the legacy correlation matrix; may schedule math"
-  },
-  {
-    "command": "report export-start",
-    "method": "GET",
-    "path": "/api/v3/dataExport",
-    "parameters": [
-      {
-        "name": "conversation",
-        "wire": "conversation_id",
-        "kind": "id",
-        "required": true
-      },
-      {
-        "name": "format",
-        "wire": "format",
-        "kind": "text",
-        "required": false,
-        "max": 100
-      },
-      {
-        "name": "timestamp",
-        "wire": "unixTimestamp",
-        "kind": "text",
-        "required": false,
-        "max": 99
-      }
-    ],
-    "auth": "account",
-    "effect": true,
-    "response": "json",
-    "about": "Request a queued data export; does not claim it has completed"
   },
   {
     "command": "notification subscribe",
@@ -1359,33 +1287,6 @@
     "about": "Edit this signed-in account’s email or display name"
   },
   {
-    "command": "math refresh",
-    "method": "POST",
-    "path": "/api/v3/mathUpdate",
-    "parameters": [
-      {
-        "name": "conversation",
-        "wire": "conversation_id",
-        "kind": "id",
-        "required": true
-      },
-      {
-        "name": "type",
-        "wire": "math_update_type",
-        "kind": "text",
-        "required": true,
-        "choices": [
-          "recompute",
-          "update"
-        ]
-      }
-    ],
-    "auth": "account",
-    "effect": true,
-    "response": "json",
-    "about": "Explicitly request math recomputation or an update"
-  },
-  {
     "command": "report edit",
     "method": "PUT",
     "path": "/api/v3/reports",
@@ -1571,74 +1472,5 @@
     "effect": true,
     "response": "json",
     "about": "Request a legacy email invitation; sends mail if the site supports it"
-  },
-  {
-    "command": "account invite",
-    "method": "POST",
-    "path": "/api/v3/users/invite",
-    "parameters": [
-      {
-        "name": "conversation",
-        "wire": "conversation_id",
-        "kind": "id",
-        "required": true
-      },
-      {
-        "name": "emails",
-        "wire": "emails",
-        "kind": "strings",
-        "required": true
-      }
-    ],
-    "auth": "account",
-    "effect": true,
-    "response": "json",
-    "about": "Send conversation invitations to the explicit email list"
-  },
-  {
-    "command": "support contribute",
-    "method": "POST",
-    "path": "/api/v3/contributors",
-    "parameters": [
-      {
-        "name": "agreement-version",
-        "wire": "agreement_version",
-        "kind": "uint",
-        "required": true,
-        "max": 999999
-      },
-      {
-        "name": "name",
-        "wire": "name",
-        "kind": "text",
-        "required": true,
-        "max": 746
-      },
-      {
-        "name": "email",
-        "wire": "email",
-        "kind": "text",
-        "required": true,
-        "max": 256
-      },
-      {
-        "name": "github-id",
-        "wire": "github_id",
-        "kind": "text",
-        "required": true,
-        "max": 256
-      },
-      {
-        "name": "company-name",
-        "wire": "company_name",
-        "kind": "text",
-        "required": true,
-        "max": 746
-      }
-    ],
-    "auth": "public",
-    "effect": true,
-    "response": "json",
-    "about": "Submit the named contributor agreement version and identity"
   }
 ]

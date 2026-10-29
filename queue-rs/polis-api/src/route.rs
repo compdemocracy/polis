@@ -49,16 +49,14 @@ pub struct App {
     pub metadata_questions_auth_db: Option<Arc<Pool>>,
     pub metadata_questions_served: AtomicU64,
     pub metadata_questions_fallback: AtomicU64,
-    pub conversation_pages: [Option<crate::conversation_pages::Client>; 5],
-    pub conversation_page_dbs: [Option<Arc<Pool>>; 5],
-    pub conversation_page_served: [AtomicU64; 5],
-    pub conversation_page_fallback: [AtomicU64; 5],
-    pub iip_db: Option<Arc<Pool>>,
-    pub iim_db: Option<Arc<Pool>>,
-    pub iip_served: AtomicU64,
-    pub iip_fallback: AtomicU64,
-    pub iim_served: AtomicU64,
-    pub iim_fallback: AtomicU64,
+    pub conversation_pages: [Option<crate::conversation_pages::Client>; 1],
+    pub conversation_page_dbs: [Option<Arc<Pool>>; 1],
+    pub conversation_page_served: [AtomicU64; 1],
+    pub conversation_page_fallback: [AtomicU64; 1],
+    pub participant_comments_db: Option<Arc<Pool>>,
+    pub participant_comments_auth_db: Option<Arc<Pool>>,
+    pub participant_comments_served: AtomicU64,
+    pub participant_comments_fallback: AtomicU64,
     pub participants_read_db: Option<Arc<Pool>>,
     pub participants_read_auth_db: Option<Arc<Pool>>,
     pub participants_read_served: AtomicU64,
@@ -109,9 +107,6 @@ pub struct App {
     pub recent_activity_auth_db: Option<Arc<Pool>>,
     pub recent_activity_served: AtomicU64,
     pub recent_activity_fallback: AtomicU64,
-    pub legacy_pca_reads: bool,
-    pub legacy_pca_served: AtomicU64,
-    pub legacy_pca_fallback: AtomicU64,
     pub treevite_waves_db: Option<Arc<Pool>>,
     pub treevite_waves_auth_db: Option<Arc<Pool>>,
     pub treevite_waves_served: AtomicU64,
@@ -293,12 +288,10 @@ impl App {
             conversation_page_dbs: std::array::from_fn(|_| None),
             conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
             conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
-            iip_db: None,
-            iim_db: None,
-            iip_served: AtomicU64::new(0),
-            iip_fallback: AtomicU64::new(0),
-            iim_served: AtomicU64::new(0),
-            iim_fallback: AtomicU64::new(0),
+            participant_comments_db: None,
+            participant_comments_auth_db: None,
+            participant_comments_served: AtomicU64::new(0),
+            participant_comments_fallback: AtomicU64::new(0),
             participants_read_db: None,
             participants_read_auth_db: None,
             participants_read_served: AtomicU64::new(0),
@@ -349,9 +342,6 @@ impl App {
             recent_activity_auth_db: None,
             recent_activity_served: AtomicU64::new(0),
             recent_activity_fallback: AtomicU64::new(0),
-            legacy_pca_reads: false,
-            legacy_pca_served: AtomicU64::new(0),
-            legacy_pca_fallback: AtomicU64::new(0),
             treevite_waves_db: None,
             treevite_waves_auth_db: None,
             treevite_waves_served: AtomicU64::new(0),
@@ -931,12 +921,6 @@ pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
     send(req, res, Payload::Text(value.into()))
 }
 
-/// Express HTML send with the normal ETag, freshness and compression envelope.
-pub(crate) fn html(req: &Request, mut res: Res, value: &str) -> Outgoing {
-    res.set("Content-Type", "text/html");
-    send(req, res, Payload::Text(value.into()))
-}
-
 /// Express CSV send with its normal ETag, freshness and compression envelope.
 pub(crate) fn csv(req: &Request, mut res: Res, value: &str) -> Outgoing {
     res.set("Content-Type", "text/csv");
@@ -1198,16 +1182,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
         }
     }
-    if crate::link_pages::matches(req.path()) {
-        let (served, fallback) = if req.path().starts_with("/iip/") {
-            (&app.iip_served, &app.iip_fallback)
-        } else {
-            (&app.iim_served, &app.iim_fallback)
-        };
+    if req.path() == crate::participant_comments::PATH {
         if out.status == 502 {
-            fallback.fetch_add(1, Ordering::Relaxed);
+            app.participant_comments_fallback
+                .fetch_add(1, Ordering::Relaxed);
         } else {
-            served.fetch_add(1, Ordering::Relaxed);
+            app.participant_comments_served
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     if req.path() == crate::participants_read::PATH {
@@ -1299,13 +1280,7 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.recent_activity_served.fetch_add(1, Ordering::Relaxed);
         }
     }
-    if req.path() == crate::legacy_pca::PATH {
-        if out.status == 502 {
-            app.legacy_pca_fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.legacy_pca_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
+
     if req.path() == crate::treevite_waves::PATH {
         if out.status == 502 {
             app.treevite_waves_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1739,9 +1714,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if req.path() == crate::legacy_pca::PATH && crate::legacy_pca::parse(app, req).is_none() {
-        return bad_gateway();
-    }
+
     if req.path() == crate::recent_activity::PATH
         && crate::recent_activity::parse(app, req).is_none()
     {
@@ -1773,7 +1746,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if crate::link_pages::matches(req.path()) && crate::link_pages::parse(app, req).is_none() {
+    if req.path() == crate::participant_comments::PATH
+        && crate::participant_comments::parse(app, req).is_none()
+    {
         return bad_gateway();
     }
     if req.path() == crate::participants_read::PATH
@@ -1940,7 +1915,6 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     // writeDefaultHead, compress, addCorsHeader.
     let origin = match if matches!(req.path(), crate::robots::PATH | crate::perf_stats::PATH)
         || crate::conversation_pages::matches(req.path())
-        || crate::link_pages::matches(req.path())
         || crate::integrate_page::matches(req.path())
         || crate::admin_page::matches(req.path())
     {
@@ -2095,9 +2069,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::treevite_waves::PATH {
         return crate::treevite_waves::handle(app, req, res).await;
     }
-    if req.path() == crate::legacy_pca::PATH {
-        return crate::legacy_pca::handle(app, req, res);
-    }
+
     if req.path() == crate::recent_activity::PATH {
         return crate::recent_activity::handle(app, req, res).await;
     }
@@ -2122,8 +2094,8 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if crate::conversation_pages::matches(req.path()) {
         return crate::conversation_pages::handle(app, req, res).await;
     }
-    if crate::link_pages::matches(req.path()) {
-        return crate::link_pages::handle(app, req, res).await;
+    if req.path() == crate::participant_comments::PATH {
+        return crate::participant_comments::handle(app, req, res).await;
     }
     if req.path() == crate::participants_read::PATH {
         return crate::participants_read::handle(app, req, res).await;
@@ -4426,8 +4398,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn five_conversation_page_switches_and_boundaries_are_independent() {
-        let prefixes = ["/", "/explore/", "/share/", "/summary/", "/ot/"];
+    async fn conversation_page_switch_and_boundaries() {
+        let prefixes = ["/"];
         for (index, prefix) in prefixes.iter().enumerate() {
             let mut state = app(true);
             let pool = state.db.clone();
@@ -4463,6 +4435,51 @@ mod tests {
                 0
             );
         }
+    }
+
+    #[tokio::test]
+    async fn participant_comments_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/comments/participant?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().participant_comments_db = Some(pool.clone());
+        Arc::get_mut(&mut state)
+            .unwrap()
+            .participant_comments_auth_db = Some(pool);
+        assert!(crate::participant_comments::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/comments/participant?conversation_id=4fixture{tail}");
+            assert!(crate::participant_comments::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::participant_comments::parse(&state, &no_auth).is_some());
+        assert_eq!(state.participant_comments_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.participant_comments_fallback.load(Ordering::Relaxed),
+            9
+        );
     }
 
     #[tokio::test]
@@ -4503,44 +4520,6 @@ mod tests {
         assert!(crate::participants_read::parse(&state, &no_auth).is_none());
         assert_eq!(state.participants_read_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.participants_read_fallback.load(Ordering::Relaxed), 9);
-    }
-
-    #[tokio::test]
-    async fn link_pages_switches_admission_and_unreachable_database() {
-        let mut state = app(true);
-        for prefix in ["iip", "iim"] {
-            let mut req = request("GET", &[("host", "localhost")]);
-            req.target = format!("/{prefix}/4fixture");
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let pool = state.db.clone();
-        Arc::get_mut(&mut state).unwrap().iip_db = Some(pool.clone());
-        let mut req = request("GET", &[("host", "localhost")]);
-        req.target = "/iim/4fixture".into();
-        assert!(crate::link_pages::parse(&state, &req).is_none());
-        req.target = "/iip/4fixture".into();
-        assert!(crate::link_pages::parse(&state, &req).is_some());
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        Arc::get_mut(&mut state).unwrap().iim_db = Some(pool);
-        for prefix in ["iip", "iim"] {
-            for (method, suffix, headers) in [
-                ("POST", "", vec![]),
-                ("OPTIONS", "", vec![]),
-                ("GET", "?other=1", vec![]),
-                ("GET", "/extra", vec![]),
-                ("GET", "%20", vec![]),
-                ("GET", "", vec![("cookie", "x=y")]),
-                ("GET", "", vec![("authorization", "Bearer bad")]),
-                ("GET", "", vec![("content-length", "2")]),
-            ] {
-                let mut req = request(method, &headers);
-                req.target = format!("/{prefix}/4fixture{suffix}");
-                assert!(crate::link_pages::parse(&state, &req).is_none());
-                assert_eq!(handle(state.clone(), req).await.status, 502);
-            }
-        }
-        assert_eq!(state.iip_served.load(Ordering::Relaxed), 0);
-        assert_eq!(state.iim_served.load(Ordering::Relaxed), 0);
     }
 
     #[tokio::test]
@@ -4849,55 +4828,6 @@ mod tests {
         }
         assert_eq!(state.robots_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.robots_fallback.load(Ordering::Relaxed), 6);
-    }
-
-    #[tokio::test]
-    async fn legacy_pca_has_no_database_work_and_preserves_304_end() {
-        let mut state = app(true);
-        let probe = |method: &str| {
-            let mut req = request(method, &[("host", "localhost")]);
-            req.target = format!(
-                "{}?conversation_id=fixture&math_tick=7",
-                crate::legacy_pca::PATH
-            );
-            req
-        };
-        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
-        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
-        for method in ["GET", "HEAD"] {
-            let out = handle(state.clone(), probe(method)).await;
-            assert_eq!(out.status, 304);
-            assert!(matches!(out.body, Body::Empty));
-            assert!(out.headers.iter().any(|(k,v)|k.eq_ignore_ascii_case("content-type") && v=="application/json"));
-            assert!(
-                !out.headers
-                    .iter()
-                    .any(|(k, _)| k.eq_ignore_ascii_case("etag"))
-            );
-        }
-        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 2);
-        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 1);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().legacy_pca_reads = true;
-        assert_eq!(handle(secure, probe("GET")).await.status, 302);
-    }
-    #[tokio::test]
-    async fn legacy_pca_boundaries_are_counted_handoffs() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
-        for (method, headers) in [
-            ("POST", vec![]),
-            ("OPTIONS", vec![]),
-            ("GET", vec![("authorization", "Bearer fixture")]),
-            ("GET", vec![("cookie", "fixture=1")]),
-            ("GET", vec![("content-length", "1")]),
-        ] {
-            let mut req = request(method, &headers);
-            req.target = crate::legacy_pca::PATH.into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 0);
-        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 5);
     }
 
     fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {

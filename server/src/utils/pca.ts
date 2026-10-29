@@ -229,25 +229,6 @@ export async function prefetchLatestPcaData(): Promise<void> {
   );
 }
 
-// Background polling function to proactively cache PCA data
-export function fetchAndCacheLatestPcaData() {
-  async function pollForLatestPcaData() {
-    const pollStart = Date.now();
-    try {
-      await prefetchLatestPcaData();
-    } catch (err) {
-      logger.error("mathpoll error", err);
-    }
-    setTimeout(
-      pollForLatestPcaData,
-      Math.max(0, 2500 - (Date.now() - pollStart))
-    );
-  }
-
-  // Start the polling process
-  pollForLatestPcaData();
-}
-
 /**
  * Creates a minimal valid PCA structure for conversations with no math results.
  *

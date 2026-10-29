@@ -652,18 +652,6 @@ route deadline. No participation pool is borrowed. Outcomes are counted by
 `recentActivityServed`/`recentActivityFallback`. Run
 `queue-rs/polis-api/conformance/recent-activity-run.sh result.json` for raw proof.
 
-### Retired math poll
-
-`GET`/`HEAD /api/v3/math/pca` returns Node's empty 304 response, including normal
-middleware headers, behind `POLIS_API_LEGACY_PCA_READS=1` and nginx `legacyPca`,
-both off by default. Shared HTTP request/response types are in
-`polis-contracts::legacy_pca`. The retired handler ignores query parameters;
-queries up to 4 KiB are accepted. Unsupported methods, bodies, credentials or
-cookies hand back to Node and are counted. No database, auth provider, math
-engine, pool or participation work runs on this handler.
-`legacyPcaServed`/`legacyPcaFallback` count outcomes. Run
-`queue-rs/polis-api/conformance/legacy-pca-run.sh result.json` for raw HTTP proof.
-
 ### Tree-invitation waves: bounded moderator reads
 
 `POLIS_API_TREEVITE_WAVES_READS=1` stages GET/HEAD `/api/v3/treevite/waves`.
@@ -1606,3 +1594,42 @@ comparisons run after the unchanged profile. Database tests additionally cover
 concurrent numbering/owner caps, failure rollback, reserved future capacity,
 member idempotence and separate participation resources under a parked mint
 lock. This functional evidence is not a production capacity benchmark.
+
+
+
+## Participant comment list
+
+`GET /api/v3/comments/participant?conversation_id=…` returns an array of
+`{txt, tid}` in that property order, the projection read by the participation
+page. `txt` preserves database nulls. The path is a purpose-specific child of
+the legacy comments route; it cannot accept moderation or report options.
+
+It uses the plain list's active, positive-velocity and conversation moderation
+rules (strict: mod = 1; otherwise mod != -1), created-only order and 999-row
+default limit. There is no author exception and no moderator expansion.
+The topic agenda's legacy call asks for moderation and counts, but reads only
+tid and txt. That call has no ordering or default limit and expands visibility
+for moderators. Those differences are recorded explicitly by the conformance
+runner; this endpoint defines the plain participant list.
+
+Off by default. Enable only this route with
+`POLIS_API_PARTICIPANT_COMMENTS_READS=1` and set
+`POLIS_API_PARTICIPANT_COMMENTS_DATABASE_URL`. The read pool uses
+`READ_ONLY_DATABASE_URL` when provided. Both the read pool and separate identity
+pool have one connection, a 15 ms acquisition bound and 50 ms statement timeout;
+the complete request has a 75 ms deadline. They do not borrow connections from
+vote, comment submission or next-comment pools, and make no writes.
+
+Identity uses the comments twin's verified hybrid resolver. Participant tokens
+require the existing `POLIS_API_PARTICIPANT_READS=1` verifier configuration;
+mapped OIDC identities require `POLIS_API_READ_JWKS_FILE`, `AUTH_ISSUER`,
+`AUTH_AUDIENCE` and the matching `AUTH_NAMESPACE`. Anonymous reads are allowed.
+Cookies, invalid or unsupported identities, foreign participant tokens and
+unknown parameters return 502, never an anonymous downgrade. There is no Node
+handler for this new path and no nginx map entry. A 502 here is a refusal, not
+a promise of a successful legacy fallback.
+
+Health exposes `participantCommentsServed` and `participantCommentsFallback`.
+Run `conformance/participant-comments-run.sh` with the characterization stack's
+unique project, ports and built images to record both participant-page calls,
+their projected bytes, explicit deltas, HEAD behavior and credential refusals.

@@ -139,15 +139,15 @@ class PageComparisonTests(unittest.TestCase):
         for field, value in [('body', b'<p>Changed</p>'), ('status', 302),
                              ('content_type', 'application/json')]:
             rust = copy.deepcopy(node)
-            rust['iip:get'][field] = value
+            rust['conversationPage:get'][field] = value
             failed = [row for row in compare_pages(node, rust) if not row['equal']]
-            self.assertEqual(failed, [{'scenario':'iip:get', 'equal':False,
+            self.assertEqual(failed, [{'scenario':'conversationPage:get', 'equal':False,
                                       'different_fields':[field]}])
 
     def test_missing_page_case_cannot_pass(self):
         from pages import compare_pages
         node, rust = self.fixture(), self.fixture()
-        del rust['summaryPage:handoff']
+        del rust['conversationPage:handoff']
         with self.assertRaises(RuntimeError):
             compare_pages(node, rust)
 
@@ -158,7 +158,7 @@ class ImportanceDisplayTests(unittest.TestCase):
     def test_named_counts_exception_rejects_count_identity_and_base_mutations(self):
         import copy
         from harness import importance_display_checks
-        node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'operation_failed','read_at_ms':None}}},'artifacts':{}}
+        node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'capability_unavailable','read_at_ms':None}}},'artifacts':{}}
         rust=copy.deepcopy(node)
         for r in rust['json']['data']['comments']:r.update(important=0,voters=0)
         rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs'}
@@ -173,11 +173,11 @@ class ImportanceDisplayTests(unittest.TestCase):
     def test_absent_route_error_is_exact_for_this_fixture(self):
         import copy
         from harness import importance_display_checks
-        node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'operation_failed','read_at_ms':None}}},'artifacts':{}}
+        node={'exit':0,'json':{'ok':True,'error':None,'data':{'comments':[{'tid':n,'txt':str(n),'important':None,'voters':None} for n in [0,1]],'importance':{'state':'unavailable','error':'capability_unavailable','read_at_ms':None}}},'artifacts':{}}
         rust=copy.deepcopy(node)
         for row in rust['json']['data']['comments']:row.update(important=0,voters=0)
         rust['json']['data']['importance']={'schema':'statement-importance/1','conversation_id':'2p027generated','state':'observed','read_at_ms':1,'scope':'current active, unmuted, participant-visible comments; latest vote per participant; not verified people or historical job inputs'}
         self.assertTrue(all(importance_display_checks(node,rust).values()))
-        for code in ['capability_unavailable','transport_unavailable','forbidden',None]:
+        for code in ['operation_failed','transport_unavailable','forbidden',None]:
             bad=copy.deepcopy(node);bad['json']['data']['importance']['error']=code
             self.assertFalse(all(importance_display_checks(bad,rust).values()))

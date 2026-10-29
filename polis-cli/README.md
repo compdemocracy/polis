@@ -628,8 +628,7 @@ conditional headers or automatic retry. The output is a parsed served
 presentation, not a raw checkpoint or a freshness/computation certificate. The
 server can synthesize defaults even with math_tick zero. Missing selected fields
 remain absent. Inherited JSON float roundoff remains; use an independent
-raw archive for exact numerical bytes. `math correlation` remains unavailable
-because its legacy GET can enqueue work; `math refresh` is also unavailable.
+raw archive for exact numerical bytes.
 
 Base-cluster membership reads (pass thirteen):
 

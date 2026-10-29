@@ -274,7 +274,4 @@ fn help_and_schema_explain_presentation_limits_and_no_work() {
         call(t.path(), &["schema", "math", "view"], None, false).1["data"]["implemented"],
         true
     );
-    for leaf in ["correlation", "refresh"] {
-        assert_eq!(call(t.path(), &["math", leaf], None, false).0, 2);
-    }
 }

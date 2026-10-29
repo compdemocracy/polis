@@ -138,8 +138,8 @@ def main():
                     timings.append({'command':row.get('scenario',row['command']),'seconds':round(time.monotonic()-command_start,3)})
                     print(phase+' '+row['command']+' exit='+str(value['exit']),file=sys.stderr,flush=True)
                     stack.barrier(row['command'])
-                    if row['command'] in ['notification subscribe','notification unsubscribe','notification set','agenda add','agenda replace','agenda remove','delphi run','delphi batch','support contribute']:
-                        check='final' if row['command']=='support contribute' else row['command']
+                    if row['command'] in ['notification subscribe','notification unsubscribe','notification set','agenda add','agenda replace','agenda remove','delphi run','delphi batch']:
+                        check=row['command']
                         verified=stack.dc('exec','-T','server','node','/differential/admin-verify.cjs',check,check=False)
                         if verified.returncode:
                             print(verified.stderr,file=sys.stderr)

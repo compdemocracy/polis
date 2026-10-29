@@ -58,34 +58,6 @@ describe("Email Invites API", () => {
     expect(einvite).toMatch(/^[a-zA-Z0-9]+$/); // Should be alphanumeric
   });
 
-  test("POST /users/invite - should handle invitation emails with error validation", async () => {
-    const { agent } = await getJwtAuthenticatedAgent(jwtTestUser);
-
-    // Use shorter email addresses to fit within VARCHAR(32)
-    const testEmails = [
-      `inv1_${Date.now() % 1000}@ex.com`,
-      `inv2_${Date.now() % 1000}@ex.com`,
-    ];
-
-    const response: Response = await agent.post("/api/v3/users/invite").send({
-      conversation_id: conversationId,
-      emails: testEmails.join(","),
-    });
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      status: "success",
-    });
-
-    // Verify the invitation emails were sent
-    for (const email of testEmails) {
-      const sentEmail: EmailObject = await findEmailByRecipient(email);
-      expect(sentEmail).toBeTruthy();
-      expect(sentEmail.to[0].address).toBe(email);
-      expect(sentEmail.text).toContain(conversationId);
-    }
-  });
-
   test("GET /verify - should handle email verification with error validation", async () => {
     // This test will test the error cases since we can't generate a valid verification token
     const unauthAgent = await newAgent();
