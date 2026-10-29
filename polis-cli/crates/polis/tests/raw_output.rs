@@ -282,8 +282,8 @@ fn every_implemented_command_has_json_help_and_csv_discovery() {
     }
     let mut count = 0;
     visit(&schema["data"], t.path(), &mut count);
-    // After retiring account invite, support contribute, math refresh/correlation and report export-start/export-results.
-    assert!(count >= 156);
+    // Pin the remaining implemented commands after the dormant-operation retirements.
+    assert_eq!(count, 155);
 }
 
 #[test]
