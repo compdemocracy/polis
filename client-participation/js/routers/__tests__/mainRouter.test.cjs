@@ -117,11 +117,11 @@ function fixture(options = {}) {
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("initialization registers the four public route forms and rejects malformed conversation ids", () => {
+test("initialization registers the three public route forms and rejects malformed conversation ids", () => {
   const f = fixture();
   f.router.initialize();
-  assert.equal(f.routes.length, 4);
-  const examples = ["7Public/?lang=en", "7Public/ep1_Ab12", "ot/7Public/public-invite", "demo/7Public"];
+  assert.equal(f.routes.length, 3);
+  const examples = ["7Public/?lang=en", "7Public/ep1_Ab12", "ot/7Public/public-invite"];
   f.routes.forEach(({ pattern }, index) => assert.ok(pattern.test(examples[index])));
   assert.equal(f.routes[0].pattern.test("not-a-conversation"), false);
   assert.equal(f.routes[1].pattern.test("7Public/other/path"), false);
@@ -265,16 +265,9 @@ test("failed launch does not replace the root view", async () => {
   assert.ok(f.errors.length >= 1);
 });
 
-test("demo and invite routes pass their public routing state without posting a participant", () => {
+test("invite routes pass their public routing state without posting a participant", () => {
   const f = fixture();
-  let demo, invite;
-  f.router.doLaunchConversation = (args) => {
-    demo = args.ptptModel;
-  };
-  f.router.demoConversation("7Public");
-  assert.equal(demo.get("pid"), -123);
-  assert.equal(demo.get("conversation_id"), "7Public");
-  assert.deepEqual(f.gets, []);
+  let invite;
   f.router.participationView = (...args) => {
     invite = args;
     return "launched";
