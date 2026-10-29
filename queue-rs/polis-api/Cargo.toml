@@ -18,6 +18,7 @@ fixture-clock = []
 db-tests = []
 
 [dependencies]
+bcrypt = "0.17"
 anyhow = "1"
 base64 = "0.22"
 httparse = "1"

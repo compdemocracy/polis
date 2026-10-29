@@ -148,4 +148,6 @@ pub mod topic_selection_writes;
 
 pub mod xid_account;
 
+pub mod treevite_write;
+
 pub mod post_treevite_waves;

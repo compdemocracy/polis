@@ -11,6 +11,12 @@ pub struct Oidc {
     namespace: String,
 }
 impl Oidc {
+    /// Signature-only classification for a write route that refuses account
+    /// conversion. This neither provisions an account nor grants authority.
+    pub(crate) fn verifies(&self, raw: &str, now: u64) -> bool {
+        self.verifier.subject_at(Some(raw), now).is_ok()
+    }
+
     pub fn from_env() -> Result<Option<Arc<Self>>> {
         let Some(path) = std::env::var("POLIS_API_READ_JWKS_FILE")
             .ok()

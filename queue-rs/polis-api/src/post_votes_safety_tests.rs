@@ -1266,3 +1266,113 @@ fn commit_failure_is_unknown_and_retry_can_append_after_rollback() {
         1
     );
 }
+
+// A waiting credential exchange must not block citizen writes.
+#[test]
+fn second_accept_cannot_reject_participation() {
+    use polis_auth::{
+        Uid, Zid,
+        admission::{self, Entry, Identity, PreparedRecovery},
+    };
+    let db = Database::new("treevite_lock");
+    let (app, request) = setup(&db);
+    let mut primary = db.connect();
+    // The vote baseline predates these tables; use the released definitions
+    // when a fully migrated template has not been supplied.
+    primary
+        .batch_execute(include_str!(
+            "../../../server/postgres/migrations/000010_create_oidc_user_mappings.sql"
+        ))
+        .unwrap();
+    primary
+        .batch_execute(include_str!(
+            "../../../server/postgres/migrations/000013_create_treevite.sql"
+        ))
+        .unwrap();
+    primary.batch_execute("INSERT INTO users(uid,site_id,is_owner) VALUES(2,'generated-owner',true); UPDATE users SET site_id='generated-participant' WHERE uid=1; UPDATE conversations SET owner=2 WHERE zid=1; INSERT INTO treevite_waves(zid,wave,invites_per_user,owner_invites) VALUES(1,1,0,1); INSERT INTO treevite_invites(zid,wave_id,invite_code) VALUES(1,1,'second'); INSERT INTO treevite_login_codes(zid,pid,login_code_hash,login_code_lookup,login_code_fingerprint) VALUES(1,0,'prepared','lookup','fingerprint')").unwrap();
+    let mut held_connection = db.connect();
+    let mut held = held_connection.transaction().unwrap();
+    held.query_one("SELECT pid FROM treevite_login_codes FOR UPDATE", &[])
+        .unwrap();
+    let mut accepting = db.connect();
+    let backend: i32 = accepting
+        .query_one("SELECT pg_backend_pid()", &[])
+        .unwrap()
+        .get(0);
+    let worker = std::thread::spawn(move || {
+        admission::admit(
+            &mut accepting,
+            &admission::Request {
+                zid: Zid(1),
+                identity: Identity::AnonymousParticipant {
+                    uid: Uid(1),
+                    conversation: Zid(1),
+                },
+                entry: Entry::Invite {
+                    code: "second",
+                    recovery: PreparedRecovery {
+                        code: "prepared",
+                        bcrypt_hash: "prepared",
+                        lookup: "second-lookup",
+                        fingerprint_key: b"generated",
+                    },
+                },
+                admin_uids: &[],
+                x_name: None,
+                x_email: None,
+                x_profile_image_url: None,
+            },
+        )
+    });
+    let started = std::time::Instant::now();
+    loop {
+        let waiting: bool = primary
+            .query_one(
+                "SELECT wait_event_type='Lock' FROM pg_stat_activity WHERE pid=$1",
+                &[&backend],
+            )
+            .unwrap()
+            .get::<_, Option<bool>>(0)
+            .unwrap_or(false);
+        if waiting {
+            break;
+        }
+        assert!(started.elapsed() < Duration::from_secs(2));
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    // Calls the actual HTTP route; setup uses the shared vote convention constant.
+    let response = runtime().block_on(route::handle(app, request));
+    let count: i64 = primary
+        .query_one("SELECT count(*) FROM votes", &[])
+        .unwrap()
+        .get(0);
+    let wire = crate::http::write_response(&response, false, false, "D").unwrap();
+    eprintln!(
+        "Actual vote: status={}, durable_votes={count}, response={}",
+        response.status,
+        String::from_utf8(wire).unwrap()
+    );
+    primary.batch_execute("SET lock_timeout='100ms'").unwrap();
+    let comment = primary.execute(
+        "INSERT INTO comments(zid,pid,uid,txt) VALUES(1,0,1,'Generated comment')",
+        &[],
+    );
+    eprintln!(
+        "Actual comment insert: {:?}",
+        comment.as_ref().map_err(|e| e.code().map(|s| s.code()))
+    );
+    held.rollback().unwrap();
+    assert!(matches!(
+        worker.join().unwrap(),
+        Err(admission::Error::Refused(_))
+    ));
+    assert_eq!(
+        response.status, 200,
+        "second accept must not reject a citizen vote"
+    );
+    assert_eq!(count, 1);
+    assert!(
+        comment.is_ok(),
+        "second accept must not reject a citizen comment"
+    );
+}

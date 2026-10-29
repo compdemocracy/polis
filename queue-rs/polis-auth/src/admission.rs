@@ -1,4 +1,4 @@
-//! Staged participant admission. No route calls this module; it is never served.
+//! Participant admission, shared by the opt-in Treevite write handlers.
 //!
 //! A caller supplies a primary connection from a bounded participation budget.
 //! Verify credentials and prepare bcrypt recovery material before calling; sign
@@ -127,6 +127,7 @@ pub enum Error {
 
 enum Failure {
     Refused(Refusal),
+    Burned(Refusal),
     Database(postgres::Error),
 }
 impl From<postgres::Error> for Failure {
@@ -153,10 +154,16 @@ pub fn admit(client: &mut Client, request: &Request<'_>) -> Result<Option<Admitt
                 tx.commit().map_err(|_| Error::CommitUnknown)?;
                 return Ok(admitted);
             }
+            Err(Failure::Burned(reason)) => {
+                tx.commit().map_err(|_| Error::CommitUnknown)?;
+                return Err(Error::Refused(reason));
+            }
             Err(error) => {
                 tx.rollback().map_err(|_| Error::Unavailable)?;
                 match error {
-                    Failure::Refused(reason) => return Err(Error::Refused(reason)),
+                    Failure::Refused(reason) | Failure::Burned(reason) => {
+                        return Err(Error::Refused(reason));
+                    }
                     Failure::Database(error)
                         if error.code() == Some(&SqlState::UNIQUE_VIOLATION) && attempt < 2 => {}
                     Failure::Database(_) => return Err(Error::Unavailable),
@@ -192,6 +199,17 @@ fn require_participant_account(
     Ok(())
 }
 
+fn require_anonymous(tx: &mut Transaction<'_>, uid: Uid, admins: &[Uid]) -> Result<(), Failure> {
+    require_participant_account(tx, uid, admins)?;
+    if tx
+        .query_opt("SELECT 1 FROM xids WHERE uid=$1", &[&uid.0])?
+        .is_some()
+    {
+        return refuse(403, "polis_err_treevite_identity_conversion");
+    }
+    Ok(())
+}
+
 fn require_open(tx: &mut Transaction<'_>, zid: Zid) -> Result<(), Failure> {
     // Called after the allocator, never before it: taking a conversation row
     // lock before the advisory lock would invert Node's lock order. For a
@@ -218,6 +236,15 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
         if row.try_get::<_, i16>(2)? != 0 {
             return refuse(400, "polis_err_treevite_invalid_or_used_invite");
         }
+        if tx.query_one("SELECT created_at + interval '30 days' <= clock_timestamp() FROM treevite_invites WHERE id=$1", &[&row.try_get::<_, i64>(0)?])?.try_get::<_, bool>(0)? {
+            return refuse(400, "polis_err_treevite_invite_expired");
+        }
+        if matches!(
+            request.identity,
+            Identity::Account(_) | Identity::Xid { .. }
+        ) {
+            return refuse(403, "polis_err_treevite_identity_conversion");
+        }
         Some((row.try_get::<_, i64>(0)?, row.try_get::<_, i64>(1)?))
     } else {
         None
@@ -242,7 +269,11 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
         if row.try_get::<_, bool>(3)? || row.try_get::<_, String>(2)? != proof.bcrypt_hash {
             return refuse(401, "polis_err_treevite_login_code_invalid");
         }
+        if tx.query_one("SELECT COALESCE(expires_at <= clock_timestamp(),false) FROM treevite_login_codes WHERE zid=$1 AND login_code_lookup=$2", &[&zid.0, &proof.lookup])?.try_get::<_, bool>(0)? {
+            return refuse(401, "polis_err_treevite_login_code_expired");
+        }
         let uid = Uid(row.try_get(0)?);
+        require_anonymous(tx, uid, request.admin_uids)?;
         let pid: i32 = row.try_get(1)?;
         tx.execute("UPDATE treevite_login_codes SET last_used_at=now(),updated_at=now() WHERE zid=$1 AND pid=$2", &[&zid.0, &pid])?;
         require_open(tx, zid)?;
@@ -290,6 +321,12 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
         return refuse(403, "polis_err_xid_required");
     }
     let existing = if let Some(uid) = uid {
+        if invite.is_some() {
+            // Serialize this member's accepts even when no login row exists.
+            // Participation never takes this Treevite-only lock; in particular,
+            // comments' participant foreign-key checks must remain free to run.
+            tx.query_one("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:member-accept', $1::int, $2::int)::text,0))", &[&zid.0, &uid.0])?;
+        }
         tx.query_opt(
             "SELECT pid FROM participants WHERE zid=$1 AND uid=$2",
             &[&zid.0, &uid.0],
@@ -299,6 +336,27 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
     } else {
         None
     };
+    if let Some((id, _)) = invite {
+        if let Some(uid) = uid {
+            require_anonymous(tx, uid, request.admin_uids)?;
+        }
+        if let Some(pid) = existing {
+            let present = tx
+                .query_opt(
+                    "SELECT 1 FROM treevite_login_codes WHERE zid=$1 AND pid=$2 FOR UPDATE",
+                    &[&zid.0, &pid],
+                )?
+                .is_some();
+            let live = present && tx.query_one("SELECT NOT revoked AND COALESCE(expires_at > clock_timestamp(),true) FROM treevite_login_codes WHERE zid=$1 AND pid=$2", &[&zid.0, &pid])?.try_get::<_, bool>(0)?;
+            if live {
+                tx.execute("UPDATE treevite_invites SET status=1,invite_used_by_pid=NULL,invite_used_at=now(),updated_at=now() WHERE id=$1", &[&id])?;
+                return Err(Failure::Burned(Refusal {
+                    status: 409,
+                    code: "polis_err_treevite_login_code_exists",
+                }));
+            }
+        }
+    }
     if !create {
         return Ok(uid.zip(existing).map(|(uid, pid)| Admitted {
             uid,
@@ -330,6 +388,9 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
     if new_user && xid.is_some() {
         require_participant_account(tx, uid, request.admin_uids)?;
     }
+    if new_user && invite.is_some() {
+        require_anonymous(tx, uid, request.admin_uids)?;
+    }
     let pid = match existing {
         Some(pid) => pid,
         None => {
@@ -359,7 +420,7 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect();
-        tx.execute("INSERT INTO treevite_login_codes(zid,pid,login_code_hash,login_code_fingerprint,login_code_lookup,fp_kid,revoked,last_used_at,updated_at) VALUES($1,$2,$3,$4,$5,1,false,null,now()) ON CONFLICT(zid,pid) DO UPDATE SET login_code_hash=excluded.login_code_hash,login_code_fingerprint=excluded.login_code_fingerprint,login_code_lookup=excluded.login_code_lookup,fp_kid=excluded.fp_kid,revoked=false,updated_at=now()", &[&zid.0, &pid, &recovery.bcrypt_hash, &fingerprint, &recovery.lookup])?;
+        tx.execute("INSERT INTO treevite_login_codes(zid,pid,login_code_hash,login_code_fingerprint,login_code_lookup,fp_kid,revoked,last_used_at,updated_at,expires_at) VALUES($1,$2,$3,$4,$5,1,false,null,now(),now() + interval '1 year') ON CONFLICT(zid,pid) DO UPDATE SET login_code_hash=excluded.login_code_hash,login_code_fingerprint=excluded.login_code_fingerprint,login_code_lookup=excluded.login_code_lookup,fp_kid=excluded.fp_kid,revoked=false,updated_at=now(),expires_at=excluded.expires_at", &[&zid.0, &pid, &recovery.bcrypt_hash, &fingerprint, &recovery.lookup])?;
         if let Some((id, _)) = invite {
             tx.execute("UPDATE treevite_invites SET status=1,invite_used_by_pid=$1,invite_used_at=now(),updated_at=now() WHERE id=$2", &[&pid, &id])?;
         }

@@ -5,6 +5,7 @@ services:
       - ../../VERSION:/VERSION:ro
     environment:
       # Reuse the existing completed-idle-TLS classification for OIDC requests.
+      P027_TREEVITE_RUST_KEYS: "${P027_TREEVITE_RUST_KEYS:-0}"
       P027_VOTES_PROFILE: "1"
       DEV_MODE: "false"
       LOGIN_CODE_PEPPER: generated-treevite-pepper
