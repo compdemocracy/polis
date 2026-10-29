@@ -108,10 +108,9 @@ describe("Invite administration owner/moderator gate", () => {
       "SELECT uid, site_id FROM users WHERE email = $1",
       [ownerUser.email]
     );
-    const modRow = await pool.query(
-      "SELECT uid FROM users WHERE email = $1",
-      [moderatorUser.email]
-    );
+    const modRow = await pool.query("SELECT uid FROM users WHERE email = $1", [
+      moderatorUser.email,
+    ]);
     await pool.query("UPDATE users SET site_id = $1 WHERE uid = $2", [
       ownerRow.rows[0].site_id,
       modRow.rows[0].uid,
@@ -294,51 +293,6 @@ describe("Invite administration owner/moderator gate", () => {
       const r: Response = await moderatorAgent.get(url());
       expect(r.status).toBe(200);
       expect(r.headers["content-type"]).toContain("text/csv");
-    });
-  });
-
-  describe("POST /api/v3/users/invite", () => {
-    test("a signed-in non-owner is refused with 403", async () => {
-      const r: Response = await strangerAgent.post("/api/v3/users/invite").send({
-        conversation_id: treeviteConversationId,
-        emails: `nope_${Date.now()}@ex.com`,
-      });
-      expect(r.status).toBe(403);
-      expect(r.text).toContain(
-        "polis_err_sending_invite_not_conversation_owner"
-      );
-    });
-
-    test("a participant token from another conversation is refused with 403", async () => {
-      const r: Response = await foreignParticipantAgent
-        .post("/api/v3/users/invite")
-        .send({
-          conversation_id: treeviteConversationId,
-          emails: `nope2_${Date.now()}@ex.com`,
-        });
-      expect(r.status).toBe(403);
-      expect(r.text).toContain(
-        "polis_err_sending_invite_not_conversation_owner"
-      );
-    });
-
-    test("the owner can invite; the parameterised insert stores each email", async () => {
-      const stamp = Date.now();
-      const emailA = `inva_${stamp}@ex.com`;
-      const emailB = `invb_${stamp}@ex.com`;
-      const r: Response = await ownerAgent.post("/api/v3/users/invite").send({
-        conversation_id: treeviteConversationId,
-        emails: `${emailA},${emailB}`,
-      });
-      expect(r.status).toBe(200);
-      expect(r.body).toEqual({ status: "success" });
-
-      const rows = await pool.query(
-        "SELECT xid FROM suzinvites WHERE zid = $1 AND xid = ANY($2::text[])",
-        [treeviteZid, [emailA, emailB]]
-      );
-      const storedXids = rows.rows.map((x: { xid: string }) => x.xid).sort();
-      expect(storedXids).toEqual([emailA, emailB].sort());
     });
   });
 

@@ -7,7 +7,6 @@ var template = require("../templates/comment-form.handlebars");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
-var M = require("../util/metrics");
 var ProfilePicView = require("../views/profilePicView");
 var serialize = require("../util/serialize");
 var VoteConvention = require("../util/voteConvention");
@@ -239,12 +238,9 @@ module.exports = Handlebones.ModelView.extend({
     var xid = Utils.getXid();
     var hasSocial = !_.isUndefined(xid);
     var needsSocial = false;
-    M.add(M.COMMENT_SUBMIT_CLICK);
     if (hasSocial || !needsSocial) {
-      M.add(M.COMMENT_SUBMIT_INIT);
       doSubmitComment();
     } else {
-      M.add(M.COMMENT_SUBMIT_SOCIAL_NEEDED);
       this.showSocialAuthChoices();
     }
   },

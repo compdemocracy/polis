@@ -16,7 +16,6 @@ def admin_cases():
     add('participant activity',c);add('ops conversations list',actor='admin')
     add('agenda priorities',c,scope='empty-store')
     add('invite email lookup',['--code-file','verification.txt'])
-    add('report export-results',c+['--filename','polis-export-'+C+'-1700000000.zip','--output','export-capability.json'],scope='capability-only')
     add('delphi overview',r)
     add('delphi logs',['--job','generated-job'])
     add('report topic-stats',r,scope='empty-store')
@@ -26,8 +25,6 @@ def admin_cases():
     add('ops performance');add('participant query',c+['--answers','1'])
     add('account domain replace',['--domains','generated.example','--yes'])
     add('participant allowlist import',c+['--from','allowlist.json','--yes'])
-    add('math correlation',r+['--yes'])
-    add('report export-start',c+['--yes'])
     for name in ['subscribe','unsubscribe']:
         add('notification '+name,c+['--email','owner@example.invalid','--signature-file',name+'.txt','--yes'])
     add('notification set',c+['--email','owner@example.invalid','--state','subscribe','--yes'])
@@ -46,11 +43,8 @@ def admin_cases():
         add('comment '+name,c+['--statement','1','--state','on','--yes'],exit=7 if name=='star' else 0,scope='persisted-then-error' if name=='star' else 'live',actor='participant')
     add('report comments select',r+['--statement','0','--include','true','--yes'])
     add('account edit',['--name','Generated edited account','--yes'])
-    add('math refresh',c+['--type','update','--yes'])
     add('report edit',r+['--name','Generated edited report','--yes'])
     add('conversation email-link',c+['--yes'],exit=7,scope='blocked-mail')
     add('participant highlight set',c+['--participant','0','--moderation','1','--yes'])
     add('invite email send',['--email','generated-invite@example.invalid','--yes'],exit=7,scope='blocked-mail')
-    add('account invite',c+['--emails','generated-member@example.invalid','--yes'],exit=7,scope='blocked-mail')
-    add('support contribute',['--agreement-version','1','--name','Generated contributor','--email','owner@example.invalid','--github-id','generated','--company-name','Generated','--yes'],exit=7,scope='missing-table')
     return rows

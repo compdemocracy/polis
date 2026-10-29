@@ -46,12 +46,6 @@ interface PCAResponse {
   [key: string]: any;
 }
 
-interface CorrelationResponse {
-  matrix?: number[][];
-  correlations?: any;
-  [key: string]: any;
-}
-
 describe("Math and Analysis Endpoints", () => {
   let agent: Agent;
   let testAgent: Agent;
@@ -104,12 +98,6 @@ describe("Math and Analysis Endpoints", () => {
         });
       }
     }
-
-    // Trigger math computation for the conversation
-    await agent.post("/api/v3/mathUpdate").send({
-      conversation_id: conversationId,
-      math_update_type: "update",
-    });
 
     // Wait briefly for math computation - this requires the external math service
     // In most test environments, the math service won't be running, so we accept
@@ -195,50 +183,12 @@ describe("Math and Analysis Endpoints", () => {
     }
   });
 
-  // Requires Report ID to exist first.
-  // TODO: Revisit this after Reports have been covered in tests.
-  test.skip("GET /api/v3/math/correlationMatrix - Get correlation matrix", async () => {
-    // Request correlation matrix for the conversation
-    const response: Response = await agent.get(
-      `/api/v3/math/correlationMatrix?conversation_id=${conversationId}`
-    );
-
-    // Validate response
-    expect(response.status).toBe(200);
-    expect(response.body).toBeDefined();
-
-    // Correlation matrix should be an array or object with correlation data
-    if (response.body) {
-      const correlationResponse = response.body as CorrelationResponse;
-
-      // Check for structure - could be:
-      // 1. A 2D array/matrix
-      // 2. An object with correlation data
-      // 3. An object with a matrix property
-
-      const hasCorrelationData =
-        Array.isArray(correlationResponse) ||
-        correlationResponse.matrix ||
-        correlationResponse.correlations;
-
-      expect(hasCorrelationData).toBeTruthy();
-    }
-  });
-
   test("Math endpoints - Return 400 for missing conversation_id", async () => {
     // Request PCA without conversation_id
     const pcaResponse: Response = await testAgent.get("/api/v3/math/pca2");
 
     expect(pcaResponse.status).toBe(400);
     expect(pcaResponse.text).toMatch(/polis_err_param_missing_conversation_id/);
-
-    // Request correlation matrix without report_id
-    const corrResponse: Response = await testAgent.get(
-      `/api/v3/math/correlationMatrix?conversation_id=${conversationId}`
-    );
-
-    expect(corrResponse.status).toBe(400);
-    expect(corrResponse.text).toMatch(/polis_err_param_missing_report_id/);
   });
 
   test("Math endpoints - Return appropriate error for invalid conversation_id", async () => {
@@ -257,16 +207,6 @@ describe("Math and Analysis Endpoints", () => {
     expect(pcaResponse.text).toMatch(
       /polis_err_fetching_zid_for_conversation_id/
     );
-
-    // Request correlation matrix with invalid report_id
-    const corrResponse: Response = await testAgent.get(
-      `/api/v3/math/correlationMatrix?report_id=${invalidId}`
-    );
-
-    // Should return an error status
-    expect(corrResponse.status).toBe(400);
-    expect(corrResponse.text).toMatch(/polis_err_param_parse_failed_report_id/);
-    expect(corrResponse.text).toMatch(/polis_err_fetching_rid_for_report_id/);
   });
 
   test("Math endpoints - Require sufficient data for meaningful analysis", async () => {

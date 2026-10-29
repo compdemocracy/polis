@@ -50,8 +50,6 @@ mod identity_observability;
 mod integrate_page;
 mod js;
 mod legacy_conversations;
-mod legacy_pca;
-mod link_pages;
 mod lru;
 mod metadata_answers;
 #[allow(dead_code)]
@@ -190,16 +188,7 @@ fn health_response(
             .map(|keys| js::Js::Str(keys.fingerprint().into()))
             .unwrap_or(js::Js::Null),
     );
-    for (i, name) in [
-        "conversationPage",
-        "explorePage",
-        "sharePage",
-        "summaryPage",
-        "oneTimePage",
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    for (i, name) in ["conversationPage"].into_iter().enumerate() {
         body.set(
             &format!("{name}Served"),
             js::Js::Num(app.conversation_page_served[i].load(Ordering::Relaxed) as f64),
@@ -381,14 +370,6 @@ fn health_response(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
     );
-    for (name, counter) in [
-        ("iipServed", &app.iip_served),
-        ("iipFallback", &app.iip_fallback),
-        ("iimServed", &app.iim_served),
-        ("iimFallback", &app.iim_fallback),
-    ] {
-        body.set(name, js::Js::Num(counter.load(Ordering::Relaxed) as f64));
-    }
     body.set(
         "moderationCommentsServed",
         js::Js::Num(app.moderation_comments_served.load(Ordering::Relaxed) as f64),
@@ -492,14 +473,6 @@ fn health_response(
     body.set(
         "recentActivityFallback",
         js::Js::Num(app.recent_activity_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "legacyPcaServed",
-        js::Js::Num(app.legacy_pca_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "legacyPcaFallback",
-        js::Js::Num(app.legacy_pca_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "treeviteWavesServed",
@@ -711,7 +684,6 @@ async fn dispatch_at_clock(
         | perf_stats::PATH
         | robots::PATH
         | ops_whoami::PATH
-        | legacy_pca::PATH
         | delphi_read::PATH
         | collective_statement::PATH
         | topic_stats::PATH
@@ -756,7 +728,6 @@ async fn dispatch_at_clock(
         | metadata_answers::PATH => route::handle(app, req).await,
         path if treevite_write::matches(path) => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
-        path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
@@ -793,15 +764,9 @@ async fn main() -> Result<()> {
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
     state.participant_keys = participant_keys;
-    for (i, switch) in [
-        "POLIS_API_CONVERSATION_PAGE_READS",
-        "POLIS_API_EXPLORE_PAGE_READS",
-        "POLIS_API_SHARE_PAGE_READS",
-        "POLIS_API_SUMMARY_PAGE_READS",
-        "POLIS_API_ONE_TIME_PAGE_READS",
-    ]
-    .into_iter()
-    .enumerate()
+    for (i, switch) in ["POLIS_API_CONVERSATION_PAGE_READS"]
+        .into_iter()
+        .enumerate()
     {
         if std::env::var(switch).ok().as_deref() == Some("1") {
             let dsn = std::env::var("POLIS_API_CONVERSATION_PAGES_DATABASE_URL")
@@ -1239,19 +1204,6 @@ async fn main() -> Result<()> {
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
-    for (switch, slot, name) in [
-        ("POLIS_API_IIP_READS", &mut state.iip_db, "polis-api-iip/1"),
-        ("POLIS_API_IIM_READS", &mut state.iim_db, "polis-api-iim/1"),
-    ] {
-        if std::env::var(switch).ok().as_deref() == Some("1") {
-            let dsn = std::env::var("POLIS_API_LINK_PAGES_DATABASE_URL")
-                .context("POLIS_API_LINK_PAGES_DATABASE_URL required")?;
-            *slot = Some(db::Pool::new(
-                config::connector_for_dsn(&dsn, name)?,
-                link_pages::pool_limits(),
-            ));
-        }
-    }
     if std::env::var("POLIS_API_MODERATION_COMMENTS_READS")
         .ok()
         .as_deref()
@@ -1523,8 +1475,6 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
-    state.legacy_pca_reads =
-        std::env::var("POLIS_API_LEGACY_PCA_READS").ok().as_deref() == Some("1");
     if std::env::var("POLIS_API_TREEVITE_WAVES_READS")
         .ok()
         .as_deref()
@@ -1956,7 +1906,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 138);
+            assert_eq!(body.as_object().unwrap().len(), 124);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],

@@ -16,7 +16,6 @@ import timeout from "connect-timeout";
 import { handleVersion } from "./src/routes/version";
 import server from "./src/server";
 import Config from "./src/config";
-import { makeFileFetcher } from "./src/utils/file-fetcher";
 import logger from "./src/utils/logger";
 import { fetchIndexForConversation } from "./src/conversation";
 import { getPidForParticipant } from "./src/user";
@@ -81,7 +80,6 @@ import {
 } from "./src/routes/api/v3/feeds";
 import { handle_GET_reportExport } from "./src/routes/export";
 import { handle_GET_reportNarrative } from "./src/routes/reportNarrative";
-import { handle_POST_auth_deregister_jwt } from "./src/auth";
 import {
   handle_GET_comments_translations,
   handle_GET_comments,
@@ -97,8 +95,6 @@ import {
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
   handle_GET_conversationStats,
-  handle_GET_iim_conversation,
-  handle_GET_iip_conversation,
   handle_POST_conversation_close,
   handle_POST_conversation_reopen,
   handle_POST_conversations,
@@ -116,10 +112,7 @@ import {
   handle_POST_metadata_questions,
 } from "./src/routes/metadata";
 import {
-  handle_GET_math_pca,
   handle_GET_math_pca2,
-  handle_POST_math_update,
-  handle_GET_math_correlationMatrix,
   handle_GET_bidToPid,
   handle_GET_bid,
 } from "./src/routes/math";
@@ -139,10 +132,6 @@ import {
   handle_PUT_participants_extended,
 } from "./src/routes/participation";
 import {
-  handle_GET_dataExport,
-  handle_GET_dataExport_results,
-} from "./src/routes/dataExport";
-import {
   handle_GET_votes_famous,
   handle_GET_votes_me,
   handle_GET_votes,
@@ -150,16 +139,11 @@ import {
   handle_POST_votes_bulk,
 } from "./src/routes/votes";
 import { handle_GET_implicit_conversation_generation } from "./src/routes/implicitConversation";
-import {
-  handle_GET_users,
-  handle_PUT_users,
-  handle_POST_users_invite,
-} from "./src/routes/users";
+import { handle_GET_users, handle_PUT_users } from "./src/routes/users";
 import {
   handle_GET_notifications_subscribe,
   handle_GET_notifications_unsubscribe,
   handle_POST_convSubscriptions,
-  handle_POST_notifyTeam,
 } from "./src/routes/notify";
 import {
   handle_GET_reports,
@@ -257,9 +241,6 @@ const opsRoutes = createOpsRoutes({
   databaseUrl: Config.databaseURL,
   mathEnv: Config.mathEnv,
 });
-const hostname = Config.staticFilesHost;
-const staticFilesAdminPort = Config.staticFilesAdminPort;
-const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
 // Dev-only http logger
@@ -290,20 +271,14 @@ export const appReady = helpersInitialized.then(
 
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
-      handle_GET_dummyButton,
       handle_GET_locations,
       handle_GET_perfStats,
-      handle_GET_snapshot,
       handle_GET_testConnection,
       handle_GET_testDatabase,
       handle_GET_verification,
       handle_GET_zinvites,
-
       handle_POST_contexts,
-      handle_POST_contributors,
-      handle_POST_metrics,
       handle_POST_sendCreatedLinkToEmail,
-      handle_POST_sendEmailExportReady,
       handle_POST_zinvites,
     } = o;
 
@@ -347,7 +322,6 @@ export const appReady = helpersInitialized.then(
     app.use(middleware_log_middleware_errors);
 
     app.all("/api/v3/*", addCorsHeader);
-    app.all("/font/*", addCorsHeader);
     app.all("/api/v3/*", middleware_check_if_options);
 
     ////////////////////////////////////////////
@@ -367,7 +341,6 @@ export const appReady = helpersInitialized.then(
     ////////////////////////////////////////////
 
     app.get("/api/v3/version", handleVersion);
-    app.get("/api/v3/math/pca", handle_GET_math_pca);
 
     app.get(
       "/api/v3/math/pca2",
@@ -389,50 +362,12 @@ export const appReady = helpersInitialized.then(
     );
 
     app.get(
-      "/api/v3/math/correlationMatrix",
-      moveToBody,
-      // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-      need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
-      want("math_tick", getInt, assignToP, -1),
-      handle_GET_math_correlationMatrix
-    );
-
-    app.get(
-      "/api/v3/dataExport",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      want("format", getStringLimitLength(1, 100), assignToP),
-      want("unixTimestamp", getStringLimitLength(99), assignToP),
-      handle_GET_dataExport
-    );
-
-    app.get(
       "/api/v3/reportExport/:report_id/:report_type",
       moveToBody,
       need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       need("report_id", getStringLimitLength(1, 1000), assignToP),
       need("report_type", getStringLimitLength(1, 1000), assignToP),
       handle_GET_reportExport
-    );
-
-    app.get(
-      "/api/v3/dataExport/results",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      want("filename", getStringLimitLength(1, 1000), assignToP),
-      handle_GET_dataExport_results
     );
 
     // TODO doesn't scale, stop sending entire mapping.
@@ -481,8 +416,6 @@ export const appReady = helpersInitialized.then(
       handle_GET_bid
     );
 
-    app.post("/api/v3/auth/deregister", handle_POST_auth_deregister_jwt);
-
     app.get(
       "/api/v3/zinvites/:zid",
       moveToBody,
@@ -519,14 +452,6 @@ export const appReady = helpersInitialized.then(
         assignToPCustom("zid")
       ),
       handle_GET_participants
-    );
-
-    app.get(
-      "/api/v3/dummyButton",
-      moveToBody,
-      need("button", getStringLimitLength(1, 999), assignToP),
-      hybridAuthOptional(assignToP),
-      handle_GET_dummyButton
     );
 
     app.get(
@@ -596,26 +521,6 @@ export const appReady = helpersInitialized.then(
     );
 
     app.get("/perfStats_9182738127", moveToBody, handle_GET_perfStats);
-
-    app.post(
-      "/api/v3/sendEmailExportReady",
-      need("webserver_username", getStringLimitLength(1, 999), assignToP),
-      need("webserver_pass", getStringLimitLength(1, 999), assignToP),
-      need("email", getEmail, assignToP),
-      // we actually need conversation_id to build a url
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      need("filename", getStringLimitLength(9999), assignToP),
-      handle_POST_sendEmailExportReady
-    );
-
-    app.post(
-      "/api/v3/notifyTeam",
-      need("webserver_username", getStringLimitLength(1, 999), assignToP),
-      need("webserver_pass", getStringLimitLength(1, 999), assignToP),
-      need("subject", getStringLimitLength(9999), assignToP),
-      need("body", getStringLimitLength(99999), assignToP),
-      handle_POST_notifyTeam
-    );
 
     app.get(
       "/api/v3/domainWhitelist",
@@ -726,19 +631,6 @@ export const appReady = helpersInitialized.then(
       ),
       handle_GET_conversationUuid
     );
-
-    app.get(
-      "/api/v3/snapshot",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_snapshot
-    );
-
 
     app.get(
       "/api/v3/users",
@@ -1619,19 +1511,6 @@ export const appReady = helpersInitialized.then(
     );
 
     app.post(
-      "/api/v3/mathUpdate",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      need("math_update_type", getStringLimitLength(1, 32), assignToP), // expecting "recompute" or "update"
-      handle_POST_math_update
-    );
-
-    app.post(
       "/api/v3/reports",
       hybridAuth(assignToP),
       want(
@@ -1928,22 +1807,6 @@ export const appReady = helpersInitialized.then(
       handle_GET_einvites
     );
 
-    app.post(
-      "/api/v3/users/invite",
-      // authWithApiKey(assignToP),
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      // we actually need conversation_id to build a url
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      // need('single_use_tokens', getBool, assignToP),
-      need("emails", getArrayOfStringNonEmpty, assignToP),
-      handle_POST_users_invite
-    );
-
     app.get(
       /^\/polis_site_id.*/,
       moveToBody,
@@ -1975,61 +1838,13 @@ export const appReady = helpersInitialized.then(
     );
 
     app.get(
-      "/iip/:conversation_id",
-      moveToBody,
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_iip_conversation
-    );
-
-    app.get(
-      "/iim/:conversation_id",
-      moveToBody,
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_iim_conversation
-    );
-
-    app.get(
       "/api/v3/verify",
       moveToBody,
       need("e", getStringLimitLength(1, 1000), assignToP),
       handle_GET_verification
     );
 
-    app.post(
-      "/api/v3/contributors",
-      hybridAuthOptional(assignToP),
-      need("agreement_version", getIntInRange(1, 999999), assignToP),
-      need("name", getStringLimitLength(746), assignToP),
-      need("email", getStringLimitLength(256), assignToP),
-      need("github_id", getStringLimitLength(256), assignToP),
-      need("company_name", getStringLimitLength(746), assignToP),
-      handle_POST_contributors
-    );
-
-    app.post(
-      "/api/v3/metrics",
-      hybridAuthOptional(assignToP),
-      need("types", getArrayOfInt, assignToP),
-      need("times", getArrayOfInt, assignToP),
-      need("durs", getArrayOfInt, assignToP),
-      need("clientTimestamp", getInt, assignToP),
-      handle_POST_metrics
-    );
-
-
     app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
-    app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
-    app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
-    app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // summary view
-    app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view, one-time url
     // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 
     // admin dash routes
@@ -2042,18 +1857,6 @@ export const appReady = helpersInitialized.then(
     app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/dist\/admin_bundle.js$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/dist/admin_bundle.js", {
-        "Content-Type": "application/javascript",
-      })
-    );
-    app.get(
-      /^\/__webpack_hmr$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/__webpack_hmr", {
-        "Content-Type": "eventsource",
-      })
-    );
     app.get(/^\/privacy$/, fetchIndexForAdminPage);
     app.get(/^\/tos$/, fetchIndexForAdminPage);
     app.get(/^\/donate$/, fetchIndexForAdminPage);
@@ -2116,54 +1919,11 @@ export const appReady = helpersInitialized.then(
       }
     );
 
-    app.get(
-      /^\/embed$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embed.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedPreprod$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedPreprod.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedReport$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReport.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedReportPreprod$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesAdminPort,
-        "/embedReportPreprod.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
-    app.get(
-      /^\/styleguide$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesParticipationPort,
-        "/styleguide.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
 
     app.get("/", handle_GET_conditionalIndexFetcher);
 
     // proxy static files
-    app.get(/^\/cached\/.*/, proxy);
-    app.get(/^\/font\/.*/, proxy);
-    app.get(/^\/.*embed.*js\/.*/, proxy);
     app.get(/^\/report_bundle.*\.js$/, proxy);
     app.get(/^\/report_style.*\.css$/, proxy);
 
@@ -2189,20 +1949,6 @@ export const appReady = helpersInitialized.then(
         proxy(req, res);
       }
     });
-
-    const missingFilesGet404 = false;
-    if (missingFilesGet404) {
-      // 404 everything else
-      app.get(
-        /^\/[^(api\/)]?.*/,
-        makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
-          "Content-Type": "text/html",
-        })
-      );
-    } else {
-      // proxy everything else
-      app.get(/^\/[^(api\/)]?.*/, proxy);
-    }
 
     // P-038. This is the only position from which `globalErrorHandler` can see
     // errors that a route hands to `next(err)`: Express 3 inserts `app.router`

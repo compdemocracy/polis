@@ -425,6 +425,12 @@ function proxy(
   req: ExpressRequest & { headers?: { host?: string }; path: any },
   res: ExpressResponse
 ) {
+  // Unregistered API paths have no static asset behind them.
+  if (req.path.startsWith("/api/")) {
+    res.set({ "Content-Type": "text/plain" });
+    return res.send(404);
+  }
+
   const hostname = Config.staticFilesHost;
 
   if (!hostname) {

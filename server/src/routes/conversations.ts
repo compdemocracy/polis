@@ -12,10 +12,8 @@ import { parsePagination, createPaginationMeta } from "../utils/pagination";
 import {
   doGetConversationPreloadInfo,
   getZidFromConversationId,
-  getConversationInfo,
 } from "../conversation";
 import type {
-  ConversationInfo,
   ConversationType,
   ExpressRequest,
   ExpressResponse,
@@ -1266,58 +1264,6 @@ function handle_GET_conversationPreloadInfo(
   );
 }
 
-function handle_GET_iip_conversation(
-  req: { params: { conversation_id: any } },
-  res: {
-    set: (arg0: { "Content-Type": string }) => void;
-    send: (arg0: string) => void;
-  }
-) {
-  const conversation_id = req.params.conversation_id;
-  res.set({
-    "Content-Type": "text/html",
-  });
-  res.send(
-    "<a href='https://pol.is/" +
-      conversation_id +
-      "' target='_blank'>" +
-      conversation_id +
-      "</a>"
-  );
-}
-
-function handle_GET_iim_conversation(
-  req: { p: { zid: number }; params: { conversation_id: string } },
-  res: {
-    set: (arg0: { "Content-Type": string }) => void;
-    send: (arg0: string) => void;
-  }
-) {
-  const zid = req.p.zid;
-  const conversation_id = req.params.conversation_id;
-  getConversationInfo(zid)
-    .then(function (info: ConversationInfo) {
-      res.set({
-        "Content-Type": "text/html",
-      });
-      const title = info.topic || info.created;
-      res.send(
-        "<a href='https://pol.is/" +
-          conversation_id +
-          "' target='_blank'>" +
-          title +
-          "</a>" +
-          "<p><a href='https://pol.is/m" +
-          conversation_id +
-          "' target='_blank'>moderate</a></p>" +
-          (info.description ? "<p>" + info.description + "</p>" : "")
-      );
-    })
-    .catch(function (err: any) {
-      failJson(res, 500, "polis_err_fetching_conversation_info", err);
-    });
-}
-
 export {
   handle_GET_conversationPreloadInfo,
   handle_GET_all_conversations,
@@ -1325,8 +1271,6 @@ export {
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
   handle_GET_conversationStats,
-  handle_GET_iim_conversation,
-  handle_GET_iip_conversation,
   handle_POST_conversation_close,
   handle_POST_conversation_reopen,
   handle_POST_conversations,
