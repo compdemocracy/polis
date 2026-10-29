@@ -1,0 +1,13 @@
+# Test-only switches and verifier configuration, never a proxy routing map.
+services:
+  server:
+    volumes: ["../../VERSION:/VERSION:ro"]
+  polis-api:
+    environment:
+      POLIS_API_MODERATION_COMMENTS_READS: "1"
+      POLIS_API_MODERATION_COMMENTS_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_READ_JWKS_FILE: /artifacts/read-jwks.json
+      ADMIN_UIDS: "[2]"
+      AUTH_ISSUER: https://oidc-simulator:3000/
+      AUTH_AUDIENCE: users
+      AUTH_NAMESPACE: https://pol.is/

@@ -62,6 +62,7 @@ mod metadata_choices;
 mod metadata_query;
 mod metadata_questions;
 mod metadata_read;
+mod moderation_comments;
 mod my_invites_csv;
 mod negotiate;
 mod next_comment;
@@ -368,6 +369,14 @@ fn health_response(
     body.set(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "moderationCommentsServed",
+        js::Js::Num(app.moderation_comments_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "moderationCommentsFallback",
+        js::Js::Num(app.moderation_comments_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "participantCommentsServed",
@@ -690,6 +699,7 @@ async fn dispatch_at_clock(
         | treevite_waves::PATH
         | math_membership::BID_PATH
         | math_membership::LOCATIONS_PATH
+        | moderation_comments::PATH
         | participant_comments::PATH
         | participants_read::PATH
         | ptptois::PATH
@@ -1193,6 +1203,32 @@ async fn main() -> Result<()> {
             metadata_answers::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_MODERATION_COMMENTS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_MODERATION_COMMENTS_DATABASE_URL")
+            .context("POLIS_API_MODERATION_COMMENTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.moderation_comments_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-moderation-comments/1")?,
+            moderation_comments::pool_limits(),
+        ));
+        state.moderation_comments_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-moderation-comments-auth/1")?,
+            moderation_comments::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_PARTICIPANT_COMMENTS_READS")
         .ok()
@@ -1870,7 +1906,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 122);
+            assert_eq!(body.as_object().unwrap().len(), 124);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],

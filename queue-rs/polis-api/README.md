@@ -1633,3 +1633,55 @@ Health exposes `participantCommentsServed` and `participantCommentsFallback`.
 Run `conformance/participant-comments-run.sh` with the characterization stack's
 unique project, ports and built images to record both participant-page calls,
 their projected bytes, explicit deltas, HEAD behavior and credential refusals.
+
+### Typed moderation statement list (off by default)
+
+`GET /api/v3/comments/moderation?conversation_id=…&mod=0&limit=50&offset=0`
+returns `{comments, pagination: {limit, offset, total, hasMore}}`. Rows contain
+only `txt, tid, is_meta, velocity, mod, active, conversation_id`, in that order.
+These are the moderation page's display and whole-row update inputs; pagination
+totals supply its tab counts. No vote counts, participant IDs or report data
+are included. The three status tabs request `mod=0`, `1` and `-1`. Numeric
+query values follow Node's decimal integer-prefix parser: `1.5`, `01`, `+1`
+and `1abc` mean 1. Nonnumeric values and duplicate numeric keys return Node's
+400 `Bad Request\n`, including its headers. Limits clamp to 500 (nonpositive
+means 50); omitted or negative offsets become zero. Large offsets retain
+JavaScript's rounded integer value. Numeric moderation states outside the three
+tabs hand back to Node. Other query keys, bodies and cookies remain outside
+this route. HEAD is supported.
+
+Only verified hybrid identities satisfying Node's site-moderator or configured
+admin predicate may read. Activity, velocity and strict-moderation settings do
+not hide matching rows. The query has Node's unordered LIMIT/OFFSET behavior.
+A caller without this authority receives HTTP 403 with
+`polis_err_comments_moderation_forbidden` in the standard error body. This is
+an intentional difference from the overloaded Node endpoint, which silently
+narrows unauthorized callers to the participant list for report/topic callers.
+The typed route performs identity and authority reads before acquiring its
+statement pool or counting comments. Invalid credentials also cannot read.
+
+Enable only with `POLIS_API_MODERATION_COMMENTS_READS=1` and
+`POLIS_API_MODERATION_COMMENTS_DATABASE_URL`; it has no nginx routing entry.
+Identity uses a dedicated primary read-only pool and statement reads use a
+second dedicated read-only pool (preferring `READ_ONLY_DATABASE_URL`). Each
+has one connection, 15 ms acquisition and 50 ms statement limits; the request
+has a 75 ms deadline. Neither shares participation pools or performs writes.
+Hybrid verifier configuration is the same as the participant list above.
+Unsupported requests or unavailable storage return 502; no successful Node
+fallback exists at this new path. Health adds `moderationCommentsServed` and
+`moderationCommentsFallback`; served includes typed refusals.
+
+`conformance/moderation-comments-run.sh` records fresh generated conversations
+against unchanged Node and compares the whole seven-field projected envelope,
+without sorting rows. Every refusal and query probe compares Node and Rust
+status, headers and body bytes, and reports equal, listed delta or unexplained.
+Date is recorded but excluded from equality because it is generated per response;
+successful projected bodies have their own Content-Length and ETag. The replay
+requests identity encoding. Raw bodies, headers, projections and the reasons for
+intentional differences are retained; unexplained differences fail the run.
+Clients, schema and existing routing remain unchanged.
+
+The moderation route requires `limit` and `mod`. Missing `limit` hands back
+before any read because Node returns an unbounded array; missing `mod` hands
+back because this route serves one moderation state per request. Omitted
+`offset` defaults to zero. The replay lists both omission differences.

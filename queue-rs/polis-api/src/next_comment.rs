@@ -592,6 +592,14 @@ mod tests {
         let mut app = App::new(&cfg, make());
         app.next_comment_db = Some(make());
         app.next_comment_plain = true;
+        app.moderation_comments_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::moderation_comments::pool_limits(),
+        ));
+        app.moderation_comments_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::moderation_comments::pool_limits(),
+        ));
         app.participant_comments_db = Some(db::Pool::new(
             Connector::Plain(Box::new(pg.clone())),
             crate::participant_comments::pool_limits(),
@@ -767,6 +775,8 @@ mod tests {
         held.push(park(app.delphi_visualizations_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_read_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_reports_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.moderation_comments_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.moderation_comments_auth_db.as_ref().unwrap().clone()).await);
         held.push(park(app.participant_comments_db.as_ref().unwrap().clone()).await);
         held.push(park(app.participant_comments_auth_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
