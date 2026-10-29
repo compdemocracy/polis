@@ -207,7 +207,7 @@ impl Keys {
         })
     }
 
-    /// Reserved for a future minter. Loading a key does not issue a token.
+    /// Borrow the signing key loaded at boot. Loading does not issue a token.
     /// None on a verifier-only process.
     pub fn private_key(&self) -> Option<&EncodingKey> {
         self.private.as_ref()
