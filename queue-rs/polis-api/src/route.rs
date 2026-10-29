@@ -53,6 +53,10 @@ pub struct App {
     pub conversation_page_dbs: [Option<Arc<Pool>>; 1],
     pub conversation_page_served: [AtomicU64; 1],
     pub conversation_page_fallback: [AtomicU64; 1],
+    pub participant_comments_db: Option<Arc<Pool>>,
+    pub participant_comments_auth_db: Option<Arc<Pool>>,
+    pub participant_comments_served: AtomicU64,
+    pub participant_comments_fallback: AtomicU64,
     pub participants_read_db: Option<Arc<Pool>>,
     pub participants_read_auth_db: Option<Arc<Pool>>,
     pub participants_read_served: AtomicU64,
@@ -285,6 +289,10 @@ impl App {
             conversation_page_dbs: std::array::from_fn(|_| None),
             conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
             conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
+            participant_comments_db: None,
+            participant_comments_auth_db: None,
+            participant_comments_served: AtomicU64::new(0),
+            participant_comments_fallback: AtomicU64::new(0),
             participants_read_db: None,
             participants_read_auth_db: None,
             participants_read_served: AtomicU64::new(0),
@@ -1166,6 +1174,15 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::participant_comments::PATH {
+        if out.status == 502 {
+            app.participant_comments_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.participant_comments_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::participants_read::PATH {
         if out.status == 502 {
             app.participants_read_fallback
@@ -1713,6 +1730,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::participant_comments::PATH
+        && crate::participant_comments::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::participants_read::PATH
         && crate::participants_read::parse(app, req).is_none()
     {
@@ -2057,6 +2079,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::conversation_pages::matches(req.path()) {
         return crate::conversation_pages::handle(app, req, res).await;
+    }
+    if req.path() == crate::participant_comments::PATH {
+        return crate::participant_comments::handle(app, req, res).await;
     }
     if req.path() == crate::participants_read::PATH {
         return crate::participants_read::handle(app, req, res).await;
@@ -4396,6 +4421,51 @@ mod tests {
                 0
             );
         }
+    }
+
+    #[tokio::test]
+    async fn participant_comments_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/comments/participant?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().participant_comments_db = Some(pool.clone());
+        Arc::get_mut(&mut state)
+            .unwrap()
+            .participant_comments_auth_db = Some(pool);
+        assert!(crate::participant_comments::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/comments/participant?conversation_id=4fixture{tail}");
+            assert!(crate::participant_comments::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::participant_comments::parse(&state, &no_auth).is_some());
+        assert_eq!(state.participant_comments_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.participant_comments_fallback.load(Ordering::Relaxed),
+            9
+        );
     }
 
     #[tokio::test]
