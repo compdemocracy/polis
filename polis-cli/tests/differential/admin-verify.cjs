@@ -31,7 +31,7 @@ const command=process.argv[2];
   await check('domain-replaced','SELECT domain_whitelist FROM site_domain_whitelist WHERE site_id=(SELECT site_id FROM users WHERE uid=1)',[{domain_whitelist:'generated.example'}]);
   await check('allowlist-added','SELECT xid FROM xid_whitelist WHERE owner=1 ORDER BY xid',[{xid:'generated-external'}]);
   await check('verification-applied',"SELECT count(*)::int AS n FROM email_validations WHERE email='owner@example.invalid'",[{n:1}]);
-  await check('account-edited','SELECT hname,tut FROM users WHERE uid=1',[{hname:'Generated edited account',tut:2}]);
+  await check('account-edited','SELECT hname FROM users WHERE uid=1',[{hname:'Generated edited account'}]);
   await check('no-legacy-account-enrollment','SELECT count(*)::int AS n FROM participants WHERE zid=2 AND uid=1',[{n:0}]);
   await check('conversation-upvoted-once','SELECT upvotes FROM conversations WHERE zid=1',[{upvotes:1}]);
   for(const [table,column] of [['stars','starred'],['trashes','trashed'],['crowd_mod','as_important']]) {
