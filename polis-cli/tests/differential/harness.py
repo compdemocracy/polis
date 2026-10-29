@@ -289,10 +289,10 @@ def importance_display_checks(node, rust):
                               and v['json'].get('error') is None for v in [a, b])}
     try:
         left, right = a['json']['data'], b['json']['data']
-        # This sealed fixture has no static-file upstream. Node's unmatched-route
-        # proxy reports operation_failed; this is not a claim that all missing
-        # routes return that code. Reject every other error in this fixture.
-        checks['node_unknown'] = left.pop('importance') == {'state':'unavailable','error':'operation_failed','read_at_ms':None}
+        # The dormant API retirement makes unmatched API paths return 404
+        # before the static-file proxy. The CLI reports capability_unavailable;
+        # counts remain unknown. Reject every other error in this fixture.
+        checks['node_unknown'] = left.pop('importance') == {'state':'unavailable','error':'capability_unavailable','read_at_ms':None}
         meta = right.pop('importance')
         timestamp = meta.pop('read_at_ms')
         checks['timestamp'] = type(timestamp) is int and 0 < timestamp <= 9007199254740991

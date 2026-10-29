@@ -43,28 +43,6 @@ describe("JWT-Only Authentication Tests", () => {
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error", "Authentication required");
     });
-
-    test("should handle logout (client-side operation)", async () => {
-      const pooledUser = {
-        email: "test.user.0@polis.test",
-        hname: "Test User 0",
-        password: "Te$tP@ssw0rd*",
-      };
-      const { agent } = await getJwtAuthenticatedAgent(pooledUser);
-
-      // Call logout endpoint
-      const response = await agent.post("/api/v3/auth/deregister").send({});
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        status: "success",
-        message: "Logout successful. Please remove your JWT token.",
-      });
-
-      // JWT remains valid (server doesn't invalidate it)
-      const testResponse = await agent.get("/api/v3/users");
-      expect(testResponse.status).toBe(200);
-    });
   });
 
   describe("Participant Authentication (Non-OIDC)", () => {

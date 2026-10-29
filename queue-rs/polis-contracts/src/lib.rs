@@ -24,7 +24,6 @@ pub mod domain_whitelist;
 pub mod einvites_read;
 pub mod integrate_page;
 pub mod legacy_conversations;
-pub mod legacy_pca;
 pub mod math_membership;
 pub mod metadata_answers;
 pub mod metadata_choices;

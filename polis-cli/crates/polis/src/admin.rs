@@ -23,7 +23,6 @@ enum Response {
     Document,
     PublicJson,
     Receipt,
-    Capability,
 }
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -149,10 +148,7 @@ pub fn command(path: &str) -> Option<Command> {
                 ),
         );
     }
-    if matches!(
-        o.response,
-        Response::Download | Response::Document | Response::Capability
-    ) {
+    if matches!(o.response, Response::Download | Response::Document) {
         c = c.arg(
             Arg::new("output")
                 .long("output")
@@ -414,14 +410,6 @@ pub fn execute(
         Some(Value::Object(fields))
     };
     let result = (|| -> Result<Value> {
-        if o.response == Response::Capability {
-            let url = c.export_capability(&query)?;
-            let bytes = json!({"url":url,"artifact_verified":false})
-                .to_string()
-                .into_bytes();
-            pass4::save(output.expect("required output"), &bytes)?;
-            return Ok(json!({"state":"capability_saved","path":output,"artifact_verified":false}));
-        }
         if matches!(o.response, Response::Document | Response::PublicJson) {
             let bytes = c.public_document(&endpoint)?;
             if o.response == Response::PublicJson {
