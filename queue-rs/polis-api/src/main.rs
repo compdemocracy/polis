@@ -76,6 +76,9 @@ mod participation_read;
 mod pca;
 mod post_treevite_waves;
 mod post_votes;
+mod treevite_write;
+#[path = "../../polis-contracts/src/treevite_write.rs"]
+mod treevite_write_contract;
 #[allow(dead_code)]
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/auth_envelope.rs"]
@@ -160,8 +163,9 @@ fn health_response(
                 && (key.ends_with("_READS")
                     || key.ends_with("_WRITES")
                     || key == "POLIS_API_OWNER_LIST"
+                    || key == "POLIS_API_POST_TREEVITE_WAVES"
                     || key == "POLIS_API_POST_VOTES"
-                    || key == "POLIS_API_POST_TREEVITE_WAVES"))
+                    || key == "POLIS_API_TREEVITE_WRITE"))
                 .then_some(js::Js::Str(key))
         })
         .collect();
@@ -171,6 +175,7 @@ fn health_response(
     body.set("identity", identity_observability::snapshot(counters));
     body.set("postVotes", post_votes::health(app));
     body.set("postTreeviteWaves", post_treevite_waves::health(app));
+    body.set("treeviteWrite", treevite_write::health(app));
     body.set(
         "participantKeysLoaded",
         js::Js::Bool(app.participant_keys.is_some()),
@@ -711,6 +716,7 @@ async fn dispatch_at_clock(
         | votes_read::PATH
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if treevite_write::matches(path) => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
@@ -775,6 +781,10 @@ async fn main() -> Result<()> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    state.treevite_write = treevite_write::Writer::from_env()?;
+    if state.treevite_write.is_some() {
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
@@ -1841,7 +1851,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 121);
+            assert_eq!(body.as_object().unwrap().len(), 122);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],
@@ -1869,8 +1879,8 @@ mod health_tests {
     fn health_reports_only_explicit_route_switches_in_sorted_order() {
         let environment = [
             ("POLIS_API_ROBOTS_READS", "1"),
-            ("POLIS_API_POST_VOTES", "1"),
             ("POLIS_API_POST_TREEVITE_WAVES", "1"),
+            ("POLIS_API_POST_VOTES", "1"),
             ("POLIS_API_OWNER_LIST", "1"),
             ("POLIS_API_TOPIC_SELECTION_WRITES", "1"),
             ("POLIS_API_START", "1"),

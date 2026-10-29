@@ -19,6 +19,7 @@ const put = (dir, file, value) => {
   fs.writeFileSync(path.join(dir, file), JSON.stringify(value, null, 2) + "\n");
 };
 const { cases } = require("./cases.cjs");
+const rustReplay = require("./rust-replay.cjs");
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const tables = [
   "users",
@@ -380,6 +381,7 @@ async function main() {
     );
     const before = await recorder.snapshot(tables),
       stateBefore = await get("/state");
+    const rustBefore = await rustReplay.capture(pool, spec);
     if (spec.race) await get("/treevite-race-arm");
     const responses = spec.race
       ? await Promise.all([
@@ -436,6 +438,7 @@ async function main() {
       await recorder.snapshot(tables),
       "durable rows settled"
     );
+    await rustReplay.replay(spec, request, tokens, before, responses, rustBefore);
     // Bind random invites by seeded, monotonic database ID, before response order.
     for (const row of [...after["pg:users"]].sort((a, b) => a.uid - b.uid))
       normalizer.normalize(row.site_id, "$.binding", "site_id");
@@ -636,5 +639,6 @@ main()
   })
   .finally(async () => {
     await pool.end();
+    await rustReplay.close();
     await recorder.close();
   });
