@@ -70,6 +70,7 @@ mod ops_page;
 mod ops_whoami;
 mod owner;
 mod params;
+mod participant_comments;
 mod participants_read;
 mod participation_read;
 mod pca;
@@ -367,6 +368,14 @@ fn health_response(
     body.set(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participantCommentsServed",
+        js::Js::Num(app.participant_comments_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participantCommentsFallback",
+        js::Js::Num(app.participant_comments_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "participantsReadServed",
@@ -681,6 +690,7 @@ async fn dispatch_at_clock(
         | treevite_waves::PATH
         | math_membership::BID_PATH
         | math_membership::LOCATIONS_PATH
+        | participant_comments::PATH
         | participants_read::PATH
         | ptptois::PATH
         | my_invites_csv::PATH
@@ -1181,6 +1191,27 @@ async fn main() -> Result<()> {
         state.metadata_answers_auth_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-metadata-answers-auth/1")?,
             metadata_answers::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_PARTICIPANT_COMMENTS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_PARTICIPANT_COMMENTS_DATABASE_URL")
+            .context("POLIS_API_PARTICIPANT_COMMENTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.participant_comments_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-participant-comments/1")?,
+            participant_comments::pool_limits(),
+        ));
+        state.participant_comments_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-participant-comments-auth/1")?,
+            participant_comments::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
@@ -1839,7 +1870,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 120);
+            assert_eq!(body.as_object().unwrap().len(), 122);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],
