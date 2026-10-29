@@ -64,7 +64,7 @@ jobs:
         if: steps.paths.outputs.run == 'true'
         run: |
           python -m pip install -r coordinator-rs/evidence/python-requirements.txt
-          npm ci --ignore-scripts --prefix server
+          npm ci --prefix server --ignore-scripts
           cd coordinator-rs
           rustup show active-toolchain
       - name: Coordinator TLS unit and local PostgreSQL refusal controls
