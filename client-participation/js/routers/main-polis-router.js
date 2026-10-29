@@ -6,7 +6,6 @@ var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
 var eb = require("../eventBus");
 var metric = require("../util/gaMetric");
-var ParticipantModel = require("../models/participant");
 var ParticipationView = require("../views/participation");
 var PolisStorage = require("../util/polisStorage");
 var preloadHelper = require("../util/preloadHelper");
@@ -53,7 +52,6 @@ var polisRouter = Backbone.Router.extend({
   initialize: function () {
     this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams"); // conversation_id / query params
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView"); // conversation_id / encodedStringifiedJson
-    this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
 
     eb.once(eb.firstRender, function () {
       onFirstRender();
@@ -136,19 +134,6 @@ var polisRouter = Backbone.Router.extend({
         console.error("[Router] Error loading conversation model in doLaunchConversation:", e);
       }
     );
-  },
-
-  demoConversation: function (conversation_id) {
-    var ptpt = new ParticipantModel({
-      conversation_id: conversation_id,
-      pid: -123 // DEMO_MODE
-    });
-
-    // NOTE: not posting the model
-
-    this.doLaunchConversation({
-      ptptModel: ptpt
-    });
   },
 
   participationView: function (conversation_id, encodedStringifiedJson) {

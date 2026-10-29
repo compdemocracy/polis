@@ -203,7 +203,6 @@ import {
   denyIfNotFromWhitelistedDomain,
   handle_GET_domainWhitelist,
   handle_POST_domainWhitelist,
-  makeRedirectorTo,
   proxy,
   redirectIfNotHttps,
   writeDefaultHead,
@@ -283,7 +282,6 @@ export const appReady = helpersInitialized.then(
     const {
       fetchIndexForAdminPage,
       fetchIndexForReportPage,
-      fetchIndexWithoutPreloadData,
       haltOnTimeout,
       redirectIfHasZidButNoConversationId,
 
@@ -303,7 +301,6 @@ export const appReady = helpersInitialized.then(
       handle_POST_metrics,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,
-      handle_POST_tutorial,
       handle_POST_zinvites,
     } = o;
 
@@ -736,13 +733,6 @@ export const appReady = helpersInitialized.then(
         assignToPCustom("zid")
       ),
       handle_GET_snapshot
-    );
-
-    app.post(
-      "/api/v3/tutorial",
-      hybridAuth(assignToP),
-      need("step", getInt, assignToP),
-      handle_POST_tutorial
     );
 
     app.get(
@@ -2007,64 +1997,22 @@ export const appReady = helpersInitialized.then(
       handle_POST_metrics
     );
 
-    function makeFetchIndexWithoutPreloadData() {
-      const port = staticFilesParticipationPort;
-      return function (req, res) {
-        return fetchIndexWithoutPreloadData(req, res, port);
-      };
-    }
-
-    // Conversation aliases
-    app.get(/^\/football$/, makeRedirectorTo("/2arcefpshi"));
-    app.get(/^\/pdf$/, makeRedirectorTo("/23mymwyhkn")); // pdf 2017
-    app.get(/^\/nabi$/, makeRedirectorTo("/8ufpzc6fkm")); //
-
     app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
     // TODO consider putting static files on /static, and then using a catch-all to serve the index.
-    app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
-    app.get(/^\/user\/create(\/.*)?$/, fetchIndexWithoutPreloadData);
-    app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
-
-    app.get(/^\/settings(\/.*)?$/, makeFetchIndexWithoutPreloadData());
-
-    app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 
     // admin dash routes
     app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/integrate(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/other-conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
     if (opsRoutes.active) {
       app.get(/^\/ops(\/.*)?$/, fetchIndexForAdminPage);
     }
-    app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/privacy$/, fetchIndexForAdminPage);
     app.get(/^\/tos$/, fetchIndexForAdminPage);
     app.get(/^\/donate$/, fetchIndexForAdminPage);
-
-    // admin dash-based landers
-    app.get(/^\/gov(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/contrib(\/.*)?/, fetchIndexForAdminPage);
-
-    app.get(/^\/bot\/install(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/bot\/support(\/.*)?/, fetchIndexForAdminPage);
-
-    app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
-    // app.get(/^\/r/, fetchIndexWithoutPreloadData);
-    app.get(/^\/hk/, fetchIndexWithoutPreloadData);
-    app.get(/^\/s\//, fetchIndexWithoutPreloadData);
-    app.get(/^\/s$/, fetchIndexWithoutPreloadData);
-    app.get(/^\/hk\/new/, fetchIndexWithoutPreloadData);
-    app.get(/^\/inboxApiTest/, fetchIndexWithoutPreloadData);
-    app.get(/^\/pwresetinit.*/, fetchIndexForAdminPage);
-    app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
-    app.get(/^\/demo$/, fetchIndexForAdminPage);
-    app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
-    app.get(/^\/company$/, fetchIndexForAdminPage);
 
     app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
     app.get(
@@ -2124,20 +2072,7 @@ export const appReady = helpersInitialized.then(
       }
     );
 
-    // Duplicate url for content at root. Needed so we have something for "About" to link to.
-    app.get(/^\/about$/, makeRedirectorTo("/home"));
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/s\/CTE\/?$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesParticipationPort,
-        "/football.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
 
     app.get("/", handle_GET_conditionalIndexFetcher);
 

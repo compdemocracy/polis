@@ -316,25 +316,6 @@ expect /robots.txt node "robots handoff"
 echo "ok 15 robots off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /about node "about off"
-start about,about
-expect /about rust "about on"
-expect /api/v3/comments node "about leaves comments alone"
-expect /api/v3/votes node "about leaves voting alone"
-[[ $(included | grep -c 'location = /about') == 1 ]] || fail "about duplicated"
-expect_upstream polis-api GET /about
-expect_upstream polis-api HEAD /about
-expect_upstream server OPTIONS /about
-expect_upstream server POST /about $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /about $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /about node "about handoff"
-echo "ok 16 about off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
@@ -894,132 +875,22 @@ echo "ok 42 einvitesRead off/on/deduplicated; method/body guards; 502 hands back
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /conversation/create node "createPage off"
-start createPage,createPage
-expect /conversation/create rust "createPage on"
-expect /conversation/create/step rust "createPage nested path"
-expect /conversation/createSuffix rust "createPage prefix semantics"
-expect_not_found /conversation/creat "createPage neighbor"
-expect /api/v3/comments node "createPage leaves comments alone"
-expect /api/v3/votes node "createPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/conversation/create') == 1 ]] || fail "createPage duplicated"
-expect_upstream polis-api GET /conversation/create
-expect_upstream polis-api HEAD /conversation/create
-expect_upstream server OPTIONS /conversation/create
-expect_upstream server POST /conversation/create $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /conversation/create $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /conversation/create node "createPage handoff"
-echo "ok 43 createPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /user/create node "userCreatePage off"
-start userCreatePage,userCreatePage
-expect /user/create rust "userCreatePage on"
-expect /user/create/step rust "userCreatePage nested path"
-expect_not_found /user/createSuffix "userCreatePage anchored neighbor"
-expect_not_found /user/creat "userCreatePage neighbor"
-expect /api/v3/comments node "userCreatePage leaves comments alone"
-expect /api/v3/votes node "userCreatePage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/user/create') == 1 ]] || fail "userCreatePage duplicated"
-expect_upstream polis-api GET /user/create
-expect_upstream polis-api HEAD /user/create
-expect_upstream server OPTIONS /user/create
-expect_upstream server POST /user/create $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /user/create $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /user/create node "userCreatePage handoff"
-echo "ok 44 userCreatePage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /user/login node "userLoginPage off"
-start userLoginPage,userLoginPage
-expect /user/login rust "userLoginPage on"
-expect /user/login/step rust "userLoginPage nested path"
-expect_not_found /user/loginSuffix "userLoginPage anchored neighbor"
-expect_not_found /user/logi "userLoginPage neighbor"
-expect /api/v3/comments node "userLoginPage leaves comments alone"
-expect /api/v3/votes node "userLoginPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/user/login') == 1 ]] || fail "userLoginPage duplicated"
-expect_upstream polis-api GET /user/login
-expect_upstream polis-api HEAD /user/login
-expect_upstream server OPTIONS /user/login
-expect_upstream server POST /user/login $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /user/login $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /user/login node "userLoginPage handoff"
-echo "ok 45 userLoginPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /settings node "settingsPage off"
-start settingsPage,settingsPage
-expect /settings rust "settingsPage on"
-expect /settings/step rust "settingsPage nested path"
-expect_not_found /settingsSuffix "settingsPage anchored neighbor"
-expect_not_found /setting "settingsPage neighbor"
-expect /api/v3/comments node "settingsPage leaves comments alone"
-expect /api/v3/votes node "settingsPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/settings') == 1 ]] || fail "settingsPage duplicated"
-expect_upstream polis-api GET /settings
-expect_upstream polis-api HEAD /settings
-expect_upstream server OPTIONS /settings
-expect_upstream server POST /settings $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /settings $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /settings node "settingsPage handoff"
-echo "ok 46 settingsPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /user/logout node "userLogoutPage off"
-start userLogoutPage,userLogoutPage
-expect /user/logout rust "userLogoutPage on"
-expect /user/logout/step rust "userLogoutPage nested path"
-expect_not_found /user/logoutSuffix "userLogoutPage anchored neighbor"
-expect_not_found /user/logou "userLogoutPage neighbor"
-expect /api/v3/comments node "userLogoutPage leaves comments alone"
-expect /api/v3/votes node "userLogoutPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/user/logout') == 1 ]] || fail "userLogoutPage duplicated"
-expect_upstream polis-api GET /user/logout
-expect_upstream polis-api HEAD /user/logout
-expect_upstream server OPTIONS /user/logout
-expect_upstream server POST /user/logout $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /user/logout $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /user/logout node "userLogoutPage handoff"
-echo "ok 47 userLogoutPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
@@ -1074,28 +945,6 @@ echo "ok 49 integratePage off/on/deduplicated; method/body guards; 502 hands bac
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /other-conversations node "otherConversationsPage off"
-start otherConversationsPage,otherConversationsPage
-expect /other-conversations rust "otherConversationsPage on"
-expect /other-conversations/step rust "otherConversationsPage nested path"
-expect /other-conversationsSuffix rust "otherConversationsPage prefix suffix"
-expect_not_found /other-conversation "otherConversationsPage neighbor"
-expect /api/v3/comments node "otherConversationsPage leaves comments alone"
-expect /api/v3/votes node "otherConversationsPage leaves voting alone"
-[[ $(included | grep -Fc 'location ~ ^/other-conversations') == 1 ]] || fail "otherConversationsPage duplicated"
-expect_upstream polis-api GET /other-conversations
-expect_upstream polis-api HEAD /other-conversations
-expect_upstream server OPTIONS /other-conversations
-expect_upstream server POST /other-conversations $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /other-conversations $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /other-conversations node "otherConversationsPage handoff"
-echo "ok 50 otherConversationsPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 

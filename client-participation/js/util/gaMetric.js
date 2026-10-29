@@ -6,10 +6,6 @@ var Constants = require("./constants");
 // Mapping of routing information to GA analytic tags.
 // Each key maps to an object that contains category and action to match gtag parameters.
 const methodToEventMap = {
-  demoConversation: {
-    category: "Demo",
-    action: "demoConversation"
-  },
   participationView: {
     category: "Participation",
     action: "participationView"
