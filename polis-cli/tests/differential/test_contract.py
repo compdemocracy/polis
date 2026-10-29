@@ -139,15 +139,15 @@ class PageComparisonTests(unittest.TestCase):
         for field, value in [('body', b'<p>Changed</p>'), ('status', 302),
                              ('content_type', 'application/json')]:
             rust = copy.deepcopy(node)
-            rust['iip:get'][field] = value
+            rust['conversationPage:get'][field] = value
             failed = [row for row in compare_pages(node, rust) if not row['equal']]
-            self.assertEqual(failed, [{'scenario':'iip:get', 'equal':False,
+            self.assertEqual(failed, [{'scenario':'conversationPage:get', 'equal':False,
                                       'different_fields':[field]}])
 
     def test_missing_page_case_cannot_pass(self):
         from pages import compare_pages
         node, rust = self.fixture(), self.fixture()
-        del rust['summaryPage:handoff']
+        del rust['conversationPage:handoff']
         with self.assertRaises(RuntimeError):
             compare_pages(node, rust)
 
