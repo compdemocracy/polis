@@ -16,7 +16,6 @@ import timeout from "connect-timeout";
 import { handleVersion } from "./src/routes/version";
 import server from "./src/server";
 import Config from "./src/config";
-import { makeFileFetcher } from "./src/utils/file-fetcher";
 import logger from "./src/utils/logger";
 import { fetchIndexForConversation } from "./src/conversation";
 import { getPidForParticipant } from "./src/user";
@@ -255,8 +254,6 @@ const opsRoutes = createOpsRoutes({
   databaseUrl: Config.databaseURL,
   mathEnv: Config.mathEnv,
 });
-const hostname = Config.staticFilesHost;
-const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
 // Dev-only http logger
