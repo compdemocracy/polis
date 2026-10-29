@@ -632,7 +632,6 @@ export const appReady = helpersInitialized.then(
       handle_GET_conversationUuid
     );
 
-
     app.get(
       "/api/v3/users",
       moveToBody,
@@ -1844,7 +1843,6 @@ export const appReady = helpersInitialized.then(
       need("e", getStringLimitLength(1, 1000), assignToP),
       handle_GET_verification
     );
-
 
     app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
     // TODO consider putting static files on /static, and then using a catch-all to serve the index.
