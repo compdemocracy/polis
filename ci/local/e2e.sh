@@ -143,7 +143,7 @@ endgroup
 group "start the stack"
 compose up -d
 # The e2e dependencies install while the services start.
-(cd e2e && npm ci --no-audit --no-fund) > "$OUT/npm-ci.log" 2>&1 &
+(cd e2e && npm ci --ignore-scripts --no-audit --no-fund && npm run install:browser) > "$OUT/npm-ci.log" 2>&1 &
 npm_pid=$!
 # Ready when the database, the OIDC simulator, the API through nginx and the
 # participation client through nginx all answer.

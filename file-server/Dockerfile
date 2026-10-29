@@ -25,7 +25,7 @@ COPY client-admin/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 COPY client-admin/. .
 
@@ -78,7 +78,7 @@ COPY client-participation/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 COPY client-participation/. .
 
@@ -114,7 +114,7 @@ COPY client-report/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 COPY client-report/. .
 
@@ -162,7 +162,7 @@ COPY file-server/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 
 COPY file-server/. .
 

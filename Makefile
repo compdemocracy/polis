@@ -252,7 +252,8 @@ vote-sign-lint: ## P-078: fail on a new vote-sign literal outside the chokepoint
 	python3 ci/vote_convention/sign_lint.py
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
-	$(E2E_RUN) npm install
+	$(E2E_RUN) npm ci --ignore-scripts
+	$(E2E_RUN) npm run install:browser
 
 e2e-run: ## Run E2E tests except those which require 3rd party services
 	$(E2E_RUN) npm run test

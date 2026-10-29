@@ -57,7 +57,7 @@ jobs:
 
       - name: Install server dependencies
         working-directory: server
-        run: npm ci --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Codec golden test (Python writes, reads the file Node wrote)
         working-directory: delphi

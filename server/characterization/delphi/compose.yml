@@ -39,7 +39,7 @@ services:
     command:
       - sh
       - -c
-      - npm ci --no-audit --no-fund --loglevel=error && node characterization/delphi/main.cjs ${P2ZERO_MODE:-replay}
+      - npm ci --ignore-scripts --no-audit --no-fund --loglevel=error && node characterization/delphi/main.cjs ${P2ZERO_MODE:-replay}
     depends_on:
       postgres: { condition: service_healthy }
       dynamodb: { condition: service_started }

@@ -48,7 +48,7 @@ ENV NODE_ENV ${NODE_ENV:-development}
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 COPY server/. .
 
@@ -77,7 +77,7 @@ RUN apk add --no-cache openssl 'ca-certificates>=20261020-r0'
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 # For prod builds, to minimize the image size, remove the dependencies tagged with `--virtual .build` above.
 RUN apk del .build
