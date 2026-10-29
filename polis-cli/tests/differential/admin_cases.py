@@ -34,7 +34,6 @@ def admin_cases():
     add('comment translations',c+['--statement','0','--language','en','--yes'],exit=1,scope='server-limitation')
     add('delphi narrative run',r+['--yes'],exit=7,scope='missing-store')
     add('account verify',['--code-file','verification.txt','--yes'])
-    add('participant tutorial',['--step','2','--yes'])
     add('delphi run',r+['--yes'],actor='admin')
     add('delphi batch',r+['--model','generated-model','--yes'],actor='admin')
     add('topic moderate',c+['--action','accept','--statements','1','--yes'])

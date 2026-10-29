@@ -41,12 +41,6 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} nextComment"
       ;;
-    about)
-      case " $rust_api_locations " in *" about "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /about ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} about"
-      ;;
     treeviteMyInvites)
       case " $rust_api_locations " in *" treeviteMyInvites "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/treevite/myInvites ${RUST_API_UPSTREAM};
@@ -204,36 +198,6 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} einvitesRead"
       ;;
-    createPage)
-      case " $rust_api_locations " in *" createPage "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/conversation/create ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} createPage"
-      ;;
-    userCreatePage)
-      case " $rust_api_locations " in *" userCreatePage "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/user/create(/.*)?$ ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} userCreatePage"
-      ;;
-    userLoginPage)
-      case " $rust_api_locations " in *" userLoginPage "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/user/login(/.*)?$ ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} userLoginPage"
-      ;;
-    settingsPage)
-      case " $rust_api_locations " in *" settingsPage "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/settings(/.*)?$ ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} settingsPage"
-      ;;
-    userLogoutPage)
-      case " $rust_api_locations " in *" userLogoutPage "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/user/logout(/.*)?$ ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} userLogoutPage"
-      ;;
     adminPage)
       case " $rust_api_locations " in *" adminPage "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/m/[0-9][0-9A-Za-z]+ ${RUST_API_UPSTREAM};
@@ -245,12 +209,6 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/integrate ${RUST_API_UPSTREAM};
 "
       rust_api_locations="${rust_api_locations} integratePage"
-      ;;
-    otherConversationsPage)
-      case " $rust_api_locations " in *" otherConversationsPage "*) continue ;; esac
-      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    ~^/other-conversations ${RUST_API_UPSTREAM};
-"
-      rust_api_locations="${rust_api_locations} otherConversationsPage"
       ;;
     delphiRead)
       case " $rust_api_locations " in *" delphiRead "*) continue ;; esac
@@ -445,7 +403,7 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 done
 export RUST_API_RESOLVER=${RUST_API_RESOLVER:-127.0.0.11}
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage explorePage sharePage summaryPage oneTimePage iip iim locations bid myInvitesCsv participantsRead ptptois votesRead metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead otherConversationsPage integratePage adminPage userLogoutPage settingsPage userLoginPage userCreatePage createPage einvitesRead legacyConversations robots about). Selection rejected." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage explorePage sharePage summaryPage oneTimePage iip iim locations bid myInvitesCsv participantsRead ptptois votesRead metadataRead metadataChoices recentStarted recentActivity legacyPca treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
   exit 1
 elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then

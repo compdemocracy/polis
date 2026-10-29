@@ -311,9 +311,25 @@ fn pid_zero_invitee_is_reused_and_failed_reaccept_preserves_recovery() {
     );
     f.db.batch_execute("DROP TRIGGER reject_consume ON treevite_invites")
         .unwrap();
-    let repeat = admit(&mut f.db, &r).unwrap().unwrap();
-    assert_eq!((repeat.uid, repeat.pid), (first.uid, first.pid));
-    assert!(!repeat.new_user && !repeat.new_participant);
+    refused(
+        admit(&mut f.db, &r),
+        409,
+        "polis_err_treevite_login_code_exists",
+    );
+    let burned =
+        f.db.query_one(
+            "SELECT status,invite_used_by_pid FROM treevite_invites WHERE invite_code='another'",
+            &[],
+        )
+        .unwrap();
+    assert_eq!(burned.get::<_, i16>(0), 1);
+    assert_eq!(burned.get::<_, Option<i32>>(1), None);
+    assert_eq!(
+        f.db.query_one("SELECT login_code_hash FROM treevite_login_codes", &[])
+            .unwrap()
+            .get::<_, String>(0),
+        "prepared-on-crypto-worker"
+    );
 }
 #[test]
 fn failures_at_each_write_boundary_roll_back_all_rows_and_allocator() {
@@ -335,6 +351,7 @@ fn failures_at_each_write_boundary_roll_back_all_rows_and_allocator() {
             uid: None,
         });
         if ["treevite_login_codes", "treevite_invites"].contains(&table) {
+            r.identity = Identity::Anonymous;
             r.entry = invite();
         }
         assert_eq!(admit(&mut f.db, &r), Err(Error::Unavailable), "{table}");
@@ -378,7 +395,8 @@ fn invite_race_has_one_winner_and_loser_writes_nothing() {
     for existing in [false, true] {
         let mut f = Fixture::new();
         if existing {
-            f.db.batch_execute("INSERT INTO participants(zid,uid) VALUES(2,1),(2,2),(2,3); INSERT INTO xids(owner,uid,xid,zid,pid) VALUES(1,2,'two',2,1),(1,3,'three',2,2)").unwrap();
+            f.db.batch_execute("INSERT INTO participants(zid,uid) VALUES(1,2),(1,3)")
+                .unwrap();
         }
         f.db.batch_execute("UPDATE conversations SET treevite_enabled=true")
             .unwrap();
@@ -393,9 +411,9 @@ fn invite_race_has_one_winner_and_loser_writes_nothing() {
                 let barrier = barrier.clone();
                 thread::spawn(move || {
                     let mut r = request(if existing {
-                        Identity::Xid {
-                            xid: if uid == 2 { "two" } else { "three" },
-                            uid: None,
+                        Identity::AnonymousParticipant {
+                            uid: Uid(uid),
+                            conversation: Zid(1),
                         }
                     } else {
                         Identity::Anonymous
@@ -426,9 +444,9 @@ fn invite_race_has_one_winner_and_loser_writes_nothing() {
             f.counts(),
             vec![
                 if existing { 3 } else { 4 },
-                if existing { 4 } else { 1 },
+                if existing { 2 } else { 1 },
                 0,
-                if existing { 2 } else { 0 },
+                0,
                 1
             ]
         );
@@ -439,26 +457,8 @@ fn invite_race_has_one_winner_and_loser_writes_nothing() {
             )
             .unwrap()
             .get::<_, i32>(0),
-            1
+            if existing { 2 } else { 1 }
         );
-        if existing {
-            let p = results
-                .iter()
-                .find_map(|r| r.as_ref().ok().copied().flatten())
-                .unwrap();
-            let loser = if p.uid == Uid(2) { Uid(3) } else { Uid(2) };
-            refused(
-                admit(
-                    &mut f.db,
-                    &request(Identity::Xid {
-                        xid: if loser == Uid(2) { "two" } else { "three" },
-                        uid: None,
-                    }),
-                ),
-                401,
-                "polis_err_treevite_auth_required",
-            );
-        }
     }
 }
 #[test]
@@ -534,4 +534,176 @@ fn allocator_lock_is_held_to_commit_and_unrelated_conversation_can_join() {
         .unwrap()
         .unwrap();
     assert_eq!(p.pid, Pid(1));
+}
+
+#[test]
+fn expired_invite_is_dead_without_any_rows_or_remint() {
+    let mut f = Fixture::new();
+    f.db.batch_execute("UPDATE treevite_invites SET created_at=now()-interval '30 days'")
+        .unwrap();
+    let mut r = request(Identity::Anonymous);
+    r.entry = invite();
+    refused(
+        admit(&mut f.db, &r),
+        400,
+        "polis_err_treevite_invite_expired",
+    );
+    f.assert_clean();
+}
+#[test]
+fn login_expiry_is_written_and_rechecked_after_proof() {
+    let mut f = Fixture::new();
+    let mut r = request(Identity::Anonymous);
+    r.entry = invite();
+    admit(&mut f.db, &r).unwrap();
+    assert!(
+        f.db.query_one(
+            "SELECT expires_at=created_at+interval '1 year' FROM treevite_login_codes",
+            &[]
+        )
+        .unwrap()
+        .get::<_, bool>(0)
+    );
+    r.entry = Entry::Login(VerifiedLogin {
+        lookup: "generated-lookup",
+        bcrypt_hash: "prepared-on-crypto-worker",
+    });
+    for sql in [
+        "UPDATE treevite_login_codes SET expires_at=now()",
+        "UPDATE treevite_login_codes SET expires_at=now()-interval '1 second'",
+    ] {
+        f.db.batch_execute(sql).unwrap();
+        refused(
+            admit(&mut f.db, &r),
+            401,
+            "polis_err_treevite_login_code_expired",
+        );
+        assert!(
+            f.db.query_one("SELECT last_used_at IS NULL FROM treevite_login_codes", &[])
+                .unwrap()
+                .get::<_, bool>(0)
+        );
+    }
+}
+#[test]
+fn accept_never_converts_an_xid_or_account_identity() {
+    let mut f = Fixture::new();
+    for identity in [
+        Identity::Xid {
+            xid: "existing",
+            uid: Some(Uid(2)),
+        },
+        Identity::Account(Uid(2)),
+    ] {
+        let mut r = request(identity);
+        r.entry = invite();
+        refused(
+            admit(&mut f.db, &r),
+            403,
+            "polis_err_treevite_identity_conversion",
+        );
+        f.assert_clean();
+    }
+}
+
+#[test]
+fn competing_invites_for_one_member_burn_the_loser_without_replacing_recovery() {
+    let mut f = Fixture::new();
+    f.db.batch_execute("INSERT INTO participants(zid,uid) VALUES(1,2); INSERT INTO treevite_invites(zid,wave_id,invite_code) VALUES(1,1,'second')").unwrap();
+    let mut holder = f.connect();
+    let mut held = holder.transaction().unwrap();
+    held.query_one(
+        "SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:member-accept', 1::int, 2::int)::text,0))",
+        &[],
+    )
+    .unwrap();
+    let workers: Vec<_> = ["invite", "second"]
+        .into_iter()
+        .map(|code| {
+            let mut db = f.connect();
+            thread::spawn(move || {
+                let mut r = request(Identity::AnonymousParticipant {
+                    uid: Uid(2),
+                    conversation: Zid(1),
+                });
+                let Entry::Invite { recovery, .. } = invite() else {
+                    unreachable!()
+                };
+                r.entry = Entry::Invite { code, recovery };
+                admit(&mut db, &r)
+            })
+        })
+        .collect();
+    f.wait_for_locks(2);
+    held.commit().unwrap();
+    let outcomes: Vec<_> = workers.into_iter().map(|w| w.join().unwrap()).collect();
+    assert_eq!(outcomes.iter().filter(|r| r.is_ok()).count(), 1);
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|r| **r
+                == Err(Error::Refused(Refusal {
+                    status: 409,
+                    code: "polis_err_treevite_login_code_exists"
+                })))
+            .count(),
+        1
+    );
+    let row =
+        f.db.query_one(
+            "SELECT count(*),count(invite_used_by_pid) FROM treevite_invites WHERE status=1",
+            &[],
+        )
+        .unwrap();
+    assert_eq!(row.get::<_, i64>(0), 2);
+    assert_eq!(row.get::<_, i64>(1), 1);
+    assert_eq!(f.counts(), vec![3, 1, 0, 0, 1]);
+}
+
+#[test]
+fn legacy_null_expiry_does_not_guess_a_replaced_codes_issue_time() {
+    let mut f = Fixture::new();
+    let mut r = request(Identity::Anonymous);
+    r.entry = invite();
+    let admitted = admit(&mut f.db, &r).unwrap().unwrap();
+    // Node replacements kept created_at, while login also changed updated_at.
+    // Neither timestamp can establish the issue time of a legacy NULL expiry.
+    f.db.batch_execute("UPDATE treevite_login_codes SET expires_at=NULL,created_at=now()-interval '2 years'; INSERT INTO treevite_invites(zid,wave_id,invite_code) VALUES(1,1,'second')").unwrap();
+    r.entry = Entry::Login(VerifiedLogin {
+        lookup: "generated-lookup",
+        bcrypt_hash: "prepared-on-crypto-worker",
+    });
+    assert_eq!(admit(&mut f.db, &r).unwrap().unwrap().uid, admitted.uid);
+    r.identity = Identity::AnonymousParticipant {
+        uid: admitted.uid,
+        conversation: Zid(1),
+    };
+    let Entry::Invite { recovery, .. } = invite() else {
+        unreachable!()
+    };
+    r.entry = Entry::Invite {
+        code: "second",
+        recovery,
+    };
+    refused(
+        admit(&mut f.db, &r),
+        409,
+        "polis_err_treevite_login_code_exists",
+    );
+}
+
+#[test]
+fn fresh_anonymous_cannot_allocate_a_configured_admin_uid() {
+    let mut f = Fixture::new();
+    let mut r = request(Identity::Anonymous);
+    r.entry = invite();
+    r.admin_uids = &[Uid(4)];
+    assert_eq!(
+        admit(&mut f.db, &r),
+        Err(Error::Refused(Refusal {
+            status: 403,
+            code: "polis_err_xid_owner_account",
+        }))
+    );
+    f.assert_clean();
 }
