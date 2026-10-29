@@ -73,6 +73,7 @@ mod params;
 mod participants_read;
 mod participation_read;
 mod pca;
+mod post_treevite_waves;
 mod post_votes;
 #[allow(dead_code)]
 #[rustfmt::skip]
@@ -158,7 +159,8 @@ fn health_response(
                 && (key.ends_with("_READS")
                     || key.ends_with("_WRITES")
                     || key == "POLIS_API_OWNER_LIST"
-                    || key == "POLIS_API_POST_VOTES"))
+                    || key == "POLIS_API_POST_VOTES"
+                    || key == "POLIS_API_POST_TREEVITE_WAVES"))
                 .then_some(js::Js::Str(key))
         })
         .collect();
@@ -167,6 +169,7 @@ fn health_response(
     body.set("routing", js::Js::Obj(routing));
     body.set("identity", identity_observability::snapshot(counters));
     body.set("postVotes", post_votes::health(app));
+    body.set("postTreeviteWaves", post_treevite_waves::health(app));
     body.set(
         "participantKeysLoaded",
         js::Js::Bool(app.participant_keys.is_some()),
@@ -754,6 +757,15 @@ async fn main() -> Result<()> {
         }
     }
     state.post_votes = post_votes::Writer::from_env()?;
+    state.post_treevite_waves = post_treevite_waves::Writer::from_env()?;
+    if state.post_treevite_waves.is_some() {
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
         let admins = std::env::var("ADMIN_UIDS")
@@ -1817,7 +1829,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 118);
+            assert_eq!(body.as_object().unwrap().len(), 119);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],
@@ -1846,6 +1858,7 @@ mod health_tests {
         let environment = [
             ("POLIS_API_ROBOTS_READS", "1"),
             ("POLIS_API_POST_VOTES", "1"),
+            ("POLIS_API_POST_TREEVITE_WAVES", "1"),
             ("POLIS_API_OWNER_LIST", "1"),
             ("POLIS_API_TOPIC_SELECTION_WRITES", "1"),
             ("POLIS_API_START", "1"),
@@ -1869,7 +1882,7 @@ mod health_tests {
             body["routing"],
             json!({
                 "configuredRoutes": "pca2,robots",
-                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_POST_VOTES", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
+                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_POST_TREEVITE_WAVES", "POLIS_API_POST_VOTES", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
             })
         );
     }

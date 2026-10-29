@@ -314,7 +314,11 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         && req
             .path
             .is_some_and(|p| p.split('?').next() == Some(crate::post_votes::PATH));
-    let mut hand_back = transfer_encoded && (write_path || vote_path);
+    let wave_path = req.method == Some("POST")
+        && req
+            .path
+            .is_some_and(|p| p.split('?').next() == Some(crate::post_treevite_waves::PATH));
+    let mut hand_back = transfer_encoded && (write_path || vote_path || wave_path);
     if transfer_encoded && !hand_back {
         bail!("chunked request bodies are not accepted");
     }
@@ -327,6 +331,7 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
     };
     if (write_path && body_len > crate::topic_selection_writes::MAX_BODY_BYTES)
         || (vote_path && body_len > crate::post_votes::MAX_BODY_BYTES)
+        || (wave_path && body_len > crate::post_treevite_waves::MAX_BODY_BYTES)
     {
         hand_back = true;
         body_len = 0;
@@ -704,6 +709,29 @@ mod tests {
         .unwrap();
         assert!(!head.hand_back);
         assert_eq!(head.body_len, 65536);
+    }
+
+    #[test]
+    fn wave_write_framing_hands_back_before_dispatch() {
+        for suffix in ["", "?conversation_id=fixture"] {
+            for framing in [
+                "Transfer-Encoding: chunked".to_owned(),
+                "Content-Length: 65537".to_owned(),
+                format!("Content-Length: {}", usize::MAX),
+            ] {
+                let head = parse_head(
+                    format!(
+                        "POST {}{suffix} HTTP/1.1\r\nHost: localhost\r\n{framing}\r\n\r\n",
+                        crate::post_treevite_waves::PATH
+                    )
+                    .as_bytes(),
+                )
+                .unwrap()
+                .unwrap();
+                assert!(head.hand_back);
+                assert_eq!(head.body_len, 0);
+            }
+        }
     }
 
     #[test]

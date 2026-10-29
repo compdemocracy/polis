@@ -121,6 +121,35 @@ mod database {
                 .unwrap();
         }
     }
+    pub(super) fn wait_for_query(c: &mut Client, sql: &str) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        while !c.query_one(sql, &[]).unwrap().get::<_, bool>(0) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "database event not observed: {sql}"
+            );
+            std::thread::yield_now();
+        }
+    }
+
+    pub(super) fn unbounded_key_wait(db: &Database) {
+        // These tests prove serialization once a transaction reaches the key.
+        // The fixture removes only its lock-wait cutoff, so a delayed observer
+        // cannot turn the intended overlap into a legitimate overload rejection.
+        // Keep the full append/commit path and the real history/latest rule.
+        db.connect()
+            .batch_execute(
+                "CREATE FUNCTION test_key_wait() RETURNS trigger
+            LANGUAGE plpgsql AS $$ BEGIN
+                PERFORM set_config('lock_timeout', '0', true);
+                RETURN NEW;
+            END $$;
+            CREATE TRIGGER test_key_wait BEFORE INSERT ON votes_latest_unique
+            FOR EACH ROW EXECUTE FUNCTION test_key_wait();",
+            )
+            .unwrap();
+    }
+
     pub(super) fn fields(choice: VoteChoice) -> ParsedFields {
         ParsedFields {
             tid: 7.0,
@@ -214,14 +243,14 @@ mod database {
     #[test]
     fn two_writers_append_same_key_without_losing_history_or_latest() {
         let db = Database::new("concurrent");
+        unbounded_key_wait(&db);
         let barrier = Arc::new(Barrier::new(2));
         let threads: Vec<_> = [VoteChoice::Agree, VoteChoice::Disagree]
             .into_iter()
             .map(|choice| {
-                let config = db.config.clone();
+                let mut c = db.connect();
                 let barrier = barrier.clone();
                 std::thread::spawn(move || {
-                    let mut c = config.connect(NoTls).unwrap();
                     barrier.wait();
                     (0..25)
                         .filter(|_| !append(&mut c, &actor(), &fields(choice)).unwrap().replayed)
