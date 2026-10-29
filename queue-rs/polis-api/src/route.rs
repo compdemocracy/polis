@@ -261,6 +261,8 @@ pub struct App {
     pub post_votes: Option<crate::post_votes::Writer>,
     pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
     pub treevite_write: Option<Arc<crate::treevite_write::Writer>>,
+    pub revocations: Option<Arc<crate::revocation::Refresh>>,
+    pub treevite_codes: Option<crate::treevite_codes::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -494,6 +496,8 @@ impl App {
             post_votes: None,
             post_treevite_waves: None,
             treevite_write: None,
+            revocations: None,
+            treevite_codes: None,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -1132,7 +1136,17 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
     let (mut out, cache) = crate::pca::CACHE_OUTCOME
         .scope(std::cell::Cell::new("none"), async {
-            let out = serve(&app, &req).await;
+            let mut out = serve(&app, &req).await;
+            // A refresh may land between the entry guard and an older route's
+            // Option-based verifier. Never let that refusal turn into fallback.
+            if out.status == 502
+                && let Some(raw) = req.headers.get("authorization")
+                && crate::revocation::refusal(&app, raw, (crate::clock::now_ms() / 1000.0) as u64)
+                    .is_some()
+            {
+                let origin = app.cors.resolve(&req.headers).ok().flatten();
+                out = crate::treevite_codes::session_revoked(&req, default_head(origin.as_deref()));
+            }
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
@@ -1595,6 +1609,22 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
+    // Terminal before every route's hand-back branches. A Node fallback cannot
+    // enforce this snapshot, even for credentials unsupported by a read route.
+    if let Some(raw) = req.headers.get("authorization")
+        && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
+    {
+        let origin = app.cors.resolve(&req.headers).ok().flatten();
+        return crate::treevite_codes::session_revoked(req, default_head(origin.as_deref()));
+    }
+    if crate::treevite_codes::matches(req.path()) {
+        let origin = app.cors.resolve(&req.headers);
+        let Ok(origin) = origin else {
+            return bad_gateway();
+        };
+        return crate::treevite_codes::handle(app, req, default_head(origin.as_deref())).await;
+    }
+
     if crate::integrate_page::matches(req.path())
         && crate::integrate_page::parse(app, req).is_none()
     {

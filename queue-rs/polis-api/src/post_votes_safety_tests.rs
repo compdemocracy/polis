@@ -1376,3 +1376,230 @@ fn second_accept_cannot_reject_participation() {
         "second accept must not reject a citizen comment"
     );
 }
+
+/// A loopback-only protocol observer counts statements on the real vote
+/// connections. It needs no PostgreSQL extension or production instrumentation.
+async fn count_statements(
+    client: tokio::net::TcpStream,
+    backend: tokio::net::TcpStream,
+    counts: Arc<Mutex<std::collections::BTreeMap<String, usize>>>,
+) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (mut cr, mut cw) = client.into_split();
+    let (mut br, mut bw) = backend.into_split();
+    let upstream = async {
+        // This fixture uses NoTls: the initial packet is the startup packet.
+        let length = cr.read_u32().await?;
+        let mut bytes = vec![0; length as usize - 4];
+        cr.read_exact(&mut bytes).await?;
+        bw.write_u32(length).await?;
+        bw.write_all(&bytes).await?;
+        loop {
+            let tag = cr.read_u8().await?;
+            let length = cr.read_u32().await?;
+            let mut bytes = vec![0; length as usize - 4];
+            cr.read_exact(&mut bytes).await?;
+            if matches!(tag, b'P' | b'Q') {
+                let mut strings = bytes.split(|b| *b == 0);
+                if tag == b'P' {
+                    strings.next();
+                } // prepared statement name
+                let sql = std::str::from_utf8(strings.next().unwrap())
+                    .unwrap()
+                    .to_owned();
+                *counts.lock().unwrap().entry(sql).or_default() += 1;
+            }
+            bw.write_u8(tag).await?;
+            bw.write_u32(length).await?;
+            bw.write_all(&bytes).await?;
+        }
+        #[allow(unreachable_code)]
+        Ok::<(), std::io::Error>(())
+    };
+    let downstream = tokio::io::copy(&mut br, &mut cw);
+    tokio::select! { _ = upstream => {}, _ = downstream => {} }
+}
+
+#[test]
+fn revocation_snapshot_adds_no_vote_request_statements() {
+    let mut measurements = Vec::new();
+    for with_snapshot in [false, true] {
+        let db = Database::new(if with_snapshot {
+            "revocation_with"
+        } else {
+            "revocation_without"
+        });
+        let (mut app, request) = setup(&db);
+        let mut c = db.connect();
+        c.batch_execute(include_str!(
+            "../../../server/postgres/migrations/000013_create_treevite.sql"
+        ))
+        .unwrap();
+        c.batch_execute(
+            "INSERT INTO users(uid) VALUES(2);
+            ALTER TABLE participants DISABLE TRIGGER USER;
+            INSERT INTO participants(zid,pid,uid) VALUES(1,1,2);
+            ALTER TABLE participants ENABLE TRIGGER USER;
+            INSERT INTO treevite_login_codes(zid,pid,login_code_hash,login_code_fingerprint,revoked)
+            VALUES(1,1,'fixture','fixture',true);",
+        )
+        .unwrap();
+        let measured = runtime().block_on(async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let backend_port = db.config.get_ports()[0];
+            let backend_host = match &db.config.get_hosts()[0] {
+                postgres::config::Host::Tcp(host) => host.clone(),
+                _ => panic!("loopback test database required"),
+            };
+            let counts = Arc::new(Mutex::new(std::collections::BTreeMap::new()));
+            let observed = counts.clone();
+            let (stop_proxy, mut stopping) = tokio::sync::oneshot::channel::<()>();
+            let proxy = tokio::spawn(async move {
+                let mut connections = tokio::task::JoinSet::new();
+                loop {
+                    let (client, _) = tokio::select! {
+                        _ = &mut stopping => break,
+                        accepted = listener.accept() => accepted.unwrap(),
+                    };
+                    let backend = tokio::net::TcpStream::connect((backend_host.as_str(), backend_port))
+                        .await.unwrap();
+                    connections.spawn(count_statements(client, backend, observed.clone()));
+                }
+                connections.shutdown().await;
+            });
+            let mut config = postgres::Config::new();
+            config.host("127.0.0.1").port(port)
+                .user(db.config.get_user().unwrap())
+                .dbname(db.config.get_dbname().unwrap());
+            if let Some(password) = db.config.get_password() {
+                config.password(password);
+            }
+            let connector = || Connector::Plain(Box::new(config.clone()));
+            let writer = Arc::get_mut(&mut app).unwrap().post_votes.as_mut().unwrap();
+            writer.reads = db::Pool::new(connector(), read_limits());
+            let limits = db::Limits {
+                size: 4,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_secs(1),
+                max_lifetime: Duration::from_secs(300),
+            };
+            writer.pool = db::Pool::writer(connector(), limits.clone());
+            writer.background = NotificationPool::new(db::Pool::writer(connector(), db::Limits { size: 2, ..limits }));
+            warm_pool(&writer.reads, 2).await;
+            warm_pool(&writer.pool, 4).await;
+            warm_pool(&writer.background.pool, 2).await;
+
+            // Refresh uses the production operation and its own warm connection.
+            // Hold only the login-code table and observe the refresh's exact
+            // backend waiting there before issuing either measured vote.
+            let refresh_pool = db::Pool::new(
+                Connector::Plain(Box::new(db.config.clone())), crate::revocation::limits());
+            warm_pool(&refresh_pool, 1).await;
+            let refresh = crate::revocation::Refresh::load(refresh_pool.clone()).await.unwrap();
+            assert!(refresh.snapshot.contains("2fixture", 1));
+            let refresh_pid: i32 = refresh_pool.with(|c| Ok(c.query_one("select pg_backend_pid()", &[])?.get(0))).await.unwrap();
+            if with_snapshot {
+                let state = Arc::get_mut(&mut app).unwrap();
+                state.post_votes.as_mut().unwrap().set_revocations(refresh.snapshot.clone());
+                state.revocations = Some(refresh.clone());
+            }
+            let (release_lock, held) = std::sync::mpsc::channel::<()>();
+            let (ready, locked) = tokio::sync::oneshot::channel();
+            let holder = tokio::task::spawn_blocking(move || {
+                c.batch_execute("BEGIN; LOCK TABLE treevite_login_codes IN ACCESS EXCLUSIVE MODE").unwrap();
+                let pid: i32 = c.query_one("select pg_backend_pid()", &[]).unwrap().get(0);
+                ready.send(pid).unwrap();
+                // Dropping the sender also releases the lock on assertion failure.
+                let _ = held.recv();
+                c.batch_execute("COMMIT").unwrap();
+            });
+            let holder_pid = tokio::time::timeout(EVENT_WATCHDOG, locked).await.unwrap().unwrap();
+            let refresh_before = refresh_pool.evidence.snapshot();
+            let refreshing = tokio::spawn({
+                let refresh = refresh.clone();
+                async move { refresh.refresh().await }
+            });
+            wait_for_sql(&db, format!("select exists(select 1 from pg_stat_activity where pid={refresh_pid} and wait_event_type='Lock' and {holder_pid}=any(pg_blocking_pids(pid)))")).await;
+            let mut measured = Vec::new();
+            for replayed in [false, true] {
+                let writer = app.post_votes.as_ref().unwrap();
+                wait_for_idle(writer).await;
+                let pools = [&writer.reads, &writer.pool, &writer.background.pool];
+                let before = pools.map(|p| p.evidence.snapshot());
+                counts.lock().unwrap().clear();
+                let (response, dispatched) = observed_handle(app.clone(), copy_request(&request)).await;
+                assert_eq!(response.status, 200);
+                assert!(dispatched.is_some(), "vote must create a dispatch");
+                let vote = accepted_body(&response).vote;
+                assert_eq!(vote.replayed, replayed);
+                assert_eq!(vote.vote, crate::votes::VoteChoice::Agree.wire());
+                assert_eq!(vote.tid, 7);
+                wait_for_idle(writer).await;
+                // Receipt alone does not close the statement-counting window:
+                // every read, append and detached notification must finish.
+                for (i, operations) in [2, 1, 2].into_iter().enumerate() {
+                    let after = pools[i].evidence.snapshot();
+                    let delta = std::array::from_fn::<_, 6, _>(|j| after[j] - before[i][j]);
+                    assert_eq!(delta, [operations, 0, 0, operations, 0, 0]);
+                }
+                let statements = std::mem::take(&mut *counts.lock().unwrap());
+                assert!(!statements.is_empty());
+                assert!(statements.keys().all(|q| !q.contains("treevite_login_codes")));
+                assert!(!refreshing.is_finished(), "vote must finish while refresh is blocked");
+                let during = refresh_pool.evidence.snapshot();
+                assert_eq!(during[0], refresh_before[0] + 1);
+                assert_eq!(during[3], refresh_before[3]);
+                measured.push(statements);
+            }
+            wait_for_sql(&db, "select (select count(*) from votes)=1 and (select count(*) from votes_latest_unique)=1 and (select nsli from participants where zid=1 and pid=0)=0 and (select count(*) from event_ptpt_no_more_comments)=2".into()).await;
+
+            // Conversely, refresh must complete while every vote connection is
+            // held. Its completion must neither acquire nor issue SQL on them.
+            let writer = app.post_votes.as_ref().unwrap();
+            let held_reads = hold_pool(&writer.reads, 2).await;
+            let held_writes = hold_pool(&writer.pool, 4).await;
+            let held_notifications = hold_pool(&writer.background.pool, 2).await;
+            let pools = [&writer.reads, &writer.pool, &writer.background.pool];
+            let held_evidence = pools.map(|p| p.evidence.snapshot());
+            counts.lock().unwrap().clear();
+            drop(release_lock);
+            tokio::time::timeout(EVENT_WATCHDOG, holder).await.unwrap().unwrap();
+            tokio::time::timeout(EVENT_WATCHDOG, refreshing).await.unwrap().unwrap();
+            assert_eq!(pools.map(|p| p.evidence.snapshot()), held_evidence);
+            assert!(counts.lock().unwrap().is_empty(), "refresh must issue no vote-pool SQL");
+            let after = refresh_pool.evidence.snapshot();
+            let delta = std::array::from_fn::<_, 6, _>(|j| after[j] - refresh_before[j]);
+            assert_eq!(delta, [1, 0, 0, 1, 0, 0]);
+            assert!(refresh.snapshot.contains("2fixture", 1));
+            if with_snapshot {
+                let health: serde_json::Value = serde_json::from_str(&crate::js::stringify(&crate::revocation::health(&app))).unwrap();
+                assert_eq!(health["refreshSuccesses"], 2);
+                assert_eq!(health["refreshFailures"], 0);
+            }
+            held_reads.release().await;
+            held_writes.release().await;
+            held_notifications.release().await;
+            // Close and join every proxy connection before synchronous pool
+            // destruction, which otherwise waits for this runtime to forward EOF.
+            drop(stop_proxy);
+            tokio::time::timeout(EVENT_WATCHDOG, proxy).await.unwrap().unwrap();
+            drop(app);
+            measured
+        });
+        measurements.push(measured);
+    }
+    for (i, label) in ["fresh", "replay"].into_iter().enumerate() {
+        let without = &measurements[0][i];
+        let with = &measurements[1][i];
+        assert_eq!(
+            with, without,
+            "snapshot must add zero request-time SQL statements"
+        );
+        println!(
+            "vote {label} statement counts unchanged across read, writer and notification pools: {} before and {} with snapshot",
+            without.values().sum::<usize>(),
+            with.values().sum::<usize>()
+        );
+    }
+}

@@ -99,11 +99,13 @@ mod votes_read;
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/schema.rs"]
 mod schema;
+mod revocation;
 mod statement_importance;
 mod topic_prioritize;
 mod topic_selection_writes;
 mod topic_selections;
 mod topic_stats;
+mod treevite_codes;
 mod treevite_csv;
 mod treevite_invites;
 mod treevite_me;
@@ -176,6 +178,11 @@ fn health_response(
     body.set("postVotes", post_votes::health(app));
     body.set("postTreeviteWaves", post_treevite_waves::health(app));
     body.set("treeviteWrite", treevite_write::health(app));
+    body.set("treeviteRevocations", revocation::health(app));
+    body.set(
+        "treeviteCodeWrites",
+        js::Js::Bool(app.treevite_codes.is_some()),
+    );
     body.set(
         "participantKeysLoaded",
         js::Js::Bool(app.participant_keys.is_some()),
@@ -687,6 +694,8 @@ async fn dispatch_at_clock(
         | conversation_preload::PATH
         | domain_whitelist::PATH
         | metadata_questions::PATH
+        | treevite_codes::REVOKE_PATH
+        | treevite_codes::REISSUE_PATH
         | treevite_waves::PATH
         | math_membership::BID_PATH
         | math_membership::LOCATIONS_PATH
@@ -1792,6 +1801,8 @@ async fn main() -> Result<()> {
     state.integrate_page =
         admin_page::Client::from_env_for("POLIS_API_INTEGRATE_PAGE_READS").await?;
     state.admin_page = admin_page::Client::from_env().await?;
+    state.treevite_codes = treevite_codes::Writer::from_env()?;
+    let refresh_task = revocation::configure(&mut state).await?;
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
@@ -1803,10 +1814,15 @@ async fn main() -> Result<()> {
         cfg.math_env
     );
     let handler = Arc::new(move |req: Request| dispatch(app.clone(), owner.clone(), req));
-    tokio::select! {
+    let result = tokio::select! {
         r = http::serve(listener, handler) => r,
         _ = tokio::signal::ctrl_c() => Ok(()),
+    };
+    if let Some(task) = refresh_task {
+        task.abort();
+        let _ = task.await;
     }
+    result
 }
 
 #[cfg(test)]
@@ -1870,7 +1886,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 122);
+            assert_eq!(body.as_object().unwrap().len(), 124);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],
