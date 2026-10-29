@@ -1546,3 +1546,63 @@ hash `createPublicKey(decodedPublicPem).export({type: "spki", format: "der"})`
 with `createHash("sha256")` and `digest("hex")`. The small Node fixture in
 `../polis-auth/tests/fixtures/participant-keys.cjs` checks that calculation and
 Node-signed token verification through the loader; it needs Node but no packages.
+
+### Atomic Treevite wave creation (off by default)
+
+`POLIS_API_POST_TREEVITE_WAVES=1` opts into the typed `POST /api/v3/treevite/waves` writer; it requires an explicit primary
+`POLIS_API_POST_TREEVITE_WAVES_DATABASE_URL`. This does not change nginx routing
+or the existing GET handler. The staged request class is JSON without query
+parameters, cookies, content encoding, or unknown fields, using an already
+mapped OIDC identity or a verified conversation-scoped participant identity.
+Content-Length framing is required; other framing or identity classes hand back before write dispatch. Missing/malformed
+Bearers and the recorded parameter refusals preserve Node's responses.
+
+Authority, owner and conversation advisory locks, numbering, parent resolution,
+wave insertion, root codes and retroactive member codes share one transaction.
+The member lock is the same PostgreSQL-generated key as Node's count-then-fill
+helper. All invite statuses count, so consuming or revoking codes never refills
+an allowance. Codes use ten independently drawn letters/digits and five
+`ON CONFLICT DO NOTHING` attempts. Response order matches Node's `RETURNING *`,
+including the string bigint ID, followed by `invites_created`. Numeric parameters
+retain Node decimal-prefix parsing and JavaScript number range until handler
+validation; integers outside PostgreSQL INTEGER receive the same handler refusal
+bytes, including the requires-invites check before storage narrowing.
+
+`POLIS_API_TREEVITE_CONVERSATION_CODE_CAP` defaults to 250000;
+`POLIS_API_TREEVITE_OWNER_CODE_CAP` defaults to 1000000. Both accept positive
+integer operator overrides and fail boot on invalid values. Before inserting,
+the transaction derives each wave's reservation from every actual parent code
+and outstanding ancestor obligation, times invites per user, plus owner invites,
+with its own actual codes as a lower bound. Existing descendants reserve their
+future codes before another wave is admitted. Cached size remains separate for
+Node-compatible response bytes.
+This reserves lazy child issuance using existing wave rows, without a quota
+table. The owner total spans every conversation owned by that owner. The owner
+lock serializes these checks across concurrent wave creates. A refusal is 409
+`polis_err_treevite_conversation_code_cap` or
+`polis_err_treevite_owner_code_cap`, with no wave/invite insert. These are
+sanity stops, not surge rate limits.
+
+Minting has its own two-slot writer pool and two-slot read-only identity pool.
+The writer bounds acquisition at 100 ms, lock waits at 100 ms, statements at
+500 ms and the issuance loop at ten seconds. It neither changes conversation
+rows nor acquires the participant allocator lock. Its foreign-key key-share
+locks permit ordinary participant-count updates. No participation connection
+or rate bucket is borrowed. A deadline or insertion failure rolls back the
+whole wave. Once dispatched, no result is a 502 handoff; an uncertain commit
+or outer deadline returns 503 `polis_err_treevite_wave_outcome_unknown` and
+must not be automatically retried. There is no operation-recovery protocol.
+
+These guarantees require every wave writer to use the locks; the current Node
+wave creator does not. The read-side switch and existing Node writer remain
+unchanged. Lazy acceptance and membership discovery reconciliation are outside
+this writer; this change does not establish a mixed-writer rollout guarantee.
+
+`conformance/post-treevite-waves-run.sh` replays the Treevite recording profile
+on an isolated stack, executing all thirteen wave POST cases against Rust and
+Node from identical state. It preserves the Node fixture and compares response
+bytes and committed wave/invite rows. Three additional integer overflow
+comparisons run after the unchanged profile. Database tests additionally cover
+concurrent numbering/owner caps, failure rollback, reserved future capacity,
+member idempotence and separate participation resources under a parked mint
+lock. This functional evidence is not a production capacity benchmark.
