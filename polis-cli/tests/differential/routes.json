@@ -59,14 +59,6 @@
     "expected_requests": 0,
     "expected_node_handoffs": 0
   },
-  "about": {
-    "path": "/about",
-    "minimum_rust_successes": 0,
-    "commands": [],
-    "scope": "No CLI request reaches this route; no serving coverage claimed.",
-    "expected_requests": 0,
-    "expected_node_handoffs": 0
-  },
   "testDatabase": {
     "path": "/api/v3/testDatabase",
     "minimum_rust_successes": 1,
@@ -269,46 +261,6 @@
     "expected_requests": 2,
     "expected_node_handoffs": 0
   },
-  "createPage": {
-    "path": "^/conversation/create",
-    "minimum_rust_successes": 0,
-    "commands": [],
-    "scope": "No CLI request reaches this route; no serving coverage claimed.",
-    "expected_requests": 0,
-    "expected_node_handoffs": 0
-  },
-  "userCreatePage": {
-    "path": "^/user/create(/.*)?$",
-    "minimum_rust_successes": 0,
-    "commands": [],
-    "scope": "No CLI request reaches this route; no serving coverage claimed.",
-    "expected_requests": 0,
-    "expected_node_handoffs": 0
-  },
-  "userLoginPage": {
-    "path": "^/user/login(/.*)?$",
-    "minimum_rust_successes": 0,
-    "expected_requests": 0,
-    "expected_node_handoffs": 0,
-    "commands": [],
-    "scope": "Browser-only route; no CLI command reaches this redirect. No CLI serving coverage claimed; raw replay and nginx switch tests provide positive serving proof."
-  },
-  "settingsPage": {
-    "path": "^/settings(/.*)?$",
-    "minimum_rust_successes": 0,
-    "expected_requests": 0,
-    "expected_node_handoffs": 0,
-    "commands": [],
-    "scope": "Browser-only route; no CLI command reaches this redirect. No CLI serving coverage claimed; raw replay and nginx switch tests provide positive serving proof."
-  },
-  "userLogoutPage": {
-    "path": "^/user/logout(/.*)?$",
-    "minimum_rust_successes": 0,
-    "expected_requests": 0,
-    "expected_node_handoffs": 0,
-    "commands": [],
-    "scope": "Browser-only route; no CLI command reaches this redirect. No CLI serving coverage claimed; raw replay and nginx switch tests provide positive serving proof."
-  },
   "adminPage": {
     "path": "^/m/[0-9][0-9A-Za-z]+",
     "minimum_rust_successes": 0,
@@ -319,14 +271,6 @@
   },
   "integratePage": {
     "path": "^/integrate",
-    "minimum_rust_successes": 0,
-    "expected_requests": 0,
-    "expected_node_handoffs": 0,
-    "commands": [],
-    "scope": "Browser-only HTML route; no CLI serving coverage. Raw replay and nginx gates supply positive serving proof."
-  },
-  "otherConversationsPage": {
-    "path": "^/other-conversations",
     "minimum_rust_successes": 0,
     "expected_requests": 0,
     "expected_node_handoffs": 0,
@@ -635,56 +579,8 @@
     "commands": ["invite mine export empty", "invite mine export"],
     "scope": "Before another conversation code is created, the participant's empty CSV serves from Rust. The later download hands to Node because multiple reverse codes are ambiguous. Both file hashes must match across phases."
   },
-  "iip": {
-    "path": "^/iip/",
-    "minimum_rust_successes": 2,
-    "expected_requests": 3,
-    "expected_node_handoffs": 1,
-    "commands": [],
-    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
-  },
-  "iim": {
-    "path": "^/iim/",
-    "minimum_rust_successes": 2,
-    "expected_requests": 3,
-    "expected_node_handoffs": 1,
-    "commands": [],
-    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
-  },
   "conversationPage": {
     "path": "^/[0-9][0-9A-Za-z]+",
-    "minimum_rust_successes": 2,
-    "expected_requests": 3,
-    "expected_node_handoffs": 1,
-    "commands": [],
-    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
-  },
-  "explorePage": {
-    "path": "^/explore/",
-    "minimum_rust_successes": 2,
-    "expected_requests": 3,
-    "expected_node_handoffs": 1,
-    "commands": [],
-    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
-  },
-  "sharePage": {
-    "path": "^/share/",
-    "minimum_rust_successes": 2,
-    "expected_requests": 3,
-    "expected_node_handoffs": 1,
-    "commands": [],
-    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
-  },
-  "summaryPage": {
-    "path": "^/summary/",
-    "minimum_rust_successes": 2,
-    "expected_requests": 3,
-    "expected_node_handoffs": 1,
-    "commands": [],
-    "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
-  },
-  "oneTimePage": {
-    "path": "^/ot/",
     "minimum_rust_successes": 2,
     "expected_requests": 3,
     "expected_node_handoffs": 1,

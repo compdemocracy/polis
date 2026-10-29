@@ -4,7 +4,6 @@
 //! `RUST_API_ROUTES` names it (see README).
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-mod about;
 mod admin_page;
 mod all_conversations;
 mod bid_to_pid;
@@ -19,7 +18,6 @@ mod conversation_pages;
 mod conversation_preload;
 mod conversation_stats;
 mod cors;
-mod create_page;
 mod database;
 mod db;
 mod perf_stats;
@@ -52,7 +50,6 @@ mod identity_observability;
 mod integrate_page;
 mod js;
 mod legacy_conversations;
-mod link_pages;
 mod lru;
 mod metadata_answers;
 #[allow(dead_code)]
@@ -71,7 +68,6 @@ mod next_comment;
 mod ops_catchall;
 mod ops_page;
 mod ops_whoami;
-mod other_conversations_page;
 mod owner;
 mod params;
 mod participants_read;
@@ -98,7 +94,6 @@ mod votes_read;
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/schema.rs"]
 mod schema;
-mod settings_page;
 mod statement_importance;
 mod topic_prioritize;
 mod topic_selection_writes;
@@ -110,9 +105,6 @@ mod treevite_me;
 mod treevite_my_invites;
 mod treevite_read;
 mod treevite_waves;
-mod user_create_page;
-mod user_login_page;
-mod user_logout_page;
 #[allow(dead_code)]
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/wire.rs"]
@@ -186,16 +178,7 @@ fn health_response(
             .map(|keys| js::Js::Str(keys.fingerprint().into()))
             .unwrap_or(js::Js::Null),
     );
-    for (i, name) in [
-        "conversationPage",
-        "explorePage",
-        "sharePage",
-        "summaryPage",
-        "oneTimePage",
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    for (i, name) in ["conversationPage"].into_iter().enumerate() {
         body.set(
             &format!("{name}Served"),
             js::Js::Num(app.conversation_page_served[i].load(Ordering::Relaxed) as f64),
@@ -272,14 +255,6 @@ fn health_response(
     body.set(
         "opsWhoamiFallback",
         js::Js::Num(app.ops_whoami_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "aboutServed",
-        js::Js::Num(app.about_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "aboutFallback",
-        js::Js::Num(app.about_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "delphiReportsServed",
@@ -385,14 +360,6 @@ fn health_response(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
     );
-    for (name, counter) in [
-        ("iipServed", &app.iip_served),
-        ("iipFallback", &app.iip_fallback),
-        ("iimServed", &app.iim_served),
-        ("iimFallback", &app.iim_fallback),
-    ] {
-        body.set(name, js::Js::Num(counter.load(Ordering::Relaxed) as f64));
-    }
     body.set(
         "participantsReadServed",
         js::Js::Num(app.participants_read_served.load(Ordering::Relaxed) as f64),
@@ -618,25 +585,6 @@ fn health_response(
         js::Js::Num(app.einvites_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
-        "settingsPageServed",
-        js::Js::Num(app.settings_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "settingsPageFallback",
-        js::Js::Num(app.settings_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "otherConversationsPageServed",
-        js::Js::Num(app.other_conversations_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "otherConversationsPageFallback",
-        js::Js::Num(
-            app.other_conversations_page_fallback
-                .load(Ordering::Relaxed) as f64,
-        ),
-    );
-    body.set(
         "integratePageServed",
         js::Js::Num(app.integrate_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -651,38 +599,6 @@ fn health_response(
     body.set(
         "adminPageFallback",
         js::Js::Num(app.admin_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLogoutPageServed",
-        js::Js::Num(app.user_logout_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLogoutPageFallback",
-        js::Js::Num(app.user_logout_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLoginPageServed",
-        js::Js::Num(app.user_login_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLoginPageFallback",
-        js::Js::Num(app.user_login_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userCreatePageServed",
-        js::Js::Num(app.user_create_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userCreatePageFallback",
-        js::Js::Num(app.user_create_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "createPageServed",
-        js::Js::Num(app.create_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "createPageFallback",
-        js::Js::Num(app.create_page_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
@@ -741,7 +657,6 @@ async fn dispatch_at_clock(
         | connection::PATH
         | perf_stats::PATH
         | robots::PATH
-        | about::PATH
         | ops_whoami::PATH
         | delphi_read::PATH
         | collective_statement::PATH
@@ -784,18 +699,11 @@ async fn dispatch_at_clock(
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
-        path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
-        path if settings_page::matches(path) => route::handle(app, req).await,
-        path if other_conversations_page::matches(path) => route::handle(app, req).await,
         path if integrate_page::matches(path) => route::handle(app, req).await,
         path if admin_page::matches(path) => route::handle(app, req).await,
-        path if user_logout_page::matches(path) => route::handle(app, req).await,
-        path if user_login_page::matches(path) => route::handle(app, req).await,
-        path if user_create_page::matches(path) => route::handle(app, req).await,
-        path if create_page::matches(path) => route::handle(app, req).await,
         path if report_export::matches(path) => route::handle(app, req).await,
         path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
@@ -827,15 +735,9 @@ async fn main() -> Result<()> {
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
     state.participant_keys = participant_keys;
-    for (i, switch) in [
-        "POLIS_API_CONVERSATION_PAGE_READS",
-        "POLIS_API_EXPLORE_PAGE_READS",
-        "POLIS_API_SHARE_PAGE_READS",
-        "POLIS_API_SUMMARY_PAGE_READS",
-        "POLIS_API_ONE_TIME_PAGE_READS",
-    ]
-    .into_iter()
-    .enumerate()
+    for (i, switch) in ["POLIS_API_CONVERSATION_PAGE_READS"]
+        .into_iter()
+        .enumerate()
     {
         if std::env::var(switch).ok().as_deref() == Some("1") {
             let dsn = std::env::var("POLIS_API_CONVERSATION_PAGES_DATABASE_URL")
@@ -943,25 +845,6 @@ async fn main() -> Result<()> {
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
-    state.settings_page_reads = std::env::var("POLIS_API_SETTINGS_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.user_logout_page_reads = std::env::var("POLIS_API_USER_LOGOUT_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.user_login_page_reads = std::env::var("POLIS_API_USER_LOGIN_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.user_create_page_reads = std::env::var("POLIS_API_USER_CREATE_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.create_page_reads =
-        std::env::var("POLIS_API_CREATE_PAGE_READS").ok().as_deref() == Some("1");
-    state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
     state.ops_whoami_reads = ops_whoami::configured(
         std::env::var("POLIS_API_OPS_WHOAMI_READS").ok().as_deref(),
         std::env::var("OPS_ENABLED").ok().as_deref(),
@@ -1278,19 +1161,6 @@ async fn main() -> Result<()> {
             metadata_answers::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
-    }
-    for (switch, slot, name) in [
-        ("POLIS_API_IIP_READS", &mut state.iip_db, "polis-api-iip/1"),
-        ("POLIS_API_IIM_READS", &mut state.iim_db, "polis-api-iim/1"),
-    ] {
-        if std::env::var(switch).ok().as_deref() == Some("1") {
-            let dsn = std::env::var("POLIS_API_LINK_PAGES_DATABASE_URL")
-                .context("POLIS_API_LINK_PAGES_DATABASE_URL required")?;
-            *slot = Some(db::Pool::new(
-                config::connector_for_dsn(&dsn, name)?,
-                link_pages::pool_limits(),
-            ));
-        }
     }
     if std::env::var("POLIS_API_PARTICIPANTS_READS")
         .ok()
@@ -1866,8 +1736,6 @@ async fn main() -> Result<()> {
             einvites_read::pool_limits(),
         ));
     }
-    state.other_conversations_page =
-        admin_page::Client::from_env_for("POLIS_API_OTHER_CONVERSATIONS_PAGE_READS").await?;
     state.integrate_page =
         admin_page::Client::from_env_for("POLIS_API_INTEGRATE_PAGE_READS").await?;
     state.admin_page = admin_page::Client::from_env().await?;
@@ -1949,7 +1817,7 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 144);
+            assert_eq!(body.as_object().unwrap().len(), 118);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],

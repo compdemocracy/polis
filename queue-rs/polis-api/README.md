@@ -468,18 +468,6 @@ bodies and unsupported methods use counted Node handoffs. Health exposes
 work and adds no participation pool. `conformance/robots-run.sh` records complete
 Node/Rust response pairs, separately counting Date-only retries and Node work.
 
-### About redirect
-
-`POLIS_API_ABOUT_READS=1` and nginx `RUST_API_ROUTES=about` opt into GET/HEAD
-`/about`. Both default off. `polis-contracts::about` supplies shared request and
-redirect-response types. The 302 points to `/home` using the request Host and
-Node's development/production scheme selection, with the existing normal HTTPS
-redirect before it. No API CORS headers are added. Missing Host, query parameters,
-credentials, cookies, bodies and other methods hand back to Node and are counted
-in `aboutServed`/`aboutFallback`. No database/provider or participation work occurs.
-`conformance/about-run.sh` records full response bytes and replays the crawler
-policy and connection probe as regressions on the same isolated fixture stack.
-
 ### Database probe
 
 `GET`/`HEAD /api/v3/testDatabase` is staged behind `POLIS_API_DATABASE_READS=1`
@@ -951,60 +939,6 @@ or unknown query keys and unsupported shapes hand back to Node and are counted.
 Lookup is fresh on each request; there is no CID, PID or math cache dependency.
 Counters: `einvitesReadServed`, `einvitesReadFallback`.
 
-### Conversation-create legacy-browser redirect
-
-`POLIS_API_CREATE_PAGE_READS=1` and nginx `RUST_API_ROUTES=createPage` opt into
-GET/HEAD legacy-browser hash redirects under `/conversation/create`. Both
-switches default off. The shared request/response contract preserves Node's
-case-sensitive browser checks, prefix matching and HTTPS location. HTML fetching,
-unsupported browsers, query/body/auth/cookie requests and unusual path/host bytes
-stay on Node and are counted separately. This slice does no database, identity,
-file-service or participant work; it adds no pool or dependency to participation.
-
-### User-create legacy-browser redirect
-
-`POLIS_API_USER_CREATE_PAGE_READS=1` and nginx `RUST_API_ROUTES=userCreatePage`
-opt into GET/HEAD legacy-browser hash redirects at `/user/create` and its slash
-suffixes. Both switches default off. The shared request/response contract
-preserves Node's case-sensitive browser checks, anchored path and HTTPS location.
-HTML fetching, unsupported browsers, query/body/auth/cookie requests and unusual
-path/host bytes stay on Node and are counted separately. This slice creates no
-users and does no database, identity or file-service work. It adds no pool or
-external dependency to participation.
-
-### User-login legacy-browser redirect
-
-`POLIS_API_USER_LOGIN_PAGE_READS=1` and nginx `RUST_API_ROUTES=userLoginPage`
-opt into GET/HEAD legacy-browser hash redirects at `/user/login` and slash
-suffixes. Both switches default off. Shared request/response types preserve
-Node's case-sensitive browser checks, anchored path and HTTPS location. This
-slice does not authenticate or change a session. Modern HTML, unsupported
-browsers, query/body/auth/cookie requests and unusual path/host bytes remain
-Node handoffs. No database pool, identity provider or file service is used;
-participation resources are untouched.
-
-### Settings legacy-browser redirect
-
-`POLIS_API_SETTINGS_PAGE_READS=1` and nginx `RUST_API_ROUTES=settingsPage`
-opt into GET/HEAD legacy-browser hash redirects at `/settings` and slash
-suffixes. Both switches default off. Shared request/response types preserve
-Node's case-sensitive browser checks, anchored path and HTTPS location. This
-slice does not read or change user settings. Modern HTML, unsupported
-browsers, query/body/auth/cookie requests and unusual path/host bytes remain
-Node handoffs. No database pool, identity provider or file service is used;
-participation resources are untouched.
-
-### User-logout legacy-browser redirect
-
-`POLIS_API_USER_LOGOUT_PAGE_READS=1` and nginx `RUST_API_ROUTES=userLogoutPage`
-opt into GET/HEAD legacy-browser hash redirects at `/user/logout` and slash
-suffixes. Both switches default off. Shared request/response types preserve
-Node's case-sensitive browser checks, anchored path and HTTPS location. This
-slice does not log out a user or change a session. Modern HTML, unsupported
-browsers, query/body/auth/cookie requests and unusual path/host bytes remain
-Node handoffs. No database pool, identity provider or file service is used;
-participation resources are untouched.
-
 ### Admin conversation HTML
 
 `POLIS_API_ADMIN_PAGE_READS=1` and nginx `RUST_API_ROUTES=adminPage` opt into
@@ -1040,24 +974,6 @@ Its client has a separate four-slot semaphore, no queue, a 75ms request limit,
 and startup-only bounded DNS. Failure affects only this client. It acquires no
 database or participation connections. Neither static route enables the other.
 `conformance/integrate-page-run.sh` proves raw Node byte equality and inherited
-matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
-CLI requests; the CLI differential makes no positive serving claim for it.
-
-
-### Other-conversations admin page
-
-`POLIS_API_OTHER_CONVERSATIONS_PAGE_READS=1` and nginx `RUST_API_ROUTES=otherConversationsPage`
-opt into GET/HEAD paths beginning with `/other-conversations`, including suffixes without
-an intervening slash, matching Express. Both switches default off. The route
-uses the shared typed `other_conversations_page` contract and the fixed `/index_admin.html`
-upstream. It applies the admin-page transport's existing ASCII, size, framing,
-header and single-body-read limits. Identity, compression, query/body, unknown
-headers, oversized or fragmented replies and upstream failures hand back to Node.
-
-Its client has a separate four-slot semaphore, no queue, a 75ms request limit,
-and startup-only bounded DNS. Failure affects only this client. It acquires no
-database or participation connections. Neither static route enables the other.
-`conformance/other-conversations-page-run.sh` proves raw Node byte equality and inherited
 matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
 CLI requests; the CLI differential makes no positive serving claim for it.
 

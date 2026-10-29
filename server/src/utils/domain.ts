@@ -482,23 +482,11 @@ function proxy(
   });
 }
 
-function makeRedirectorTo(path: string) {
-  return function redirectHandler(req: ExpressRequest, res: ExpressResponse) {
-    const protocol = Config.isDevMode ? "http" : "https";
-    const host = req.headers.host || Config.getServerHostname();
-    const url = `${protocol}://${host}${path}`;
-
-    res.writeHead(302, { Location: url });
-    res.end();
-  };
-}
-
 export {
   addCorsHeader,
   denyIfNotFromWhitelistedDomain,
   handle_GET_domainWhitelist,
   handle_POST_domainWhitelist,
-  makeRedirectorTo,
   proxy,
   redirectIfNotHttps,
   writeDefaultHead,

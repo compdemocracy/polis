@@ -96,8 +96,6 @@ import {
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
   handle_GET_conversationStats,
-  handle_GET_iim_conversation,
-  handle_GET_iip_conversation,
   handle_POST_conversation_close,
   handle_POST_conversation_reopen,
   handle_POST_conversations,
@@ -192,7 +190,6 @@ import {
   denyIfNotFromWhitelistedDomain,
   handle_GET_domainWhitelist,
   handle_POST_domainWhitelist,
-  makeRedirectorTo,
   proxy,
   redirectIfNotHttps,
   writeDefaultHead,
@@ -246,7 +243,6 @@ const opsRoutes = createOpsRoutes({
   mathEnv: Config.mathEnv,
 });
 const hostname = Config.staticFilesHost;
-const staticFilesAdminPort = Config.staticFilesAdminPort;
 const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
@@ -273,7 +269,6 @@ export const appReady = helpersInitialized.then(
     const {
       fetchIndexForAdminPage,
       fetchIndexForReportPage,
-      fetchIndexWithoutPreloadData,
       haltOnTimeout,
       redirectIfHasZidButNoConversationId,
 
@@ -287,7 +282,6 @@ export const appReady = helpersInitialized.then(
       handle_GET_zinvites,
       handle_POST_contexts,
       handle_POST_sendCreatedLinkToEmail,
-      handle_POST_tutorial,
       handle_POST_zinvites,
     } = o;
 
@@ -331,7 +325,6 @@ export const appReady = helpersInitialized.then(
     app.use(middleware_log_middleware_errors);
 
     app.all("/api/v3/*", addCorsHeader);
-    app.all("/font/*", addCorsHeader);
     app.all("/api/v3/*", middleware_check_if_options);
 
     ////////////////////////////////////////////
@@ -642,12 +635,6 @@ export const appReady = helpersInitialized.then(
       handle_GET_conversationUuid
     );
 
-    app.post(
-      "/api/v3/tutorial",
-      hybridAuth(assignToP),
-      need("step", getInt, assignToP),
-      handle_POST_tutorial
-    );
 
     app.get(
       "/api/v3/users",
@@ -1855,108 +1842,29 @@ export const appReady = helpersInitialized.then(
     );
 
     app.get(
-      "/iip/:conversation_id",
-      moveToBody,
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_iip_conversation
-    );
-
-    app.get(
-      "/iim/:conversation_id",
-      moveToBody,
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_iim_conversation
-    );
-
-    app.get(
       "/api/v3/verify",
       moveToBody,
       need("e", getStringLimitLength(1, 1000), assignToP),
       handle_GET_verification
     );
 
-    function makeFetchIndexWithoutPreloadData() {
-      const port = staticFilesParticipationPort;
-      return function (req, res) {
-        return fetchIndexWithoutPreloadData(req, res, port);
-      };
-    }
-
-    // Conversation aliases
-    app.get(/^\/football$/, makeRedirectorTo("/2arcefpshi"));
-    app.get(/^\/pdf$/, makeRedirectorTo("/23mymwyhkn")); // pdf 2017
-    app.get(/^\/nabi$/, makeRedirectorTo("/8ufpzc6fkm")); //
 
     app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
-    app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
-    app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
-    app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // summary view
-    app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view, one-time url
     // TODO consider putting static files on /static, and then using a catch-all to serve the index.
-    app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
-    app.get(/^\/user\/create(\/.*)?$/, fetchIndexWithoutPreloadData);
-    app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
-
-    app.get(/^\/settings(\/.*)?$/, makeFetchIndexWithoutPreloadData());
-
-    app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 
     // admin dash routes
     app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/integrate(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/other-conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
     if (opsRoutes.active) {
       app.get(/^\/ops(\/.*)?$/, fetchIndexForAdminPage);
     }
-    app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/dist\/admin_bundle.js$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/dist/admin_bundle.js", {
-        "Content-Type": "application/javascript",
-      })
-    );
-    app.get(
-      /^\/__webpack_hmr$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/__webpack_hmr", {
-        "Content-Type": "eventsource",
-      })
-    );
     app.get(/^\/privacy$/, fetchIndexForAdminPage);
     app.get(/^\/tos$/, fetchIndexForAdminPage);
     app.get(/^\/donate$/, fetchIndexForAdminPage);
-
-    // admin dash-based landers
-    app.get(/^\/gov(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/contrib(\/.*)?/, fetchIndexForAdminPage);
-
-    app.get(/^\/bot\/install(\/.*)?/, fetchIndexForAdminPage);
-    app.get(/^\/bot\/support(\/.*)?/, fetchIndexForAdminPage);
-
-    app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
-    // app.get(/^\/r/, fetchIndexWithoutPreloadData);
-    app.get(/^\/hk/, fetchIndexWithoutPreloadData);
-    app.get(/^\/s\//, fetchIndexWithoutPreloadData);
-    app.get(/^\/s$/, fetchIndexWithoutPreloadData);
-    app.get(/^\/hk\/new/, fetchIndexWithoutPreloadData);
-    app.get(/^\/inboxApiTest/, fetchIndexWithoutPreloadData);
-    app.get(/^\/pwresetinit.*/, fetchIndexForAdminPage);
-    app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
-    app.get(/^\/demo$/, fetchIndexForAdminPage);
-    app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
-    app.get(/^\/company$/, fetchIndexForAdminPage);
 
     app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
     app.get(
@@ -2016,67 +1924,11 @@ export const appReady = helpersInitialized.then(
       }
     );
 
-    app.get(
-      /^\/embed$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embed.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedPreprod$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedPreprod.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedReport$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReport.html", {
-        "Content-Type": "text/html",
-      })
-    );
-    app.get(
-      /^\/embedReportPreprod$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesAdminPort,
-        "/embedReportPreprod.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
-    app.get(
-      /^\/styleguide$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesParticipationPort,
-        "/styleguide.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
-    // Duplicate url for content at root. Needed so we have something for "About" to link to.
-    app.get(/^\/about$/, makeRedirectorTo("/home"));
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/s\/CTE\/?$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesParticipationPort,
-        "/football.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
 
     app.get("/", handle_GET_conditionalIndexFetcher);
 
     // proxy static files
-    app.get(/^\/cached\/.*/, proxy);
-    app.get(/^\/font\/.*/, proxy);
-    app.get(/^\/.*embed.*js\/.*/, proxy);
     app.get(/^\/report_bundle.*\.js$/, proxy);
     app.get(/^\/report_style.*\.css$/, proxy);
 
@@ -2102,20 +1954,6 @@ export const appReady = helpersInitialized.then(
         proxy(req, res);
       }
     });
-
-    const missingFilesGet404 = false;
-    if (missingFilesGet404) {
-      // 404 everything else
-      app.get(
-        /^\/[^(api\/)]?.*/,
-        makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
-          "Content-Type": "text/html",
-        })
-      );
-    } else {
-      // proxy everything else
-      app.get(/^\/[^(api\/)]?.*/, proxy);
-    }
 
     // P-038. This is the only position from which `globalErrorHandler` can see
     // errors that a route hands to `next(err)`: Express 3 inserts `app.router`
