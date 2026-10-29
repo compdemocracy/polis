@@ -269,6 +269,7 @@ pub struct App {
     pub next_comment_plain: bool,
     pub post_votes: Option<crate::post_votes::Writer>,
     pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
+    pub treevite_write: Option<Arc<crate::treevite_write::Writer>>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -510,6 +511,7 @@ impl App {
             next_comment_plain: false,
             post_votes: None,
             post_treevite_waves: None,
+            treevite_write: None,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -535,6 +537,7 @@ impl App {
 
 /// The headers a Node `ServerResponse` holds, in Node's order: a header keeps
 /// the position of its first `setHeader` and the casing of its last.
+#[derive(Clone)]
 pub(crate) struct Res {
     status: u16,
     headers: Vec<(String, String)>,
@@ -1871,6 +1874,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if crate::treevite_write::matches(req.path())
+        && (app.treevite_write.is_none() || req.method != "POST")
+    {
+        return bad_gateway();
+    }
     // redirectIfNotHttps (domain.ts), ahead of every other middleware.
     if !app.dev_mode && req.path() != "/api/v3/testConnection" && !app.use_network_host {
         let https = req.headers.get("x-forwarded-proto") == Some("https");
@@ -1905,6 +1913,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
             req.headers.get("content-encoding"),
         )
     {
+        if crate::treevite_write::matches(req.path()) && app.treevite_write.is_some() {
+            return parameter_error(app, req, default_head(None));
+        }
         return bad_gateway();
     }
     let body = match params::parse_body(req.headers.get("content-type"), has_body, &req.body) {
@@ -1947,6 +1958,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::post_votes::PATH && req.method == "POST" {
         return crate::post_votes::handle(app, req, res).await;
+    }
+    if crate::treevite_write::matches(req.path()) {
+        return crate::treevite_write::handle(app, req, &body, res).await;
     }
     if req.path() == crate::metadata_query::PATH {
         return crate::metadata_query::handle(app, req, res).await;

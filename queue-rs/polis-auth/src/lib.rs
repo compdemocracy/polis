@@ -1,7 +1,7 @@
 //! Authority decisions for already verified identities. This crate does not
 //! issue or log tokens or install HTTP routes. Participant verification and
 //! existing-membership reads are in the participant module.
-//! Staged transactional admission has no serving callers.
+//! Transactional admission is shared by the opt-in Treevite write handlers.
 //!
 //! Owner and moderator are distinct policies, not an ordered privilege ladder.
 //! Node's moderator rule uses site equality (SQL NULL never equals NULL) and an
