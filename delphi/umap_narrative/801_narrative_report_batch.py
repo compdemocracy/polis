@@ -873,17 +873,12 @@ class BatchReportGenerator(NarrativeSelection):
                 logger.info("Successfully imported Anthropic SDK")
             except ImportError as e:
                 logger.error(f"Failed to import Anthropic SDK: {str(e)}")
-                logger.error(f"System paths: {sys.path}")
-                logger.error("Attempting to install Anthropic SDK...")
-                try:
-                    import subprocess
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", "anthropic"])
-                    from anthropic import Anthropic, APIError, APIConnectionError, APIResponseValidationError, APIStatusError
-                    logger.info("Successfully installed and imported Anthropic SDK")
-                except Exception as e:
-                    logger.error(f"Failed to install Anthropic SDK: {str(e)}")
-                    logger.error(traceback.format_exc())
-                    return None
+                logger.error(
+                    "Anthropic SDK is required to submit batches. Install Delphi's "
+                    "pinned requirements.lock when building the environment; "
+                    "runtime dependency installation is disabled."
+                )
+                return None
 
             # Initialize Anthropic client
             logger.info("Initializing Anthropic client...")

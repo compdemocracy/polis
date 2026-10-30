@@ -11,7 +11,7 @@
     "debug": "SERVER_LOG_LEVEL=debug nodemon --inspect=0.0.0.0:9229 dist/index.js",
     "serve": "node --max_old_space_size=2048 --gc_interval=100 dist/index.js",
     "start": "npm run build && npm run serve",
-    "dev": "npm install && npm run build:watch",
+    "dev": "npm ci --ignore-scripts && npm run build:watch",
     "type:check:watch": "tsc --watch",
     "pretype:check:watch": "npm run build:identity",
     "format": "prettier --config ./prettier.config.js --no-editorconfig '**/*.ts' --write",

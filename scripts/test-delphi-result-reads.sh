@@ -36,7 +36,7 @@ export DATABASE_URL="postgresql://postgres@127.0.0.1:$RESULT_READS_PG_PORT/resul
 POLIS_MIGRATIONS_DIR="$repo/server/postgres/migrations" queue-rs/target/debug/polis-migrate apply
 POLIS_MIGRATIONS_DIR="$repo/server/postgres/migrations" queue-rs/target/debug/polis-migrate check
 cd server
-[[ -d node_modules ]] || npm ci --no-audit --no-fund
+[[ -d node_modules ]] || npm ci --ignore-scripts --no-audit --no-fund
 export DYNAMODB_ENDPOINT="http://127.0.0.1:$RESULT_READS_DYNAMO_PORT"
 export AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY DATABASE_SSL=false NODE_ENV=test
 npx jest --config __tests__/delphi-results-pg/jest.config.json --runInBand "$@"

@@ -4,6 +4,7 @@
   "description": "End-to-End test suite for polis, using Cypress.js",
   "main": "index.js",
   "scripts": {
+    "install:browser": "node node_modules/cypress/bin/cypress install",
     "start": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress open",
     "test": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/**/*.cy.js'",
     "test:admin": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-admin/**/*.cy.js'",

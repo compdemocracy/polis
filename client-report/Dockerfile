@@ -23,7 +23,7 @@ COPY client-report/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN --mount=type=cache,target=/root/.npm npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 COPY VERSION VERSION_STABLE_COMMIT /app/
 COPY scripts/build_identity.py scripts/build-identity.cjs /app/scripts/

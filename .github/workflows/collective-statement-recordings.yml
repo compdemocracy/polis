@@ -74,7 +74,7 @@ jobs:
 
       - name: Install server dependencies and the reset routine's boto3 (delphi's locked versions)
         run: |
-          npm ci --prefix server --no-audit --no-fund
+          npm ci --ignore-scripts --prefix server --no-audit --no-fund
           python -m pip install --quiet certifi==2026.10.19 boto3==1.34.70 botocore==1.34.162 s3transfer==0.10.4
 
       - name: The harness's own rules (expected differences, refusal of foreign stores, the schema pin against the real migrations)

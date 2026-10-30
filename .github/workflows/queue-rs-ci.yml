@@ -256,7 +256,7 @@ jobs:
           node-version: "22.23.4"
       - name: Install Node adapter test dependencies
         working-directory: server
-        run: npm ci --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Prove saved work, retries and complete publication
         run: bash delphi/tests/job_graph/run.sh
       - name: Retain generated proof receipts

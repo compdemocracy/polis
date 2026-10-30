@@ -62,5 +62,5 @@ jobs:
         if: matrix.image == 'server'
         working-directory: cdk
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm test -- --runInBand dbBackupLambda

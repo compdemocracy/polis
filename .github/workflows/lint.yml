@@ -34,7 +34,7 @@ jobs:
 
     - name: "Install & Build: client-admin"
       working-directory: client-admin
-      run: npm install
+      run: npm ci --ignore-scripts
 
     - name: "ESLint: client-admin"
       working-directory: client-admin
@@ -42,7 +42,7 @@ jobs:
 
     - name: "Install & Build: server"
       working-directory: server
-      run: npm install
+      run: npm ci --ignore-scripts
 
     - name: "ESLint: server"
       working-directory: server
@@ -50,7 +50,7 @@ jobs:
 
     - name: "Install & Build: client-report"
       working-directory: client-report
-      run: npm install
+      run: npm ci --ignore-scripts
 
     - name: "ESLint: client-report"
       working-directory: client-report
@@ -58,7 +58,7 @@ jobs:
 
     - name: "Install & Build: e2e"
       working-directory: e2e
-      run: npm install
+      run: npm ci --ignore-scripts
 
     - name: "ESLint: e2e"
       working-directory: e2e
