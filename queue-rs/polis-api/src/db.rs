@@ -220,6 +220,35 @@ impl Pool {
         T: Send + 'static,
         F: FnOnce(&mut Client) -> Result<T> + Send + 'static,
     {
+        self.with_acquire_policy(None, f).await
+    }
+
+    /// Wait indefinitely for an already dispatched write, reporting a long wait
+    /// once without cancelling its acquisition or losing its queue position.
+    /// No connection or blocking worker is held while waiting for the permit.
+    pub(crate) async fn with_acquire_alarm<T, F>(
+        self: &Arc<Self>,
+        alarm_after: Duration,
+        alarm: impl FnOnce() + Send + 'static,
+        f: F,
+    ) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut Client) -> Result<T> + Send + 'static,
+    {
+        self.with_acquire_policy(Some((alarm_after, Box::new(alarm))), f)
+            .await
+    }
+
+    async fn with_acquire_policy<T, F>(
+        self: &Arc<Self>,
+        alarm: Option<(Duration, Box<dyn FnOnce() + Send>)>,
+        f: F,
+    ) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut Client) -> Result<T> + Send + 'static,
+    {
         let acquire = self.permits.clone().acquire_owned();
         #[cfg(all(test, feature = "db-tests"))]
         let acquire = {
@@ -235,16 +264,27 @@ impl Pool {
                 result
             })
         };
-        let permit = tokio::time::timeout(self.limits.acquire_timeout, acquire)
-            .await
-            .map_err(|_| {
-                #[cfg(all(test, feature = "db-tests"))]
-                self.evidence
-                    .acquire_timeouts
-                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                unavailable("pool acquire timeout")
-            })?
-            .map_err(unavailable)?;
+        let permit = if let Some((alarm_after, alarm)) = alarm {
+            tokio::pin!(acquire);
+            match tokio::time::timeout(alarm_after, &mut acquire).await {
+                Ok(result) => result,
+                Err(_) => {
+                    alarm();
+                    acquire.await
+                }
+            }
+        } else {
+            tokio::time::timeout(self.limits.acquire_timeout, acquire)
+                .await
+                .map_err(|_| {
+                    #[cfg(all(test, feature = "db-tests"))]
+                    self.evidence
+                        .acquire_timeouts
+                        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    unavailable("pool acquire timeout")
+                })?
+        }
+        .map_err(unavailable)?;
         #[cfg(all(test, feature = "db-tests"))]
         self.evidence
             .acquired
