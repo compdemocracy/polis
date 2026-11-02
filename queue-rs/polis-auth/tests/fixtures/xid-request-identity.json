@@ -1,0 +1,170 @@
+[
+  {
+    "name": "same conversation, absent request XID",
+    "conversation": "2fixture",
+    "request_xid": null,
+    "uid": 3,
+    "pid": 0,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "same conversation, matching request XID",
+    "conversation": "2fixture",
+    "request_xid": "fixture-xid",
+    "uid": 3,
+    "pid": 0,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "same conversation, different request XID",
+    "conversation": "2fixture",
+    "request_xid": "other-xid",
+    "uid": null,
+    "pid": null,
+    "xid": "other-xid"
+  },
+  {
+    "name": "same conversation, empty request XID",
+    "conversation": "2fixture",
+    "request_xid": "",
+    "uid": 3,
+    "pid": 0,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "same conversation, blank request XID",
+    "conversation": "2fixture",
+    "request_xid": " \t ",
+    "uid": 3,
+    "pid": 0,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "same conversation, nonblank whitespace preserved",
+    "conversation": "2fixture",
+    "request_xid": " fixture-xid ",
+    "uid": null,
+    "pid": null,
+    "xid": " fixture-xid "
+  },
+  {
+    "name": "another conversation of the same owner, absent request XID",
+    "conversation": "2same-owner",
+    "request_xid": null,
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another conversation of the same owner, matching request XID",
+    "conversation": "2same-owner",
+    "request_xid": "fixture-xid",
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another conversation of the same owner, different request XID",
+    "conversation": "2same-owner",
+    "request_xid": "other-xid",
+    "uid": null,
+    "pid": null,
+    "xid": "other-xid"
+  },
+  {
+    "name": "another conversation of the same owner, empty request XID",
+    "conversation": "2same-owner",
+    "request_xid": "",
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another conversation of the same owner, blank request XID",
+    "conversation": "2same-owner",
+    "request_xid": " \t ",
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another conversation of the same owner, nonblank whitespace preserved",
+    "conversation": "2same-owner",
+    "request_xid": " fixture-xid ",
+    "uid": null,
+    "pid": null,
+    "xid": " fixture-xid "
+  },
+  {
+    "name": "another owner conversation, absent request XID",
+    "conversation": "2other-owner",
+    "request_xid": null,
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another owner conversation, matching request XID",
+    "conversation": "2other-owner",
+    "request_xid": "fixture-xid",
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another owner conversation, different request XID",
+    "conversation": "2other-owner",
+    "request_xid": "other-xid",
+    "uid": null,
+    "pid": null,
+    "xid": "other-xid"
+  },
+  {
+    "name": "another owner conversation, empty request XID",
+    "conversation": "2other-owner",
+    "request_xid": "",
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another owner conversation, blank request XID",
+    "conversation": "2other-owner",
+    "request_xid": " \t ",
+    "uid": null,
+    "pid": null,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "another owner conversation, nonblank whitespace preserved",
+    "conversation": "2other-owner",
+    "request_xid": " fixture-xid ",
+    "uid": null,
+    "pid": null,
+    "xid": " fixture-xid "
+  },
+  {
+    "name": "same conversation, byte order mark",
+    "conversation": "2fixture",
+    "request_xid": "\ufeff",
+    "uid": 3,
+    "pid": 0,
+    "xid": "fixture-xid"
+  },
+  {
+    "name": "same conversation, next-line character",
+    "conversation": "2fixture",
+    "request_xid": "\u0085",
+    "uid": null,
+    "pid": null,
+    "xid": "\u0085"
+  },
+  {
+    "name": "same conversation, nonbreaking space",
+    "conversation": "2fixture",
+    "request_xid": "\u00a0",
+    "uid": 3,
+    "pid": 0,
+    "xid": "fixture-xid"
+  }
+]

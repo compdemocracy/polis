@@ -249,7 +249,7 @@ class TestLastVoteTimestampSeed:
 
 
 class TestRestoreValidation:
-    """P-070 review [1447] E: the live restore uses warm state only from a
+    """Regression: the live restore uses warm state only from a
     row that passes the shared validity rule and names its own zid."""
 
     def _svc(self, row, monkeypatch):

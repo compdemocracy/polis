@@ -2,64 +2,6 @@
 
 exports[`flag off snapshot of every IAM policy and the web launch template 1`] = `
 {
-  "CoordinatorInactiveTaskExecutionRoleDefaultPolicy51BA7A89": {
-    "Properties": {
-      "PolicyDocument": {
-        "Statement": [
-          {
-            "Action": [
-              "logs:CreateLogStream",
-              "logs:PutLogEvents",
-            ],
-            "Effect": "Allow",
-            "Resource": {
-              "Fn::GetAtt": [
-                "CoordinatorInactiveLogs95EDC376",
-                "Arn",
-              ],
-            },
-          },
-          {
-            "Action": [
-              "secretsmanager:GetSecretValue",
-              "secretsmanager:DescribeSecret",
-            ],
-            "Effect": "Allow",
-            "Resource": {
-              "Ref": "CoordinatorInactiveLoginSecretArn",
-            },
-          },
-          {
-            "Action": [
-              "ecr:BatchCheckLayerAvailability",
-              "ecr:GetDownloadUrlForLayer",
-              "ecr:BatchGetImage",
-            ],
-            "Effect": "Allow",
-            "Resource": {
-              "Fn::GetAtt": [
-                "CoordinatorInactiveRepository16C8DC6B",
-                "Arn",
-              ],
-            },
-          },
-          {
-            "Action": "ecr:GetAuthorizationToken",
-            "Effect": "Allow",
-            "Resource": "*",
-          },
-        ],
-        "Version": "2012-10-17",
-      },
-      "PolicyName": "CoordinatorInactiveTaskExecutionRoleDefaultPolicy51BA7A89",
-      "Roles": [
-        {
-          "Ref": "CoordinatorInactiveTaskExecutionRoleC239A571",
-        },
-      ],
-    },
-    "Type": "AWS::IAM::Policy",
-  },
   "DBBackupLambdaRoleDefaultPolicy77E92EFE": {
     "Properties": {
       "PolicyDocument": {

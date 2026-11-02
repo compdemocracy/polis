@@ -122,10 +122,9 @@ describe("every server UPDATE of `comments` advances `modified`", () => {
       expect.arrayContaining([
         "routes/comments.ts",
         "routes/delphi/topicMod.ts",
-        "server.ts",
       ])
     );
-    expect(statements.length).toBeGreaterThanOrEqual(3);
+    expect(statements.length).toBeGreaterThanOrEqual(2);
   });
 
   test.each(commentUpdateStatements().map((s) => [s.where, s.sql]))(

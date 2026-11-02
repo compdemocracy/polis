@@ -6,6 +6,7 @@
  * Note: This setup is now optional - individual tests can create their own
  * app instances using createAppInstance() for parallel execution.
  */
+import "./supertest.cjs";
 import "dotenv/config";
 import request from "supertest";
 import { syncAllPooledUsers } from "./api-test-helpers";
@@ -32,7 +33,7 @@ async function globalSetup() {
 
     // Start server on dynamic port (0 = OS assigns available port)
     // This is optional - individual tests can create their own servers
-    const server = app.listen(0, () => {
+    const server = app.listen(0, "127.0.0.1", () => {
       const address = server.address();
       if (address && typeof address === "object") {
         const port = address.port;
@@ -40,7 +41,7 @@ async function globalSetup() {
 
         // Store the dynamic port and server URL globally
         process.env.TEST_SERVER_PORT = port.toString();
-        process.env.TEST_SERVER_URL = `http://localhost:${port}`;
+        process.env.TEST_SERVER_URL = `http://127.0.0.1:${port}`;
 
         // Store server instance and port for cleanup
         (globalThis as any).__TEST_SERVER__ = server;

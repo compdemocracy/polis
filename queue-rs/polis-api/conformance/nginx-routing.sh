@@ -5,10 +5,10 @@
 #   1. RUST_API_ROUTES unset: both include files are empty; pca2 goes to Node.
 #   2. pca2 on, polis-api container absent when nginx starts: nginx starts and
 #      pca2 goes to Node.
-#   3. polis-api appears later: pca2 goes to polis-api, everything else to Node.
+#   3. polis-api appears later: pca2 goes to polis-api, other API paths to Node.
 #   4. polis-api answers 502 (its database is unreachable): pca2 goes to Node.
 #   5. polis-api container dies: pca2 goes to Node.
-#   6. An unknown route name: nginx starts, logs an error, everything goes to Node.
+#   6. An unknown route name: nginx starts, logs an error, switchable routes go to Node.
 #   7. A route named twice is rendered once; pca2 goes to polis-api.
 #   8. Only GET and HEAD without a body reach polis-api: OPTIONS, POST and a
 #      GET with a body go to Node.
@@ -19,16 +19,18 @@
 # Usage, from the repository root: queue-rs/polis-api/conformance/nginx-routing.sh
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
-p=${X54_NGINX_PREFIX:-x54pca2-nginx}
+p=${X54_NGINX_PREFIX:-nginx-routing-$$-${RANDOM}}
 net="$p-net"
-image="$p:local"
+image=${X54_NGINX_IMAGE:-$p:local}
 cleanup() {
-  docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" >/dev/null 2>&1 || true
+  docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" "$p-files" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 cleanup
-docker build -q -t "$image" -f "$root/file-server/nginx.Dockerfile" "$root/file-server" >/dev/null
+if [[ -z ${X54_NGINX_IMAGE:-} ]]; then
+  docker build -q -t "$image" -f "$root/file-server/nginx.Dockerfile" "$root/file-server" >/dev/null
+fi
 docker network create "$net" >/dev/null
 stub() { # container alias port status body
   docker run -d --name "$1" --network "$net" --network-alias "$2" --entrypoint sh nginx:1.21.5-alpine -c \
@@ -101,6 +103,26 @@ expect() { # path want label
   [[ $got == "$2" ]] || fail "$3: $1 answered '$got', expected '$2'"
 }
 
+# A near miss outside an API or registered page is now answered at the edge.
+expect_not_found() {
+  python3 - "$p-proxy" "$p-node" "$1" <<'PYTHON'
+import http.client, subprocess, sys
+proxy, node, path = sys.argv[1:]
+def logs():
+    return subprocess.check_output(['docker', 'logs', node], stderr=subprocess.STDOUT)
+before = logs()
+address = subprocess.check_output(['docker', 'port', proxy, '80/tcp'], text=True).strip()
+host, port = address.rsplit(':', 1)
+assert host == '127.0.0.1'
+c = http.client.HTTPConnection(host, int(port), timeout=5)
+c.request('GET', path)
+r = c.getresponse()
+assert r.status == 404 and ('Cannot GET ' + path).encode() in r.read(), path
+c.close()
+assert logs() == before, 'unregistered page reached Node: ' + path
+PYTHON
+}
+
 start ""
 expect /api/v3/math/pca2 node "flag off"
 [[ -z $(docker exec "$p-proxy" cat /etc/nginx/rust-api/upstreams.conf /etc/nginx/rust-api/locations.conf) ]] \
@@ -134,7 +156,7 @@ start pca2,bogus
 expect /api/v3/math/pca2 node "unknown route name"
 logged "ERROR RUST_API_ROUTES: unknown route" "unknown route not reported"
 [[ -z $(included) ]] || fail "unknown route: include files should be empty"
-echo "ok 6 unknown route name: nginx serves, error logged, everything -> node"
+echo "ok 6 unknown route name: nginx serves, error logged, switchable routes -> node"
 
 stub "$p-rust" polis-api 5100 200 rust
 start pca2,pca2
@@ -156,7 +178,7 @@ for bad in "RUST_API_UPSTREAM=bad host;" "RUST_API_RESOLVER=bad resolver" "RUST_
   logged "ERROR RUST_API_" "$bad: not reported"
   [[ -z $(included) ]] || fail "$bad: include files should be empty"
 done
-echo "ok 9 bad upstream or resolver: nginx serves, error logged, everything -> node"
+echo "ok 9 bad upstream or resolver: nginx serves, error logged, switchable routes -> node"
 
 docker rm -f "$p-rust" >/dev/null
 docker run -d --name "$p-rust" --network "$net" --network-alias polis-api --entrypoint sh nginx:1.21.5-alpine -c \
@@ -234,6 +256,27 @@ echo "ok 13 next comment off/on/deduplicated; method/body guards; 502 hands back
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 start ""
+expect /api/v3/version node "version off"
+start version,version
+expect /api/v3/version rust "version on"
+expect /api/v3/comments node "version leaves comments alone"
+expect /api/v3/votes node "version leaves voting alone"
+[[ $(included | grep -c 'location = /api/v3/version') == 1 ]] || fail "version duplicated"
+expect_upstream polis-api GET /api/v3/version
+expect_upstream polis-api HEAD /api/v3/version
+expect_upstream server OPTIONS /api/v3/version
+expect_upstream server POST /api/v3/version $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/version $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect /api/v3/version node "version handoff"
+echo "ok version version off/on/deduplicated; method/body guards; 502 hands back to Node"
+
+
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
 expect /api/v3/testConnection node "connection probe off"
 start testConnection,testConnection
 expect /api/v3/testConnection rust "connection probe on"
@@ -273,25 +316,6 @@ expect /robots.txt node "robots handoff"
 echo "ok 15 robots off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /about node "about off"
-start about,about
-expect /about rust "about on"
-expect /api/v3/comments node "about leaves comments alone"
-expect /api/v3/votes node "about leaves voting alone"
-[[ $(included | grep -c 'location = /about') == 1 ]] || fail "about duplicated"
-expect_upstream polis-api GET /about
-expect_upstream polis-api HEAD /about
-expect_upstream server OPTIONS /about
-expect_upstream server POST /about $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /about $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /about node "about handoff"
-echo "ok 16 about off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
@@ -475,27 +499,6 @@ stub "$p-rust" polis-api 5100 502 "handoff"
 sleep 6
 expect /api/v3/conversations/recent_activity node "recentActivity handoff"
 echo "ok 25 recentActivity off/on/deduplicated; method/body guards; 502 hands back to Node"
-
-
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /api/v3/math/pca node "legacyPca off"
-start legacyPca,legacyPca
-expect /api/v3/math/pca rust "legacyPca on"
-expect /api/v3/comments node "legacyPca leaves comments alone"
-expect /api/v3/votes node "legacyPca leaves voting alone"
-[[ $(included | grep -c 'location = /api/v3/math/pca') == 1 ]] || fail "legacyPca duplicated"
-expect_upstream polis-api GET /api/v3/math/pca
-expect_upstream polis-api HEAD /api/v3/math/pca
-expect_upstream server OPTIONS /api/v3/math/pca
-expect_upstream server POST /api/v3/math/pca $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /api/v3/math/pca $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /api/v3/math/pca node "legacyPca handoff"
-echo "ok 26 legacyPca off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 docker rm -f "$p-rust" >/dev/null
@@ -851,132 +854,22 @@ echo "ok 42 einvitesRead off/on/deduplicated; method/body guards; 502 hands back
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /conversation/create node "createPage off"
-start createPage,createPage
-expect /conversation/create rust "createPage on"
-expect /conversation/create/step rust "createPage nested path"
-expect /conversation/createSuffix rust "createPage prefix semantics"
-expect /conversation/creat node "createPage neighbor"
-expect /api/v3/comments node "createPage leaves comments alone"
-expect /api/v3/votes node "createPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/conversation/create') == 1 ]] || fail "createPage duplicated"
-expect_upstream polis-api GET /conversation/create
-expect_upstream polis-api HEAD /conversation/create
-expect_upstream server OPTIONS /conversation/create
-expect_upstream server POST /conversation/create $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /conversation/create $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /conversation/create node "createPage handoff"
-echo "ok 43 createPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /user/create node "userCreatePage off"
-start userCreatePage,userCreatePage
-expect /user/create rust "userCreatePage on"
-expect /user/create/step rust "userCreatePage nested path"
-expect /user/createSuffix node "userCreatePage anchored neighbor"
-expect /user/creat node "userCreatePage neighbor"
-expect /api/v3/comments node "userCreatePage leaves comments alone"
-expect /api/v3/votes node "userCreatePage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/user/create') == 1 ]] || fail "userCreatePage duplicated"
-expect_upstream polis-api GET /user/create
-expect_upstream polis-api HEAD /user/create
-expect_upstream server OPTIONS /user/create
-expect_upstream server POST /user/create $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /user/create $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /user/create node "userCreatePage handoff"
-echo "ok 44 userCreatePage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /user/login node "userLoginPage off"
-start userLoginPage,userLoginPage
-expect /user/login rust "userLoginPage on"
-expect /user/login/step rust "userLoginPage nested path"
-expect /user/loginSuffix node "userLoginPage anchored neighbor"
-expect /user/logi node "userLoginPage neighbor"
-expect /api/v3/comments node "userLoginPage leaves comments alone"
-expect /api/v3/votes node "userLoginPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/user/login') == 1 ]] || fail "userLoginPage duplicated"
-expect_upstream polis-api GET /user/login
-expect_upstream polis-api HEAD /user/login
-expect_upstream server OPTIONS /user/login
-expect_upstream server POST /user/login $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /user/login $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /user/login node "userLoginPage handoff"
-echo "ok 45 userLoginPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /settings node "settingsPage off"
-start settingsPage,settingsPage
-expect /settings rust "settingsPage on"
-expect /settings/step rust "settingsPage nested path"
-expect /settingsSuffix node "settingsPage anchored neighbor"
-expect /setting node "settingsPage neighbor"
-expect /api/v3/comments node "settingsPage leaves comments alone"
-expect /api/v3/votes node "settingsPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/settings') == 1 ]] || fail "settingsPage duplicated"
-expect_upstream polis-api GET /settings
-expect_upstream polis-api HEAD /settings
-expect_upstream server OPTIONS /settings
-expect_upstream server POST /settings $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /settings $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /settings node "settingsPage handoff"
-echo "ok 46 settingsPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /user/logout node "userLogoutPage off"
-start userLogoutPage,userLogoutPage
-expect /user/logout rust "userLogoutPage on"
-expect /user/logout/step rust "userLogoutPage nested path"
-expect /user/logoutSuffix node "userLogoutPage anchored neighbor"
-expect /user/logou node "userLogoutPage neighbor"
-expect /api/v3/comments node "userLogoutPage leaves comments alone"
-expect /api/v3/votes node "userLogoutPage leaves voting alone"
-[[ $(included | grep -c 'location ~ ^/user/logout') == 1 ]] || fail "userLogoutPage duplicated"
-expect_upstream polis-api GET /user/logout
-expect_upstream polis-api HEAD /user/logout
-expect_upstream server OPTIONS /user/logout
-expect_upstream server POST /user/logout $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /user/logout $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /user/logout node "userLogoutPage handoff"
-echo "ok 47 userLogoutPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
@@ -989,7 +882,7 @@ start adminPage,adminPage
 expect /m/2fixture rust "adminPage on"
 expect /m/2fixture/step rust "adminPage nested path"
 expect /m/2fixtureSuffix rust "adminPage prefix suffix"
-expect /m/2 node "adminPage neighbor"
+expect_not_found /m/2 "adminPage neighbor"
 expect /api/v3/comments node "adminPage leaves comments alone"
 expect /api/v3/votes node "adminPage leaves voting alone"
 [[ $(included | grep -Fc 'location ~ ^/m/[0-9]') == 1 ]] || fail "adminPage duplicated"
@@ -1014,7 +907,7 @@ start integratePage,integratePage
 expect /integrate rust "integratePage on"
 expect /integrate/step rust "integratePage nested path"
 expect /integrateSuffix rust "integratePage prefix suffix"
-expect /integrat node "integratePage neighbor"
+expect_not_found /integrat "integratePage neighbor"
 expect /api/v3/comments node "integratePage leaves comments alone"
 expect /api/v3/votes node "integratePage leaves voting alone"
 [[ $(included | grep -Fc 'location ~ ^/integrate') == 1 ]] || fail "integratePage duplicated"
@@ -1031,28 +924,6 @@ echo "ok 49 integratePage off/on/deduplicated; method/body guards; 502 hands bac
 
 
 
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /other-conversations node "otherConversationsPage off"
-start otherConversationsPage,otherConversationsPage
-expect /other-conversations rust "otherConversationsPage on"
-expect /other-conversations/step rust "otherConversationsPage nested path"
-expect /other-conversationsSuffix rust "otherConversationsPage prefix suffix"
-expect /other-conversation node "otherConversationsPage neighbor"
-expect /api/v3/comments node "otherConversationsPage leaves comments alone"
-expect /api/v3/votes node "otherConversationsPage leaves voting alone"
-[[ $(included | grep -Fc 'location ~ ^/other-conversations') == 1 ]] || fail "otherConversationsPage duplicated"
-expect_upstream polis-api GET /other-conversations
-expect_upstream polis-api HEAD /other-conversations
-expect_upstream server OPTIONS /other-conversations
-expect_upstream server POST /other-conversations $'Content-Length: 2\r\n' '{}'
-expect_upstream server GET /other-conversations $'Content-Length: 2\r\n' '{}'
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 "handoff"
-sleep 6
-expect /other-conversations node "otherConversationsPage handoff"
-echo "ok 50 otherConversationsPage off/on/deduplicated; method/body guards; 502 hands back to Node"
 
 
 
@@ -1421,32 +1292,6 @@ sleep 6
 expect /api/v3/reportExport/generated/format.json node "report export handoff"
 echo "ok Postgres report export subtypes off/on/deduplicated, excluded external routes, methods and fallback"
 
-# Each conversation link page has an independent switch.
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 200 rust
-start ""
-expect /iip/4fixture node "participation link off"
-expect /iim/4fixture node "moderation link off"
-for route in iip iim; do
-  start "$route,$route"
-  expect "/$route/4fixture" rust "link page on"
-  expect "/$route/4fixture/" rust "link page trailing slash"
-  expect_upstream polis-api HEAD "/$route/4fixture"
-  expect_upstream server POST "/$route/4fixture" $'Content-Length: 2\r\n' '{}'
-  expect_upstream server OPTIONS "/$route/4fixture"
-  expect_upstream server GET "/$route/4fixture" $'Content-Length: 2\r\n' '{}'
-  expect /api/v3/votes node "link leaves votes alone"
-  expect /api/v3/nextComment node "link leaves next statement alone"
-  if [[ $route == iip ]]; then expect /iim/4fixture node "moderation switch independent"; else expect /iip/4fixture node "participation switch independent"; fi
-done
-docker rm -f "$p-rust" >/dev/null
-stub "$p-rust" polis-api 5100 502 handoff
-sleep 6
-start iip,iim
-expect /iip/4fixture node "participation link fallback"
-expect /iim/4fixture node "moderation link fallback"
-echo "ok conversation links: independent off/on, methods/body, fallback"
-
 # Current participant rows have their own default-off selector.
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
@@ -1550,13 +1395,13 @@ sleep 6
 expect /api/v3/locations node "locations fallback"
 echo "ok locations: off/on/deduplicated, methods/body, fallback"
 
-# Conversation HTML routes retain independent default-off selectors.
+# The conversation HTML route retains its default-off selector.
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 start ""
-for prefix in / /explore/ /share/ /summary/ /ot/; do expect "${prefix}4fixture" node "conversation page off"; done
-for selector in conversationPage explorePage sharePage summaryPage oneTimePage; do
- case "$selector" in conversationPage) prefix=/ ;; explorePage) prefix=/explore/ ;; sharePage) prefix=/share/ ;; summaryPage) prefix=/summary/ ;; oneTimePage) prefix=/ot/ ;; esac
+for prefix in /; do expect "${prefix}4fixture" node "conversation page off"; done
+for selector in conversationPage; do
+ prefix=/
  start "$selector,$selector"
  expect "${prefix}4fixture" rust "conversation page on"
  expect "${prefix}4fixture/suffix" rust "conversation page prefix suffix"
@@ -1564,15 +1409,31 @@ for selector in conversationPage explorePage sharePage summaryPage oneTimePage; 
  expect_upstream server OPTIONS "${prefix}4fixture"
  expect_upstream server POST "${prefix}4fixture" $'Content-Length: 2\r\n' '{}'
  expect_upstream server GET "${prefix}4fixture" $'Content-Length: 2\r\n' '{}'
- for other in / /explore/ /share/ /summary/ /ot/; do
-  if [[ $other != "$prefix" ]]; then expect "${other}4fixture" node "other conversation switch off"; fi
- done
  expect /api/v3/votes node "page leaves votes alone"
  expect /api/v3/nextComment node "page leaves next statement alone"
 done
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 502 handoff
 sleep 6
-start conversationPage,explorePage,sharePage,summaryPage,oneTimePage
-for prefix in / /explore/ /share/ /summary/ /ot/; do expect "${prefix}4fixture" node "conversation page handback"; done
-echo "ok conversation HTML: five independent switches, suffix, methods/body, fallback"
+start conversationPage
+for prefix in /; do expect "${prefix}4fixture" node "conversation page handback"; done
+echo "ok conversation HTML: default-off switch, suffix, methods/body, fallback"
+
+# The real file-server checks emitted assets and the old 404 bytes. A prebuilt
+# image permits offline runs; CI builds the current clients when unset.
+files_image=${NGINX_FILE_SERVER_IMAGE:-$p-files:local}
+if [[ -z ${NGINX_FILE_SERVER_IMAGE:-} ]]; then
+  docker build -q -t "$files_image" -f "$root/file-server/Dockerfile" "$root" >/dev/null
+fi
+docker run -d --name "$p-files" --network "$net" --network-alias file-server \
+  -p 127.0.0.1::8080 -e PORT=8080 "$files_image" >/dev/null
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+for routes in '' pca2,conversationPage,robots,adminPage; do
+  start "$routes"
+  python3 "$root/file-server/nginx/test-edge-routing.py" "$p" "$routes" "$root"
+done
+# Local 404s must still work with both HTTP application upstreams stopped.
+docker stop "$p-files" "$p-node" >/dev/null
+python3 "$root/file-server/nginx/test-edge-routing.py" "$p" offline "$root"
+echo "ok edge routing: local 404s, emitted assets, API and page destinations in both selections"

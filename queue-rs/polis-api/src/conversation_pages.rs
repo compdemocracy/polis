@@ -162,17 +162,7 @@ impl Client {
 }
 
 pub fn page(path: &str) -> Option<(Page, &str)> {
-    let (page, rest) = if let Some(r) = path.strip_prefix("/explore/") {
-        (Page::Explore, r)
-    } else if let Some(r) = path.strip_prefix("/share/") {
-        (Page::Share, r)
-    } else if let Some(r) = path.strip_prefix("/summary/") {
-        (Page::Summary, r)
-    } else if let Some(r) = path.strip_prefix("/ot/") {
-        (Page::OneTime, r)
-    } else {
-        (Page::Conversation, path.strip_prefix('/')?)
-    };
+    let (page, rest) = (Page::Conversation, path.strip_prefix('/')?);
     let n = rest.bytes().take_while(u8::is_ascii_alphanumeric).count();
     (n >= 2 && rest.as_bytes()[0].is_ascii_digit()).then_some((page, &rest[..n]))
 }

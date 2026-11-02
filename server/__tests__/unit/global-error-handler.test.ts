@@ -87,11 +87,11 @@ function buildApp(express: any, mounting: Mounting, handler: any) {
 function serve(app: any, path: string, calls: { n: number }): Promise<Served> {
   return new Promise((resolve, reject) => {
     const server = http.createServer(app);
-    server.listen(0, () => {
+    server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       const port = typeof address === "object" && address ? address.port : 0;
       http
-        .get({ port, path }, (res) => {
+        .get({ host: "127.0.0.1", port, path }, (res) => {
           let body = "";
           res.setEncoding("utf8");
           res.on("data", (chunk) => (body += chunk));

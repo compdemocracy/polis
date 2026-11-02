@@ -64,11 +64,11 @@ def cases():
     # successful export (the server suite covers that). The narrative routes
     # (/api/v3/delphi/narrative/{inputs,results}) are not served by this server
     # version: that row records the refusal of an unserved route, not an empty
-    # store. A server that answers 404 makes the CLI report
-    # capability_unavailable (exit 8).
+    # store. The dormant API retirement now answers 404 for unmatched API
+    # paths, so the CLI reports capability_unavailable (exit 8).
     for path in ['collective export','delphi statement export']:
         add(path,[C,'--report',R,'--topic','generated#0#1','--output',path.replace(' ','-')],exit=6,scope='missing-store')
-    add('delphi narrative export',[C,'--report',R,'--output','narrative'],exit=6,scope='unserved')
+    add('delphi narrative export',[C,'--report',R,'--output','narrative'],exit=8,scope='unserved')
     add('vote',[C,'--statement','0','--agree'],actor='participant')
     add('comment',[C,'Generated participant comment'],actor='participant')
     # The fixture stores no topics, so this proves the participant's own empty read.

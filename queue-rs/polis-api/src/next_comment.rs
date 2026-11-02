@@ -17,7 +17,7 @@ impl Priorities {
     pub(crate) fn new(size: usize) -> Self {
         Self(Mutex::new(crate::lru::Lru::new(size)))
     }
-    fn read(&self, c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
+    pub(crate) fn read(&self, c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
         let cached = self
             .0
             .lock()
@@ -115,7 +115,7 @@ pub(crate) fn eligible(app: &App, req: &Request) -> bool {
         && app.next_comment_db.is_some()
         && Query::parse(req).is_some_and(|q| q.initial.is_some() || app.next_comment_plain)
 }
-fn draw(req: &Request) -> f64 {
+pub(crate) fn draw(req: &Request) -> f64 {
     // This header is ignored by production builds. The test feature mirrors
     // the existing Node recorder's per-case xorshift32 entropy, not its RNG.
     #[cfg(feature = "fixture-clock")]
@@ -136,7 +136,7 @@ fn draw(req: &Request) -> f64 {
     let _ = req;
     rand::random::<f64>()
 }
-fn select(tids: &[i32], priorities: Option<&Obj>, unit: f64) -> Result<(usize, f64)> {
+pub(crate) fn select(tids: &[i32], priorities: Option<&Obj>, unit: f64) -> Result<(usize, f64)> {
     let mut cumulative = Vec::new();
     let mut total = 0.0;
     for tid in tids {
@@ -592,6 +592,22 @@ mod tests {
         let mut app = App::new(&cfg, make());
         app.next_comment_db = Some(make());
         app.next_comment_plain = true;
+        app.moderation_comments_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::moderation_comments::pool_limits(),
+        ));
+        app.moderation_comments_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::moderation_comments::pool_limits(),
+        ));
+        app.participant_comments_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::participant_comments::pool_limits(),
+        ));
+        app.participant_comments_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::participant_comments::pool_limits(),
+        ));
         app.comments_db = Some(make());
         app.comments_count_db = Some(make());
         app.statement_importance_db = Some(db::Pool::new(
@@ -759,6 +775,10 @@ mod tests {
         held.push(park(app.delphi_visualizations_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_read_db.as_ref().unwrap().clone()).await);
         held.push(park(app.delphi_reports_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.moderation_comments_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.moderation_comments_auth_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.participant_comments_db.as_ref().unwrap().clone()).await);
+        held.push(park(app.participant_comments_auth_db.as_ref().unwrap().clone()).await);
         let guarded = observe(app.clone()).await;
         eprintln!(
             "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",

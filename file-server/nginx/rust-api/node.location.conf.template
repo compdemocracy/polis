@@ -1,5 +1,5 @@
 # Node's answer for a request polis-api could not take: the same upstream and
-# settings as `location /`.
+# settings as the API and page locations.
 location @polis_node_api {
     proxy_pass http://server:${API_SERVER_PORT};
     proxy_set_header X-Forwarded-Proto $scheme;

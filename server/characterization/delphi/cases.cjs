@@ -1,6 +1,6 @@
 "use strict";
 // The recorded case list, derived from fixtures/manifest.json. Every Delphi
-// read route of the consumer map (cost-reduction map 4, section 1) in each of
+// read route of the Delphi consumer map in each of
 // the nine states, plus the request variants the readers branch on. The order
 // is the replay order; ids are stable file names under recordings/.
 const path = require("node:path");

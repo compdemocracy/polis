@@ -18,7 +18,7 @@ from control import encoded, sha
 
 SCHEMA = 'polis-private-images/1'
 ROLES = {'producer': 'produce', 'verifier': 'verify'}
-# BOARD [677]: step-2 paired-recording scope; shadow diagnostics are separate.
+# step-2 paired-recording scope; shadow diagnostics are separate.
 GATES = {'inventory', 'strict', 'g12'}
 CONTROLS = {'missing-evidence', 'forged-evidence', 'truncated-evidence',
             'short-inventory', 'wrong-input', 'wrong-policy', 'stale-checkpoint',

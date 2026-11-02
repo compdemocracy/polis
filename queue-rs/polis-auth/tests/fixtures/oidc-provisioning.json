@@ -1,0 +1,564 @@
+{
+  "format": "oidc-provisioning-recordings-v1",
+  "source": "server/src/auth/create-user.ts",
+  "source_commit": "015b0c49892e55c1c25d5999dbeaaf8e0fa0fc6e",
+  "source_sha256": "cfe7c8c3b0377a4bdbabef7148e0d7aef232089b31ec3f27a7a55bf3a5958731",
+  "runtime": "v24.21.0",
+  "comparison": "Unchanged Node provisioning function with real PostgreSQL and transaction adapter; account/mapping projection only. Random default site IDs and timestamps are structural assertions.",
+  "cases": [
+    {
+      "name": "standard",
+      "steps": [
+        {
+          "sub": "standard",
+          "email": "local@example.invalid",
+          "name": "Full Name",
+          "nickname": "nick",
+          "email_verified": true,
+          "ns/delphi_enabled": true
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "Full Name",
+                "username": "nick",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "standard",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "namespace",
+      "steps": [
+        {
+          "sub": "namespace",
+          "email": "",
+          "ns/email": "local@example.invalid",
+          "name": "",
+          "ns/name": "Namespace Name",
+          "nickname": "nick"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "Namespace Name",
+                "username": "nick",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "namespace",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "nickname",
+      "steps": [
+        {
+          "sub": "nickname",
+          "ns/email": "local@example.invalid",
+          "nickname": "nick"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "nick",
+                "username": "nick",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "nickname",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "local-part",
+      "steps": [
+        {
+          "sub": "local",
+          "email": "local@example.invalid"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "local",
+                "username": "local",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "local",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-at",
+      "steps": [
+        {
+          "sub": "no-at",
+          "email": "local"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local",
+                "hname": "local",
+                "username": "local",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "no-at",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty-local",
+      "steps": [
+        {
+          "sub": "empty-local",
+          "email": "@example.invalid"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "@example.invalid",
+                "hname": "",
+                "username": "",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "empty-local",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "whitespace",
+      "steps": [
+        {
+          "sub": "whitespace",
+          "email": " ",
+          "name": " ",
+          "nickname": " "
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": " ",
+                "hname": " ",
+                "username": " ",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "whitespace",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "falsy",
+      "steps": [
+        {
+          "sub": "falsy",
+          "email": false,
+          "ns/email": "local@example.invalid",
+          "name": 0,
+          "ns/name": "Fallback"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "Fallback",
+                "username": "local",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "falsy",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "repeat",
+      "steps": [
+        {
+          "sub": "repeat",
+          "email": "first@example.invalid",
+          "name": "First"
+        },
+        {
+          "sub": "repeat",
+          "email": "changed@example.invalid",
+          "name": "Changed"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "first@example.invalid",
+                "hname": "First",
+                "username": "first",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "repeat",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        },
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "first@example.invalid",
+                "hname": "First",
+                "username": "first",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "<default>",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "repeat",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "conflict-unmapped",
+      "seed": {
+        "email": "local@example.invalid",
+        "hname": "Old",
+        "username": "old",
+        "is_owner": false,
+        "site_id": "existing-site"
+      },
+      "steps": [
+        {
+          "sub": "social",
+          "email": "local@example.invalid",
+          "name": "New",
+          "nickname": "new"
+        }
+      ],
+      "before": {
+        "users": [
+          {
+            "uid": 1,
+            "email": "local@example.invalid",
+            "hname": "Old",
+            "username": "old",
+            "is_owner": false,
+            "site_owner": true,
+            "site_id": "existing-site",
+            "created": true
+          }
+        ],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "New",
+                "username": "new",
+                "is_owner": false,
+                "site_owner": true,
+                "site_id": "existing-site",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "social",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "conflict-mapped",
+      "seed": {
+        "email": "local@example.invalid",
+        "hname": "Old",
+        "username": "old",
+        "is_owner": true,
+        "site_id": "existing-site",
+        "sub": "old-social"
+      },
+      "steps": [
+        {
+          "sub": "new-social",
+          "email": "local@example.invalid",
+          "name": "New",
+          "nickname": "new"
+        }
+      ],
+      "before": {
+        "users": [
+          {
+            "uid": 1,
+            "email": "local@example.invalid",
+            "hname": "Old",
+            "username": "old",
+            "is_owner": true,
+            "site_owner": true,
+            "site_id": "existing-site",
+            "created": true
+          }
+        ],
+        "mappings": [
+          {
+            "oidc_sub": "old-social",
+            "uid": 1,
+            "created": true
+          }
+        ]
+      },
+      "results": [
+        {
+          "uid": 1,
+          "error": null,
+          "after": {
+            "users": [
+              {
+                "uid": 1,
+                "email": "local@example.invalid",
+                "hname": "New",
+                "username": "new",
+                "is_owner": true,
+                "site_owner": true,
+                "site_id": "existing-site",
+                "created": true
+              }
+            ],
+            "mappings": [
+              {
+                "oidc_sub": "new-social",
+                "uid": 1,
+                "created": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "missing-email",
+      "steps": [
+        {
+          "sub": "missing"
+        }
+      ],
+      "before": {
+        "users": [],
+        "mappings": []
+      },
+      "results": [
+        {
+          "uid": null,
+          "error": "invalid_user_data",
+          "after": {
+            "users": [],
+            "mappings": []
+          }
+        }
+      ]
+    }
+  ]
+}

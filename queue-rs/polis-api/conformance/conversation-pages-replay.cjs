@@ -121,7 +121,7 @@ async function main(){
  const {fixtures}=require("/app/characterization/comments-cases.cjs");const f=fixtures.find(f=>f.shape==="content-edges");
  const {Pool}=require("/app/node_modules/pg");const pool=new Pool({connectionString:process.env.DATABASE_URL});
  if(new URL(process.env.DATABASE_URL).pathname!=="/p027")throw Error("disposable fixture database required");
- const prefixes=["/","/explore/","/share/","/summary/","/ot/"];const cases=[],results=[];
+ const prefixes=["/"];const cases=[],results=[];
  async function run(id,prefix,served=true,method="GET",extra=[],suffix="",status=200,body=""){
   const c={id,seed:"7ac001000001",method,target:prefix+f.capability+suffix,served,status,
    headers:[["Host","localhost"],["Connection","close"],...extra],body:Buffer.from(body)};cases.push(c);results.push(await compare(c));

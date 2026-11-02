@@ -349,7 +349,7 @@ def test_mixed_projection_and_interpolated_qualifier_needs_gate(tmp_path) -> Non
 # Paths to the real replay-harness files — derived from the located implementation
 # (checkout/delphi/scripts), not this test's location, so they are correct wherever
 # the test tree is copied. The reviewed exemption now lives in the small isolated
-# ``equiv_query.py`` (P-042 projgate-isolation, per the second reviewer's board [499]): it holds ONLY
+# ``equiv_query.py`` (projection-gate isolation): it holds ONLY
 # ``EQUIV_TABLES`` + ``fetch_math_row`` so the whole-module pin is disturbed only by
 # an edit to the query/guard. ``poller_equiv.py`` imports them and no longer carries
 # any wildcard SELECT.
@@ -517,7 +517,7 @@ def test_exemption_module_digest_binds_the_guard_set(tmp_path) -> None:
 
 
 def test_exemption_isolated_to_equiv_query_module(tmp_path) -> None:
-    """P-042 projgate-isolation (per the second reviewer's board [499]): the exemption's query + guard
+    """Projection-gate isolation: the exemption's query + guard
     set were moved verbatim out of the large ``poller_equiv.py`` into the small
     dedicated ``equiv_query.py``, whose WHOLE-module digest is the pin. The isolation
     boundary is proven both ways:

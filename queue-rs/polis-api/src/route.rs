@@ -49,16 +49,18 @@ pub struct App {
     pub metadata_questions_auth_db: Option<Arc<Pool>>,
     pub metadata_questions_served: AtomicU64,
     pub metadata_questions_fallback: AtomicU64,
-    pub conversation_pages: [Option<crate::conversation_pages::Client>; 5],
-    pub conversation_page_dbs: [Option<Arc<Pool>>; 5],
-    pub conversation_page_served: [AtomicU64; 5],
-    pub conversation_page_fallback: [AtomicU64; 5],
-    pub iip_db: Option<Arc<Pool>>,
-    pub iim_db: Option<Arc<Pool>>,
-    pub iip_served: AtomicU64,
-    pub iip_fallback: AtomicU64,
-    pub iim_served: AtomicU64,
-    pub iim_fallback: AtomicU64,
+    pub conversation_pages: [Option<crate::conversation_pages::Client>; 1],
+    pub conversation_page_dbs: [Option<Arc<Pool>>; 1],
+    pub conversation_page_served: [AtomicU64; 1],
+    pub conversation_page_fallback: [AtomicU64; 1],
+    pub moderation_comments_db: Option<Arc<Pool>>,
+    pub moderation_comments_auth_db: Option<Arc<Pool>>,
+    pub moderation_comments_served: AtomicU64,
+    pub moderation_comments_fallback: AtomicU64,
+    pub participant_comments_db: Option<Arc<Pool>>,
+    pub participant_comments_auth_db: Option<Arc<Pool>>,
+    pub participant_comments_served: AtomicU64,
+    pub participant_comments_fallback: AtomicU64,
     pub participants_read_db: Option<Arc<Pool>>,
     pub participants_read_auth_db: Option<Arc<Pool>>,
     pub participants_read_served: AtomicU64,
@@ -109,9 +111,6 @@ pub struct App {
     pub recent_activity_auth_db: Option<Arc<Pool>>,
     pub recent_activity_served: AtomicU64,
     pub recent_activity_fallback: AtomicU64,
-    pub legacy_pca_reads: bool,
-    pub legacy_pca_served: AtomicU64,
-    pub legacy_pca_fallback: AtomicU64,
     pub treevite_waves_db: Option<Arc<Pool>>,
     pub treevite_waves_auth_db: Option<Arc<Pool>>,
     pub treevite_waves_served: AtomicU64,
@@ -223,30 +222,12 @@ pub struct App {
     pub database_db: Option<Arc<Pool>>,
     pub database_served: AtomicU64,
     pub database_fallback: AtomicU64,
-    pub settings_page_reads: bool,
-    pub settings_page_served: AtomicU64,
-    pub settings_page_fallback: AtomicU64,
-    pub other_conversations_page: Option<crate::admin_page::Client>,
-    pub other_conversations_page_served: AtomicU64,
-    pub other_conversations_page_fallback: AtomicU64,
     pub integrate_page: Option<crate::admin_page::Client>,
     pub integrate_page_served: AtomicU64,
     pub integrate_page_fallback: AtomicU64,
     pub admin_page: Option<crate::admin_page::Client>,
     pub admin_page_served: AtomicU64,
     pub admin_page_fallback: AtomicU64,
-    pub user_logout_page_reads: bool,
-    pub user_logout_page_served: AtomicU64,
-    pub user_logout_page_fallback: AtomicU64,
-    pub user_login_page_reads: bool,
-    pub user_login_page_served: AtomicU64,
-    pub user_login_page_fallback: AtomicU64,
-    pub user_create_page_reads: bool,
-    pub user_create_page_served: AtomicU64,
-    pub user_create_page_fallback: AtomicU64,
-    pub create_page_reads: bool,
-    pub create_page_served: AtomicU64,
-    pub create_page_fallback: AtomicU64,
     pub ops_catchall_reads: bool,
     pub ops_catchall_served: AtomicU64,
     pub ops_catchall_fallback: AtomicU64,
@@ -256,12 +237,10 @@ pub struct App {
     pub ops_whoami_reads: bool,
     pub ops_whoami_served: AtomicU64,
     pub ops_whoami_fallback: AtomicU64,
-    pub about_reads: bool,
-    pub about_served: AtomicU64,
-    pub about_fallback: AtomicU64,
     pub robots_reads: bool,
     pub robots_served: AtomicU64,
     pub robots_fallback: AtomicU64,
+    pub version_reads: bool,
     pub connection_reads: bool,
     pub connection_served: AtomicU64,
     pub connection_fallback: AtomicU64,
@@ -274,6 +253,7 @@ pub struct App {
     pub perf_stats_reads: bool,
     pub perf_stats_served: AtomicU64,
     pub perf_stats_fallback: AtomicU64,
+    pub participant_keys: Option<polis_auth::keys::Keys>,
     pub participant_verifier: Option<Arc<polis_auth::participant::Verifier>>,
     pub participant_served: AtomicU64,
     pub participant_fallback: AtomicU64,
@@ -282,6 +262,11 @@ pub struct App {
     pub next_comment_priorities: Arc<crate::next_comment::Priorities>,
     pub next_comment_db: Option<Arc<Pool>>,
     pub next_comment_plain: bool,
+    pub post_votes: Option<crate::post_votes::Writer>,
+    pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
+    pub treevite_write: Option<Arc<crate::treevite_write::Writer>>,
+    pub revocations: Option<Arc<crate::revocation::Refresh>>,
+    pub treevite_codes: Option<crate::treevite_codes::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
@@ -307,12 +292,14 @@ impl App {
             conversation_page_dbs: std::array::from_fn(|_| None),
             conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
             conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
-            iip_db: None,
-            iim_db: None,
-            iip_served: AtomicU64::new(0),
-            iip_fallback: AtomicU64::new(0),
-            iim_served: AtomicU64::new(0),
-            iim_fallback: AtomicU64::new(0),
+            moderation_comments_db: None,
+            moderation_comments_auth_db: None,
+            moderation_comments_served: AtomicU64::new(0),
+            moderation_comments_fallback: AtomicU64::new(0),
+            participant_comments_db: None,
+            participant_comments_auth_db: None,
+            participant_comments_served: AtomicU64::new(0),
+            participant_comments_fallback: AtomicU64::new(0),
             participants_read_db: None,
             participants_read_auth_db: None,
             participants_read_served: AtomicU64::new(0),
@@ -363,9 +350,6 @@ impl App {
             recent_activity_auth_db: None,
             recent_activity_served: AtomicU64::new(0),
             recent_activity_fallback: AtomicU64::new(0),
-            legacy_pca_reads: false,
-            legacy_pca_served: AtomicU64::new(0),
-            legacy_pca_fallback: AtomicU64::new(0),
             treevite_waves_db: None,
             treevite_waves_auth_db: None,
             treevite_waves_served: AtomicU64::new(0),
@@ -477,30 +461,12 @@ impl App {
             database_db: None,
             database_served: AtomicU64::new(0),
             database_fallback: AtomicU64::new(0),
-            settings_page_reads: false,
-            settings_page_served: AtomicU64::new(0),
-            settings_page_fallback: AtomicU64::new(0),
-            other_conversations_page: None,
-            other_conversations_page_served: AtomicU64::new(0),
-            other_conversations_page_fallback: AtomicU64::new(0),
             integrate_page: None,
             integrate_page_served: AtomicU64::new(0),
             integrate_page_fallback: AtomicU64::new(0),
             admin_page: None,
             admin_page_served: AtomicU64::new(0),
             admin_page_fallback: AtomicU64::new(0),
-            user_logout_page_reads: false,
-            user_logout_page_served: AtomicU64::new(0),
-            user_logout_page_fallback: AtomicU64::new(0),
-            user_login_page_reads: false,
-            user_login_page_served: AtomicU64::new(0),
-            user_login_page_fallback: AtomicU64::new(0),
-            user_create_page_reads: false,
-            user_create_page_served: AtomicU64::new(0),
-            user_create_page_fallback: AtomicU64::new(0),
-            create_page_reads: false,
-            create_page_served: AtomicU64::new(0),
-            create_page_fallback: AtomicU64::new(0),
             ops_catchall_reads: false,
             ops_catchall_served: AtomicU64::new(0),
             ops_catchall_fallback: AtomicU64::new(0),
@@ -510,12 +476,10 @@ impl App {
             ops_whoami_reads: false,
             ops_whoami_served: AtomicU64::new(0),
             ops_whoami_fallback: AtomicU64::new(0),
-            about_reads: false,
-            about_served: AtomicU64::new(0),
-            about_fallback: AtomicU64::new(0),
             robots_reads: false,
             robots_served: AtomicU64::new(0),
             robots_fallback: AtomicU64::new(0),
+            version_reads: false,
             connection_reads: false,
             connection_served: AtomicU64::new(0),
             connection_fallback: AtomicU64::new(0),
@@ -528,6 +492,7 @@ impl App {
             perf_stats_reads: false,
             perf_stats_served: AtomicU64::new(0),
             perf_stats_fallback: AtomicU64::new(0),
+            participant_keys: None,
             participant_verifier: None,
             participant_served: AtomicU64::new(0),
             participant_fallback: AtomicU64::new(0),
@@ -536,6 +501,11 @@ impl App {
             next_comment_priorities: Arc::new(crate::next_comment::Priorities::new(cfg.cache_size)),
             next_comment_db: None,
             next_comment_plain: false,
+            post_votes: None,
+            post_treevite_waves: None,
+            treevite_write: None,
+            revocations: None,
+            treevite_codes: None,
             comments_db: None,
             comments_count_db: None,
             math_env: cfg.math_env.clone(),
@@ -561,6 +531,7 @@ impl App {
 
 /// The headers a Node `ServerResponse` holds, in Node's order: a header keeps
 /// the position of its first `setHeader` and the casing of its last.
+#[derive(Clone)]
 pub(crate) struct Res {
     status: u16,
     headers: Vec<(String, String)>,
@@ -574,7 +545,7 @@ impl Res {
         }
     }
 
-    fn set(&mut self, name: &str, value: impl Into<String>) {
+    pub(crate) fn set(&mut self, name: &str, value: impl Into<String>) {
         let value = value.into();
         match self
             .headers
@@ -835,7 +806,17 @@ fn send_in(req: &Request, mut res: Res, payload: Payload, installed: bool) -> Ou
 }
 
 /// Express 3 `res.json(value)`.
-pub(crate) fn json(req: &Request, mut res: Res, value: &Js) -> Outgoing {
+pub(crate) fn json(req: &Request, res: Res, value: &Js) -> Outgoing {
+    json_observed(req, res, value, &polis_auth::observability::PROCESS)
+}
+
+fn json_observed(
+    req: &Request,
+    mut res: Res,
+    value: &Js,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
+    crate::identity_observability::observe_json(counters, res.status, value);
     if res.get("Content-Type").is_none() {
         res.set("Content-Type", "application/json");
     }
@@ -910,7 +891,18 @@ pub(crate) fn json_status(req: &Request, mut res: Res, status: u16, value: &Js) 
 
 /// Express status(...).json(...) for a body already encoded by a contract
 /// type (its own byte-stable JSON), retaining the normal response envelope.
-pub(crate) fn json_text(req: &Request, mut res: Res, status: u16, body: String) -> Outgoing {
+pub(crate) fn json_text(req: &Request, res: Res, status: u16, body: String) -> Outgoing {
+    json_text_observed(req, res, status, body, &polis_auth::observability::PROCESS)
+}
+
+fn json_text_observed(
+    req: &Request,
+    mut res: Res,
+    status: u16,
+    body: String,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
+    crate::identity_observability::observe_json_text(counters, status, &body);
     res.status = status;
     if res.get("Content-Type").is_none() {
         res.set("Content-Type", "application/json");
@@ -934,12 +926,6 @@ pub(crate) fn empty_end(req: &Request, mut res: Res, status: u16) -> Outgoing {
 
 /// Express text send, retaining the headers installed by writeDefaultHead.
 pub(crate) fn text(req: &Request, res: Res, value: &str) -> Outgoing {
-    send(req, res, Payload::Text(value.into()))
-}
-
-/// Express HTML send with the normal ETag, freshness and compression envelope.
-pub(crate) fn html(req: &Request, mut res: Res, value: &str) -> Outgoing {
-    res.set("Content-Type", "text/html");
     send(req, res, Payload::Text(value.into()))
 }
 
@@ -970,6 +956,11 @@ fn escape_html(s: &str) -> String {
 
 /// connect's `finalhandler@0.4.0` answering `next(err)` (`err` a string) or,
 /// with `err` absent, the 404 for an unmatched route.
+pub(crate) fn parameter_error(app: &App, req: &Request, mut res: Res) -> Outgoing {
+    res.status = 400;
+    final_handler(app, req, res, Some("Bad Request"), true)
+}
+
 fn final_handler(
     app: &App,
     req: &Request,
@@ -1151,9 +1142,19 @@ pub fn bad_gateway() -> Outgoing {
 
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
-    let (out, cache) = crate::pca::CACHE_OUTCOME
+    let (mut out, cache) = crate::pca::CACHE_OUTCOME
         .scope(std::cell::Cell::new("none"), async {
-            let out = serve(&app, &req).await;
+            let mut out = serve(&app, &req).await;
+            // A refresh may land between the entry guard and an older route's
+            // Option-based verifier. Never let that refusal turn into fallback.
+            if out.status == 502
+                && let Some(raw) = req.headers.get("authorization")
+                && crate::revocation::refusal(&app, raw, (crate::clock::now_ms() / 1000.0) as u64)
+                    .is_some()
+            {
+                let origin = app.cors.resolve(&req.headers).ok().flatten();
+                out = crate::treevite_codes::session_revoked(&req, default_head(origin.as_deref()));
+            }
             (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
         })
         .await;
@@ -1189,16 +1190,22 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
         }
     }
-    if crate::link_pages::matches(req.path()) {
-        let (served, fallback) = if req.path().starts_with("/iip/") {
-            (&app.iip_served, &app.iip_fallback)
-        } else {
-            (&app.iim_served, &app.iim_fallback)
-        };
+    if req.path() == crate::moderation_comments::PATH {
         if out.status == 502 {
-            fallback.fetch_add(1, Ordering::Relaxed);
+            app.moderation_comments_fallback
+                .fetch_add(1, Ordering::Relaxed);
         } else {
-            served.fetch_add(1, Ordering::Relaxed);
+            app.moderation_comments_served
+                .fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::participant_comments::PATH {
+        if out.status == 502 {
+            app.participant_comments_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.participant_comments_served
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     if req.path() == crate::participants_read::PATH {
@@ -1237,7 +1244,17 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.locations_served.fetch_add(1, Ordering::Relaxed);
         }
     }
-    if crate::votes_read::matches(req.path()) {
+    if req.path() == crate::post_votes::PATH && req.method == "POST" {
+        if out.status == 502 {
+            crate::post_votes::mark_handback(&mut out);
+        }
+        crate::post_votes::observe(&out);
+    }
+    if crate::votes_read::matches(req.path())
+        && !(req.path() == crate::post_votes::PATH
+            && req.method == "POST"
+            && app.post_votes.is_some())
+    {
         if out.status == 502 {
             app.votes_read_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
@@ -1280,13 +1297,7 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.recent_activity_served.fetch_add(1, Ordering::Relaxed);
         }
     }
-    if req.path() == crate::legacy_pca::PATH {
-        if out.status == 502 {
-            app.legacy_pca_fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.legacy_pca_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
+
     if req.path() == crate::treevite_waves::PATH {
         if out.status == 502 {
             app.treevite_waves_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1496,22 +1507,6 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.database_served.fetch_add(1, Ordering::Relaxed);
         }
     }
-    if crate::settings_page::matches(req.path()) {
-        if out.status == 502 {
-            app.settings_page_fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.settings_page_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if crate::other_conversations_page::matches(req.path()) {
-        if out.status == 502 {
-            app.other_conversations_page_fallback
-                .fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.other_conversations_page_served
-                .fetch_add(1, Ordering::Relaxed);
-        }
-    }
     if crate::integrate_page::matches(req.path()) {
         if out.status == 502 {
             app.integrate_page_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1524,36 +1519,6 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.admin_page_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
             app.admin_page_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if crate::user_logout_page::matches(req.path()) {
-        if out.status == 502 {
-            app.user_logout_page_fallback
-                .fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.user_logout_page_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if crate::user_login_page::matches(req.path()) {
-        if out.status == 502 {
-            app.user_login_page_fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.user_login_page_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if crate::user_create_page::matches(req.path()) {
-        if out.status == 502 {
-            app.user_create_page_fallback
-                .fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.user_create_page_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if crate::create_page::matches(req.path()) {
-        if out.status == 502 {
-            app.create_page_fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.create_page_served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if crate::ops_catchall::matches(req.path()) {
@@ -1575,13 +1540,6 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.ops_whoami_fallback.fetch_add(1, Ordering::Relaxed);
         } else {
             app.ops_whoami_served.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-    if req.path() == crate::about::PATH {
-        if out.status == 502 {
-            app.about_fallback.fetch_add(1, Ordering::Relaxed);
-        } else {
-            app.about_served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if req.path() == crate::robots::PATH {
@@ -1668,39 +1626,28 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
-    if crate::settings_page::matches(req.path()) && crate::settings_page::parse(app, req).is_none()
+    // Terminal before every route's hand-back branches. A Node fallback cannot
+    // enforce this snapshot, even for credentials unsupported by a read route.
+    if let Some(raw) = req.headers.get("authorization")
+        && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
     {
-        return bad_gateway();
+        let origin = app.cors.resolve(&req.headers).ok().flatten();
+        return crate::treevite_codes::session_revoked(req, default_head(origin.as_deref()));
     }
-    if crate::other_conversations_page::matches(req.path())
-        && crate::other_conversations_page::parse(app, req).is_none()
-    {
-        return bad_gateway();
+    if crate::treevite_codes::matches(req.path()) {
+        let origin = app.cors.resolve(&req.headers);
+        let Ok(origin) = origin else {
+            return bad_gateway();
+        };
+        return crate::treevite_codes::handle(app, req, default_head(origin.as_deref())).await;
     }
+
     if crate::integrate_page::matches(req.path())
         && crate::integrate_page::parse(app, req).is_none()
     {
         return bad_gateway();
     }
     if crate::admin_page::matches(req.path()) && crate::admin_page::parse(app, req).is_none() {
-        return bad_gateway();
-    }
-    if crate::user_logout_page::matches(req.path())
-        && crate::user_logout_page::parse(app, req).is_none()
-    {
-        return bad_gateway();
-    }
-    if crate::user_login_page::matches(req.path())
-        && crate::user_login_page::parse(app, req).is_none()
-    {
-        return bad_gateway();
-    }
-    if crate::user_create_page::matches(req.path())
-        && crate::user_create_page::parse(app, req).is_none()
-    {
-        return bad_gateway();
-    }
-    if crate::create_page::matches(req.path()) && crate::create_page::parse(app, req).is_none() {
         return bad_gateway();
     }
     if req.path() == crate::einvites_read::PATH && crate::einvites_read::parse(app, req).is_none() {
@@ -1778,13 +1725,13 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if req.path() == crate::treevite_waves::PATH && crate::treevite_waves::parse(app, req).is_none()
+    if req.path() == crate::treevite_waves::PATH
+        && !(req.method == "POST" && crate::post_treevite_waves::eligible(app, req))
+        && crate::treevite_waves::parse(app, req).is_none()
     {
         return bad_gateway();
     }
-    if req.path() == crate::legacy_pca::PATH && crate::legacy_pca::parse(app, req).is_none() {
-        return bad_gateway();
-    }
+
     if req.path() == crate::recent_activity::PATH
         && crate::recent_activity::parse(app, req).is_none()
     {
@@ -1816,7 +1763,15 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if crate::link_pages::matches(req.path()) && crate::link_pages::parse(app, req).is_none() {
+    if req.path() == crate::moderation_comments::PATH
+        && crate::moderation_comments::parse(app, req)
+            == Err(crate::moderation_comments::ParseError::Handback)
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::participant_comments::PATH
+        && crate::participant_comments::parse(app, req).is_none()
+    {
         return bad_gateway();
     }
     if req.path() == crate::participants_read::PATH
@@ -1836,7 +1791,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
-    if crate::votes_read::matches(req.path()) && crate::votes_read::parse(app, req).is_none() {
+    if crate::votes_read::matches(req.path())
+        && !(req.path() == crate::post_votes::PATH && req.method == "POST")
+        && crate::votes_read::parse(app, req).is_none()
+    {
         return bad_gateway();
     }
     if req.path() == crate::metadata_questions::PATH
@@ -1897,9 +1855,6 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::ops_whoami::PATH && crate::ops_whoami::parse(app, req).is_none() {
         return bad_gateway();
     }
-    if req.path() == crate::about::PATH && crate::about::parse(app, req).is_none() {
-        return bad_gateway();
-    }
     if req.path() == crate::robots::PATH && crate::robots::parse(app, req).is_none() {
         return bad_gateway();
     }
@@ -1910,10 +1865,24 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::perf_stats::PATH && crate::perf_stats::parse(app, req).is_none() {
         return bad_gateway();
     }
+    if req.path() == crate::version::PATH && !crate::version::eligible(app, req) {
+        return bad_gateway();
+    }
     if req.path() == crate::connection::PATH && crate::connection::parse(app, req).is_none() {
         return bad_gateway();
     }
     if req.path() == crate::next_comment::PATH && !crate::next_comment::eligible(app, req) {
+        return bad_gateway();
+    }
+    if req.path() == crate::post_votes::PATH
+        && req.method == "POST"
+        && !crate::post_votes::eligible(app, req)
+    {
+        return bad_gateway();
+    }
+    if crate::treevite_write::matches(req.path())
+        && (app.treevite_write.is_none() || req.method != "POST")
+    {
         return bad_gateway();
     }
     // redirectIfNotHttps (domain.ts), ahead of every other middleware.
@@ -1950,6 +1919,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
             req.headers.get("content-encoding"),
         )
     {
+        if crate::treevite_write::matches(req.path()) && app.treevite_write.is_some() {
+            return parameter_error(app, req, default_head(None));
+        }
         return bad_gateway();
     }
     let body = match params::parse_body(req.headers.get("content-type"), has_body, &req.body) {
@@ -1964,19 +1936,10 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         }
     };
     // writeDefaultHead, compress, addCorsHeader.
-    let origin = match if matches!(
-        req.path(),
-        crate::robots::PATH | crate::about::PATH | crate::perf_stats::PATH
-    ) || crate::conversation_pages::matches(req.path())
-        || crate::link_pages::matches(req.path())
-        || crate::create_page::matches(req.path())
-        || crate::settings_page::matches(req.path())
-        || crate::other_conversations_page::matches(req.path())
+    let origin = match if matches!(req.path(), crate::robots::PATH | crate::perf_stats::PATH)
+        || crate::conversation_pages::matches(req.path())
         || crate::integrate_page::matches(req.path())
         || crate::admin_page::matches(req.path())
-        || crate::user_logout_page::matches(req.path())
-        || crate::user_login_page::matches(req.path())
-        || crate::user_create_page::matches(req.path())
     {
         Ok(None)
     } else {
@@ -1995,6 +1958,15 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
         res.status = 204;
         return send(req, res, Payload::Text("No Content".into()));
     }
+    if req.path() == crate::post_treevite_waves::PATH && req.method == "POST" {
+        return crate::post_treevite_waves::handle(app, req, res).await;
+    }
+    if req.path() == crate::post_votes::PATH && req.method == "POST" {
+        return crate::post_votes::handle(app, req, res).await;
+    }
+    if crate::treevite_write::matches(req.path()) {
+        return crate::treevite_write::handle(app, req, &body, res).await;
+    }
     if req.path() == crate::metadata_query::PATH {
         return crate::metadata_query::handle(app, req, res).await;
     }
@@ -2009,29 +1981,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::next_comment::PATH {
         return crate::next_comment::handle(app, req, res).await;
     }
-    if crate::settings_page::matches(req.path()) {
-        return crate::settings_page::handle(app, req, res);
-    }
-    if crate::other_conversations_page::matches(req.path()) {
-        return crate::other_conversations_page::handle(app, req, res).await;
-    }
     if crate::integrate_page::matches(req.path()) {
         return crate::integrate_page::handle(app, req, res).await;
     }
     if crate::admin_page::matches(req.path()) {
         return crate::admin_page::handle(app, req, res).await;
-    }
-    if crate::user_logout_page::matches(req.path()) {
-        return crate::user_logout_page::handle(app, req, res);
-    }
-    if crate::user_login_page::matches(req.path()) {
-        return crate::user_login_page::handle(app, req, res);
-    }
-    if crate::user_create_page::matches(req.path()) {
-        return crate::user_create_page::handle(app, req, res);
-    }
-    if crate::create_page::matches(req.path()) {
-        return crate::create_page::handle(app, req, res);
     }
     if crate::ops_catchall::matches(req.path()) {
         return crate::ops_catchall::handle(app, req, res);
@@ -2042,9 +1996,6 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::ops_whoami::PATH {
         return crate::ops_whoami::handle(app, req, res);
     }
-    if req.path() == crate::about::PATH {
-        return crate::about::handle(app, req, res);
-    }
     if req.path() == crate::robots::PATH {
         return crate::robots::handle(app, req, res);
     }
@@ -2053,6 +2004,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::perf_stats::PATH {
         return crate::perf_stats::handle(app, req, res);
+    }
+    if req.path() == crate::version::PATH {
+        return crate::version::handle(req, res);
     }
     if req.path() == crate::connection::PATH {
         return crate::connection::handle(app, req, res);
@@ -2138,9 +2092,7 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if req.path() == crate::treevite_waves::PATH {
         return crate::treevite_waves::handle(app, req, res).await;
     }
-    if req.path() == crate::legacy_pca::PATH {
-        return crate::legacy_pca::handle(app, req, res);
-    }
+
     if req.path() == crate::recent_activity::PATH {
         return crate::recent_activity::handle(app, req, res).await;
     }
@@ -2165,8 +2117,11 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if crate::conversation_pages::matches(req.path()) {
         return crate::conversation_pages::handle(app, req, res).await;
     }
-    if crate::link_pages::matches(req.path()) {
-        return crate::link_pages::handle(app, req, res).await;
+    if req.path() == crate::moderation_comments::PATH {
+        return crate::moderation_comments::handle(app, req, res).await;
+    }
+    if req.path() == crate::participant_comments::PATH {
+        return crate::participant_comments::handle(app, req, res).await;
     }
     if req.path() == crate::participants_read::PATH {
         return crate::participants_read::handle(app, req, res).await;
@@ -2399,6 +2354,49 @@ async fn pca2(app: &App, req: &Request, body: &Js, mut res: Res) -> anyhow::Resu
 mod tests {
     use super::*;
     use crate::http::Headers;
+
+    #[tokio::test]
+    async fn health_has_all_identity_keys_zero_at_start() {
+        let counters = polis_auth::observability::Counters::new();
+        let response = crate::health_observed(&app(false), &counters).await;
+        let Body::Fixed(bytes) = response.body else {
+            panic!("fixed health body")
+        };
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            body["identity"].as_object().unwrap().len(),
+            polis_auth::observability::Event::ALL.len()
+        );
+        for &event in polis_auth::observability::Event::ALL {
+            assert_eq!(body["identity"][event.label()], 0, "{}", event.label());
+        }
+    }
+
+    #[test]
+    fn json_response_constructors_count_refusals_before_head_removes_body() {
+        let counters = polis_auth::observability::Counters::new();
+        let body = r#"{"error":"No authentication token found"}"#;
+        for method in ["GET", "HEAD"] {
+            let req = request(method, &[]);
+            let value = js::parse(body).unwrap();
+            let first = json_observed(&req, Res::new(401), &value, &counters);
+            let second = json_text_observed(&req, Res::new(200), 401, body.into(), &counters);
+            assert_eq!(first.status, 401);
+            assert_eq!(second.status, 401);
+            json_observed(&req, Res::new(200), &value, &counters);
+            json_text_observed(&req, Res::new(200), 200, body.into(), &counters);
+        }
+        for (label, count) in counters.snapshot() {
+            assert_eq!(
+                count,
+                if label == "refusal_no_authentication_token_found" {
+                    4
+                } else {
+                    0
+                }
+            );
+        }
+    }
 
     fn request(method: &str, headers: &[(&str, &str)]) -> Request {
         Request {
@@ -4426,8 +4424,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn five_conversation_page_switches_and_boundaries_are_independent() {
-        let prefixes = ["/", "/explore/", "/share/", "/summary/", "/ot/"];
+    async fn conversation_page_switch_and_boundaries() {
+        let prefixes = ["/"];
         for (index, prefix) in prefixes.iter().enumerate() {
             let mut state = app(true);
             let pool = state.db.clone();
@@ -4463,6 +4461,102 @@ mod tests {
                 0
             );
         }
+    }
+
+    #[tokio::test]
+    async fn moderation_comments_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target =
+                "/api/v3/comments/moderation?conversation_id=4fixture&mod=0&limit=50&offset=0"
+                    .into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().moderation_comments_db = Some(pool.clone());
+        Arc::get_mut(&mut state)
+            .unwrap()
+            .moderation_comments_auth_db = Some(pool);
+        assert!(crate::moderation_comments::parse(&state, &make()).is_ok());
+        assert_eq!(handle(state.clone(), make()).await.status, 403);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!(
+                "/api/v3/comments/moderation?conversation_id=4fixture&mod=0&limit=50&offset=0{tail}"
+            );
+            assert!(
+                crate::moderation_comments::parse(&state, &req)
+                    == Err(crate::moderation_comments::ParseError::Handback)
+            );
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::moderation_comments::parse(&state, &no_auth).is_ok());
+        assert_eq!(state.moderation_comments_served.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            state.moderation_comments_fallback.load(Ordering::Relaxed),
+            7
+        );
+    }
+
+    #[tokio::test]
+    async fn participant_comments_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request(
+                "GET",
+                &[("host", "localhost"), ("authorization", "Bearer generated")],
+            );
+            req.target = "/api/v3/comments/participant?conversation_id=4fixture".into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().participant_comments_db = Some(pool.clone());
+        Arc::get_mut(&mut state)
+            .unwrap()
+            .participant_comments_auth_db = Some(pool);
+        assert!(crate::participant_comments::parse(&state, &make()).is_some());
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut headers = vec![("host", "localhost"), ("authorization", "Bearer generated")];
+            headers.extend(extra);
+            let mut req = request(method, &headers);
+            req.target = format!("/api/v3/comments/participant?conversation_id=4fixture{tail}");
+            assert!(crate::participant_comments::parse(&state, &req).is_none());
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut no_auth = request("GET", &[("host", "localhost")]);
+        no_auth.target = make().target;
+        assert!(crate::participant_comments::parse(&state, &no_auth).is_some());
+        assert_eq!(state.participant_comments_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.participant_comments_fallback.load(Ordering::Relaxed),
+            9
+        );
     }
 
     #[tokio::test]
@@ -4503,44 +4597,6 @@ mod tests {
         assert!(crate::participants_read::parse(&state, &no_auth).is_none());
         assert_eq!(state.participants_read_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.participants_read_fallback.load(Ordering::Relaxed), 9);
-    }
-
-    #[tokio::test]
-    async fn link_pages_switches_admission_and_unreachable_database() {
-        let mut state = app(true);
-        for prefix in ["iip", "iim"] {
-            let mut req = request("GET", &[("host", "localhost")]);
-            req.target = format!("/{prefix}/4fixture");
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let pool = state.db.clone();
-        Arc::get_mut(&mut state).unwrap().iip_db = Some(pool.clone());
-        let mut req = request("GET", &[("host", "localhost")]);
-        req.target = "/iim/4fixture".into();
-        assert!(crate::link_pages::parse(&state, &req).is_none());
-        req.target = "/iip/4fixture".into();
-        assert!(crate::link_pages::parse(&state, &req).is_some());
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        Arc::get_mut(&mut state).unwrap().iim_db = Some(pool);
-        for prefix in ["iip", "iim"] {
-            for (method, suffix, headers) in [
-                ("POST", "", vec![]),
-                ("OPTIONS", "", vec![]),
-                ("GET", "?other=1", vec![]),
-                ("GET", "/extra", vec![]),
-                ("GET", "%20", vec![]),
-                ("GET", "", vec![("cookie", "x=y")]),
-                ("GET", "", vec![("authorization", "Bearer bad")]),
-                ("GET", "", vec![("content-length", "2")]),
-            ] {
-                let mut req = request(method, &headers);
-                req.target = format!("/{prefix}/4fixture{suffix}");
-                assert!(crate::link_pages::parse(&state, &req).is_none());
-                assert_eq!(handle(state.clone(), req).await.status, 502);
-            }
-        }
-        assert_eq!(state.iip_served.load(Ordering::Relaxed), 0);
-        assert_eq!(state.iim_served.load(Ordering::Relaxed), 0);
     }
 
     #[tokio::test]
@@ -4629,6 +4685,75 @@ mod tests {
         }
         assert_eq!(state.votes_read_served.load(Ordering::Relaxed), 0);
         assert_eq!(state.votes_read_fallback.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn version_is_off_by_default_and_needs_no_database() {
+        let mut state = app(true);
+        let probe = |method, headers: &[(&str, &str)]| {
+            let mut req = request(method, headers);
+            req.target = crate::version::PATH.into();
+            req
+        };
+        assert_eq!(handle(state.clone(), probe("GET", &[])).await.status, 502);
+        Arc::get_mut(&mut state).unwrap().version_reads = true;
+        let out = handle(state.clone(), probe("GET", &[])).await;
+        assert_eq!(out.status, 200);
+        let header = |name: &str| {
+            out.headers
+                .iter()
+                .find(|(k, _)| k == name)
+                .unwrap()
+                .1
+                .clone()
+        };
+        assert_eq!(header("Cache-Control"), "no-store");
+        assert_eq!(header("Content-Type"), "application/json; charset=utf-8");
+        let Body::Fixed(body) = &out.body else {
+            panic!("fixed version JSON")
+        };
+        let info: serde_json::Value = serde_json::from_slice(body).unwrap();
+        assert_eq!(info.as_object().unwrap().len(), 6);
+        assert_eq!(header("Content-Length"), body.len().to_string());
+        let head = handle(state.clone(), probe("HEAD", &[])).await;
+        assert_eq!(head.status, 200);
+        let head_wire = crate::http::write_response(&head, true, false, "fixture date").unwrap();
+        assert!(head_wire.ends_with(b"\r\n\r\n"));
+        let etag = header("ETag");
+        let conditional = handle(state.clone(), probe("GET", &[("if-none-match", &etag)])).await;
+        assert_eq!(conditional.status, 304); // Express freshness still applies to no-store.
+        assert!(
+            conditional
+                .headers
+                .iter()
+                .any(|(k, v)| k == "Cache-Control" && v == "no-store")
+        );
+        for method in ["POST", "OPTIONS"] {
+            assert_eq!(handle(state.clone(), probe(method, &[])).await.status, 502);
+        }
+        for headers in [
+            vec![("content-length", "1")],
+            vec![("transfer-encoding", "chunked")],
+        ] {
+            assert_eq!(
+                handle(state.clone(), probe("GET", &headers)).await.status,
+                502
+            );
+        }
+        let mut query = probe(
+            "GET",
+            &[("authorization", "Bearer ignored"), ("cookie", "ignored=1")],
+        );
+        query.target.push_str("?ignored=1");
+        assert_eq!(handle(state.clone(), query).await.status, 200);
+        let mut secure = app(false);
+        Arc::get_mut(&mut secure).unwrap().version_reads = true;
+        assert_eq!(
+            handle(secure, probe("GET", &[("host", "localhost")]))
+                .await
+                .status,
+            302
+        );
     }
 
     #[tokio::test]
@@ -4782,616 +4907,6 @@ mod tests {
         assert_eq!(state.robots_fallback.load(Ordering::Relaxed), 6);
     }
 
-    #[tokio::test]
-    async fn legacy_pca_has_no_database_work_and_preserves_304_end() {
-        let mut state = app(true);
-        let probe = |method: &str| {
-            let mut req = request(method, &[("host", "localhost")]);
-            req.target = format!(
-                "{}?conversation_id=fixture&math_tick=7",
-                crate::legacy_pca::PATH
-            );
-            req
-        };
-        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
-        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
-        for method in ["GET", "HEAD"] {
-            let out = handle(state.clone(), probe(method)).await;
-            assert_eq!(out.status, 304);
-            assert!(matches!(out.body, Body::Empty));
-            assert!(out.headers.iter().any(|(k,v)|k.eq_ignore_ascii_case("content-type") && v=="application/json"));
-            assert!(
-                !out.headers
-                    .iter()
-                    .any(|(k, _)| k.eq_ignore_ascii_case("etag"))
-            );
-        }
-        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 2);
-        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 1);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().legacy_pca_reads = true;
-        assert_eq!(handle(secure, probe("GET")).await.status, 302);
-    }
-    #[tokio::test]
-    async fn legacy_pca_boundaries_are_counted_handoffs() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().legacy_pca_reads = true;
-        for (method, headers) in [
-            ("POST", vec![]),
-            ("OPTIONS", vec![]),
-            ("GET", vec![("authorization", "Bearer fixture")]),
-            ("GET", vec![("cookie", "fixture=1")]),
-            ("GET", vec![("content-length", "1")]),
-        ] {
-            let mut req = request(method, &headers);
-            req.target = crate::legacy_pca::PATH.into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        assert_eq!(state.legacy_pca_served.load(Ordering::Relaxed), 0);
-        assert_eq!(state.legacy_pca_fallback.load(Ordering::Relaxed), 5);
-    }
-
-    #[tokio::test]
-    async fn about_probe_is_off_by_default_and_needs_no_database() {
-        let mut state = app(true);
-        let probe = |method| {
-            let mut req = request(method, &[("host", "localhost")]);
-            req.target = crate::about::PATH.into();
-            req
-        };
-        assert_eq!(handle(state.clone(), probe("GET")).await.status, 502);
-        Arc::get_mut(&mut state).unwrap().about_reads = true;
-        let out = handle(state.clone(), probe("GET")).await;
-        assert_eq!(out.status, 302); // No DB wait.
-        assert_eq!(header(&out, "Location"), Some("http://localhost/home"));
-        assert_eq!(handle(state.clone(), probe("HEAD")).await.status, 302);
-        assert_eq!(state.about_served.load(Ordering::Relaxed), 2);
-        assert_eq!(state.about_fallback.load(Ordering::Relaxed), 1);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().about_reads = true;
-        assert_eq!(handle(secure.clone(), probe("GET")).await.status, 302);
-        let mut req = probe("GET");
-        req.headers = Headers::from_raw([
-            ("host", "localhost"),
-            ("x-forwarded-proto", "https"),
-            ("origin", "https://example.invalid"),
-        ]);
-        let out = handle(secure, req).await;
-        assert_eq!(out.status, 302);
-        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
-    }
-    #[tokio::test]
-    async fn about_boundaries_are_counted_node_handoffs() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().about_reads = true;
-        for (method, target, headers) in [
-            ("POST", crate::about::PATH, vec![]),
-            ("OPTIONS", crate::about::PATH, vec![]),
-            ("GET", "/about?unknown=1", vec![]),
-            (
-                "GET",
-                crate::about::PATH,
-                vec![("authorization", "Bearer fixture")],
-            ),
-            ("GET", crate::about::PATH, vec![("cookie", "fixture=1")]),
-            ("GET", crate::about::PATH, vec![("content-length", "1")]),
-        ] {
-            let mut req = request(method, &headers);
-            req.target = target.into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        assert_eq!(state.about_served.load(Ordering::Relaxed), 0);
-        assert_eq!(state.about_fallback.load(Ordering::Relaxed), 6);
-    }
-
-    #[tokio::test]
-    async fn create_page_redirect_gate_and_wire() {
-        let mut state = app(true);
-        let probe = |method, path: &str, ua: &str| {
-            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
-            req.target = path.into();
-            req
-        };
-        assert_eq!(
-            handle(
-                state.clone(),
-                probe("GET", "/conversation/create", "MSIE 8.0")
-            )
-            .await
-            .status,
-            502
-        );
-        Arc::get_mut(&mut state).unwrap().create_page_reads = true;
-        for path in [
-            "/conversation/create",
-            "/conversation/create/step",
-            "/conversation/createSuffix",
-        ] {
-            for method in ["GET", "HEAD"] {
-                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
-                assert_eq!(out.status, 302);
-                assert_eq!(
-                    header(&out, "Location"),
-                    Some(format!("https://localhost:5000/#{path}").as_str())
-                );
-                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
-                assert_eq!(header(&out, "ETag"), None);
-            }
-        }
-        assert_eq!(state.create_page_served.load(Ordering::Relaxed), 6);
-        for ua in [
-            "Mozilla/5.0",
-            "MSIE 7.0",
-            "MSIE 10.0",
-            "msie 8.0",
-            "MSIE 8.0 MSIE 6.0",
-            "",
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe("GET", "/conversation/create", ua))
-                    .await
-                    .status,
-                502
-            );
-        }
-        for (method, path) in [
-            ("POST", "/conversation/create"),
-            ("OPTIONS", "/conversation/create"),
-            ("GET", "/conversation/create?x=1"),
-            ("GET", "/conversation/create/%20"),
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe(method, path, "MSIE 8.0"))
-                    .await
-                    .status,
-                502
-            );
-        }
-        assert_eq!(state.create_page_fallback.load(Ordering::Relaxed), 11);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().create_page_reads = true;
-        let mut req = probe("GET", "/conversation/create", "MSIE 8.0");
-        req.headers = Headers::from_raw([
-            ("host", "localhost"),
-            ("user-agent", "MSIE 8.0"),
-            ("x-forwarded-proto", "https"),
-            ("origin", "https://example.invalid"),
-        ]);
-        let out = handle(secure, req).await;
-        assert_eq!(out.status, 302);
-        assert_eq!(
-            header(&out, "Location"),
-            Some("https://localhost/#/conversation/create")
-        );
-        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
-    }
-    #[tokio::test]
-    async fn create_page_headers_and_body_stay_on_node() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().create_page_reads = true;
-        for extra in [
-            ("cookie", "fixture=1"),
-            ("authorization", "Bearer fixture"),
-            ("content-length", "1"),
-            ("transfer-encoding", "chunked"),
-        ] {
-            let mut req = request(
-                "GET",
-                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
-            );
-            req.target = "/conversation/create".into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
-        req.target = "/conversation/create".into();
-        req.body = vec![b'x'];
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        assert_eq!(state.create_page_fallback.load(Ordering::Relaxed), 5);
-    }
-    #[tokio::test]
-    async fn user_create_page_redirect_gate_and_wire() {
-        assert!(crate::user_create_page::matches("/user/create"));
-        assert!(crate::user_create_page::matches("/user/create/step"));
-        assert!(!crate::user_create_page::matches("/user/createSuffix"));
-        assert!(!crate::user_create_page::matches("/user/creat"));
-        let mut state = app(true);
-        let probe = |method, path: &str, ua: &str| {
-            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
-            req.target = path.into();
-            req
-        };
-        assert_eq!(
-            handle(state.clone(), probe("GET", "/user/create", "MSIE 8.0"))
-                .await
-                .status,
-            502
-        );
-        Arc::get_mut(&mut state).unwrap().user_create_page_reads = true;
-        for path in ["/user/create", "/user/create/step", "/user/create/"] {
-            for method in ["GET", "HEAD"] {
-                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
-                assert_eq!(out.status, 302);
-                assert_eq!(
-                    header(&out, "Location"),
-                    Some(format!("https://localhost:5000/#{path}").as_str())
-                );
-                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
-                assert_eq!(header(&out, "ETag"), None);
-            }
-        }
-        assert_eq!(state.user_create_page_served.load(Ordering::Relaxed), 6);
-        for ua in [
-            "Mozilla/5.0",
-            "MSIE 7.0",
-            "MSIE 10.0",
-            "msie 8.0",
-            "MSIE 8.0 MSIE 6.0",
-            "",
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe("GET", "/user/create", ua))
-                    .await
-                    .status,
-                502
-            );
-        }
-        for (method, path) in [
-            ("POST", "/user/create"),
-            ("OPTIONS", "/user/create"),
-            ("GET", "/user/create?x=1"),
-            ("GET", "/user/create/%20"),
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe(method, path, "MSIE 8.0"))
-                    .await
-                    .status,
-                502
-            );
-        }
-        assert_eq!(state.user_create_page_fallback.load(Ordering::Relaxed), 11);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().user_create_page_reads = true;
-        let mut req = probe("GET", "/user/create", "MSIE 8.0");
-        req.headers = Headers::from_raw([
-            ("host", "localhost"),
-            ("user-agent", "MSIE 8.0"),
-            ("x-forwarded-proto", "https"),
-            ("origin", "https://example.invalid"),
-        ]);
-        let out = handle(secure, req).await;
-        assert_eq!(out.status, 302);
-        assert_eq!(
-            header(&out, "Location"),
-            Some("https://localhost/#/user/create")
-        );
-        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
-    }
-    #[tokio::test]
-    async fn user_create_page_headers_and_body_stay_on_node() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().user_create_page_reads = true;
-        for extra in [
-            ("cookie", "fixture=1"),
-            ("authorization", "Bearer fixture"),
-            ("content-length", "1"),
-            ("transfer-encoding", "chunked"),
-        ] {
-            let mut req = request(
-                "GET",
-                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
-            );
-            req.target = "/user/create".into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
-        req.target = "/user/create".into();
-        req.body = vec![b'x'];
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        assert_eq!(state.user_create_page_fallback.load(Ordering::Relaxed), 5);
-    }
-    #[tokio::test]
-    async fn user_login_page_redirect_gate_and_wire() {
-        assert!(crate::user_login_page::matches("/user/login"));
-        assert!(crate::user_login_page::matches("/user/login/step"));
-        assert!(!crate::user_login_page::matches("/user/loginSuffix"));
-        assert!(!crate::user_login_page::matches("/user/logi"));
-        let mut state = app(true);
-        let probe = |method, path: &str, ua: &str| {
-            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
-            req.target = path.into();
-            req
-        };
-        assert_eq!(
-            handle(state.clone(), probe("GET", "/user/login", "MSIE 8.0"))
-                .await
-                .status,
-            502
-        );
-        Arc::get_mut(&mut state).unwrap().user_login_page_reads = true;
-        for path in ["/user/login", "/user/login/step", "/user/login/"] {
-            for method in ["GET", "HEAD"] {
-                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
-                assert_eq!(out.status, 302);
-                assert_eq!(
-                    header(&out, "Location"),
-                    Some(format!("https://localhost:5000/#{path}").as_str())
-                );
-                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
-                assert_eq!(header(&out, "ETag"), None);
-            }
-        }
-        assert_eq!(state.user_login_page_served.load(Ordering::Relaxed), 6);
-        for ua in [
-            "Mozilla/5.0",
-            "MSIE 7.0",
-            "MSIE 10.0",
-            "msie 8.0",
-            "MSIE 8.0 MSIE 6.0",
-            "",
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe("GET", "/user/login", ua))
-                    .await
-                    .status,
-                502
-            );
-        }
-        for (method, path) in [
-            ("POST", "/user/login"),
-            ("OPTIONS", "/user/login"),
-            ("GET", "/user/login?x=1"),
-            ("GET", "/user/login/%20"),
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe(method, path, "MSIE 8.0"))
-                    .await
-                    .status,
-                502
-            );
-        }
-        assert_eq!(state.user_login_page_fallback.load(Ordering::Relaxed), 11);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().user_login_page_reads = true;
-        let mut req = probe("GET", "/user/login", "MSIE 8.0");
-        req.headers = Headers::from_raw([
-            ("host", "localhost"),
-            ("user-agent", "MSIE 8.0"),
-            ("x-forwarded-proto", "https"),
-            ("origin", "https://example.invalid"),
-        ]);
-        let out = handle(secure, req).await;
-        assert_eq!(out.status, 302);
-        assert_eq!(
-            header(&out, "Location"),
-            Some("https://localhost/#/user/login")
-        );
-        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
-    }
-    #[tokio::test]
-    async fn user_login_page_headers_and_body_stay_on_node() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().user_login_page_reads = true;
-        for extra in [
-            ("cookie", "fixture=1"),
-            ("authorization", "Bearer fixture"),
-            ("content-length", "1"),
-            ("transfer-encoding", "chunked"),
-        ] {
-            let mut req = request(
-                "GET",
-                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
-            );
-            req.target = "/user/login".into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
-        req.target = "/user/login".into();
-        req.body = vec![b'x'];
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        assert_eq!(state.user_login_page_fallback.load(Ordering::Relaxed), 5);
-    }
-    #[tokio::test]
-    async fn user_logout_page_redirect_gate_and_wire() {
-        assert!(crate::user_logout_page::matches("/user/logout"));
-        assert!(crate::user_logout_page::matches("/user/logout/step"));
-        assert!(!crate::user_logout_page::matches("/user/logoutSuffix"));
-        assert!(!crate::user_logout_page::matches("/user/logou"));
-        let mut state = app(true);
-        let probe = |method, path: &str, ua: &str| {
-            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
-            req.target = path.into();
-            req
-        };
-        assert_eq!(
-            handle(state.clone(), probe("GET", "/user/logout", "MSIE 8.0"))
-                .await
-                .status,
-            502
-        );
-        Arc::get_mut(&mut state).unwrap().user_logout_page_reads = true;
-        for path in ["/user/logout", "/user/logout/step", "/user/logout/"] {
-            for method in ["GET", "HEAD"] {
-                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
-                assert_eq!(out.status, 302);
-                assert_eq!(
-                    header(&out, "Location"),
-                    Some(format!("https://localhost:5000/#{path}").as_str())
-                );
-                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
-                assert_eq!(header(&out, "ETag"), None);
-            }
-        }
-        assert_eq!(state.user_logout_page_served.load(Ordering::Relaxed), 6);
-        for ua in [
-            "Mozilla/5.0",
-            "MSIE 7.0",
-            "MSIE 10.0",
-            "msie 8.0",
-            "MSIE 8.0 MSIE 6.0",
-            "",
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe("GET", "/user/logout", ua))
-                    .await
-                    .status,
-                502
-            );
-        }
-        for (method, path) in [
-            ("POST", "/user/logout"),
-            ("OPTIONS", "/user/logout"),
-            ("GET", "/user/logout?x=1"),
-            ("GET", "/user/logout/%20"),
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe(method, path, "MSIE 8.0"))
-                    .await
-                    .status,
-                502
-            );
-        }
-        assert_eq!(state.user_logout_page_fallback.load(Ordering::Relaxed), 11);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().user_logout_page_reads = true;
-        let mut req = probe("GET", "/user/logout", "MSIE 8.0");
-        req.headers = Headers::from_raw([
-            ("host", "localhost"),
-            ("user-agent", "MSIE 8.0"),
-            ("x-forwarded-proto", "https"),
-            ("origin", "https://example.invalid"),
-        ]);
-        let out = handle(secure, req).await;
-        assert_eq!(out.status, 302);
-        assert_eq!(
-            header(&out, "Location"),
-            Some("https://localhost/#/user/logout")
-        );
-        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
-    }
-    #[tokio::test]
-    async fn user_logout_page_headers_and_body_stay_on_node() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().user_logout_page_reads = true;
-        for extra in [
-            ("cookie", "fixture=1"),
-            ("authorization", "Bearer fixture"),
-            ("content-length", "1"),
-            ("transfer-encoding", "chunked"),
-        ] {
-            let mut req = request(
-                "GET",
-                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
-            );
-            req.target = "/user/logout".into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
-        req.target = "/user/logout".into();
-        req.body = vec![b'x'];
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        assert_eq!(state.user_logout_page_fallback.load(Ordering::Relaxed), 5);
-    }
-    #[tokio::test]
-    async fn settings_page_redirect_gate_and_wire() {
-        assert!(crate::settings_page::matches("/settings"));
-        assert!(crate::settings_page::matches("/settings/step"));
-        assert!(!crate::settings_page::matches("/settingsSuffix"));
-        assert!(!crate::settings_page::matches("/setting"));
-        let mut state = app(true);
-        let probe = |method, path: &str, ua: &str| {
-            let mut req = request(method, &[("host", "localhost:5000"), ("user-agent", ua)]);
-            req.target = path.into();
-            req
-        };
-        assert_eq!(
-            handle(state.clone(), probe("GET", "/settings", "MSIE 8.0"))
-                .await
-                .status,
-            502
-        );
-        Arc::get_mut(&mut state).unwrap().settings_page_reads = true;
-        for path in ["/settings", "/settings/step", "/settings/"] {
-            for method in ["GET", "HEAD"] {
-                let out = handle(state.clone(), probe(method, path, "MSIE 9.0")).await;
-                assert_eq!(out.status, 302);
-                assert_eq!(
-                    header(&out, "Location"),
-                    Some(format!("https://localhost:5000/#{path}").as_str())
-                );
-                assert_eq!(header(&out, "Content-Type"), Some("application/json"));
-                assert_eq!(header(&out, "ETag"), None);
-            }
-        }
-        assert_eq!(state.settings_page_served.load(Ordering::Relaxed), 6);
-        for ua in [
-            "Mozilla/5.0",
-            "MSIE 7.0",
-            "MSIE 10.0",
-            "msie 8.0",
-            "MSIE 8.0 MSIE 6.0",
-            "",
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe("GET", "/settings", ua))
-                    .await
-                    .status,
-                502
-            );
-        }
-        for (method, path) in [
-            ("POST", "/settings"),
-            ("OPTIONS", "/settings"),
-            ("GET", "/settings?x=1"),
-            ("GET", "/settings/%20"),
-        ] {
-            assert_eq!(
-                handle(state.clone(), probe(method, path, "MSIE 8.0"))
-                    .await
-                    .status,
-                502
-            );
-        }
-        assert_eq!(state.settings_page_fallback.load(Ordering::Relaxed), 11);
-        let mut secure = app(false);
-        Arc::get_mut(&mut secure).unwrap().settings_page_reads = true;
-        let mut req = probe("GET", "/settings", "MSIE 8.0");
-        req.headers = Headers::from_raw([
-            ("host", "localhost"),
-            ("user-agent", "MSIE 8.0"),
-            ("x-forwarded-proto", "https"),
-            ("origin", "https://example.invalid"),
-        ]);
-        let out = handle(secure, req).await;
-        assert_eq!(out.status, 302);
-        assert_eq!(
-            header(&out, "Location"),
-            Some("https://localhost/#/settings")
-        );
-        assert_eq!(header(&out, "Access-Control-Allow-Origin"), None);
-    }
-    #[tokio::test]
-    async fn settings_page_headers_and_body_stay_on_node() {
-        let mut state = app(true);
-        Arc::get_mut(&mut state).unwrap().settings_page_reads = true;
-        for extra in [
-            ("cookie", "fixture=1"),
-            ("authorization", "Bearer fixture"),
-            ("content-length", "1"),
-            ("transfer-encoding", "chunked"),
-        ] {
-            let mut req = request(
-                "GET",
-                &[("host", "localhost"), ("user-agent", "MSIE 8.0"), extra],
-            );
-            req.target = "/settings".into();
-            assert_eq!(handle(state.clone(), req).await.status, 502);
-        }
-        let mut req = request("GET", &[("host", "localhost"), ("user-agent", "MSIE 8.0")]);
-        req.target = "/settings".into();
-        req.body = vec![b'x'];
-        assert_eq!(handle(state.clone(), req).await.status, 502);
-        assert_eq!(state.settings_page_fallback.load(Ordering::Relaxed), 5);
-    }
     fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {
         out.headers
             .iter()
@@ -5728,116 +5243,6 @@ mod tests {
         }
         assert_eq!(state.integrate_page_served.load(Ordering::Relaxed), 2);
         assert_eq!(state.integrate_page_fallback.load(Ordering::Relaxed), 11);
-    }
-    #[tokio::test]
-    async fn other_conversations_page_gate_boundaries_and_wire() {
-        let mut state = app(true);
-        let mut req = request("GET", &[("host", "localhost")]);
-        req.target = "/other-conversations".into();
-        assert_eq!(
-            handle(
-                state.clone(),
-                Request {
-                    method: req.method.clone(),
-                    target: req.target.clone(),
-                    headers: req.headers.clone(),
-                    body: req.body.clone()
-                }
-            )
-            .await
-            .status,
-            502
-        );
-        Arc::get_mut(&mut state).unwrap().integrate_page =
-            Some(crate::admin_page::Client::new("127.0.0.1".into(), 1).unwrap());
-        assert!(crate::other_conversations_page::parse(&state, &req).is_none());
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let port = listener.local_addr().unwrap().port();
-        Arc::get_mut(&mut state).unwrap().other_conversations_page =
-            Some(crate::admin_page::Client::new("127.0.0.1".into(), port).unwrap());
-        let task = tokio::spawn(async move {
-            use tokio::io::{AsyncReadExt, AsyncWriteExt};
-            for _ in 0..2 {
-                let (mut socket, _) = listener.accept().await.unwrap();
-                let mut b = [0; 4096];
-                let n = socket.read(&mut b).await.unwrap();
-                let body = if b[..n].starts_with(b"HEAD ") {
-                    ""
-                } else {
-                    "html"
-                };
-                socket
-                    .write_all(
-                        format!("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n{body}").as_bytes(),
-                    )
-                    .await
-                    .unwrap();
-            }
-        });
-        for method in ["GET", "HEAD"] {
-            req.method = method.into();
-            let out = handle(
-                state.clone(),
-                Request {
-                    method: req.method.clone(),
-                    target: req.target.clone(),
-                    headers: req.headers.clone(),
-                    body: req.body.clone(),
-                },
-            )
-            .await;
-            assert_eq!(out.status, 200);
-            assert_eq!(header(&out, "Content-Type"), Some("text/html"));
-            assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
-            let bytes = crate::http::write_response(&out, method == "HEAD", false, "D").unwrap();
-            let expected = if method == "HEAD" {
-                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\n\r\n"
-            } else {
-                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nVary: Accept-Encoding\r\nDate: D\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nhtml\r\n0\r\n\r\n"
-            };
-            assert_eq!(bytes, expected.as_bytes());
-        }
-        task.await.unwrap();
-        for extra in [
-            ("cookie", "a=b"),
-            ("authorization", "Bearer fixture"),
-            ("range", "bytes=0-1"),
-            ("if-none-match", "*"),
-            ("accept-encoding", "gzip"),
-            ("x-unknown", "1"),
-            ("content-length", "1"),
-        ] {
-            let mut bad = request("GET", &[("host", "localhost"), extra]);
-            bad.target = "/other-conversations".into();
-            assert_eq!(handle(state.clone(), bad).await.status, 502);
-        }
-        for (method, path) in [
-            ("POST", "/other-conversations"),
-            ("GET", "/other-conversations?x=1"),
-            ("GET", "/other-conversations/%20"),
-        ] {
-            let mut bad = Request {
-                method: req.method.clone(),
-                target: req.target.clone(),
-                headers: req.headers.clone(),
-                body: req.body.clone(),
-            };
-            bad.method = method.into();
-            bad.target = path.into();
-            assert_eq!(handle(state.clone(), bad).await.status, 502);
-        }
-        assert_eq!(
-            state
-                .other_conversations_page_served
-                .load(Ordering::Relaxed),
-            2
-        );
-        assert_eq!(
-            state
-                .other_conversations_page_fallback
-                .load(Ordering::Relaxed),
-            11
-        );
     }
     #[tokio::test]
     async fn delphi_validation_gate_boundaries_and_missing_without_database() {

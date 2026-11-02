@@ -1,0 +1,23 @@
+services:
+  server:
+    command: ["node", "characterization/identity/entry.cjs"]
+    volumes:
+      - ../../VERSION:/VERSION:ro
+    environment:
+      # Reuse the existing completed-idle-TLS classification for OIDC requests.
+      P027_VOTES_PROFILE: "1"
+      DEV_MODE: "false"
+      LOGIN_CODE_PEPPER: generated-identity-pepper
+      ENCRYPTION_PASSWORD_00001: generated-identity-fingerprint
+  driver:
+    volumes:
+      - ../../VERSION:/VERSION:ro
+      - ../app.ts:/app/app.ts:ro
+      - ../src:/app/src:ro
+      - ../__tests__:/app/__tests__:ro
+      - ../jest.config.ts:/app/jest.config.ts:ro
+    environment:
+      DEV_MODE: "false"
+      P027_VOTES_PROFILE: "1"
+      LOGIN_CODE_PEPPER: generated-identity-pepper
+      ENCRYPTION_PASSWORD_00001: generated-identity-fingerprint

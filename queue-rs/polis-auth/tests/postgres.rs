@@ -78,7 +78,8 @@ fn node_site_equality_owner_and_administrator_matrix() {
             expected
         );
     }
-    db.batch_execute("drop table conversations").unwrap();
+    db.batch_execute("drop table conversations; set search_path = pg_temp")
+        .unwrap();
     assert_eq!(
         PostgresLookup(&mut db).permits(Zid(10), Uid(1), Level::Moderator),
         Err(Unavailable)

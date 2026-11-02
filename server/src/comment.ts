@@ -9,7 +9,6 @@ import Config from "./config";
 import pg from "./db/pg-query";
 import SQL from "./db/sql";
 import Utils from "./utils/common";
-import { isProConvo } from "./routes/comments";
 import { UUID } from "crypto";
 import logger from "./utils/logger";
 import { storageToSemantic } from "./votes/convention";
@@ -235,7 +234,6 @@ function _getCommentsForModerationList(o: {
 }): Promise<CommentRow[]> {
   let strictCheck: Promise<any> = Promise.resolve(null);
   const include_voting_patterns = o.include_voting_patterns;
-  let isProOwner = false;
   let conversationStrict = false;
 
   if (o.modIn) {
@@ -249,16 +247,11 @@ function _getCommentsForModerationList(o: {
   }
 
   return pg
-    .queryP(
-      "select owner, strict_moderation from conversations where zid = ($1);",
-      [o.zid]
-    )
-    .then(async (z: { owner: number; strict_moderation: boolean }[]) => {
+    .queryP("select strict_moderation from conversations where zid = ($1);", [
+      o.zid,
+    ])
+    .then((z: { strict_moderation: boolean }[]) => {
       conversationStrict = Boolean(z[0]?.strict_moderation);
-      isProOwner =
-        o.mod_gt && Number(o.mod_gt) > -2
-          ? await isProConvo(z[0].owner)
-          : false;
     })
     .then(() =>
       strictCheck.then((strict_moderation): Promise<CommentRow[]> => {
@@ -267,7 +260,11 @@ function _getCommentsForModerationList(o: {
         if (!_.isUndefined(o.mod)) {
           modClause = " and comments.mod = ($2)";
           params.push(o.mod);
-        } else if (isProOwner) {
+        } else if (!_.isUndefined(o.mod_gt) && Number(o.mod_gt) > -2) {
+          // The report's moderation level selector. It used to apply only when
+          // the conversation owner's account carried a paid role, looked up at
+          // the identity provider on every read; the filter now applies for
+          // every conversation and no account is looked up.
           modClause = " and comments.mod > ($2)";
           params.push(o.mod_gt);
         } else if (!_.isUndefined(o.modIn)) {

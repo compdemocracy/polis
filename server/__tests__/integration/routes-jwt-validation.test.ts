@@ -247,16 +247,7 @@ describe("JWT Route Validation Matrix", () => {
     });
   });
 
-  describe("Data Export Routes", () => {
-    test("GET /api/v3/dataExport - Request data export", async () => {
-      const { agent } = await getJwtAuthenticatedAgent(testUser);
-      const response: Response = await agent.get(
-        `/api/v3/dataExport?conversation_id=${baseConversationId}`
-      );
-
-      expect(response.status).toBe(200);
-    });
-  });
+  describe("Data Export Routes", () => {});
 
   describe("Math/Analysis Routes", () => {
     test("GET /api/v3/math/pca2 - Get PCA data (auth optional)", async () => {
@@ -267,16 +258,6 @@ describe("JWT Route Validation Matrix", () => {
 
       // May return 304 if no new data
       expect([200, 304]).toContain(response.status);
-    });
-
-    test("POST /api/v3/math/update - Trigger math update", async () => {
-      const { agent } = await getJwtAuthenticatedAgent(testUser);
-      const response: Response = await agent.post("/api/v3/mathUpdate").send({
-        conversation_id: baseConversationId,
-        math_update_type: "update",
-      });
-
-      expect(response.status).toBe(200);
     });
   });
 
@@ -303,18 +284,7 @@ describe("JWT Route Validation Matrix", () => {
     });
   });
 
-  describe("Invitation Routes", () => {
-    test("POST /api/v3/users/invite - Send invitations", async () => {
-      const { agent } = await getJwtAuthenticatedAgent(testUser);
-      const response: Response = await agent.post("/api/v3/users/invite").send({
-        conversation_id: baseConversationId,
-        emails: `jwt.invite.${Date.now()}@test.com`,
-      });
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("status", "success");
-    });
-  });
+  describe("Invitation Routes", () => {});
 
   describe("Error Cases", () => {
     test("Protected route without JWT returns 401", async () => {
@@ -349,8 +319,6 @@ describe("JWT Route Validation Matrix", () => {
  * - Comments: POST/PUT /api/v3/comments
  * - Participants: GET /api/v3/participants
  * - Reports: GET/POST/PUT /api/v3/reports
- * - Data export: GET /api/v3/dataExport
- * - Invitations: POST /api/v3/users/invite
  *
  * 🔄 Auth-Optional Routes (work with or without JWT):
  * - GET /api/v3/conversations

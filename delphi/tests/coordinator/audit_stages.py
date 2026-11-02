@@ -106,7 +106,7 @@ if closure_path.exists():
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S1 partial record refused: {error}', file=sys.stderr)
 
-# S2 production implementation/local proof is closed by BOARD[633].
+# S2 production implementation/local proof is closed.
 # O1 remains PARTIAL: combined immutable-build/full-app/private certification is open.
 s2_closure_path = root/'coordinator-rs/evidence/s2-closure.json'
 if s2_closure_path.exists():

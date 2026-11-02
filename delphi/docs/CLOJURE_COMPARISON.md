@@ -412,5 +412,4 @@ See the main project documentation in `delphi/CLAUDE.md` for general guidance on
 
 For questions specific to Clojure comparison, check:
 1. This document (CLOJURE_COMPARISON.md)
-2. The plan file: `.claude/plans/logical-prancing-thacker.md`
-3. The comparison utilities: `polismath/regression/clojure_comparer.py`
+2. The comparison utilities: `polismath/regression/clojure_comparer.py`

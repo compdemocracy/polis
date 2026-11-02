@@ -74,9 +74,6 @@ export {
   type XidJwtClaims,
 } from "./jwt-utils";
 
-// Auth-related routes
-export { handle_POST_auth_deregister_jwt } from "./routes";
-
 // Standard User JWT functions
 export {
   extractUserFromStandardUserJWT,

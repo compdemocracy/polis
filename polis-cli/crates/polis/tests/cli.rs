@@ -1400,53 +1400,6 @@ fn email_invitation_lookup_does_not_echo_the_supplied_capability() {
 }
 
 #[test]
-fn export_capability_is_saved_privately_never_followed_or_printed() {
-    use std::os::unix::fs::PermissionsExt;
-    let tmp = tempfile::tempdir().unwrap();
-    let dest = tmp.path().join("link.json");
-    let args = [
-        "report",
-        "export-results",
-        "--conversation",
-        "abc",
-        "--filename",
-        "polis-export-abc-1.zip",
-        "--output",
-        dest.to_str().unwrap(),
-        "--json",
-    ];
-    let url = "https://127.0.0.1:9/generated?signature=private-generated-signature";
-    let (out, request) = fixture(302, &format!("text/html\r\nLocation: {url}"), "", &args);
-    assert!(out.status.success());
-    assert!(request.starts_with("GET /api/v3/dataExport/results?"));
-    assert!(!String::from_utf8_lossy(&out.stdout).contains("signature"));
-    assert_eq!(
-        serde_json::from_slice::<Value>(&std::fs::read(&dest).unwrap()).unwrap(),
-        json!({"url":url,"artifact_verified":false})
-    );
-    assert_eq!(
-        std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
-        0o600
-    );
-    std::fs::remove_file(&dest).unwrap();
-    for location in [
-        "http://example.invalid/export",
-        "javascript:private-code",
-        "https://user:secret@example.invalid/file",
-    ] {
-        let (out, _) = fixture(
-            302,
-            &format!("text/html\r\nLocation: {location}"),
-            "",
-            &args,
-        );
-        assert!(!out.status.success());
-        assert!(!dest.exists());
-        assert!(!String::from_utf8_lossy(&out.stdout).contains(location));
-    }
-}
-
-#[test]
 fn unsafe_legacy_participant_join_is_absent_from_parser_and_schema() {
     let tmp = tempfile::tempdir().unwrap();
     let out = run(tmp.path(), &["participant", "join", "--json"]);

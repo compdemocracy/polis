@@ -266,7 +266,7 @@ test.each([0, 7])(
   }
 );
 
-// Engine contract versus server presentation, as requested in board [1156].
+// Engine contract versus server presentation.
 // These are deliberate existing presentation differences, NOT science values.
 const presentationDifferences = {
   "mod-in": {

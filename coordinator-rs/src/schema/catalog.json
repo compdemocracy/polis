@@ -5998,7 +5998,7 @@
           "nullable": "NO",
           "default": null,
           "ordinal": 1,
-          "definition_type": "character varying(100)",
+          "definition_type": "character varying(2000)",
           "introduced": "server/postgres/migrations/000000_initial.sql:943"
         },
         {
@@ -6009,7 +6009,7 @@
           "nullable": "NO",
           "default": null,
           "ordinal": 2,
-          "definition_type": "character varying(100)",
+          "definition_type": "character varying(2000)",
           "introduced": "server/postgres/migrations/000000_initial.sql:944"
         },
         {
@@ -12818,6 +12818,10 @@
     {
       "path": "server/postgres/migrations/000044_pid_auto_transaction_lock.sql",
       "sha256": "8eaffb393aca2b89ffe41264a1a9676f83a74685866a095befd3bb648784903f"
+    },
+    {
+      "path": "server/postgres/migrations/000045_page_ids_width.sql",
+      "sha256": "eab730473dda1fdd7b0e3b6fbbae5eb6201fbb579670ebcf43557aeb23f8c4a2"
     }
   ]
 }

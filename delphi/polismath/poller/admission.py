@@ -1,4 +1,4 @@
-"""Shared memory admission for the math poller (P-070 review R1; burndown 3'.c.3).
+"""Shared memory admission for the math poller.
 
 Every computation in the poller process reserves memory here BEFORE it loads
 anything: a live first touch or rebuild, a live incremental update, and a
@@ -54,7 +54,7 @@ granted while it runs.
 Reservations are only ever taken on the thread that then computes, never at
 queue time, so a waiter only ever waits for running work to finish.
 
-Held objects (review [1447] A). A worker that takes a cached conversation for
+Held objects. A worker that takes a cached conversation for
 an incremental update HOLDS it (``hold``) from the cache lookup, atomically
 under the service's cache lock, until its computation ends (``unhold``), and
 through any wait for admission in between. The cache policy may still evict a

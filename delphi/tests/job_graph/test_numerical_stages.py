@@ -1,4 +1,4 @@
-"""Fast adapter boundary checks; full numeric execution belongs to mm5 proof."""
+"""Fast adapter boundary checks; full numeric execution belongs to the local Docker proof."""
 import hashlib
 import importlib.util
 import json

@@ -394,7 +394,7 @@ class PeakSampler:
 # bidToPid by that position); in-conv never exceeds n; and n = 0 only in
 # Python's named empty form (no base clusters, groups or in-conv members, a
 # zero timestamp and empty participant stats). Types and bindings only: no
-# numeric acceptance policy. Review [1447] B extended it to the nested shapes
+# numeric acceptance policy. The shape checks cover the nested structures
 # the readers index: every group-clusters entry an object with a numeric id and
 # a numeric members array (the server's processMathObject reads g.id); pca
 # center a numeric array and comps an array of numeric arrays; base-clusters
@@ -403,7 +403,7 @@ class PeakSampler:
 # either {} or columnar (pid and gid arrays, every column an array of the pid
 # column's length); and both companions' lastVoteTimestamp equal to main's
 # last_vote_timestamp column (the writer stamps all three from one value).
-# Review [1449] B completed it from the readers' side: the server's
+# Reader requirements also apply: the server's
 # processMathObject dereferences every group-votes and repness entry, and the
 # Python warm restore iterates each group-votes entry's votes, so group-votes
 # must be an object whose every entry is an object with numeric n-members and
@@ -929,7 +929,7 @@ def _check_state(raw: Any) -> None:
         if key not in ALL_OUTCOMES or isinstance(value, bool) or not isinstance(value, int):
             raise StateError("totals holds a malformed entry")
     for key, value in raw.get("failures", {}).items():
-        # One explicit integer-key contract (review [1449] D): "--1", "+1",
+        # One explicit integer-key contract: "--1", "+1",
         # " 1", "1\n" or non-ASCII digits would pass isdigit-style checks
         # and then raise in int() during reconciliation and sweep reporting.
         if not (isinstance(key, str) and _ZID_KEY.fullmatch(key) and isinstance(value, dict)):
@@ -960,8 +960,8 @@ def _num_ok(value: Any) -> bool:
             and math.isfinite(value) and value >= 0)
 
 
-# Record fields the sweep, gate and summary lines read without a default
-# (review [1447] D); the rest are type-checked when present.
+# Record fields the sweep, gate and summary lines read without a default.
+# The rest are type-checked when present.
 _RECORD_REQUIRED = ("participants", "voters", "votes", "comments", "seconds",
                     "peak_rss_delta_mb", "est_mb")
 _RECORD_INTS = ("participants", "voters", "votes", "comments", "result_bytes")
@@ -1026,7 +1026,7 @@ class BackfillState:
             return fresh
         except (OSError, ValueError, TypeError) as exc:
             # TypeError: a schema gap must still take the paused/fresh path
-            # rather than stop the scheduler (review [1449] D).
+            # rather than stop the scheduler.
             logger.error(
                 "math-backfill: state file untrusted (%s: %s); starting PAUSED with fresh "
                 "state (resume with SIGUSR2 after review)", exc.__class__.__name__,
@@ -1202,7 +1202,7 @@ class BackfillScheduler:
     def _bind_calibration(self) -> None:
         """Keep a gate approval (and its counters) only under a matching,
         recognized binding. A state file with no binding (the prior schema)
-        or a different one re-arms the gate (review [1447] D): a missing
+        or a different one re-arms the gate: a missing
         digest is not proof of a same-configuration approval."""
         st = self._state
         if st.binding != self.binding and (
@@ -1460,7 +1460,7 @@ class BackfillScheduler:
         its source row; SOURCE_AHEAD (or SOURCE_AHEAD_ACCEPTED under the accept
         ruling) when it reflects every vote in the table but the source claims
         a later one; otherwise LIVE_OWNED (live ingestion owns the tail).
-        Review [1447] C: "no eligible background repair" is not "caught up"."""
+        "No eligible background repair" is not "caught up"."""
         row = target.as_row()
         if caught_up(row):
             return ALREADY_COMPLETE
@@ -1473,9 +1473,9 @@ class BackfillScheduler:
         caught up with its source row (repaired by live ingestion or anything
         else), whose source row is gone, or which the encoded source-ahead
         ruling accepts. A valid target that is only in live lag, or
-        source-ahead with the ruling unresolved, keeps its failure (review
-        [1447] C). Reads the same state and validity as selection, fresh, in
-        bounded chunks. Returns {reason: cleared}."""
+        source-ahead with the ruling unresolved, keeps its failure.
+        Reads the same state and validity as selection, fresh, in bounded chunks.
+        Returns {reason: cleared}."""
         cleared: Dict[str, int] = {}
         keys = [k for k in self._state.failures if int(k) not in self._in_flight]
         cutoff = self._stale_cutoff_ms(now)
@@ -1576,7 +1576,7 @@ class BackfillScheduler:
             return "UNKNOWN"
         blocking = ["missing", "incomplete", "stale"]
         if not self.config.accept_source_ahead:
-            # Review [1447] C: unresolved source-ahead blocks COMPLETE even
+            # Unresolved source-ahead blocks COMPLETE even
             # when no saved failure records it (a fresh state file, say).
             blocking.append("source_ahead")
         for key in blocking:
@@ -1684,7 +1684,7 @@ class BackfillScheduler:
         if klass is None:
             return self._caught_up_outcome(current)
         if self._host.is_cached(zid):
-            # Review [1447] E: live ingestion holds this zid but its
+            # Live ingestion holds this zid but its
             # publication needs repair. This job runs on the zid's serialized
             # pool worker, so no live computation for it is running: drop the
             # cached conversation (lossless: the next live touch reloads the

@@ -27,7 +27,8 @@
  *   3. `polis-deploy-github` role, assumed by the deploy workflow through
  *      GitHub OIDC (one environment, one ref): launch the template at an
  *      allowed type, command and terminate tagged build boxes, upload the
- *      source and the bundle, create the deployment. No stored keys.
+ *      source and the bundle, create one deployment in each of the two
+ *      deployment groups (web, and the worker tiers). No stored keys.
  *   4. ECR repositories polis/nginx-proxy and polis/client-participation-alpha
  *      (polis/server, polis/delphi and polis already exist).
  *
@@ -63,7 +64,8 @@ export interface BuildBoxProps {
   /** The CodeDeploy bundle bucket (cdk/codedeploy.ts); build sources go under build-source/. */
   readonly deploymentBucket: s3.Bucket;
   readonly codeDeployApplicationName: string;
-  readonly codeDeployDeploymentGroupName: string;
+  /** Exact web and worker groups belonging to this application. */
+  readonly codeDeployDeploymentGroupNames: readonly [string, string];
   /** `owner/repo` allowed to assume the deploy role. */
   readonly githubRepo: string;
   /** The `environment:` the deploy jobs declare. */
@@ -317,8 +319,8 @@ export class BuildBox extends Construct {
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'CreateTheDeployment',
       actions: ['codedeploy:CreateDeployment', 'codedeploy:GetDeployment'],
-      resources: [codedeployArn(
-        `deploymentgroup:${props.codeDeployApplicationName}/${props.codeDeployDeploymentGroupName}`)],
+      resources: props.codeDeployDeploymentGroupNames.map((name) =>
+        codedeployArn(`deploymentgroup:${props.codeDeployApplicationName}/${name}`)),
     }));
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'RegisterTheRevision',

@@ -17,7 +17,7 @@ Runs without a docker daemon: the compose files are parsed as YAML and their
 from this file (``POLIS_CHECKOUT_DIR`` overrides), because the CI job copies
 ``delphi/tests`` into the delphi image at ``/app/tests``, where the repo root is
 not an ancestor. ``scripts/test-deploy-hooks.sh`` copies the compose files,
-hooks and Dockerfile into the explicit checkout root in both CI and mm5.
+hooks and Dockerfile into the explicit checkout root in both CI and local runs.
 """
 
 import os
@@ -709,7 +709,7 @@ def test_the_delphi_box_writes_the_readiness_identity_before_starting():
     up = next(i for i, line in enumerate(body) if line.startswith(tuple(c + " up" for c in _COMPOSE_CALLS)))
     assert body.index("poller_identity") < up
     text = AFTER_INSTALL_PATH.read_text()
-    assert text.index("poller_identity() {") < text.index('"$SERVICE_FROM_FILE" == "server"')
+    assert text.index("poller_identity() {") < text.index('elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then')
 
 
 @requires_after_install

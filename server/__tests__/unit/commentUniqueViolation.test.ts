@@ -10,9 +10,6 @@ const mockQuery = jest.fn();
 jest.mock("@google-cloud/translate", () => ({
   v2: { Translate: jest.fn().mockImplementation(() => ({})) },
 }));
-jest.mock("auth0", () => ({
-  ManagementClient: jest.fn().mockImplementation(() => ({})),
-}));
 jest.mock("../../src/config", () => ({
   __esModule: true,
   default: { shouldUseTranslationAPI: false },

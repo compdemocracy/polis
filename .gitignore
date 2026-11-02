@@ -6,6 +6,7 @@
 .venv
 .vscode/settings.json
 *.dump
+/backups/
 **/CLAUDE.local.md
 build/
 delphi/umap_narrative/__init__.py

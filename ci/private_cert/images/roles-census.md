@@ -103,7 +103,7 @@ markers. Unknown policies and a revoked catalog permission must be incomplete.
 
 The source is not yet an admitted image or deployed AMI. `stage.py` requires
 committed reviewed source; it intentionally rejects these uncommitted files.
-Claude must review and commit before producing the three recipes with
+The source must be reviewed and committed before producing the three recipes with
 `roles_recipe.py`, staging with the unchanged `stage.py`, and building/exporting
 three images through the existing offline workflow. The verifier source must be
 independently reviewed. `roles_registry.py` verifies the complete OCI closure,

@@ -33,10 +33,28 @@ type Resources = Record<string, any>;
 const stem = (id: string) => id.replace(/[0-9A-F]{8}$/, '');
 
 describe('enableLargeClass off', () => {
-  // The snapshot was recorded on the base commit, before the large class
-  // existed: a flag-off synth must stay byte-identical to it.
+  // Record the default deployment topology, with the optional large class off.
   test('the stack template is unchanged', () => {
     expect(synth().toJSON()).toMatchSnapshot();
+  });
+
+  // A box in no group would never be deployed. A box in both would be deployed
+  // twice, and the web group's AllowTraffic would register it with the web
+  // target group.
+  test('every Auto Scaling group deploys through exactly one deployment group', () => {
+    const resources: Resources = synth().toJSON().Resources;
+    const ofType = (type: string) => Object.entries(resources).filter(([, r]) => r.Type === type);
+    const refs = (list: any[] | undefined) => (list ?? []).map((v) => v.Ref as string);
+    const groups = Object.fromEntries(ofType('AWS::CodeDeploy::DeploymentGroup')
+      .map(([, r]) => [r.Properties.DeploymentGroupName as string, r.Properties]));
+    expect(Object.keys(groups).sort()).toEqual(['PolisDeploymentGroup', 'PolisWorkersDeploymentGroup']);
+    const deployed = [
+      ...refs(groups.PolisDeploymentGroup.AutoScalingGroups),
+      ...refs(groups.PolisWorkersDeploymentGroup.AutoScalingGroups),
+    ];
+    const asgIds = ofType('AWS::AutoScaling::AutoScalingGroup').map(([id]) => id);
+    expect([...deployed].sort()).toEqual([...asgIds].sort());
+    expect(new Set(deployed).size).toBe(deployed.length);
   });
 });
 
@@ -251,11 +269,25 @@ describe('enableLargeClass on', () => {
       expect(asg.Properties.MetricsCollection).toEqual([{ Granularity: '1Minute', Metrics: ['GroupInServiceInstances'] }]);
       expect(JSON.stringify(asg.Properties.VPCZoneIdentifier)).toContain('PrivateWithEgress');
     }
-    const dg = one('AWS::CodeDeploy::DeploymentGroup', 'DeploymentGroup');
+    const dg = one('AWS::CodeDeploy::DeploymentGroup', 'WorkersDeploymentGroup');
     expect(dg.Properties.AutoScalingGroups).toContainEqual({ Ref: largeAsgId });
     // after_install.sh has no delphi-worker branch yet; its unknown-type branch starts every service.
     expect(dg.Properties.AutoScalingGroups).not.toContainEqual({ Ref: delphiAsgId });
-    expect(dg.Properties.AutoScalingGroups).toHaveLength(4);
+    expect(dg.Properties.AutoScalingGroups).toHaveLength(3);
+    expect(dg.Properties.LoadBalancerInfo).toBeUndefined();
+    // Only the web group names the target group: CodeDeploy registers every instance
+    // of a group with every target group it names, so no worker box may share it.
+    const web = one('AWS::CodeDeploy::DeploymentGroup', 'DeploymentGroup');
+    expect(web.Properties.AutoScalingGroups).toHaveLength(1);
+    expect(web.Properties.AutoScalingGroups).not.toContainEqual({ Ref: largeAsgId });
+    expect(web.Properties.DeploymentStyle).toEqual({ DeploymentOption: 'WITH_TRAFFIC_CONTROL' });
+    expect(web.Properties.LoadBalancerInfo.TargetGroupInfoList).toHaveLength(1);
+    const target = Object.values(resources).find((r: any) => r.Type === 'AWS::ElasticLoadBalancingV2::TargetGroup') as any;
+    expect(target.Properties.HealthCheckIntervalSeconds).toBe(10);
+    expect(target.Properties.HealthCheckTimeoutSeconds).toBe(5);
+    expect(target.Properties.HealthyThresholdCount).toBe(2);
+    expect(target.Properties.UnhealthyThresholdCount).toBe(3);
+    expect(target.Properties.TargetGroupAttributes).toContainEqual({ Key: 'deregistration_delay.timeout_seconds', Value: '60' });
     expect(large.Properties.LaunchTemplate.LaunchTemplateId).toEqual({ Ref: expect.stringMatching(/^DelphiLargeLaunchTemplate/) });
     expect(delphi.Properties.LaunchTemplate.LaunchTemplateId).toEqual({ Ref: expect.stringMatching(/^WorkerDelphiLaunchTemplate/) });
   });

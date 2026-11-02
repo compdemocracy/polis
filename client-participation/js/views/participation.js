@@ -551,7 +551,7 @@ module.exports = ConversationView.extend({
     function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
       that.firstMathPollResultDeferred.resolve();
       if (newParticipantCount >= MIN_PTPTS) {
-        if ($("#vis_section:hidden")) {
+        if ($("#vis_section:hidden").length) {
           $("#vis_section").fadeIn(1000, function () {
             that.initPcaVis();
           });
@@ -992,13 +992,6 @@ module.exports = ConversationView.extend({
         }
 
         // that.visModeModel.set("visMode", VIS_MODE_WAITING);
-
-        $("#getDataButton").on("click", function () {
-          $.get("/api/v3/dummyButton?button=getDataButton");
-          setTimeout(function () {
-            alert("coming soon!");
-          });
-        });
 
         $("#closeConversationButton").on("click", function () {
           $.post("/api/v3/conversation/close", {

@@ -124,7 +124,7 @@ class _Disposition:
     note: str
 
 
-# Reviewed dispositions (agree with the second reviewer's P-042-wildcard-inventory.md). A hit
+# Reviewed dispositions (agree with the wildcard-inventory review). A hit
 # that matches none of these is reported NEEDS-GATE and fails the inventory test.
 DISPOSITIONS: tuple[_Disposition, ...] = (
     _Disposition(

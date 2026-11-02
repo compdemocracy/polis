@@ -8,9 +8,7 @@ import http.client
 from urllib.parse import urlsplit
 
 CID = '2p027generated'
-PAGES = {'iip': '/iip/', 'iim': '/iim/', 'conversationPage': '/',
-         'explorePage': '/explore/', 'sharePage': '/share/',
-         'summaryPage': '/summary/', 'oneTimePage': '/ot/'}
+PAGES = {'conversationPage': '/'}
 
 
 def capture_pages(origin):

@@ -304,8 +304,8 @@ services:
       # at a time and below live work, every conversation that has a
       # MATH_BACKFILL_SOURCE_ENV (prod) row but no coherent row under its own
       # label. SIGUSR1 approves the gate after the N largest; SIGUSR2 pauses or
-      # resumes. Every setting and its default: cost-reduction plan P-070 and
-      # BackfillConfig. Every BackfillConfig setting is forwarded (except
+      # resumes. Every setting and its default: BackfillConfig
+      # in delphi/polismath/poller/backfill.py. Every setting is forwarded (except
       # MATH_BACKFILL_STATE_PATH, fixed to the mounted
       # /app/backfill-state/state.json), so a value set in the env file
       # reaches the container.
@@ -442,6 +442,7 @@ services:
       polis_tag: ${TAG:-dev}
     environment:
       - API_SERVER_PORT=${API_SERVER_PORT:-5000}
+      - STATIC_FILES_PORT=${STATIC_FILES_PORT:-8080}
       # Authoritative selection on every nginx startup, even with an existing
       # routing volume. Use scripts/rust-api-switch.sh for live reloads.
       - RUST_API_ROUTES=${RUST_API_ROUTES:-}
@@ -465,8 +466,8 @@ services:
     profiles: [rust-api]
     image: polis/polis-api:local
     build:
-      context: ./queue-rs
-      dockerfile: polis-api/Dockerfile
+      context: .
+      dockerfile: queue-rs/polis-api/Dockerfile
       args:
         # NODE_ENV reaches this process exactly as it reaches `server`: the
         # image default (production, as the server's prod target), then the
@@ -478,11 +479,21 @@ services:
       # Empty: READ_ONLY_DATABASE_URL, else DATABASE_URL, from the env file,
       # which is how Node picks the database for this route.
       - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-}
-      # The dev Postgres container has no TLS; anywhere else use tls with
-      # POLIS_API_DB_CA_FILE and POLIS_API_DB_HOST_ALLOWLIST.
-      - POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-docker-internal}
-      - POLIS_API_DB_PLAIN_HOSTS=${POLIS_API_DB_PLAIN_HOSTS:-postgres}
+      # Verify the database certificate and hostname. Local non-TLS stacks
+      # must explicitly select their development transport in an override.
+      - POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-tls}
+      - POLIS_API_DB_CA_FILE=${POLIS_API_DB_CA_FILE:-/etc/polis/rds-global-bundle.pem}
+      - POLIS_API_DB_HOST_ALLOWLIST=${POLIS_API_DB_HOST_ALLOWLIST:-}
+      - POLIS_API_START=${POLIS_API_START:-0}
+      - POLIS_API_VERSION_READS=${POLIS_API_VERSION_READS:-0}
+      - RUST_API_ROUTES=${RUST_API_ROUTES:-}
+      - POLIS_API_DB_POOL=8
+      - POLIS_API_DB_ACQUIRE_TIMEOUT_MS=2000
+      - POLIS_API_DB_STATEMENT_TIMEOUT_MS=3000
+      - POLIS_API_DB_MAX_LIFETIME_MS=300000
       - POLIS_API_LISTEN=0.0.0.0:5100
+    cpus: 0.5
+    mem_limit: 512m
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]

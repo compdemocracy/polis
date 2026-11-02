@@ -93,29 +93,3 @@ describe("requests to a path no route serves", () => {
     }
   );
 });
-
-describe("a known route given a multipart body", () => {
-  let app: Express;
-
-  beforeAll(async () => {
-    app = await getApp();
-  });
-
-  test("answers the route's own missing-parameter 400, not 500", async () => {
-    const res = await request(app)
-      .post("/api/v3/metrics")
-      .set("Content-Type", `multipart/form-data; boundary=${BOUNDARY}`)
-      .send(MULTIPART_BODY);
-
-    expect(res.status).toBe(400);
-  });
-
-  test("still answers a JSON body as before", async () => {
-    const res = await request(app)
-      .post("/api/v3/metrics")
-      .send({ types: [1], times: [2], durs: [3], clientTimestamp: 4 });
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({});
-  });
-});

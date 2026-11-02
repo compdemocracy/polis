@@ -27,8 +27,8 @@ _skip_golden = pytest.mark.skipif(
 )
 
 # PGR (Python golden record) deferral — per Julien's 2026-06-11 decision
-# (D10_D11_D12_GOLDENS_DECISIONS.md "Goldens re-record" + deferred-PRs
-# handoff): goldens shift on every Clojure-parity fix and only add noise
+# (goldens re-recording and deferred-PR decisions): goldens shift on every
+# Clojure-parity fix and only add noise
 # during the parity phase. The existing private-dataset goldens predate the
 # D10/D11/D12 stack, so these comparisons fail by design, not by regression.
 # REACTIVATION CONDITION: remove this mark and re-record all goldens

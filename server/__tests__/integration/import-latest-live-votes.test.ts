@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import http from "http";
+import { Pool } from "pg";
 import request from "supertest";
 import {
   GetObjectCommand,
@@ -10,12 +11,14 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   jest,
   test,
 } from "@jest/globals";
 import Config from "../../src/config";
+import pg from "../../src/db/pg-query";
 import {
   processImportJob,
   refreshVotesLatestUnique,
@@ -34,14 +37,19 @@ import {
   storageToSemantic,
 } from "../../src/votes/convention";
 import { createAppInstance, getOidcToken } from "../setup/api-test-helpers";
-import { pool, closePool } from "../setup/db-test-helpers";
+import { pool } from "../setup/db-test-helpers";
 
 type Agent = ReturnType<typeof request.agent>;
+let liveInteractions: Promise<unknown>[] = [];
 async function post(agent: Agent, route: string, body: object) {
   const response = await agent.post(route).send(body).timeout(15000);
   if (response.body?.auth?.token)
     agent.set("Authorization", `Bearer ${response.body.auth.token}`);
   expect(response.status).toBe(200);
+  // The receipt commits the vote/comment, but notification bookkeeping runs
+  // independently. Join the real writes before taking an immutable baseline,
+  // including subsequent interactions by a participant who already has a time.
+  await Promise.all(liveInteractions);
   return response;
 }
 async function snapshot(zid: number) {
@@ -92,7 +100,22 @@ async function job(zid: number, csv: string) {
 describe("vote imports refuse existing data and preserve live votes", () => {
   let server: http.Server;
   let owner: Agent;
+  const openedPools = new Set<Pool>([pool]);
+  const poolPrototype = Pool.prototype as unknown as {
+    connect: (...args: unknown[]) => unknown;
+  };
+  const hadOwnConnect = Object.prototype.hasOwnProperty.call(
+    poolPrototype,
+    "connect"
+  );
+  const connect = poolPrototype.connect;
   beforeAll(async () => {
+    // query() also takes connections through connect(). Track the application's
+    // pools as well as the fixture pool, preserving callback and promise calls.
+    poolPrototype.connect = function (this: Pool, ...args: unknown[]) {
+      openedPools.add(this);
+      return connect.apply(this, args);
+    };
     server = (await createAppInstance()).listen(0);
     await new Promise<void>((resolve) => server.once("listening", resolve));
     owner = request.agent(server);
@@ -104,11 +127,42 @@ describe("vote imports refuse existing data and preserve live votes", () => {
       })}`
     );
   });
-  afterEach(() => jest.restoreAllMocks());
+  beforeEach(() => {
+    liveInteractions = [];
+    const query = pg.queryP_notification;
+    jest.spyOn(pg, "queryP_notification").mockImplementation((...args) => {
+      const write = query(...args);
+      liveInteractions.push(write);
+      return write;
+    });
+  });
+  afterEach(async () => {
+    try {
+      const settled = await Promise.allSettled(liveInteractions);
+      for (const write of settled)
+        if (write.status === "rejected") throw write.reason;
+    } finally {
+      jest.restoreAllMocks();
+    }
+  });
   afterAll(async () => {
-    if (server)
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    await closePool();
+    try {
+      if (server)
+        await new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve()))
+        );
+    } finally {
+      s3Client.destroy();
+      sqsClient.destroy();
+      try {
+        // Await socket closure instead of leaving idle pool timers for Jest to
+        // forcefully terminate when this file runs in a worker process.
+        await Promise.all([...openedPools].map((opened) => opened.end()));
+      } finally {
+        if (hadOwnConnect) poolPrototype.connect = connect;
+        else delete (poolPrototype as { connect?: unknown }).connect;
+      }
+    }
   });
   async function conversation(withComments = true) {
     const conversationId = (
@@ -189,23 +243,6 @@ describe("vote imports refuse existing data and preserve live votes", () => {
             )
           ).rows[0].n
         ).toBe(2);
-      }
-      if (kind === "other comment") {
-        // The live route updates this asynchronously after returning its receipt.
-        // Wait on that observable write before taking the immutable baseline.
-        const deadline = Date.now() + 5000;
-        while (
-          (
-            await pool.query(
-              "SELECT 1 FROM participants WHERE zid=$1 AND pid>0 AND last_interaction=0",
-              [c.zid]
-            )
-          ).rows.length
-        ) {
-          if (Date.now() > deadline)
-            throw new Error("Live comment interaction was not recorded");
-          await new Promise<void>((resolve) => setImmediate(resolve));
-        }
       }
       await refuseVotesImport(c);
     }
@@ -355,6 +392,8 @@ describe("vote imports refuse existing data and preserve live votes", () => {
     const original = s3Client.send.bind(s3Client);
     jest.spyOn(s3Client, "send").mockImplementation(async (command: any) => {
       const result = await original(command);
+      // GetObject returns the body before the worker consumes it. Keep that
+      // handoff parked until the live vote and its interaction write commit.
       if (command.constructor.name === "GetObjectCommand")
         await post(owner, "/api/v3/votes", {
           conversation_id: c.conversationId,
@@ -400,6 +439,8 @@ describe("vote imports refuse existing data and preserve live votes", () => {
         .mockImplementation(async (command: any) => {
           const result = await original(command);
           if (command instanceof GetObjectCommand) {
+            // The initial admission check has passed; the body cannot reach
+            // the worker's completion transaction until this live write settles.
             await post(owner, "/api/v3/votes", {
               conversation_id: c.conversationId,
               tid: 0,

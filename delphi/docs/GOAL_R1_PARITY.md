@@ -90,8 +90,7 @@ never commit zids/report-ids/vote or comment content.
    rerun, until two consecutive dry passes. Then poller equivalence harness.
 4. **Reviews on every new PR** (Julien-authorized 2026-07-22, standing for
    this goal): (a) a Claude review subagent (Sonnet) on the PR diff at
-   creation; (b) a Copilot review requested via
-   `.claude/skills/copilot-review/request-copilot-review.sh` ONCE per PR when
+   creation; (b) a Copilot review requested ONCE per PR when
    it reaches review-ready state — re-request only after substantive changes,
    never per push (monthly AI-credit budget, resets the 1st). Fetch + triage
    via the batch script (`fetch_copilot_batch.sh` pattern): non-math fixes

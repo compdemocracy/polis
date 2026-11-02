@@ -284,6 +284,8 @@ export interface OperationalAlarmsProps {
   codeDeployApplicationName: string;
   /** CodeDeploy deployment group to watch for FAILURE/STOP. */
   codeDeployDeploymentGroupName: string;
+  /** The worker tiers' deployment group, watched by the same rule when present. */
+  codeDeployWorkerDeploymentGroupName?: string;
   /**
    * Existing db.ts alarms whose notifications move onto the shared topic, with
    * the catalog id each one corresponds to. The topic is ADDED to their
@@ -531,7 +533,10 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
       detailType: ['CodeDeploy Deployment State-change Notification'],
       detail: {
         application: [props.codeDeployApplicationName],
-        deploymentGroup: [props.codeDeployDeploymentGroupName],
+        deploymentGroup: [
+          props.codeDeployDeploymentGroupName,
+          ...(props.codeDeployWorkerDeploymentGroupName ? [props.codeDeployWorkerDeploymentGroupName] : []),
+        ],
         state: ['FAILURE', 'STOP'],
       },
     },

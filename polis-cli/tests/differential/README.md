@@ -12,7 +12,7 @@ Build the CLI and five local images from the source being tested:
 docker build --target prod --build-arg NODE_ENV=production -t cli-diff-node -f server/Dockerfile .
 docker build --build-context queue-rs=queue-rs -t cli-diff-postgres -f server/Dockerfile-db server
 docker build -t cli-diff-oidc oidc-simulator
-docker build --build-arg FEATURES=fixture-clock -t cli-diff-rust -f queue-rs/polis-api/Dockerfile queue-rs
+docker build --build-arg FEATURES=fixture-clock -t cli-diff-rust -f queue-rs/polis-api/Dockerfile .
 docker build -t cli-diff-nginx:local -f file-server/nginx.Dockerfile file-server
 ```
 
@@ -121,7 +121,7 @@ The current-participant, social-profile, bucket, location and participant-owned
 CSV selectors exercise the corresponding CLI reads, including missing membership,
 filtered profiles, owner bucket and absent-group cases. Their process switches
 and independent read pools are enabled only in the generated Compose fixture.
-Seven HTML selectors have supplemental HTTP scenarios because the CLI accepts
+The conversation HTML selector has supplemental HTTP scenarios because the CLI accepts
 API paths only: GET and HEAD must serve from Rust, while a query parameter must
 hand back to Node. Each case requires HTTP 200 and HTML, and compares status,
 content type and full body bytes between phases. These are reported separately

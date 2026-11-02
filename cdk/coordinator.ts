@@ -7,6 +7,20 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
+/**
+ * Context flag for the inactive coordinator. Off by default: without it the
+ * stack synthesizes none of the coordinator's resources, parameters or output,
+ * and no ingress rule is added to the database security group. On only for
+ * `true` or `"true"` in any letter case (`-c enableCoordinatorInactive=true`).
+ */
+export const COORDINATOR_INACTIVE_CONTEXT = 'enableCoordinatorInactive';
+
+export const coordinatorInactiveEnabled = (scope: Construct): boolean => {
+  const raw = scope.node.tryGetContext(COORDINATOR_INACTIVE_CONTEXT);
+  if (typeof raw === 'boolean') return raw;
+  return typeof raw === 'string' && raw.toLowerCase() === 'true';
+};
+
 /** Deployment presence only. The image contains an idle observer, no writer CLI. */
 export class CoordinatorInactiveService extends Construct {
   constructor(scope: Construct, id: string, props: { vpc: ec2.IVpc; database: rds.IDatabaseInstance }) {

@@ -149,54 +149,6 @@ impl Client {
         self.exchange(method, path, query, body, effect, false)
             .map(|(_, _, bytes)| bytes)
     }
-    /// This existing export route issues a signed redirect, not artifact bytes.
-    /// Return the capability only to the private-file caller; never follow it.
-    pub fn export_capability(&self, query: &[(String, String)]) -> Result<String> {
-        let url = self
-            .base
-            .join("/api/v3/dataExport/results")
-            .expect("fixed API path");
-        let mut request = self
-            .http
-            .get(url)
-            .query(query)
-            .header("User-Agent", "polis-cli/0.1.0");
-        if let Some(token) = &self.token {
-            request = request.bearer_auth(token);
-        }
-        let response = request
-            .send()
-            .map_err(|e| transport(false, e.is_connect()))?;
-        let status = response.status().as_u16();
-        let unavailable = || {
-            let mut e = Error::new("export_capability_unavailable", "The site did not issue a valid export download capability.", "Check the conversation, export filename and account permissions; no redirect was followed.", match status {401=>3,403=>4,500..=599=>6,_=>1});
-            e.upstream = json!({"status":status});
-            e
-        };
-        if status != 302 {
-            return Err(error_response(
-                unavailable(),
-                response,
-                self.token.as_deref(),
-            ));
-        }
-        let location = response
-            .headers()
-            .get("location")
-            .and_then(|v| v.to_str().ok())
-            .filter(|v| v.len() <= 8192)
-            .ok_or_else(unavailable)?;
-        let target = Url::parse(location).map_err(|_| unavailable())?;
-        if target.scheme() != "https"
-            || target.host_str().is_none()
-            || !target.username().is_empty()
-            || target.password().is_some()
-            || target.fragment().is_some()
-        {
-            return Err(unavailable());
-        }
-        Ok(location.to_owned())
-    }
     /// CSV operations reject HTML or JSON success pages before saving a file.
     pub fn operation_csv(&self, path: &str, query: &[(String, String)]) -> Result<Vec<u8>> {
         let (status, content_type, bytes) =
@@ -808,7 +760,7 @@ mod tests {
 
     #[test]
     fn specialized_reads_keep_client_error_details_and_existing_exits() {
-        for capability in [true, false] {
+        {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let base = format!("http://{}", listener.local_addr().unwrap());
             let server = std::thread::spawn(move || {
@@ -819,11 +771,7 @@ mod tests {
                 write!(socket,"HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",text.len()).unwrap();
             });
             let client = Client::new(&base, None, 5).unwrap();
-            let err = if capability {
-                client.export_capability(&[]).unwrap_err()
-            } else {
-                client.public_document("/feeds/rdemo").unwrap_err()
-            };
+            let err = client.public_document("/feeds/rdemo").unwrap_err();
             server.join().unwrap();
             assert_eq!(err.exit, 1);
             assert_eq!(err.upstream["code"], "REPORT_NOT_READY");

@@ -1,0 +1,6 @@
+{
+  "rootDir": "../../..",
+  "testEnvironment": "node",
+  "testMatch": ["**/__tests__/unit/participant-jwt-interop.test.ts"],
+  "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": "tsconfig.json" }] }
+}

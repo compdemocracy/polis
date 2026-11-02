@@ -43,7 +43,7 @@ annotations belong in separate generation-aware overrides, never these artifacts
 `polismath.delphi_storage.postgres` retain caller transaction ownership. They use
 the existing frozen codec for Python resource values, validation, and reading.
 
-Validation commands (run on mm5):
+Validation commands (run on any Docker host):
 
 ```
 cd delphi

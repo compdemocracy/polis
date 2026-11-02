@@ -13,9 +13,11 @@ else moves.
 
 Only if you turn it on. Two switches, both off by default:
 
-1. Start the program: `docker compose --profile rust-api up -d polis-api`.
+1. Start the program: set `POLIS_API_START=1` for the normal web deployment,
+   or explicitly start the `polis-api` Compose service in a local stack.
 2. Tell nginx to send it the route: `RUST_API_ROUTES=pca2` in the
-   environment of `nginx-proxy`, then recreate `nginx-proxy`.
+   deployment environment. Use the drained switch helper described in
+   `file-server/nginx/README.md` for a live change.
 
 With `RUST_API_ROUTES` unset (production today), nginx's rendered config is
 the same as before this change and every request goes to Node. With it set,
@@ -52,17 +54,18 @@ in CI, including the truncated-reply limit.
 
 ## Before turning it on anywhere real
 
-- **Database transport.** The compose default `docker-internal` is plain TCP
-  to the dev Postgres container. Against RDS set `POLIS_API_DB_TRANSPORT=tls`,
-  `POLIS_API_DB_CA_FILE` and `POLIS_API_DB_HOST_ALLOWLIST`; with the default
-  it refuses the RDS host and exits, and nginx keeps sending pca2 to Node.
+- **Database transport.** Production compose defaults to verified TLS and the
+  bundled RDS certificate authorities. Set `POLIS_API_DB_HOST_ALLOWLIST` to the
+  exact database hostname. Missing trust or a mismatched hostname fails closed.
+  Local stacks with non-TLS Postgres must explicitly select their development
+  transport; the web deployment refuses that transport.
 - **Which database.** Like Node's read pool, it reads `READ_ONLY_DATABASE_URL`
   when that is set and not empty, else `DATABASE_URL`
   (`POLIS_API_DATABASE_URL` overrides both).
 - **Database login.** It uses the same login as Node's read pool. A dedicated
   read-only login (SELECT on `zinvites`, `math_main`, `comments` only) is a
-  role change and is left out until Colin rules on it; until then the
-  session is set read-only, which is the only guard.
+  separate credential and grants configuration. The common pool always sets
+  its sessions read-only.
 - **`NODE_ENV`.** The image defaults to `production`, as the server's prod
   image does, and the shared env file overrides both alike. The error pages
   depend on it.
@@ -198,7 +201,7 @@ queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
 # Byte-for-byte replay (needs Docker and the local characterization images;
 # see the header of run.sh):
 docker build --build-arg FEATURES=fixture-clock -t x54pca2-polis-api:conformance \
-  -f queue-rs/polis-api/Dockerfile queue-rs
+  -f queue-rs/polis-api/Dockerfile .
 docker build -t x54pca2-postgres:local -f server/Dockerfile-db server
 COMPOSE_PROJECT_NAME=p027x54pca2-$(openssl rand -hex 3) \
 P027_PORT_MIN=55479 P027_PORT_MAX=55481 POLIS_RECOVERY_PG_PORT=55479 \
@@ -410,10 +413,10 @@ network latency or a live participation-load campaign.
 Comments and nextComment can serve Node-issued anonymous and standard-user
 participant credentials with `POLIS_API_PARTICIPANT_READS=1`, in addition to
 their existing process and nginx route switches. All remain off by default.
-Configure `POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE` with Node's matching RSA public
-key and `POLIS_JWT_ISSUER` / `POLIS_JWT_AUDIENCE` with Node's exact values. A key
-change requires replacing the configured public-key file and restarting this
-process. No private signing key belongs in polis-api.
+Configure the participant key pair as described below and set
+`POLIS_JWT_ISSUER` / `POLIS_JWT_AUDIENCE` to Node's exact values. The verifier
+uses the public key loaded at startup. `POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE`
+is no longer read.
 
 The shared polis-auth verifier requires an exact conversation-code binding and
 an existing matching `(zid, uid, pid)` membership. PID zero is supported. XID,
@@ -464,18 +467,6 @@ bodies and unsupported methods use counted Node handoffs. Health exposes
 `robotsServed` and `robotsFallback`. The handler performs no database/provider
 work and adds no participation pool. `conformance/robots-run.sh` records complete
 Node/Rust response pairs, separately counting Date-only retries and Node work.
-
-### About redirect
-
-`POLIS_API_ABOUT_READS=1` and nginx `RUST_API_ROUTES=about` opt into GET/HEAD
-`/about`. Both default off. `polis-contracts::about` supplies shared request and
-redirect-response types. The 302 points to `/home` using the request Host and
-Node's development/production scheme selection, with the existing normal HTTPS
-redirect before it. No API CORS headers are added. Missing Host, query parameters,
-credentials, cookies, bodies and other methods hand back to Node and are counted
-in `aboutServed`/`aboutFallback`. No database/provider or participation work occurs.
-`conformance/about-run.sh` records full response bytes and replays the crawler
-policy and connection probe as regressions on the same isolated fixture stack.
 
 ### Database probe
 
@@ -660,18 +651,6 @@ one read-only connection each, 15 ms acquire/50 ms statement limits and a 75 ms
 route deadline. No participation pool is borrowed. Outcomes are counted by
 `recentActivityServed`/`recentActivityFallback`. Run
 `queue-rs/polis-api/conformance/recent-activity-run.sh result.json` for raw proof.
-
-### Retired math poll
-
-`GET`/`HEAD /api/v3/math/pca` returns Node's empty 304 response, including normal
-middleware headers, behind `POLIS_API_LEGACY_PCA_READS=1` and nginx `legacyPca`,
-both off by default. Shared HTTP request/response types are in
-`polis-contracts::legacy_pca`. The retired handler ignores query parameters;
-queries up to 4 KiB are accepted. Unsupported methods, bodies, credentials or
-cookies hand back to Node and are counted. No database, auth provider, math
-engine, pool or participation work runs on this handler.
-`legacyPcaServed`/`legacyPcaFallback` count outcomes. Run
-`queue-rs/polis-api/conformance/legacy-pca-run.sh result.json` for raw HTTP proof.
 
 ### Tree-invitation waves: bounded moderator reads
 
@@ -960,60 +939,6 @@ or unknown query keys and unsupported shapes hand back to Node and are counted.
 Lookup is fresh on each request; there is no CID, PID or math cache dependency.
 Counters: `einvitesReadServed`, `einvitesReadFallback`.
 
-### Conversation-create legacy-browser redirect
-
-`POLIS_API_CREATE_PAGE_READS=1` and nginx `RUST_API_ROUTES=createPage` opt into
-GET/HEAD legacy-browser hash redirects under `/conversation/create`. Both
-switches default off. The shared request/response contract preserves Node's
-case-sensitive browser checks, prefix matching and HTTPS location. HTML fetching,
-unsupported browsers, query/body/auth/cookie requests and unusual path/host bytes
-stay on Node and are counted separately. This slice does no database, identity,
-file-service or participant work; it adds no pool or dependency to participation.
-
-### User-create legacy-browser redirect
-
-`POLIS_API_USER_CREATE_PAGE_READS=1` and nginx `RUST_API_ROUTES=userCreatePage`
-opt into GET/HEAD legacy-browser hash redirects at `/user/create` and its slash
-suffixes. Both switches default off. The shared request/response contract
-preserves Node's case-sensitive browser checks, anchored path and HTTPS location.
-HTML fetching, unsupported browsers, query/body/auth/cookie requests and unusual
-path/host bytes stay on Node and are counted separately. This slice creates no
-users and does no database, identity or file-service work. It adds no pool or
-external dependency to participation.
-
-### User-login legacy-browser redirect
-
-`POLIS_API_USER_LOGIN_PAGE_READS=1` and nginx `RUST_API_ROUTES=userLoginPage`
-opt into GET/HEAD legacy-browser hash redirects at `/user/login` and slash
-suffixes. Both switches default off. Shared request/response types preserve
-Node's case-sensitive browser checks, anchored path and HTTPS location. This
-slice does not authenticate or change a session. Modern HTML, unsupported
-browsers, query/body/auth/cookie requests and unusual path/host bytes remain
-Node handoffs. No database pool, identity provider or file service is used;
-participation resources are untouched.
-
-### Settings legacy-browser redirect
-
-`POLIS_API_SETTINGS_PAGE_READS=1` and nginx `RUST_API_ROUTES=settingsPage`
-opt into GET/HEAD legacy-browser hash redirects at `/settings` and slash
-suffixes. Both switches default off. Shared request/response types preserve
-Node's case-sensitive browser checks, anchored path and HTTPS location. This
-slice does not read or change user settings. Modern HTML, unsupported
-browsers, query/body/auth/cookie requests and unusual path/host bytes remain
-Node handoffs. No database pool, identity provider or file service is used;
-participation resources are untouched.
-
-### User-logout legacy-browser redirect
-
-`POLIS_API_USER_LOGOUT_PAGE_READS=1` and nginx `RUST_API_ROUTES=userLogoutPage`
-opt into GET/HEAD legacy-browser hash redirects at `/user/logout` and slash
-suffixes. Both switches default off. Shared request/response types preserve
-Node's case-sensitive browser checks, anchored path and HTTPS location. This
-slice does not log out a user or change a session. Modern HTML, unsupported
-browsers, query/body/auth/cookie requests and unusual path/host bytes remain
-Node handoffs. No database pool, identity provider or file service is used;
-participation resources are untouched.
-
 ### Admin conversation HTML
 
 `POLIS_API_ADMIN_PAGE_READS=1` and nginx `RUST_API_ROUTES=adminPage` opt into
@@ -1049,24 +974,6 @@ Its client has a separate four-slot semaphore, no queue, a 75ms request limit,
 and startup-only bounded DNS. Failure affects only this client. It acquires no
 database or participation connections. Neither static route enables the other.
 `conformance/integrate-page-run.sh` proves raw Node byte equality and inherited
-matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
-CLI requests; the CLI differential makes no positive serving claim for it.
-
-
-### Other-conversations admin page
-
-`POLIS_API_OTHER_CONVERSATIONS_PAGE_READS=1` and nginx `RUST_API_ROUTES=otherConversationsPage`
-opt into GET/HEAD paths beginning with `/other-conversations`, including suffixes without
-an intervening slash, matching Express. Both switches default off. The route
-uses the shared typed `other_conversations_page` contract and the fixed `/index_admin.html`
-upstream. It applies the admin-page transport's existing ASCII, size, framing,
-header and single-body-read limits. Identity, compression, query/body, unknown
-headers, oversized or fragmented replies and upstream failures hand back to Node.
-
-Its client has a separate four-slot semaphore, no queue, a 75ms request limit,
-and startup-only bounded DNS. Failure affects only this client. It acquires no
-database or participation connections. Neither static route enables the other.
-`conformance/other-conversations-page-run.sh` proves raw Node byte equality and inherited
 matrices; `nginx-routing.sh` checks routing and handoff. This browser page has no
 CLI requests; the CLI differential makes no positive serving claim for it.
 
@@ -1490,3 +1397,291 @@ Participant invitation CSV: [contract and admission](MY-INVITES-CSV.md).
 Bucket membership and group locations: [contract and admission](MATH-MEMBERSHIP.md).
 
 Conversation HTML pages: [contract and bounded admission](CONVERSATION-PAGES.md).
+
+
+## Run without selecting a public route
+
+The web deployment can keep this process warm while nginx sends every request
+to Node. Set `POLIS_API_START=1` and leave `RUST_API_ROUTES` empty in the shared
+deployment environment. The start flag defaults to `0`; a nonempty route list
+also starts the process. Only `0` and `1` are valid start values. No route switch
+is derived from this flag. Keep other `POLIS_API_*_READS`, `POLIS_API_*_WRITES`
+and `POLIS_API_OWNER_LIST` switches off for this rollout.
+
+The normal image build and digest-pinned deployment carry the service; no box
+specific override is needed. Node, nginx and the participation client start
+first; Rust starts separately without dependencies. Failed Rust startup leaves
+those services running. It fails the deployment only when a Rust route is
+selected; otherwise the failure is logged and the Node deployment continues.
+The existing full service replacement still needs the deployment's normal
+traffic drain.
+
+Use `POLIS_API_DB_TRANSPORT=tls`, an exact `POLIS_API_DB_HOST_ALLOWLIST`, and
+`POLIS_API_DB_CA_FILE=/etc/polis/rds-global-bundle.pem`. The image includes the
+same digest-pinned public RDS trust store as Node and Delphi; build and every
+container start verify the asset. Other certificate authorities can be supplied
+at a separate path. TLS still verifies both trust and the database hostname.
+No certificate is downloaded at startup. Database selection remains the
+explicit API URL, then the read-only URL, then the primary URL.
+
+Production compose fixes the common read-only pool at eight slots, with 2000 ms
+acquisition timeout, 3000 ms statement timeout and 300000 ms connection lifetime.
+It caps the process at 0.5 CPU and 512 MiB. Node's participation pools remain
+separate. These bounds do not reserve database CPU or I/O; database capacity
+must still be checked before serving traffic. Other route pools remain off.
+
+The internal `GET /health` retains its existing counters and reports:
+
+- `status` (`ok` or `degraded`) and `mathEnv`; database failure returns HTTP 503.
+- `version` (release base from VERSION) and `commit`, embedded at image build.
+  Standalone builds without those inputs explicitly report `unknown`.
+- `pools.common`: read-only status, reachability, limit, available slots and
+  acquisition/statement/lifetime bounds. Reachability is a real common-pool ping;
+  it does not certify unselected routes or their pools.
+- `routing.configuredRoutes` and `routing.enabledSwitches`: the process's route
+  environment and names of explicit enabled route switches. These are desired
+  configuration, not proof of nginx's currently loaded map.
+
+ValidateService checks the running, non-restarting process and requires three
+consecutive HTTP 200/ok/python responses with the expected revision, route
+configuration, common-pool bounds and no additional enabled switches. Requests
+have a four-second abort deadline. When no Rust route is selected, the same
+probe logs its result but a Rust failure does not fail the web deployment.
+Rust startup failure likewise logs and continues after Node starts. Once a
+route is selected, Rust startup and health are required. Invalid deployment
+configuration (including unverified database transport) is still rejected.
+Node's existing readiness checks remain required in every case.
+Health bypasses served/failed route counters, so all-off ingress probes must
+leave those counters unchanged. Check nginx's current/routes separately.
+
+The service has no host-published port or logging override. Its logs inherit
+the web host's existing Docker awslogs group and stream. To include warm startup
+and failure messages, which do not all carry `service=polis-api`, use:
+
+```sh
+docker-compose -f docker-compose.yml -f docker-compose.images.yml logs polis-api
+```
+
+Read the deployment hook output for image pull and startup failures from
+AfterInstall and health results from ValidateService.
+
+An all-off stop uses the existing drained switch helper with an empty list;
+`POLIS_API_START=0` plus empty routes keeps it stopped on the next deploy. A
+profile-enabled project `--profile rust-api down` removes it with the other
+services; a plain `down` can leave it running. The web AfterInstall hook enables
+that profile for teardown, even when the next start flag is `0`.
+
+Before rolling back to a release at or before 2.42.2, stop the service explicitly
+on each web host, using the current Compose files and project:
+
+```sh
+docker-compose -f docker-compose.yml -f docker-compose.images.yml stop polis-api
+```
+
+Those older hooks do not enable the profile during teardown and cannot remove
+the old container themselves. The explicit stop leaves it stopped across the
+rollback. Never stop Rust before selected traffic drains; first use the drained
+switch helper with an empty list when any route is selected.
+
+## Build version (opt-in)
+
+`POLIS_API_VERSION_READS=1` and nginx's `RUST_API_ROUTES=version` select
+bodyless GET/HEAD `/api/v3/version`. Both are off by default. The response is
+Node's six-field JSON with `Cache-Control: no-store`, including Express's
+HEAD and conditional GET behavior. Unsupported methods and bodies stay on Node.
+The deploy health check recognizes `version` and compares both processes' bytes.
+
+The Rust image now builds from the repository root. It runs the same
+`scripts/build_identity.py` as Node's prebuild, with the same VERSION files and
+`GIT_HASH`, `POLIS_BUILD_DISTANCE`, `POLIS_BUILD_TAG`, `POLIS_BUILD_SOURCE`
+arguments already passed to both images by the deployment build. Its JSON is
+embedded in the binary; runtime environment changes cannot change the identity.
+A plain Cargo build uses the root VERSION and Node's unknown-provenance fallback.
+The route holds no database connection and does no provider or participant work.
+
+`conformance/version-images.py` compares the real Node handler from a server
+image with the Rust HTTP route, records fixtures in `polis-contracts`, and checks
+HEAD, conditional GET and no-store. See its help for the two image inputs.
+||||||| 1ab2922ca
+
+
+### Participant signing keys
+
+The service reads its process environment; Compose supplies the shared env file.
+It does not open a dotenv file itself. Before database setup or listening, every
+startup loads and validates the same RSA pair as Node, even with all routes off:
+
+- `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY`: PEM text, PEM with literal `\n`
+  escapes, or base64-encoded PEM when the value contains no `BEGIN`.
+- An unset or empty value falls back to `JWT_PRIVATE_KEY_PATH` or
+  `JWT_PUBLIC_KEY_PATH`, independently for each key. Unset or empty paths default
+  to `/app/keys/jwt-private.pem` and `/app/keys/jwt-public.pem`, as in Node.
+  Paths must be readable inside the service container.
+
+A nonempty value always wins, including when malformed. Missing, unreadable,
+malformed, non-RSA or mismatched keys stop startup with a message naming the
+setting, never its value or file path. The private key must be at least 2048
+bits for RS256. Keys are parsed once and retained in memory; changing either
+form requires restarting the service. Local fixtures must supply both keys too.
+The private handle is reserved for future signing; this service still mints no
+tokens and adds no key identifier (`kid`). Route switches remain independent.
+
+Internal `/health` adds only `participantKeysLoaded` and
+`participantPublicKeyFingerprint`. The fingerprint is lowercase SHA-256 hex of
+the public key's SPKI DER encoding, independent of PEM wrapping or source form.
+No key bytes appear in health or errors. To compute the same fingerprint in Node,
+hash `createPublicKey(decodedPublicPem).export({type: "spki", format: "der"})`
+with `createHash("sha256")` and `digest("hex")`. The small Node fixture in
+`../polis-auth/tests/fixtures/participant-keys.cjs` checks that calculation and
+Node-signed token verification through the loader; it needs Node but no packages.
+
+### Atomic Treevite wave creation (off by default)
+
+`POLIS_API_POST_TREEVITE_WAVES=1` opts into the typed `POST /api/v3/treevite/waves` writer; it requires an explicit primary
+`POLIS_API_POST_TREEVITE_WAVES_DATABASE_URL`. This does not change nginx routing
+or the existing GET handler. The staged request class is JSON without query
+parameters, cookies, content encoding, or unknown fields, using an already
+mapped OIDC identity or a verified conversation-scoped participant identity.
+Content-Length framing is required; other framing or identity classes hand back before write dispatch. Missing/malformed
+Bearers and the recorded parameter refusals preserve Node's responses.
+
+Authority, owner and conversation advisory locks, numbering, parent resolution,
+wave insertion, root codes and retroactive member codes share one transaction.
+The member lock is the same PostgreSQL-generated key as Node's count-then-fill
+helper. All invite statuses count, so consuming or revoking codes never refills
+an allowance. Codes use ten independently drawn letters/digits and five
+`ON CONFLICT DO NOTHING` attempts. Response order matches Node's `RETURNING *`,
+including the string bigint ID, followed by `invites_created`. Numeric parameters
+retain Node decimal-prefix parsing and JavaScript number range until handler
+validation; integers outside PostgreSQL INTEGER receive the same handler refusal
+bytes, including the requires-invites check before storage narrowing.
+
+`POLIS_API_TREEVITE_CONVERSATION_CODE_CAP` defaults to 250000;
+`POLIS_API_TREEVITE_OWNER_CODE_CAP` defaults to 1000000. Both accept positive
+integer operator overrides and fail boot on invalid values. Before inserting,
+the transaction derives each wave's reservation from every actual parent code
+and outstanding ancestor obligation, times invites per user, plus owner invites,
+with its own actual codes as a lower bound. Existing descendants reserve their
+future codes before another wave is admitted. Cached size remains separate for
+Node-compatible response bytes.
+This reserves lazy child issuance using existing wave rows, without a quota
+table. The owner total spans every conversation owned by that owner. The owner
+lock serializes these checks across concurrent wave creates. A refusal is 409
+`polis_err_treevite_conversation_code_cap` or
+`polis_err_treevite_owner_code_cap`, with no wave/invite insert. These are
+sanity stops, not surge rate limits.
+
+Minting has its own two-slot writer pool and two-slot read-only identity pool.
+The writer bounds acquisition at 100 ms, lock waits at 100 ms, statements at
+500 ms and the issuance loop at ten seconds. It neither changes conversation
+rows nor acquires the participant allocator lock. Its foreign-key key-share
+locks permit ordinary participant-count updates. No participation connection
+or rate bucket is borrowed. A deadline or insertion failure rolls back the
+whole wave. Once dispatched, no result is a 502 handoff; an uncertain commit
+or outer deadline returns 503 `polis_err_treevite_wave_outcome_unknown` and
+must not be automatically retried. There is no operation-recovery protocol.
+
+These guarantees require every wave writer to use the locks; the current Node
+wave creator does not. The read-side switch and existing Node writer remain
+unchanged. Lazy acceptance and membership discovery reconciliation are outside
+this writer; this change does not establish a mixed-writer rollout guarantee.
+
+`conformance/post-treevite-waves-run.sh` replays the Treevite recording profile
+on an isolated stack, executing all thirteen wave POST cases against Rust and
+Node from identical state. It preserves the Node fixture and compares response
+bytes and committed wave/invite rows. Three additional integer overflow
+comparisons run after the unchanged profile. Database tests additionally cover
+concurrent numbering/owner caps, failure rollback, reserved future capacity,
+member idempotence and separate participation resources under a parked mint
+lock. This functional evidence is not a production capacity benchmark.
+
+
+
+## Participant comment list
+
+`GET /api/v3/comments/participant?conversation_id=…` returns an array of
+`{txt, tid}` in that property order, the projection read by the participation
+page. `txt` preserves database nulls. The path is a purpose-specific child of
+the legacy comments route; it cannot accept moderation or report options.
+
+It uses the plain list's active, positive-velocity and conversation moderation
+rules (strict: mod = 1; otherwise mod != -1), created-only order and 999-row
+default limit. There is no author exception and no moderator expansion.
+The topic agenda's legacy call asks for moderation and counts, but reads only
+tid and txt. That call has no ordering or default limit and expands visibility
+for moderators. Those differences are recorded explicitly by the conformance
+runner; this endpoint defines the plain participant list.
+
+Off by default. Enable only this route with
+`POLIS_API_PARTICIPANT_COMMENTS_READS=1` and set
+`POLIS_API_PARTICIPANT_COMMENTS_DATABASE_URL`. The read pool uses
+`READ_ONLY_DATABASE_URL` when provided. Both the read pool and separate identity
+pool have one connection, a 15 ms acquisition bound and 50 ms statement timeout;
+the complete request has a 75 ms deadline. They do not borrow connections from
+vote, comment submission or next-comment pools, and make no writes.
+
+Identity uses the comments twin's verified hybrid resolver. Participant tokens
+require the existing `POLIS_API_PARTICIPANT_READS=1` verifier configuration;
+mapped OIDC identities require `POLIS_API_READ_JWKS_FILE`, `AUTH_ISSUER`,
+`AUTH_AUDIENCE` and the matching `AUTH_NAMESPACE`. Anonymous reads are allowed.
+Cookies, invalid or unsupported identities, foreign participant tokens and
+unknown parameters return 502, never an anonymous downgrade. There is no Node
+handler for this new path and no nginx map entry. A 502 here is a refusal, not
+a promise of a successful legacy fallback.
+
+Health exposes `participantCommentsServed` and `participantCommentsFallback`.
+Run `conformance/participant-comments-run.sh` with the characterization stack's
+unique project, ports and built images to record both participant-page calls,
+their projected bytes, explicit deltas, HEAD behavior and credential refusals.
+
+### Typed moderation statement list (off by default)
+
+`GET /api/v3/comments/moderation?conversation_id=…&mod=0&limit=50&offset=0`
+returns `{comments, pagination: {limit, offset, total, hasMore}}`. Rows contain
+only `txt, tid, is_meta, velocity, mod, active, conversation_id`, in that order.
+These are the moderation page's display and whole-row update inputs; pagination
+totals supply its tab counts. No vote counts, participant IDs or report data
+are included. The three status tabs request `mod=0`, `1` and `-1`. Numeric
+query values follow Node's decimal integer-prefix parser: `1.5`, `01`, `+1`
+and `1abc` mean 1. Nonnumeric values and duplicate numeric keys return Node's
+400 `Bad Request\n`, including its headers. Limits clamp to 500 (nonpositive
+means 50); omitted or negative offsets become zero. Large offsets retain
+JavaScript's rounded integer value. Numeric moderation states outside the three
+tabs hand back to Node. Other query keys, bodies and cookies remain outside
+this route. HEAD is supported.
+
+Only verified hybrid identities satisfying Node's site-moderator or configured
+admin predicate may read. Activity, velocity and strict-moderation settings do
+not hide matching rows. The query has Node's unordered LIMIT/OFFSET behavior.
+A caller without this authority receives HTTP 403 with
+`polis_err_comments_moderation_forbidden` in the standard error body. This is
+an intentional difference from the overloaded Node endpoint, which silently
+narrows unauthorized callers to the participant list for report/topic callers.
+The typed route performs identity and authority reads before acquiring its
+statement pool or counting comments. Invalid credentials also cannot read.
+
+Enable only with `POLIS_API_MODERATION_COMMENTS_READS=1` and
+`POLIS_API_MODERATION_COMMENTS_DATABASE_URL`; it has no nginx routing entry.
+Identity uses a dedicated primary read-only pool and statement reads use a
+second dedicated read-only pool (preferring `READ_ONLY_DATABASE_URL`). Each
+has one connection, 15 ms acquisition and 50 ms statement limits; the request
+has a 75 ms deadline. Neither shares participation pools or performs writes.
+Hybrid verifier configuration is the same as the participant list above.
+Unsupported requests or unavailable storage return 502; no successful Node
+fallback exists at this new path. Health adds `moderationCommentsServed` and
+`moderationCommentsFallback`; served includes typed refusals.
+
+`conformance/moderation-comments-run.sh` records fresh generated conversations
+against unchanged Node and compares the whole seven-field projected envelope,
+without sorting rows. Every refusal and query probe compares Node and Rust
+status, headers and body bytes, and reports equal, listed delta or unexplained.
+Date is recorded but excluded from equality because it is generated per response;
+successful projected bodies have their own Content-Length and ETag. The replay
+requests identity encoding. Raw bodies, headers, projections and the reasons for
+intentional differences are retained; unexplained differences fail the run.
+Clients, schema and existing routing remain unchanged.
+
+The moderation route requires `limit` and `mod`. Missing `limit` hands back
+before any read because Node returns an unbounded array; missing `mod` hands
+back because this route serves one moderation state per request. Omitted
+`offset` defaults to zero. The replay lists both omission differences.

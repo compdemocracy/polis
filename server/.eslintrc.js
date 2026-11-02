@@ -9,7 +9,7 @@ module.exports = {
     {
       // shadow/ holds standalone bootstrap processes for the daily shadow runner;
       // they construct the environment the app reads, so config.ts cannot apply.
-      files: ["bin/*.js", "__tests__/**/*.ts", "shadow/*.cjs"],
+      files: ["bin/*.js", "__tests__/**/*.ts", "characterization/**/*.test.ts", "shadow/*.cjs"],
       rules: {
         "no-console": "off",
         "no-restricted-properties": "off"

@@ -100,29 +100,6 @@ function isModerator(zid: number, uid?: number) {
     });
 }
 
-function doAddDataExportTask(
-  math_env: string | undefined,
-  email: string,
-  zid: number,
-  atDate: number,
-  format: string,
-  task_bucket: number
-) {
-  return pg.queryP(
-    "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
-    [
-      math_env,
-      {
-        email: email,
-        zid: zid,
-        "at-date": atDate,
-        format: format,
-      },
-      task_bucket, // TODO hash the params to get a consistent number?
-    ]
-  );
-}
-
 function isOwner(zid: number, uid: number) {
   return getConversationInfo(zid).then(function (info: any) {
     return info.owner === uid;
@@ -173,7 +150,6 @@ function ifDefinedFirstElseSecond(first: any, second: boolean) {
 //todo: only one export
 
 export {
-  doAddDataExportTask,
   escapeLiteral,
   hexToStr,
   ifDefinedFirstElseSecond,
@@ -189,7 +165,6 @@ export {
 };
 
 export default {
-  doAddDataExportTask,
   escapeLiteral,
   hexToStr,
   isConversationOwner,

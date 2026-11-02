@@ -57,7 +57,6 @@ jest.mock("../../src/server-helpers", () => ({
 jest.mock("../../src/utils/zinvite", () => ({}));
 jest.mock("../../src/utils/metered", () => ({}));
 jest.mock("../../src/nextComment", () => ({}));
-jest.mock("auth0", () => ({ ManagementClient: jest.fn() }));
 
 const {
   detectLanguage,

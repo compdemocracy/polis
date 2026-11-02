@@ -425,6 +425,12 @@ function proxy(
   req: ExpressRequest & { headers?: { host?: string }; path: any },
   res: ExpressResponse
 ) {
+  // Unregistered API paths have no static asset behind them.
+  if (req.path.startsWith("/api/")) {
+    res.set({ "Content-Type": "text/plain" });
+    return res.send(404);
+  }
+
   const hostname = Config.staticFilesHost;
 
   if (!hostname) {
@@ -476,23 +482,11 @@ function proxy(
   });
 }
 
-function makeRedirectorTo(path: string) {
-  return function redirectHandler(req: ExpressRequest, res: ExpressResponse) {
-    const protocol = Config.isDevMode ? "http" : "https";
-    const host = req.headers.host || Config.getServerHostname();
-    const url = `${protocol}://${host}${path}`;
-
-    res.writeHead(302, { Location: url });
-    res.end();
-  };
-}
-
 export {
   addCorsHeader,
   denyIfNotFromWhitelistedDomain,
   handle_GET_domainWhitelist,
   handle_POST_domainWhitelist,
-  makeRedirectorTo,
   proxy,
   redirectIfNotHttps,
   writeDefaultHead,

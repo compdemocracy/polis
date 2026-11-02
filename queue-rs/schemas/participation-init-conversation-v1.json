@@ -1,0 +1,464 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "participation-init-conversation/1",
+  "$comment": "Generated from polis-contracts participation_init; POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --locked -p polis-contracts --test identity_contracts",
+  "description": "Bootstrap (active migration chain) Conversation object with physical column order. The supported legacy layout omits branding_type, adds dataset_explanation, is_curated and need_suzinvite, and may place prioritize_seed/use_xid_whitelist elsewhere. This strict type rejects that object (missing field branding_type / unknown field is_curated); pinning it needs its own recording. See docs/migration-legacy-contract.md and the module README for provenance and omission rules.",
+  "type": "object",
+  "properties": {
+    "topic": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "link_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "parent_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "upvotes": {
+      "type": "integer"
+    },
+    "participant_count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_anon": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_active": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_draft": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_public": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_data_open": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profanity_filter": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "spam_filter": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "strict_moderation": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "prioritize_seed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vis_type": {
+      "type": "integer"
+    },
+    "write_type": {
+      "type": "integer"
+    },
+    "help_type": {
+      "type": "integer"
+    },
+    "write_hint_type": {
+      "type": "integer"
+    },
+    "style_btn": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "socialbtn_type": {
+      "type": "integer"
+    },
+    "subscribe_type": {
+      "type": "integer"
+    },
+    "branding_type": {
+      "type": "integer"
+    },
+    "bgcolor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "help_bgcolor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "help_color": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "email_domain": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "use_xid_whitelist": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "owner": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "org_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "course_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "owner_sees_participation_stats": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_needed_to_vote": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_needed_to_write": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_opt_fb": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_opt_tw": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_opt_allow_3rdparty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "modified": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "importance_enabled": {
+      "type": "boolean"
+    },
+    "treevite_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "xid_required": {
+      "type": "boolean"
+    },
+    "topics_enabled": {
+      "type": "boolean"
+    },
+    "site_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "translations": {
+      "type": "array",
+      "items": {
+        "type": "null"
+      },
+      "maxItems": 0
+    },
+    "hasMetadata": {
+      "type": "boolean",
+      "const": true
+    },
+    "ownername": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_mod": {
+      "type": "boolean"
+    },
+    "is_owner": {
+      "type": "boolean"
+    },
+    "conversation_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "topic",
+    "description",
+    "link_url",
+    "parent_url",
+    "upvotes",
+    "participant_count",
+    "is_anon",
+    "is_active",
+    "is_draft",
+    "is_public",
+    "is_data_open",
+    "profanity_filter",
+    "spam_filter",
+    "strict_moderation",
+    "prioritize_seed",
+    "vis_type",
+    "write_type",
+    "help_type",
+    "write_hint_type",
+    "style_btn",
+    "socialbtn_type",
+    "subscribe_type",
+    "branding_type",
+    "bgcolor",
+    "help_bgcolor",
+    "help_color",
+    "email_domain",
+    "use_xid_whitelist",
+    "owner",
+    "org_id",
+    "context",
+    "course_id",
+    "owner_sees_participation_stats",
+    "auth_needed_to_vote",
+    "auth_needed_to_write",
+    "auth_opt_fb",
+    "auth_opt_tw",
+    "auth_opt_allow_3rdparty",
+    "modified",
+    "created",
+    "importance_enabled",
+    "treevite_enabled",
+    "xid_required",
+    "topics_enabled",
+    "site_id",
+    "translations",
+    "is_mod",
+    "is_owner",
+    "conversation_id"
+  ],
+  "additionalProperties": false
+}

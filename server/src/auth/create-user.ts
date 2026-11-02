@@ -1,23 +1,28 @@
+import type { PoolClient } from "pg";
 import _ from "underscore";
 import { generateTokenP } from "./generate-token";
 import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 
-function generateAndRegisterZinvite(zid: number, generateShort: any) {
+function generateAndRegisterZinvite(
+  zid: number,
+  generateShort: any,
+  client?: PoolClient
+) {
   let len = 10;
   if (generateShort) {
     len = 6;
   }
   return generateTokenP(len, false).then(function (zinvite: string) {
-    return pg
-      .queryP(
-        "INSERT INTO zinvites (zid, zinvite, created, uuid) VALUES ($1, $2, default, gen_random_uuid());",
-        [zid, zinvite]
-      )
-      .then(function (_rows: any) {
+    const sql =
+      "INSERT INTO zinvites (zid, zinvite, created, uuid) VALUES ($1, $2, default, gen_random_uuid());";
+    const params = [zid, zinvite];
+    return (client ? client.query(sql, params) : pg.queryP(sql, params)).then(
+      function (_rows: any) {
         return zinvite;
-      });
+      }
+    );
   });
 }
 

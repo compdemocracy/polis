@@ -25,9 +25,21 @@ export default (
     port: 80,
     protocol: elbv2.ApplicationProtocol.HTTP,
     targets: [asgWeb],
+    // A deploy deregisters each web box from this group (the web deployment group in
+    // cdk/codedeploy.ts names it). The balancer then stops sending the box new
+    // requests and waits for in-flight ones; CodeDeploy's BlockTraffic step lasts
+    // until the deregistration delay has elapsed, so the delay bounds how long each
+    // box waits before its containers are replaced. Participation requests take well
+    // under a second; a request still running after 60 s is cut off.
+    deregistrationDelay: cdk.Duration.seconds(60),
     healthCheck: {
       path: "/api/v3/testConnection",
-      interval: cdk.Duration.seconds(300)
+      // Bound removal of a failed target and require two successful checks
+      // before a recovering target returns to service.
+      healthyThresholdCount: 2,
+      unhealthyThresholdCount: 3,
+      timeout: cdk.Duration.seconds(5),
+      interval: cdk.Duration.seconds(10)
     }
   });
 

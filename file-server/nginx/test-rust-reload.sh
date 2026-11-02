@@ -8,7 +8,7 @@ compose=(docker compose -p "$project" -f "$work/compose.json")
 cleanup() {
   "${compose[@]}" logs --no-color nginx-proxy >&2 || true
   "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
-  docker image rm "$project:local" >/dev/null 2>&1 || true
+  if [[ -z ${NGINX_TEST_IMAGE:-} ]]; then docker image rm "$project:local" >/dev/null 2>&1 || true; fi
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -18,7 +18,7 @@ import json,os,pathlib
 root=os.environ['RELOAD_TEST_ROOT']; work=pathlib.Path(os.environ['RELOAD_TEST_WORK'])
 def stub(port,body):
  return {'image':'nginx:1.21.5-alpine','entrypoint':['sh','-c',f'printf \'server {{ listen {port}; location / {{ return 200 "{body}"; }} }}\' > /etc/nginx/conf.d/default.conf; exec nginx -g "daemon off;"']}
-config={'services':{'server':stub(5000,'node'),'client-participation-alpha':stub(4321,'alpha'),'polis-api':stub(5100,'rust'),'nginx-proxy':{'image':os.environ['RELOAD_TEST_PROJECT']+':local','build':{'context':root+'/file-server','dockerfile':'nginx.Dockerfile'},'depends_on':['server','client-participation-alpha'],'ports':['127.0.0.1::80'],'volumes':['routing:/var/lib/polis-routing']}},'volumes':{'routing':{}}}
+config={'services':{'server':stub(5000,'node'),'client-participation-alpha':stub(4321,'alpha'),'polis-api':stub(5100,'rust'),'nginx-proxy':{'image':os.environ.get('NGINX_TEST_IMAGE') or os.environ['RELOAD_TEST_PROJECT']+':local','build':{'context':root+'/file-server','dockerfile':'nginx.Dockerfile'},'depends_on':['server','client-participation-alpha'],'ports':['127.0.0.1::80'],'volumes':['routing:/var/lib/polis-routing']}},'volumes':{'routing':{}}}
 
 # Delay after headers to prove draining protects a response that cannot fall back.
 rust_code = """from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -36,8 +36,10 @@ ThreadingHTTPServer(('0.0.0.0',5100),Handler).serve_forever()
 config['services']['polis-api']={'image':'python:3.12-alpine','entrypoint':['python','-u','-c',rust_code],'environment':{'FAIL_HEALTH':'${FAIL_HEALTH:-0}'}}
 (work/'compose.json').write_text(json.dumps(config))
 PY
-"${compose[@]}" pull polis-api
-"${compose[@]}" build nginx-proxy
+if ! docker image inspect python:3.12-alpine >/dev/null 2>&1; then
+  "${compose[@]}" pull polis-api
+fi
+if [[ -z ${NGINX_TEST_IMAGE:-} ]]; then "${compose[@]}" build nginx-proxy; fi
 "${compose[@]}" up -d server client-participation-alpha nginx-proxy
 python3 - <<'PY'
 import concurrent.futures,http.client,json,os,pathlib,subprocess,threading,time

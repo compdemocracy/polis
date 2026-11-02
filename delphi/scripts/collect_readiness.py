@@ -57,7 +57,7 @@ Subcommands:
               manifest: log index, kind and sha256 per line; malformed lines
               and clock-order violations) and ``alert-test-receipt-<k>`` (a
               copy of each received file). The document binds all of them by
-              digest (review [1469] R1): the trace and manifest digests, the
+              digest: the trace and manifest digests, the
               interval, the test line's log index, each malformed line with
               its time bracket, and per alarm the selected message's file,
               offset and sha256. A malformed protocol line that may lie inside
@@ -132,7 +132,7 @@ COLLECTION_SCHEMA = "math_poller.readiness_collection/1"
 # describe-alarms read. The metric identity is the whole selection: the log
 # filters publish the two metrics with no dimensions (unit Count), and the
 # alarms name no dimensions and no unit, so an alarm with any dimension or a
-# unit selects another metric (review [1461] R1). TreatMissingData is pinned
+# unit selects another metric. TreatMissingData is pinned
 # per alarm: missing heartbeat data is breaching (a dead poller publishes
 # nothing); missing stale data is notBreaching, the only policy under which a
 # healthy poller's stale alarm is OK. That policy is why the stale alarm's
@@ -195,7 +195,7 @@ class Degraded(Refused):
 
 class Superseded(Refused):
     """The latest primary run's instance started a newer process run: the
-    older run's readiness is not carried forward (review [1465] R1)."""
+    older run's readiness is not carried forward."""
 
     def __init__(self, newer: List[Dict[str, Any]]) -> None:
         super().__init__("HOLDER_RUN_SUPERSEDED")
@@ -345,7 +345,7 @@ def run_starts(parsed) -> Dict[Tuple[str, str], Tuple[int, int, str, str]]:
 
 
 def superseding_runs(parsed, instance: str, run: str) -> List[Dict[str, Any]]:
-    """The runs on ``instance`` that started after ``run`` (review [1465] R1).
+    """The runs on ``instance`` that started after ``run``.
 
     One instance runs one poller process: a run that started later on the
     same instance (a container restart, whatever its role: its startup line
@@ -375,7 +375,7 @@ def holder_lines(parsed, n: int) -> List[Tuple[str, Dict[str, Any]]]:
     lines (the heartbeat drill) are evidence like any other: the newest state
     wins, whatever it says.
 
-    Lifecycle evidence is reconciled per instance first (review [1465] R1):
+    Lifecycle evidence is reconciled per instance first:
     when a newer run started on the latest primary run's instance, that run
     replaced it, and ``Superseded`` is raised rather than carrying the older
     run's readiness forward (or falling back to another instance's older
@@ -396,7 +396,7 @@ def holder_lines(parsed, n: int) -> List[Tuple[str, Dict[str, Any]]]:
 
 def select_evidence(lines: Sequence[str], observed_ms: int, n: int = 1):
     """The holder's current evidence, selected once for every consumer
-    (``record``, ``current`` and ``holder``; review [1461] R3):
+    (``record``, ``current`` and ``holder``):
     (parsed lines, the holder's last ``n`` lines, its newest body, the
     collection report).
 
@@ -617,7 +617,7 @@ def notifications(history: Sequence[Dict[str, Any]], since_ms: int,
 
 def drill_window(alarm: str, emitted_ms: int, silence_s: int) -> Tuple[int, int]:
     """(earliest, latest) time an ALARM transition of ``alarm`` is attributed
-    to the test line emitted at ``emitted_ms`` (review [1461] R2). This is
+    to the test line emitted at ``emitted_ms``. This is
     an attribution window, not a promise about CloudWatch's evaluation delay:
     a transition outside it (a day-later outage) is not this drill's evidence.
 
@@ -680,7 +680,7 @@ _MAIL_REF = re.compile(r'Amazon CloudWatch Alarm "([^"]+)"')
 _MAIL_INTRO = re.compile(r'Amazon CloudWatch Alarm "([^"]+)"[^\n]*?has entered the ([A-Z_]+) state')
 _SUBJECT = re.compile(r'^(ALARM|OK|INSUFFICIENT_DATA): "([^"]+)"')
 _MBOX_FROM = re.compile(rb"^From ", re.M)
-# A header line of another message inside a body (review [1469] R2): a
+# A header line of another message inside a body: a
 # saved e-mail concatenated after another one without an mbox separator.
 _NESTED_HEADER = re.compile(r"^(?:From |(?:Subject|Date|From|To|Cc|Reply-To|Sender|Message-ID|"
                             r"MIME-Version|Content-Type|Content-Transfer-Encoding|Return-Path|"
@@ -718,7 +718,7 @@ def _json_array_spans(text: str) -> Optional[List[Tuple[int, int]]]:
 
 def _split_receipt(raw: bytes) -> List[Tuple[int, bytes, str]]:
     """One received file as its separate notifications, with explicit
-    boundaries only (review [1465] R2): (byte offset, message bytes, form).
+    boundaries only: (byte offset, message bytes, form).
     Each message is the file's own bytes at that offset, so its sha256 and
     offset name it in the evidence and can be found again on reuse.
 
@@ -728,7 +728,7 @@ def _split_receipt(raw: bytes) -> List[Tuple[int, bytes, str]]:
     at ``From `` lines) or, without one, the whole file is ONE RFC 822
     message (``mail``). Concatenated e-mails without mbox separators are
     therefore one message, never several, and ``_mail_fields`` refuses such
-    a message (review [1469] R2); pass one ``--receipt`` per saved e-mail."""
+    a message; pass one ``--receipt`` per saved e-mail."""
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -799,7 +799,7 @@ def _one_header_block(raw: bytes) -> bool:
 
 def _mail_fields(raw: bytes) -> Optional[Tuple[str, str, int, bool]]:
     """(alarm, new state, state-change ms, True) of ONE complete CloudWatch
-    alarm e-mail (review [1469] R2), or None.
+    alarm e-mail, or None.
 
     Strict: one header block then one body (``_one_header_block``); exactly
     one Subject header naming the alarm and its state, at most one Date; the
@@ -877,7 +877,7 @@ def receipt_messages(receipts: Sequence[bytes]) -> List[Dict[str, Any]]:
 
 def receipt_for_transition(messages: Sequence[Dict[str, Any]],
                            t: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """The one received notification of transition ``t`` (review [1465] R2):
+    """The one received notification of transition ``t``:
     a single message whose own alarm name is ``t``'s, whose own new state is
     ALARM and whose own state-change time is ``t``'s (within STATE_MATCH_MS;
     an e-mail's whole-second time may also lag by its truncation). Fields are
@@ -918,7 +918,7 @@ def _select(history, alarm: str, emitted_ms: int, silence_s: int, topic: str,
 
 
 def _silence_held(parsed, run: str, since: int, silence_s: int, t: Dict[str, Any]) -> None:
-    """The heartbeat drill's attribution (review [1461] R2): over the
+    """The heartbeat drill's attribution: over the
     heartbeat alarm's evaluated datapoints that lie in the silence, no process
     logged a heartbeat line (primary, ok, not silenced), and the tested run
     held the lock and withheld its heartbeat throughout (only silenced
@@ -974,7 +974,7 @@ def _timed(parsed) -> List[Tuple[int, int]]:
 
 
 def clock_order_violations(timed: Sequence[Tuple[int, int]]) -> List[Dict[str, int]]:
-    """The log's clock-order contract (review [1469] R3): every well-formed
+    """The log's clock-order contract: every well-formed
     protocol line's own clock is no more than CLOCK_TOLERANCE_MS behind any
     line logged before it. Each line that breaks it, with the earlier line
     its clock is behind: {index, emitted_ms, behind_index, behind_ms}. The
@@ -993,7 +993,7 @@ def clock_order_violations(timed: Sequence[Tuple[int, int]]) -> List[Dict[str, i
 def _bracket(timed: Sequence[Tuple[int, int]], index: int,
              ordered: Optional[bool] = None) -> Tuple[Optional[int], Optional[int]]:
     """The times a line at log ``index`` was written between, established
-    from proven order only (review [1469] R3): when the log's clocks agree
+    from proven order only: when the log's clocks agree
     with its order (``clock_order_violations`` finds none; ``ordered`` passes
     that result in), a line logged after every earlier line and before every
     later one was written no earlier than the latest earlier clock and no
@@ -1015,15 +1015,15 @@ def _bracket(timed: Sequence[Tuple[int, int]], index: int,
 
 
 def drill_trace(lines: Sequence[str], parsed, lo: int, hi: int) -> Tuple[List[str], Dict[str, Any]]:
-    """The drill's private trace over ``[lo, hi]`` (review [1465] R3): the
+    """The drill's private trace over ``[lo, hi]``: the
     verbatim well-formed protocol lines whose own time meets the interval,
     and the collection report: the manifest (log index, kind and sha256 per
     trace line), and every malformed protocol line of the log with its
     bracket (``_bracket``). A malformed line whose bracket meets the interval
     (a heartbeat whose JSON was cut off still matches the heartbeat metric
     filter's literal prefix; a cut-off standby transition cannot be located),
-    or whose bracket is unknown because the log's clocks contradict its order
-    (review [1469] R3), is adverse evidence of unknown content: it is listed
+    or whose bracket is unknown because the log's clocks contradict its order,
+    is adverse evidence of unknown content: it is listed
     under ``malformed`` for the caller to refuse. The rest are listed under
     ``malformed_excluded``, each outside the interval by its bracket."""
     timed = _timed(parsed)
@@ -1056,8 +1056,8 @@ def drill_trace(lines: Sequence[str], parsed, lo: int, hi: int) -> Tuple[List[st
 
 
 class AlertEvidence:
-    """A saved alert-test document with the private provenance it binds
-    (review [1469] R1): the verbatim drill trace (``alert-test-lines.txt``),
+    """A saved alert-test document with bound private provenance:
+    the verbatim drill trace (``alert-test-lines.txt``),
     the collection report with its manifest (``alert-test-collection.json``)
     and the received files (``alert-test-receipt-<k>``). ``record`` and
     ``current`` accept the alert test only in this form and re-validate the
@@ -1109,25 +1109,25 @@ def collect_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], 
     heartbeat drill (``silence_s > 0``) proves something only when the tested
     run is the holder and actually withheld its heartbeat.
 
-    Each fired alarm is bound as one event (review [1461] R2): the single
+    Each fired alarm is bound as one event: the single
     ALARM transition inside its attribution window (``drill_window``), the
     successful SNS action for that transition (``action_for``: ALARM state,
     its stateUpdateTimestamp, the intended topic), and the operator's
     received notification of that state change: one complete message whose
     own alarm name, ALARM state and state-change time match it
-    (``receipt_messages``, ``receipt_for_transition``; reviews [1465] R2 and
-    [1469] R2). ``receipt`` is the received file's bytes, or a list of files.
+    (``receipt_messages``, ``receipt_for_transition``). ``receipt`` is the
+    received file's bytes, or a list of files.
     A heartbeat drill must also have silenced long enough to cover the
     alarm's evaluated datapoints and held the lock silently over them
     (``_silence_held``). Any malformed protocol line whose possible time
     meets the drill's interval (from one stale period before the test line to
     the last selected transition), or cannot be placed because the log's
     clocks contradict its order, refuses (``Degraded``
-    ALERT_TEST_EVIDENCE_MALFORMED, its report naming the lines; reviews
-    [1465] R3, [1469] R3). ``transitions`` and ``notifications`` hold exactly
+    ALERT_TEST_EVIDENCE_MALFORMED, its report naming the lines).
+    ``transitions`` and ``notifications`` hold exactly
     the selected events.
 
-    The document binds its provenance (review [1469] R1): ``trace`` (the
+    The document binds its provenance: ``trace`` (the
     interval, the log's line count, the test line's log index, the sha256 of
     the private trace and of its manifest, the clock-order violations, and
     each malformed line excluded with its bracket) and ``receipt`` (each
@@ -1220,13 +1220,13 @@ def drill_interval(since: int, silence: int, chosen: Sequence[Dict[str, Any]]) -
 def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
                      config_sha256: Optional[str] = None, validator=None) -> str:
     """The evidence digest, recomputed, after checking the saved evidence's
-    own invariants again (a recomputed digest alone establishes nothing;
-    review [1461] R2): exactly one transition and one action per fired alarm
+    own invariants again (a recomputed digest alone establishes nothing):
+    exactly one transition and one action per fired alarm
     (DiscoveryStale; HeartbeatMissing too for a silence drill), each
     transition an ALARM inside its drill window, each action the successful
     ALARM notification of that transition on the evidence's topic, a silence
     long enough and a tested run that held the lock, the interval this
-    drill's own, and the bound provenance consistent (review [1469] R1: the
+    drill's own, and the bound provenance consistent (the
     verification job's ``validate_alert_test``, real or vendored, also runs).
     A /2 (or older) document is refused: it predates the bound provenance
     and must be recollected. Given the current topic and alarm configuration
@@ -1287,7 +1287,7 @@ def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
 
 def verify_alert_evidence(alert: Any, topic_arn: Optional[str] = None,
                           config_sha256: Optional[str] = None, validator=None) -> str:
-    """Validation on reuse (review [1469] R1): the saved document checked
+    """Validation on reuse: the saved document checked
     (``check_alert_test``) and re-validated against every provenance digest
     it binds; refused if any part is missing or differs. Returns its sha256.
 
@@ -1449,7 +1449,7 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
     line's ``seq`` and ``queue.parked`` (parked live work, which the verifier
     ages like pending work). ``alert_test`` is the saved alert test with its
     provenance (``AlertEvidence``, ``load_alert_test``), re-validated against
-    every digest it binds (``verify_alert_evidence``; review [1469] R1)."""
+    every digest it binds (``verify_alert_evidence``)."""
     parsed, held, last, report = select_evidence(lines, observed_ms, n)
     run, config = last["run"], last["config"]
     line_age = report["line_age_ms"]
@@ -1760,7 +1760,7 @@ def instance_digest(instance_id: str) -> str:
 
 def current_holder(lines: Sequence[str], observed_ms: Optional[int] = None) -> Dict[str, Any]:
     """The admitted holder's newest line, for the drill: selected by
-    ``select_evidence`` exactly as ``record`` selects it (review [1461] R3),
+    ``select_evidence`` exactly as ``record`` selects it,
     so a truncated final transition, a line older than three of its
     intervals or one from the future at ``observed_ms`` refuses instead of
     naming an instance. It needs no backfill, drain or alarm evidence: the

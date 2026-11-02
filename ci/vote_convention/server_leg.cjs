@@ -71,8 +71,6 @@ Object.assign(process.env, {
   POLIS_FROM_ADDRESS: "sender@example.invalid",
   SHOULD_USE_TRANSLATION_API: "false",
   ADMIN_UIDS: "[2]",
-  WEBSERVER_USERNAME: "generated-worker",
-  WEBSERVER_PASS: "generated-worker",
   TOPICAL_COMMENT_RATIO: "0",
 });
 

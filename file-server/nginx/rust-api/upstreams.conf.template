@@ -1,6 +1,5 @@
 # Rendered only when RUST_API_ROUTES names a known route (see
-# docker-entrypoint.sh); otherwise this file is empty and nginx routes every
-# path to Node exactly as before.
+# docker-entrypoint.sh); otherwise this file is empty and API/page requests keep their Node routes.
 
 # polis-api is looked up per request through Docker's DNS, not once at start,
 # so nginx starts and keeps serving when the polis-api container is absent,

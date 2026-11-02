@@ -629,7 +629,7 @@ class TestExecution:
         assert t.host.computed == []
 
     def test_live_cached_conversation_needing_repair_is_repaired_not_deferred(self):
-        # Review [1447] E: a cached (live-owned) zid whose publication is
+        # Regression: a cached (live-owned) zid whose publication is
         # invalid is repaired through the serialized job, never deferred
         # forever as live_owned.
         db = FakeDb()
@@ -1361,7 +1361,7 @@ class TestServiceWiring:
 
 
 # --------------------------------------------------------------------------- #
-# Review [1447] C: live lag is not catch-up; source-ahead needs a ruling
+# Regression: live lag is not catch-up; source-ahead needs a ruling
 # --------------------------------------------------------------------------- #
 class TestSourceAheadAndLag:
     @pytest.mark.parametrize("reason", [bf.SOURCE_AHEAD, bf.FAILED_COMPUTE, bf.EXHAUSTED])
@@ -1450,7 +1450,7 @@ class TestSourceAheadAndLag:
 
 
 # --------------------------------------------------------------------------- #
-# Review [1447] D: unbound approvals re-arm; nested state records are checked
+# Regression: unbound approvals re-arm; nested state records are checked
 # --------------------------------------------------------------------------- #
 GOOD_RECORD = {"zid": 1, "klass": "missing", "outcome": "published", "participants": 10,
                "voters": 10, "votes": 50, "comments": 5, "seconds": 1.5,
@@ -1506,7 +1506,7 @@ class TestStateUpgrade:
 
     @pytest.mark.parametrize("key", ["--1", "-", "", "+1", " 1", "1 ", "1\n", "\u0661", "1.0", "007", "-0"])
     def test_malformed_failure_key_starts_paused_and_reports(self, tmp_path, key):
-        """Review [1449] D: "--1" passed lstrip/isdigit, loaded unpaused and
+        """Regression: "--1" passed lstrip/isdigit, loaded unpaused and
         then raised in _finish_sweep's int() conversion."""
         p = tmp_path / "state.json"
         p.write_text(json.dumps({"source_env": "prod", "target_env": "python", "failures": {

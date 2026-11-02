@@ -12,7 +12,6 @@ This module implements JWT-based authentication for the Polis API server.
 - `anonymous-jwt.ts` - Anonymous participant JWT
 - `xid-jwt.ts` - XID participant JWT  
 - `standard-user-jwt.ts` - Standard user participant JWT
-- `legacyCookies.ts` - Legacy cookie support
 - `create-user.ts` - User creation logic
 - `routes.ts` - Authentication endpoints
 - `index.ts` - Module exports
@@ -35,7 +34,6 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 2. Anonymous JWT - Anonymous participant tokens
 3. Standard User JWT - OIDC user participant tokens  
 4. OIDC JWT - Direct OIDC tokens
-5. Legacy Cookie - Backward compatibility
 
 ## Full Documentation
 

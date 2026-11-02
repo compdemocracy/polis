@@ -151,7 +151,7 @@ def refused(check):
 def controls(job):
     """Fixed self-tests; every refusal path must refuse and every vector must decide as named.
 
-    The vectors are built from the job's own limits (review [1459]): the cutoff
+    The vectors are built from the job's own limits: the cutoff
     sits inside max_cutoff_age_seconds, and every discovery, queue and alarm
     boundary is the job's gap or readiness bound plus or minus one millisecond,
     so any supported configuration gets true controls and no configuration can
@@ -319,7 +319,7 @@ def controls(job):
             and incomplete(clock_results(source_newest_ms=SNAPSHOT_MS + 5_001), unknown=True)
             and incomplete(readiness=rd(observed=SNAPSHOT_MS + 5_001), unknown=True)
             and incomplete(readiness=rd(discovery={'last_success_ms': SNAPSHOT_MS + 60_000}), unknown=True)
-            # Never reference + 2 x tolerance through the observation (review [1455] R2).
+            # Never reference + 2 x tolerance through the observation.
             and incomplete(readiness=rd(observed=SNAPSHOT_MS + 4_000,
                                         discovery={'last_success_ms': SNAPSHOT_MS + 5_001}), unknown=True),
     }

@@ -4,7 +4,6 @@
 //! `RUST_API_ROUTES` names it (see README).
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-mod about;
 mod admin_page;
 mod all_conversations;
 mod bid_to_pid;
@@ -19,10 +18,10 @@ mod conversation_pages;
 mod conversation_preload;
 mod conversation_stats;
 mod cors;
-mod create_page;
 mod database;
 mod db;
 mod perf_stats;
+mod version;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
 // on, compiled from the contracts crate as the route contracts are. The
 // run-record route uses only part of them. rustfmt leaves them to their own
@@ -47,11 +46,10 @@ mod domain_whitelist;
 mod einvites_read;
 mod http;
 mod hybrid_read;
+mod identity_observability;
 mod integrate_page;
 mod js;
 mod legacy_conversations;
-mod legacy_pca;
-mod link_pages;
 mod lru;
 mod metadata_answers;
 #[allow(dead_code)]
@@ -64,18 +62,32 @@ mod metadata_choices;
 mod metadata_query;
 mod metadata_questions;
 mod metadata_read;
+mod moderation_comments;
 mod my_invites_csv;
 mod negotiate;
 mod next_comment;
 mod ops_catchall;
 mod ops_page;
 mod ops_whoami;
-mod other_conversations_page;
 mod owner;
 mod params;
+mod participant_comments;
 mod participants_read;
 mod participation_read;
 mod pca;
+mod post_treevite_waves;
+mod post_votes;
+mod treevite_write;
+#[path = "../../polis-contracts/src/treevite_write.rs"]
+mod treevite_write_contract;
+#[allow(dead_code)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/auth_envelope.rs"]
+mod auth_envelope;
+#[allow(dead_code, clippy::collapsible_if)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/post_votes.rs"]
+mod post_votes_contract;
 mod ptptois;
 mod recent_activity;
 mod recent_started;
@@ -88,21 +100,19 @@ mod votes_read;
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/schema.rs"]
 mod schema;
-mod settings_page;
+mod revocation;
 mod statement_importance;
 mod topic_prioritize;
 mod topic_selection_writes;
 mod topic_selections;
 mod topic_stats;
+mod treevite_codes;
 mod treevite_csv;
 mod treevite_invites;
 mod treevite_me;
 mod treevite_my_invites;
 mod treevite_read;
 mod treevite_waves;
-mod user_create_page;
-mod user_login_page;
-mod user_logout_page;
 #[allow(dead_code)]
 #[rustfmt::skip]
 #[path = "../../polis-contracts/src/wire.rs"]
@@ -115,18 +125,77 @@ use std::sync::{Arc, atomic::Ordering};
 
 /// Not a Node route: liveness for the container and the operator.
 async fn health(app: &route::App) -> Outgoing {
+    health_observed(app, &polis_auth::observability::PROCESS).await
+}
+
+async fn health_observed(
+    app: &route::App,
+    counters: &polis_auth::observability::Counters,
+) -> Outgoing {
     let reachable = app.db.ping().await;
+    health_response(
+        app,
+        counters,
+        reachable,
+        std::env::var("RUST_API_ROUTES").unwrap_or_default(),
+        std::env::vars(),
+    )
+}
+
+fn health_response(
+    app: &route::App,
+    counters: &polis_auth::observability::Counters,
+    reachable: bool,
+    configured_routes: String,
+    environment: impl Iterator<Item = (String, String)>,
+) -> Outgoing {
     let mut body = js::Obj::new();
-    for (i, name) in [
-        "conversationPage",
-        "explorePage",
-        "sharePage",
-        "summaryPage",
-        "oneTimePage",
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    body.set("version", js::Js::Str(env!("POLIS_VERSION").into()));
+    body.set("commit", js::Js::Str(env!("GIT_HASH").into()));
+    let mut pools = js::Obj::new();
+    pools.set("common", app.db.health(reachable));
+    body.set("pools", js::Js::Obj(pools));
+    let mut routing = js::Obj::new();
+    routing.set("configuredRoutes", js::Js::Str(configured_routes));
+    // These are explicit process switches, not the effective nginx map. The
+    // deploy's health check compares configured routes with nginx's environment.
+    let mut switches: Vec<_> = environment
+        .filter_map(|(key, value)| {
+            (key.starts_with("POLIS_API_")
+                && value == "1"
+                && (key.ends_with("_READS")
+                    || key.ends_with("_WRITES")
+                    || key == "POLIS_API_OWNER_LIST"
+                    || key == "POLIS_API_POST_TREEVITE_WAVES"
+                    || key == "POLIS_API_POST_VOTES"
+                    || key == "POLIS_API_TREEVITE_WRITE"))
+                .then_some(js::Js::Str(key))
+        })
+        .collect();
+    switches.sort_by_key(js::stringify);
+    routing.set("enabledSwitches", js::Js::Arr(switches));
+    body.set("routing", js::Js::Obj(routing));
+    body.set("identity", identity_observability::snapshot(counters));
+    body.set("postVotes", post_votes::health(app));
+    body.set("postTreeviteWaves", post_treevite_waves::health(app));
+    body.set("treeviteWrite", treevite_write::health(app));
+    body.set("treeviteRevocations", revocation::health(app));
+    body.set(
+        "treeviteCodeWrites",
+        js::Js::Bool(app.treevite_codes.is_some()),
+    );
+    body.set(
+        "participantKeysLoaded",
+        js::Js::Bool(app.participant_keys.is_some()),
+    );
+    body.set(
+        "participantPublicKeyFingerprint",
+        app.participant_keys
+            .as_ref()
+            .map(|keys| js::Js::Str(keys.fingerprint().into()))
+            .unwrap_or(js::Js::Null),
+    );
+    for (i, name) in ["conversationPage"].into_iter().enumerate() {
         body.set(
             &format!("{name}Served"),
             js::Js::Num(app.conversation_page_served[i].load(Ordering::Relaxed) as f64),
@@ -203,14 +272,6 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "opsWhoamiFallback",
         js::Js::Num(app.ops_whoami_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "aboutServed",
-        js::Js::Num(app.about_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "aboutFallback",
-        js::Js::Num(app.about_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "delphiReportsServed",
@@ -316,14 +377,22 @@ async fn health(app: &route::App) -> Outgoing {
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
     );
-    for (name, counter) in [
-        ("iipServed", &app.iip_served),
-        ("iipFallback", &app.iip_fallback),
-        ("iimServed", &app.iim_served),
-        ("iimFallback", &app.iim_fallback),
-    ] {
-        body.set(name, js::Js::Num(counter.load(Ordering::Relaxed) as f64));
-    }
+    body.set(
+        "moderationCommentsServed",
+        js::Js::Num(app.moderation_comments_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "moderationCommentsFallback",
+        js::Js::Num(app.moderation_comments_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participantCommentsServed",
+        js::Js::Num(app.participant_comments_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "participantCommentsFallback",
+        js::Js::Num(app.participant_comments_fallback.load(Ordering::Relaxed) as f64),
+    );
     body.set(
         "participantsReadServed",
         js::Js::Num(app.participants_read_served.load(Ordering::Relaxed) as f64),
@@ -411,14 +480,6 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "recentActivityFallback",
         js::Js::Num(app.recent_activity_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "legacyPcaServed",
-        js::Js::Num(app.legacy_pca_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "legacyPcaFallback",
-        js::Js::Num(app.legacy_pca_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "treeviteWavesServed",
@@ -557,25 +618,6 @@ async fn health(app: &route::App) -> Outgoing {
         js::Js::Num(app.einvites_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
-        "settingsPageServed",
-        js::Js::Num(app.settings_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "settingsPageFallback",
-        js::Js::Num(app.settings_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "otherConversationsPageServed",
-        js::Js::Num(app.other_conversations_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "otherConversationsPageFallback",
-        js::Js::Num(
-            app.other_conversations_page_fallback
-                .load(Ordering::Relaxed) as f64,
-        ),
-    );
-    body.set(
         "integratePageServed",
         js::Js::Num(app.integrate_page_served.load(Ordering::Relaxed) as f64),
     );
@@ -590,38 +632,6 @@ async fn health(app: &route::App) -> Outgoing {
     body.set(
         "adminPageFallback",
         js::Js::Num(app.admin_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLogoutPageServed",
-        js::Js::Num(app.user_logout_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLogoutPageFallback",
-        js::Js::Num(app.user_logout_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLoginPageServed",
-        js::Js::Num(app.user_login_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userLoginPageFallback",
-        js::Js::Num(app.user_login_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userCreatePageServed",
-        js::Js::Num(app.user_create_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "userCreatePageFallback",
-        js::Js::Num(app.user_create_page_fallback.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "createPageServed",
-        js::Js::Num(app.create_page_served.load(Ordering::Relaxed) as f64),
-    );
-    body.set(
-        "createPageFallback",
-        js::Js::Num(app.create_page_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set("mathEnv", js::Js::Str(app.math_env.clone()));
     body.set(
@@ -676,12 +686,11 @@ async fn dispatch_at_clock(
         route::PATH
         | comments::PATH
         | next_comment::PATH
+        | version::PATH
         | connection::PATH
         | perf_stats::PATH
         | robots::PATH
-        | about::PATH
         | ops_whoami::PATH
-        | legacy_pca::PATH
         | delphi_read::PATH
         | collective_statement::PATH
         | topic_stats::PATH
@@ -694,9 +703,13 @@ async fn dispatch_at_clock(
         | conversation_preload::PATH
         | domain_whitelist::PATH
         | metadata_questions::PATH
+        | treevite_codes::REVOKE_PATH
+        | treevite_codes::REISSUE_PATH
         | treevite_waves::PATH
         | math_membership::BID_PATH
         | math_membership::LOCATIONS_PATH
+        | moderation_comments::PATH
+        | participant_comments::PATH
         | participants_read::PATH
         | ptptois::PATH
         | my_invites_csv::PATH
@@ -722,19 +735,13 @@ async fn dispatch_at_clock(
         | votes_read::PATH
         | votes_read::ME_PATH
         | metadata_answers::PATH => route::handle(app, req).await,
+        path if treevite_write::matches(path) => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
-        path if link_pages::matches(path) => route::handle(app, req).await,
         path if delphi_result_read::matches(path) => route::handle(app, req).await,
         path if ops_page::matches(path) => route::handle(app, req).await,
         path if ops_catchall::matches(path) => route::handle(app, req).await,
-        path if settings_page::matches(path) => route::handle(app, req).await,
-        path if other_conversations_page::matches(path) => route::handle(app, req).await,
         path if integrate_page::matches(path) => route::handle(app, req).await,
         path if admin_page::matches(path) => route::handle(app, req).await,
-        path if user_logout_page::matches(path) => route::handle(app, req).await,
-        path if user_login_page::matches(path) => route::handle(app, req).await,
-        path if user_create_page::matches(path) => route::handle(app, req).await,
-        path if create_page::matches(path) => route::handle(app, req).await,
         path if report_export::matches(path) => route::handle(app, req).await,
         path if xid_report::matches(path) => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
@@ -745,19 +752,30 @@ async fn dispatch_at_clock(
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // The participant signing keys are required whenever a route that verifies
+    // participant tokens is selected; otherwise their absence is reported on
+    // the health document rather than refusing to boot (a box that routes
+    // nothing to this service must still start it).
+    let participant_reads =
+        std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1");
+    let participant_keys = if participant_reads {
+        Some(polis_auth::keys::Keys::from_env()?)
+    } else {
+        polis_auth::keys::Keys::from_env_optional()?
+    };
+    if participant_keys.is_none() {
+        eprintln!(
+            "participant signing keys not configured (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH, JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH); participant token routes cannot be selected"
+        );
+    }
     let cfg = config::Config::from_env()?;
     let connector = config::db_connector()?;
     let pool = db::Pool::new(connector, cfg.pool.clone());
     let mut state = route::App::new(&cfg, pool);
-    for (i, switch) in [
-        "POLIS_API_CONVERSATION_PAGE_READS",
-        "POLIS_API_EXPLORE_PAGE_READS",
-        "POLIS_API_SHARE_PAGE_READS",
-        "POLIS_API_SUMMARY_PAGE_READS",
-        "POLIS_API_ONE_TIME_PAGE_READS",
-    ]
-    .into_iter()
-    .enumerate()
+    state.participant_keys = participant_keys;
+    for (i, switch) in ["POLIS_API_CONVERSATION_PAGE_READS"]
+        .into_iter()
+        .enumerate()
     {
         if std::env::var(switch).ok().as_deref() == Some("1") {
             let dsn = std::env::var("POLIS_API_CONVERSATION_PAGES_DATABASE_URL")
@@ -772,6 +790,20 @@ async fn main() -> Result<()> {
             ));
             state.conversation_pages[i] = conversation_pages::Client::from_env_for(switch).await?;
         }
+    }
+    state.post_votes = post_votes::Writer::from_env()?;
+    state.post_treevite_waves = post_treevite_waves::Writer::from_env()?;
+    if state.post_treevite_waves.is_some() {
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    state.treevite_write = treevite_write::Writer::from_env()?;
+    if state.treevite_write.is_some() {
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
     if std::env::var("POLIS_API_COMMENT_READS").ok().as_deref() == Some("1") {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
@@ -823,18 +855,19 @@ async fn main() -> Result<()> {
     }
     state.topic_selection_writer = topic_selection_writes::Writer::from_env()?;
     if std::env::var("POLIS_API_PARTICIPANT_READS").ok().as_deref() == Some("1") {
-        let path = std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")
-            .context("participant public key file required")?;
-        let key = std::fs::read(path).context("read participant public key")?;
         state.participant_verifier = Some(Arc::new(
-            polis_auth::participant::Verifier::new(
-                &key,
-                &std::env::var("POLIS_JWT_ISSUER")?,
-                &std::env::var("POLIS_JWT_AUDIENCE")?,
-            )
-            .context("invalid participant verifier configuration")?,
+            state
+                .participant_keys
+                .as_ref()
+                .context("participant keys required")?
+                .verifier(
+                    &std::env::var("POLIS_JWT_ISSUER")?,
+                    &std::env::var("POLIS_JWT_AUDIENCE")?,
+                )
+                .context("POLIS_JWT_ISSUER and POLIS_JWT_AUDIENCE must not be empty")?,
         ));
     }
+
     state.perf_stats_reads =
         std::env::var("POLIS_API_PERF_STATS_READS").ok().as_deref() == Some("1");
     if std::env::var("POLIS_API_REPORT_EXPORT_READS")
@@ -858,28 +891,11 @@ async fn main() -> Result<()> {
         ));
         state.report_export_utc = std::env::var("TZ").ok().as_deref() == Some("UTC");
     }
+    version::initialize();
+    state.version_reads = std::env::var("POLIS_API_VERSION_READS").ok().as_deref() == Some("1");
     state.connection_reads =
         std::env::var("POLIS_API_CONNECTION_READS").ok().as_deref() == Some("1");
     state.robots_reads = std::env::var("POLIS_API_ROBOTS_READS").ok().as_deref() == Some("1");
-    state.settings_page_reads = std::env::var("POLIS_API_SETTINGS_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.user_logout_page_reads = std::env::var("POLIS_API_USER_LOGOUT_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.user_login_page_reads = std::env::var("POLIS_API_USER_LOGIN_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.user_create_page_reads = std::env::var("POLIS_API_USER_CREATE_PAGE_READS")
-        .ok()
-        .as_deref()
-        == Some("1");
-    state.create_page_reads =
-        std::env::var("POLIS_API_CREATE_PAGE_READS").ok().as_deref() == Some("1");
-    state.about_reads = std::env::var("POLIS_API_ABOUT_READS").ok().as_deref() == Some("1");
     state.ops_whoami_reads = ops_whoami::configured(
         std::env::var("POLIS_API_OPS_WHOAMI_READS").ok().as_deref(),
         std::env::var("OPS_ENABLED").ok().as_deref(),
@@ -1197,18 +1213,52 @@ async fn main() -> Result<()> {
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
-    for (switch, slot, name) in [
-        ("POLIS_API_IIP_READS", &mut state.iip_db, "polis-api-iip/1"),
-        ("POLIS_API_IIM_READS", &mut state.iim_db, "polis-api-iim/1"),
-    ] {
-        if std::env::var(switch).ok().as_deref() == Some("1") {
-            let dsn = std::env::var("POLIS_API_LINK_PAGES_DATABASE_URL")
-                .context("POLIS_API_LINK_PAGES_DATABASE_URL required")?;
-            *slot = Some(db::Pool::new(
-                config::connector_for_dsn(&dsn, name)?,
-                link_pages::pool_limits(),
-            ));
-        }
+    if std::env::var("POLIS_API_MODERATION_COMMENTS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_MODERATION_COMMENTS_DATABASE_URL")
+            .context("POLIS_API_MODERATION_COMMENTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.moderation_comments_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-moderation-comments/1")?,
+            moderation_comments::pool_limits(),
+        ));
+        state.moderation_comments_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-moderation-comments-auth/1")?,
+            moderation_comments::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_PARTICIPANT_COMMENTS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_PARTICIPANT_COMMENTS_DATABASE_URL")
+            .context("POLIS_API_PARTICIPANT_COMMENTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.participant_comments_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-participant-comments/1")?,
+            participant_comments::pool_limits(),
+        ));
+        state.participant_comments_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-participant-comments-auth/1")?,
+            participant_comments::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
     if std::env::var("POLIS_API_PARTICIPANTS_READS")
         .ok()
@@ -1434,8 +1484,6 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
-    state.legacy_pca_reads =
-        std::env::var("POLIS_API_LEGACY_PCA_READS").ok().as_deref() == Some("1");
     if std::env::var("POLIS_API_TREEVITE_WAVES_READS")
         .ok()
         .as_deref()
@@ -1786,11 +1834,11 @@ async fn main() -> Result<()> {
             einvites_read::pool_limits(),
         ));
     }
-    state.other_conversations_page =
-        admin_page::Client::from_env_for("POLIS_API_OTHER_CONVERSATIONS_PAGE_READS").await?;
     state.integrate_page =
         admin_page::Client::from_env_for("POLIS_API_INTEGRATE_PAGE_READS").await?;
     state.admin_page = admin_page::Client::from_env().await?;
+    state.treevite_codes = treevite_codes::Writer::from_env()?;
+    let refresh_task = revocation::configure(&mut state).await?;
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
@@ -1802,8 +1850,133 @@ async fn main() -> Result<()> {
         cfg.math_env
     );
     let handler = Arc::new(move |req: Request| dispatch(app.clone(), owner.clone(), req));
-    tokio::select! {
+    let result = tokio::select! {
         r = http::serve(listener, handler) => r,
         _ = tokio::signal::ctrl_c() => Ok(()),
+    };
+    if let Some(task) = refresh_task {
+        task.abort();
+        let _ = task.await;
+    }
+    result
+}
+
+#[cfg(test)]
+mod health_tests {
+    use super::*;
+    use polis_queue_adapter::jobs::transport::Connector;
+    use serde_json::{Value, json};
+    use std::time::Duration;
+
+    fn app() -> route::App {
+        let cfg = config::Config {
+            listen: String::new(),
+            math_env: "python".into(),
+            cache_size: 1,
+            dev_mode: false,
+            use_network_host: false,
+            production: true,
+            pool: db::Limits {
+                size: 8,
+                acquire_timeout: Duration::from_millis(2000),
+                statement_timeout: Duration::from_millis(3000),
+                max_lifetime: Duration::from_millis(300000),
+            },
+        };
+        let pg = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
+        let pool = db::Pool::new(Connector::Plain(Box::new(pg)), cfg.pool.clone());
+        let mut app = route::App::new(&cfg, pool);
+        let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+        let private = String::from_utf8(rsa.private_key_to_pem().unwrap()).unwrap();
+        let public = String::from_utf8(rsa.public_key_to_pem().unwrap()).unwrap();
+        app.participant_keys = Some(
+            polis_auth::keys::Keys::from_environment(|name| match name {
+                "JWT_PRIVATE_KEY" => Some(private.clone().into()),
+                "JWT_PUBLIC_KEY" => Some(public.clone().into()),
+                _ => None,
+            })
+            .unwrap(),
+        );
+        app
+    }
+
+    fn json_body(response: Outgoing, status: u16) -> Value {
+        assert_eq!(response.status, status);
+        let Body::Fixed(bytes) = response.body else {
+            panic!("health must be fixed JSON")
+        };
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[test]
+    fn health_reports_the_fields_used_by_deploy_validation() {
+        let app = app();
+        for reachable in [true, false] {
+            let body = json_body(
+                health_response(
+                    &app,
+                    &polis_auth::observability::PROCESS,
+                    reachable,
+                    String::new(),
+                    std::iter::empty(),
+                ),
+                if reachable { 200 } else { 503 },
+            );
+            assert_eq!(body.as_object().unwrap().len(), 126);
+            assert_eq!(body["participantKeysLoaded"], true);
+            assert_eq!(
+                body["participantPublicKeyFingerprint"],
+                app.participant_keys.as_ref().unwrap().fingerprint()
+            );
+            assert_eq!(body["version"], env!("POLIS_VERSION"));
+            assert_eq!(body["commit"], env!("GIT_HASH"));
+            assert_eq!(body["status"], if reachable { "ok" } else { "degraded" });
+            assert_eq!(body["mathEnv"], "python");
+            assert_eq!(
+                body["routing"],
+                json!({"configuredRoutes": "", "enabledSwitches": []})
+            );
+            assert_eq!(
+                body["pools"]["common"],
+                json!({
+                    "readOnly": true, "reachable": reachable, "limit": 8, "available": 8,
+                    "acquireTimeoutMs": 2000, "statementTimeoutMs": 3000, "maxLifetimeMs": 300000
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn health_reports_only_explicit_route_switches_in_sorted_order() {
+        let environment = [
+            ("POLIS_API_ROBOTS_READS", "1"),
+            ("POLIS_API_POST_TREEVITE_WAVES", "1"),
+            ("POLIS_API_POST_VOTES", "1"),
+            ("POLIS_API_OWNER_LIST", "1"),
+            ("POLIS_API_TOPIC_SELECTION_WRITES", "1"),
+            ("POLIS_API_START", "1"),
+            ("POLIS_API_USERS_READS", "true"),
+            ("POLIS_API_VOTES_READS", "0"),
+            ("OTHER_READS", "1"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()));
+        let body = json_body(
+            health_response(
+                &app(),
+                &polis_auth::observability::PROCESS,
+                true,
+                "pca2,robots".into(),
+                environment,
+            ),
+            200,
+        );
+        assert_eq!(
+            body["routing"],
+            json!({
+                "configuredRoutes": "pca2,robots",
+                "enabledSwitches": ["POLIS_API_OWNER_LIST", "POLIS_API_POST_TREEVITE_WAVES", "POLIS_API_POST_VOTES", "POLIS_API_ROBOTS_READS", "POLIS_API_TOPIC_SELECTION_WRITES"]
+            })
+        );
     }
 }

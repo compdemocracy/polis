@@ -108,7 +108,9 @@ pub struct Auth {
 impl Auth {
     /// server/src/auth/ensure-participant.ts:667–671.
     fn validate(&self) -> Result<(), String> {
-        if self.token_type != "Bearer" || self.expires_in != 31_536_000 {
+        if self.token_type != "Bearer"
+            || self.expires_in != u64::from(crate::auth_envelope::EXPIRATION_SECONDS)
+        {
             return Err("invalid issued auth metadata".into());
         }
         Ok(())

@@ -5,7 +5,7 @@ Nothing here reads a database, a file or the wall clock. The receipt carries
 counts, integer millisecond clocks, fixed condition names and digests: no
 conversation ids, payloads or text.
 
-Two gates, kept apart (design (b), review [1459]):
+Two gates, kept apart:
 
 1. The HISTORICAL proof, the receipt. A shape and coverage proof at one
    cutoff, taken from one REPEATABLE READ snapshot through the shipped
@@ -37,14 +37,14 @@ Two gates, kept apart (design (b), review [1459]):
    each, chained by digest), and each later attempt is judged against it: no
    input that is not newer than the latest observation, an observed
    holder/run/config or drain change invalidates the proof, and at most one
-   READY per proof (review [1463]). A rejected current envelope still leaves
+   READY per proof. A rejected current envelope still leaves
    its independently valid readiness record in the ledger, and an input with
    no readable record leaves a barrier: nothing captured before it can say
-   READY (review [1467] R1). The operator serializes each `ready` under an
-   exclusive lock on the operator dir (review [1467] R2). A supplied JSON null
+   READY. The operator serializes each `ready` under an
+   exclusive lock on the operator dir. A supplied JSON null
    (or any scalar) is such an unreadable input, with its digest, never an
    absent one, and the operator reads the current file once, hashing and
-   judging the same bytes (`read_current`; review [1471]).
+   judging the same bytes (`read_current`).
 
 What the snapshot cannot see, and so never claims:
 
@@ -130,8 +130,8 @@ CONTROLS = (
     # Fixed switch-condition vectors.
     'complete-vector', 'missing-blocks', 'invalid-blocks', 'source-ahead-blocks', 'orphan-blocks',
     'cutoff-proof-blocks', 'without-target-blocks', 'live-lag-allowed',
-    # History and clock vectors (review [1453] R1), built from the job's own
-    # limits (review [1459]): history judged at its observation, never at the snapshot.
+    # History and clock vectors, built from the job's own
+    # limits: history judged at its observation, never at the snapshot.
     'history-missing-blocks', 'history-mismatch-blocks', 'history-stale-blocks', 'standby-holder-blocks',
     'long-launch-history-allowed', 'old-publication-not-liveness', 'future-clock-incomplete')
 LIVE_CONTROLS = CONTROLS[:2]
@@ -376,7 +376,7 @@ def validate_run_spec(v):
     integer(v['max_readiness_age_seconds'], *READINESS_AGE, 'VERIFY_RUN_SPEC')
     integer(v['max_discovery_gap_seconds'], 0, 2**31 - 1, 'VERIFY_RUN_SPEC')
     # The gap is the current gate's bound too: widening it for probe latency
-    # (option (a), review [1459]) is refused by name, never silently accepted.
+    # is refused by name, never silently accepted.
     if not DISCOVERY_GAP[0] <= v['max_discovery_gap_seconds'] <= DISCOVERY_GAP[1]:
         fail('VERIFY_DISCOVERY_GAP')
     if type(v['source_ahead_ruling']) is not str or v['source_ahead_ruling'] not in RULINGS:
@@ -463,7 +463,7 @@ def blocking(results, snap, spec):
         failed.append('complete-short')
     failed += ['without-target-' + t for t in TABLES if results['without_target'][t]]
     # Poller progress is not in the snapshot: the bound history carries it,
-    # judged at its own observation (review [1459]); never current readiness.
+    # judged at its own observation; never current readiness.
     failed += history_failures(spec['readiness'], spec)
     limit = snap['snapshot_ms'] + CLOCK_TOLERANCE_MS
     if any(t is not None and t > limit for t in results['published'].values()):
@@ -608,7 +608,7 @@ def validate_receipt(r, job):
 
 
 # ---------------------------------------------------------------------------
-# Current time (reviews [1453] R2, [1459] design (b)). Never part of decoding:
+# Current time. Never part of decoding:
 # a saved receipt stays valid historical evidence at any later time. These
 # answer different questions from an explicit `now_ms` the caller reads once:
 # `consumption`, whether the proof's cutoff is still inside its bound (the
@@ -892,7 +892,7 @@ def validate_handoff_record(v):
 # Every hand-off reason, in fixed order.
 REASONS = (
     'receipt-not-complete',
-    # The saved receipt no longer decodes against the saved job (review [1467]).
+    # The saved receipt no longer decodes against the saved job.
     'receipt-invalid',
     # The proof itself, now (consumption).
     'clock-reversal', 'future-history-clock', 'cutoff-expired',
@@ -914,7 +914,7 @@ NEW_PROOF_REASONS = ('cutoff-expired', 'attempt-ledger-invalid', 'proof-consumed
                      'current-holder-mismatch', 'current-drain-changed')
 
 
-# What an attempt saw of its current input (review [1467] R1), whatever the verdict:
+# What an attempt saw of its current input, whatever the verdict:
 # `valid` a whole valid envelope; `invalid-envelope` a rejected envelope whose
 # readiness record validates on its own (its observation is kept, never used to
 # authorize); `unknown` an input with no valid readiness record (a barrier);
@@ -925,15 +925,15 @@ UNREADABLE = {'schema': 'unreadable'}
 
 
 def read_current(raw):
-    """(current, input_sha256) from ONE read of the presented current file
-    (review [1471] R2): the digest and the decoded input come from the same
+    """(current, input_sha256) from ONE read of the presented current file:
+    the digest and the decoded input come from the same
     bytes, so a file replaced after it was read cannot pair one version's
     digest with another's record. `raw` is those bytes, or None when the file
     could not be read (missing, unreadable): then the UNREADABLE marker and
     no digest (`observe` digests the marker), an `unknown` observation. Bytes
     that do not decode are the marker with the bytes' digest. Bytes that
     decode to JSON null or any other scalar are a supplied input, never an
-    absent one (review [1471] R1): `observe` keeps their digest and records
+    absent one: `observe` keeps their digest and records
     them as `unknown`, the barrier."""
     if raw is None:
         return dict(UNREADABLE), None
@@ -953,7 +953,7 @@ def observe(current, input_sha256=None):
     `input_sha256` is the digest of the bytes presented (the operator's,
     `read_current`); by default the digest of the decoded input. `current`
     None WITHOUT a digest is no input (`none`); None WITH the digest of
-    presented bytes is a supplied JSON null (review [1471] R1): `unknown`,
+    presented bytes is a supplied JSON null: `unknown`,
     its digest kept, like any other input without a readable record.
     """
     out = {'observation': 'none', 'input_sha256': None, 'readiness': None, 'current': None, 'current_seq': None,
@@ -1017,7 +1017,7 @@ def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=N
     bound alert test. A stopped or restarted holder (a new run) never passes.
 
     The ledger remembers every earlier attempt on this proof, refused ones
-    included (review [1463] R1): a record that is not newer (sequence and
+    included: a record that is not newer (sequence and
     capture) than any observation already presented is refused, so an older
     healthy record can never follow a newer adverse one; any observation of
     another holder, run or config or a changed drain, even in a refused
@@ -1025,7 +1025,7 @@ def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=N
     record from the same holder, run and config may recover from a transient
     refusal (an alarm, queued work). A malformed ledger refuses.
 
-    Review [1467] R1: a rejected envelope whose readiness record validates on
+    A rejected envelope whose readiness record validates on
     its own is still an observation (recorded, judged for holder, drain and
     ordering, never READY); an input with no valid readiness record is a
     barrier, after which only a record captured more than CLOCK_TOLERANCE_MS
@@ -1052,7 +1052,7 @@ def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=N
                     or proof['snapshot_ms'] != r['snapshot']['snapshot_ms']):
                 reasons.add('proof-mismatch')
             # The receipt phase accepted a snapshot leading its clock by the tolerance
-            # (`consumption`); the same plausibility applies here (review [1463] C1).
+            # (`consumption`); the same plausibility applies here.
             if available < r['snapshot']['snapshot_ms'] - CLOCK_TOLERANCE_MS:
                 reasons.add('clock-reversal')
             if available > now_ms + CLOCK_TOLERANCE_MS:
@@ -1162,12 +1162,12 @@ def handoff_record(r, h, proof, receipt_sha256, current):
 
 
 # ---------------------------------------------------------------------------
-# The attempt ledger (review [1463] R1): one create-only, private file per
+# The attempt ledger: one create-only, private file per
 # hand-off attempt on a proof, refusals included, chained by the previous
 # file's digest and kept apart from the READY records. `handoff` judges each
 # new attempt against every earlier one; the operator appends the attempt
 # (`attempt_record`) before any READY record, so an interrupted hand-off
-# leaves the proof consumed, never reusable. Review [1467]: each entry also
+# leaves the proof consumed, never reusable. Each entry also
 # records what it saw of its input (OBSERVATIONS): a rejected envelope's valid
 # readiness record is kept as an observation, and an input with none is kept as
 # a barrier (digest and time). The operator appends entries only while holding
@@ -1279,7 +1279,7 @@ def attempt_record(r, h, *, proof, receipt_sha256, current, attempts, run_id=Non
 def receipt_invalid(current, now_ms, *, run_id, receipt_sha256, proof, attempts, current_sha256=None):
     """The refused hand-off result when the saved receipt no longer decodes
     against the saved job (a changed job or receipt file), so that this
-    invocation is journaled too (review [1467]): REFUSED `receipt-invalid`, and
+    invocation is journaled too: REFUSED `receipt-invalid`, and
     the current input's observation (`observe`) is kept like any other. Never
     READY; `attempt_record(None, ..., run_id=run_id)` appends it.
     """

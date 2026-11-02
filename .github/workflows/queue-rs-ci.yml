@@ -12,6 +12,10 @@ on:
       - 'scripts/test-polis-auth.sh'
       # polis-auth mirrors isModerator; a change there re-runs its parity test.
       - 'server/src/utils/common.ts'
+      # Cross-language participant JWT recordings and their Node minter.
+      - 'server/__tests__/fixtures/participant-jwt/**'
+      - 'server/__tests__/fixtures/identity/**'
+      - 'server/src/auth/jwt-utils.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
       - 'docs/job-graphs.md'
@@ -23,6 +27,8 @@ on:
       - 'server/Dockerfile-db'
       - 'server/postgres/init-migrations.sh'
       - 'scripts/after_install.sh'
+      - 'scripts/validate_service.sh'
+      - 'scripts/tests/test_api_health.py'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -34,6 +40,10 @@ on:
       - 'scripts/test-polis-auth.sh'
       # polis-auth mirrors isModerator; a change there re-runs its parity test.
       - 'server/src/utils/common.ts'
+      # Cross-language participant JWT recordings and their Node minter.
+      - 'server/__tests__/fixtures/participant-jwt/**'
+      - 'server/__tests__/fixtures/identity/**'
+      - 'server/src/auth/jwt-utils.ts'
       - 'delphi/scripts/job_graph_*.py'
       - 'delphi/tests/job_graph/**'
       - 'docs/job-graphs.md'
@@ -45,6 +55,8 @@ on:
       - 'server/Dockerfile-db'
       - 'server/postgres/init-migrations.sh'
       - 'scripts/after_install.sh'
+      - 'scripts/validate_service.sh'
+      - 'scripts/tests/test_api_health.py'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -118,7 +130,7 @@ jobs:
           persist-credentials: false
       - name: Format, lint and authority parity tests
         env:
-          POLIS_AUTH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/authority_test
+          POLIS_AUTH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/authority_test?sslmode=disable
         run: bash scripts/test-polis-auth.sh
 
   polis-api:
@@ -155,12 +167,23 @@ jobs:
       - name: Unit tests and the three queries against PostgreSQL 17
         env:
           POLIS_API_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
+          POLIS_AUTH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
         run: cargo test --locked -p polis-api --features db-tests
       - name: Release build
         run: cargo build --locked --release -p polis-api
       - name: Docker image
-        run: docker build -t polis-api:ci -f polis-api/Dockerfile .
-      - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
+        run: docker build --build-arg GIT_HASH="$GITHUB_SHA" -t polis-api:ci -f polis-api/Dockerfile ..
+      - name: Version bytes from both images
+        working-directory: .
+        run: |
+          docker build --build-arg GIT_HASH="$GITHUB_SHA" -t polis-version-server:ci -f server/Dockerfile .
+          python3 queue-rs/polis-api/conformance/version-images.py --node-image polis-version-server:ci --rust-image polis-api:ci
+      - name: Image trust store and deploy health predicate
+        working-directory: .
+        run: |
+          bash queue-rs/polis-api/conformance/image-start.sh
+          python3 -m unittest discover -s scripts/tests -p test_api_health.py -v
+      - name: nginx routing switch, static assets and local 404s
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh
       - name: Public statement importance contract (isolated metadata fixture)
@@ -233,7 +256,7 @@ jobs:
           node-version: "22.23.4"
       - name: Install Node adapter test dependencies
         working-directory: server
-        run: npm ci --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Prove saved work, retries and complete publication
         run: bash delphi/tests/job_graph/run.sh
       - name: Retain generated proof receipts

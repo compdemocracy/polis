@@ -1,6 +1,7 @@
 //! Authority decisions for already verified identities. This crate does not
 //! issue or log tokens or install HTTP routes. Participant verification and
 //! existing-membership reads are in the participant module.
+//! Transactional admission is shared by the opt-in Treevite write handlers.
 //!
 //! Owner and moderator are distinct policies, not an ordered privilege ladder.
 //! Node's moderator rule uses site equality (SQL NULL never equals NULL) and an
@@ -280,4 +281,17 @@ mod tests {
     }
 }
 
+pub mod admission;
+pub mod observability;
 pub mod participant;
+
+pub mod oidc;
+pub mod provider;
+mod transaction;
+
+pub mod xid_account;
+
+pub mod keys;
+
+pub mod login_code;
+pub mod revocation;

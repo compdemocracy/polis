@@ -1,0 +1,41 @@
+# Included by make for self-hosted installs, never by make PROD.
+services:
+  postgres:
+    entrypoint: [/bin/sh, /opt/selfhost/postgres-entrypoint.sh]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - ${POSTGRES_VOLUME:-postgres_data}:/var/lib/postgresql/data
+      - backups:/backups
+      - postgres:/legacy-postgres:ro
+      - ./scripts/selfhost-postgres-entrypoint.sh:/opt/selfhost/postgres-entrypoint.sh:ro
+
+  db-backup:
+    image: postgres:17-alpine
+    entrypoint: [/bin/sh, /opt/selfhost/db-backup.sh]
+    restart: unless-stopped
+    profiles: [postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+      PGAPPNAME: selfhost-nightly-backup
+      PGCONNECT_TIMEOUT: '10'
+      BACKUP_PROJECT: ${COMPOSE_PROJECT_NAME}
+      SELFHOST_BACKUP: '1'
+    volumes:
+      - backups:/backups
+      - ./scripts/selfhost-nightly-backup.sh:/opt/selfhost/db-backup.sh:ro
+    tmpfs: [/var/lib/postgresql/data]
+    networks: [polis-net]
+
+volumes:
+  postgres:
+  backups:

@@ -96,7 +96,6 @@ Conversation participants may opt to use third party data collector and processo
 
 ### Technical Infrastructure
 
-- We use Akismet spam filter to filter out spam comments (can be configured through administrative access). Information about how Akismet uses your data when you use our Site can be found at: <https://automattic.com/privacy/>
 - We use Heroku’s web hosting services, including a hosted Postgres database, where we store all information. Information about how Heroku uses this data when you use our Site can be found at: <https://www.salesforce.com/company/privacy/>
 - We use Logentries for server logs, which may include personal information such as IP address necessary for debugging production issues. Information about how Logentries uses this data when you use our Site can be found at: <https://www.rapid7.com/privacy-policy/>
 - We use Amazon Web Services Simple Email Service for sending account confirmation and notification emails to users. We also use AWS Simple Storage Service (S3) for securely storing and managing data, ensuring reliability, scalability, and compliance with industry-standard security measures. Information about how AWS handles data can be found at: <https://aws.amazon.com/privacy/>

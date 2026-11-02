@@ -20,33 +20,27 @@ import { polisTypes } from "../../src/utils/common";
  * removed: a statement takes the conversation's own moderation setting,
  * whoever owns the conversation.
  *
- * The identity provider's management client is stubbed so that this owner
- * carries the role. It is not reached.
+ * Loading the routes must not construct an identity-provider management client.
  */
-const mockGetByEmail = jest.fn();
-const mockGetRoles = jest.fn();
-
-jest.mock("auth0", () => ({
-  ManagementClient: jest.fn().mockImplementation(() => ({
-    usersByEmail: { getByEmail: mockGetByEmail },
-    users: { getRoles: mockGetRoles },
-  })),
-}));
+const mockManagementClient = jest.fn(() => {
+  throw new Error("Comment routes must not construct a management client");
+});
+jest.mock(
+  "auth0",
+  () => ({
+    ManagementClient: mockManagementClient,
+  }),
+  { virtual: true }
+);
 
 describe("the toxicity check is gone from the comment path", () => {
   let owner: Agent;
-  let ownerUid: number;
   let conversationId: string;
   let zid: number;
   let tid: number;
   const stamp = Date.now();
 
   beforeAll(async () => {
-    // @ts-expect-error the stub answers with the shape the handler reads
-    mockGetByEmail.mockResolvedValue({ data: [{ user_id: "owner-oidc-id" }] });
-    // @ts-expect-error the stub answers with the shape the handler reads
-    mockGetRoles.mockResolvedValue({ data: [{ name: "delphi-enabled" }] });
-
     const user = getPooledTestUser(1);
     ({ agent: owner } = await getJwtAuthenticatedAgent({
       email: user.email,
@@ -57,22 +51,10 @@ describe("the toxicity check is gone from the comment path", () => {
       topic: `Toxicity check off ${stamp}`,
     });
     const { rows } = await pool.query(
-      "select c.zid, c.owner from conversations c join zinvites z on z.zid = c.zid where z.zinvite = $1",
+      "select c.zid from conversations c join zinvites z on z.zid = c.zid where z.zinvite = $1",
       [conversationId]
     );
     zid = Number(rows[0].zid);
-    ownerUid = Number(rows[0].owner);
-  });
-
-  test("the owner carries the delphi-enabled role under the stubbed identity provider", async () => {
-    // Loaded here, after the stubs above exist, because the module builds its
-    // management client when it loads.
-    const { isProConvo } = await import("../../src/routes/comments");
-    await expect(isProConvo(ownerUid)).resolves.toBe(true);
-    expect(mockGetByEmail).toHaveBeenCalledTimes(1);
-    expect(mockGetRoles).toHaveBeenCalledTimes(1);
-    mockGetByEmail.mockClear();
-    mockGetRoles.mockClear();
   });
 
   test("a participant's statement makes no identity-provider call and is stored active and unmoderated", async () => {
@@ -84,8 +66,7 @@ describe("the toxicity check is gone from the comment path", () => {
     expect(typeof res.body.tid).toBe("number");
     tid = res.body.tid;
 
-    expect(mockGetByEmail).not.toHaveBeenCalled();
-    expect(mockGetRoles).not.toHaveBeenCalled();
+    expect(mockManagementClient).not.toHaveBeenCalled();
 
     const { rows } = await pool.query(
       "select mod, active, is_seed from comments where zid = $1 and tid = $2",
@@ -94,6 +75,23 @@ describe("the toxicity check is gone from the comment path", () => {
     expect(rows).toEqual([
       { mod: polisTypes.mod.unmoderated, active: true, is_seed: false },
     ]);
+  });
+
+  test("the moderation level filter applies without any owner-role lookup", async () => {
+    // mod_gt narrows the moderation list for every conversation now; it used
+    // to apply only when the owner's account carried a paid role, looked up
+    // at the identity provider on each read.
+    const narrowed = await owner.get(
+      `/api/v3/comments?conversation_id=${conversationId}&moderation=true&mod_gt=1`
+    );
+    expect(narrowed.status).toBe(200);
+    expect(narrowed.body.map((c: { tid: number }) => c.tid)).not.toContain(tid);
+    const all = await owner.get(
+      `/api/v3/comments?conversation_id=${conversationId}&moderation=true&mod_gt=-2`
+    );
+    expect(all.status).toBe(200);
+    expect(all.body.map((c: { tid: number }) => c.tid)).toContain(tid);
+    expect(mockManagementClient).not.toHaveBeenCalled();
   });
 
   test("the statement is served to participants, as any unmoderated statement is in this conversation", async () => {

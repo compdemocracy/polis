@@ -1,0 +1,528 @@
+{
+  "cases": [
+    {
+      "accepted": true,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.lszlfu9x1kh3dy2Kj0BOQ-cp7iEJ36YodC_QiKba8DOp_Fpv2rOyklE4-13BuEQOb9yoQE-_Y1c0xT9dWVsTLBzNE8UDrybERbpe89GpZiHnYnSQMbRaJSc8Z5PvAAicmy2pg2f-Nuq1lkFAZSHM5pPSbzMDUlz5yJbqqi4bH1fSYb3lVTsrOg5S24yqMAputiP73dmJ8bjSMMymsLfGuBoZVgUNYHqJZYJ0QYB4tnBNsi5hoURv8LAxlXwbVnfzPKJzW2RHJ7r_mg5gnIeuXotwQe3GpSSBSu2-0IO5HXfgE8968cReNYWMj8lnppSp4orcR4dEXGHg5Jxf8PA14A",
+      "variant": "valid",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6ImFub246MyIsImFub255bW91c19wYXJ0aWNpcGFudCI6dHJ1ZX0.A-LqdE6bWb63Ws1uj2XyDzDPSTa423VwowM48bC_M9w-NW5Wyam93XYSPOs4GrncVwzNLR0lBEQmCPY7YIqUbQ1BJJFC3hG7QtGMZJPrXhrf8eSRTDHKMTI3nhQf2qwSCA0c6NRcfi4Tq0moURqrUUOah1JsPm2i5qeARtwJuM-HIv8wJj_AN19UgqxXVtzEwNxetrHEymhMOj1JnqPgh8gM6oEKCN-mVu8MwzP5Xzv8RPaGf0csvEcFmOx1jBRPl0x5mSAA3J0H7HM9gLF6Q4n0HXG06nRI2mXag1MH_gG3RBT4kim5zpU-mrE0cvklBbGifjo7o7jSEk2hLMtQMg"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1800000000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgwMDAwMDAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.tpvARBjphkZgbBCwkswT2SJQhYPx0sZX7RaPuAC3Dm1JSatbo3UiUweUBPjdy5nkiGd7IQNbHTEBIEIMKMtRSU9BBvZsEGE8iAx3UyDggcIR0yaOi2SPxaHdcGaVdfkv-8nKZ1sktuaC67WZOxnIma1AD30huKpo5MpeZZl5k97MwawuJa1uVGwO7E79iLqAHlc9l-HFRGHQFyiya_dlXfjz9UdqxSMLlSUvBGeJk_fcqvoN080cI-GPtOgOo0Egj8EliMOxOr1yF1zpVAQ0m_7enFBDH5UxFz-AC3axyvi-Y_6Qsk5l3ZRje0y3vZA5lyT3gwKr5mzGvcMKemyEew",
+      "variant": "expires_at_now",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgwMDAwMDAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.tDl2u_wQCoxTtNwvRDeAFZydqVWlwvIjMMlGXUbXqi8NbgCOdz0q8eul8cJakYa4QJtr-ENpfQOcnaX4X74nAkTOgS9X7bMwv3F68HZnOc7y68MYVhGLJvmBPRkXV49gM6BgI7-r-054UrQ2jFDJdy47gdD-mQYg4CwiOFWzuR4zYkF7MAup6zaRcTp_tujwW1hNJHA-iGISL1p9zRagtsXpgNYcjsNhn76pU7-v5jr4cdsr_sGuQjcVL0VU4qcguY9AsAafZIcDuhpJ9ZQQFOd8NLZ-yvttRRax1ew4apjvWxdLj-01otkuIzzP5lub7z1PMJjvIZRv3mPvW7GJGw"
+    },
+    {
+      "accepted": true,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": [
+          "another-audience",
+          "participants"
+        ],
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6WyJhbm90aGVyLWF1ZGllbmNlIiwicGFydGljaXBhbnRzIl0sImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.sqm2Ni_5EfN3M0r0FQwbivZmgwBSRxmCph7ncvXTODP7_stZkBdsius0fMgs7ikVCYNWVB5ixbKv8v6vLf3DOPSuWDVYNGE5JSFDgma5QDez-2NswW8vu6PzwydRdtUHcfncb9M3_1lWNbi5CAmAJWnNrfuUMCEtRgkGjo7WNUXlV8caqSotywTrtGWSel55pDzCOSPh6GCMHawL-wRC1j87FMat1a7_UIxkMB65eWSREjjFwCKr_d2ZvtcnrkbI8nunLuXOqZytgmGXY7E7ma998kt_vbjuBPklZeAmx4SpYSYZzwObI2915uHQqSxoe-dbvud75BYTECISxH6AtA",
+      "variant": "audience_array",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6WyJhbm90aGVyLWF1ZGllbmNlIiwicGFydGljaXBhbnRzIl0sImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.kllKEw7jGqkN7NYngt40OYWQn5hPfOcUsmb3uJqg33rdnTxwdGr6II7Dpjv1y-fmr6iu3jRbbdcRDCpBhCotyISG8e6cl9Outhw0mJzjkzBi3Dwp2Y3IMFD3ePxYaVtiYOCdY1p8fjNPHhYiYcOz2gDaV92ToktaJrN67pTZbkW70QWvFmlLsktax-WvMyjcQCZSrSGQUuItJGPtcG0cWzEpHop8TljRsjlPuUjZ8pZnNQlZzECpGLjXuRbBu-zHfR7S2sh861Zm0o2pGfrFxRZi6xTlizC_mLcTs3I9p5p06fuzq6j9T43rgnrgWDGYPfMm2HjLCu-irfmo5J81Yg"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": [
+          "another-audience"
+        ],
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6WyJhbm90aGVyLWF1ZGllbmNlIl0sImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.eM4t0Zp53xlDANejv6hk3xP30i5Tksuen4Wgk68-zf905QFT2om0rtIuoPkvvrSw_hmon_hOTv7zhurHTm6w7n-7GIaqY2X3YDt0LZrIVxwtkxWqt66puRRZLJrg2Mz_HmRksYiQShFl9cTLR1aVyVlMNvhvZ8zwJ3MavGm7WouVse3JfHCSU8hwKYLOLwEZN-765fK655ymh3tqF0iERsUeMv8cLEGvvdLzsN9OULTdi2UFi98csIKHvuldEoU1TraN9Y0gsbI4-ImQ6Rk9lZlVcaizxZ0Vx67Cm7kibPFcGEzk4ssAnD0V4-iW0MxZiysHSQChO-e6u8ju7NQU7Q",
+      "variant": "wrong_audience",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6WyJhbm90aGVyLWF1ZGllbmNlIl0sImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.B53pG7C8NAQCiOcniOoerG_gVvngnTyufG7jvEin-f1rk9Wr4_968f-Zh1zVcwNnr30pJJUO_IcJER8saEY1f9JxshPZUW23Y3gls-tsL_P61yzrUOhaSnfFZnS0MVtBCvH_b2Q_KzLKhgcg7jHKCyP3xRHBFS4bsUK85RevXEPwxP73QAUTNafxUHOAqWfuxZj1OceNhSZy9h6Lv7UKjhCkcx0fO2D6hWjlwXW7Ym-EfDxYDwtmo4KVDX5REWmzA2Byo4LbXWxGxU_-geJsUHQRb1ZVvUZ-w9_l9gfOfRuppyuDESwpmeiNS6_kdZ5CQ47G9_ZrO4I9BqfukVGFgA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://other.invalid/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL290aGVyLmludmFsaWQvIiwicGlkIjowLCJzdWIiOiJhbm9uOjMiLCJ1aWQiOjN9.UN5zxhzY4CaAijwPazxACPHd1bLRTcrMzKGLpy0dTmWrHTj3R4YRHcl_RMflrW8hv0ro1DLC5u7nQYxlUJo5DIFjt1cJ_BFBxhPW3nfWVoZF4kZDDr4CfneeqkhODgcHhyhgPIGBdMghyU8-EE2y2v-5EEnalKpDlafEJOvchZig43d5T6DXmakin2SWIVNjNtqvQKzrdYat9MsYzPEqFNW4bvijonDZgH9R6YyiSsFa0KrO89TVcas81yFD0Z1KfQjgnAhA_mBUXg9nF2de0ZV7h5N84mS6jgPtJRXW458VbUT4Gq89AB1C-EU76Cr-DDAj_JfRV7nzQtQr-moQNA",
+      "variant": "wrong_issuer",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL290aGVyLmludmFsaWQvIiwicGlkIjowLCJzdWIiOiJhbm9uOjMiLCJ1aWQiOjN9.Vc7edbCpRBdZtX2PGivJT-r_6dhMNJE-KI7APXe4c1r9Vt1QYPBQ7uPz18G8frMkDi97T5z_-U3yeNu6kqE04ACIqs9y3YrtWHpsZhuW6NZeX_NJjmQHWx5dz3kGEZ4zpJ3DyoL1BEnkE7Gk3-m_ksCoTJs2GTGyCeEseLZyx6Casgl97plciMHGJAR1ww8NeckTZnUgZvjI5y7X0XuKeJp4mmGUUDf6Pv0OZeNoPb8YBL_wqvyt5jwhTxf5mYPZ-OK0zS7Ax3O4f15ABP6VgI3_P91UPB_JGZ8WAsKkHmPuYS-rVibdRe9InBHqx4c72mh5BCgpFNroz0ugyJflyA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "nbf": 1800000001,
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJuYmYiOjE4MDAwMDAwMDEsInBpZCI6MCwic3ViIjoiYW5vbjozIiwidWlkIjozfQ.snvjNlhsb9tQSoL5K5rM6W_xqQu_mfHJHIenhOUbHSjYJD9myZjdsLyjrVN7T916njy47MmGR6EcMAaEkR4TvDNky2vPyTXoQknsFkP8qk744TccAjxKjqhWETqIGA0f1LehJj0VNxqbh8qL4H_SVmur28swxjmug8u1UoYNMHp1CgboKynVzdppTEKOj4WIOJETtp0GhHAWOvQFl_IB5RtIovY55DCIGQ1bVxH9EGFIbdyOQD5om0dbyR0_mwWBxrpl3s3DXQWR8mkEiPwjx5OGvLAfYMXnwtzGV-uNp7Y7ui_SSREY7sLG0V1_xSwNuaNcV-ZWV4p_3ciXMYOkrQ",
+      "variant": "future_nbf",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJuYmYiOjE4MDAwMDAwMDEsInBpZCI6MCwic3ViIjoiYW5vbjozIiwidWlkIjozfQ.S8SDBGYcq06ps5eaT1j-5otgfNMk7WIdFdqjakqyLX3hrKmnymLa8CKcYDDPFLmuA65UFbSnzvwryNfmkxYeHo8HBrIdH75uJVU-aGNhIeAdikYP5YY7bPjb1swhq8QBthNztL0AdGS_416Rmch66-74tsBH_YgNFuWuhvZcdAWsNfB4sRfSRN-d7QO08PjpecQb6JErN2fgsmXRRyTUsOeKPMd6-DEXc3aokKDaCqZyYrlqt0I29MYhy4JNuvO9IuViyyfgrbu6o0Pf6bDYeO2fzCrhzlzPMmLhSEWTfkvTB8PRGfiCAVBg87LPS-VvT8yMO10BNdA4Vyjd1WkYIA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzM4NCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.ewOsck9cdRTqYbC5eKE3MlslKckhumoK5evA0-TY3PoYMVbSkc4jl1HSFWi_uG76IFewl2NntfskKrfb4I1a3bdLafFsenIgx4AZ53pT8XlCcF6sJJ-YYx32C1aFWhSdTDz0E3BssAUZppbCFhbSoP_iMFgsqTXUodII2ax67hKET2_RxoMth_3OFgib0C3yugB6PMRc-FiG1TNT7VEd5hgKW1YqsjshUk2z8XrWJ8aVK9le7JLqYHo1d4UJFkJLrSABETQizQPPt-dlmx5nEjAzNEUVcd54UR4KTO2ldZMscx7974ih56NqM9PaWhdSgHPy2tOIbt1CcKu2X06Tmg",
+      "variant": "wrong_algorithm",
+      "node_token": "eyJhbGciOiJSUzM4NCIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.MLGKLSadE8t5UzEX3TQdvXDcTu0Wyndg54VI5UZlBqTHco3bsiS3f5LBPsFKnMFpOQkPvV1QgEjIL3-IT9HafL9jWXx2_gwvWP_93bZ1GpaH2ld3n6-EgwoZZUEcBjjqJyM7u1GDmKdSx3NYAfkE5aURKEpPlmGSXwmnU6o_P-8Ndc-twep1P5uH4mO3Mz4toLYRBVNDlBIO2msJcI2Vh7ILGUCwGguPuvOJPlA3qWaXY0I_KSBkdnPgQ8ZWMyOLt-eJcGkNhK6eub10BfJ3dFDtRPDtV-_lcjDONS39_vLjGfl_-MgyM3yJZ4MuHWryIYTjrfPe1L9VVNTms3lfWA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.",
+      "variant": "unsigned_none",
+      "node_token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30."
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "anonymous_participant": true,
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "anon:3",
+        "uid": 3
+      },
+      "kind": "anonymous",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.1wvof3sFwURVyKA160QUG_07ckXOkZEQszS0ZLfSJrk",
+      "variant": "hs256_public_key",
+      "node_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWUsImF1ZCI6InBhcnRpY2lwYW50cyIsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsImV4cCI6MTgzMTUzNjAwMCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInN1YiI6ImFub246MyIsInVpZCI6M30.ttSGURnxtkcBTizGm6InwTsbza25Cp3evbzzRM9kcrw"
+    },
+    {
+      "accepted": true,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.VcnM-mOy2NH_kd5i6ZEjIl8f2TR59tIF_UUE8406YPe1-pudA8rsdDT3W9FHjA2DnRmVLGKtlAYqe2f3L0ouP1wklrI9VUExlNVRtWaYrHYh7szEIOVV7MiLnY_Q9OXKKN5F-CmjGz685n1qnaNLT67ku8KCWknoIy26y8cIYDex7dXzQ_gUXg1l_PC1fKPt7LYeW3NkSc0iIt8Hgs3zBUP7huFU3EDRJl3plD2F-fG8gqBw3LDKESv-LaC-JmwfYrmiFCoj7WmHbWoLyruXsCtz6udDeiZPdv2V9J4MAMtu1TSRD7HDf_44yBUWBEWfoZzcYqcT2aqXlVOoG4qZLA",
+      "variant": "valid",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InhpZDp0ZXN0LWV4dGVybmFsLWlkIiwieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.lnpm4fjN60DjoTD8OQBLQh1uZW_hL6FExdIyIxr03VzSGMvZIzit2MAUnyLUpVQWSv88nuQxEuMUfxAg11QV1yWdazKseeyyretPmLw_9PkJJJg-PA-OJQl-uqao9zfkZWjUIwb1OtVZqn5ZsZK4mnztYVwsvqM5wntNM7CkpL76gx3xp1-DEYeJUwHjczEM-NH2HXvt8feoau8vRD0jEcWXzwcSBxFvI_JQ0Wg-TEFL2_HHaVqgXWudfQhcebQjjL3_Z6no9y291Yu1cGMqIK2WsIIokQI8860DR12aFEybvWNcHmNtMC9vYXbLMy1khOui8cpdgvJpj0GbMSW9fA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1800000000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MDAwMDAwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.UN4Sd5w66FXhXrFI0J21MZ7qx2fX9qWM3U8RexNBIaAZPz1u1EA_uxvOaJmVT7w_OIbadcAPXBz5R1r6cCqF0_Bh9Cd3aYKl7hsIepZLdRDqwKRD9LIazm4A-xoaY6ZdInIdta7QglHtEj_V08iJcgJqS602hVu0xa3ijG97etAoAG2aOlXfYeU92tlpAljQhqQSTWY1COcYDI4DvBr0BMMNWCHMZKfLZnshndjeDzndFArzhvKvjEtQzJYgq5FiWC-90AGXm4vRIXZ1sgQ3E2NAXAM-BJplGb08W8Iwzs1HPgIfFzRPIrOOQnqCq4x3gi5iIALE6OxtAU4-VF6ozA",
+      "variant": "expires_at_now",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MDAwMDAwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.OkoiuizqswVfkJbLeweFP2GLa1PJreJgYQ8mSo3O1W3gejfy8uXliIcUCUz-9KRvcthWSmuN0dWqEAX36Pa5TzkjFmT6GK6CrGsZ6rlOPPtPlEFOhsRoySku4q0C4whAknXO8y-WMFeKeH29fefT9MPbqEwNUjwv-nk_jLOwrpFmocNIBuqkDnV_cRaHRj7360Rt6kwFxC0oLPz_XIzgGNfFXJ_xQGSuM48VEZyX3_9mmDzuzvHOZVunRORo0v8Me7E-Lp1iOEApZzQxUuhivy9LuB3AHGmEvrHrAoqnUVcZkG6wFGHv8r2R6hEeXUb8dEWg5TfK7yDULlSEGp_qfQ"
+    },
+    {
+      "accepted": true,
+      "claims": {
+        "aud": [
+          "another-audience",
+          "participants"
+        ],
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSIsInBhcnRpY2lwYW50cyJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.I1KquFGcWUXDB8jsqF4v0Hwshnj7i8p7ZCF0K6b_9902Q6ntUG1N5kYI5Xhdb6mQ-CYJ5yaDasXpQnPxfEUH4DtzPIrij_fndT8TSLqpPoXpmHLYRjQ-I9Jfrpu-s4NsFtZoTcP4jIrcejdfIbiEPNhHdQmtG4PMZb4nl6jQhJe9eep1aDdGsfFtMBvQwyPyOm_ncazEzG65H2YwQUdTtiC9grhJ_1ziWZn50tp4T70tOUFTYDssoTIiX0z5MK1P9DwF7xaZQQ5PA2c_VXYrJAgwWJFvek_e3MkwZTURxwFpgrmsYE_VgVeZzjOxA_VArEGiYoIqVj7nLwJGrxubYA",
+      "variant": "audience_array",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSIsInBhcnRpY2lwYW50cyJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.NB8aErnY1Ks7xu2oAcZgcef6TKou5hewS3K_-bRbPyU2SqeJnIPe4KJUDJ_mv6Vdl09nBxsE8OEuC_opgi8LiWnJ3CdhBBj9hz_Of6lS4nsWrH2alEH_a3mmo7bI5_lrbK-XhvpyZ1RWFAy-2exqw0JUW73oEfIvKfBH_kPPILhWRYCbrtwXXxYSPXNj6SFcx6A-OFjmiu4M83-xNFvi9iiNx2YWsVMcwpQyGaZpNrWZ_dVeGhyLMCDHZTRUlvWGUQvKRcfCazds4y22toPhgU413CbA1kAQ_Pfj8XpiXQQ3ZdBokmlBCn6Gt_3hrv5BIZB8L_tV-4GYO279poA-ZA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": [
+          "another-audience"
+        ],
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.Mt21gp674Kw3ZMlM2a4sAmUJGvNJmpvAiLXlR2zWvM-81-JWCt7N6h_OYPZUrOrTkSwFlxSiz5wxnhRWzQScIGKyarQYuJcbipf4VhaADb4GZJPC0DDSw8boRkF5OBVdk8CyjLBERuYlh6joxI-gJw7_DeyebOd2_Okz2bxnvPItYYrlK3hoYA0Tcq147CTmtiLMxxUSIoKG0Kcs6mq_AGhhaiiq5MKXt3hh_4UpN9Nz9udzsDuiW3hnItpCj7bPhHlfAzvurOJZEINQBAglenzPbOlXYXjWib33QOox-J37NJAdX0cLtimbOvnQNcyhSBAJ_-6jDd3vFWYGFc_2_A",
+      "variant": "wrong_audience",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.eQJAWPxWejiLRRvsVU7IftOdpAOdaANusih3vgDhxu4KFe-7xPV4zVt7_vdfSaXR7LIlyQQBb1dc1dJKD6HLauvOeSC4uU4-FHBjaXlk3y5-xAtq4TKA-CKD294h-AA3HMYAZYGKpUDkSndW-EEJ0P0FadZGQs5emQpxp3pzBZzCxe2X_E2tEcyeCv2d0Susm4C03T-i0Z9420M1H_7VWOU7QFRAAA3jV7PuO1ZiJQ-AgMHnHS6Pr0KqfEONRzllwqZExZt6TYqlCBhDuT8CXgdA0dv3IWtADR75wG8xXnq7PeN_jIeOeBydYfHW8MWesQVJJPX7cQfoEgKVyeQeBA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://other.invalid/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9vdGhlci5pbnZhbGlkLyIsInBpZCI6MCwic3ViIjoieGlkOnRlc3QtZXh0ZXJuYWwtaWQiLCJ1aWQiOjMsInhpZCI6InRlc3QtZXh0ZXJuYWwtaWQiLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.qpxuBhhICk6rhtwsEusbvsDP6sO-Nr53ZPCTrdd1Oz4LdNuKHaoCtmuoyNxdurWZavEbYAD7It85kePbQpOs9eJH7z01r_h9prQtZV9hi5lnCqX28MKsw22C1h7zc9jEr860fuxkffQ0KkbpacJjYoxnOwl4bdDSOXPKywmIwuL89PPVEzzMbwwBF3zyYtnfl1aMCnizN-ywYGR4k6a3R3iXC6Cw17e0V3Iglf4qt4YuqRmzgRbFwqI9P8eAS3cImin3PORj7kWc8UkgVEqVDLEaAWFb8giPSsU-TmbLwYWjFUtvAbgxGhPFIZKwZd79A3U5PqKxzPtOSMVj1tJ8fQ",
+      "variant": "wrong_issuer",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9vdGhlci5pbnZhbGlkLyIsInBpZCI6MCwic3ViIjoieGlkOnRlc3QtZXh0ZXJuYWwtaWQiLCJ1aWQiOjMsInhpZCI6InRlc3QtZXh0ZXJuYWwtaWQiLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.hSB9PpE0EmN0nfsx2ELqi5Kl3j9CBS5wHgqxXHJxphLMscf_VgNexWtnMduRwXEC60nY6wBus1PVoBoHWTq2omNgK4VW4LX2hRH9Uau8iHPrQyVJ_9rSErINaLXc-Y-lkE1FDywBlU8NdpVv03jZvau3wEtyyjSvciL0cap7YEaPn38G6y8vP--s8q7w1DS1bi1HKQ8j1-lDba6BgiVWj0eP9dT_t6yZEZqHUzWk0F19Kv4gBdVznr1L0dVNNvk5PteuX0EsENVWICAVZnDikvZGpXLIRHwWh24VDEQSkx-wQ_ATkVGRlOPg-C7EyzV1p8TNYFK8R_56WspdHpw-_w"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "nbf": 1800000001,
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwibmJmIjoxODAwMDAwMDAxLCJwaWQiOjAsInN1YiI6InhpZDp0ZXN0LWV4dGVybmFsLWlkIiwidWlkIjozLCJ4aWQiOiJ0ZXN0LWV4dGVybmFsLWlkIiwieGlkX3BhcnRpY2lwYW50Ijp0cnVlfQ.fxtBRC0BwK_x8Ma0YR2HD-Z1242pu96mAvcRZavlc0FXaFlpCGhP5p82hTpGw_ilPpVNbvFF9UeDny441cUOYNYWXFiH64zT5mjtVElG7IxqC7bkRnVT-gUJe_xqqZx2nBOZpPryWM6rgJ-aRgEVEjUypry_Xpqyfk_zAQz2EY7IahRox-HE1ocUypLjUvYg2sf3VOb6iBvhvX7izm7egNqlMw1P63qL2agGHo3WFrI2Y8JOCfn__1p_lFgTbuWVljcllQd_q2HoQHIaKDkFIVm-0x8QBFtkzRA1fKBbWUqZVLD5A0ApjicSZdQiA3hMOlU1FZNtZSVP-YI6y94GKg",
+      "variant": "future_nbf",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwibmJmIjoxODAwMDAwMDAxLCJwaWQiOjAsInN1YiI6InhpZDp0ZXN0LWV4dGVybmFsLWlkIiwidWlkIjozLCJ4aWQiOiJ0ZXN0LWV4dGVybmFsLWlkIiwieGlkX3BhcnRpY2lwYW50Ijp0cnVlfQ.Wc5YlHiRK4bFu1F_Llafd3J_lhc_mGOTcxsgblLhRpNSKIwAeG6UmTaKcBydtl78c1u_UCgJXl9vWk_wTh0gwIIckzQT4uAwpSPUnBz3p61XNaqwxDWe5aAX24VhNJV9D0w-7cbemKgaQahcPeOUNaBB1Yvco_c79r6qfBpzRIwkywHVCoik9xiaIYdIscyacbBvIxlRD9Z37fCTz_MlDc59ZW0AK3Wt28UGEyijuTDTeApqilKyS4JJqzGG5x4D5_ak7-KT_tm7RJfNvSlOsOEhi6tbJKoKEqGtD1c4GM4F9uyZLkdlyM0HxJA5YOxyK94ASVTdTNqTy_dwG9JxtA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzM4NCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.aKGDrccGTnP7eSwWfCc9g8-nix1MY-YW1C2ZeOegPuGaEeuZlvPVzirPb0N2z954ahIpWIIBNvqMdMoU_Q_MsrCoHXk6_3YQMHwH0g7CKuzr4tlyG7jEdXJXF48F1u_MpH7wkFi_jBIsmdtzKJ0dftm-UJ8_hIH_J1K3VNxTHWgbr9KZ2a2kaTxIXSRtvxh4fbacoekdpaqGHq-4Bux6jnXJKrk91a-ada1m7mbf3RCtIBIyVSRDe5U135m6qLs_YyV73ZFC0tF79Dy6qdz0AcbjIzfsIm9x0dX-KkS0VqXNV7EDbS-0lOwc83MA3qOd3QwWmmEuNOSpOOJijqd2Dg",
+      "variant": "wrong_algorithm",
+      "node_token": "eyJhbGciOiJSUzM4NCIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.ZpZisKlAoiQdbNz6oWGtSQ8hcQ30SjehcnHlaWAHtAHsYnEzwK89VBD-0f2hr3GQrmue0vpQ5fxAlq3vPpDWbnarZpbX8YfpQoe9ue6ADnDfQOfRtbTRL6Bva5MuyMuHi3gruI9EAJPyt5Q7DGw4LLNUbHulLs8CfBdu9nRKJI7dRNFckKYlBpG2gmF6geOqD27OtZ-ZrtTaRhf2sz6Jn2rHCcImHeDt8ibjfFRpsd5IoVjDbgYmrm1Y1NuGSmInZSNPv35F8ULKz3L6032dSA0ED0nndW7lapY3ftB7ZtuH2_UAOmwx_6j1RNfjhRqKJSvllhl1Ub1D0HtdLX99Tw"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.",
+      "variant": "unsigned_none",
+      "node_token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0."
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "pid": 0,
+        "sub": "xid:test-external-id",
+        "uid": 3,
+        "xid": "test-external-id",
+        "xid_participant": true
+      },
+      "kind": "xid",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.KJdP5mZn7a3qb0Zo4dXvUmhlf4r0WoVT344FIgb-yv8",
+      "variant": "hs256_public_key",
+      "node_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwicGlkIjowLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInVpZCI6MywieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.LF3nMKLLHBhPoUit3sDUb6yHd6QlXTSX7S_CQ1Tb2-A"
+    },
+    {
+      "accepted": true,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.Zls38QI_wt-A58eHJPv9HFoWyMrcRA4Zdc2gGfwgOENiGI7mw-7sXL_LcQHY813eeaFqoaVZbTEuiwsZ_vGdLWj_HiHQplYJdFY6AjbPkqC4TlovjvhS5lUTKsB1RQvXyZ8tvOPx4LVhImsJLVA-C1adXYiH9KXFvoIdED7CKfohkwgJjl4j4ywfzvDjpTSq42t8GuIsOq-FGxQPDy72xxvz4yEE2a7mhyBEQHs1FdRsB0CQpmYravaZC80e1W6SEqrpOoEW1iUs60fowBTSuXleppQOQ11Cjmqz_pi_-zhEUu-5YmpSRDET4d-o5s4IhjW7RIIImQLGGW64YMWAEg",
+      "variant": "valid",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0Iiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlfQ.I4PEgWbztg3oN0fUQlFW9fXjZ3stRhYeTz6w7HHdLmobTAg4bMYVCuYStIF7Priu-Q-GxG0J3fdvolRfVRqu6cLomRAYq2r3vGRbMRRMjtifG3pfNkOk5GzF9A_wO1TwNCgwclntZlG80h279TXz-QZtokcUKT5QgD2x2FfE2vxn5p3xZLiKUrxR98CGeejIASDA2cz1UWOsRXEdaCmHfhnxB3EEYqZgL8qYcjhsl0Cf9Ibq97q0tk_3LjvSd-kEiuhVBUURQ-c1ONHFPMb6cnw_2K_zpQq95HGFPGNGZlps7MohoJuggR_91wgS80eW_LnPJzNyrkHQ3u98us0STg"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1800000000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MDAwMDAwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.N1iF1VTkxTgD9oe2zA2Ui6tRFaQwVyE7qHJ6aNAX8p4EyELivFfXW5PHiiqByCXSUb1ak8Uvn55OkzJCpd72glLqWXwVVgZFt3b9fqT0SMZVGA0J8nzuTz2nGm0L9Nrx-7RDD_fdUk1sZ_4MsGL8DGFubsjMrW7EEvB6qrCDy8LCsCMviOTVGILo0OxPwC1w-d-tf-s4kbsOoed--wT7UhT8prddqFX923te8odriBsLlBTJNBqskIlMxWxBRcVIfDyWXFjqWt6Q2kKezsBPDsZJYOyHviNm5XP8cgn8NqEf-tHNJzBIUPG3AWd7dGbjmB7ZcLPFXLJWLxwqJ1l0-g",
+      "variant": "expires_at_now",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MDAwMDAwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.o2vU2Msm705NxIZa3mCoyywELUOnQmCpDZztNe6LdEHr_-snQ9k784qaW7_RR08a3MnOnw1P9idxCHiX42ZRwut7dZN_u5vcQYtpDXs4l4WGTb-mZ5vYw0dq8oLv6r53j7EFdwhnXzI2p-ITCYDU8oCHM-essmvUrq4v8Qg8p-5iPFOi5wOLzkd_YIdYUCZ0Qq_4H0B1H_BqafUUr7PYDm-aE4E2KrhtRbDMFEtKWY-cp1sEh7asE8BHNMu__rpr59GAnYI05ljLsmX-hSW23s3Bt3KBPpv8fB3wjsxfYlPEAgbJ6u3CujtZshfLQVk6c1OgQC6IINRwWg8ZIzKHyQ"
+    },
+    {
+      "accepted": true,
+      "claims": {
+        "aud": [
+          "another-audience",
+          "participants"
+        ],
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSIsInBhcnRpY2lwYW50cyJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.hGq6AgWS6ac6z27IOFrCrxSSEm82n-83U5zxkqoE19wtQXFFN1MsmG1nI4BBWPZPIvgm8MYD4bbiS5eMptdMqXex1lc-_pWuBo0Tf49yXPJ2j8g9RhGu6QdQb0G9hkSWEho423ZIlBI0rYdNalnLU1PqR_aZb0f7m0AFEZpQSoV5q7c_OMaxL_B6He_I9p5KooVolG8yODeI945tfvD2MeCEDOz10jz4vMw6J1SB5rDMf9BxOPG0_QNP_ZD5peDyxx0E4l9a-h5hRZem2DXAANNWRYqSRExrVGhT6bjiE-fO2eLrspTJF6JisBrXoRsfl5AUX3vzAhESJKbTINQ5MA",
+      "variant": "audience_array",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSIsInBhcnRpY2lwYW50cyJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.lS5biCpA15OQiKUisKOKT2l6LPOcLJIhgHCYoaIbFOMpxiDJGBgQWMv_p_epa1O_QYKPLOPcb2TKlZb5Lr6BxogqownuczF7vi-3YyZ126Dr-atzFLLBSZwcaul4pSJ4qdx-FoqXddOhR3nIn46ZdfxGjyP0Tb9p9fkN2BIFJ_ZsWkfO-cv3werCaEnBJU1F-g3I6EAroZJp8QImczNewMnIkJtqlLwTZCmnAxMfQGEE9sI6BogkHCmOF4z-J6yaHsf_X6cf2ucB_2JIaMJRlyVkSCc2ANn-khpKI3PAz1luFiNZUrhp9eoN5T_MPzOFMUulrzxttdzIo9amUDHJTg"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": [
+          "another-audience"
+        ],
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.PcA-K1J4CQcvOTUeBXbB5PyJYg_Vt3MwHNptmwTz4AhIyPLZq91fnN7dU3YC37eiZwUSCCzpytghS8dpPbiX_ZttEwC2yRBU_J7IdzfVeDebiyxgUMuWuIIf-hZTla4D5vs8bVJAXC0L6Nvd2_Y3LOPjiRjt_m6KjRVvLWJkdB1HCx17XMoAmd4L6yJej75NyScyTW3au64j1wA3GXipEB449SMxe-Xo_Al1yV4FBPBFZhI6nv7MBmp000UBFylCBD_ppH8xBqAZ6M1P7cDLFpUi0YOGUfpVArPM2dB5hmLKExxkggp6NhSNd1wFQeM0q-0cmBNLmE9smmVYuSt-7w",
+      "variant": "wrong_audience",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiYW5vdGhlci1hdWRpZW5jZSJdLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.bVUsoP4j9ZzuqLfkPviheoX54FmN25VxTej8C9CPGrOdeOsyQHjS5tuNCM8_RX8uyc1qxB4RMqyCSk0dtsosuwnEF9P8o259GAFxinLbSgTXjNkAy5wKvqCtZaZyZid5SYa19EpSHGjxg6lZ68xm2tjztav1dSuFfce56paFSJU1uR2F1pIE9C-KCMkkpViwb9t0Csj90BumcS4s8-uKKob-WxuIRDgaqNn-D6VTzizlDL37ZGS6KaBjJ3qmH41LEuUGwUGSqkAfsFqGGz5_MhjkJZqbI6a_yv3rRvkdkQuFeJ4MuN59QbsbtGZ-MryA_yO-uyeowYcDP6Y5ZFKIlA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://other.invalid/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9vdGhlci5pbnZhbGlkLyIsIm9pZGNfc3ViIjoidGVzdHxzdWJqZWN0IiwicGlkIjowLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlLCJzdWIiOiJ1c2VyOnRlc3R8c3ViamVjdCIsInVpZCI6M30.iUQCxv3CJIExAIw04fD1BnG81GYVtG1MGflmWhJuJJ6x8vBCEIsDU28X-sSxUnlDeZHLyIyQHYzgiLZRKWKGiTvE6jgu2YZarQ4l-n1wakojo_yV8Ebn1CRMqHFij1spQUh7phNKQ8dflt4hj80SKSaMcRW_cR1hF2Xjg3msKOA8bdwtVaDfCNnZFM14wchoBUxmwT1HbSfVp0_d5fRFfhkEOsDcrAiN_vB8C8ZVL0ljpchR_5_cfKfMWMl2koHAJlOQXW_8FWQykqpxj9VxcKmUVFQaLzcOhP_Y5KCKSbiCOI7Ly-mHcPOFtOZTqsojrL3HnLb1wq1ApxnZFLzsGQ",
+      "variant": "wrong_issuer",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9vdGhlci5pbnZhbGlkLyIsIm9pZGNfc3ViIjoidGVzdHxzdWJqZWN0IiwicGlkIjowLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlLCJzdWIiOiJ1c2VyOnRlc3R8c3ViamVjdCIsInVpZCI6M30.tRvPcmr82MnpH0bxQlBWWtD1GK82SIwj647rwzim9tvtvx9Lt7AyIRW5u5wOejcZsDx1jtKatF7d_Tp-JVKNEiMW9bO74K-37SCspTKTD4_UeIsela4upvq99Ovex_KBaAVNzHjOcZLJ_zvY7QcF39CpwePV5PCtlFST2_r9y-YaGu9xUjUupfhPEPPJrrm_WffDbafQ6kQKwpZvTDzAe7IhpihnWYp8rXgpdRLDxGHzvQwSFqYmk6pN242dTjk_2iiuzobiHvlDmN-gJU68iiDJCqKOoKeZn4Cx7TgZ0qLnfb8Sjm61YuG8XIzOPfC8k3FBgAI-isk7DgXTQEhgug"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "nbf": 1800000001,
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwibmJmIjoxODAwMDAwMDAxLCJvaWRjX3N1YiI6InRlc3R8c3ViamVjdCIsInBpZCI6MCwic3RhbmRhcmRfdXNlcl9wYXJ0aWNpcGFudCI6dHJ1ZSwic3ViIjoidXNlcjp0ZXN0fHN1YmplY3QiLCJ1aWQiOjN9.dlYOUjZWhGi2WYAI6OoYJEPS84vnaumVXrYQwySbFwpEaw71sPPwq3lmK3UbzLTVSQempcNt0u8c3Araqd0FZOgyxTWeGSkIidhD_vETpBBvodDEt9-UzpG8jpGiRpvkG9mXLJr-F1a_3_7-wlsW3Bub2ngM6OvzCG4T9-TaOtRigFO2dZ8SD3Tba_IX2Y-RoabopB_JZjJ-jtnZR1YOu3UPJyOtx4vUTsMHo8_XREo9dvYph5IsNR4hyq6a5kymUoiHfdrd5Ql1ZXptmzH2IxCPlpPSnkMiKPb4bLm45Jwjw6mNNhKpXUGER_wwHjL_Q_wL1Bm6vJOx2tUJVrP0Fw",
+      "variant": "future_nbf",
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwibmJmIjoxODAwMDAwMDAxLCJvaWRjX3N1YiI6InRlc3R8c3ViamVjdCIsInBpZCI6MCwic3RhbmRhcmRfdXNlcl9wYXJ0aWNpcGFudCI6dHJ1ZSwic3ViIjoidXNlcjp0ZXN0fHN1YmplY3QiLCJ1aWQiOjN9.hkJ4uDvsP0-tZB5k-wsXrqXF1SZ5eywmkREMf45lfsXXY7uu5JOfEHYQtRUcq7vw4d9Dxbfokz2YmsdrJUU6lCTeWQ5eZU_BA7FDzcX999BDCVeANiwZqK1p-db-_dbJVUfwLl3WvLY9dU-M7u4G2RxbM9nx4MdBSM-X4bB8GyQLXzEX9LEQwxZYgMZHtorm580SXEH8Ys2zFjDFq0AdD6kOsidfjYEcpEYUjKk0IPJ-ND5E9enpAG0AQdEvtR7_g0EMh9TK0FfoP7ob8FYEJ6AC9-qLjmtc7eQKc1t8B00BE4odA1GPgFxap9t3ioZnSzOinHuxpYe_6z8CGoz7sA"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzM4NCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.XYuOZngfuITkFn6zsPqOPtHGLEnOJeY6nghvDqtZv8ntdLVL7rXb6wISN8rr-5cVrQr5EThy7BXI-mVxawHNevZbW-T7lfa4DqHSI28nFUT7S31mlZ7DnRwYnkwJdKE0TLAbwEgsR5oqarVcOm4V20ZarjtFfxamD-ScZqeNzAy1qrI2XSwKVufNven4GKMy7b8kVCK8MAUjhHcL9ghSXqN8t7ypirfXkfsd3LBzob81v9KItgkZHSRo2taGiv-BO8HReQFSH557taJNIFMtH3j5LWnM7ac1IAJQkD45OkMoDGCQRfKLxTJVrsFeZ9kWmdaMviDPZ3FPgqo5LRlzOQ",
+      "variant": "wrong_algorithm",
+      "node_token": "eyJhbGciOiJSUzM4NCIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.mJ_Q0TOIwyKCujZSTlaPBVdRiOJsjSDjbgkFOOAlknp8qCA_hfzMsXkxEXY6QoRAq_skg-SQWNEohAkbJtgkmODfxPqa2MrhlJN7TnCqZF9TUcKI3qhPCR3aHZAnHg-BjIYB8L2yKRor0JpH8xM8ck__pEggh8Oo3HEHgGhZeY_rWTixxTMqQMsZd5TxbzBEDEePjVcC1l9y2w0TR1ppRp4jFPoF4PpeZ9MbRmB6HC-4jzxpPCAsbxAd-fRpQShHQIO9s2VopYs8ry7bPbcKCsq3ps_z3JThDBhxv9ADy7AD4mDz4LtLkHse23DzdkukbjPt6QtPFpwzkaIra3-CVQ"
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.",
+      "variant": "unsigned_none",
+      "node_token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ."
+    },
+    {
+      "accepted": false,
+      "claims": {
+        "aud": "participants",
+        "conversation_id": "2jwt-test",
+        "exp": 1831536000,
+        "iat": 1800000000,
+        "iss": "https://pol.is/",
+        "oidc_sub": "test|subject",
+        "pid": 0,
+        "standard_user_participant": true,
+        "sub": "user:test|subject",
+        "uid": 3
+      },
+      "kind": "standard_user",
+      "rust_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.y5B5oeit4mPZu5_8xNSldmhq-PNuaLZyIq88R48xSjI",
+      "variant": "hs256_public_key",
+      "node_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJjb252ZXJzYXRpb25faWQiOiIyand0LXRlc3QiLCJleHAiOjE4MzE1MzYwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9wb2wuaXMvIiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJwaWQiOjAsInN0YW5kYXJkX3VzZXJfcGFydGljaXBhbnQiOnRydWUsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0IiwidWlkIjozfQ.MIo7jkRBycDPkAvnQKeVbJTZbEtuf6t4mHS_Caucfws"
+    }
+  ],
+  "now": 1800000000,
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuoMd9MALFnnvxe1ZX1Ne\nKWCk/wac/VGR5P2QIidqgW50mIU5P+RDuYAomuCmrfxv/UnGelodBd7khkJ+yVBl\ndIO4eLmZ6n8cr6rpW+SC7hbKSncXM7i7vnjZVv730elcbnDDNVC+b+SBsI92eDak\nvquxm1Its8gY+AsEcUFORJ14Z3nibT+Bom/0f5sAYu/P4Pffw/c9RbryqLNDBOvA\nz86QHYv4eqKFxBtMBe1N/gJbBlt5dzGHGP0UBiNFAexVNqEg/6YPGX2EHX08Jf0H\nrzt+WrAfpCylW/V0nfnFN5YNMObTdtl+RocLMSOb1BvvbiEqACwj3x5vNP7IGg2w\nXQIDAQAB\n-----END PUBLIC KEY-----\n"
+}
