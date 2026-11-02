@@ -41,10 +41,15 @@ polis_api_ready() {
         .then(async r => {
           const h = await r.json(), p = h.pools?.common;
           const routes = value => value.split(/[,\s]+/).filter(Boolean).sort().join(",");
+          const selected = routes(expected).split(",");
+          const expectedSwitches = [
+            ...(selected.includes("testConnection") ? ["POLIS_API_CONNECTION_READS"] : []),
+            ...(selected.includes("version") ? ["POLIS_API_VERSION_READS"] : [])
+          ].sort().join(",");
           if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
               routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
               routes((h.routing?.enabledSwitches ?? ["!"]).join(",")) !==
-                (routes(expected).split(",").includes("version") ? "POLIS_API_VERSION_READS" : "") ||
+                expectedSwitches ||
               !p?.readOnly || !p.reachable || p.limit !== 8 ||
               p.acquireTimeoutMs !== 2000 || p.statementTimeoutMs !== 3000 ||
               p.maxLifetimeMs !== 300000 || h.version !== process.argv[3] || !h.commit ||
