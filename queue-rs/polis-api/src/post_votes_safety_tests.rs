@@ -1583,6 +1583,10 @@ async fn count_statements(
     counts: Arc<Mutex<std::collections::BTreeMap<String, usize>>>,
 ) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // The observer forwards protocol headers and bodies in separate writes.
+    // Avoid Nagle/delayed-ACK stalls spending the real admission deadline.
+    client.set_nodelay(true).unwrap();
+    backend.set_nodelay(true).unwrap();
     let (mut cr, mut cw) = client.into_split();
     let (mut br, mut bw) = backend.into_split();
     let upstream = async {
