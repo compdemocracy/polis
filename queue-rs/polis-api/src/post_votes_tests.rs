@@ -292,3 +292,57 @@ mod database {
 #[cfg(feature = "db-tests")]
 #[path = "post_votes_safety_tests.rs"]
 mod safety;
+
+// The route observer installs a caller's state for exactly one synchronous
+// poll. Dispatch creation captures it; the detached task retains it to Drop.
+// Other callers and blocking SQL workers cannot borrow this thread-local state.
+#[cfg(feature = "db-tests")]
+#[derive(Default)]
+pub(super) struct DispatchState {
+    created: bool,
+    pub(super) finished: bool,
+    pub(super) acquire_alarm_after: Option<Duration>,
+    pub(super) acquire_alarms: u64,
+    pub(super) receipt: Option<Arc<Mutex<Option<AcceptedVote>>>>,
+    pub(super) notification_scheduled: bool,
+}
+
+#[cfg(feature = "db-tests")]
+pub(super) type DispatchObservation = Arc<Mutex<DispatchState>>;
+
+#[cfg(feature = "db-tests")]
+thread_local! {
+    static DISPATCH_OBSERVATION: std::cell::RefCell<Option<DispatchObservation>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+
+#[cfg(feature = "db-tests")]
+pub(super) fn current_dispatch_observation() -> Option<DispatchObservation> {
+    DISPATCH_OBSERVATION.with(|current| {
+        let observation = current.borrow().clone();
+        if let Some(observation) = &observation {
+            let mut state = observation.lock().unwrap();
+            assert!(!state.created, "one dispatch per caller");
+            state.created = true;
+        }
+        observation
+    })
+}
+
+#[cfg(feature = "db-tests")]
+fn observing_dispatch<T>(observation: &DispatchObservation, poll: impl FnOnce() -> T) -> T {
+    struct Clear;
+    impl Drop for Clear {
+        fn drop(&mut self) {
+            DISPATCH_OBSERVATION.with(|current| {
+                current.replace(None);
+            });
+        }
+    }
+    DISPATCH_OBSERVATION.with(|current| {
+        assert!(current.replace(Some(observation.clone())).is_none());
+    });
+    let _clear = Clear;
+    poll()
+}

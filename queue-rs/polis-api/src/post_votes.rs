@@ -25,6 +25,9 @@ pub(crate) const MAX_BODY_BYTES: usize = 65536;
 const REJECTED_COMMENT_MOD: i32 = -1;
 const ADMISSION_DEADLINE: Duration = Duration::from_millis(250);
 const DISPATCH_DEADLINE: Duration = Duration::from_secs(1);
+// Accepted work may outlive the HTTP response. Report a minute of writer
+// contention, then keep the same acquisition queued until a slot is available.
+const DISPATCH_ACQUIRE_ALARM: Duration = Duration::from_secs(60);
 
 pub(crate) struct Writer {
     pool: Arc<db::Pool>,
@@ -415,6 +418,10 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let fallback_pid = admitted.pid;
     let fallback_star = fields.starred.is_some();
     let active_dispatch = ActiveDispatch::new();
+    #[cfg(all(test, feature = "db-tests"))]
+    if let Some(observation) = &active_dispatch.observation {
+        observation.lock().unwrap().receipt = Some(receipt.clone());
+    }
     let task = tokio::spawn(dispatch(
         writer.pool.clone(),
         writer.reads.clone(),
@@ -510,8 +517,27 @@ async fn dispatch(
 ) -> Result<Outcome> {
     let a = admitted.clone();
     let f = fields.clone();
+    let alarm_after = DISPATCH_ACQUIRE_ALARM;
+    #[cfg(all(test, feature = "db-tests"))]
+    let observation = _active_dispatch.observation.clone();
+    #[cfg(all(test, feature = "db-tests"))]
+    let alarm_after = observation
+        .as_ref()
+        .and_then(|o| o.lock().unwrap().acquire_alarm_after)
+        .unwrap_or(alarm_after);
+    let (zid, pid, tid, vote) = (admitted.zid, admitted.pid, fields.tid, fields.vote.wire());
     let created = pool
-        .with(move |c| {
+        .with_acquire_alarm(alarm_after, move || {
+            let count = ACQUIRE_ALARM_HITS.fetch_add(1, Ordering::Relaxed) + 1;
+            eprintln!(
+                "{{\"event\":\"post_votes_writer_acquire_alarm\",\"count\":{count},\"alarmMs\":{},\"zid\":{zid},\"pid\":{pid},\"tid\":{tid},\"vote\":{vote}}}",
+                alarm_after.as_millis()
+            );
+            #[cfg(all(test, feature = "db-tests"))]
+            if let Some(observation) = observation {
+                observation.lock().unwrap().acquire_alarms += 1;
+            }
+        }, move |c| {
             match append(c, &a, &f) {
                 Ok(vote) => Ok(Ok(vote)),
                 Err(error) => match error
@@ -534,6 +560,10 @@ async fn dispatch(
     };
     *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(created.clone());
     let notified = schedule_notification(background.clone(), admitted.clone());
+    #[cfg(all(test, feature = "db-tests"))]
+    if let Some(observation) = &_active_dispatch.observation {
+        observation.lock().unwrap().notification_scheduled = notified;
+    }
     let mut body = degraded(admitted.pid, created.clone(), fields.starred.is_some());
     if !notified {
         body.follow_on.notifications = NotificationState::Degraded;
@@ -637,15 +667,25 @@ fn schedule_notification(pool: Arc<NotificationPool>, admitted: Admitted) -> boo
 }
 
 static IN_FLIGHT: AtomicU64 = AtomicU64::new(0);
-struct ActiveDispatch;
+struct ActiveDispatch {
+    #[cfg(all(test, feature = "db-tests"))]
+    observation: Option<tests::DispatchObservation>,
+}
 impl ActiveDispatch {
     fn new() -> Self {
         IN_FLIGHT.fetch_add(1, Ordering::Relaxed);
-        Self
+        Self {
+            #[cfg(all(test, feature = "db-tests"))]
+            observation: tests::current_dispatch_observation(),
+        }
     }
 }
 impl Drop for ActiveDispatch {
     fn drop(&mut self) {
+        #[cfg(all(test, feature = "db-tests"))]
+        if let Some(observation) = &self.observation {
+            observation.lock().unwrap().finished = true;
+        }
         IN_FLIGHT.fetch_sub(1, Ordering::Relaxed);
     }
 }
@@ -653,6 +693,7 @@ static SERVED: AtomicU64 = AtomicU64::new(0);
 static HANDED_BACK: AtomicU64 = AtomicU64::new(0);
 static DEGRADED: AtomicU64 = AtomicU64::new(0);
 static UNKNOWN: AtomicU64 = AtomicU64::new(0);
+static ACQUIRE_ALARM_HITS: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn observe(out: &Outgoing) {
     let (counter, event) = if out.status == 502 {
@@ -677,6 +718,7 @@ pub(crate) fn health(app: &App) -> Js {
         ("handedBack", &HANDED_BACK),
         ("durableAcceptedWithDegradedFollowOn", &DEGRADED),
         ("unknown", &UNKNOWN),
+        ("writerAcquireAlarmHits", &ACQUIRE_ALARM_HITS),
         ("inFlight", &IN_FLIGHT),
     ] {
         body.set(key, Js::Num(value.load(Ordering::Relaxed) as f64));

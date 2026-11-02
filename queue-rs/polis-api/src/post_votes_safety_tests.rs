@@ -180,6 +180,24 @@ async fn wait_for_sql(db: &Database, sql: String) {
 /// own that Arc. Thus each +1 is this caller creating its dispatch, including
 /// a task suspended before its first poll. Other tests own different lanes.
 async fn observed_handle(app: Arc<App>, request: Request) -> (Outgoing, Option<Duration>) {
+    let (response, elapsed, _) = observed_handle_with_completion(app, request).await;
+    (response, elapsed)
+}
+
+async fn observed_handle_with_completion(
+    app: Arc<App>,
+    request: Request,
+) -> (Outgoing, Option<Duration>, DispatchObservation) {
+    observed_handle_with_alarm(app, request, None).await
+}
+
+async fn observed_handle_with_alarm(
+    app: Arc<App>,
+    request: Request,
+    alarm_after: Option<Duration>,
+) -> (Outgoing, Option<Duration>, DispatchObservation) {
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().acquire_alarm_after = alarm_after;
     use std::{future::Future, task::Poll, time::Instant};
     assert_eq!(
         tokio::runtime::Handle::current().runtime_flavor(),
@@ -191,7 +209,7 @@ async fn observed_handle(app: Arc<App>, request: Request) -> (Outgoing, Option<D
     std::future::poll_fn(|cx| {
         let before = Arc::strong_count(&writer.background);
         let started = Instant::now();
-        let result = route.as_mut().poll(cx);
+        let result = observing_dispatch(&observation, || route.as_mut().poll(cx));
         let after = Arc::strong_count(&writer.background);
         if after != before {
             assert_eq!(after, before + 1, "one dispatch owns one notification lane");
@@ -210,11 +228,103 @@ async fn observed_handle(app: Arc<App>, request: Request) -> (Outgoing, Option<D
                         "marked handback must create no dispatch"
                     );
                 }
-                Poll::Ready((response, dispatched.map(|start| start.elapsed())))
+                assert_eq!(dispatched.is_some(), observation.lock().unwrap().created);
+                Poll::Ready((
+                    response,
+                    dispatched.map(|start| start.elapsed()),
+                    observation.clone(),
+                ))
             }
         }
     })
     .await
+}
+
+/// A receipt is read from this caller's actual publication slot only after its
+/// detached dispatch ends. A shared row or an aggregate counter cannot stand
+/// in for that caller completing its own append (including an idempotent replay).
+async fn durable_dispatch(
+    db: &Database,
+    response: &Outgoing,
+    observation: DispatchObservation,
+) -> AcceptedVote {
+    assert!(matches!(response.status, 200 | 202));
+    assert!(observation.lock().unwrap().created);
+    wait_for("this caller's dispatch completed", || {
+        observation.lock().unwrap().finished
+    })
+    .await;
+    let vote = {
+        let state = observation.lock().unwrap();
+        assert!(
+            state.notification_scheduled,
+            "this dispatch scheduled notification"
+        );
+        state
+            .receipt
+            .as_ref()
+            .expect("publication slot")
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("this dispatch published a durable receipt")
+    };
+    if response.status == 200 {
+        assert_eq!(
+            serde_json::to_value(&accepted_body(response).vote).unwrap(),
+            serde_json::to_value(&vote).unwrap()
+        );
+    } else {
+        let crate::http::Body::Fixed(body) = &response.body else {
+            panic!("fixed unknown body")
+        };
+        assert_eq!(body, br#"{"acceptance":"unknown","retry":"same_vote"}"#);
+    }
+    let config = db.config.clone();
+    let receipt = vote.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut c = config.connect(postgres::NoTls).unwrap();
+        assert_eq!(receipt.vote, crate::votes::VoteChoice::Agree.wire());
+        let stored = i16::try_from(contract::stored_vote(crate::votes::VoteChoice::Agree)).unwrap();
+        let row = c.query_one("select
+            (select count(*) from votes where zid=1 and pid=0 and tid=$1 and vote=$2 and created=$3),
+            (select count(*) from votes_latest_unique where zid=1 and pid=0 and tid=$1 and vote=$2 and modified=$3)",
+            &[&receipt.tid, &stored, &receipt.created]).unwrap();
+        assert_eq!((row.get::<_, i64>(0), row.get::<_, i64>(1)), (1, 1),
+            "this caller's receipt identifies one durable history and latest row");
+    }).await.unwrap();
+    vote
+}
+
+async fn observed_after_admission(
+    app: Arc<App>,
+    request: Request,
+) -> (Outgoing, Option<Duration>, DispatchObservation) {
+    observed_after_admission_with_alarm(app, request, None).await
+}
+
+async fn observed_after_admission_with_alarm(
+    app: Arc<App>,
+    request: Request,
+    alarm_after: Option<Duration>,
+) -> (Outgoing, Option<Duration>, DispatchObservation) {
+    tokio::time::timeout(EVENT_WATCHDOG, async {
+        loop {
+            let result =
+                observed_handle_with_alarm(app.clone(), copy_request(&request), alarm_after).await;
+            if result.0.status != 502 {
+                return result;
+            }
+            let reads = &app.post_votes.as_ref().unwrap().reads;
+            wait_for("admission reads released", || {
+                let evidence = reads.evidence.snapshot();
+                evidence[0] == evidence[3]
+            })
+            .await;
+        }
+    })
+    .await
+    .expect("semantic fixture must reach dispatch")
 }
 
 /// Reach the operation a semantic test is about despite pre-dispatch shedding.
@@ -726,14 +836,30 @@ fn blocked_notification_lane_drops_soft_without_occupying_writer_slots() {
         // Each may retry only a verified no-dispatch admission handback.
         let mut tasks = Vec::new();
         for _ in 0..8 {
-            tasks.push(tokio::spawn(handle_after_admission(
+            tasks.push(tokio::spawn(observed_after_admission(
                 app.clone(),
                 copy_request(&request),
             )));
         }
+        let mut unknown = 0;
+        let mut originals = 0;
+        let mut replays = 0;
         for task in tasks {
-            assert_eq!(task.await.unwrap().status, 200);
+            let (response, _, observation) = task.await.unwrap();
+            unknown += usize::from(response.status == 202);
+            let vote = durable_dispatch(&db, &response, observation).await;
+            assert_eq!(vote.tid, 7);
+            assert_eq!(vote.vote, crate::votes::VoteChoice::Agree.wire());
+            if vote.replayed {
+                replays += 1;
+            } else {
+                originals += 1;
+            }
         }
+        eprintln!(
+            "notification-pressure: unknown={unknown} appended={originals} replayed={replays}"
+        );
+        assert_eq!((originals, replays), (1, 7));
         wait_for("blocked notification reports SQL failure", || {
             writer.background.pool.evidence.snapshot()[4] > 0
         })
@@ -1004,6 +1130,76 @@ fn post_commit_failures_and_follow_on_deadline_keep_the_vote_and_retry_receipt()
 }
 
 #[test]
+fn waiting_dispatch_appends_after_writer_slots_are_released() {
+    let db = Database::new("waiting_dispatch");
+    let (app, request) = setup(&db);
+    runtime().block_on(async {
+        let writer = app.post_votes.as_ref().unwrap();
+        let held = hold_pool(&writer.pool, 4).await;
+        let before = writer.pool.evidence.snapshot();
+        let (response, elapsed, observation) =
+            observed_after_admission_with_alarm(app.clone(), request, Some(Duration::from_secs(2)))
+                .await;
+        assert_eq!(response.status, 202);
+        let elapsed = elapsed.unwrap();
+        assert!(
+            elapsed >= DISPATCH_DEADLINE,
+            "no early unknown response: {elapsed:?}"
+        );
+        assert!(elapsed <= DISPATCH_DEADLINE + Duration::from_millis(500));
+        assert!(
+            !observation.lock().unwrap().finished,
+            "waiting dispatch must stay alive"
+        );
+        wait_for("writer acquisition alarm", || {
+            observation.lock().unwrap().acquire_alarms == 1
+        })
+        .await;
+        {
+            let state = observation.lock().unwrap();
+            assert!(!state.finished, "alarm must not discard accepted work");
+            assert!(!state.notification_scheduled);
+            assert!(state.receipt.as_ref().unwrap().lock().unwrap().is_none());
+        }
+        let evidence = writer.pool.evidence.snapshot();
+        assert_eq!(
+            evidence[0], before[0],
+            "no connection acquired while waiting"
+        );
+        assert_eq!(
+            evidence[2], before[2],
+            "short acquisition budget cannot drop dispatch"
+        );
+        assert_eq!(
+            evidence[1],
+            before[1] + 1,
+            "this dispatch actually waited for a slot"
+        );
+        held.release().await;
+        let vote = durable_dispatch(&db, &response, observation.clone()).await;
+        assert_eq!(observation.lock().unwrap().acquire_alarms, 1);
+        assert!(!vote.replayed);
+        assert_eq!(vote.tid, 7);
+        assert_eq!(vote.vote, crate::votes::VoteChoice::Agree.wire());
+        wait_for_sql(
+            &db,
+            "select nsli=0 from participants where zid=1 and pid=0".into(),
+        )
+        .await;
+        wait_for_idle(writer).await;
+        let state = writer
+            .reads
+            .with(|c| {
+                Ok(c.query_one(
+            "select (select count(*) from votes),(select count(*) from votes_latest_unique)", &[])?)
+            })
+            .await
+            .unwrap();
+        assert_eq!((state.get::<_, i64>(0), state.get::<_, i64>(1)), (1, 1));
+    });
+}
+
+#[test]
 fn single_warm_caller_receives_commit_receipt_within_dispatch_deadline() {
     let db = Database::new("warm_receipt");
     let (app, request) = setup(&db);
@@ -1046,7 +1242,7 @@ fn concurrent_same_choice_retries_append_once_and_priority_is_not_a_new_vote() {
                 let start = start.clone();
                 tasks.push(tokio::spawn(async move {
                     start.wait().await;
-                    observed_handle(app, request).await
+                    observed_handle_with_completion(app, request).await
                 }));
             }
             start.wait().await;
@@ -1054,13 +1250,15 @@ fn concurrent_same_choice_retries_append_once_and_priority_is_not_a_new_vote() {
             let mut replayed = 0;
             let mut handed_back = 0;
             let mut dispatches = 0;
+            let mut unknown = 0;
             for task in tasks {
-                let (response, elapsed) = task.await.unwrap();
+                let (response, elapsed, observation) = task.await.unwrap();
                 dispatches += usize::from(elapsed.is_some());
                 match response.status {
-                    200 => {
+                    200 | 202 => {
                         assert!(elapsed.is_some(), "receipt must follow dispatch");
-                        let vote = accepted_body(&response).vote;
+                        unknown += usize::from(response.status == 202);
+                        let vote = durable_dispatch(&db, &response, observation).await;
                         assert_eq!(vote.vote, crate::votes::VoteChoice::Agree.wire());
                         assert_eq!(vote.tid, 7);
                         if vote.replayed { replayed += 1; } else { appended += 1; }
@@ -1073,7 +1271,7 @@ fn concurrent_same_choice_retries_append_once_and_priority_is_not_a_new_vote() {
                     status => panic!("unexpected retry status {status}; reads={:?}; writes={:?}", writer.reads.evidence.snapshot(), writer.pool.evidence.snapshot()),
                 }
             }
-            eprintln!("same-choice round={round}: appended={appended} replayed={replayed} handed_back={handed_back} dispatches={dispatches}");
+            eprintln!("same-choice round={round}: appended={appended} replayed={replayed} handed_back={handed_back} dispatches={dispatches} unknown={unknown}");
             assert_eq!(appended + replayed + handed_back, 16);
             assert_eq!(dispatches, appended + replayed, "every handback created no dispatch");
             wait_for_idle(writer).await;
