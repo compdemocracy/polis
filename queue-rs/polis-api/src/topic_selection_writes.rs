@@ -29,6 +29,13 @@ pub(crate) struct Writer {
     before_mutation: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 impl Writer {
+    pub(crate) fn set_revocations(&mut self, snapshot: Arc<polis_auth::revocation::Revocations>) {
+        self.verifier.set_revocations(snapshot);
+    }
+    pub(crate) fn check_revocation(&self, raw: &str, now: u64) -> Result<(), polis_auth::Refusal> {
+        self.verifier.check_revocation(raw, now)
+    }
+
     pub(crate) fn from_env() -> Result<Option<Self>> {
         if std::env::var("POLIS_API_TOPIC_SELECTION_WRITES")
             .ok()
