@@ -134,7 +134,7 @@ jobs:
     - name: Install server dependencies
       run: |
         cd server
-        npm ci
+        npm ci --ignore-scripts
 
     - name: Check service health
       run: |
