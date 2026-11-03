@@ -41,8 +41,8 @@ still exist in this source tree.
 | `/embed`, `/embedPreprod`, `/embedReport`, `/embedReportPreprod`, `/styleguide`, `/dist/admin_bundle.js`, `/__webpack_hmr` | Node's existing registrations; page retirement is separate |
 | `/embed.js`, `/embedPreprod.js` | File-server; the live legacy embed script bypasses Node |
 | `/report_bundle*.js`, `/report_style*.css`, `/report_vendor_*.js`, including `.map`, `.gz`, `.LICENSE.txt`, `.headersJson` companions | File-server; includes report libraries loaded as browser globals |
-| `/static/*` | File-server; admin bundles, maps and versioned font CSS/font files |
-| `/js/*`, `/css/*`, `/assets/*`, `/images/*`, `/fonts/*` | File-server; participation bundles/styles, JWT library, images and Font Awesome |
+| `/static/*` | Node, which serves them from `STATIC_FILES_HOST`; admin bundles, maps and versioned font CSS/font files |
+| `/js/*`, `/css/*`, `/assets/*`, `/images/*`, `/fonts/*` | Node, which serves them from `STATIC_FILES_HOST`; participation bundles/styles, JWT library, images and Font Awesome |
 | `/twemoji/*` | File-server; versioned emoji images |
 | `/{admin,participation,report}/build-info.json` and header sidecars | File-server |
 | `/index.html`, `/index_admin.html`, `/index_report.html`, `/404.html`, `/embed.html`, `/embedPreprod.html`, `/embedReport.html`, `/embedReportPreprod.html` and header sidecars | File-server; exact `/404.html` takes precedence over numeric conversation regexes |
@@ -57,7 +57,7 @@ families also include the current build outputs, because a cached asset can
 be live without an origin request during the review window. The table covers
 path families, not a claim that every spelling or filename was observed.
 
-A known static prefix can still return a file-server 404 for a missing file.
+A known static prefix can still return the static origin's 404, through Node, for a missing file.
 Unknown paths outside those prefixes use the edge's local 404. API-prefix
 misses still reach the application, as do broad registered page prefixes;
 this preserves application routing until those routes are retired. Unknown
