@@ -30,7 +30,9 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 ulimit -n 8192
 "${compose[@]}" up -d --pull never
-for _ in $(seq 60); do "${compose[@]}" exec -T postgres pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+# The image first runs a temporary server on the Unix socket only, then restarts; wait for TCP so createdb
+# reaches the real server.
+for _ in $(seq 60); do "${compose[@]}" exec -T postgres pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break; sleep 1; done
 for db in mixed guard_control; do "${compose[@]}" exec -T postgres createdb -U postgres "$db"; done
 export DATABASE_URL="postgresql://postgres@127.0.0.1:$MIXED_PG_PORT/mixed?sslmode=disable&application_name=mixed-node"
 export MIXED_GUARD_DATABASE_URL="postgresql://postgres@127.0.0.1:$MIXED_PG_PORT/guard_control?sslmode=disable"
