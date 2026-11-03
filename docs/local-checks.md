@@ -86,7 +86,11 @@ Mixed identity uses all six `MIXED_*_PORT` / `POLIS_MIXED_WORKER_PORT` values.
 Result reads uses `RESULT_READS_PROJECT`, `RESULT_READS_PG_PORT` and
 `RESULT_READS_DYNAMO_PORT`. Delphi writers needs a `polis-graph-test-` project
 and the importer a `polis-import-test-` project, each with
-`POLIS_RECOVERY_PG_PORT`. Refer to the existing script's usage for each.
+`POLIS_RECOVERY_PG_PORT`; their proof logs go to `.ci-out/<project>`. Result
+reads and Delphi writers refuse to start while a container (or, for the
+writers, the cargo volume) their launchers create and remove already exists,
+and the writers target removes the cargo volume it created. Refer to the
+existing script's usage for each.
 
 Set `OUT` and `VOTE_GATE_PG_PORT` for the two-convention gate. Its advisory v1
 comparison may fail, just as the hosted step has `continue-on-error`; the v0
@@ -105,14 +109,25 @@ the same HTTP request. No cloud account is needed.
 For E2E use an exclusive host with the fixed stack ports free. Set
 `E2E_CHECK_PROJECT` and `E2E_CHECK_OUT` per shard, and leave `E2E_CHECK_KEEP`
 unset so each owned stack is removed. Build or load the exact pinned images
-first and set `POLIS_TEST_IMAGES` to the owned image tag. The Delphi target
-runs the workflow's eight jobs in order: it builds the postgres and delphi images as
-`polis-test-*:$COMPOSE_PROJECT_NAME`, runs every shard from them as project
-`$COMPOSE_PROJECT_NAME-shard-I`, and combines only when all six passed. Set
-`DELPHI_PYTHON_LEG` (`images`, `shard-1` to `shard-6`, `combine`) to run one
-job; the legs of one run share `COMPOSE_PROJECT_NAME` and `DELPHI_PYTHON_OUT`.
-Leave `DELPHI_CHECK_KEEP` unset. Combine only complete six-shard receipts; a
-missing shard is a failed check.
+first and set `POLIS_TEST_IMAGES` to the owned image tag. Combine only
+complete six-shard receipts; a missing shard is a failed check.
+
+The Delphi target runs the workflow's eight jobs in order. It builds the
+postgres and delphi images as `polis-test-*:$COMPOSE_PROJECT_NAME`, runs every
+shard from them as project `$COMPOSE_PROJECT_NAME-shard-I`, and combines only
+when all six shard processes exited 0. Results go to
+`.ci-out/$COMPOSE_PROJECT_NAME`. Set `DELPHI_PYTHON_LEG` (`images`, `shard-1`
+to `shard-6`, `combine`) to run one job; the jobs of one run share
+`COMPOSE_PROJECT_NAME`. The `images` job starts a new run: it first removes
+every receipt of the previous one, and records the source identity and image
+ids only after its build succeeds. A shard job first removes its own receipt
+and runs only against that run's images and an unchanged source, so it can be
+retried within the run; any source change needs a new run. The combine
+accepts only six shard receipts from the same run, source and images. Leave
+`DELPHI_CHECK_KEEP` unset.
+
+`python3 ci/tests/test_local_entry_points.py` tests these entry points'
+refusals, receipts and cleanup with stub executables; it needs no Docker.
 
 The coordinator workflow deliberately keeps its literal inline work steps:
 its existing required-job control asserts those commands. The matching local

@@ -459,6 +459,16 @@ class WritersTests(EntryPointTest):
         self.assertIn("cargo CARGO_TARGET_DIR-unset", self.c.calls_text())
 
 
+    def test_ci_out_symlink_is_refused(self):
+        elsewhere = self.c.tmp / "elsewhere"
+        elsewhere.mkdir()
+        (self.c.root / ".ci-out").symlink_to(elsewhere)
+        r = self.writers()
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("launcher", self.c.calls_text())
+        self.assertEqual(list(elsewhere.iterdir()), [])
+
+
 class ResultReadsTests(EntryPointTest):
     P = "result-reads-probe"
 
@@ -485,6 +495,17 @@ class ImportTests(EntryPointTest):
                        POLIS_RECOVERY_PG_PORT="55996")
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn(f"IMPORT_PROOF_ROOT={self.c.root}/.ci-out/{p}", self.c.calls_text())
+
+
+    def test_ci_out_symlink_is_refused(self):
+        elsewhere = self.c.tmp / "elsewhere"
+        elsewhere.mkdir()
+        (self.c.root / ".ci-out").symlink_to(elsewhere)
+        r = self.c.run("ci/local/production-import.sh", COMPOSE_PROJECT_NAME="polis-import-test-probe",
+                       POLIS_RECOVERY_PG_PORT="55996")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("launcher", self.c.calls_text())
+        self.assertEqual(list(elsewhere.iterdir()), [])
 
 
 if __name__ == "__main__":
