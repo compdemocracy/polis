@@ -35,7 +35,7 @@ s.commentSent =
 s.submitComment = "Invia"
 s.tipCommentsRandom = "I commenti vengono mostrati casualmente. Non stai rispondendo a nessuno."
 s.writePrompt = "Condividi il tuo punto di vista..."
-s.writeCommentHelpText = "Se il tuo punto di vista manca, <strong>scrivi</strong> un commento!</i>"
+s.writeCommentHelpText = "Se il tuo punto di vista manca, <strong>scrivi</strong> un commento!"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization

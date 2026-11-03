@@ -46,7 +46,7 @@ s.submitComment = "Reageer"
 s.tipCommentsRandom = "Reacties zijn willekeurig gesorteerd. U bent op niemand aan het reageren"
 s.writePrompt = "Geef uw mening..."
 s.writeCommentHelpText =
-  "<strong>schrijf</strong> een reactie indien uw mening niet wordt vertegenwoordigd</i>"
+  "<strong>schrijf</strong> een reactie indien uw mening niet wordt vertegenwoordigd"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization
