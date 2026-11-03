@@ -16,12 +16,19 @@ check_absent volume "$COMPOSE_PROJECT_NAME-cargo"
 WRITER_PROOF_ROOT="$(check_out_dir "$COMPOSE_PROJECT_NAME" fresh)"
 export WRITER_PROOF_ROOT
 unset CARGO_TARGET_DIR
+# Only a volume listing that Docker answered can show the volume is gone;
+# when Docker cannot answer, the run fails rather than leave it unreported.
 cleanup() {
-  local result=$?
+  local result=$? volumes
   trap - EXIT
   set +e
-  if docker volume inspect "$COMPOSE_PROJECT_NAME-cargo" >/dev/null 2>&1; then
-    docker volume rm "$COMPOSE_PROJECT_NAME-cargo" >/dev/null || result=1
+  if volumes="$(docker volume ls --format '{{.Name}}')"; then
+    if grep -qxF -- "$COMPOSE_PROJECT_NAME-cargo" <<< "$volumes"; then
+      docker volume rm "$COMPOSE_PROJECT_NAME-cargo" >/dev/null || { echo "Could not remove the volume $COMPOSE_PROJECT_NAME-cargo" >&2; result=1; }
+    fi
+  else
+    echo "Cannot list volumes; $COMPOSE_PROJECT_NAME-cargo may remain" >&2
+    result=1
   fi
   exit "$result"
 }
