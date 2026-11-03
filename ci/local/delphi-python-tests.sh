@@ -42,24 +42,36 @@ fail() { echo "[delphi-python-tests] $*" >&2; exit 1; }
 sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi; }
 
 # The checkout's content: HEAD, uncommitted changes and untracked files that
-# are not ignored (results under .ci-out are ignored).
+# are not ignored (results under .ci-out are ignored). Each git command's exit
+# status is checked (pipefail covers the pipes), and nothing is printed unless
+# all of them succeeded: partial output must never stand in for a source.
 source_id() {
-  (
-    cd "$CHECK_ROOT"
-    git rev-parse HEAD
-    git diff HEAD --binary
-    git ls-files --others --exclude-standard
-    git ls-files --others --exclude-standard -z | xargs -0 git hash-object --
-  ) | sha
+  local head diff names blobs
+  head="$(git -C "$CHECK_ROOT" rev-parse --verify HEAD)" || return 1
+  diff="$(git -C "$CHECK_ROOT" diff HEAD --binary --no-ext-diff --no-textconv --no-color | sha)" || return 1
+  names="$(git -C "$CHECK_ROOT" ls-files --others --exclude-standard -z | sha)" || return 1
+  blobs="$(cd "$CHECK_ROOT" && git ls-files --others --exclude-standard -z | xargs -0 git hash-object -- | sha)" || return 1
+  printf '%s\n' "$head" "$diff" "$names" "$blobs" | sha
 }
 
+# The ids of this run's two images, or a failure: docker must succeed and
+# print exactly two image ids.
 image_ids() {
-  local ids
-  ids="$(docker image inspect --format '{{.Id}}' "polis-test-postgres:$TAG" "polis-test-delphi:$TAG")"
-  ids="$(printf '%s' "$ids" | tr '\n' ' ')"
-  [ "$(printf '%s' "$ids" | wc -w | tr -d ' ')" = 2 ] || fail "expected two image ids, got: $ids"
-  printf '%s\n' "${ids% }"
+  local out id ids="" n=0
+  out="$(docker image inspect --format '{{.Id}}' "polis-test-postgres:$TAG" "polis-test-delphi:$TAG")" || return 1
+  while IFS= read -r id; do
+    case "$id" in sha256:*[!0-9a-f]*|sha256:) return 1 ;; sha256:*) ;; *) return 1 ;; esac
+    ids="$ids${ids:+ }$id"
+    n=$((n + 1))
+  done <<< "$out"
+  [ "$n" = 2 ] || return 1
+  printf '%s\n' "$ids"
 }
+
+# Read the current source identity and image ids; any failure fails the job.
+NOW_SOURCE="" NOW_IMAGES=""
+read_source() { NOW_SOURCE="$(source_id)" || fail "cannot compute the source identity of $CHECK_ROOT"; }
+read_images() { NOW_IMAGES="$(image_ids)" || fail "cannot read the ids of polis-test-postgres:$TAG and polis-test-delphi:$TAG"; }
 
 receipt_value() { sed -n "s/^$2=//p" "$1"; }
 
@@ -95,21 +107,24 @@ this_run() {
   SOURCE="$(receipt_value "$OUT/images.ok" source)"
   IMAGES="$(receipt_value "$OUT/images.ok" images)"
   [ -n "$RUN" ] && [ -n "$SOURCE" ] && [ -n "$IMAGES" ] || fail "images.ok is incomplete"
-  [ "$(source_id)" = "$SOURCE" ] || fail "the source changed since this run's images were built; start a new run"
+  read_source
+  [ "$NOW_SOURCE" = "$SOURCE" ] || fail "the source changed since this run's images were built; start a new run"
 }
 
 leg_images() {
-  local run src ids
+  local run src
   remove_run_receipts
   run="$(date -u +%Y%m%dT%H%M%SZ)-$$-$RANDOM"
-  src="$(source_id)"
+  read_source
+  src="$NOW_SOURCE"
   (
     cd "$CHECK_ROOT/."
     bash ci/local/test-images.sh build --tag "$TAG" --only postgres,delphi
   )
-  [ "$(source_id)" = "$src" ] || fail "the source changed while the images were built"
-  ids="$(image_ids)"
-  write_receipt "$OUT/images.ok" "run=$run" "source=$src" "images=$ids"
+  read_source
+  [ "$NOW_SOURCE" = "$src" ] || fail "the source changed while the images were built"
+  read_images
+  write_receipt "$OUT/images.ok" "run=$run" "source=$src" "images=$NOW_IMAGES"
 }
 
 leg_shard() {
@@ -117,7 +132,8 @@ leg_shard() {
   remove_receipts "$OUT/shard-$i.ok"
   check_project "$TAG-shard-$i"
   this_run
-  [ "$(image_ids)" = "$IMAGES" ] || fail "polis-test-*:$TAG are not the images this run built; start a new run"
+  read_images
+  [ "$NOW_IMAGES" = "$IMAGES" ] || fail "polis-test-*:$TAG are not the images this run built; start a new run"
   (
     cd "$CHECK_ROOT/."
     export POLIS_TEST_IMAGES="$TAG"
@@ -125,8 +141,10 @@ leg_shard() {
     export DELPHI_CHECK_OUT="$OUT/shard-$i"
     bash ci/local/delphi-python.sh --shard "$i/$SHARDS"
   )
-  [ "$(source_id)" = "$SOURCE" ] || fail "the source changed while shard $i ran"
-  [ "$(image_ids)" = "$IMAGES" ] || fail "the images changed while shard $i ran"
+  read_source
+  [ "$NOW_SOURCE" = "$SOURCE" ] || fail "the source changed while shard $i ran"
+  read_images
+  [ "$NOW_IMAGES" = "$IMAGES" ] || fail "the images changed while shard $i ran"
   write_receipt "$OUT/shard-$i.ok" "run=$RUN" "source=$SOURCE" "images=$IMAGES" "shard=$i/$SHARDS"
 }
 
