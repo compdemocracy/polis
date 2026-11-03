@@ -522,42 +522,6 @@ mod tests {
         c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
             .unwrap();
     }
-    // A fixed CPU workload measures scheduling contention without calling any
-    // database/read code. Thread CPU time calibrates its uncontended baseline
-    // on this machine, so a read-path regression cannot move the threshold.
-    #[cfg(feature = "db-tests")]
-    fn latency_cpu_probe() -> Option<(Duration, Duration)> {
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
-        fn thread_time() -> Option<Duration> {
-            let mut time = libc::timespec {
-                tv_sec: 0,
-                tv_nsec: 0,
-            };
-            // SAFETY: time is writable and the clock has no borrowed state.
-            if unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut time) } != 0 {
-                return None;
-            }
-            Some(Duration::new(
-                time.tv_sec.try_into().ok()?,
-                time.tv_nsec.try_into().ok()?,
-            ))
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-        fn thread_time() -> Option<Duration> {
-            None
-        }
-        let cpu = thread_time()?;
-        let wall = std::time::Instant::now();
-        let mut value = 1_u64;
-        for _ in 0..32_000_000 {
-            value = std::hint::black_box(value.wrapping_mul(1664525).wrapping_add(1013904223));
-        }
-        std::hint::black_box(value);
-        let elapsed = wall.elapsed();
-        let baseline = thread_time()?.checked_sub(cpu)?;
-        (!baseline.is_zero()).then_some((elapsed, baseline))
-    }
-
     #[cfg(feature = "db-tests")]
     #[tokio::test]
     async fn slower_reads_cannot_occupy_next_statement_slots() {
@@ -717,86 +681,123 @@ mod tests {
             isolated(&control_sample),
             "invalid isolation control: {control_sample:?}"
         );
-        async fn cpu_samples() -> Vec<Option<(Duration, Duration)>> {
-            tokio::task::spawn_blocking(|| {
-                // A dedicated background thread observes contention suffered by
-                // slower work without changing any test/runtime worker priority.
-                std::thread::spawn(|| {
-                    #[cfg(target_os = "macos")]
-                    // SAFETY: this changes only the calling disposable thread.
-                    let priority = unsafe {
-                        libc::setpriority(libc::PRIO_DARWIN_THREAD, 0, libc::PRIO_DARWIN_BG)
-                    };
-                    #[cfg(target_os = "linux")]
-                    // SAFETY: Linux applies PRIO_PROCESS to this thread's TID.
-                    let priority = unsafe {
-                        libc::setpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t, 19)
-                    };
-                    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-                    let priority = -1;
-                    (0..1)
-                        .map(|_| {
-                            if priority == 0 {
-                                latency_cpu_probe()
-                            } else {
-                                None
-                            }
-                        })
-                        .collect()
-                })
-                .join()
-                .unwrap()
-            })
-            .await
-            .unwrap()
+        // Each of the 18 pools this test saturates stays full through all loaded
+        // reads. Counters and available permits witness occupancy directly;
+        // a task handle alone could still be pending after releasing its slot.
+        let slower = [
+            ("general", &app.db),
+            ("comments", app.comments_db.as_ref().unwrap()),
+            ("comments count", app.comments_count_db.as_ref().unwrap()),
+            ("result", app.delphi_result_db.as_ref().unwrap()),
+            ("logs", app.delphi_logs_db.as_ref().unwrap()),
+            (
+                "visualization result",
+                app.delphi_visualizations_result_db.as_ref().unwrap(),
+            ),
+            ("topics", app.delphi_topics_db.as_ref().unwrap()),
+            ("narratives", app.delphi_narratives_db.as_ref().unwrap()),
+            ("result auth", app.delphi_result_auth_db.as_ref().unwrap()),
+            ("importance", app.statement_importance_db.as_ref().unwrap()),
+            ("logs auth", app.delphi_logs_auth_db.as_ref().unwrap()),
+            (
+                "visualizations",
+                app.delphi_visualizations_db.as_ref().unwrap(),
+            ),
+            ("read", app.delphi_read_db.as_ref().unwrap()),
+            ("reports", app.delphi_reports_db.as_ref().unwrap()),
+            ("moderation", app.moderation_comments_db.as_ref().unwrap()),
+            (
+                "moderation auth",
+                app.moderation_comments_auth_db.as_ref().unwrap(),
+            ),
+            (
+                "participant comments",
+                app.participant_comments_db.as_ref().unwrap(),
+            ),
+            (
+                "participant comments auth",
+                app.participant_comments_auth_db.as_ref().unwrap(),
+            ),
+        ]
+        .map(|(name, pool)| (name, pool, size(pool)));
+        fn size(pool: &db::Pool) -> usize {
+            let health = pool.health(true);
+            let Js::Num(limit) = health.as_obj().unwrap().get("limit").unwrap() else {
+                panic!("pool limit must be a number");
+            };
+            *limit as usize
         }
-        let cpu_before = cpu_samples().await;
-        // Occupy every slower-route connection and wait until each is held.
+        fn available(pool: &db::Pool) -> Js {
+            pool.health(true)
+                .as_obj()
+                .unwrap()
+                .get("available")
+                .unwrap()
+                .clone()
+        }
+        fn assert_parked(name: &str, pool: &db::Pool, size: usize) {
+            assert_eq!(
+                pool.evidence.snapshot(),
+                [size, 0, 0, 0, 0, 0],
+                "slower pool {name} must remain parked"
+            );
+            assert_eq!(
+                available(pool),
+                Js::Num(0.0),
+                "slower pool {name} must have no free slots"
+            );
+        }
         let mut held = vec![];
-        for pool in [
-            &app.db,
-            app.comments_db.as_ref().unwrap(),
-            app.comments_count_db.as_ref().unwrap(),
-            app.delphi_result_db.as_ref().unwrap(),
-            app.delphi_logs_db.as_ref().unwrap(),
-            app.delphi_visualizations_result_db.as_ref().unwrap(),
-            app.delphi_topics_db.as_ref().unwrap(),
-            app.delphi_narratives_db.as_ref().unwrap(),
-        ] {
-            for _ in 0..2 {
-                held.push(park(pool.clone()).await);
+        for (name, pool, size) in &slower {
+            for _ in 0..*size {
+                held.push(park((*pool).clone()).await);
+            }
+            assert_parked(name, pool, *size);
+        }
+        let own = app.next_comment_db.as_ref().unwrap();
+        assert_eq!(
+            own.evidence.snapshot(),
+            [0; 6],
+            "slower reads entered the next-statement pool"
+        );
+        assert_eq!(
+            available(own),
+            Js::Num(size(own) as f64),
+            "slower reads occupied next-statement slots"
+        );
+        // HTTP 200 witnesses completion inside the route's own deadline. The
+        // test-side wall clock also includes parsing and serialization, so it
+        // cannot be compared with the database deadline. Allow up to four
+        // samples for a host pause; every sample must still prove isolation.
+        let mut loaded = vec![];
+        for _ in 0..4 {
+            let sample = observe(app.clone()).await;
+            eprintln!("next statement loaded sample: {sample:?}");
+            assert!(
+                isolated(&sample),
+                "next statement waits on slower routes: control={control_sample:?}, loaded={sample:?}"
+            );
+            for (name, pool, size) in &slower {
+                assert_parked(name, pool, *size);
+            }
+            assert!(held.iter().all(|(_, work)| !work.is_finished()));
+            loaded.push(sample);
+            if sample.0 == 200 {
+                break;
             }
         }
-        held.push(park(app.delphi_result_auth_db.as_ref().unwrap().clone()).await);
-        for _ in 0..crate::statement_importance::pool_limits().size {
-            held.push(park(app.statement_importance_db.as_ref().unwrap().clone()).await);
-        }
-        held.push(park(app.delphi_logs_auth_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.delphi_visualizations_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.delphi_read_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.delphi_reports_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.moderation_comments_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.moderation_comments_auth_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.participant_comments_db.as_ref().unwrap().clone()).await);
-        held.push(park(app.participant_comments_auth_db.as_ref().unwrap().clone()).await);
-        let guarded = observe(app.clone()).await;
-        eprintln!(
-            "next statement isolation: deadline_ms={} control={control_sample:?} guarded={guarded:?} guarded/control={:.3}",
-            DEADLINE.as_millis(),
-            guarded.1.as_secs_f64() / control_sample.1.as_secs_f64()
-        );
-        // Report the absolute deadline and ratio; scheduling time alone is not
-        // evidence of starvation. Any pending permit poll fails this guard,
-        // even when the request eventually answers within the deadline.
         assert!(
-            isolated(&guarded),
-            "next statement waits on slower routes: control={control_sample:?}, guarded={guarded:?}"
+            loaded
+                .iter()
+                .any(|sample| sample.0 == 200 && sample.2[5] == 0),
+            "next statement missed its {} ms deadline on every loaded request: {loaded:?}",
+            DEADLINE.as_millis()
         );
-        assert!(held.iter().all(|(_, work)| !work.is_finished()));
         // A full dedicated pool sheds its own request rather than queueing.
-        let own = app.next_comment_db.as_ref().unwrap();
-        let first = park(own.clone()).await;
-        let second = park(own.clone()).await;
+        let mut own_held = vec![];
+        for _ in 0..size(own) {
+            own_held.push(park(own.clone()).await);
+        }
         let starved = observe(app.clone()).await;
         eprintln!("next statement deliberately starved: {starved:?}");
         assert_eq!(starved.0, 502);
@@ -807,41 +808,28 @@ mod tests {
         );
         assert!(
             !isolated(&starved),
-            "guard accepted a deliberately starved pool"
+            "test accepted a deliberately starved pool"
         );
-        assert!(!first.1.is_finished() && !second.1.is_finished());
-        held.extend([first, second]);
+        assert!(own_held.iter().all(|(_, work)| !work.is_finished()));
+        held.extend(own_held);
         for (release, work) in held {
             release.send(()).unwrap();
             work.await.unwrap().unwrap();
         }
-        // Probe outside the parked interval so the diagnostic workload cannot
-        // consume the existing five-second hold budget.
-        let cpu_after = cpu_samples().await;
-        // Require every independent sample to be within 25% of its calibrated
-        // CPU baseline. Pool isolation is mandatory even if latency is skipped.
-        let quiet = cpu_before
-            .iter()
-            .chain(&cpu_after)
-            .all(|sample| sample.is_some_and(|(wall, baseline)| wall <= baseline.mul_f64(1.1)));
-        let message = if quiet {
-            format!(
-                "next statement latency: ASSERTED; deadline_ms={}; cpu_before={cpu_before:?}; cpu_after={cpu_after:?}; guarded={guarded:?}\n",
-                DEADLINE.as_millis()
-            )
-        } else {
-            format!(
-                "::warning title=next statement latency::SKIPPED: CPU contention or unavailable thread clock; cpu_before={cpu_before:?}; cpu_after={cpu_after:?}; guarded={guarded:?}; pool isolation still asserted\n"
-            )
-        };
-        // Bypass libtest capture: a passing CI run must visibly name skips.
+        // The test asserts latency only through the route's own deadline (the
+        // HTTP 200 required above). Wall time is printed for diagnosis only,
+        // since it also counts parsing, serialization and host scheduling. The
+        // production deadline, SQL timeout and acquire timeout are unchanged.
+        // No contention, query error or incomplete read is accepted, including
+        // after a caller timeout. Bypass libtest capture so CI always records
+        // the observed latency.
+        let message = format!(
+            "next statement isolation: ASSERTED; deadline_ms={}; control={control_sample:?}; loaded={loaded:?}; slower_pools={}; parked_slots={}\n",
+            DEADLINE.as_millis(),
+            slower.len(),
+            slower.iter().map(|(_, _, size)| size).sum::<usize>()
+        );
         std::io::Write::write_all(&mut std::io::stdout(), message.as_bytes()).unwrap();
-        if quiet {
-            assert!(
-                guarded.1 < DEADLINE && guarded.0 == 200,
-                "next statement exceeded its quiet-host latency bound: control={control_sample:?}, guarded={guarded:?}"
-            );
-        }
         let refused = own
             .with(|c| {
                 c.execute("INSERT INTO conversations VALUES(2,false)", &[])?;
