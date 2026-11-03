@@ -21,9 +21,10 @@ Provider selection:
   ``DEFAULT_ANTHROPIC_TOPIC_MODEL``.
 * Ollama model/host: ``OLLAMA_MODEL`` / ``OLLAMA_HOST`` (as before).
 
-Naming failures never crash the pipeline: an individual failed request falls
-back to a generic ``Topic N`` label, and a wholesale failure falls back to the
-conventional keyword-based labels.
+An individual failed request falls back to a generic ``Topic N`` label. A
+wholesale failure (no cluster named by the provider) raises
+``TopicNamingFailed``: the caller stores LLM names under the model's name, so
+keyword labels are never returned in their place.
 """
 
 import logging
@@ -64,6 +65,10 @@ _PREFIXES_TO_REMOVE = [
     "Label:",
     "Label",
 ]
+
+
+class TopicNamingFailed(RuntimeError):
+    """LLM topic naming was requested and the provider named no cluster."""
 
 
 def resolve_provider_type(provider_type: Optional[str] = None) -> str:
@@ -297,8 +302,9 @@ def generate_cluster_topic_labels(
 
     When ``name_topics`` is truthy and comments/layer are available, labels are
     produced by an LLM (Anthropic batch by default, or Ollama when
-    ``LLM_PROVIDER=ollama`` / the deprecated ``use_ollama=True``). Otherwise, and
-    on any LLM failure, conventional keyword-based labels are returned.
+    ``LLM_PROVIDER=ollama`` / the deprecated ``use_ollama=True``); if the
+    provider names no cluster, ``TopicNamingFailed`` is raised. Otherwise
+    conventional keyword-based labels are returned.
 
     Returns a dict mapping cluster_id -> topic label string.
     """
@@ -329,7 +335,8 @@ def generate_cluster_topic_labels(
         )
 
         if not prompts:
-            return _conventional_labels(cluster_characteristics)
+            # Only noise: nothing to name (the LLM path never names noise).
+            return {}
 
         if provider.supports_batching:
             logger.info(
@@ -346,6 +353,9 @@ def generate_cluster_topic_labels(
             )
             raw_labels = _label_one_by_one(provider, prompts)
 
+        if not any(raw_labels.get(cluster_id) for cluster_id in prompts):
+            raise RuntimeError(f"the provider named none of the {len(prompts)} clusters")
+
         cluster_labels: Dict[int, str] = {}
         for cluster_id in prompts:
             raw = raw_labels.get(cluster_id)
@@ -359,10 +369,10 @@ def generate_cluster_topic_labels(
         )
         return cluster_labels
 
-    except Exception as e:  # noqa: BLE001 - naming must never crash the pipeline.
-        logger.error(
-            f"LLM topic naming failed for layer {layer_idx} ({e}); "
-            "falling back to conventional labels",
-            exc_info=True,
+    except Exception as e:  # noqa: BLE001 - every provider failure is reported the same way.
+        message = (
+            f"LLM topic naming failed for layer {layer_idx} "
+            f"(provider={provider_type}): {e}; no names are stored for this layer"
         )
-        return _conventional_labels(cluster_characteristics)
+        logger.error(message, exc_info=True)
+        raise TopicNamingFailed(message) from e
