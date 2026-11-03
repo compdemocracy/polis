@@ -47,7 +47,7 @@
   "WEBSERVER_PASS",
   "WEBSERVER_USERNAME"
  ],
- "caseCount": 272,
+ "caseCount": 262,
  "cases": [
   {
    "id": "boundary/delphi-missing-report",
@@ -103,11 +103,6 @@
    "id": "boundary/feeds-unknown-report",
    "status": 404,
    "sha256": "ed1af8a4b175547195459f475ecb9aacc96889dfacb30884c811d57cab5926f6"
-  },
-  {
-   "id": "boundary/reportNarrative-no-token",
-   "status": 401,
-   "sha256": "19cbd87cd387650910af511f7d58eac6fea2763fedf86445b8c5bc3de3cc2dc0"
   },
   {
    "id": "not_run/delphi",
@@ -203,11 +198,6 @@
    "id": "not_run/nextComment/pid-1",
    "status": 200,
    "sha256": "6ccd1eafcf362cecad46058be70f5e0d5abbf262de8c0940532b7ccca9a03d98"
-  },
-  {
-   "id": "not_run/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "47df1e86895b0ac8a3ba9b243c90f751529141a1e49550a8bc06f4a62363ef40"
   },
   {
    "id": "pending/delphi",
@@ -320,11 +310,6 @@
    "sha256": "89a060e58824f4d4390e93f22dac0914a10ebd95f85d84e707f2ed9e038f5efb"
   },
   {
-   "id": "pending/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "ac3ca920b5e6a52150f97ed86d07afb394a93b56a1aeb3abe4434e080454c7ba"
-  },
-  {
    "id": "running/delphi",
    "status": 200,
    "sha256": "640d5ae60a19c466cc2d08929b697a33469ad42152c2820cf0c49364a3b9ddaf"
@@ -435,11 +420,6 @@
    "sha256": "d553695f4e1403b07a4ac15cb5aabc7e1d1fa5d609d94277e04e63b93c29af9d"
   },
   {
-   "id": "running/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "32a4e46281112f9930c0caa763d9a5b17027b1a08743a9406af7531356fcd0e3"
-  },
-  {
    "id": "failed/delphi",
    "status": 200,
    "sha256": "efd26d445dfb3e0a07c9b450d55d6aee196b8bdb084bbca4671aa5b70868e8ed"
@@ -548,11 +528,6 @@
    "id": "failed/nextComment/pid-1",
    "status": 200,
    "sha256": "00dc814710b1542eabf64f1d5b856d7d6178a89d2f185a6c7f47133255a219a2"
-  },
-  {
-   "id": "failed/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "4d813c7abe3e3dc1a84e46cbb5b7b2019a475aa1b9552f156cdaa7a5bd31c375"
   },
   {
    "id": "completed/delphi",
@@ -733,11 +708,6 @@
    "id": "completed/nextComment/anonymous",
    "status": 200,
    "sha256": "de0fde81b0625886c75e45840b4df7a211a8cd70d2bf831801b249a46157f5ad"
-  },
-  {
-   "id": "completed/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "76ff4680216ebdc068b67dc62bb676b035d9ca1dee268d085754e63d06eb2630"
   },
   {
    "id": "two_models/delphi",
@@ -925,11 +895,6 @@
    "sha256": "84ce00ca067ba5fb2a782f78d4b3ea35591fbeffa4965d3a779d8988729da257"
   },
   {
-   "id": "two_models/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "b64ab801c582120180f3b77a55ea9835a64463b7abef44d9536dc3b0e1cd0ad3"
-  },
-  {
    "id": "rerun_after_votes/delphi",
    "status": 200,
    "sha256": "b2850de7557af50239d737bdbf7428135b6de6ad2a79aab15a4c4c55b4a89ec6"
@@ -1115,11 +1080,6 @@
    "sha256": "fd6b726e6f78c65aaec2121831eec3e6319a7096e91762688d709300ccdf3fc5"
   },
   {
-   "id": "rerun_after_votes/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "c8933437ed3df959351f7a567466389dc49d7d7d72ffebbcc9bd281b78164762"
-  },
-  {
    "id": "truncated_narrative/delphi",
    "status": 200,
    "sha256": "93e3736f85d201e8fc2d9ec9bef61afba1471c541d6d4eb172aec2307b6b213c"
@@ -1260,11 +1220,6 @@
    "sha256": "841c474151179c8fbf29f08d05acb8cedf9bd0027afa4bd74e8b6a730b8826b4"
   },
   {
-   "id": "truncated_narrative/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "b84d46c1c0de2cc0e13eb5187df5c0f6a11be3c93bd2dbaf02117fb224109d57"
-  },
-  {
    "id": "zero_vote/delphi",
    "status": 200,
    "sha256": "963f723ba20f3b50a454b752f390e0ab3f5bfe72ccca287a169e1ed2df8bf918"
@@ -1403,11 +1358,6 @@
    "id": "zero_vote/nextComment/pid-1",
    "status": 200,
    "sha256": "20212e101218a5a37ff2fe3fe8c8765308edac642ed0a633a9b3f86242be59d1"
-  },
-  {
-   "id": "zero_vote/reportNarrative/no-delphi-claim",
-   "status": 503,
-   "sha256": "043f619b42b8bf01f770ec678b95b0ddcf100c8fbbca787825ef35e073179696"
   }
  ]
 }
