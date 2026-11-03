@@ -93,8 +93,10 @@ Docker host.
 # Edge routing
 
 The proxy has an explicit route list; see [the routing table](ROUTING.md).
-Known assets go directly to `file-server:${STATIC_FILES_PORT:-8080}`, preserving
-its cache, compression and content headers. Application API and page routes
+Known assets go to Node, which serves them from `STATIC_FILES_HOST` (the
+file-server in development, the static asset origin in production), as before.
+Production web boxes run no file-server container, so nginx cannot reach one
+directly. Application API and page routes
 keep their existing Node or selected Rust destination. Node's catch-all stays
 registered for page handling, but unmatched edge paths no longer reach it.
 
