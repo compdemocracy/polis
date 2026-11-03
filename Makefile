@@ -414,3 +414,23 @@ check-delphi-characterization: ## Run delphi-characterization checks
 .PHONY: check-server-integration
 check-server-integration: ## Run server-integration checks
 	@bash ci/local/server-integration.sh
+
+.PHONY: check-delphi-python-tests
+check-delphi-python-tests: ## Run delphi-python-tests checks
+	@bash ci/local/delphi-python-tests.sh
+
+.PHONY: check-polis-cli
+check-polis-cli: ## Run polis-cli checks
+	@bash ci/local/polis-cli.sh
+
+.PHONY: check-dynamo-writers
+check-dynamo-writers: ## Run dynamo-writers checks
+	@bash ci/local/dynamo-writers.sh
+
+.PHONY: check-delphi-result-reads
+check-delphi-result-reads: ## Run delphi-result-reads checks
+	@bash ci/local/delphi-result-reads.sh
+
+.PHONY: check-production-import
+check-production-import: ## Run production-import checks
+	@bash ci/local/production-import.sh
