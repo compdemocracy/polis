@@ -4,8 +4,8 @@
 : "${POLIS_RECOVERY_PG_PORT:?choose a free test port}"
 export RECOVERY_PG_PORT="$POLIS_RECOVERY_PG_PORT"
 check_project "$COMPOSE_PROJECT_NAME"
-# Proof logs go with the other check results.
-IMPORT_PROOF_ROOT="$(check_out_dir "$COMPOSE_PROJECT_NAME")"
+# Proof logs go with the other check results, in a new empty directory.
+IMPORT_PROOF_ROOT="$(check_out_dir "$COMPOSE_PROJECT_NAME" fresh)"
 export IMPORT_PROOF_ROOT
 
 (

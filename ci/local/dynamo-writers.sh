@@ -10,9 +10,10 @@ check_project "$COMPOSE_PROJECT_NAME"
 # registry volume; this run created it, so remove it here.
 check_absent container "$COMPOSE_PROJECT_NAME-proof" "$COMPOSE_PROJECT_NAME-dynamo" "$COMPOSE_PROJECT_NAME-build"
 check_absent volume "$COMPOSE_PROJECT_NAME-cargo"
-# Proof logs go with the other check results. The launcher runs
-# queue-rs/target/debug/polis-migrate, so cargo must build there.
-WRITER_PROOF_ROOT="$(check_out_dir "$COMPOSE_PROJECT_NAME")"
+# Proof logs go with the other check results, in a new empty directory.
+# The launcher runs queue-rs/target/debug/polis-migrate, so cargo must
+# build there.
+WRITER_PROOF_ROOT="$(check_out_dir "$COMPOSE_PROJECT_NAME" fresh)"
 export WRITER_PROOF_ROOT
 unset CARGO_TARGET_DIR
 cleanup() {

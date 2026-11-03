@@ -50,17 +50,30 @@ check_absent() {
 }
 
 # Create .ci-out/<name> in the checkout and print its path. Refuse a name or a
-# symlink that would put results anywhere else.
+# symlink that would put results anywhere else. With "fresh", the directory
+# must not exist yet and is created empty, for a launcher that writes many
+# files into it: no link can be waiting there to redirect a write. Every step
+# is checked explicitly, as this runs inside a command substitution.
 check_out_dir() {
-  local name="$1" root dir
+  local name="$1" mode="${2:-}" base root dir
   case "$name" in ''|*[!a-z0-9-]*) echo 'Invalid results directory name' >&2; exit 2;; esac
-  if [ -L "$CHECK_ROOT/.ci-out" ] || [ -L "$CHECK_ROOT/.ci-out/$name" ]; then
+  base="$CHECK_ROOT/.ci-out"
+  if [ -L "$base" ] || [ -L "$base/$name" ]; then
     echo '.ci-out and the directories in it must not be symlinks' >&2
     exit 2
   fi
-  root="$(cd "$CHECK_ROOT" && pwd -P)"
-  mkdir -p "$CHECK_ROOT/.ci-out/$name"
-  dir="$(cd "$CHECK_ROOT/.ci-out/$name" && pwd -P)"
+  root="$(cd "$CHECK_ROOT" && pwd -P)" || exit 2
+  mkdir -p "$base" || exit 2
+  if [ "$mode" = fresh ]; then
+    if [ -e "$base/$name" ]; then
+      echo ".ci-out/$name already exists; choose a new project or remove it" >&2
+      exit 2
+    fi
+    mkdir "$base/$name" || exit 2
+  else
+    mkdir -p "$base/$name" || exit 2
+  fi
+  dir="$(cd "$base/$name" && pwd -P)" || exit 2
   [ "$dir" = "$root/.ci-out/$name" ] || { echo "$dir is outside $root/.ci-out" >&2; exit 2; }
   printf '%s\n' "$dir"
 }

@@ -86,12 +86,14 @@ read_images() { NOW_IMAGES="$(image_ids)" || fail "cannot read the ids of polis-
 
 receipt_value() { sed -n "s/^$2=//p" "$1"; }
 
-# Write a receipt atomically: a new file renamed into place.
+# Write a receipt atomically: a file mktemp creates new, renamed into place
+# (a rename replaces a link at the receipt's name instead of following it).
 write_receipt() {
-  local file="$1" tmp="$1.tmp.$$"
+  local file="$1" tmp
   shift
+  tmp="$(mktemp "$OUT/.receipt.XXXXXX")"
   printf '%s\n' "$@" > "$tmp"
-  mv -f "$tmp" "$file"
+  mv -f -- "$tmp" "$file"
 }
 
 remove_receipts() {
@@ -179,6 +181,10 @@ leg_combine() {
     python3 ci/tests/test_delphi_python_results.py
   )
 
+  # The combine writes into this directory; replace whatever is there, so
+  # no earlier link can redirect a write.
+  rm -rf -- "$OUT/combined"
+  [ ! -e "$OUT/combined" ] && [ ! -L "$OUT/combined" ] || fail "cannot replace $OUT/combined"
   (
     cd "$CHECK_ROOT/."
     export DELPHI_CHECK_OUT="$OUT/combined"
