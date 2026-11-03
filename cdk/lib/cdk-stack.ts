@@ -85,7 +85,7 @@ export class CdkStack extends cdk.Stack {
     });
     alarmTopic.addSubscription(new subscriptions.EmailSubscription('tim@compdemocracy.org'));
     const logGroup = new logs.LogGroup(this, 'LogGroup', {
-      retention: logs.RetentionDays.ONE_MONTH,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
