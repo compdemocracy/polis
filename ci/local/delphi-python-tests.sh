@@ -9,19 +9,24 @@
 # after one fails, as the matrix does not fail fast, and the combine runs only
 # when all six shard processes exited 0.
 #
-# COMPOSE_PROJECT_NAME names the run: the images polis-test-postgres:<name> and
+# COMPOSE_PROJECT_NAME names the images polis-test-postgres:<name> and
 # polis-test-delphi:<name>, the shard projects <name>-shard-I and the results
-# directory .ci-out/<name>. Results are bound to the run by receipts there:
+# directory .ci-out/<name>. DELPHI_PYTHON_RUN names the run: a value the
+# caller chooses, new for every run ([A-Za-z0-9._-]); a job run on its own
+# requires it, and the full run makes one when it is unset. Results are bound
+# to that run by receipts in the results directory:
 #   images.ok    written by the images job only after its build succeeded:
-#                a new run id, the source identity (HEAD, uncommitted changes
-#                and untracked files) and the two image ids
-#   shard-I.ok   written by shard I only after it exited 0, with the run id,
+#                the run, the source identity (HEAD, uncommitted changes and
+#                untracked files) and the two image ids
+#   shard-I.ok   written by shard I only after it exited 0, with the run,
 #                source identity and image ids it ran against
-# The images job starts a new run: before anything else it removes every
+# The images job starts the run: before anything else it removes every
 # receipt. A shard job first removes its own receipt, then runs only against
-# this run's images and an unchanged source, so a shard can be retried within
-# a run. The combine accepts only six receipts of this run, source and images.
-# Every receipt removal and write must succeed, or the job fails.
+# its run's images and an unchanged source, so a shard can be retried within
+# a run. The combine accepts only receipts of the run it is asked for, with
+# one source and one image build. Every receipt removal and write must
+# succeed, or the job fails; when a new run cannot remove an earlier run's
+# receipts, they still name the earlier run and are refused.
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 . "$(dirname "$0")/runtime.sh"
 : "${COMPOSE_PROJECT_NAME:?choose an owned unique project}"
@@ -33,6 +38,12 @@ case "${DELPHI_PYTHON_LEG:-}" in
   ''|images|shard-[1-6]|combine) ;;
   *) echo 'DELPHI_PYTHON_LEG must be images, shard-1 .. shard-6 or combine' >&2; exit 2 ;;
 esac
+RUN_ID="${DELPHI_PYTHON_RUN:-}"
+case "$RUN_ID" in *[!A-Za-z0-9._-]*) echo 'DELPHI_PYTHON_RUN may hold only A-Z a-z 0-9 . _ -' >&2; exit 2 ;; esac
+if [ -n "${DELPHI_PYTHON_LEG:-}" ] && [ -z "$RUN_ID" ]; then
+  echo 'DELPHI_PYTHON_RUN must name the run this job belongs to (a new value for every run)' >&2
+  exit 2
+fi
 SHARDS=6
 TAG="$COMPOSE_PROJECT_NAME"
 OUT="$(check_out_dir "$TAG")"
@@ -98,23 +109,24 @@ remove_run_receipts() {
   remove_receipts "${files[@]}"
 }
 
-# The run this job belongs to, read from images.ok, checked against the
+# The images receipt of the run this job belongs to, checked against the
 # current source.
-RUN="" SOURCE="" IMAGES=""
+SOURCE="" IMAGES=""
 this_run() {
-  [ -f "$OUT/images.ok" ] || fail "no images were built for this run; run DELPHI_PYTHON_LEG=images first"
-  RUN="$(receipt_value "$OUT/images.ok" run)"
+  local run
+  [ -f "$OUT/images.ok" ] || fail "no images were built for run $RUN_ID; run DELPHI_PYTHON_LEG=images first"
+  run="$(receipt_value "$OUT/images.ok" run)"
   SOURCE="$(receipt_value "$OUT/images.ok" source)"
   IMAGES="$(receipt_value "$OUT/images.ok" images)"
-  [ -n "$RUN" ] && [ -n "$SOURCE" ] && [ -n "$IMAGES" ] || fail "images.ok is incomplete"
+  [ -n "$run" ] && [ -n "$SOURCE" ] && [ -n "$IMAGES" ] || fail "images.ok is incomplete"
+  [ "$run" = "$RUN_ID" ] || fail "images.ok belongs to run $run, not $RUN_ID"
   read_source
   [ "$NOW_SOURCE" = "$SOURCE" ] || fail "the source changed since this run's images were built; start a new run"
 }
 
 leg_images() {
-  local run src
+  local src
   remove_run_receipts
-  run="$(date -u +%Y%m%dT%H%M%SZ)-$$-$RANDOM"
   read_source
   src="$NOW_SOURCE"
   (
@@ -124,7 +136,7 @@ leg_images() {
   read_source
   [ "$NOW_SOURCE" = "$src" ] || fail "the source changed while the images were built"
   read_images
-  write_receipt "$OUT/images.ok" "run=$run" "source=$src" "images=$NOW_IMAGES"
+  write_receipt "$OUT/images.ok" "run=$RUN_ID" "source=$src" "images=$NOW_IMAGES"
 }
 
 leg_shard() {
@@ -145,7 +157,7 @@ leg_shard() {
   [ "$NOW_SOURCE" = "$SOURCE" ] || fail "the source changed while shard $i ran"
   read_images
   [ "$NOW_IMAGES" = "$IMAGES" ] || fail "the images changed while shard $i ran"
-  write_receipt "$OUT/shard-$i.ok" "run=$RUN" "source=$SOURCE" "images=$IMAGES" "shard=$i/$SHARDS"
+  write_receipt "$OUT/shard-$i.ok" "run=$RUN_ID" "source=$SOURCE" "images=$IMAGES" "shard=$i/$SHARDS"
 }
 
 leg_combine() {
@@ -154,7 +166,7 @@ leg_combine() {
   for i in $(seq 1 "$SHARDS"); do
     f="$OUT/shard-$i.ok"
     [ -f "$f" ] || fail "shard $i/$SHARDS did not pass in this run"
-    [ "$(receipt_value "$f" run)" = "$RUN" ] \
+    [ "$(receipt_value "$f" run)" = "$RUN_ID" ] \
       && [ "$(receipt_value "$f" source)" = "$SOURCE" ] \
       && [ "$(receipt_value "$f" images)" = "$IMAGES" ] \
       && [ "$(receipt_value "$f" shard)" = "$i/$SHARDS" ] \
@@ -179,16 +191,18 @@ leg_combine() {
 # statuses, never files.
 run_all() {
   local i rc failed=""
+  [ -n "$RUN_ID" ] || RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$-$RANDOM"
+  echo "[delphi-python-tests] run $RUN_ID" >&2
   remove_run_receipts
   for i in $(seq 1 "$SHARDS"); do check_project "$TAG-shard-$i"; done
-  DELPHI_PYTHON_LEG=images bash "$SELF"
+  DELPHI_PYTHON_RUN="$RUN_ID" DELPHI_PYTHON_LEG=images bash "$SELF"
   for i in $(seq 1 "$SHARDS"); do
     rc=0
-    DELPHI_PYTHON_LEG="shard-$i" bash "$SELF" || rc=$?
+    DELPHI_PYTHON_RUN="$RUN_ID" DELPHI_PYTHON_LEG="shard-$i" bash "$SELF" || rc=$?
     [ "$rc" = 0 ] || failed="$failed $i/$SHARDS (exit $rc)"
   done
   [ -z "$failed" ] || fail "shards that did not pass:$failed"
-  DELPHI_PYTHON_LEG=combine bash "$SELF"
+  DELPHI_PYTHON_RUN="$RUN_ID" DELPHI_PYTHON_LEG=combine bash "$SELF"
 }
 
 case "${DELPHI_PYTHON_LEG:-}" in
