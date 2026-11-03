@@ -76,6 +76,7 @@ elif argv[:2] == ["volume", "ls"]:
     else:
         print("\\n".join(state["volumes"]))
 elif argv[:2] == ["volume", "inspect"]:
+    fail_if("volume")
     sys.exit(0 if argv[2] in state["volumes"] else 1)
 elif argv[:2] == ["volume", "create"]:
     state["volumes"].append(argv[2]); save(); print(argv[2])
@@ -89,6 +90,10 @@ elif argv[:2] == ["image", "inspect"]:
     if any(r not in state["images"] for r in refs):
         sys.exit(1)
     print("\\n".join(state["images"][r] for r in refs))
+    # A failure after printing plausible ids, as a broken daemon connection can.
+    sys.exit(state.get("inspect_exit", 0))
+elif argv[:1] == ["__fail"]:
+    state["fail"].append(argv[1]); save()
 elif argv[:1] == ["__build"]:
     for image in ("postgres", "delphi"):
         state["images"][f"polis-test-{{image}}:{{argv[1]}}"] = "sha256:" + uuid.uuid4().hex
@@ -113,6 +118,8 @@ DELPHI_PYTHON = """#!/usr/bin/env bash
 set -euo pipefail
 if [ "$1" = combine ]; then
   echo "combine $*" >> "$STUB_CALLS"
+  mkdir -p "$DELPHI_CHECK_OUT"
+  echo '{"passed": 6}' > "$DELPHI_CHECK_OUT/counts.json"
   exit "${STUB_COMBINE_EXIT:-0}"
 fi
 i="${2%/*}"
@@ -143,6 +150,9 @@ name="$(basename "$0")"
 } >> "$STUB_CALLS"
 if [ "$name" = test-dynamo-writers.sh ] && [ -n "${STUB_CREATE_VOLUME:-}" ]; then
   docker volume create "$STUB_CREATE_VOLUME" >/dev/null
+fi
+if [ -n "${STUB_THEN_FAIL:-}" ]; then
+  docker __fail "$STUB_THEN_FAIL"
 fi
 """
 
@@ -244,9 +254,12 @@ class DelphiPythonTests(EntryPointTest):
     P = "polis-test-run"
     SCRIPT = "ci/local/delphi-python-tests.sh"
 
+    RUN = "run-1"
+
     def leg(self, leg: str = "", **env: str) -> subprocess.CompletedProcess:
         if leg:
             env["DELPHI_PYTHON_LEG"] = leg
+        env.setdefault("DELPHI_PYTHON_RUN", self.RUN)
         return self.c.run(self.SCRIPT, COMPOSE_PROJECT_NAME=self.P, **env)
 
     def full_pass(self) -> None:
@@ -365,6 +378,75 @@ class DelphiPythonTests(EntryPointTest):
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertEqual(list(elsewhere.iterdir()), [])
 
+    def make_read_only(self, path: Path) -> None:
+        for child in sorted(path.rglob("*"), reverse=True):
+            child.chmod(0o555 if child.is_dir() else 0o444)
+        path.chmod(0o555)
+
+    def test_combine_fails_when_the_source_cannot_be_read(self):
+        # git cannot hash a changed tracked file it cannot read; its partial
+        # output must not stand in for the clean source.
+        self.full_pass()
+        readme = self.c.root / "queue-rs/README"
+        readme.write_text("changed\n")
+        readme.chmod(0)
+        r = self.leg("combine")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("combine combine", self.c.calls_text())
+
+    def test_images_fail_when_image_inspection_fails(self):
+        self.c.set_state(inspect_exit=97)
+        r = self.leg("images")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertFalse((self.c.root / ".ci-out" / self.P / "images.ok").exists())
+
+    def test_shard_fails_when_image_inspection_fails(self):
+        self.full_pass()
+        self.c.set_state(inspect_exit=97)
+        r = self.leg("shard-2")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("shard 2/6", self.c.calls_text())
+
+    def test_combine_refuses_a_run_it_was_not_asked_for(self):
+        # The new run cannot remove the old run's receipts; asked to combine
+        # the new run, combine must not accept them.
+        self.full_pass()
+        self.make_read_only(self.c.root / ".ci-out" / self.P)
+        self.assertNotEqual(self.leg("images", DELPHI_PYTHON_RUN="run-2").returncode, 0)
+        r = self.leg("combine", DELPHI_PYTHON_RUN="run-2")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("combine combine", self.c.calls_text())
+
+    def test_a_job_on_its_own_needs_a_run_id(self):
+        self.full_pass()
+        r = self.leg("combine", DELPHI_PYTHON_RUN="")
+        self.assertEqual(r.returncode, 2, r.stdout)
+        self.assertNotIn("combine", self.c.calls_text())
+
+    def test_combine_replaces_a_planted_combined_directory(self):
+        self.full_pass()
+        outside = self.c.tmp / "outside"
+        outside.mkdir()
+        combined = self.c.root / ".ci-out" / self.P / "combined"
+        shutil.rmtree(combined, ignore_errors=True)
+        combined.symlink_to(outside)
+        r = self.leg("combine")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertFalse(combined.is_symlink())
+
+    def test_combine_does_not_write_through_a_planted_file_link(self):
+        self.full_pass()
+        outside = self.c.tmp / "outside.json"
+        outside.write_text("preserve me\n")
+        combined = self.c.root / ".ci-out" / self.P / "combined"
+        combined.mkdir(exist_ok=True)
+        (combined / "counts.json").unlink(missing_ok=True)
+        (combined / "counts.json").symlink_to(outside)
+        r = self.leg("combine")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(outside.read_text(), "preserve me\n")
+
     def test_unknown_leg_is_refused(self):
         r = self.leg("shard-7")
         self.assertEqual(r.returncode, 2, r.stdout)
@@ -469,6 +551,24 @@ class WritersTests(EntryPointTest):
         self.assertEqual(list(elsewhere.iterdir()), [])
 
 
+    def test_existing_results_directory_is_refused(self):
+        # A link planted in the results directory would make the launcher's
+        # `tee` write over a file outside it.
+        self.use_real_launcher()
+        outside = self.c.tmp / "outside.log"
+        outside.write_text("preserve me\n")
+        proof = self.c.root / ".ci-out" / self.P
+        proof.mkdir(parents=True)
+        (proof / "rust.log").symlink_to(outside)
+        r = self.writers()
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(outside.read_text(), "preserve me\n")
+
+    def test_cargo_volume_cleanup_fails_when_docker_cannot_answer(self):
+        r = self.writers(STUB_CREATE_VOLUME=f"{self.P}-cargo", STUB_THEN_FAIL="volume")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+
+
 class ResultReadsTests(EntryPointTest):
     P = "result-reads-probe"
 
@@ -506,6 +606,17 @@ class ImportTests(EntryPointTest):
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertNotIn("launcher", self.c.calls_text())
         self.assertEqual(list(elsewhere.iterdir()), [])
+
+
+    def test_existing_results_directory_is_refused(self):
+        p = "polis-import-test-probe"
+        proof = self.c.root / ".ci-out" / p
+        proof.mkdir(parents=True)
+        (proof / "unit.log").symlink_to(self.c.tmp / "outside.log")
+        r = self.c.run("ci/local/production-import.sh", COMPOSE_PROJECT_NAME=p,
+                       POLIS_RECOVERY_PG_PORT="55996")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("launcher", self.c.calls_text())
 
 
 if __name__ == "__main__":
