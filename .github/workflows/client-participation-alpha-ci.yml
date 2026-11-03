@@ -8,9 +8,13 @@ on:
   push:
     branches: [edge]
     paths:
+      - 'ci/local/**'
+      - 'Makefile'
       - "client-participation-alpha/**"
   pull_request:
     paths:
+      - 'ci/local/**'
+      - 'Makefile'
       - "client-participation-alpha/**"
 
 jobs:
@@ -28,25 +32,8 @@ jobs:
           cache: "npm"
           cache-dependency-path: client-participation-alpha/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
-        working-directory: client-participation-alpha
-
-      - name: Check formatting
-        run: npm run format -- --check
-        working-directory: client-participation-alpha
-
-      - name: Run linter
-        run: npm run lint
-        working-directory: client-participation-alpha
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-        working-directory: client-participation-alpha
-
-      - name: Build
-        run: npm run build
-        working-directory: client-participation-alpha
+      - name: Run client-alpha checks
+        run: make check-client-alpha
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4

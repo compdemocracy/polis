@@ -8,6 +8,8 @@ name: queue-rs
 on:
   pull_request:
     paths:
+      - 'ci/local/**'
+      - 'Makefile'
       - 'queue-rs/**'
       - 'scripts/test-polis-auth.sh'
       # polis-auth mirrors isModerator; a change there re-runs its parity test.
@@ -36,6 +38,8 @@ on:
   push:
     branches: [edge, stable]
     paths:
+      - 'ci/local/**'
+      - 'Makefile'
       - 'queue-rs/**'
       - 'scripts/test-polis-auth.sh'
       # polis-auth mirrors isModerator; a change there re-runs its parity test.
@@ -94,20 +98,14 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Toolchain (pinned by queue-rs/rust-toolchain.toml)
-        run: rustup show active-toolchain
-      - name: Clippy
-        run: |
-          cargo clippy --locked --all-targets -- -D warnings
-          cargo clippy --locked --all-targets --features jobs-integration -- -D warnings
-      - name: Unit and protocol tests
-        run: cargo test --locked
-      - name: Integration tests (PostgreSQL 17 service)
+      - name: Run queue-rs checks
+        run: make check-queue-rs
+        working-directory: .
         env:
           POLIS_JOBS_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/queue_acceptance
           POLIS_JOBS_TEST_PYTHON: python3
-        run: cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
-
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
   polis-auth:
     name: conversation authority rules
     runs-on: ubuntu-24.04
@@ -156,46 +154,14 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Toolchain (pinned by queue-rs/rust-toolchain.toml)
-        run: rustup show active-toolchain
-      - name: Format
-        run: cargo fmt -p polis-api --check
-      - name: Clippy
-        run: |
-          cargo clippy --locked -p polis-api --all-targets -- -D warnings
-          cargo clippy --locked -p polis-api --all-targets --features db-tests -- -D warnings
-      - name: Unit tests and the three queries against PostgreSQL 17
+      - name: Run polis-api checks
+        run: make check-polis-api
+        working-directory: .
         env:
           POLIS_API_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
           POLIS_AUTH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
-        run: cargo test --locked -p polis-api --features db-tests
-      - name: Release build
-        run: cargo build --locked --release -p polis-api
-      - name: Docker image
-        run: docker build --build-arg GIT_HASH="$GITHUB_SHA" -t polis-api:ci -f polis-api/Dockerfile ..
-      - name: Version bytes from both images
-        working-directory: .
-        run: |
-          docker build --build-arg GIT_HASH="$GITHUB_SHA" -t polis-version-server:ci -f server/Dockerfile .
-          python3 queue-rs/polis-api/conformance/version-images.py --node-image polis-version-server:ci --rust-image polis-api:ci
-      - name: Image trust store and deploy health predicate
-        working-directory: .
-        run: |
-          bash queue-rs/polis-api/conformance/image-start.sh
-          python3 -m unittest discover -s scripts/tests -p test_api_health.py -v
-      - name: nginx routing switch, static assets and local 404s
-        working-directory: .
-        run: queue-rs/polis-api/conformance/nginx-routing.sh
-      - name: Public statement importance contract (isolated metadata fixture)
-        working-directory: .
-        env:
-          COMPOSE_PROJECT_NAME: statement-importance-ci
-          POLIS_RECOVERY_PG_PORT: '55463'
-          IMPORTANCE_API_PORT: '55464'
-          IMPORTANCE_OFF_PORT: '55465'
-        run: queue-rs/polis-api/conformance/statement-importance-run.sh
-
-
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
   polis-migrate:
     name: migration runner and startup refusal
     runs-on: ubuntu-24.04
@@ -211,34 +177,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22.23.4"
-      - name: Build and lint the runner
-        working-directory: queue-rs
-        run: |
-          cargo fmt -p polis-migrate --check
-          cargo clippy --locked -p polis-migrate --all-targets -- -D warnings
-          cargo test --locked -p polis-migrate
-          cargo build --locked -p polis-migrate
-      - name: Compile the API entrypoint
-        working-directory: server
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          npm run build
-      - name: Isolated real PostgreSQL proofs
-        run: |
-          docker compose -f queue-rs/polis-migrate/tests/compose.yml up -d --wait
-          python3 server/bin/build-migration-report.py --check
-          python3 queue-rs/polis-migrate/tests/prove.py
-          python3 queue-rs/polis-migrate/tests/indexes.py
-          python3 queue-rs/polis-migrate/tests/adoption.py
-          python3 queue-rs/polis-migrate/tests/selection.py
-          python3 queue-rs/polis-migrate/tests/forward.py
-          python3 queue-rs/polis-migrate/tests/lexer.py
-      - name: Prove the fresh database image and restart
-        run: bash queue-rs/polis-migrate/tests/fresh-image.sh
-      - name: Remove only the owned test project
-        if: always()
-        run: docker compose -f queue-rs/polis-migrate/tests/compose.yml down -v
-
+      - name: Run polis-migrate checks
+        run: make check-polis-migrate
+        working-directory: .
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
   job-graphs:
     name: Per-step job graph core
     runs-on: ubuntu-24.04
@@ -254,11 +198,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22.23.4"
-      - name: Install Node adapter test dependencies
-        working-directory: server
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Prove saved work, retries and complete publication
-        run: bash delphi/tests/job_graph/run.sh
+      - name: Run job-graphs checks
+        run: make check-job-graphs
+        working-directory: .
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
       - name: Retain generated proof receipts
         if: always()
         uses: actions/upload-artifact@v4

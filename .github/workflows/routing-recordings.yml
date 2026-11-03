@@ -1,10 +1,10 @@
 name: Routing recordings
 on:
   pull_request:
-    paths: ['server/**', '.github/workflows/routing-recordings.yml']
+    paths: ['server/**', '.github/workflows/routing-recordings.yml', 'ci/local/**', 'Makefile']
   push:
     branches: [edge]
-    paths: ['server/**', '.github/workflows/routing-recordings.yml']
+    paths: ['server/**', '.github/workflows/routing-recordings.yml', 'ci/local/**', 'Makefile']
 permissions:
   contents: read
 jobs:
@@ -25,8 +25,9 @@ jobs:
         with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: "22.23.4", cache: npm, cache-dependency-path: server/package-lock.json}
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-        working-directory: server
-      - if: github.event_name == 'pull_request'
-        run: node server/characterization/routing/guard.cjs 'HEAD^1'
-      - run: sh server/characterization/routing/check.sh
+      - name: Run routing-recordings checks
+        run: make check-routing-recordings
+        working-directory: .
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
