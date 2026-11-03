@@ -3,6 +3,8 @@ name: Dynamo removal
 on:
   pull_request:
     paths:
+      - 'ci/local/**'
+      - 'Makefile'
       - 'delphi/**'
       - 'queue-rs/**'
       - 'server/**'
@@ -38,13 +40,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.23.4"
-      - name: Queue toolchain
-        working-directory: queue-rs
-        run: rustup show active-toolchain
-      - name: Install uv
-        run: python -m pip install uv==0.13.4
-      - name: Queue, Postgres results, importer and report with DynamoDB stopped
-        run: bash scripts/test-dynamo-removal.sh
+      - name: Run dynamo-removal checks
+        run: make check-dynamo-removal
+        working-directory: .
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
       - name: Retain proof logs and report screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

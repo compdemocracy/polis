@@ -42,9 +42,6 @@ jobs:
 
       # Started by hand rather than as a service: -sharedDb needs a command
       # argument, and without it DynamoDB Local keys its data by access key.
-      - name: Start DynamoDB Local
-        run: docker run -d --name p2zero-dynamodb -p 127.0.0.1:8472:8000 amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab -jar DynamoDBLocal.jar -sharedDb -inMemory
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22.23.4"
@@ -55,42 +52,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install server dependencies
-        working-directory: server
-        run: npm ci --ignore-scripts --no-audit --no-fund
-
-      - name: Codec golden test (Python writes, reads the file Node wrote)
-        working-directory: delphi
-        run: |
-          python -m pip install --quiet pyyaml
-          python -m unittest tests.test_delphi_storage_codec -v
-          python -m unittest tests.test_delphi_postgres_results -v
-          python -m unittest tests.test_delphi_result_resource -v
-
-      - name: Codec golden test (Node reads the files Python wrote, writes the cross file)
-        working-directory: server
-        run: npx jest --config characterization/delphi/jest.codec.config.json
-
-      - name: Fixtures regenerate byte for byte
-        run: python3 server/characterization/delphi/generate.py --check
-
-      - name: Replay every recorded case against the current routes
-        working-directory: server
+      - name: Run delphi-characterization checks
+        run: make check-delphi-characterization
+        working-directory: .
         env:
-          P2ZERO_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5472/postgres
-          DYNAMODB_ENDPOINT: http://127.0.0.1:8472
-          TZ: UTC
-        run: node characterization/delphi/main.cjs replay
-
-      - name: Replay the PostgreSQL baseline
-        working-directory: server
-        env:
-          P2ZERO_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5472/postgres
-          DYNAMODB_ENDPOINT: http://127.0.0.1:8472
-          DELPHI_RESULT_BACKEND: postgres
-          TZ: UTC
-        run: node characterization/delphi/main.cjs replay
-
-      - name: Remove DynamoDB Local
-        if: always()
-        run: docker rm -f p2zero-dynamodb
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}

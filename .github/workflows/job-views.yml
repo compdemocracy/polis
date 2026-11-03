@@ -1,10 +1,10 @@
 name: Job view recordings
 on:
   pull_request:
-    paths: ['client-report/**', 'client-participation-alpha/**', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-views.yml']
+    paths: ['client-report/**', 'client-participation-alpha/**', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-views.yml', 'ci/local/**', 'Makefile']
   push:
     branches: [edge]
-    paths: ['client-report/**', 'client-participation-alpha/**', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-views.yml']
+    paths: ['client-report/**', 'client-participation-alpha/**', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-views.yml', 'ci/local/**', 'Makefile']
 permissions:
   contents: read
 jobs:
@@ -17,11 +17,9 @@ jobs:
         with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: "22.23.4"}
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-        working-directory: server
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-        working-directory: client-report
-      - if: github.event_name == 'pull_request'
-        run: node server/characterization/jobviews/view-guard.cjs 'HEAD^1'
-      - run: npm run test:jobviews
-        working-directory: client-report
+      - name: Run job-views checks
+        run: make check-job-views
+        working-directory: .
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}
