@@ -12,15 +12,55 @@ check_node() {
     exit 2
   fi
 }
+# Check the interpreter the launcher runs: python (default) or python3.
 check_python() {
-  python -c 'import sys; assert sys.version_info[:2] == (3, 12), "Python 3.12 is required by the workflow"'
+  "${1:-python}" -c 'import sys; assert sys.version_info[:2] == (3, 12), "Python 3.12 is required by the workflow"'
 }
 
 # Refuse an existing project before a launcher registers its cleanup trap.
+# A Docker query that fails counts as a refusal: an empty answer is trusted
+# only when Docker answered.
 check_project() {
-  local name="$1" kind
+  local name="$1" found
   case "$name" in ''|*[!a-z0-9-]*) echo 'Invalid project name' >&2; exit 2;; esac
-  [ -z "$(docker ps -aq --filter "label=com.docker.compose.project=$name")" ] || exit 2
-  [ -z "$(docker network ls -q --filter "label=com.docker.compose.project=$name")" ] || exit 2
-  [ -z "$(docker volume ls -q --filter "label=com.docker.compose.project=$name")" ] || exit 2
+  found="$(docker ps -aq --filter "label=com.docker.compose.project=$name")" || { echo "Cannot list containers for $name" >&2; exit 2; }
+  [ -z "$found" ] || { echo "Compose project $name has containers" >&2; exit 2; }
+  found="$(docker network ls -q --filter "label=com.docker.compose.project=$name")" || { echo "Cannot list networks for $name" >&2; exit 2; }
+  [ -z "$found" ] || { echo "Compose project $name has networks" >&2; exit 2; }
+  found="$(docker volume ls -q --filter "label=com.docker.compose.project=$name")" || { echo "Cannot list volumes for $name" >&2; exit 2; }
+  [ -z "$found" ] || { echo "Compose project $name has volumes" >&2; exit 2; }
+}
+
+# Refuse containers or volumes, by exact name, that a launcher creates with
+# plain `docker run` (no Compose label) and removes during its cleanup.
+check_absent() {
+  local kind="$1" existing name
+  shift
+  case "$kind" in
+    container) existing="$(docker ps -a --format '{{.Names}}')" || { echo 'Cannot list containers' >&2; exit 2; } ;;
+    volume) existing="$(docker volume ls --format '{{.Name}}')" || { echo 'Cannot list volumes' >&2; exit 2; } ;;
+    *) echo "Unknown kind: $kind" >&2; exit 2 ;;
+  esac
+  for name in "$@"; do
+    if grep -qxF -- "$name" <<< "$existing"; then
+      echo "The $kind $name already exists; choose a new project" >&2
+      exit 2
+    fi
+  done
+}
+
+# Create .ci-out/<name> in the checkout and print its path. Refuse a name or a
+# symlink that would put results anywhere else.
+check_out_dir() {
+  local name="$1" root dir
+  case "$name" in ''|*[!a-z0-9-]*) echo 'Invalid results directory name' >&2; exit 2;; esac
+  if [ -L "$CHECK_ROOT/.ci-out" ] || [ -L "$CHECK_ROOT/.ci-out/$name" ]; then
+    echo '.ci-out and the directories in it must not be symlinks' >&2
+    exit 2
+  fi
+  root="$(cd "$CHECK_ROOT" && pwd -P)"
+  mkdir -p "$CHECK_ROOT/.ci-out/$name"
+  dir="$(cd "$CHECK_ROOT/.ci-out/$name" && pwd -P)"
+  [ "$dir" = "$root/.ci-out/$name" ] || { echo "$dir is outside $root/.ci-out" >&2; exit 2; }
+  printf '%s\n' "$dir"
 }

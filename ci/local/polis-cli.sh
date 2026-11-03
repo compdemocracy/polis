@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
-check_python
+# The launcher runs python3, and its crates build into their own target
+# directories, as on the hosted runner.
+check_python python3
+unset CARGO_TARGET_DIR
 
 (
   cd "$CHECK_ROOT/."
