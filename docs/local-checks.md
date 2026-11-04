@@ -128,7 +128,13 @@ every leg. The server leg also runs the backup-package tests.
 Server integration needs an owned `RUNNER_TEMP`, `POLIS_TEST_IMAGE_TAG`,
 Compose project and database port. It generates certificates and edits only
 the disposable checkout's test environment. Other service ports follow the
-existing test stack. It retains the original 60-iteration readiness loop,
+existing test stack. Choose published ports below 49152 (for example 45000–48999);
+the entrypoint refuses any published Compose port at or above 49152 before
+setup. macOS can allocate an IPv6 ephemeral socket on a port already held by
+an IPv4 container forwarder, sending database connections to a test listener
+or back to themselves. The test database URLs use `127.0.0.1` to reach the
+IPv4 forwarder directly; use that host for an explicit migration `DATABASE_URL`
+override too. It retains the original 60-iteration readiness loop,
 contract generation check, migration check and Jest arguments. A redundant,
 nonfatal AWS CLI localhost diagnostic is omitted; Dynamo readiness still uses
 the same HTTP request. No cloud account is needed.
