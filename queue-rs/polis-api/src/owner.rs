@@ -186,7 +186,13 @@ pub struct App {
 impl App {
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 1] {
-        [&self.pool]
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            pool,
+            verifier: _,
+            admission: _,
+        } = self;
+        [pool]
     }
 
     pub fn from_env() -> Result<Option<Arc<Self>>> {

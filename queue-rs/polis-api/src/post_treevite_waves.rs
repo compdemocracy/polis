@@ -34,7 +34,13 @@ pub(crate) struct Writer {
 impl Writer {
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 2] {
-        [&self.pool, &self.auth]
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            pool,
+            auth,
+            caps: _,
+        } = self;
+        [pool, auth]
     }
 
     pub(crate) fn from_env() -> Result<Option<Self>> {
