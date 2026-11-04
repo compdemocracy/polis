@@ -184,6 +184,148 @@ printf 'location /example { proxy_pass http://%s; }' "$RUST_API_UPSTREAM" > "$1/
                 changed = self.replace_once(HOOK, 'run --rm --network', f'run --rm {option} --network')
                 self.assertEqual(web_services(changed, COMPOSE), {'server', 'nginx-proxy', 'polis-api'})
 
+    def test_comment_backslash_does_not_continue_to_startup(self):
+        for comment in ['# previous form: docker run --rm \\', '  # continued example \\']:
+            with self.subTest(comment=comment):
+                self.assertEqual(web_services(HOOK + comment, COMPOSE),
+                                 {'server', 'nginx-proxy', 'polis-api'})
+                changed = comment + '\nsudo docker run -d file-server-image\n' + HOOK
+                with self.assertRaisesRegex(ValueError, 'line 2: sudo docker run -d file-server-image'):
+                    web_services(changed, COMPOSE)
+
+    def test_background_single_line_helper_does_not_hide_startup(self):
+        for definition in ['warm_cache() { sudo systemctl start polis-cache & }',
+                           'warm_cache() { sudo systemctl start polis-cache & } # helper']:
+            with self.subTest(definition=definition):
+                self.assertEqual(web_services(definition + '\n' + HOOK, COMPOSE),
+                                 {'server', 'nginx-proxy', 'polis-api'})
+                changed = definition + '\nsudo docker run -d file-server-image\n' + HOOK
+                with self.assertRaisesRegex(ValueError, 'line 2: sudo docker run -d file-server-image'):
+                    web_services(changed, COMPOSE)
+
+    def test_direct_compose_commands_require_the_shared_array(self):
+        for executable in ['sudo docker compose', 'docker-compose']:
+            for command in ['up -d file-server', '--profile static up -d file-server',
+                            'start file-server', 'down']:
+                for position in ['shared', 'web']:
+                    with self.subTest(executable=executable, command=command, position=position):
+                        line = f'{executable} {command}'
+                        changed = (line + '\n' + HOOK if position == 'shared' else
+                                   self.replace_once(HOOK, '  "${COMPOSE[@]}" up -d server',
+                                                     line + '\n  "${COMPOSE[@]}" up -d server'))
+                        with self.assertRaises(ValueError) as caught:
+                            web_services(changed, COMPOSE)
+                        number = changed.splitlines().index(line) + 1
+                        self.assertIn(f'line {number}: {line}', str(caught.exception))
+                        self.assertIn('direct Compose command', str(caught.exception))
+            for command in ['config', 'config --quiet']:
+                with self.subTest(executable=executable, command=command):
+                    self.assertEqual(web_services(f'{executable} {command}\n' + HOOK, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+            changed = self.replace_once(HOOK, '  sudo docker run -d delphi-image',
+                                        f'  {executable} up -d delphi-image')
+            self.assertEqual(web_services(changed, COMPOSE), {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_compose_binary_paths_are_checked(self):
+        for executable in ['sudo /usr/local/bin/docker-compose',
+                           '/opt/bin/docker-compose', 'sudo /usr/bin/docker compose']:
+            for options in ['', '-f a.yml -f b.yml ', '--profile static ']:
+                with self.subTest(executable=executable, options=options):
+                    line = f'{executable} {options}up -d file-server'
+                    with self.assertRaisesRegex(ValueError, 'direct Compose command at line 1:'):
+                        web_services(line + '\n' + HOOK, COMPOSE)
+                    changed = self.replace_once(HOOK, '  sudo docker run -d delphi-image', line)
+                    self.assertEqual(web_services(changed, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_compose_global_options_before_subcommand(self):
+        for executable in ['sudo /usr/local/bin/docker-compose', 'sudo docker compose']:
+            for option in ['-f a.yml', '--file a.yml', '--profile rust-api',
+                           '--env-file test.env', '-p project', '--project-name project',
+                           '--project-directory /tmp/example', '--profile=rust-api']:
+                with self.subTest(executable=executable, option=option):
+                    config = f'X=$({executable} {option} config --format json | jq .)\n'
+                    self.assertEqual(web_services(config + HOOK, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+                    with self.assertRaisesRegex(ValueError, 'direct Compose command at line 1:'):
+                        web_services(f'{executable} {option} up -d file-server\n' + HOOK, COMPOSE)
+            for option in ['-f', '--profile', '--env-file', '-p', '--project-directory']:
+                with self.subTest(executable=executable, missing_value=option):
+                    with self.assertRaisesRegex(ValueError, 'Compose option.*line 1:'):
+                        web_services(f'COMPOSE=({executable} {option})\n' + HOOK, COMPOSE)
+
+    def test_compose_array_definitions(self):
+        for executable in ['sudo /usr/local/bin/docker-compose', 'sudo docker compose',
+                           'sudo /usr/bin/docker compose']:
+            for options in ['', ' -f a.yml -f b.yml', ' --profile rust-api -p example']:
+                with self.subTest(executable=executable, options=options):
+                    self.assertEqual(web_services(f'COMPOSE=({executable}{options})\n' + HOOK, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+                    with self.assertRaisesRegex(ValueError, 'direct Compose command at line 1:'):
+                        web_services(f'COMPOSE=({executable}{options}); {executable} up -d file-server\n' + HOOK, COMPOSE)
+
+    def test_compose_binary_lookup(self):
+        for executable in ['docker-compose', '/usr/local/bin/docker-compose']:
+            for suffix in [' >/dev/null || echo "not installed" >&2', '']:
+                with self.subTest(executable=executable, suffix=suffix):
+                    self.assertEqual(web_services(f'command -v {executable}{suffix}\n' + HOOK, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+            with self.assertRaisesRegex(ValueError, 'direct Compose command at line 1:'):
+                web_services(f'command -v {executable} && {executable} up -d file-server\n' + HOOK, COMPOSE)
+
+    def test_trailing_comment_backslash_does_not_hide_startup(self):
+        for prefix in ['echo done # note ', 'echo "# quoted" # note ',
+                       "echo '# quoted' # note ", 'echo done;# note ',
+                       'echo \\#escaped # note ', 'echo word#hash # note ']:
+            with self.subTest(prefix=prefix):
+                line = prefix + '\\'
+                self.assertEqual(web_services(HOOK + line, COMPOSE),
+                                 {'server', 'nginx-proxy', 'polis-api'})
+                with self.assertRaisesRegex(ValueError, 'direct container startup at line 2:'):
+                    web_services(line + '\nsudo docker run -d file-server-image\n' + HOOK, COMPOSE)
+        # Quoted, escaped and embedded hashes still permit real continuations.
+        for argument in ['"#"', "'#'", r'\#', 'value#hash']:
+            with self.subTest(argument=argument):
+                line = f'sudo docker run --rm --label {argument} \\\n  -d file-server-image\n'
+                with self.assertRaisesRegex(ValueError, 'direct container startup at line 1:'):
+                    web_services(line + HOOK, COMPOSE)
+
+    def test_absolute_docker_binary_is_checked(self):
+        for executable in ['/usr/bin/docker', 'sudo /usr/local/bin/docker']:
+            with self.subTest(executable=executable):
+                changed = self.replace_once(HOOK, 'sudo docker run --rm', executable + ' run --rm')
+                self.assertEqual(web_services(changed, COMPOSE), {'server', 'nginx-proxy', 'polis-api'})
+                for command in ['run -d file-server-image', 'container start file-server']:
+                    with self.assertRaisesRegex(ValueError, 'direct container startup at line 1:'):
+                        web_services(f'{executable} {command}\n' + HOOK, COMPOSE)
+
+    def test_function_header_spacing_and_keyword(self):
+        for header in ['worker_daemon () {', 'worker_daemon\t() {',
+                       'function worker_daemon {', 'function worker_daemon() {',
+                       'function worker_daemon () {']:
+            with self.subTest(header=header):
+                changed = self.replace_once(HOOK, 'worker_daemon() {', header)
+                self.assertEqual(web_services(changed, COMPOSE), {'server', 'nginx-proxy', 'polis-api'})
+                changed += 'sudo docker run -d file-server-image\n'
+                with self.assertRaisesRegex(ValueError, 'sudo docker run -d file-server-image'):
+                    web_services(changed, COMPOSE)
+
+    def test_role_images_error_names_candidate_lines(self):
+        assignment = '  server) ROLE_IMAGES="server nginx-proxy polis-api" ;;'
+        for replacement in [assignment.replace('server) ', 'server)  '),
+                            assignment + '\n' + assignment, '  server) ;;']:
+            with self.subTest(replacement=replacement):
+                changed = self.replace_once(HOOK, assignment, replacement)
+                with self.assertRaises(ValueError) as caught:
+                    web_services(changed, COMPOSE)
+                message = str(caught.exception)
+                self.assertIn('unrecognized web ROLE_IMAGES assignment', message)
+                for number, line in enumerate(changed.splitlines(), 1):
+                    if 'server)' in line:
+                        self.assertIn(f'line {number}: {line.strip()}', message)
+        with self.assertRaisesRegex(ValueError, r'no server\) case line found'):
+            web_services('', COMPOSE)
+
     def test_host_sources_follow_maps_and_pools(self):
         docs = {
             'pool.conf': 'upstream pool { server missing-service:8080; }',

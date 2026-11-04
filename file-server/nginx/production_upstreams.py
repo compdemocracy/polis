@@ -30,13 +30,37 @@ def require(condition, message):
 
 def logical_lines(script):
     """Join shell continuations, retaining the first physical line number."""
-    pending, start = '', None
+    pending, start, quote = '', None, None
     for number, line in enumerate(script.splitlines(), 1):
         if start is None:
             start = number
-        # An odd trailing backslash count escapes the newline.
+        # A shell comment begins at an unquoted word boundary. Track quotes
+        # across physical lines without tokenizing unrelated shell messages.
+        boundary, comment, index = True, False, 0
+        while index < len(line):
+            char = line[index]
+            if quote == "'":
+                if char == "'":
+                    quote = None
+            elif char == '\\':
+                index += 1
+                boundary = False
+            elif quote == '"':
+                if char == '"':
+                    quote = None
+            elif char in {'"', "'"}:
+                quote = char
+                boundary = False
+            elif char == '#' and boundary:
+                comment = True
+                break
+            else:
+                boundary = char.isspace() or char in ';|&()'
+            index += 1
+        # An odd trailing backslash count escapes the newline, except in a
+        # comment: its newline ends the comment even after a backslash.
         trailing = len(line) - len(line.rstrip('\\'))
-        if trailing % 2:
+        if trailing % 2 and not comment and quote != "'":
             pending += line[:-1]
             continue
         yield start, pending + line
@@ -53,8 +77,9 @@ def web_lines(script):
             if re.fullmatch(r'}\s*(?:#.*)?', stripped):
                 function = None
             continue
-        if re.match(r'^[a-zA-Z_][a-zA-Z_0-9]*\(\)\s*\{', stripped):
-            if not re.search(r';\s*}\s*(?:#.*)?$', stripped):
+        if re.match(r'^(?:function\s+[a-zA-Z_][a-zA-Z_0-9]*(?:\s*\(\))?'
+                    r'|[a-zA-Z_][a-zA-Z_0-9]*\s*\(\))\s*\{', stripped):
+            if not re.search(r'[;&]\s*}\s*(?:#.*)?$', stripped):
                 function = (number, stripped)
             continue
         if not stripped or stripped.startswith('#'):
@@ -128,7 +153,13 @@ def web_services(script, compose):
     # Inspect the image case and actual startup separately: pulling an image
     # alone does not mean a service runs. Rust is conditional on route selection.
     images = re.findall(r'^\s*server\) ROLE_IMAGES="([a-z0-9 -]+)" ;;$', script, re.M)
-    require(len(images) == 1, 'unrecognized web ROLE_IMAGES assignment')
+    if len(images) != 1:
+        candidates = [f'line {number}: {line.strip()}'
+                      for number, line in enumerate(script.splitlines(), 1)
+                      if re.match(r'^\s*server\)', line)]
+        location = ('at ' + '; '.join(candidates) if candidates
+                    else '(no server) case line found)')
+        raise ValueError(f'unrecognized web ROLE_IMAGES assignment {location}')
     images = set(images[0].split())
     started = set()
     for number, line in web_lines(script):
@@ -137,15 +168,42 @@ def web_services(script, compose):
             continue
         location = f'line {number}: {line.strip()}'
         try:
-            lexer = shlex.shlex(line, posix=True, punctuation_chars=';&|')
+            lexer = shlex.shlex(line, posix=True, punctuation_chars='();&|')
             lexer.whitespace_split = True
             words = list(lexer)
         except ValueError as error:
             raise ValueError(f'shell tokenization failed at {location}: {error}') from error
         for index, word in enumerate(words):
+            word = os.path.basename(word)
+            command = words[index + 1:]
+            # Finding a binary is not an invocation. Continue scanning so a
+            # later invocation on this same line is still checked.
+            if index >= 2 and words[index - 2:index] == ['command', '-v']:
+                continue
+            if word == 'docker-compose' or (word == 'docker' and command[:1] == ['compose']):
+                if word == 'docker':
+                    command = command[1:]
+                # Array definitions and substitutions terminate at shell
+                # punctuation; global options precede the Compose subcommand.
+                stop = next((i for i, token in enumerate(command)
+                             if token and all(c in '();&|' for c in token)), len(command))
+                command = command[:stop]
+                options = {'-f', '--file', '--profile', '--env-file', '-p',
+                           '--project-name', '--project-directory'}
+                while command:
+                    if command[0] in options:
+                        require(len(command) >= 2,
+                                f'missing Compose option value at {location}')
+                        command = command[2:]
+                    elif '=' in command[0] and command[0].split('=', 1)[0] in options:
+                        command = command[1:]
+                    else:
+                        break
+                require(command[:1] in ([], ['config']),
+                        f'unrecognized direct Compose command at {location}; use ${{COMPOSE[@]}}')
+                continue
             if word != 'docker':
                 continue
-            command = words[index + 1:]
             if command[:1] == ['container']:
                 command = command[1:]
             if command[:1] in (['run'], ['start']):
