@@ -325,7 +325,7 @@ fn catalog_switches_are_real_startup_reads() {
                 .get(reader_family)
                 .is_some_and(|reads| reads.contains(*switch));
             assert!(
-                local || startup_read_belongs(&main, switch, reader_family),
+                local || startup_read_belongs(include_str!("main.rs"), switch, reader_family),
                 "switch {switch} has no reader {reader_family} for entry {} ({})",
                 route.dispatch_key,
                 route.path
@@ -338,19 +338,32 @@ fn catalog_switches_are_real_startup_reads() {
 // This is intentionally a source-shape check, not a Rust parser. An exact
 // module reference may still be a shared helper, rather than the route reader.
 fn startup_read_belongs(main: &str, switch: &str, family: &str) -> bool {
+    let source = main
+        .lines()
+        .map(|line| line.split_once("//").map_or(line, |(code, _)| code))
+        .collect::<Vec<_>>()
+        .join("\n");
+    // Locate the current source shapes without formatting, but inspect name
+    // boundaries in the original text so keywords cannot merge with names.
+    let mut main = String::new();
+    let mut offsets = Vec::new();
+    for (index, c) in source.char_indices() {
+        if !c.is_whitespace() {
+            main.push(c);
+            offsets.extend(index..index + c.len_utf8());
+        }
+    }
     let direct = format!("std::env::var(\"{switch}\")");
     let call = if main.contains(&direct) {
         direct
     } else {
         format!("from_env_for(\"{switch}\")")
     };
-    let region = if switch == "POLIS_API_CONVERSATION_PAGE_READS" {
-        main.split_once("for(i,switch)in[")
-            .unwrap()
-            .1
-            .split_once("state.post_votes=")
-            .unwrap()
-            .0
+    let (start, end) = if switch == "POLIS_API_CONVERSATION_PAGE_READS" {
+        let marker = "for(i,switch)in[";
+        let start = main.find(marker).unwrap() + marker.len();
+        let end = start + main[start..].find("state.post_votes=").unwrap();
+        (start, end)
     } else {
         let Some((before, after)) = main.split_once(&call) else {
             return false;
@@ -372,17 +385,19 @@ fn startup_read_belongs(main: &str, switch: &str, family: &str) -> bool {
                     break;
                 }
             }
-            &body[..end]
+            let start = main.len() - body.len();
+            (start, start + end)
         } else {
             // Simple state assignments, including ops configured(...) calls.
             let start = before.rfind(';').map_or(0, |i| i + 1);
             let end = before.len() + call.len() + after.find(';').unwrap();
-            &main[start..end]
+            (start, end)
         }
     };
+    let region = &main[start..end];
     let identifier = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let starts_name = |index: usize| {
-        region[..index]
+        source[..offsets[start + index]]
             .chars()
             .next_back()
             .is_none_or(|c| !identifier(c))
@@ -407,7 +422,7 @@ fn startup_read_belongs(main: &str, switch: &str, family: &str) -> bool {
 
 #[test]
 fn startup_reader_requires_exact_family_names() {
-    let main = compact(include_str!("main.rs"));
+    let main = include_str!("main.rs");
     for (switch, family) in [
         ("POLIS_API_COMMENT_READS", "comments"),
         ("POLIS_API_MODERATION_COMMENTS_READS", "moderation_comments"),
@@ -416,9 +431,9 @@ fn startup_reader_requires_exact_family_names() {
             "participant_comments",
         ),
     ] {
-        assert!(startup_read_belongs(&main, switch, family));
+        assert!(startup_read_belongs(main, switch, family));
         if family != "comments" {
-            assert!(!startup_read_belongs(&main, switch, "comments"), "{switch}");
+            assert!(!startup_read_belongs(main, switch, "comments"), "{switch}");
         }
     }
     for (body, expected) in [
@@ -438,13 +453,33 @@ fn startup_reader_requires_exact_family_names() {
         ("other_state.comments = value;", false),
         ("state.moderation_comments_db = value;", false),
     ] {
-        let source = compact(&format!(
+        let source = format!(
             "if std::env::var(\"POLIS_API_SAMPLE_READS\").ok().as_deref() == Some(\"1\") {{ {body} }}"
-        ));
+        );
         assert_eq!(
             startup_read_belongs(&source, "POLIS_API_SAMPLE_READS", "comments"),
             expected,
             "{body}"
         );
+    }
+}
+
+#[test]
+fn startup_reader_preserves_keyword_name_boundaries() {
+    let bodies = [
+        "if state.comments.is_some() { use_reader(); }",
+        "match comments::mode() { _ => {} }",
+        "use_reader(&mut state.comments_db);",
+        "return comments::mode();",
+    ];
+    for whitespace in [" ", "\t", "\n", "\r\n"] {
+        let actual = bodies.map(|body| {
+            let body = body.replace(' ', whitespace);
+            let source = format!(
+                "if std::env::var(\"POLIS_API_SAMPLE_READS\").ok().as_deref() == Some(\"1\") {{ {body} }}"
+            );
+            startup_read_belongs(&source, "POLIS_API_SAMPLE_READS", "comments")
+        });
+        assert_eq!(actual, [true; 4], "{whitespace:?}: {bodies:?}");
     }
 }
