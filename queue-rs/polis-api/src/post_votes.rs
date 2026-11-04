@@ -38,6 +38,11 @@ pub(crate) struct Writer {
 }
 
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 3] {
+        [&self.pool, &self.background.pool, &self.reads]
+    }
+
     pub(crate) fn set_revocations(&mut self, snapshot: Arc<polis_auth::revocation::Revocations>) {
         self.verifier.set_revocations(snapshot);
     }

@@ -29,6 +29,11 @@ pub(crate) struct Writer {
     before_mutation: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 3] {
+        [&self.reads, &self.publications, &self.writes]
+    }
+
     pub(crate) fn set_revocations(&mut self, snapshot: Arc<polis_auth::revocation::Revocations>) {
         self.verifier.set_revocations(snapshot);
     }

@@ -32,6 +32,11 @@ pub(crate) struct Writer {
     caps: Caps,
 }
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 2] {
+        [&self.pool, &self.auth]
+    }
+
     pub(crate) fn from_env() -> Result<Option<Self>> {
         if std::env::var("POLIS_API_POST_TREEVITE_WAVES")
             .ok()

@@ -42,6 +42,11 @@ pub(crate) struct Writer {
     admins: Vec<Uid>,
 }
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 2] {
+        [&self.pool, &self.children]
+    }
+
     pub(crate) fn from_env() -> Result<Option<Arc<Self>>> {
         if std::env::var("POLIS_API_TREEVITE_WRITE").ok().as_deref() != Some("1") {
             return Ok(None);

@@ -57,6 +57,11 @@ pub(crate) struct Writer {
     admitted: Arc<tokio::sync::Semaphore>,
 }
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 1] {
+        [&self.pool]
+    }
+
     pub(crate) fn from_env() -> Result<Option<Self>> {
         if std::env::var("POLIS_API_TREEVITE_CODE_WRITES")
             .ok()

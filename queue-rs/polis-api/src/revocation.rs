@@ -17,6 +17,11 @@ pub(crate) struct Refresh {
     failures: AtomicU64,
 }
 impl Refresh {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 1] {
+        [&self.pool]
+    }
+
     pub(crate) async fn load(pool: Arc<db::Pool>) -> Result<Arc<Self>> {
         let snapshot = pool
             .with(|c| {
