@@ -29,6 +29,7 @@ check. No command reduces the test selection or changes an assertion.
 | Comment recordings | `make check-post-comments-recordings` | Docker, Python 3 |
 | Collective statements | `make check-collective-statement-recordings` | Node 22.23.4, Python 3.12, PostgreSQL 17.11, DynamoDB Local |
 | Delphi characterization | `make check-delphi-characterization` | Node 22.23.4, Python 3.12, PostgreSQL 17.11, DynamoDB Local |
+| Nginx production upstreams | `make check-nginx-upstreams` | Python 3.12, gettext envsubst |
 | Routing recordings | `make check-routing-recordings` | Node 22.23.4, PostgreSQL 17.11 |
 | Server integration | `make check-server-integration` | Node 22.23.4, Python 3, mkcert, Docker |
 | Delphi result reads | `bash scripts/test-delphi-result-reads.sh --ci` | Node 24.22.1, pinned Rust, Docker |

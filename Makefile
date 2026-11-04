@@ -414,3 +414,7 @@ check-delphi-characterization: ## Run delphi-characterization checks
 .PHONY: check-server-integration
 check-server-integration: ## Run server-integration checks
 	@bash ci/local/server-integration.sh
+
+.PHONY: check-nginx-upstreams
+check-nginx-upstreams: ## Check that production starts every nginx upstream
+	@python3 file-server/nginx/test-production-upstreams.py
