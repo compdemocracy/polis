@@ -88,6 +88,9 @@ function contractCheck(schema, value, path, errors) {
     if (schema.minLength !== undefined && Array.from(value).length < schema.minLength) {
       errors.push(at + ": must have at least " + schema.minLength + " characters");
     }
+    if (schema.maxLength !== undefined && Array.from(value).length > schema.maxLength) {
+      errors.push(at + ": must have at most " + schema.maxLength + " characters");
+    }
     if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(value)) {
       errors.push(at + ": must match " + schema.pattern);
     }

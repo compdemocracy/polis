@@ -67,6 +67,10 @@ docker('exec', prefix + '-files', 'node', '-e',
        "const dest='/app/build'+p; fs.mkdirSync(path.dirname(dest),{recursive:true});"
        "fs.writeFileSync(dest,'static fixture '+p); }", json.dumps(extra_assets))
 
+status, headers, body = request(edge_port, 'POST', '/api/v3/clientErrors')
+assert headers.get('x-upstream') == 'server', (status, headers, body)
+print('ok client error POST reaches Node', flush=True)
+
 before = docker('logs', prefix + '-node')
 # Match actual finalhandler bytes, escaping, query omission, methods and HEAD.
 for path in [unknown, unknown + '?private=value', unknown + '/',

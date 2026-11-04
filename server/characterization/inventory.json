@@ -1,12 +1,23 @@
 {
   "version": 2,
   "source_commit": "f6dbde63adab2b1722ac84bf4e73cf3cb3ae3331",
-  "source_sha256": "973b27da0ff1ad2b71e76e752d4255e0dbe2dfb2279a44687c195bb8d87e4df0",
+  "source_sha256": "552fae9493bdce142c72b7f7156d495b6691a11a3ffa7085dfc4a8adfad0bc8b",
   "routes": [
+    {
+      "method": "POST",
+      "path": "/api/v3/clientErrors",
+      "registration": "server/app.ts:268",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "id": 210,
+      "consumer_family_inferred": "operations"
+    },
     {
       "method": "ALL",
       "path": "/api/v3/*",
-      "registration": "server/app.ts:324",
+      "registration": "server/app.ts:335",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -18,7 +29,7 @@
     {
       "method": "ALL",
       "path": "/api/v3/*",
-      "registration": "server/app.ts:325",
+      "registration": "server/app.ts:336",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -30,7 +41,7 @@
     {
       "method": "GET",
       "path": "/api/v3/version",
-      "registration": "server/app.ts:343",
+      "registration": "server/app.ts:354",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -41,7 +52,7 @@
     {
       "method": "GET",
       "path": "/api/v3/math/pca2",
-      "registration": "server/app.ts:345",
+      "registration": "server/app.ts:356",
       "middleware": [
         "moveToBody",
         "redirectIfHasZidButNoConversationId",
@@ -59,7 +70,7 @@
     {
       "method": "GET",
       "path": "/api/v3/reportExport/:report_id/:report_type",
-      "registration": "server/app.ts:364",
+      "registration": "server/app.ts:375",
       "middleware": [
         "moveToBody",
         "need(\"report_id\", getReportIdFetchRid, assignToPCustom(\"rid\"))",
@@ -75,7 +86,7 @@
     {
       "method": "GET",
       "path": "/api/v3/bidToPid",
-      "registration": "server/app.ts:374",
+      "registration": "server/app.ts:385",
       "middleware": [
         "hybridAuthOptional(assignToP)",
         "moveToBody",
@@ -91,7 +102,7 @@
     {
       "method": "GET",
       "path": "/api/v3/xid/:xid_report",
-      "registration": "server/app.ts:387",
+      "registration": "server/app.ts:398",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -106,7 +117,7 @@
     {
       "method": "GET",
       "path": "/api/v3/bid",
-      "registration": "server/app.ts:396",
+      "registration": "server/app.ts:407",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -122,7 +133,7 @@
     {
       "method": "GET",
       "path": "/api/v3/zinvites/:zid",
-      "registration": "server/app.ts:419",
+      "registration": "server/app.ts:430",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -137,7 +148,7 @@
     {
       "method": "POST",
       "path": "/api/v3/zinvites/:zid",
-      "registration": "server/app.ts:431",
+      "registration": "server/app.ts:442",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -153,7 +164,7 @@
     {
       "method": "GET",
       "path": "/api/v3/participants",
-      "registration": "server/app.ts:445",
+      "registration": "server/app.ts:456",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -168,7 +179,7 @@
     {
       "method": "GET",
       "path": "/api/v3/conversations/preload",
-      "registration": "server/app.ts:457",
+      "registration": "server/app.ts:468",
       "middleware": [
         "moveToBody",
         "need(\"conversation_id\", getStringLimitLength(1, 1000), assignToP)"
@@ -182,7 +193,7 @@
     {
       "method": "GET",
       "path": "/api/v3/conversations/recently_started",
-      "registration": "server/app.ts:464",
+      "registration": "server/app.ts:475",
       "middleware": [
         "hybridAuth(assignToP)",
         "moveToBody",
@@ -197,7 +208,7 @@
     {
       "method": "GET",
       "path": "/api/v3/conversations/recent_activity",
-      "registration": "server/app.ts:472",
+      "registration": "server/app.ts:483",
       "middleware": [
         "hybridAuth(assignToP)",
         "moveToBody",
@@ -212,7 +223,7 @@
     {
       "method": "GET",
       "path": "/api/v3/notifications/subscribe",
-      "registration": "server/app.ts:480",
+      "registration": "server/app.ts:491",
       "middleware": [
         "moveToBody",
         "need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP)",
@@ -229,7 +240,7 @@
     {
       "method": "GET",
       "path": "/api/v3/notifications/unsubscribe",
-      "registration": "server/app.ts:495",
+      "registration": "server/app.ts:506",
       "middleware": [
         "moveToBody",
         "need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP)",
@@ -246,7 +257,7 @@
     {
       "method": "POST",
       "path": "/api/v3/convSubscriptions",
-      "registration": "server/app.ts:510",
+      "registration": "server/app.ts:521",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -262,7 +273,7 @@
     {
       "method": "GET",
       "path": "/perfStats_9182738127",
-      "registration": "server/app.ts:523",
+      "registration": "server/app.ts:534",
       "middleware": [
         "moveToBody"
       ],
@@ -275,7 +286,7 @@
     {
       "method": "GET",
       "path": "/api/v3/domainWhitelist",
-      "registration": "server/app.ts:525",
+      "registration": "server/app.ts:536",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -289,7 +300,7 @@
     {
       "method": "POST",
       "path": "/api/v3/domainWhitelist",
-      "registration": "server/app.ts:532",
+      "registration": "server/app.ts:543",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"domain_whitelist\", getOptionalStringLimitLength(999), assignToP, \"\" )"
@@ -303,7 +314,7 @@
     {
       "method": "GET",
       "path": "/api/v3/xids",
-      "registration": "server/app.ts:544",
+      "registration": "server/app.ts:555",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -320,7 +331,7 @@
     {
       "method": "GET",
       "path": "/api/v3/xidAllowList",
-      "registration": "server/app.ts:558",
+      "registration": "server/app.ts:569",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -337,7 +348,7 @@
     {
       "method": "POST",
       "path": "/api/v3/xidAllowList",
-      "registration": "server/app.ts:572",
+      "registration": "server/app.ts:583",
       "middleware": [
         "hybridAuth(assignToP)",
         "need(\"xid_allow_list\", getArrayOfStringNonEmpty, assignToP)",
@@ -353,7 +364,7 @@
     {
       "method": "GET",
       "path": "/api/v3/xids/csv",
-      "registration": "server/app.ts:585",
+      "registration": "server/app.ts:596",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -368,7 +379,7 @@
     {
       "method": "GET",
       "path": "/api/v3/xidAllowList/csv",
-      "registration": "server/app.ts:597",
+      "registration": "server/app.ts:608",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -383,7 +394,7 @@
     {
       "method": "GET",
       "path": "/api/v3/conversationStats",
-      "registration": "server/app.ts:609",
+      "registration": "server/app.ts:620",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -400,7 +411,7 @@
     {
       "method": "GET",
       "path": "/api/v3/conversationUuid",
-      "registration": "server/app.ts:623",
+      "registration": "server/app.ts:634",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -415,7 +426,7 @@
     {
       "method": "GET",
       "path": "/api/v3/users",
-      "registration": "server/app.ts:635",
+      "registration": "server/app.ts:646",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -431,7 +442,7 @@
     {
       "method": "GET",
       "path": "/api/v3/participation",
-      "registration": "server/app.ts:644",
+      "registration": "server/app.ts:655",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -447,7 +458,7 @@
     {
       "method": "GET",
       "path": "/api/v3/comments",
-      "registration": "server/app.ts:653",
+      "registration": "server/app.ts:664",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -472,7 +483,7 @@
     {
       "method": "POST",
       "path": "/api/v3/comments",
-      "registration": "server/app.ts:680",
+      "registration": "server/app.ts:691",
       "middleware": [
         "onParticipationPools",
         "hybridAuthOptional(assignToP)",
@@ -493,7 +504,7 @@
     {
       "method": "POST",
       "path": "/api/v3/comments-bulk",
-      "registration": "server/app.ts:700",
+      "registration": "server/app.ts:711",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -510,7 +521,7 @@
     {
       "method": "GET",
       "path": "/api/v3/comments/translations",
-      "registration": "server/app.ts:714",
+      "registration": "server/app.ts:725",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -526,7 +537,7 @@
     {
       "method": "POST",
       "path": "/api/v3/votes-bulk",
-      "registration": "server/app.ts:727",
+      "registration": "server/app.ts:738",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -541,7 +552,7 @@
     {
       "method": "GET",
       "path": "/api/v3/votes/me",
-      "registration": "server/app.ts:739",
+      "registration": "server/app.ts:750",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -556,7 +567,7 @@
     {
       "method": "GET",
       "path": "/api/v3/votes",
-      "registration": "server/app.ts:751",
+      "registration": "server/app.ts:762",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -573,7 +584,7 @@
     {
       "method": "GET",
       "path": "/api/v3/nextComment",
-      "registration": "server/app.ts:765",
+      "registration": "server/app.ts:776",
       "middleware": [
         "onParticipationPools",
         "timeout(15000)",
@@ -596,7 +607,7 @@
     {
       "method": "GET",
       "path": "/api/v3/testConnection",
-      "registration": "server/app.ts:786",
+      "registration": "server/app.ts:797",
       "middleware": [
         "moveToBody"
       ],
@@ -609,7 +620,7 @@
     {
       "method": "GET",
       "path": "/api/v3/testDatabase",
-      "registration": "server/app.ts:788",
+      "registration": "server/app.ts:799",
       "middleware": [
         "moveToBody"
       ],
@@ -622,7 +633,7 @@
     {
       "method": "GET",
       "path": "/api/v3/ops/whoami",
-      "registration": "server/app.ts:792",
+      "registration": "server/app.ts:803",
       "middleware": [
         "opsRoutes.gate"
       ],
@@ -635,7 +646,7 @@
     {
       "method": "GET",
       "path": "/api/v3/ops/page/:id",
-      "registration": "server/app.ts:793",
+      "registration": "server/app.ts:804",
       "middleware": [
         "opsRoutes.gate"
       ],
@@ -648,7 +659,7 @@
     {
       "method": "ALL",
       "path": "/^\\/api\\/v3\\/ops(\\/.*)?$/",
-      "registration": "server/app.ts:794",
+      "registration": "server/app.ts:805",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -659,7 +670,7 @@
     {
       "method": "GET",
       "path": "/api/v3/delphi",
-      "registration": "server/app.ts:796",
+      "registration": "server/app.ts:807",
       "middleware": [
         "moveToBody"
       ],
@@ -672,7 +683,7 @@
     {
       "method": "GET",
       "path": "/api/v3/delphi/logs",
-      "registration": "server/app.ts:798",
+      "registration": "server/app.ts:809",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -686,7 +697,7 @@
     {
       "method": "POST",
       "path": "/api/v3/delphi/jobs",
-      "registration": "server/app.ts:806",
+      "registration": "server/app.ts:817",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -700,7 +711,7 @@
     {
       "method": "GET",
       "path": "/api/v3/delphi/collective/inputs",
-      "registration": "server/app.ts:826",
+      "registration": "server/app.ts:837",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -714,7 +725,7 @@
     {
       "method": "POST",
       "path": "/api/v3/delphi/collective/results",
-      "registration": "server/app.ts:832",
+      "registration": "server/app.ts:843",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -728,7 +739,7 @@
     {
       "method": "GET",
       "path": "/api/v3/delphi/collective/results",
-      "registration": "server/app.ts:839",
+      "registration": "server/app.ts:850",
       "middleware": [
         "moveToBody"
       ],
@@ -741,7 +752,7 @@
     {
       "method": "GET",
       "path": "/api/v3/delphi/reports",
-      "registration": "server/app.ts:846",
+      "registration": "server/app.ts:857",
       "middleware": [
         "moveToBody"
       ],
@@ -754,7 +765,7 @@
     {
       "method": "GET",
       "path": "/api/v3/delphi/visualizations",
-      "registration": "server/app.ts:861",
+      "registration": "server/app.ts:872",
       "middleware": [
         "moveToBody"
       ],
@@ -767,7 +778,7 @@
     {
       "method": "POST",
       "path": "/api/v3/delphi/batchReports",
-      "registration": "server/app.ts:874",
+      "registration": "server/app.ts:885",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -781,7 +792,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicMod/topics",
-      "registration": "server/app.ts:892",
+      "registration": "server/app.ts:903",
       "middleware": [
         "moveToBody",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
@@ -795,7 +806,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicMod/topics/:topicKey/comments",
-      "registration": "server/app.ts:903",
+      "registration": "server/app.ts:914",
       "middleware": [
         "moveToBody",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
@@ -809,7 +820,7 @@
     {
       "method": "POST",
       "path": "/api/v3/topicMod/moderate",
-      "registration": "server/app.ts:914",
+      "registration": "server/app.ts:925",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -824,7 +835,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicMod/proximity",
-      "registration": "server/app.ts:926",
+      "registration": "server/app.ts:937",
       "middleware": [
         "moveToBody",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
@@ -838,7 +849,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicMod/stats",
-      "registration": "server/app.ts:937",
+      "registration": "server/app.ts:948",
       "middleware": [
         "moveToBody",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
@@ -852,7 +863,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicMod/hierarchy",
-      "registration": "server/app.ts:948",
+      "registration": "server/app.ts:959",
       "middleware": [
         "moveToBody",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
@@ -866,7 +877,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicStats",
-      "registration": "server/app.ts:959",
+      "registration": "server/app.ts:970",
       "middleware": [
         "moveToBody"
       ],
@@ -879,7 +890,7 @@
     {
       "method": "POST",
       "path": "/api/v3/collectiveStatement",
-      "registration": "server/app.ts:972",
+      "registration": "server/app.ts:983",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)"
@@ -893,7 +904,7 @@
     {
       "method": "GET",
       "path": "/api/v3/collectiveStatement",
-      "registration": "server/app.ts:989",
+      "registration": "server/app.ts:1000",
       "middleware": [
         "moveToBody"
       ],
@@ -906,7 +917,7 @@
     {
       "method": "POST",
       "path": "/api/v3/topicAgenda/selections",
-      "registration": "server/app.ts:1002",
+      "registration": "server/app.ts:1013",
       "middleware": [
         "hybridAuthOptional(assignToP)",
         "moveToBody",
@@ -923,7 +934,7 @@
     {
       "method": "GET",
       "path": "/api/v3/topicAgenda/selections",
-      "registration": "server/app.ts:1016",
+      "registration": "server/app.ts:1027",
       "middleware": [
         "hybridAuthOptional(assignToP)",
         "moveToBody",
@@ -939,7 +950,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/topicAgenda/selections",
-      "registration": "server/app.ts:1029",
+      "registration": "server/app.ts:1040",
       "middleware": [
         "hybridAuth(assignToP)",
         "moveToBody",
@@ -955,7 +966,7 @@
     {
       "method": "DELETE",
       "path": "/api/v3/topicAgenda/selections",
-      "registration": "server/app.ts:1042",
+      "registration": "server/app.ts:1053",
       "middleware": [
         "hybridAuth(assignToP)",
         "moveToBody",
@@ -971,7 +982,7 @@
     {
       "method": "GET",
       "path": "/feeds/:reportId",
-      "registration": "server/app.ts:1056",
+      "registration": "server/app.ts:1067",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -982,7 +993,7 @@
     {
       "method": "GET",
       "path": "/feeds/:reportId/consensus",
-      "registration": "server/app.ts:1069",
+      "registration": "server/app.ts:1080",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -993,7 +1004,7 @@
     {
       "method": "GET",
       "path": "/feeds/:reportId/topics",
-      "registration": "server/app.ts:1087",
+      "registration": "server/app.ts:1098",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -1004,7 +1015,7 @@
     {
       "method": "GET",
       "path": "/robots.txt",
-      "registration": "server/app.ts:1105",
+      "registration": "server/app.ts:1116",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -1015,7 +1026,7 @@
     {
       "method": "GET",
       "path": "/api/v3/participationInit",
-      "registration": "server/app.ts:1109",
+      "registration": "server/app.ts:1120",
       "middleware": [
         "onParticipationPools",
         "moveToBody",
@@ -1039,7 +1050,7 @@
     {
       "method": "GET",
       "path": "/api/v3/participation/topicPrioritize",
-      "registration": "server/app.ts:1138",
+      "registration": "server/app.ts:1149",
       "middleware": [
         "moveToBody",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -1054,7 +1065,7 @@
     {
       "method": "POST",
       "path": "/api/v3/votes",
-      "registration": "server/app.ts:1151",
+      "registration": "server/app.ts:1162",
       "middleware": [
         "onParticipationPools",
         "hybridAuthOptional(assignToP)",
@@ -1077,7 +1088,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/participants_extended",
-      "registration": "server/app.ts:1172",
+      "registration": "server/app.ts:1183",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -1092,7 +1103,7 @@
     {
       "method": "POST",
       "path": "/api/v3/ptptCommentMod",
-      "registration": "server/app.ts:1184",
+      "registration": "server/app.ts:1195",
       "middleware": [
         "hybridAuth(assignToP)",
         "need(\"tid\", getInt, assignToP)",
@@ -1118,7 +1129,7 @@
     {
       "method": "POST",
       "path": "/api/v3/upvotes",
-      "registration": "server/app.ts:1207",
+      "registration": "server/app.ts:1218",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )"
@@ -1132,7 +1143,7 @@
     {
       "method": "POST",
       "path": "/api/v3/stars",
-      "registration": "server/app.ts:1218",
+      "registration": "server/app.ts:1229",
       "middleware": [
         "hybridAuth(assignToP)",
         "need(\"tid\", getInt, assignToP)",
@@ -1149,7 +1160,7 @@
     {
       "method": "POST",
       "path": "/api/v3/trashes",
-      "registration": "server/app.ts:1232",
+      "registration": "server/app.ts:1243",
       "middleware": [
         "hybridAuth(assignToP)",
         "need(\"tid\", getInt, assignToP)",
@@ -1166,7 +1177,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/comments",
-      "registration": "server/app.ts:1246",
+      "registration": "server/app.ts:1257",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1186,7 +1197,7 @@
     {
       "method": "POST",
       "path": "/api/v3/reportCommentSelections",
-      "registration": "server/app.ts:1263",
+      "registration": "server/app.ts:1274",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -1203,7 +1214,7 @@
     {
       "method": "POST",
       "path": "/api/v3/conversation/close",
-      "registration": "server/app.ts:1277",
+      "registration": "server/app.ts:1288",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1218,7 +1229,7 @@
     {
       "method": "POST",
       "path": "/api/v3/conversation/reopen",
-      "registration": "server/app.ts:1289",
+      "registration": "server/app.ts:1300",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1233,7 +1244,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/conversations",
-      "registration": "server/app.ts:1301",
+      "registration": "server/app.ts:1312",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1280,7 +1291,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/users",
-      "registration": "server/app.ts:1347",
+      "registration": "server/app.ts:1358",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1297,7 +1308,7 @@
     {
       "method": "DELETE",
       "path": "/api/v3/metadata/questions/:pmqid",
-      "registration": "server/app.ts:1357",
+      "registration": "server/app.ts:1368",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1312,7 +1323,7 @@
     {
       "method": "DELETE",
       "path": "/api/v3/metadata/answers/:pmaid",
-      "registration": "server/app.ts:1365",
+      "registration": "server/app.ts:1376",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1327,7 +1338,7 @@
     {
       "method": "GET",
       "path": "/api/v3/metadata/questions",
-      "registration": "server/app.ts:1373",
+      "registration": "server/app.ts:1384",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1344,7 +1355,7 @@
     {
       "method": "POST",
       "path": "/api/v3/metadata/questions",
-      "registration": "server/app.ts:1388",
+      "registration": "server/app.ts:1399",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1360,7 +1371,7 @@
     {
       "method": "POST",
       "path": "/api/v3/metadata/answers",
-      "registration": "server/app.ts:1401",
+      "registration": "server/app.ts:1412",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1377,7 +1388,7 @@
     {
       "method": "GET",
       "path": "/api/v3/metadata/choices",
-      "registration": "server/app.ts:1415",
+      "registration": "server/app.ts:1426",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1392,7 +1403,7 @@
     {
       "method": "GET",
       "path": "/api/v3/metadata/answers",
-      "registration": "server/app.ts:1427",
+      "registration": "server/app.ts:1438",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1410,7 +1421,7 @@
     {
       "method": "GET",
       "path": "/api/v3/metadata",
-      "registration": "server/app.ts:1443",
+      "registration": "server/app.ts:1454",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1427,7 +1438,7 @@
     {
       "method": "GET",
       "path": "/api/v3/conversations",
-      "registration": "server/app.ts:1458",
+      "registration": "server/app.ts:1469",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1447,7 +1458,7 @@
     {
       "method": "GET",
       "path": "/api/v3/all_conversations",
-      "registration": "server/app.ts:1475",
+      "registration": "server/app.ts:1486",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1471,7 +1482,7 @@
     {
       "method": "GET",
       "path": "/api/v3/reports",
-      "registration": "server/app.ts:1492",
+      "registration": "server/app.ts:1503",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1487,7 +1498,7 @@
     {
       "method": "GET",
       "path": "/api/v3/reportNarrative",
-      "registration": "server/app.ts:1505",
+      "registration": "server/app.ts:1516",
       "middleware": [
         "hybridAuth(assignToP)",
         "moveToBody",
@@ -1502,7 +1513,7 @@
     {
       "method": "POST",
       "path": "/api/v3/reports",
-      "registration": "server/app.ts:1513",
+      "registration": "server/app.ts:1524",
       "middleware": [
         "hybridAuth(assignToP)",
         "want( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -1517,7 +1528,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/reports",
-      "registration": "server/app.ts:1525",
+      "registration": "server/app.ts:1536",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1548,7 +1559,7 @@
     {
       "method": "GET",
       "path": "/api/v3/contexts",
-      "registration": "server/app.ts:1553",
+      "registration": "server/app.ts:1564",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)"
@@ -1562,7 +1573,7 @@
     {
       "method": "POST",
       "path": "/api/v3/contexts",
-      "registration": "server/app.ts:1560",
+      "registration": "server/app.ts:1571",
       "middleware": [
         "hybridAuth(assignToP)",
         "need(\"name\", getStringLimitLength(1, 300), assignToP)"
@@ -1576,7 +1587,7 @@
     {
       "method": "POST",
       "path": "/api/v3/reserve_conversation_id",
-      "registration": "server/app.ts:1567",
+      "registration": "server/app.ts:1578",
       "middleware": [
         "hybridAuth(assignToP)"
       ],
@@ -1589,7 +1600,7 @@
     {
       "method": "POST",
       "path": "/api/v3/conversations",
-      "registration": "server/app.ts:1574",
+      "registration": "server/app.ts:1585",
       "middleware": [
         "hybridAuth(assignToP)",
         "want(\"is_active\", getBool, assignToP, true)",
@@ -1618,7 +1629,7 @@
     {
       "method": "POST",
       "path": "/api/v3/query_participants_by_metadata",
-      "registration": "server/app.ts:1596",
+      "registration": "server/app.ts:1607",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -1633,7 +1644,7 @@
     {
       "method": "POST",
       "path": "/api/v3/sendCreatedLinkToEmail",
-      "registration": "server/app.ts:1608",
+      "registration": "server/app.ts:1619",
       "middleware": [
         "hybridAuth(assignToP)",
         "need( \"conversation_id\", getConversationIdFetchZid, assignToPCustom(\"zid\") )",
@@ -1648,7 +1659,7 @@
     {
       "method": "GET",
       "path": "/api/v3/locations",
-      "registration": "server/app.ts:1621",
+      "registration": "server/app.ts:1632",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1664,7 +1675,7 @@
     {
       "method": "PUT",
       "path": "/api/v3/ptptois",
-      "registration": "server/app.ts:1634",
+      "registration": "server/app.ts:1645",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1681,7 +1692,7 @@
     {
       "method": "GET",
       "path": "/api/v3/ptptois",
-      "registration": "server/app.ts:1648",
+      "registration": "server/app.ts:1659",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1698,7 +1709,7 @@
     {
       "method": "GET",
       "path": "/api/v3/votes/famous",
-      "registration": "server/app.ts:1662",
+      "registration": "server/app.ts:1673",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1715,7 +1726,7 @@
     {
       "method": "POST",
       "path": "/api/v3/treevite/waves",
-      "registration": "server/app.ts:1676",
+      "registration": "server/app.ts:1687",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1733,7 +1744,7 @@
     {
       "method": "GET",
       "path": "/api/v3/treevite/waves",
-      "registration": "server/app.ts:1691",
+      "registration": "server/app.ts:1702",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1749,7 +1760,7 @@
     {
       "method": "POST",
       "path": "/api/v3/treevite/acceptInvite",
-      "registration": "server/app.ts:1704",
+      "registration": "server/app.ts:1715",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1765,7 +1776,7 @@
     {
       "method": "POST",
       "path": "/api/v3/treevite/login",
-      "registration": "server/app.ts:1717",
+      "registration": "server/app.ts:1728",
       "middleware": [
         "moveToBody",
         "hybridAuthOptional(assignToP)",
@@ -1781,7 +1792,7 @@
     {
       "method": "GET",
       "path": "/api/v3/treevite/myInvites",
-      "registration": "server/app.ts:1730",
+      "registration": "server/app.ts:1741",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1797,7 +1808,7 @@
     {
       "method": "GET",
       "path": "/api/v3/treevite/invites",
-      "registration": "server/app.ts:1743",
+      "registration": "server/app.ts:1754",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1816,7 +1827,7 @@
     {
       "method": "GET",
       "path": "/api/v3/treevite/invites/csv",
-      "registration": "server/app.ts:1759",
+      "registration": "server/app.ts:1770",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1831,7 +1842,7 @@
     {
       "method": "GET",
       "path": "/api/v3/treevite/me",
-      "registration": "server/app.ts:1771",
+      "registration": "server/app.ts:1782",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1847,7 +1858,7 @@
     {
       "method": "GET",
       "path": "/api/v3/treevite/myInvites/csv",
-      "registration": "server/app.ts:1784",
+      "registration": "server/app.ts:1795",
       "middleware": [
         "moveToBody",
         "hybridAuth(assignToP)",
@@ -1863,7 +1874,7 @@
     {
       "method": "POST",
       "path": "/api/v3/einvites",
-      "registration": "server/app.ts:1797",
+      "registration": "server/app.ts:1808",
       "middleware": [
         "need(\"email\", getEmail, assignToP)"
       ],
@@ -1876,7 +1887,7 @@
     {
       "method": "GET",
       "path": "/api/v3/einvites",
-      "registration": "server/app.ts:1803",
+      "registration": "server/app.ts:1814",
       "middleware": [
         "moveToBody",
         "need(\"einvite\", getStringLimitLength(1, 100), assignToP)"
@@ -1890,7 +1901,7 @@
     {
       "method": "GET",
       "path": "/^\\/polis_site_id.*/",
-      "registration": "server/app.ts:1810",
+      "registration": "server/app.ts:1821",
       "middleware": [
         "moveToBody",
         "need(\"parent_url\", getStringLimitLength(1, 10000), assignToP)",
@@ -1927,7 +1938,7 @@
     {
       "method": "GET",
       "path": "/api/v3/verify",
-      "registration": "server/app.ts:1840",
+      "registration": "server/app.ts:1851",
       "middleware": [
         "moveToBody",
         "need(\"e\", getStringLimitLength(1, 1000), assignToP)"
@@ -1941,7 +1952,7 @@
     {
       "method": "GET",
       "path": "/^\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1847",
+      "registration": "server/app.ts:1858",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -1952,7 +1963,7 @@
     {
       "method": "GET",
       "path": "/^\\/m\\/[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1851",
+      "registration": "server/app.ts:1862",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -1963,7 +1974,7 @@
     {
       "method": "GET",
       "path": "/^\\/integrate(\\/.*)?/",
-      "registration": "server/app.ts:1852",
+      "registration": "server/app.ts:1863",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -1974,7 +1985,7 @@
     {
       "method": "GET",
       "path": "/^\\/account(\\/.*)?/",
-      "registration": "server/app.ts:1853",
+      "registration": "server/app.ts:1864",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -1985,7 +1996,7 @@
     {
       "method": "GET",
       "path": "/^\\/ops(\\/.*)?$/",
-      "registration": "server/app.ts:1855",
+      "registration": "server/app.ts:1866",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [
@@ -1998,7 +2009,7 @@
     {
       "method": "GET",
       "path": "/^\\/conversations(\\/.*)?/",
-      "registration": "server/app.ts:1857",
+      "registration": "server/app.ts:1868",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2009,7 +2020,7 @@
     {
       "method": "GET",
       "path": "/^\\/signout(\\/.*)?/",
-      "registration": "server/app.ts:1858",
+      "registration": "server/app.ts:1869",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2020,7 +2031,7 @@
     {
       "method": "GET",
       "path": "/^\\/signin(\\/.*)?/",
-      "registration": "server/app.ts:1859",
+      "registration": "server/app.ts:1870",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2031,7 +2042,7 @@
     {
       "method": "GET",
       "path": "/^\\/privacy$/",
-      "registration": "server/app.ts:1860",
+      "registration": "server/app.ts:1871",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2042,7 +2053,7 @@
     {
       "method": "GET",
       "path": "/^\\/tos$/",
-      "registration": "server/app.ts:1861",
+      "registration": "server/app.ts:1872",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2053,7 +2064,7 @@
     {
       "method": "GET",
       "path": "/^\\/donate$/",
-      "registration": "server/app.ts:1862",
+      "registration": "server/app.ts:1873",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2064,7 +2075,7 @@
     {
       "method": "GET",
       "path": "/^\\/report\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1864",
+      "registration": "server/app.ts:1875",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2075,7 +2086,7 @@
     {
       "method": "GET",
       "path": "/^\\/narrativeReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1865",
+      "registration": "server/app.ts:1876",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2086,7 +2097,7 @@
     {
       "method": "GET",
       "path": "/^\\/stats\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1869",
+      "registration": "server/app.ts:1880",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2097,7 +2108,7 @@
     {
       "method": "GET",
       "path": "/^\\/commentsReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1871",
+      "registration": "server/app.ts:1882",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2108,7 +2119,7 @@
     {
       "method": "GET",
       "path": "/^\\/topicReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1878",
+      "registration": "server/app.ts:1889",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2119,7 +2130,7 @@
     {
       "method": "GET",
       "path": "/^\\/topicsVizReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1884",
+      "registration": "server/app.ts:1895",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2130,7 +2141,7 @@
     {
       "method": "GET",
       "path": "/^\\/topicHierarchy\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1889",
+      "registration": "server/app.ts:1900",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2141,7 +2152,7 @@
     {
       "method": "GET",
       "path": "/^\\/collectiveStatements\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1896",
+      "registration": "server/app.ts:1907",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2152,7 +2163,7 @@
     {
       "method": "GET",
       "path": "/^\\/exportReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1903",
+      "registration": "server/app.ts:1914",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2163,7 +2174,7 @@
     {
       "method": "GET",
       "path": "/^\\/topicMapNarrativeReport\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1909",
+      "registration": "server/app.ts:1920",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2174,7 +2185,7 @@
     {
       "method": "GET",
       "path": "/^\\/topicStats\\/r?[0-9][0-9A-Za-z]+(\\/.*)?/",
-      "registration": "server/app.ts:1915",
+      "registration": "server/app.ts:1926",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2185,7 +2196,7 @@
     {
       "method": "GET",
       "path": "/^\\/home(\\/.*)?/",
-      "registration": "server/app.ts:1922",
+      "registration": "server/app.ts:1933",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2196,7 +2207,7 @@
     {
       "method": "GET",
       "path": "/",
-      "registration": "server/app.ts:1924",
+      "registration": "server/app.ts:1935",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2207,7 +2218,7 @@
     {
       "method": "GET",
       "path": "/^\\/report_bundle.*\\.js$/",
-      "registration": "server/app.ts:1927",
+      "registration": "server/app.ts:1938",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2218,7 +2229,7 @@
     {
       "method": "GET",
       "path": "/^\\/report_style.*\\.css$/",
-      "registration": "server/app.ts:1928",
+      "registration": "server/app.ts:1939",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],
@@ -2229,7 +2240,7 @@
     {
       "method": "GET",
       "path": "/.*\\//",
-      "registration": "server/app.ts:1931",
+      "registration": "server/app.ts:1942",
       "middleware": [],
       "auth": "no route authentication middleware",
       "conditions": [],

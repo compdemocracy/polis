@@ -35,7 +35,7 @@ RUN npm config set fetch-retries 5 && \
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --production=false
 
 COPY VERSION VERSION_STABLE_COMMIT /app/
-COPY scripts/build_identity.py scripts/build-identity.cjs /app/scripts/
+COPY scripts/build_identity.py scripts/build-identity.cjs scripts/client-error-prelude.cjs /app/scripts/
 COPY client-participation/ .
 
 ARG GIT_HASH=unknown

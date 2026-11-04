@@ -1,0 +1,30 @@
+name: Client error reporting
+permissions:
+  contents: read
+on:
+  pull_request:
+    paths:
+      - 'client-admin/**'
+      - 'client-report/**'
+      - 'client-participation/**'
+      - 'client-participation-alpha/**'
+      - 'server/**'
+      - 'scripts/client-error-prelude.cjs'
+      - 'file-server/nginx/ROUTING.md'
+      - 'ci/local/**'
+      - 'Makefile'
+      - '.github/workflows/client-errors.yml'
+  push:
+    branches: [edge]
+concurrency:
+  group: client-errors-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: make check-client-errors

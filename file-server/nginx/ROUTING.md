@@ -17,6 +17,7 @@ still exist in this source tree.
 | `/alpha/*` (including `/alpha/embed.js`) | Alpha on port 4321; remove `/alpha` before forwarding |
 | `/_astro/*` | Alpha on port 4321; preserve the path |
 | `/api/*` (case insensitive) | Node, except the paths and methods explicitly selected by existing Rust switches |
+| `/api/v3/clientErrors` | Node; POST browser error reports; handled before shared parsing, without authentication or database access |
 | `/api/v3/{participationInit,nextComment,votes,votes/famous,comments,comments-bulk,votes-bulk}` | Same API selection; includes the live legacy famous-votes call and participation writes |
 | `/api/v3/{conversations,owner,participants,ptptois,zinvites,einvites,treevite,users,auth,verify,notifications,sendCreatedLinkToEmail}*` | Same API selection |
 | `/api/v3/{math,delphi,reports,reportExport,reportCommentSelections,collectiveStatement,topicStats,statements,topicMod}*` | Same API selection, including unchanged topic moderation |
