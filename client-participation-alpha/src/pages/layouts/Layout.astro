@@ -1,5 +1,9 @@
 ---
 import '../../styles/global.css';
+import reporterSource from '../../lib/clientErrorReporter.js?raw';
+const buildInfo = process.env.POLIS_BUILD_INFO as unknown as { commit?: string } | undefined;
+const reporterOptions = JSON.stringify({ client: 'alpha', build: buildInfo?.commit, apiBase: import.meta.env.PUBLIC_SERVICE_URL || '/' }).replace(/</g, '\\u003c');
+const clientErrorPrelude = reporterSource + '\n;window.PolisClientErrors.install(' + reporterOptions + ');';
 
 interface Props {
   title?: string;
@@ -13,12 +17,16 @@ const { title = 'Polis Conversation', lang = 'en', dir = 'ltr' } = Astro.props;
 <html lang={lang} dir={dir}>
 <head>
     <meta charset="UTF-8" />
+    <script is:inline set:html={clientErrorPrelude} />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!-- Relative URL so it works when app is mounted at /alpha/ behind nginx -->
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <title>{title}</title>
 </head>
 <body>
+<script>
+  import '../../lib/clientErrors'
+</script>
     <slot />
 </body>
 </html>

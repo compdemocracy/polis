@@ -414,3 +414,7 @@ check-delphi-characterization: ## Run delphi-characterization checks
 .PHONY: check-server-integration
 check-server-integration: ## Run server-integration checks
 	@bash ci/local/server-integration.sh
+
+.PHONY: check-client-errors
+check-client-errors: ## Run client error reporting behaviour and path checks
+	@bash ci/local/client-errors.sh

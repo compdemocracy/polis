@@ -43,7 +43,7 @@ function files(dir = process.cwd()) {
   return result;
 }
 const initialFiles = files();
-const { default: app, appReady } = require("../app.ts");
+const { default: app, appReady, clientErrorApp } = require("../app.ts");
 async function main() {
   await appReady;
   if (!app.routes.get?.length) throw Error("app initialization failed");
@@ -132,7 +132,7 @@ async function main() {
                 node: process.version,
                 exemptions: require("./barrier.cjs").exemptions,
               },
-              routes: Object.values(app.routes)
+              routes: [...Object.values(clientErrorApp.routes), ...Object.values(app.routes)]
                 .flat()
                 .map((r) => r.__p027),
               boot,

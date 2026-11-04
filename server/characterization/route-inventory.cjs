@@ -117,7 +117,7 @@ function extract(root) {
     if (
       ts.isCallExpression(n) &&
       ts.isPropertyAccessExpression(n.expression) &&
-      n.expression.expression.getText(sf) === "app" &&
+      ["app", "clientErrorApp"].includes(n.expression.expression.getText(sf)) &&
       [
         "get",
         "post",
