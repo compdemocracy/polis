@@ -347,6 +347,10 @@ check-coordinator: ## Run the coordinator verification commands
 check-job-views: ## Run job-views checks
 	@bash ci/local/job-views.sh
 
+.PHONY: check-route-census
+check-route-census: ## Compare the committed route census with source and runtime
+	bash ci/local/route-census.sh
+
 .PHONY: check-routing-recordings
 check-routing-recordings: ## Run routing-recordings checks
 	@bash ci/local/routing-recordings.sh
