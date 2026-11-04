@@ -206,7 +206,10 @@ async function uncommittedJoiner(
   zid: number,
   uid: number
 ): Promise<{ pid: number; session: number; commit: () => Promise<void> }> {
-  const session = new Client({ connectionString: process.env.DATABASE_URL });
+  const session = new Client({
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 5000,
+  });
   await session.connect();
   const backend = (await session.query("SELECT pg_backend_pid() AS pid"))
     .rows[0].pid;
@@ -232,7 +235,10 @@ function report(fields: Record<string, unknown>): void {
 }
 
 beforeAll(async () => {
-  db = new Client({ connectionString: process.env.DATABASE_URL });
+  db = new Client({
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 5000,
+  });
   await db.connect();
   const pooled = getPooledTestUser(1);
   ({ agent: owner } = await getJwtAuthenticatedAgent({
@@ -362,7 +368,10 @@ describe("treevite acceptInvite and the participant lock", () => {
     const { conversationId, zid, codes } = await treeviteConversation(1);
     // A session that kept the lock: a server still running code that leaks it,
     // during a deploy for example.
-    const holder = new Client({ connectionString: process.env.DATABASE_URL });
+    const holder = new Client({
+      connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: 5000,
+    });
     await holder.connect();
     await holder.query("SELECT pg_advisory_lock($1, $2)", [PID_LOCK, zid]);
 
