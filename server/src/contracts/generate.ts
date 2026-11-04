@@ -9,6 +9,7 @@ import prettier from "prettier";
 import { TSchema } from "@sinclair/typebox";
 import { DelphiJobResult } from "./delphiJobResult";
 import { Pca2 } from "./pca2";
+import { ClientError } from "./clientError";
 import { clientReportValidatorSource } from "./clientReportValidator";
 
 export const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -39,6 +40,7 @@ const KEYWORD_ORDER = [
   "minimum",
   "maximum",
   "minLength",
+  "maxLength",
   "pattern",
   "minProperties",
   "maxProperties",
@@ -236,8 +238,26 @@ export type ContractOutput = {
 export function renderContracts(): ContractOutput[] {
   const delphi = schemaDocument(DelphiJobResult);
   const pca2 = schemaDocument(Pca2);
+  const clientError = schemaDocument(ClientError);
   const reportHeader = `// ${SOURCE_NOTE}\n// A dependency-free validator for the delphi-job-result/1 and pca2/1 schemas.`;
   return [
+    ...[
+      ["server/src/contracts", null],
+      [
+        "client-participation-alpha/src/api/contract",
+        "client-participation-alpha",
+      ],
+      ["client-report/src/contract", "client-report"],
+      ["client-admin/src/contract", "client-admin"],
+      ["client-participation/js/contract", "client-participation"],
+    ].map(([directory, client]) => ({
+      path: `${directory}/clientError.schema.json`,
+      client,
+      content:
+        client === "client-participation-alpha"
+          ? alphaJson(clientError)
+          : json(clientError),
+    })),
     {
       path: "server/src/contracts/delphiJobResult.schema.json",
       client: null,

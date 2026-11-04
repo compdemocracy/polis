@@ -1,5 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+var reportClientFetch = require("./clientErrors").reportClientFetch;
 var eb = require("../eventBus");
 var URLs = require("../util/url");
 var PolisStorage = require("../util/polisStorage");
@@ -82,7 +83,10 @@ function polisAjax(api, data, type, headers) {
     }
   });
 
-  promise.fail(function (jqXHR) {
+  promise.fail(function (jqXHR, textStatus) {
+    if (textStatus === "parsererror" && type === "GET" && /^\/?api\/v3\/(?:math\/pca2|comments)(?:[?#]|$)/.test(api)) {
+      reportClientFetch({ name: "SyntaxError", message: "SyntaxError: Invalid JSON" }, api.charAt(0) === "/" ? api : "/" + api);
+    }
     if (403 === jqXHR.status) {
       eb.trigger(eb.authNeeded);
     } else if (401 === jqXHR.status) {

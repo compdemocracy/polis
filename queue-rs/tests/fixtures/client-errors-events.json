@@ -1,0 +1,42 @@
+[
+  {
+    "timestamp": "2026-01-01T00:00:00Z",
+    "message": "client_error",
+    "signature": "0000000000000001",
+    "client": "report",
+    "kind": "fetch",
+    "count": 7,
+    "build": "build-first",
+    "error_message": "Request failed",
+    "resource": "/api/v3/votes",
+    "status": 500,
+    "page": "/report/:id",
+    "stack": "app.js:2:3"
+  },
+  {
+    "timestamp": "2026-01-01T00:10:00Z",
+    "message": "client_error",
+    "signature": "0000000000000001",
+    "client": "report",
+    "kind": "fetch",
+    "count": 1000,
+    "build": "build-latest",
+    "error_message": "Request failed",
+    "resource": "/api/v3/votes",
+    "status": 500,
+    "page": "/report/:id",
+    "stack": "app.js:2:3"
+  },
+  {
+    "message": "client_error",
+    "signature": "0000000000000002",
+    "client": "admin",
+    "kind": "resource",
+    "count": 2,
+    "build": "build-latest"
+  },
+  {
+    "message": "request",
+    "count": 999
+  }
+]

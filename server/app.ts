@@ -17,6 +17,7 @@ import { handleVersion } from "./src/routes/version";
 import server from "./src/server";
 import Config from "./src/config";
 import logger from "./src/utils/logger";
+import { createClientErrorHandler } from "./src/routes/clientErrors";
 import { fetchIndexForConversation } from "./src/conversation";
 import { getPidForParticipant } from "./src/user";
 
@@ -256,6 +257,16 @@ if (devMode) {
 // See: https://github.com/pol-is/polis/issues/546
 // See: https://expressjs.com/en/guide/behind-proxies.html
 app.set("trust proxy", 1);
+
+// This one-purpose app finishes reports before shared parsing or authentication.
+export const clientErrorApp = express();
+clientErrorApp.disable("x-powered-by");
+clientErrorApp.set("trust proxy", app.get("trust proxy"));
+const handleClientError = createClientErrorHandler((fields) =>
+  logger.warn(fields)
+);
+clientErrorApp.post("/api/v3/clientErrors", handleClientError);
+app.use(clientErrorApp);
 
 const helpersInitialized = new Promise(function (resolve) {
   resolve(server.initializePolisHelpers());
