@@ -107,6 +107,40 @@ function extract(root) {
     true
   );
   const text = (n) => n.getText(sf).replace(/\s+/g, " ");
+  const applications = new Set();
+  function findApplications(n) {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) &&
+        n.initializer && ts.isCallExpression(n.initializer) &&
+        n.initializer.expression.getText(sf) === "express")
+      applications.add(n.name.text);
+    ts.forEachChild(n, findApplications);
+  }
+  findApplications(sf);
+  const mounted = new Set(["app"]);
+  const mounts = [];
+  function findMounts(n) {
+    if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) &&
+        n.expression.name.text === "use" &&
+        applications.has(n.expression.expression.getText(sf))) {
+      const child = n.arguments.at(-1)?.getText(sf);
+      if (applications.has(child)) {
+        if (n.arguments.length !== 1)
+          throw Error("application mount prefix needs an explicit inventory extension");
+        mounts.push([n.expression.expression.getText(sf), child]);
+      }
+    }
+    ts.forEachChild(n, findMounts);
+  }
+  findMounts(sf);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [parent, child] of mounts)
+      if (mounted.has(parent) && !mounted.has(child)) {
+        mounted.add(child);
+        changed = true;
+      }
+  }
+
   const routes = [];
   const enabledConditions = new Map([
     ["missingFilesGet404", false],
@@ -117,7 +151,7 @@ function extract(root) {
     if (
       ts.isCallExpression(n) &&
       ts.isPropertyAccessExpression(n.expression) &&
-      n.expression.expression.getText(sf) === "app" &&
+      mounted.has(n.expression.expression.getText(sf)) &&
       [
         "get",
         "post",

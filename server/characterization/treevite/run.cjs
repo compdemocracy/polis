@@ -7,9 +7,6 @@ const fs = require("node:fs"),
 const { Pool } = require("pg");
 const recorder = require("../cli.cjs");
 const inventory = require("../inventory.json");
-const enabled = inventory.routes.filter(
-  (r) => r.registered_in_default_config
-);
 const { Normalizer } = require("../normalize.cjs");
 const { strings, bytes } = require("../wire.cjs");
 const { hash, delta, canonical } = require("../core.cjs");
@@ -560,11 +557,9 @@ async function main() {
       after: safeSnapshot(after),
       effects: safeEffects(delta(before, after)),
       outbound,
-      routeHits: [
-        ...new Set(
-          stateAfter.hits.slice(stateBefore.hits.length).map((i) => enabled[i]?.id)
-        ),
-      ].sort((a, b) => a - b),
+      routeHits: require("../route-observation.cjs").routeIds(
+        stateAfter.hits.slice(stateBefore.hits.length), inventory
+      ),
     };
     actual.push(row);
     const serialized = JSON.stringify(row);
