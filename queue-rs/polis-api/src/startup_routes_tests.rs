@@ -300,21 +300,43 @@ fn catalog_switches_are_real_startup_reads() {
         .collect();
     assert_eq!(catalog, read_switches);
     for route in ROUTES {
+        // Shared modules with different switches need an entry-specific state
+        // field: their module name alone cannot distinguish the readers.
+        let reader_family = match route.dispatch_key {
+            "math_membership::BID_PATH" => "bid",
+            "math_membership::LOCATIONS_PATH" => "locations",
+            _ => {
+                let selections: BTreeSet<_> = ROUTES
+                    .iter()
+                    .filter(|entry| entry.family == route.family)
+                    .map(|entry| entry.switches)
+                    .collect();
+                assert_eq!(
+                    selections.len(),
+                    1,
+                    "add an entry-specific reader for {}",
+                    route.dispatch_key
+                );
+                route.family
+            }
+        };
         for switch in route.switches {
             let local = module_reads
-                .get(route.family)
+                .get(reader_family)
                 .is_some_and(|reads| reads.contains(*switch));
             assert!(
-                local || startup_read_belongs(&main, switch, route.family),
-                "switch {switch} has no reader for family {}",
-                route.family
+                local || startup_read_belongs(&main, switch, reader_family),
+                "switch {switch} has no reader {reader_family} for entry {} ({})",
+                route.dispatch_key,
+                route.path
             );
         }
     }
 }
 
 // Match a current startup assignment or the block controlled by its lookup.
-// This is intentionally a source-shape check, not a Rust parser.
+// This is intentionally a source-shape check, not a Rust parser. An exact
+// module reference may still be a shared helper, rather than the route reader.
 fn startup_read_belongs(main: &str, switch: &str, family: &str) -> bool {
     let direct = format!("std::env::var(\"{switch}\")");
     let call = if main.contains(&direct) {
@@ -358,5 +380,71 @@ fn startup_read_belongs(main: &str, switch: &str, family: &str) -> bool {
             &main[start..end]
         }
     };
-    region.contains(&format!("{family}::")) || region.contains(&format!("state.{family}"))
+    let identifier = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let starts_name = |index: usize| {
+        region[..index]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !identifier(c))
+    };
+    region
+        .match_indices(&format!("{family}::"))
+        .any(|(index, _)| starts_name(index))
+        || region.match_indices("state.").any(|(index, prefix)| {
+            if !starts_name(index) {
+                return false;
+            }
+            let field = region[index + prefix.len()..]
+                .split(|c| !identifier(c))
+                .next()
+                .unwrap();
+            // These are the current startup field roles, not arbitrary suffixes.
+            ["", "_db", "_auth_db", "_count_db", "_reads"]
+                .iter()
+                .any(|suffix| field == format!("{family}{suffix}"))
+        })
+}
+
+#[test]
+fn startup_reader_requires_exact_family_names() {
+    let main = compact(include_str!("main.rs"));
+    for (switch, family) in [
+        ("POLIS_API_COMMENT_READS", "comments"),
+        ("POLIS_API_MODERATION_COMMENTS_READS", "moderation_comments"),
+        (
+            "POLIS_API_PARTICIPANT_COMMENTS_READS",
+            "participant_comments",
+        ),
+    ] {
+        assert!(startup_read_belongs(&main, switch, family));
+        if family != "comments" {
+            assert!(!startup_read_belongs(&main, switch, "comments"), "{switch}");
+        }
+    }
+    for (body, expected) in [
+        ("comments::pool_limits();", true),
+        ("crate::comments::pool_limits();", true),
+        ("moderation_comments::pool_limits();", false),
+        ("participant_comments::pool_limits();", false),
+        ("other_comments::pool_limits();", false),
+        ("comments_extra::pool_limits();", false),
+        ("state.comments = value;", true),
+        ("state.comments_db = value;", true),
+        ("state.comments_auth_db = value;", true),
+        ("state.comments_reads = value;", true),
+        ("state.comments_extra_db = value;", false),
+        ("state.commentsExtra = value;", false),
+        ("state.comments2 = value;", false),
+        ("other_state.comments = value;", false),
+        ("state.moderation_comments_db = value;", false),
+    ] {
+        let source = compact(&format!(
+            "if std::env::var(\"POLIS_API_SAMPLE_READS\").ok().as_deref() == Some(\"1\") {{ {body} }}"
+        ));
+        assert_eq!(
+            startup_read_belongs(&source, "POLIS_API_SAMPLE_READS", "comments"),
+            expected,
+            "{body}"
+        );
+    }
 }
