@@ -442,3 +442,7 @@ check-production-import: ## Run production-import checks
 .PHONY: check-client-errors
 check-client-errors: ## Run client error reporting behaviour and path checks
 	@bash ci/local/client-errors.sh
+
+.PHONY: check-nginx-upstreams
+check-nginx-upstreams: ## Check that production starts every nginx upstream
+	@python3 file-server/nginx/test-production-upstreams.py
