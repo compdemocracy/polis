@@ -8,6 +8,37 @@ import { ClientError } from "../../src/contracts/clientError";
 import { clientValidate } from "./contracts/contractHelpers";
 import { createClientErrorHandler } from "../../src/routes/clientErrors";
 
+// Serial cases keep separate apps and rate-limit state on one loopback listener.
+let currentApp: express.Express;
+let baseUrl: string;
+let port: number;
+const agent = new http.Agent({ keepAlive: true });
+const server = http.createServer((req, res) => currentApp(req, res));
+
+beforeAll(async () => {
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.removeListener("error", reject);
+      resolve();
+    });
+  });
+  port = (server.address() as import("node:net").AddressInfo).port;
+  baseUrl = `http://127.0.0.1:${port}`;
+});
+
+afterAll(async () => {
+  agent.destroy();
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+});
+
+function postTo(app: express.Express, path = "/api/v3/clientErrors") {
+  currentApp = app;
+  return request(baseUrl).post(path).agent(agent);
+}
+
 const payload = {
   client: "alpha",
   build: "a".repeat(40),
@@ -48,8 +79,7 @@ async function post(
   ip = "192.0.2.1"
 ) {
   f.app.set("trust proxy", 1);
-  return request(f.app)
-    .post("/api/v3/clientErrors")
+  return postTo(f.app)
     .set("X-Forwarded-For", `${ip}, 173.245.48.1`)
     .set("User-Agent", "Mozilla/5.0 private@example.test Chrome/120.0.0.0")
     .set("Cookie", "private-cookie")
@@ -92,7 +122,7 @@ test("one bounded structured record, no identity, query, origin, content or IP",
 test("JSON content type also accepted", async () => {
   const f = fixture();
   expect(
-    (await request(f.app).post("/api/v3/clientErrors").send(payload)).status
+    (await postTo(f.app).send(payload)).status
   ).toBe(204);
   expect(f.logs).toHaveLength(1);
 });
@@ -107,42 +137,37 @@ test.each(["{", "null", "[]", "42", '"private"', "", '{"client":"unknown"}'])(
 test("declared and chunked bodies over 4096 bytes are quietly refused", async () => {
   const f = fixture();
   expect((await post(f, "x".repeat(4097))).status).toBe(204);
-  const server = f.app.listen(0, "127.0.0.1");
-  await new Promise<void>((resolve) => server.once("listening", resolve));
-  try {
-    const status = await new Promise<number>((resolve, reject) => {
-      const req = http.request(
-        {
-          host: "127.0.0.1",
-          port: (server.address() as any).port,
-          method: "POST",
-          path: "/api/v3/clientErrors",
-          headers: {
-            "Content-Type": "text/plain",
-            "Transfer-Encoding": "chunked",
-          },
+  currentApp = f.app;
+  const status = await new Promise<number>((resolve, reject) => {
+    const req = http.request(
+      {
+        host: "127.0.0.1",
+        port,
+        agent,
+        method: "POST",
+        path: "/api/v3/clientErrors",
+        headers: {
+          "Content-Type": "text/plain",
+          "Transfer-Encoding": "chunked",
         },
-        (res) => {
-          res.resume();
-          res.on("end", () => resolve(res.statusCode));
-        }
-      );
-      req.on("error", reject);
-      req.write("x".repeat(2048));
-      req.end("x".repeat(2049));
-    });
-    expect(status).toBe(204);
-  } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode));
+      }
+    );
+    req.on("error", reject);
+    req.write("x".repeat(2048));
+    req.end("x".repeat(2049));
+  });
+  expect(status).toBe(204);
   expect(f.logs).toHaveLength(0);
 });
 test("compressed bodies are refused without decompression", async () => {
   const f = fixture();
   expect(
     (
-      await request(f.app)
-        .post("/api/v3/clientErrors")
+      await postTo(f.app)
         .set("Content-Encoding", "gzip")
         .send(payload)
     ).status
@@ -199,7 +224,7 @@ test("logging failure still responds 204", async () => {
     })
   );
   expect(
-    (await request(app).post("/api/v3/clientErrors").send(payload)).status
+    (await postTo(app).send(payload)).status
   ).toBe(204);
 });
 
@@ -379,7 +404,7 @@ test("aborted and closed requests release their active permit only once", () => 
 test("a reporter flood does not consume the unrelated route's request budget", async () => {
   const f = fixture();
   for (let i = 0; i < 120; i++) await post(f, payload, `192.0.2.${i}`);
-  expect((await request(f.app).post("/other").send({})).status).toBe(201);
+  expect((await postTo(f.app, "/other").send({})).status).toBe(201);
   f.advance(1000);
   await post(f, payload, "198.51.100.1");
   expect(f.logs).toHaveLength(101);
@@ -432,8 +457,7 @@ test("only JSON and plain text content types reach the logger", async () => {
   ]) {
     expect(
       (
-        await request(f.app)
-          .post("/api/v3/clientErrors")
+        await postTo(f.app)
           .set("Content-Type", type)
           .send(JSON.stringify(payload))
       ).status
@@ -487,7 +511,7 @@ test("production logger binding emits the exact queryable event name", async () 
   )(createClientErrorHandler, logger);
   const app = express();
   app.post("/api/v3/clientErrors", handler);
-  await request(app).post("/api/v3/clientErrors").send(payload).expect(204);
+  await postTo(app).send(payload).expect(204);
   expect(lines).toHaveLength(1);
   expect(JSON.parse(lines[0])).toMatchObject({
     message: "client_error",
@@ -526,8 +550,7 @@ test("client-supplied earlier hops cannot rotate the participant bucket", async 
 test("an unrecognized final hop does not authorize the earlier address", async () => {
   const f = fixture();
   for (let i = 1; i <= 20; i++)
-    await request(f.app)
-      .post("/api/v3/clientErrors")
+    await postTo(f.app)
       .set("X-Forwarded-For", `192.0.2.${i}, 203.0.113.1`)
       .send(payload);
   expect(f.logs).toHaveLength(10);
