@@ -1,0 +1,77 @@
+{
+  "status": "Complete",
+  "results": [
+    [
+      {
+        "field": "signature",
+        "value": "0000000000000001"
+      },
+      {
+        "field": "client",
+        "value": "report"
+      },
+      {
+        "field": "kind",
+        "value": "fetch"
+      },
+      {
+        "field": "total_count",
+        "value": "1007"
+      },
+      {
+        "field": "error_message",
+        "value": "Request failed"
+      },
+      {
+        "field": "resource",
+        "value": "/api/v3/votes"
+      },
+      {
+        "field": "status",
+        "value": "500"
+      },
+      {
+        "field": "page",
+        "value": "/report/:id"
+      },
+      {
+        "field": "stack",
+        "value": "app.js:2:3"
+      },
+      {
+        "field": "first_build",
+        "value": "build-first"
+      },
+      {
+        "field": "latest_build",
+        "value": "build-latest"
+      },
+      {
+        "field": "@ptr",
+        "value": "ignored pointer"
+      }
+    ],
+    [
+      {
+        "field": "signature",
+        "value": "0000000000000002"
+      },
+      {
+        "field": "client",
+        "value": "admin"
+      },
+      {
+        "field": "kind",
+        "value": "resource"
+      },
+      {
+        "field": "total_count",
+        "value": "2"
+      }
+    ]
+  ],
+  "statistics": {
+    "recordsMatched": 3,
+    "recordsScanned": 4
+  }
+}

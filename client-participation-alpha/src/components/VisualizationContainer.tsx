@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchComments } from '../api/comments'
 import { fetchPCAData } from '../api/pca'
+import { reportClientFetch } from '../lib/clientErrors'
 import type { Comment, PCAData } from '../api/types'
 import type { Translations } from '../strings/types'
 import { PCAVisualization } from './visualization'
@@ -47,8 +48,14 @@ export default function VisualizationContainer({
 
         // Fetch both PCA data and comments in parallel
         const [pcaDataResult, commentsResult] = await Promise.all([
-          fetchPCAData(conversation_id, pcaKeys),
-          fetchComments(conversation_id)
+          fetchPCAData(conversation_id, pcaKeys).catch((error: unknown) => {
+            reportClientFetch(error, '/api/v3/math/pca2')
+            throw error
+          }),
+          fetchComments(conversation_id).catch((error: unknown) => {
+            reportClientFetch(error, '/api/v3/comments')
+            throw error
+          })
         ])
 
         // Check if mathTick has changed (skip update if unchanged)

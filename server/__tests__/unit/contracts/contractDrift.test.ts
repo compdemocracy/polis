@@ -19,12 +19,17 @@ describe("generated contract files", () => {
 
   test("cover the server, alpha and client-report outputs", () => {
     expect(outputs.map((o) => o.path).sort()).toEqual([
+      "client-admin/src/contract/clientError.schema.json",
+      "client-participation-alpha/src/api/contract/clientError.schema.json",
       "client-participation-alpha/src/api/contract/delphiJobResult.schema.json",
       "client-participation-alpha/src/api/contract/pca2.schema.json",
       "client-participation-alpha/src/api/delphi.types.ts",
+      "client-participation/js/contract/clientError.schema.json",
+      "client-report/src/contract/clientError.schema.json",
       "client-report/src/contract/delphiJobResult.schema.json",
       "client-report/src/contract/pca2.schema.json",
       "client-report/src/contract/validate.js",
+      "server/src/contracts/clientError.schema.json",
       "server/src/contracts/delphiJobResult.schema.json",
       "server/src/contracts/pca2.schema.json",
     ]);
@@ -42,7 +47,7 @@ describe("generated contract files", () => {
   );
 
   test("every client copy of a schema is the server schema", () => {
-    for (const name of ["delphiJobResult", "pca2"]) {
+    for (const name of ["delphiJobResult", "pca2", "clientError"]) {
       const server = JSON.parse(
         fs.readFileSync(
           path.join(REPO_ROOT, `server/src/contracts/${name}.schema.json`),
@@ -69,7 +74,7 @@ describe("generated contract files", () => {
       expect(
         presentOutputs(bare).every((o) => o.path.startsWith("server/"))
       ).toBe(true);
-      expect(presentOutputs(bare)).toHaveLength(2);
+      expect(presentOutputs(bare)).toHaveLength(3);
     } finally {
       fs.rmSync(bare, { recursive: true, force: true });
     }

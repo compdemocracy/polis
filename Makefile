@@ -438,3 +438,7 @@ check-delphi-result-reads: ## Run delphi-result-reads checks
 .PHONY: check-production-import
 check-production-import: ## Run production-import checks
 	@bash ci/local/production-import.sh
+
+.PHONY: check-client-errors
+check-client-errors: ## Run client error reporting behaviour and path checks
+	@bash ci/local/client-errors.sh

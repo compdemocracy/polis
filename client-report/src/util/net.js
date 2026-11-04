@@ -1,6 +1,7 @@
 // // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import URLs from "./url";
+import { reportClientFetch } from "./clientErrors";
 
 const urlPrefix = URLs.urlPrefix;
 
@@ -68,6 +69,7 @@ function polisAjax(api, data, type, token) {
                 const data = JSON.parse(text);
                 return data;
             } catch (jsonError) {
+                if (type === 'GET' && /^api\/v3\/(?:math\/pca2|comments)(?:[?#]|$)/.test(api)) reportClientFetch(jsonError, '/' + api);
                 console.error('JSON parse error:', jsonError);
                 console.error('Failed to parse response as JSON');
                 // For non-JSON responses, return empty array to avoid breaking the app
@@ -75,6 +77,7 @@ function polisAjax(api, data, type, token) {
             }
         })
         .catch(error => {
+            if (error && error.name === "SyntaxError" && type === "GET" && /^api\/v3\/(?:math\/pca2|comments)(?:[?#]|$)/.test(api)) reportClientFetch(error, "/" + api);
             console.error("Fetch error:", error);
             // Handle fetch errors
             throw error;

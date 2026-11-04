@@ -1,3 +1,4 @@
+const clientErrorPrelude = require('../scripts/client-error-prelude.cjs');
 const { buildIdentity, BuildInfoPlugin } = require('../scripts/build-identity.cjs');
 const buildInfo = buildIdentity();
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -61,6 +62,7 @@ module.exports = {
     }),
     new HtmlWebpackPlugin({
       template: "public/index.html",
+        clientErrorPrelude: clientErrorPrelude(path.join(__dirname, 'src/util/clientErrorReporter.js'), 'report', buildInfo.commit, process.env.SERVICE_URL || '/'),
       filename: "index_report.html",
       vendorScripts: vendorGlobals.map(({ to }) => `/${to}`),
     }),
