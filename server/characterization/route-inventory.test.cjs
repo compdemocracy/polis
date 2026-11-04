@@ -123,8 +123,17 @@ test("legacy migration binds every old ID to the same method/path and selector",
     assert.equal(kept.method, old.method);
     assert.equal(kept.path, old.path);
   }
+  // New registrations can be inserted before older ones in the source. Their
+  // IDs reflect successive census updates, not their present source order.
+  const lastLegacyId = Math.max(...legacy.routes.map((r) => r.id));
+  const historicalOrder = [
+    ...current.routes.filter((r) => r.id <= lastLegacyId),
+    ...current.routes.filter((r) => r.id > lastLegacyId).sort((a, b) => a.id - b.id),
+  ];
+  const extended = migrate(legacy, historicalOrder);
+  const reordered = migrate(extended.inventory, current.routes);
   assert.deepEqual(
-    result.inventory.routes.map((r) => r.id),
+    reordered.inventory.routes.map((r) => r.id),
     current.routes.map((r) => r.id)
   );
 });

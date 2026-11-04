@@ -29,6 +29,23 @@ pub(crate) struct Writer {
     before_mutation: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 3] {
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            reads,
+            publications,
+            writes,
+            verifier: _,
+            env: _,
+            scope: _,
+            pending: _,
+            after_mutation: _,
+            before_mutation: _,
+        } = self;
+        [reads, publications, writes]
+    }
+
     pub(crate) fn set_revocations(&mut self, snapshot: Arc<polis_auth::revocation::Revocations>) {
         self.verifier.set_revocations(snapshot);
     }

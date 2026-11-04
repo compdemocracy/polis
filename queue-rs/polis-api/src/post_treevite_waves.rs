@@ -32,6 +32,17 @@ pub(crate) struct Writer {
     caps: Caps,
 }
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 2] {
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            pool,
+            auth,
+            caps: _,
+        } = self;
+        [pool, auth]
+    }
+
     pub(crate) fn from_env() -> Result<Option<Self>> {
         if std::env::var("POLIS_API_POST_TREEVITE_WAVES")
             .ok()

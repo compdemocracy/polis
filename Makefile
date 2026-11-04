@@ -347,6 +347,10 @@ check-coordinator: ## Run the coordinator verification commands
 check-job-views: ## Run job-views checks
 	@bash ci/local/job-views.sh
 
+.PHONY: check-route-census
+check-route-census: ## Compare the committed route census with source and runtime
+	bash ci/local/route-census.sh
+
 .PHONY: check-routing-recordings
 check-routing-recordings: ## Run routing-recordings checks
 	@bash ci/local/routing-recordings.sh
@@ -414,6 +418,26 @@ check-delphi-characterization: ## Run delphi-characterization checks
 .PHONY: check-server-integration
 check-server-integration: ## Run server-integration checks
 	@bash ci/local/server-integration.sh
+
+.PHONY: check-delphi-python-tests
+check-delphi-python-tests: ## Run delphi-python-tests checks
+	@bash ci/local/delphi-python-tests.sh
+
+.PHONY: check-polis-cli
+check-polis-cli: ## Run polis-cli checks
+	@bash ci/local/polis-cli.sh
+
+.PHONY: check-dynamo-writers
+check-dynamo-writers: ## Run dynamo-writers checks
+	@bash ci/local/dynamo-writers.sh
+
+.PHONY: check-delphi-result-reads
+check-delphi-result-reads: ## Run delphi-result-reads checks
+	@bash ci/local/delphi-result-reads.sh
+
+.PHONY: check-production-import
+check-production-import: ## Run production-import checks
+	@bash ci/local/production-import.sh
 
 .PHONY: check-nginx-upstreams
 check-nginx-upstreams: ## Check that production starts every nginx upstream
