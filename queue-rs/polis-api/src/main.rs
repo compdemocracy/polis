@@ -95,6 +95,7 @@ mod report_export;
 mod reports_read;
 mod robots;
 mod route;
+mod startup_routes;
 mod votes_read;
 #[allow(dead_code)]
 #[rustfmt::skip]
@@ -1845,9 +1846,11 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("bind {}", cfg.listen))?;
     eprintln!(
-        "{{\"event\":\"polis_api_listening\",\"addr\":\"{}\",\"math_env\":{:?}}}",
-        listener.local_addr()?,
-        cfg.math_env
+        "{}",
+        startup_routes::line(listener.local_addr()?, &cfg.math_env, |name| std::env::var(
+            name
+        )
+        .ok())
     );
     let handler = Arc::new(move |req: Request| dispatch(app.clone(), owner.clone(), req));
     let result = tokio::select! {
