@@ -7051,3 +7051,7 @@ mod tests {
             c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE")).unwrap();}).await.unwrap();
     }
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "startup_pools_tests.rs"]
+mod startup_pools_tests;

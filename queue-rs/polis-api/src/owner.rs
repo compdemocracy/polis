@@ -184,6 +184,17 @@ pub struct App {
     admission: Arc<Semaphore>,
 }
 impl App {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 1] {
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            pool,
+            verifier: _,
+            admission: _,
+        } = self;
+        [pool]
+    }
+
     pub fn from_env() -> Result<Option<Arc<Self>>> {
         if std::env::var("POLIS_API_OWNER_LIST").ok().as_deref() != Some("1") {
             return Ok(None);

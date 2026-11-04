@@ -17,6 +17,18 @@ pub(crate) struct Refresh {
     failures: AtomicU64,
 }
 impl Refresh {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 1] {
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            pool,
+            snapshot: _,
+            successes: _,
+            failures: _,
+        } = self;
+        [pool]
+    }
+
     pub(crate) async fn load(pool: Arc<db::Pool>) -> Result<Arc<Self>> {
         let snapshot = pool
             .with(|c| {

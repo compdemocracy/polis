@@ -751,8 +751,15 @@ async fn dispatch_at_clock(
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+struct Startup {
+    cfg: config::Config,
+    app: Arc<route::App>,
+    owner: Option<Arc<owner::App>>,
+    refresh_task: Option<tokio::task::JoinHandle<()>>,
+}
+
+// Keep startup construction in one place so tests observe the same pools as main.
+async fn startup() -> Result<Startup> {
     // The participant signing keys are required whenever a route that verifies
     // participant tokens is selected; otherwise their absence is reported on
     // the health document rather than refusing to boot (a box that routes
@@ -1842,6 +1849,22 @@ async fn main() -> Result<()> {
     let refresh_task = revocation::configure(&mut state).await?;
     let app = Arc::new(state);
     let owner = owner::App::from_env()?;
+    Ok(Startup {
+        cfg,
+        app,
+        owner,
+        refresh_task,
+    })
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let Startup {
+        cfg,
+        app,
+        owner,
+        refresh_task,
+    } = startup().await?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
         .await
         .with_context(|| format!("bind {}", cfg.listen))?;
@@ -1983,3 +2006,6 @@ mod health_tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+mod startup_wiring_tests;
