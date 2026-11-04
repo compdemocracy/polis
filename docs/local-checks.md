@@ -30,6 +30,7 @@ check. No command reduces the test selection or changes an assertion.
 | Collective statements | `make check-collective-statement-recordings` | Node 22.23.4, Python 3.12, PostgreSQL 17.11, DynamoDB Local |
 | Delphi characterization | `make check-delphi-characterization` | Node 22.23.4, Python 3.12, PostgreSQL 17.11, DynamoDB Local |
 | Routing recordings | `make check-routing-recordings` | Node 22.23.4, PostgreSQL 17.11 |
+| Route census | `make check-route-census` | Node 22.23.4, Docker; owned Compose project, three distinct ports below 49152 and server/PostgreSQL/OIDC image tags |
 | Server integration | `make check-server-integration` | Node 22.23.4, Python 3, mkcert, Docker |
 | Delphi result reads | `bash scripts/test-delphi-result-reads.sh --ci` | Node 24.22.1, pinned Rust, Docker |
 | Delphi writers | `bash scripts/test-dynamo-writers.sh` | Docker |
@@ -69,6 +70,28 @@ script's required name prefix. Before starting, verify every image name, port,
 container and output directory belongs to this run. Never reuse another run's
 project. The entrypoints refuse occupied Compose projects before registering
 cleanup. Existing scripts retain their own safety checks.
+
+The route-census target regenerates `server/characterization/inventory.json`
+with the existing extractor and prints a route summary, regeneration command and
+unified diff on any byte difference.
+It retains the recorded extraction commit while checking the source hash and
+all route fields. It then starts the characterization server and runs
+`cli.cjs coverage` against its mounted routes. Set `COMPOSE_PROJECT_NAME`,
+`POLIS_RECOVERY_PG_PORT`, `P027_HTTP_PORT`, `P027_CONTROL_PORT`,
+`P027_SERVER_IMAGE`, `P027_POSTGRES_IMAGE` and `P027_OIDC_IMAGE` as in
+`route-census.yml`, using owned names and distinct ports below 49152 on every
+platform. Readiness and database connections stay on the internal Docker network;
+any host-side database probes must use `127.0.0.1`. The target removes its Compose
+services and volumes on exit.
+
+Any edit to `server/app.ts`, even a comment, changes the census source hash or
+registration lines: after installing dependencies in `server/`, regenerate from
+the repository root with the command below and commit `inventory.json` in the
+same change.
+
+```sh
+out="$(mktemp -d)/census" && node server/characterization/route-inventory.cjs . server/characterization/inventory.json "$out" "$(git rev-parse HEAD)" && cp "$out/inventory.json" server/characterization/inventory.json
+```
 
 Recording jobs use `P027_SERVER_IMAGE`, `P027_POSTGRES_IMAGE`,
 `P027_OIDC_IMAGE`, `P027_FILE_SERVER_IMAGE`, `P027_SOURCE_COMMIT`,
