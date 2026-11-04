@@ -21,7 +21,7 @@ check. No command reduces the test selection or changes an assertion.
 | API | `make check-polis-api` | pinned Rust, Python 3, PostgreSQL 17, Docker |
 | Migration runner | `make check-polis-migrate` | Node 22.23.4, pinned Rust, Docker |
 | Job graphs | `make check-job-graphs` | Node 22.23.4, pinned Rust, Python 3, Docker |
-| CLI | `scripts/test-polis-cli.sh` | Python 3.12, pinned Rust |
+| CLI | `make check-polis-cli` | Python 3.12, pinned Rust |
 | CLI differential | `make check-polis-cli-differential` | pinned Rust, Python 3, Docker |
 | Mixed identity | `make check-mixed-identity` | Node 24.22.1, pinned Rust, Docker |
 | Identity recordings | `make check-identity-recordings` | Docker, pinned Rust, Python 3 |
@@ -32,9 +32,9 @@ check. No command reduces the test selection or changes an assertion.
 | Routing recordings | `make check-routing-recordings` | Node 22.23.4, PostgreSQL 17.11 |
 | Route census | `make check-route-census` | Node 22.23.4, Docker; owned Compose project, three distinct ports below 49152 and server/PostgreSQL/OIDC image tags |
 | Server integration | `make check-server-integration` | Node 22.23.4, Python 3, mkcert, Docker |
-| Delphi result reads | `bash scripts/test-delphi-result-reads.sh --ci` | Node 24.22.1, pinned Rust, Docker |
-| Delphi writers | `bash scripts/test-dynamo-writers.sh` | Docker |
-| Importer | `bash scripts/test-production-import.sh` | Docker, Python 3 |
+| Delphi result reads | `make check-delphi-result-reads` | Node 24.22.1, pinned Rust, Docker |
+| Delphi writers | `make check-dynamo-writers` | pinned Rust, Docker |
+| Importer | `make check-production-import` | Docker, Python 3 |
 | Dynamo removal | `make check-dynamo-removal` | Node 22.23.4, Python 3.12, pinned Rust, Docker |
 | Embeddings table | `make check-embeddings-table` | Python 3.12, pinned Rust, Docker |
 | TLS trust | `make check-tls-trust` | Python 3, Docker; Node 22.23.4 for server selection |
@@ -42,8 +42,7 @@ check. No command reduces the test selection or changes an assertion.
 | Test images | `bash ci/local/test-images.sh build --tag TAG` | Docker Buildx |
 | E2E shard | `bash ci/local/e2e.sh --shard I/6` | Docker, Node/npm, Python 3, mkcert |
 | E2E combine | `bash ci/local/e2e.sh combine DIR...` | Python 3; all six shard receipts |
-| Delphi shard | `bash ci/local/delphi-python.sh --shard I/6` | Docker, Python 3 |
-| Delphi combine | `python3 ci/tests/test_delphi_python_results.py` then `bash ci/local/delphi-python.sh combine DIR...` | Python 3; all six shard receipts |
+| Delphi Python tests: images, six shards, combine | `make check-delphi-python-tests` | Docker Buildx, Python 3 |
 
 The unchanged golden guards remain separate jobs: invoke
 `sh ci/vote_path_golden_guard.sh BASE` and
@@ -108,7 +107,17 @@ CLI differential needs
 its `CLI_DIFF_*_IMAGE` variables and an independent `SETUP_ADMISSION_PROJECT`.
 Mixed identity uses all six `MIXED_*_PORT` / `POLIS_MIXED_WORKER_PORT` values.
 Result reads uses `RESULT_READS_PROJECT`, `RESULT_READS_PG_PORT` and
-`RESULT_READS_DYNAMO_PORT`. Refer to the existing script's usage for each.
+`RESULT_READS_DYNAMO_PORT`. Delphi writers needs a `polis-graph-test-` project
+and the importer a `polis-import-test-` project, each with
+`POLIS_RECOVERY_PG_PORT`. Their proof logs go to `.ci-out/<project>`, which
+must not exist yet: a rerun needs a new project or that directory removed.
+Result reads and Delphi writers refuse to start while a container (or, for
+the writers, the cargo volume) that their launchers create and remove already
+exists. The writers target removes the cargo volume it created and fails if
+Docker cannot confirm the volume is gone. These checks belong to the make
+targets: the launcher scripts called directly, as the hosted workflows call
+them, still remove those container names whoever created them. Refer to the
+existing script's usage for each.
 
 Set `OUT` and `VOTE_GATE_PG_PORT` for the two-convention gate. Its advisory v1
 comparison may fail, just as the hosted step has `continue-on-error`; the v0
@@ -126,10 +135,44 @@ the same HTTP request. No cloud account is needed.
 
 For E2E use an exclusive host with the fixed stack ports free. Set
 `E2E_CHECK_PROJECT` and `E2E_CHECK_OUT` per shard, and leave `E2E_CHECK_KEEP`
-unset so each owned stack is removed. Delphi shards use `DELPHI_CHECK_PROJECT`
-and `DELPHI_CHECK_OUT`; leave `DELPHI_CHECK_KEEP` unset. Build or load the
-exact pinned images first and set `POLIS_TEST_IMAGES` to the owned image tag.
-Combine only complete six-shard receipts; a missing shard is a failed check.
+unset so each owned stack is removed. Build or load the exact pinned images
+first and set `POLIS_TEST_IMAGES` to the owned image tag. Combine only
+complete six-shard receipts; a missing shard is a failed check.
+
+The Delphi target runs the workflow's eight jobs in order. It builds the
+postgres and delphi images as `polis-test-*:$COMPOSE_PROJECT_NAME`, runs every
+shard from them as project `$COMPOSE_PROJECT_NAME-shard-I`, and combines only
+when all six shard processes exited 0. Results go to
+`.ci-out/$COMPOSE_PROJECT_NAME`. Set `DELPHI_PYTHON_LEG` (`images`, `shard-1`
+to `shard-6`, `combine`) to run one job. A job run on its own also needs
+`DELPHI_PYTHON_RUN`, a run name chosen new for every run; the jobs of one run
+share it and `COMPOSE_PROJECT_NAME`. The full run makes and prints one when it
+is unset. The `images` job starts the run: it first removes every receipt of
+the previous one, and records the run, the source identity and the image ids
+only after its build succeeds. A shard job first removes its own receipt and
+runs only against its run's images and an unchanged source, so it can be
+retried within the run; any source change needs a new run. The combine
+accepts only six shard receipts of the run it is asked for, with one source
+and one image build, so receipts that a new run could not remove are refused.
+If the source identity or the image ids cannot be read, the job fails. Leave
+`DELPHI_CHECK_KEEP` unset.
+
+`python3 ci/tests/test_local_entry_points.py` tests these entry points'
+refusals, receipts and cleanup with stub executables; it needs no Docker. No
+hosted job runs it yet.
+
+These targets keep their own results under `.ci-out`, but some of what the
+suites they run write is not confined there:
+- crate targets (`queue-rs/target`, `polis-cli/target`) and
+  `server/node_modules`, because the launchers run
+  `queue-rs/target/debug/polis-migrate` and install with `npm ci`; result
+  reads skips `npm ci` when `server/node_modules` already exists;
+- the importer's launcher-mount test (`scripts/test-import-launcher-mounts.py`),
+  which makes its own temporary directory and UUID-named Docker resources
+  outside the caller's project, and removes them when it ends;
+- host caches, which follow `CARGO_HOME`, `npm_config_cache` and
+  `UV_CACHE_DIR`.
+Run them from a disposable checkout with owned cache locations.
 
 The coordinator workflow deliberately keeps its literal inline work steps:
 its existing required-job control asserts those commands. The matching local
