@@ -21,7 +21,27 @@ async fn whole_generations_cache_and_locations_are_isolated_and_bounded() {
     let pool = make();
     let participation = make();
     let cache = Cache::new(true);
-    let cold = cache.get(&pool, 1, "a").await.unwrap();
+    let mut previous = None;
+    let mut stored = (0.0, 0.0);
+    let cold = wait_for_generation(
+        &cache,
+        &pool,
+        "a",
+        "a reused whole generation",
+        |read, started, finished| {
+            assert!(matches!(read.as_ref(), Read::Complete(b) if b.tick == 0));
+            let reused = previous
+                .as_ref()
+                .is_some_and(|last| std::sync::Arc::ptr_eq(last, read));
+            if !reused {
+                // A new whole generation is read and stored only during this call.
+                stored = (started, finished);
+            }
+            previous = Some(read.clone());
+            reused
+        },
+    )
+    .await;
     let Read::Complete(b) = cold.as_ref() else {
         panic!("coherent zero generation");
     };
@@ -31,10 +51,11 @@ async fn whole_generations_cache_and_locations_are_isolated_and_bounded() {
     assert_eq!(b.bid(9), None);
     assert_eq!(b.pids(0), Some(vec![0]));
     assert!(b.pids(-1).unwrap().is_empty());
-    assert!(matches!(
-        cache.get(&pool, 1, "other").await.unwrap().as_ref(),
-        Read::Absent
-    ));
+    wait_for_generation(&cache, &pool, "other", "Absent", |read, _, _| {
+        assert!(matches!(read.as_ref(), Read::Absent));
+        true
+    })
+    .await;
     let locations = pool.with(|c| locations(c, 1, &[0])).await.unwrap().unwrap();
     assert_eq!(locations.len(), 1);
     assert_eq!(locations[0].lng.get(), 1e21);
@@ -62,7 +83,6 @@ async fn whole_generations_cache_and_locations_are_isolated_and_bounded() {
     })
     .await
     .unwrap();
-    assert_eq!(cache.get(&pool, 1, "a").await.unwrap().tick(), 0);
     assert!(matches!(
         pool.with(|c| math_bundle::read(c, 1, "a"))
             .await
@@ -70,12 +90,38 @@ async fn whole_generations_cache_and_locations_are_isolated_and_bounded() {
             .unwrap(),
         Read::Incoherent(1)
     ));
-    // The source uses wall-clock expiry; exercise the actual three-second boundary.
-    tokio::time::sleep(std::time::Duration::from_millis(3001)).await;
-    assert!(matches!(
-        cache.get(&pool, 1, "a").await.unwrap().as_ref(),
-        Read::Incoherent(1)
-    ));
+    // Setup may already have outlasted the cached generation. Observe its
+    // replacement instead of assuming a fixed sleep makes a refresh succeed.
+    // Each read is bracketed by the cache's own clock, so load moves neither
+    // three-second bound: no replacement before, no stored generation after.
+    wait_for_generation(
+        &cache,
+        &pool,
+        "a",
+        "Incoherent(1)",
+        |read, started, finished| match read.as_ref() {
+            Read::Incoherent(1) => {
+                assert!(
+                    finished >= stored.0 + 3000.0,
+                    "replaced before three seconds: stored {stored:?}, read {started}..{finished}"
+                );
+                true
+            }
+            Read::Complete(_) => {
+                assert!(
+                    std::sync::Arc::ptr_eq(read, &cold),
+                    "only the original whole generation may remain before expiry: {read:?}"
+                );
+                assert!(
+                    started < stored.1 + 3000.0,
+                    "served after three seconds: stored {stored:?}, read {started}..{finished}"
+                );
+                false
+            }
+            other => panic!("unexpected replacement generation: {other:?}"),
+        },
+    )
+    .await;
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
     let lock_url = url.clone();
@@ -126,4 +172,42 @@ async fn whole_generations_cache_and_locations_are_isolated_and_bounded() {
     })
     .await
     .unwrap();
+}
+
+// A cache miss uses the real bounded pool. Retry only a confirmed database
+// failure; unexpected data must still fail the caller's assertions immediately.
+async fn wait_for_generation(
+    cache: &Cache,
+    pool: &std::sync::Arc<crate::db::Pool>,
+    environment: &str,
+    expected: &str,
+    mut accept: impl FnMut(&std::sync::Arc<Read>, f64, f64) -> bool,
+) -> std::sync::Arc<Read> {
+    let mut unavailable = 0;
+    let observed = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let before = pool.evidence.snapshot();
+            let started = crate::clock::now_ms();
+            match cache.get(pool, 1, environment).await {
+                Some(read) if accept(&read, started, crate::clock::now_ms()) => break read,
+                Some(_) => {}
+                None => {
+                    let after = pool.evidence.snapshot();
+                    assert!(
+                        after[2] > before[2] || after[4] > before[4],
+                        "refresh lost a generation without a database failure: {before:?} -> {after:?}"
+                    );
+                    unavailable += 1;
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    observed.unwrap_or_else(|_| {
+        panic!(
+            "cache never exposed {expected}; unavailable attempts: {unavailable}; pool: {:?}",
+            pool.evidence.snapshot()
+        )
+    })
 }
