@@ -548,6 +548,7 @@ mod tests {
             listen: String::new(),
             math_env: "test".into(),
             cache_size: 10,
+            pca_cache_size: 10,
             dev_mode: true,
             use_network_host: false,
             production: true,
