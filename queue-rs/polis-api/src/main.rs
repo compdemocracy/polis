@@ -1899,6 +1899,7 @@ mod health_tests {
             listen: String::new(),
             math_env: "python".into(),
             cache_size: 1,
+            pca_cache_size: 1,
             dev_mode: false,
             use_network_host: false,
             production: true,

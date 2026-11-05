@@ -271,6 +271,7 @@ fn recorded_votes_pin_node_differences_or_pre_mutation_handoff() {
         listen: String::new(),
         math_env: "p027".into(),
         cache_size: 300,
+        pca_cache_size: 300,
         dev_mode: false,
         use_network_host: false,
         production: true,
