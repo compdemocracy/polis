@@ -416,8 +416,10 @@ pin. Only ancestry and attribution traversal use the resolved commit. A callback
 whose recorded hash differs at that history anchor remains unattributed; rebase
 context or whitespace differences cannot silently disappear through the mapping.
 
-The census preserves registration/verb identities, ordered callbacks and global
-middleware. A changed callback is attributed only when both runtime hashes match
+The census preserves ordered callbacks and global middleware. Accounting matches
+routes by method, path and occurrence within that pair, refusing attribution if a
+pair present in both censuses has different occurrence counts.
+A changed callback is attributed only when both runtime hashes match
 one named function in the old and new TypeScript output. Its parent/commit hash
 transitions are listed from Git history, without executing historical application
 code. Anonymous/dependency wrappers, ambiguous function identities and unavailable
