@@ -154,6 +154,18 @@ replaced), `POLIS_API_LISTEN`
 (`127.0.0.1:5100`; the image uses `0.0.0.0:5100`). `GET /health` reports
 database reachability and counts; it is not routed by nginx.
 
+`POLIS_API_PCA_CACHE_ENTRIES` sets the per-process capacity of each PCA math
+and presentation cache (default 300; a positive integer). Blank uses the
+default; invalid values prevent startup. `CACHE_MATH_RESULTS=false` keeps
+both at one entry regardless of that setting. Other route caches retain
+their existing capacities. This is an entry-count limit, not a byte limit;
+large conversations use more memory, and entries leave through LRU eviction.
+The cache keeps only the latest generation per conversation and math
+environment. It ignores cache-busting query parameters. After three seconds,
+a reusable row is checked against its committed `math_tick`; an unchanged
+generation renews freshness while sharing the parsed body and gzip bytes.
+No-row templates and clock-dependent rows are rebuilt after expiry.
+
 A pool slot belongs to the database operation, not to the request waiting
 for it: a request that is abandoned (its 30-second deadline, a dropped
 connection) keeps its slot until the statement or connect has really ended,

@@ -1,8 +1,7 @@
 //! The math read behind the route: `getPca`, `processMathObject`,
 //! `ensureCompletePcaStructure` and `presentPca` from the Node server
 //! (`server/src/utils/pca.ts`, `server/src/utils/pcaPresentation.ts`),
-//! including their 3-second caches, so the same request sequence issues the
-//! same reads and serves the same bytes.
+//! including their 3-second freshness windows and committed-generation reuse.
 
 use crate::lru::Lru;
 use crate::{
@@ -19,19 +18,28 @@ use std::{
 
 /// One cache entry: the engine-facing structure and its stored gzip body
 /// (`PcaCacheItem.asPOJO` and `asBufferOfGzippedJson`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PcaItem {
-    pub pojo: Obj,
-    pub gzip: Vec<u8>,
+    pub pojo: Arc<Obj>,
+    pub gzip: Arc<[u8]>,
     pub expiration: f64,
     /// The empty presentation made up for a conversation with no row. It has
     /// no generation, so the route gives it no generation tag.
     pub synthesized: bool,
+    reusable: bool,
 }
 
 impl PcaItem {
     pub fn math_tick(&self) -> f64 {
         self.pojo.get("math_tick").map_or(f64::NAN, js_number)
+    }
+}
+
+fn answer(item: Arc<PcaItem>, requested_tick: f64) -> Option<Arc<PcaItem>> {
+    if requested_tick == -1.0 || item.math_tick() > requested_tick {
+        Some(item)
+    } else {
+        None
     }
 }
 
@@ -68,7 +76,7 @@ const TTL_MS: f64 = 3000.0;
 
 tokio::task_local! {
     /// The first math-cache outcome of the request being served, for the
-    /// access log: "hit", "miss", or "none" when the math was not read.
+    /// access log: "hit", "revalidated", "miss", or "none" when math was not read.
     pub static CACHE_OUTCOME: std::cell::Cell<&'static str>;
 }
 
@@ -121,16 +129,33 @@ impl Pca {
     /// Node's `undefined` ("nothing newer than that").
     pub async fn get_pca(&self, zid: i32, math_tick: f64) -> Result<Option<Arc<PcaItem>>> {
         let cached = lock(&self.cache)?.get(&zid);
-        if let Some(item) = cached.filter(|c| c.expiration > now_ms()) {
+        if let Some(item) = cached.as_ref().filter(|c| c.expiration > now_ms()) {
             record_cache("hit");
-            if math_tick == -1.0 {
-                return Ok(Some(item));
+            return Ok(answer(item.clone(), math_tick));
+        }
+        if let Some(item) = cached.filter(|c| c.reusable) {
+            let env = self.math_env.clone();
+            let tick = self
+                .db
+                .with(move |c| db::math_main_tick(c, zid, &env))
+                .await?;
+            if tick.is_some_and(|t| t as f64 == item.math_tick()) {
+                let mut cache = lock(&self.cache)?;
+                // Do not replace an entry published while the read was in flight.
+                if cache
+                    .get(&zid)
+                    .is_some_and(|current| Arc::ptr_eq(&current, &item))
+                {
+                    // Only the freshness metadata changes. Both body allocations
+                    // are shared, so renewing under the lock does not copy them.
+                    let mut renewed = (*item).clone();
+                    renewed.expiration = now_ms() + TTL_MS;
+                    let renewed = Arc::new(renewed);
+                    cache.set(zid, renewed.clone());
+                    record_cache("revalidated");
+                    return Ok(answer(renewed, math_tick));
+                }
             }
-            // Only a generation newer than the one asked about is an answer.
-            if item.math_tick() <= math_tick {
-                return Ok(None);
-            }
-            return Ok(Some(item));
         }
         record_cache("miss");
         let env = self.math_env.clone();
@@ -139,7 +164,7 @@ impl Pca {
             if math_tick == -1.0 {
                 // No row at all: the empty presentation, so reports render.
                 let pojo = ensure_complete(None, now_ms());
-                return Ok(Some(self.store(zid, pojo, true)?));
+                return Ok(Some(self.store(zid, pojo, true, false)?));
             }
             return Ok(None);
         };
@@ -152,26 +177,38 @@ impl Pca {
         // The column is authoritative, including a committed tick of 0.
         let tick = row.math_tick as f64;
         item.set("math_tick", Js::Num(tick));
-        if tick <= math_tick {
+        if tick <= -1.0 && tick <= math_tick {
             return Ok(None);
         }
+        // Match Node's exclusion of clock-derived templates from row reuse.
+        let reusable = tick >= 0.0
+            && item
+                .get("lastVoteTimestamp")
+                .is_some_and(|v| matches!(v, Js::Num(_)) || v.truthy());
         let mut item = std::mem::take(item);
         process_math_object(&mut item)?;
         let mut pojo = ensure_complete(Some(item), now_ms());
         // `Object.assign(data, {zid})` then `delete item.zid`: never served.
         pojo.remove("zid");
-        Ok(Some(self.store(zid, pojo, false)?))
+        Ok(answer(self.store(zid, pojo, false, reusable)?, math_tick))
     }
 
     /// `updatePcaCache`.
-    fn store(&self, zid: i32, pojo: Obj, synthesized: bool) -> Result<Arc<PcaItem>> {
+    fn store(
+        &self,
+        zid: i32,
+        pojo: Obj,
+        synthesized: bool,
+        reusable: bool,
+    ) -> Result<Arc<PcaItem>> {
         let json = js::stringify(&Js::Obj(pojo.clone()));
         let gzip = compress::gzip(json.as_bytes())?;
         let item = Arc::new(PcaItem {
-            pojo,
-            gzip,
+            pojo: Arc::new(pojo),
+            gzip: gzip.into(),
             expiration: now_ms() + TTL_MS,
             synthesized,
+            reusable,
         });
         lock(&self.cache)?.set(zid, item.clone());
         Ok(item)
@@ -212,7 +249,7 @@ impl Pca {
         } else {
             Vec::new()
         };
-        let mut pojo = item.pojo.clone();
+        let mut pojo = (*item.pojo).clone();
         let mut pca = pca.clone();
         if fill_center {
             pca.set("center", Js::Arr(vec![Js::Num(0.0), Js::Num(0.0)]));
@@ -238,10 +275,11 @@ impl Pca {
         }
         let json = js::stringify(&Js::Obj(pojo.clone()));
         let presented = Arc::new(PcaItem {
-            pojo,
-            gzip: compress::gzip(json.as_bytes())?,
+            pojo: Arc::new(pojo),
+            gzip: compress::gzip(json.as_bytes())?.into(),
             expiration: item.expiration,
             synthesized: item.synthesized,
+            reusable: item.reusable,
         });
         lock(&self.presentations)?.set(
             zid,
@@ -545,5 +583,289 @@ mod tests {
             out.ends_with(r#""math_tick":3,"meta-tids":[5],"mod-in":[],"mod-out":[]}"#),
             "{out}"
         );
+    }
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn no_row_template_never_hides_the_first_generation_at_tick_zero() {
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("pca_first_generation_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; SET search_path={setup_schema};
+                 CREATE TABLE math_main(zid integer, math_env text, math_tick bigint, data jsonb);"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let mut cfg: postgres::Config = url.parse().unwrap();
+        cfg.options(&format!("-c search_path={schema}"));
+        let db = db::Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(cfg)),
+            db::Limits {
+                size: 1,
+                acquire_timeout: std::time::Duration::from_millis(500),
+                statement_timeout: std::time::Duration::from_millis(300),
+                max_lifetime: std::time::Duration::from_secs(60),
+            },
+        );
+        let pca = Pca::new(db.clone(), "a".into(), 300);
+        let expire = || {
+            let mut cache = lock(&pca.cache).unwrap();
+            let mut item = (*cache.get(&1).unwrap()).clone();
+            item.expiration = 0.0;
+            cache.set(1, Arc::new(item));
+        };
+        let empty = pca.get_pca(1, -1.0).await.unwrap().unwrap();
+        assert!(empty.synthesized);
+        assert_eq!(empty.math_tick(), 0.0);
+        expire();
+        let (still_empty, outcome) = CACHE_OUTCOME
+            .scope(std::cell::Cell::new("none"), async {
+                let item = pca.get_pca(1, -1.0).await.unwrap().unwrap();
+                (item, CACHE_OUTCOME.with(|c| c.get()))
+            })
+            .await;
+        assert!(still_empty.synthesized);
+        assert_eq!(outcome, "miss");
+        let insert_url = url.clone();
+        let insert_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&insert_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "INSERT INTO {insert_schema}.math_main VALUES
+                 (1,'a',0,'{{\"lastVoteTimestamp\":0,\"n\":2,\"tids\":[7],\"n-cmts\":1}}');"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        expire();
+        let (first, outcome) = CACHE_OUTCOME
+            .scope(std::cell::Cell::new("none"), async {
+                let item = pca.get_pca(1, -1.0).await.unwrap().unwrap();
+                (item, CACHE_OUTCOME.with(|c| c.get()))
+            })
+            .await;
+        assert_eq!(outcome, "miss");
+        assert!(!first.synthesized);
+        assert_eq!(first.math_tick(), 0.0);
+        assert!(matches!(first.pojo.get("n"), Some(Js::Num(2.0))));
+        assert_ne!(first.gzip, empty.gzip);
+        let cold = Pca::new(db, "a".into(), 1)
+            .get_pca(1, -1.0)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.gzip, cold.gzip);
+        expire();
+        let (renewed, outcome) = CACHE_OUTCOME
+            .scope(std::cell::Cell::new("none"), async {
+                let item = pca.get_pca(1, -1.0).await.unwrap().unwrap();
+                (item, CACHE_OUTCOME.with(|c| c.get()))
+            })
+            .await;
+        assert_eq!(outcome, "revalidated");
+        assert_eq!(renewed.gzip, first.gzip);
+        assert!(pca.get_pca(1, 0.0).await.unwrap().is_none());
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+
+    #[cfg(feature = "db-tests")]
+    #[tokio::test]
+    async fn expired_generations_revalidate_without_rebuilding_and_detect_changes() {
+        let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+        let schema = format!("pca_reuse_{}", std::process::id());
+        let setup_url = url.clone();
+        let setup_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&setup_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "CREATE SCHEMA {setup_schema}; SET search_path={setup_schema};
+                CREATE TABLE math_main(zid integer, math_env text, math_tick bigint, data jsonb);
+                INSERT INTO math_main VALUES(1,'a',0,'{{\"lastVoteTimestamp\":123,\"n\":2}}'),
+                    (2,'a',0,'{{\"n\":3}}'), (1,'b',8,'{{\"lastVoteTimestamp\":123,\"n\":4}}');"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        let mut cfg: postgres::Config = url.parse().unwrap();
+        cfg.options(&format!("-c search_path={schema}"));
+        let db = db::Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(cfg)),
+            db::Limits {
+                size: 2,
+                acquire_timeout: std::time::Duration::from_millis(500),
+                statement_timeout: std::time::Duration::from_millis(300),
+                max_lifetime: std::time::Duration::from_secs(60),
+            },
+        );
+        let pca = Pca::new(db.clone(), "a".into(), 300);
+        let expire = |zid| {
+            let mut c = lock(&pca.cache).unwrap();
+            let mut item = (*c.get(&zid).unwrap()).clone();
+            item.expiration = 0.0;
+            c.set(zid, Arc::new(item));
+        };
+        // Even an up-to-date client leaves the committed row reusable.
+        assert!(pca.get_pca(1, 0.0).await.unwrap().is_none());
+        let first = pca.get_pca(1, -1.0).await.unwrap().unwrap();
+        expire(1);
+        let revalidation_started = now_ms();
+        let (renewed, outcome) = CACHE_OUTCOME
+            .scope(std::cell::Cell::new("none"), async {
+                let row = pca.get_pca(1, -1.0).await.unwrap().unwrap();
+                (row, CACHE_OUTCOME.with(|c| c.get()))
+            })
+            .await;
+        assert_eq!(outcome, "revalidated");
+        assert_eq!(first.gzip, renewed.gzip);
+        assert_eq!(
+            js::stringify(&Js::Obj((*first.pojo).clone())),
+            js::stringify(&Js::Obj((*renewed.pojo).clone()))
+        );
+        assert!(Arc::ptr_eq(&first.pojo, &renewed.pojo));
+        assert!(Arc::ptr_eq(&first.gzip, &renewed.gzip));
+        assert!(!Arc::ptr_eq(&first, &renewed));
+        assert!(renewed.expiration >= revalidation_started + TTL_MS);
+        assert!(renewed.expiration <= now_ms() + TTL_MS);
+        assert_eq!(
+            Pca::new(db, "b".into(), 300)
+                .get_pca(1, -1.0)
+                .await
+                .unwrap()
+                .unwrap()
+                .math_tick(),
+            8.0
+        );
+        let unstable = pca.get_pca(2, -1.0).await.unwrap().unwrap();
+        assert!(!unstable.reusable);
+        let mutate_url = url.clone();
+        let mutate_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&mutate_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "UPDATE {mutate_schema}.math_main \
+                 SET math_tick=1,data='{{\"lastVoteTimestamp\":124,\"n\":9}}' \
+                 WHERE zid=1 AND math_env='a'"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        expire(1);
+        let next = pca.get_pca(1, 0.0).await.unwrap().unwrap();
+        assert_eq!(next.math_tick(), 1.0);
+        assert_ne!(next.gzip, first.gzip);
+        let delete_url = url.clone();
+        let delete_schema = schema.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&delete_url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!(
+                "DELETE FROM {delete_schema}.math_main WHERE zid=1 AND math_env='a'"
+            ))
+            .unwrap();
+        })
+        .await
+        .unwrap();
+        expire(1);
+        assert!(pca.get_pca(1, -1.0).await.unwrap().unwrap().synthesized);
+        tokio::task::spawn_blocking(move || {
+            let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+            c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+                .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    #[test]
+    fn app_uses_the_dedicated_pca_cache_capacity() {
+        use crate::{config::Config, route::App};
+        use std::time::Duration;
+
+        let cfg = Config {
+            listen: String::new(),
+            math_env: "a".into(),
+            cache_size: 300,
+            pca_cache_size: 2,
+            dev_mode: false,
+            use_network_host: false,
+            production: true,
+            pool: db::Limits {
+                size: 1,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(100),
+                max_lifetime: Duration::from_secs(60),
+            },
+        };
+        let pg = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
+        let db = db::Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(pg)),
+            cfg.pool.clone(),
+        );
+        let app = App::new(&cfg, db);
+        for zid in 1..=3 {
+            let item = app.pca.store(zid, Obj::new(), false, true).unwrap();
+            lock(&app.pca.presentations).unwrap().set(
+                zid,
+                Presentation {
+                    source: item.clone(),
+                    presented: item,
+                    expiration: 0.0,
+                },
+            );
+        }
+        let mut cache = lock(&app.pca.cache).unwrap();
+        assert!(cache.get(&1).is_none(), "PCA must use its own capacity");
+        assert!(cache.get(&2).is_some());
+        assert!(cache.get(&3).is_some());
+        let mut presentations = lock(&app.pca.presentations).unwrap();
+        assert!(presentations.get(&1).is_none());
+        assert!(presentations.get(&2).is_some());
+        assert!(presentations.get(&3).is_some());
+    }
+
+    #[test]
+    fn retained_generations_have_a_per_process_conversation_bound() {
+        let cfg = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
+        let db = db::Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(cfg)),
+            db::Limits {
+                size: 1,
+                acquire_timeout: std::time::Duration::from_millis(100),
+                statement_timeout: std::time::Duration::from_millis(100),
+                max_lifetime: std::time::Duration::from_secs(60),
+            },
+        );
+        for capacity in [300_usize, 17, 1] {
+            let pca = Pca::new(db.clone(), "a".into(), capacity);
+            for zid in 0..=capacity as i32 {
+                let item = pca.store(zid, Obj::new(), false, true).unwrap();
+                lock(&pca.presentations).unwrap().set(
+                    zid,
+                    Presentation {
+                        source: item.clone(),
+                        presented: item,
+                        expiration: 0.0,
+                    },
+                );
+            }
+            let mut cache = lock(&pca.cache).unwrap();
+            assert!(cache.get(&0).is_none());
+            assert!(cache.get(&(capacity as i32)).is_some());
+            let mut presentations = lock(&pca.presentations).unwrap();
+            assert!(presentations.get(&0).is_none());
+            assert!(presentations.get(&(capacity as i32)).is_some());
+        }
     }
 }

@@ -14,6 +14,8 @@ pub struct Config {
     pub math_env: String,
     /// `CACHE_MATH_RESULTS`: 300-entry caches when true or blank, else 1.
     pub cache_size: usize,
+    /// Per-process PCA math and presentation cache capacities.
+    pub pca_cache_size: usize,
     pub dev_mode: bool,
     pub use_network_host: bool,
     pub production: bool,
@@ -34,6 +36,21 @@ pub fn is_true(value: Option<&str>) -> bool {
 
 fn env(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
+}
+
+fn pca_cache_size(cache: Option<&str>, capacity: Option<&str>) -> Result<usize> {
+    let capacity = match capacity.filter(|v| !v.is_empty()) {
+        Some(v) => v.parse::<usize>().context("POLIS_API_PCA_CACHE_ENTRIES")?,
+        None => 300,
+    };
+    if capacity == 0 {
+        bail!("POLIS_API_PCA_CACHE_ENTRIES must be positive");
+    }
+    Ok(if cache.is_none_or(str::is_empty) || is_true(cache) {
+        capacity
+    } else {
+        1
+    })
 }
 
 impl Config {
@@ -62,6 +79,10 @@ impl Config {
         } else {
             1
         };
+        let pca_cache_size = pca_cache_size(
+            cache.as_deref(),
+            env("POLIS_API_PCA_CACHE_ENTRIES").as_deref(),
+        )?;
         let pool_size = match env("POLIS_API_DB_POOL") {
             Some(v) => v.parse().context("POLIS_API_DB_POOL")?,
             None => 8,
@@ -79,6 +100,7 @@ impl Config {
             listen: env("POLIS_API_LISTEN").unwrap_or_else(|| "127.0.0.1:5100".into()),
             math_env,
             cache_size,
+            pca_cache_size,
             dev_mode: is_true(std::env::var("DEV_MODE").ok().as_deref()),
             use_network_host: is_true(std::env::var("USE_NETWORK_HOST").ok().as_deref()),
             production: std::env::var("NODE_ENV").ok().as_deref() == Some("production"),
@@ -181,6 +203,23 @@ fn docker_internal(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pca_capacity_defaults_overrides_and_disabled_cache() {
+        for cache in [None, Some(""), Some("true"), Some("yes")] {
+            assert_eq!(pca_cache_size(cache, None).unwrap(), 300);
+            assert_eq!(pca_cache_size(cache, Some("")).unwrap(), 300);
+            assert_eq!(pca_cache_size(cache, Some("17")).unwrap(), 17);
+            assert_eq!(pca_cache_size(cache, Some("1")).unwrap(), 1);
+        }
+        for cache in ["false", "0", "no"] {
+            assert_eq!(pca_cache_size(Some(cache), None).unwrap(), 1);
+            assert_eq!(pca_cache_size(Some(cache), Some("17")).unwrap(), 1);
+        }
+        for invalid in ["0", "-1", "1.5", "invalid", "18446744073709551616"] {
+            assert!(pca_cache_size(None, Some(invalid)).is_err(), "{invalid}");
+        }
+    }
 
     #[test]
     fn truthiness_matches_the_boolean_package() {

@@ -54,6 +54,7 @@ fn setup_with_statement_timeout(db: &Database, statement_timeout: Duration) -> (
         listen: String::new(),
         math_env: "test".into(),
         cache_size: 10,
+        pca_cache_size: 10,
         dev_mode: false,
         use_network_host: false,
         production: true,
