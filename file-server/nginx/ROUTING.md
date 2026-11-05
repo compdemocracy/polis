@@ -3,12 +3,14 @@
 Order matters: exact document locations, existing Rust route selections,
 application locations, static locations, then the local 404. The alpha
 prefixes retain their existing upstream and rewrite. Rust switches retain
-their method/body gates, timeouts and per-route fallback behavior. With an
-empty `RUST_API_ROUTES`, all application entries below use Node.
+their method and body conditions, timeouts and per-route fallback behavior.
+With an empty `RUST_API_ROUTES`, all application entries below use Node.
 
-“File-server” means the same final destination as before, with the application
-proxy hop removed. It still owns file bytes, header sidecars, ranges and
-conditional responses. This change does not retire registered pages or APIs.
+“File-server” rows reach Node, which forwards the unchanged path to
+`STATIC_FILES_HOST`: the file-server container in development, the static
+asset origin in production, where the web boxes run no file-server. That
+origin owns file bytes, header sidecars, ranges and conditional responses.
+This change does not retire registered pages or APIs.
 Paths proposed for retirement are listed here too because those registrations
 still exist in this source tree.
 
@@ -44,7 +46,7 @@ still exist in this source tree.
 | `/report_bundle*.js`, `/report_style*.css`, `/report_vendor_*.js`, including `.map`, `.gz`, `.LICENSE.txt`, `.headersJson` companions | File-server; includes report libraries loaded as browser globals |
 | `/static/*` | Node, which serves them from `STATIC_FILES_HOST`; admin bundles, maps and versioned font CSS/font files |
 | `/js/*`, `/css/*`, `/assets/*`, `/images/*`, `/fonts/*` | Node, which serves them from `STATIC_FILES_HOST`; participation bundles/styles, JWT library, images and Font Awesome |
-| `/twemoji/*` | File-server; versioned emoji images |
+| `/twemoji/*` | Node, which serves them from `STATIC_FILES_HOST`; versioned emoji images and their licence |
 | `/{admin,participation,report}/build-info.json` and header sidecars | File-server |
 | `/index.html`, `/index_admin.html`, `/index_report.html`, `/404.html`, `/embed.html`, `/embedPreprod.html`, `/embedReport.html`, `/embedReportPreprod.html` and header sidecars | File-server; exact `/404.html` takes precedence over numeric conversation regexes |
 | `/favicon.ico`, `/bg_collective.png`, `/bg_map.png`, `/export_links.png`, `/bg2050.png`, `/bg2050_fr.png`, `/beeswarm.png`, `/collective.png` and header sidecars | File-server |
