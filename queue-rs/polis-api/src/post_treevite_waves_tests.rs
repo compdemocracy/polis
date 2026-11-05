@@ -79,7 +79,10 @@ mod database {
                 config,
                 name,
             };
-            let mut c = f.connect();
+            // Schema creation is test setup, not a request through the writer
+            // pool. Concurrent database/DDL work on CI can exceed its 500 ms
+            // statement budget before the lock-order test has even started.
+            let mut c = f.long_timeout_connect();
             c.batch_execute("create table users(uid int primary key,site_id text); create table conversations(zid int primary key,owner int,participant_count int default 0); create table participants(zid int,pid int,uid int, primary key(zid,pid)); insert into users values(1,'a'),(2,'a'),(3,'b'); insert into conversations(zid,owner) values(1,1),(2,1),(3,3); insert into participants values(1,0,3),(1,1,3);").unwrap();
             c.batch_execute(include_str!(
                 "../../../server/postgres/migrations/000013_create_treevite.sql"
@@ -90,6 +93,16 @@ mod database {
         fn connect(&self) -> Client {
             let mut c = self.config.connect(postgres::NoTls).unwrap();
             c.batch_execute("set statement_timeout=500; set lock_timeout=100")
+                .unwrap();
+            c
+        }
+        fn long_timeout_connect(&self) -> Client {
+            let mut c = self.config.connect(postgres::NoTls).unwrap();
+            // Test-only statement and lock timeouts (30 s / 10 s), not the
+            // serving settings: for setup DDL and for correctness probes that
+            // park transactions until the observer sees a lock wait. connect()
+            // and the real writer pool keep the short serving timeouts.
+            c.batch_execute("set statement_timeout=30000; set lock_timeout=10000")
                 .unwrap();
             c
         }
@@ -560,54 +573,89 @@ mod database {
         );
     }
 
-    #[test]
-    fn concurrent_creates_and_owner_budget_are_serialized() {
-        let f = Fixture::new();
-        let gate = Arc::new(std::sync::Barrier::new(2));
-        let handles = (0..2)
-            .map(|_| {
-                let mut c = f.connect();
-                let gate = gate.clone();
+    fn concurrent_creates(
+        f: &Fixture,
+        requests: Vec<(i32, Fields, Caps)>,
+    ) -> Vec<std::result::Result<Response, ErrorCode>> {
+        let mut observer = f.long_timeout_connect();
+        observer.batch_execute("begin; select pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:owner-codes',1)::text,0))").unwrap();
+        let holder: i32 = observer
+            .query_one("select pg_backend_pid()", &[])
+            .unwrap()
+            .get(0);
+        let mut pids = Vec::new();
+        let handles = requests
+            .into_iter()
+            .map(|(zid, fields, caps)| {
+                let mut c = f.long_timeout_connect();
+                pids.push(
+                    c.query_one("select pg_backend_pid()", &[])
+                        .unwrap()
+                        .get::<_, i32>(0),
+                );
                 std::thread::spawn(move || {
-                    gate.wait();
-                    wave(&mut c, 1, &fields(3, 0, None)).wave
+                    create(&mut c, zid, 1, &[], &fields, caps, DEADLINE).unwrap()
                 })
             })
             .collect::<Vec<_>>();
-        let mut numbers = handles
-            .into_iter()
-            .map(|t| t.join().unwrap())
-            .collect::<Vec<_>>();
+        // A thread barrier only starts callers together. Observe both requests
+        // actually contending on the owner's transaction lock before release;
+        // removing that lock must fail this probe, even on a serial scheduler.
+        let end = Instant::now() + Duration::from_secs(5);
+        let observed = loop {
+            let blocked = pids.iter().all(|pid| {
+                observer
+                    .query_one(
+                        "select $1::int = any(pg_blocking_pids($2::int))",
+                        &[&holder, pid],
+                    )
+                    .unwrap()
+                    .get::<_, bool>(0)
+            });
+            if blocked {
+                break true;
+            }
+            if Instant::now() >= end {
+                break false;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        };
+        observer.batch_execute("commit").unwrap();
+        // Join both workers before asserting, so a failure cannot drop the
+        // fixture database while its sibling is still executing a transaction.
+        let results = handles.into_iter().map(|h| h.join()).collect::<Vec<_>>();
+        assert!(observed, "both creates must wait on the owner lock");
+        results.into_iter().map(|r| r.unwrap()).collect()
+    }
+
+    #[test]
+    fn concurrent_creates_and_owner_budget_are_serialized() {
+        let f = Fixture::new();
+        let mut numbers = concurrent_creates(
+            &f,
+            (0..2).map(|_| (1, fields(3, 0, None), caps())).collect(),
+        )
+        .into_iter()
+        .map(|r| r.unwrap().wave)
+        .collect::<Vec<_>>();
         numbers.sort();
         assert_eq!(numbers, vec![1, 2]);
         assert_eq!(f.counts(), (2, 6));
-        let gate = Arc::new(std::sync::Barrier::new(2));
-        let handles = (1..=2)
-            .map(|zid| {
-                let mut c = f.connect();
-                let gate = gate.clone();
-                std::thread::spawn(move || {
-                    gate.wait();
-                    create(
-                        &mut c,
+        let results = concurrent_creates(
+            &f,
+            (1..=2)
+                .map(|zid| {
+                    (
                         zid,
-                        1,
-                        &[],
-                        &fields(3, 0, Some(0)),
+                        fields(3, 0, Some(0)),
                         Caps {
                             conversation: 20,
                             owner: 9,
                         },
-                        DEADLINE,
                     )
-                    .unwrap()
                 })
-            })
-            .collect::<Vec<_>>();
-        let results = handles
-            .into_iter()
-            .map(|h| h.join().unwrap())
-            .collect::<Vec<_>>();
+                .collect(),
+        );
         assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 1);
         assert_eq!(
             results
@@ -839,7 +887,9 @@ mod database {
     #[test]
     fn allocator_lock_and_real_fk_locks_do_not_cycle() {
         let f = Fixture::new();
-        let mut c = f.connect();
+        // Seed the root wave and install the allocator before applying request
+        // budgets. No competing transaction exists during this setup.
+        let mut c = f.long_timeout_connect();
         let root = wave(&mut c, 1, &fields(1, 0, Some(0)));
         c.batch_execute("update treevite_invites set invite_used_by_pid=0,status=1")
             .unwrap();
@@ -855,6 +905,9 @@ mod database {
             .next()
             .unwrap();
         c.batch_execute(&format!("CREATE OR REPLACE FUNCTION{function} CREATE TRIGGER pid_auto BEFORE INSERT ON participants FOR EACH ROW EXECUTE FUNCTION pid_auto();")).unwrap();
+        // The actual participation/lock probe retains the serving SQL limits
+        // and both original elapsed-time assertions.
+        c = f.connect();
         let mut admission = f.connect();
         admission
             .batch_execute("begin; insert into participants(zid,uid) values(1,3)")

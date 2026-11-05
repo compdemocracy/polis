@@ -52,7 +52,9 @@ test("remove one route: coverage fails", () => {
 });
 test("remove one ALL method: census fails", () => {
   const d = dump();
-  d.routes.shift();
+  const index = d.routes.findIndex((r) => r.declaredMethod === "ALL");
+  assert.ok(index >= 0);
+  d.routes.splice(index, 1);
   assert.throws(() => normalizeDump(d, inventory), /fan-out/);
 });
 test("same path ALL registrations stay distinct", () =>
@@ -278,6 +280,8 @@ test("encoded PCA JSON uses the same clock rules and rejects truncated gzip", ()
 
 test("ALL rejects an unsupported verb even when there are still 35 distinct entries", () => {
   const d = dump();
-  d.routes[0].method = "BOGUS";
+  const route = d.routes.find((r) => r.declaredMethod === "ALL");
+  assert.ok(route);
+  route.method = "BOGUS";
   assert.throws(() => normalizeDump(d, inventory), /fan-out/);
 });

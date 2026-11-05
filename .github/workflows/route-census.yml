@@ -1,0 +1,65 @@
+name: Route census
+on:
+  pull_request:
+    branches: [edge, stable]
+    paths:
+      - 'server/**'
+      - 'oidc-simulator/**'
+      - 'queue-rs/**'
+      - 'ci/local/**'
+      - 'Makefile'
+      - '.dockerignore'
+      - 'VERSION'
+      - 'VERSION_STABLE_COMMIT'
+      - 'scripts/build_identity.py'
+      - 'scripts/build-identity.cjs'
+      - '.github/workflows/route-census.yml'
+  push:
+    branches: [edge]
+    paths:
+      - 'server/**'
+      - 'oidc-simulator/**'
+      - 'queue-rs/**'
+      - 'ci/local/**'
+      - 'Makefile'
+      - '.dockerignore'
+      - 'VERSION'
+      - 'VERSION_STABLE_COMMIT'
+      - 'scripts/build_identity.py'
+      - 'scripts/build-identity.cjs'
+      - '.github/workflows/route-census.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: route-census-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: route-census-${{ github.run_id }}-${{ github.run_attempt }}
+      POLIS_RECOVERY_PG_PORT: '45730'
+      P027_HTTP_PORT: '45731'
+      P027_CONTROL_PORT: '45732'
+      P027_SERVER_IMAGE: route-census-server
+      P027_POSTGRES_IMAGE: route-census-postgres
+      P027_OIDC_IMAGE: route-census-oidc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.4'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Check source and runtime route census
+        run: make check-route-census
+      - name: Preserve server startup output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: route-census
+          path: server/characterization/artifacts/route-census-services.log

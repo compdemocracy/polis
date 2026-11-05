@@ -57,9 +57,6 @@ jobs:
 
       # Started by hand rather than as a service: -sharedDb needs a command
       # argument, and without it DynamoDB Local keys its data by access key.
-      - name: Start DynamoDB Local
-        run: docker run -d --name csrec-dynamodb -p 127.0.0.1:8481:8000 amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab -jar DynamoDBLocal.jar -sharedDb -inMemory
-
       - uses: actions/setup-node@v4
         with:
           # The recordings were made on this Node; V8's error wording can
@@ -72,35 +69,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install server dependencies and the reset routine's boto3 (delphi's locked versions)
-        run: |
-          npm ci --ignore-scripts --prefix server --no-audit --no-fund
-          python -m pip install --quiet certifi==2026.10.19 boto3==1.34.70 botocore==1.34.162 s3transfer==0.10.4
-
-      - name: The harness's own rules (expected differences, refusal of foreign stores, the schema pin against the real migrations)
-        working-directory: server
+      - name: Run collective-statement-recordings checks
+        run: make check-collective-statement-recordings
+        working-directory: .
         env:
-          CSREC_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5481/postgres
-        run: node --test characterization/collective-statement/expected.test.cjs characterization/collective-statement/safety.test.cjs characterization/collective-statement/schema.test.cjs
-
-      - name: Replay every recorded case against the current routes
-        working-directory: server
-        env:
-          CSREC_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5481/postgres
-          DYNAMODB_ENDPOINT: http://127.0.0.1:8481
-          CSREC_PYTHON: python
-          TZ: UTC
-        run: node characterization/collective-statement/main.cjs replay
-
-      - name: Every listed mutation of the route fails exactly its named cases
-        working-directory: server
-        env:
-          CSREC_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5481/postgres
-          DYNAMODB_ENDPOINT: http://127.0.0.1:8481
-          CSREC_PYTHON: python
-          TZ: UTC
-        run: node characterization/collective-statement/mutations.cjs
-
-      - name: Remove DynamoDB Local
-        if: always()
-        run: docker rm -f csrec-dynamodb
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CHECK_BASE_REF: origin/${{ github.base_ref }}

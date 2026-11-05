@@ -35,7 +35,7 @@ ARG POLIS_BUILD_TAG
 ARG POLIS_BUILD_SOURCE=unverified-archive
 ENV GIT_HASH=$GIT_HASH POLIS_BUILD_DISTANCE=$POLIS_BUILD_DISTANCE POLIS_BUILD_TAG=$POLIS_BUILD_TAG POLIS_BUILD_SOURCE=$POLIS_BUILD_SOURCE
 COPY VERSION VERSION_STABLE_COMMIT /
-COPY scripts/build_identity.py scripts/build-identity.cjs /scripts/
+COPY scripts/build_identity.py scripts/build-identity.cjs scripts/client-error-prelude.cjs /scripts/
 
 ARG ADMIN_UIDS
 ARG AUTH_AUDIENCE
@@ -88,7 +88,7 @@ ARG POLIS_BUILD_TAG
 ARG POLIS_BUILD_SOURCE=unverified-archive
 ENV GIT_HASH=$GIT_HASH POLIS_BUILD_DISTANCE=$POLIS_BUILD_DISTANCE POLIS_BUILD_TAG=$POLIS_BUILD_TAG POLIS_BUILD_SOURCE=$POLIS_BUILD_SOURCE
 COPY VERSION VERSION_STABLE_COMMIT /
-COPY scripts/build_identity.py scripts/build-identity.cjs /scripts/
+COPY scripts/build_identity.py scripts/build-identity.cjs scripts/client-error-prelude.cjs /scripts/
 
 RUN npm run build:prod
 
@@ -124,7 +124,7 @@ ARG POLIS_BUILD_TAG
 ARG POLIS_BUILD_SOURCE=unverified-archive
 ENV GIT_HASH=$GIT_HASH POLIS_BUILD_DISTANCE=$POLIS_BUILD_DISTANCE POLIS_BUILD_TAG=$POLIS_BUILD_TAG POLIS_BUILD_SOURCE=$POLIS_BUILD_SOURCE
 COPY VERSION VERSION_STABLE_COMMIT /
-COPY scripts/build_identity.py scripts/build-identity.cjs /scripts/
+COPY scripts/build_identity.py scripts/build-identity.cjs scripts/client-error-prelude.cjs /scripts/
 
 ARG AUTH_AUDIENCE
 ARG AUTH_NAMESPACE

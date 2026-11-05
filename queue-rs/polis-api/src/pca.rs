@@ -85,6 +85,19 @@ fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
 }
 
 impl Pca {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<Pool>; 1] {
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            db,
+            math_env: _,
+            cache: _,
+            presentations: _,
+            results_exist: _,
+        } = self;
+        [db]
+    }
+
     pub fn new(db: Arc<Pool>, math_env: String, cache_size: usize) -> Self {
         Self {
             db,

@@ -140,14 +140,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:26 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:07 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 45,
+            "at_ms": 52,
             "bytes": {
               "base64": "eyJ0aWQiOjIsImN1cnJlbnRQaWQiOjB9",
               "byte_length": 24,
@@ -157,8 +157,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 44,
-        "last_byte_ms": 45,
+        "first_byte_ms": 52,
+        "last_byte_ms": 53,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -176,8 +176,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 44.41739199999995,
-      "ttlbMs": 44.990103999999974
+      "ttfbMs": 52.17621099999997,
+      "ttlbMs": 52.85063100000002
     },
     "effects": {
       "db": {
@@ -290,7 +290,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -451,14 +451,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:26 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:07 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 10,
+            "at_ms": 13,
             "bytes": {
               "base64": "eyJ0aWQiOjMsImN1cnJlbnRQaWQiOjB9",
               "byte_length": 24,
@@ -468,8 +468,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 10,
-        "last_byte_ms": 10,
+        "first_byte_ms": 13,
+        "last_byte_ms": 14,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -487,8 +487,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 9.771591000000171,
-      "ttlbMs": 10.055051000000049
+      "ttfbMs": 13.275189000000182,
+      "ttlbMs": 13.617940999999973
     },
     "effects": {
       "db": {
@@ -562,7 +562,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -723,14 +723,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:27 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:08 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 11,
+            "at_ms": 18,
             "bytes": {
               "base64": "eyJ0aWQiOjQsImN1cnJlbnRQaWQiOjJ9",
               "byte_length": 24,
@@ -740,8 +740,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 11,
-        "last_byte_ms": 11,
+        "first_byte_ms": 18,
+        "last_byte_ms": 18,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -759,8 +759,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 10.578303000000005,
-      "ttlbMs": 10.816429999999855
+      "ttfbMs": 18.124420999999984,
+      "ttlbMs": 18.420298000000003
     },
     "effects": {
       "db": {
@@ -864,7 +864,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -1025,14 +1025,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:27 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:08 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 12,
+            "at_ms": 14,
             "bytes": {
               "base64": "eyJ0aWQiOjUsImN1cnJlbnRQaWQiOjJ9",
               "byte_length": 24,
@@ -1042,8 +1042,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 12,
-        "last_byte_ms": 12,
+        "first_byte_ms": 14,
+        "last_byte_ms": 14,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -1061,8 +1061,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 11.547350999999708,
-      "ttlbMs": 11.743851999999606
+      "ttfbMs": 13.570357000000058,
+      "ttlbMs": 13.875567000000046
     },
     "effects": {
       "db": {
@@ -1136,7 +1136,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -1297,14 +1297,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:28 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:09 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 7,
+            "at_ms": 9,
             "bytes": {
               "base64": "eyJ0aWQiOjYsImN1cnJlbnRQaWQiOjJ9",
               "byte_length": 24,
@@ -1314,8 +1314,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 7,
-        "last_byte_ms": 7,
+        "first_byte_ms": 9,
+        "last_byte_ms": 9,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -1333,8 +1333,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 7.1235359999996035,
-      "ttlbMs": 7.300994999999602
+      "ttfbMs": 9.213294999999562,
+      "ttlbMs": 9.449461999999585
     },
     "effects": {
       "db": {
@@ -1408,7 +1408,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -1569,7 +1569,7 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:28 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:09 GMT",
             "credential_ref": null
           }
         ],
@@ -1605,8 +1605,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 9.082128999999895,
-      "ttlbMs": 9.298254999999699
+      "ttfbMs": 8.85762700000032,
+      "ttlbMs": 9.067003000000113
     },
     "effects": {
       "db": {
@@ -1680,7 +1680,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -1842,14 +1842,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:29 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:10 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 12,
+            "at_ms": 15,
             "bytes": {
               "base64": "eyJ0aWQiOjgsImN1cnJlbnRQaWQiOjJ9",
               "byte_length": 24,
@@ -1859,8 +1859,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 12,
-        "last_byte_ms": 12,
+        "first_byte_ms": 15,
+        "last_byte_ms": 15,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -1878,8 +1878,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 11.715810000000147,
-      "ttlbMs": 11.898769000000357
+      "ttfbMs": 15.044073000000026,
+      "ttlbMs": 15.312824000000091
     },
     "effects": {
       "db": {
@@ -1953,7 +1953,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -2115,14 +2115,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:29 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:10 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 10,
+            "at_ms": 14,
             "bytes": {
               "base64": "eyJ0aWQiOjksImN1cnJlbnRQaWQiOjJ9",
               "byte_length": 24,
@@ -2132,8 +2132,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 10,
-        "last_byte_ms": 10,
+        "first_byte_ms": 14,
+        "last_byte_ms": 14,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -2151,8 +2151,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 10.138010000000122,
-      "ttlbMs": 10.311219000000165
+      "ttfbMs": 13.693691999999828,
+      "ttlbMs": 13.894901000000118
     },
     "effects": {
       "db": {
@@ -2226,7 +2226,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -2387,14 +2387,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:29 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:11 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 21,
+            "at_ms": 26,
             "bytes": {
               "base64": "eyJ0aWQiOjEwLCJjdXJyZW50UGlkIjowfQ==",
               "byte_length": 25,
@@ -2404,8 +2404,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 21,
-        "last_byte_ms": 21,
+        "first_byte_ms": 26,
+        "last_byte_ms": 27,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -2423,8 +2423,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 21.2509,
-      "ttlbMs": 21.434526000000005
+      "ttfbMs": 26.363169000000198,
+      "ttlbMs": 26.545962000000145
     },
     "effects": {
       "db": {
@@ -2487,7 +2487,7 @@
       "jwts": [],
       "outbound": [
         {
-          "at_ms": 17.70525699999962,
+          "at_ms": 25.871750000000247,
           "blocked": false,
           "host": "oidc-simulator",
           "method": "GET",
@@ -2510,7 +2510,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -2671,14 +2671,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:30 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:11 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 12,
+            "at_ms": 14,
             "bytes": {
               "base64": "eyJ0aWQiOjExLCJjdXJyZW50UGlkIjowfQ==",
               "byte_length": 25,
@@ -2688,8 +2688,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 12,
-        "last_byte_ms": 12,
+        "first_byte_ms": 14,
+        "last_byte_ms": 14,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -2707,8 +2707,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 12.25676999999996,
-      "ttlbMs": 12.455270999999811
+      "ttfbMs": 13.901358999999502,
+      "ttlbMs": 14.104776999999558
     },
     "effects": {
       "db": {
@@ -2782,7 +2782,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -2943,14 +2943,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:30 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:11 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 10,
+            "at_ms": 12,
             "bytes": {
               "base64": "eyJ0aWQiOjEyLCJjdXJyZW50UGlkIjoxfQ==",
               "byte_length": 25,
@@ -2960,8 +2960,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 10,
-        "last_byte_ms": 10,
+        "first_byte_ms": 12,
+        "last_byte_ms": 12,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -2979,8 +2979,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 10.114008999999896,
-      "ttlbMs": 10.279802000000018
+      "ttfbMs": 11.977182999999968,
+      "ttlbMs": 12.165058999999928
     },
     "effects": {
       "db": {
@@ -3084,7 +3084,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -3245,14 +3245,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:31 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:12 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 10,
+            "at_ms": 14,
             "bytes": {
               "base64": "eyJ0aWQiOjEzLCJjdXJyZW50UGlkIjoxfQ==",
               "byte_length": 25,
@@ -3262,8 +3262,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 10,
-        "last_byte_ms": 11,
+        "first_byte_ms": 14,
+        "last_byte_ms": 15,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -3281,8 +3281,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 10.385428000000502,
-      "ttlbMs": 10.53330300000016
+      "ttfbMs": 14.435986999999841,
+      "ttlbMs": 14.607613000000129
     },
     "effects": {
       "db": {
@@ -3356,7 +3356,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -3517,14 +3517,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:31 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:12 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 10,
+            "at_ms": 11,
             "bytes": {
               "base64": "eyJ0aWQiOjE0LCJjdXJyZW50UGlkIjozfQ==",
               "byte_length": 25,
@@ -3534,8 +3534,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 9,
-        "last_byte_ms": 10,
+        "first_byte_ms": 11,
+        "last_byte_ms": 11,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -3553,8 +3553,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 9.492215000000215,
-      "ttlbMs": 9.642839999999524
+      "ttfbMs": 11.271388000000115,
+      "ttlbMs": 11.43597200000022
     },
     "effects": {
       "db": {
@@ -3658,7 +3658,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -3819,14 +3819,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:32 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:13 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 8,
+            "at_ms": 7,
             "bytes": {
               "base64": "eyJ0aWQiOjE1LCJjdXJyZW50UGlkIjozfQ==",
               "byte_length": 25,
@@ -3836,8 +3836,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 8,
-        "last_byte_ms": 8,
+        "first_byte_ms": 7,
+        "last_byte_ms": 7,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -3855,8 +3855,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 200,
-      "ttfbMs": 7.804997999999614,
-      "ttlbMs": 7.948956999999609
+      "ttfbMs": 6.9787420000002385,
+      "ttlbMs": 7.1477010000007795
     },
     "effects": {
       "db": {
@@ -3930,7 +3930,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 1,
@@ -4089,7 +4089,7 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:32 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:13 GMT",
             "credential_ref": null
           }
         ],
@@ -4106,7 +4106,7 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 4,
+        "first_byte_ms": 3,
         "last_byte_ms": 4,
         "process_alive_at_end": true
       },
@@ -4126,8 +4126,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 500,
-      "ttfbMs": 3.600351999999475,
-      "ttlbMs": 3.7262689999997747
+      "ttfbMs": 3.4763080000002446,
+      "ttlbMs": 3.6212670000004437
     },
     "effects": {
       "db": {},
@@ -4148,7 +4148,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -4300,14 +4300,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:33 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:13 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 3,
+            "at_ms": 4,
             "bytes": {
               "base64": "eyJlcnJvciI6ImF1dGhlbnRpY2F0aW9uX2NvbmZsaWN0IiwibWVzc2FnZSI6IkF1dGhlbnRpY2F0aW9uIHN5c3RlbSBlbmNvdW50ZXJlZCBhIHRlbXBvcmFyeSBjb25mbGljdC4gUGxlYXNlIHRyeSBhZ2Fpbi4iLCJyZXRyeV9hZnRlciI6MX0=",
               "byte_length": 137,
@@ -4318,7 +4318,7 @@
         "completed": true,
         "termination": "end",
         "first_byte_ms": 3,
-        "last_byte_ms": 3,
+        "last_byte_ms": 4,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -4337,8 +4337,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 429,
-      "ttfbMs": 3.3197250000002896,
-      "ttlbMs": 3.434892000000218
+      "ttfbMs": 3.476684000000205,
+      "ttlbMs": 3.6163509999996677
     },
     "effects": {
       "db": {},
@@ -4359,7 +4359,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -4511,14 +4511,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:33 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:14 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 3,
+            "at_ms": 4,
             "bytes": {
               "base64": "eyJlcnJvciI6InRvb19tYW55X3JlcXVlc3RzIiwibWVzc2FnZSI6IkF1dGhlbnRpY2F0aW9uIHN5c3RlbSBpcyBleHBlcmllbmNpbmcgaGlnaCBsb2FkLiBQbGVhc2UgdHJ5IGFnYWluIGluIGEgbW9tZW50LiIsInJldHJ5X2FmdGVyIjoxfQ==",
               "byte_length": 136,
@@ -4528,8 +4528,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 3,
-        "last_byte_ms": 3,
+        "first_byte_ms": 4,
+        "last_byte_ms": 4,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -4548,8 +4548,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 429,
-      "ttfbMs": 3.3063499999998385,
-      "ttlbMs": 3.4309339999999793
+      "ttfbMs": 3.9899359999999433,
+      "ttlbMs": 4.151562000000013
     },
     "effects": {
       "db": {},
@@ -4570,7 +4570,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -4722,14 +4722,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:33 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:14 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 2,
+            "at_ms": 3,
             "bytes": {
               "base64": "eyJlcnJvciI6ImludmFsaWRfdXNlcl9kYXRhIiwibWVzc2FnZSI6IlVzZXIgYWNjb3VudCBpcyBtaXNzaW5nIHJlcXVpcmVkIGluZm9ybWF0aW9uIChlbWFpbCkuIn0=",
               "byte_length": 95,
@@ -4739,8 +4739,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 2,
-        "last_byte_ms": 2,
+        "first_byte_ms": 3,
+        "last_byte_ms": 3,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -4758,8 +4758,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 400,
-      "ttfbMs": 2.2938450000001467,
-      "ttlbMs": 2.406970000000001
+      "ttfbMs": 2.659262999999555,
+      "ttlbMs": 2.801471999999194
     },
     "effects": {
       "db": {},
@@ -4780,7 +4780,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -4932,7 +4932,7 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:34 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:15 GMT",
             "credential_ref": null
           }
         ],
@@ -4949,7 +4949,7 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 2,
+        "first_byte_ms": 3,
         "last_byte_ms": 3,
         "process_alive_at_end": true
       },
@@ -4968,8 +4968,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 401,
-      "ttfbMs": 2.4698459999999614,
-      "ttlbMs": 2.6134710000005725
+      "ttfbMs": 2.5972209999999905,
+      "ttlbMs": 2.734512999999424
     },
     "effects": {
       "db": {},
@@ -4990,7 +4990,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -5142,7 +5142,7 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:34 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:15 GMT",
             "credential_ref": null
           }
         ],
@@ -5178,8 +5178,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 401,
-      "ttfbMs": 0.9100039999993896,
-      "ttlbMs": 1.0082129999991594
+      "ttfbMs": 1.188213999999789,
+      "ttlbMs": 1.339797999999064
     },
     "effects": {
       "db": {},
@@ -5200,7 +5200,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -5352,7 +5352,7 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:35 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:16 GMT",
             "credential_ref": null
           }
         ],
@@ -5388,8 +5388,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 401,
-      "ttfbMs": 0.9259629999996832,
-      "ttlbMs": 1.0356300000003102
+      "ttfbMs": 0.9344219999984489,
+      "ttlbMs": 1.0495469999987108
     },
     "effects": {
       "db": {},
@@ -5410,7 +5410,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -5562,7 +5562,7 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:35 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:16 GMT",
             "credential_ref": null
           }
         ],
@@ -5598,8 +5598,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 401,
-      "ttfbMs": 2.149470000000292,
-      "ttlbMs": 2.26555400000143
+      "ttfbMs": 2.371803,
+      "ttlbMs": 2.495011999999406
     },
     "effects": {
       "db": {},
@@ -5620,7 +5620,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,
@@ -5772,14 +5772,14 @@
           },
           {
             "name": "Date",
-            "value": "Thu, 22 Oct 2026 20:31:36 GMT",
+            "value": "Wed, 04 Nov 2026 05:51:17 GMT",
             "credential_ref": null
           }
         ],
         "body": [
           {
             "sequence": 0,
-            "at_ms": 6,
+            "at_ms": 8,
             "bytes": {
               "base64": "eyJlcnJvciI6IkludmFsaWQgYXV0aGVudGljYXRpb24gdG9rZW4iLCJkZXRhaWxzIjoiVW5hYmxlIHRvIGZpbmQgYSBzaWduaW5nIGtleSB0aGF0IG1hdGNoZXMgJ2dlbmVyYXRlZC11bnB1Ymxpc2hlZC1rZXknIn0=",
               "byte_length": 122,
@@ -5789,8 +5789,8 @@
         ],
         "completed": true,
         "termination": "end",
-        "first_byte_ms": 6,
-        "last_byte_ms": 6,
+        "first_byte_ms": 8,
+        "last_byte_ms": 8,
         "process_alive_at_end": true
       },
       "encoding": "utf8"
@@ -5808,8 +5808,8 @@
         "content-type": "application/json; charset=utf-8"
       },
       "status": 401,
-      "ttfbMs": 6.3291989999997895,
-      "ttlbMs": 6.486532999999326
+      "ttfbMs": 7.635286999999153,
+      "ttlbMs": 7.79916299999968
     },
     "effects": {
       "db": {},
@@ -5819,7 +5819,7 @@
       "jwts": [],
       "outbound": [
         {
-          "at_ms": 16.268457999998645,
+          "at_ms": 18.889342000000397,
           "blocked": false,
           "host": "oidc-simulator",
           "method": "GET",
@@ -5842,7 +5842,7 @@
     "routeHits": [
       1,
       3,
-      44
+      43
     ],
     "commentProof": {
       "commentsAdded": 0,

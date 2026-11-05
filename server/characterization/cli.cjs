@@ -445,14 +445,9 @@ async function observeCase(c, tokens, tables, normalizer) {
     o.pass = false;
     o.failures.push("effects did not settle");
   }
-  const enabled = inventory.routes.filter(
-    (r) => r.registered_in_default_config
+  const routeHits = require("./route-observation.cjs").routeIds(
+    obsAfter.hits.slice(obsBefore.hits.length), inventory
   );
-  const routeHits = [
-    ...new Set(
-      obsAfter.hits.slice(obsBefore.hits.length).map((i) => enabled[i]?.id)
-    ),
-  ].sort((a, b) => a - b);
   if (
     process.env.P027_MARKERS !== "0" &&
     c.routeId &&

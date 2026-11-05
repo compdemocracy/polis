@@ -312,3 +312,137 @@ help: ## Show this help message
 	@echo 'builds, which can be useful for (e.g.) testing out features while preserving mainline branch builds.'
 
 .DEFAULT_GOAL := help
+
+# Hosted verification commands with local entry points.
+
+.PHONY: check-client-alpha
+check-client-alpha: ## Run the client-alpha verification commands
+	@bash ci/local/client-alpha.sh
+
+.PHONY: check-client-admin
+check-client-admin: ## Run the client-admin verification commands
+	@bash ci/local/client-admin.sh
+
+.PHONY: check-client-report
+check-client-report: ## Run the client-report verification commands
+	@bash ci/local/client-report.sh
+
+.PHONY: check-lint
+check-lint: ## Run the lint verification commands
+	@bash ci/local/lint.sh
+
+.PHONY: check-job-provenance
+check-job-provenance: ## Run the job-provenance verification commands
+	@bash ci/local/job-provenance.sh
+
+.PHONY: check-vote-sign-lint
+check-vote-sign-lint: ## Run the vote-sign-lint verification commands
+	@bash ci/local/vote-sign-lint.sh
+
+.PHONY: check-coordinator
+check-coordinator: ## Run the coordinator verification commands
+	@bash ci/local/coordinator.sh
+
+.PHONY: check-job-views
+check-job-views: ## Run job-views checks
+	@bash ci/local/job-views.sh
+
+.PHONY: check-route-census
+check-route-census: ## Compare the committed route census with source and runtime
+	bash ci/local/route-census.sh
+
+.PHONY: check-routing-recordings
+check-routing-recordings: ## Run routing-recordings checks
+	@bash ci/local/routing-recordings.sh
+
+.PHONY: check-queue-rs
+check-queue-rs: ## Run queue-rs checks
+	@bash ci/local/queue-rs.sh
+
+.PHONY: check-polis-migrate
+check-polis-migrate: ## Run polis-migrate checks
+	@bash ci/local/polis-migrate.sh
+
+.PHONY: check-job-graphs
+check-job-graphs: ## Run job-graphs checks
+	@bash ci/local/job-graphs.sh
+
+.PHONY: check-vote-conventions
+check-vote-conventions: ## Run vote-conventions checks
+	@bash ci/local/vote-conventions.sh
+
+.PHONY: check-mixed-identity
+check-mixed-identity: ## Run mixed-identity checks
+	@bash ci/local/mixed-identity.sh
+
+.PHONY: check-dynamo-removal
+check-dynamo-removal: ## Run dynamo-removal checks
+	@bash ci/local/dynamo-removal.sh
+
+.PHONY: check-embeddings-table
+check-embeddings-table: ## Run embeddings-table checks
+	@bash ci/local/embeddings-table.sh
+
+.PHONY: check-tls-trust
+check-tls-trust: ## Run tls-trust checks
+	@bash ci/local/tls-trust.sh
+
+.PHONY: check-identity-recordings
+check-identity-recordings: ## Run identity-recordings checks
+	@bash ci/local/identity-recordings.sh
+
+.PHONY: check-treevite-recordings
+check-treevite-recordings: ## Run treevite-recordings checks
+	@bash ci/local/treevite-recordings.sh
+
+.PHONY: check-post-comments-recordings
+check-post-comments-recordings: ## Run post-comments-recordings checks
+	@bash ci/local/post-comments-recordings.sh
+
+.PHONY: check-polis-cli-differential
+check-polis-cli-differential: ## Run polis-cli-differential checks
+	@bash ci/local/polis-cli-differential.sh
+
+.PHONY: check-polis-api
+check-polis-api: ## Run polis-api checks
+	@bash ci/local/polis-api.sh
+
+.PHONY: check-collective-statement-recordings
+check-collective-statement-recordings: ## Run collective-statement-recordings checks
+	@bash ci/local/collective-statement-recordings.sh
+
+.PHONY: check-delphi-characterization
+check-delphi-characterization: ## Run delphi-characterization checks
+	@bash ci/local/delphi-characterization.sh
+
+.PHONY: check-server-integration
+check-server-integration: ## Run server-integration checks
+	@bash ci/local/server-integration.sh
+
+.PHONY: check-delphi-python-tests
+check-delphi-python-tests: ## Run delphi-python-tests checks
+	@bash ci/local/delphi-python-tests.sh
+
+.PHONY: check-polis-cli
+check-polis-cli: ## Run polis-cli checks
+	@bash ci/local/polis-cli.sh
+
+.PHONY: check-dynamo-writers
+check-dynamo-writers: ## Run dynamo-writers checks
+	@bash ci/local/dynamo-writers.sh
+
+.PHONY: check-delphi-result-reads
+check-delphi-result-reads: ## Run delphi-result-reads checks
+	@bash ci/local/delphi-result-reads.sh
+
+.PHONY: check-production-import
+check-production-import: ## Run production-import checks
+	@bash ci/local/production-import.sh
+
+.PHONY: check-client-errors
+check-client-errors: ## Run client error reporting behaviour and path checks
+	@bash ci/local/client-errors.sh
+
+.PHONY: check-nginx-upstreams
+check-nginx-upstreams: ## Check that production starts every nginx upstream
+	@python3 file-server/nginx/test-production-upstreams.py

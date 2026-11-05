@@ -54,3 +54,43 @@ class DeployHealthCheck(unittest.TestCase):
                 '''
                 result = subprocess.run([shutil.which('node'), '-e', fake + script, 'version', 'a'*40, '2.0.0'], capture_output=True, timeout=10)
                 self.assertEqual(result.returncode, 0 if case == 'ok' else 1, result.stderr)
+
+    def test_connection_route_switch_matches_selection(self):
+        source = (Path(__file__).resolve().parents[1] / 'validate_service.sh').read_text()
+        script = source.split("compose exec -T server node -e '")[1].split("\n    ' \"$RUST_API_ROUTES\"")[0]
+        connection = 'POLIS_API_CONNECTION_READS'
+        version = 'POLIS_API_VERSION_READS'
+        cases = [
+            ('testConnection', [connection], True),
+            ('testConnection', [], False),
+            ('testConnection', [connection, 'POLIS_API_VOTES_WRITES'], False),
+            ('testConnection', [version], False),
+            ('', [], True),
+            ('', [connection], False),
+            ('pca2', [], True),
+            ('pca2', [connection], False),
+            ('testConnection,pca2', [connection], True),
+            (' pca2, testConnection ', [connection], True),
+            ('testConnection,testConnection', [connection], True),
+            ('testConnections', [connection], False),
+            ('testconnection', [connection], False),
+            ('version,testConnection', [version, connection], True),
+            ('version,testConnection', [version], False),
+            ('version,testConnection', [connection], False),
+            ('version', [version, connection], False),
+        ]
+        for selected, switches, accepted in cases:
+            with self.subTest(selected=selected, switches=switches):
+                health = dict(status='ok', mathEnv='python', version='2.0.0', commit='a'*40,
+                    pools=dict(common=dict(readOnly=True, reachable=True, limit=8,
+                        acquireTimeoutMs=2000, statementTimeoutMs=3000, maxLifetimeMs=300000)),
+                    routing=dict(configuredRoutes=selected, enabledSwitches=switches))
+                fake = 'const health=' + json.dumps(health) + ";" + '''
+                    global.fetch=async url=>{
+                      if(url.endsWith("/health")) return {status:200,json:async()=>health};
+                      return {status:200,headers:{get:()=>"no-store"},text:async()=>"identity"};
+                    };
+                '''
+                result = subprocess.run([shutil.which('node'), '-e', fake + script,
+                    selected, 'a'*40, '2.0.0'], capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, 0 if accepted else 1, result.stderr)

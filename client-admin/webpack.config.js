@@ -1,3 +1,4 @@
+import clientErrorPrelude from '../scripts/client-error-prelude.cjs'
 import identityTools from '../scripts/build-identity.cjs'
 const { buildIdentity, BuildInfoPlugin } = identityTools
 const buildInfo = buildIdentity()
@@ -108,6 +109,7 @@ export default (env, argv) => {
       // Common plugins for both production and development
       new HtmlWebPackPlugin({
         template: 'public/index.html',
+        clientErrorPrelude: clientErrorPrelude(path.join(__dirname, 'src/util/clientErrorReporter.js'), 'admin', buildInfo.commit),
         filename: isProduction ? 'index_admin.html' : 'index.html',
         inject: 'body',
         isProduction: isProduction, // Pass isProduction to the template

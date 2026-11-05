@@ -1,3 +1,4 @@
+const clientErrorPrelude = require('../scripts/client-error-prelude.cjs');
 const { buildIdentity, BuildInfoPlugin } = require('../scripts/build-identity.cjs');
 const buildInfo = buildIdentity();
 const path = require("path");
@@ -238,6 +239,7 @@ module.exports = (env, options) => {
         template: path.resolve(__dirname, "public/index.ejs"),
         filename: "index.html",
         templateParameters: {
+          clientErrorPrelude: clientErrorPrelude(path.join(__dirname, 'js/util/clientErrorReporter.js'), 'participation', buildInfo.commit),
           versionString: buildInfo.version_display,
           jwtDecodeSrc: `/${jwtDecodeScript}`,
           gaTrackingId: gaTrackingId,

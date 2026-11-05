@@ -8,21 +8,21 @@
     "timestamps": "typed presence; null remains null",
     "credentials": "verified only; no raw login code or JWT"
   },
-  "source_commit": "7b01a70b09d46867fb70faed3f79047d8e780c3a",
+  "source_commit": "f6dbde63adab2b1722ac84bf4e73cf3cb3ae3331",
   "provenance": {
-    "source_commit": "7b01a70b09d46867fb70faed3f79047d8e780c3a",
+    "source_commit": "f6dbde63adab2b1722ac84bf4e73cf3cb3ae3331",
     "internal_network": true,
     "services": {
-      "server": "sha256:98b4b5d97f7c0d1aa0e865f5f96572ac8b4d8d0e9f995e5f6cb3e3547e4cea16",
-      "driver": "sha256:98b4b5d97f7c0d1aa0e865f5f96572ac8b4d8d0e9f995e5f6cb3e3547e4cea16",
-      "postgres": "sha256:df78bec080ce852c5ae73b245a79422ae18c66fe1df84523d90073797d79b894",
-      "oidc-simulator": "sha256:369633f6cb910d0a994b93b9df3e919c56bb2a9a36cd6307f17b3e3a0ad77477",
-      "file-server": "sha256:1e7bbef735d07e7290556d9c3cd1013320eb6ab421df8921f4ab9096f4f535b2",
-      "dynamodb": "sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab"
+      "server": "sha256:7aba48e43ca45f13eb64b4932e37b595039bcfdc33ed8beeec8bf91ac1ae3ae1",
+      "driver": "sha256:7aba48e43ca45f13eb64b4932e37b595039bcfdc33ed8beeec8bf91ac1ae3ae1",
+      "postgres": "sha256:5e1ac4732977ca7d831433454cfd812bc7394fc63ebbe49039901f96d7c95527",
+      "file-server": "sha256:97deb953dfef5a3fa5145787894c45b5c5964561016d56328e2041afde813c15",
+      "oidc-simulator": "sha256:6a7797ff5afaedfafcee6d4c75ff26da1e5b789f2653d5180bb09ffbe5dfe0ce",
+      "dynamodb": "sha256:6ada631ec7aa5fc83446855eb17233e3dad184fec47477e8140c6c569cfe0c86"
     },
     "files": {
-      "VERSION": "9ab550648d274cf25ee52e2c904a89e8b580641020f51430bc3fb5c2819f0391",
-      "server/app.ts": "209cee3b1895cac294786e2ec31e2d08df5b2a21b5071a32709f4c13261f9ca6",
+      "VERSION": "4b283b83098574edd9f055351e5de8857d50930204ef4dbd275925724bba85bc",
+      "server/app.ts": "973b27da0ff1ad2b71e76e752d4255e0dbe2dfb2279a44687c195bb8d87e4df0",
       "server/characterization/.eslintrc.cjs": "54659f50e401fcd985ec1befb199651817b61b0714737efc0335569c58fb8a4b",
       "server/characterization/admission.cjs": "f287c53d5c2fc56c319686b537234378c74391519edd4014dd0c28c308a6419d",
       "server/characterization/audit.cjs": "a21c31fa944bcaa6dbfa2e8c0c0ebc9d43abbd6f685a2b333fd4587305ccea62",
@@ -30,7 +30,7 @@
       "server/characterization/baseline.cjs": "65d0250d631f4df4b1105d0b4e336a577c0dd72611a83d1c494391bb8535b4c5",
       "server/characterization/case-loop.cjs": "e2e8183b391fd2311c717f64335d68acf01329c634cd786eb163304ba04f4d29",
       "server/characterization/case-loop.test.cjs": "13a8591d281b58be1e373ac666f81fab9ef33321e90d7728c7b77e78febbcecc",
-      "server/characterization/cli.cjs": "2af6aaf878933e763e547043b1d927e5267d8e5af03b4252621220636ac4df08",
+      "server/characterization/cli.cjs": "5278d1dce0915fdfee4c0df69dcdfe54077a90418992f9a4de856ec8b0334555",
       "server/characterization/clock.cjs": "ec599cda81209a3bde612021bc8097764389fda9defe916da21fb68d79b2e926",
       "server/characterization/clock.test.cjs": "f593301c220a3a1c458e3d40183fad716bdbe1d432bde7a5cd90c849ff6ddaff",
       "server/characterization/comments-audit.cjs": "bf7cf1b1a0b042beaa296e1ab3e3000329ee34e628c286bc185587c5768c069c",
@@ -40,7 +40,7 @@
       "server/characterization/corrections.test.cjs": "d121b5dab8105a536dd5c3e45d6637a44058dda8ef0f54b6f45f62b6fff6e8ca",
       "server/characterization/email-control.cjs": "5c46213c2904764b9d1d2bc140fb816c787ee8d1e6769ead75855c4d6c6dd4eb",
       "server/characterization/entropy.cjs": "c0495e0935979841f504ec9dce0f811fa397bf1c133a176ca498edf3b3ca5ffd",
-      "server/characterization/entry.cjs": "e8f88a3a097afa0a3ffee052d3e6b14a52258b5090d0d52247ea2d6947f90407",
+      "server/characterization/entry.cjs": "a41722c8f7068dd88eb5d35c4302e7240749e841c744246d9140eea8bdb53a5d",
       "server/characterization/generate.cjs": "f048617d44e30ecfe744aaf80eaed9945f4ef3c85fcf39af41d0eaf6084fef74",
       "server/characterization/headers.cjs": "4dd2898a55db40b25affd6b6611032ab09054282eff652597427636c1aa1ae76",
       "server/characterization/jwt.cjs": "f7f8a20ddce3a161c2a63d80c7ed4553ce882eeca7157cbe6f11a254e1531491",
@@ -49,7 +49,7 @@
       "server/characterization/migrations.cjs": "f00a2131c97a4ae5b77d839d3d6c18f7f70b05fa0c8face836971088e1bec38e",
       "server/characterization/mutate.cjs": "ec2191e87fc053c9071a11cddb80fb98fcfa3d1ebaae698be97ed23f54a5317b",
       "server/characterization/normalize.cjs": "48b22302ff05ca3e9fdae9a375257a2230fb864ebd436cc6e752ae5a7e8239dd",
-      "server/characterization/observe.cjs": "161148f39590788a6b758306634619a2d59ef9b2261ea9cf8037550db688a5d2",
+      "server/characterization/observe.cjs": "0567d9c152347e1763c23c13f26e2a54b38de92651dcb0f1ac33a9b01743cfea",
       "server/characterization/oidc-seed.cjs": "bf7e935eb4066cbbd8cd5bd89515ec52293365bea089eb64e7dbed0480626691",
       "server/characterization/pca2-audit.cjs": "0443e561ff849166052defa453b3b91a0ff14efbb6373e9c1619f26c80916c3b",
       "server/characterization/pca2-cases.cjs": "1981dc4f4fd0573aebf8244f51acad36c2993d636c4ba9104cf64c4f01d55245",
@@ -61,8 +61,10 @@
       "server/characterization/rerecord-accounting.cjs": "1e57fc878aa47963802a122268e74a02587cded84bc378ef927ea4d4fc0f1084",
       "server/characterization/rerecord-accounting.test.cjs": "62c36714804e185dd37ed864eb778451633cad1b406beb4a022937f3192995c9",
       "server/characterization/round2.test.cjs": "95bb79d2462f5addae4ac6eef654771265a7dc4083f2a79e9322b6f6e8ea2bde",
-      "server/characterization/route-inventory.cjs": "81f8d445f3cc48b52323356766e5f9ebf4f695e46433eac2abd5ee859690b42e",
-      "server/characterization/route-inventory.test.cjs": "218c0db4b01314275890e1f84c198122af87f96709df33884b39f4ca4edc2032",
+      "server/characterization/route-inventory.cjs": "3f2949bd178e54c25626a2e27d9fe19f7e44940330bbb0c0d83bd90f680ac030",
+      "server/characterization/route-inventory.test.cjs": "29961838fb331dd7a38e03f3ddb56d0f7023604df7c5a9365b6155cf34818a19",
+      "server/characterization/route-observation.cjs": "c7a773a42a1bfc716d32ed001fcc02a08ab3bcf18c12717c513f64810a700518",
+      "server/characterization/route-observation.test.cjs": "bb7a77cb76f5bc4de0e2400351e014ebb2f808dfbacb21bf70a5070504078a33",
       "server/characterization/runtime.test.cjs": "9d645ac4f1ee0f667fb527afc9017e4990323ef0536d92d73ae1d9b7b5186476",
       "server/characterization/seed-comments.cjs": "43c8c16c9f046db49451608f10a41953b4caf07684f727626a4af99546d6baf4",
       "server/characterization/seed-vote.cjs": "a9fdd373a118c5766fe71e38c1921769cbfa54a7fc538396854bec5bcd4d7fc4",
@@ -71,19 +73,21 @@
       "server/characterization/stored-votes.test.cjs": "162cf7a57f59003b683523df2d64d6ebeac853d92c72b350ed58a7fc93e07453",
       "server/characterization/test.cjs": "4f5d5a827fe380fb287ce670b57f0f2eca6b7a3e6bc29edb1bd120bcaf571d41",
       "server/characterization/transport-observe.cjs": "641fb5ba9e4291fd873cc09aa40d8a82aba78df30a177535a915c4e01e829bf0",
-      "server/characterization/treevite/README.md": "4271de42a8d0533bd329bc0d10874708b097c9607eaa16a0b8e5ba9daf948443",
+      "server/characterization/treevite/README.md": "a7142d453c8136b99c418537deb4ff773b8e974de63ee29e8c858ec3362e7a74",
       "server/characterization/treevite/cases.cjs": "bd2a28c6b6461cca9c957c4307a9279042c071ff59c6906bd27924898343cb35",
       "server/characterization/treevite/compare.cjs": "af94106ed8b0a431f60b57b78c1f7830e280a8a9c1917bb35c2a0cbd03b45c75",
       "server/characterization/treevite/compare.test.cjs": "7a69ffe0235dcf6b613081c2d0bdbc530c082839a0aba70fd621c1d8db51e625",
-      "server/characterization/treevite/compose.yml": "ee6e466db5183b23ded34185cdef5fa9d301f5d4f3905858568d078113664cf6",
-      "server/characterization/treevite/deltas.json": "d39bd006e0814090b9eb2112725d071486378dc4c7200881e7c9fe59534d4fb3",
-      "server/characterization/treevite/entry.cjs": "c555ff0de1dcd1cfd0c0ec440ad7acab1a79ecf028f6746846d01d64858b41ee",
+      "server/characterization/treevite/compose.yml": "493f8ecf1f33da77ffc55e74c12a05341978ee4d82b364f6224d8ce32302df70",
+      "server/characterization/treevite/deltas.json": "081614ad31c7f260d76882ab4889fbf6bac39da878cc08018abdabe9dc6946dd",
+      "server/characterization/treevite/entry.cjs": "ede7e4702ba69d7b024eb2fe5acb76121be754974a97896e9fcd36a4877c340f",
       "server/characterization/treevite/provenance.py": "17f2c84906904b78a31edb18993f4a984ba5f5403feea1f295a928c69f056525",
-      "server/characterization/treevite/recordings.json": "2048d62f7865cc6d40f1d169056f674bc866ae429e0e71f85ec93e7fc00e9cf3",
-      "server/characterization/treevite/run.cjs": "f0462a29e573cf662ecfae710f4014116f1c57acad9dae67e741c7e55ccaba94",
-      "server/characterization/treevite/run.sh": "288cbbc00234a80fc4d261195a6871ef4d215c3de17dfae8a4aad26d6b9b8686",
+      "server/characterization/treevite/recordings.json": "3830b95fcd248cd2d1e4c5b3fdbcc8564b7ba36c051dee4a587b987b94d38247",
+      "server/characterization/treevite/run.cjs": "a57c1878c47276f5234aa797789d70bce8bef4368d1182764d900c848daf2c30",
+      "server/characterization/treevite/run.sh": "cecb28ddc1bf4268d3c57854c7339a48ccd54faa5fb4eb2a34d3bc8d4ba17501",
+      "server/characterization/treevite/rust-key.cjs": "a6c7a972bf52861884f28f79a29d01bf2b156fcd9651d4f4b6ead621bf20c935",
+      "server/characterization/treevite/rust-replay.cjs": "4cf84b392fa2c578606922d9e73811be45f6907f8101b7cb8b4fc6d9fdd3347c",
       "server/characterization/wire.cjs": "e60eed7b9f70073b2bc5742f94f20a41eca7348a2804e85a9628f9437e9c6e32",
-      "server/package-lock.json": "2a4df70bd06c4e501526cb03167182ff1a560f9e1bc3dff8806a875ac31ac75f",
+      "server/package-lock.json": "90751fdffccfdf060989c7c3e5619d2a2a9229226a267810f3ed7c365a341273",
       "server/postgres/migrations/000000_initial.sql": "2652134140cd8796ee3ab64995d509206bab3ebe8a03bba0cf48038a32dc6cea",
       "server/postgres/migrations/000001_update_pwreset_table.sql": "cb21278194c4b7db510c12bf1a7761b3a905410a7b3769edeb0d1865b6ec047b",
       "server/postgres/migrations/000002_add_xid_constraint.sql": "a27a8e63c79cd055198fa201b1745c85e0cd0e0b75f228b7153571631e529c07",
@@ -124,19 +128,17 @@
       "server/src/auth/attach-auth-token.ts": "5c9587eefeaeb2d55e98045e80255e0d9d4fefa47dca3282c817c43e1a55f7d7",
       "server/src/auth/auth.ts": "3ef20ddb8a9d578d27c5536cd01d8fa30cb56ec35efad4f721578ef3271942a9",
       "server/src/auth/create-user.ts": "cfe7c8c3b0377a4bdbabef7148e0d7aef232089b31ec3f27a7a55bf3a5958731",
-      "server/src/auth/ensure-participant.ts": "262edc1c66f2157c5449451721bd665c5a208a9974fff6223fdfec78289f278b",
+      "server/src/auth/ensure-participant.ts": "4741452d6d9b2c5ad2b2dd2612c05915b1635875114894a002e39e3453fa822f",
       "server/src/auth/generate-token.ts": "1e3fb74e345834abaa290f838e1eb804f84dfa1af123a182e1b712b12bc67f6a",
       "server/src/auth/hybrid-jwt.ts": "df7f65445f35b9c5b453a2274292ac2a99e964cb7c7918a83a78156f78e9fca6",
-      "server/src/auth/index.ts": "2def0e19b76a1b90aa8f48555b6401eba94a0e71d32b518ecf6ba9c67d68ab1e",
+      "server/src/auth/index.ts": "478c350f8ba292d0dc3ba460fe7acb95aa6bc72c7c932480f0b785fe2655acd4",
       "server/src/auth/jwt-middleware.ts": "7682a4fc2ee26a48eda7dcc530c93ce972404e8bbb1448d9e5faabf99576b5f5",
       "server/src/auth/jwt-utils.ts": "1359ce7bda96802f9d0144d6fa8ada8d2bd048ae67a4b2bfa779afb2bd0531ac",
-      "server/src/auth/legacyCookies.ts": "b1d2491bd98e5f2439c7f9bb8bd54512d75da92ef00ed6949300cb1d5122adea",
-      "server/src/auth/routes.ts": "7071ace08b824cc18b51881d42dfe0a0381294a45413062f7c3ac653cbc06fd3",
       "server/src/auth/standard-user-jwt.ts": "98d66443e97b8dbac1a13f10668ff00607c9fdd8604aeec1a9d08192ea7049d7",
       "server/src/auth/xid-account.ts": "65cad198e4d9607f2f843ec66a195760d59ff682e79fdb7cd86cfad3b90932b9",
       "server/src/auth/xid-jwt.ts": "a88ed609a4147008d7508541b675720794d9e118a967c3ea63d3151b024dd44e",
       "server/src/comment.ts": "2cf43bea61d3e6e8ac432fc40ada2cdc5fd938b853e129d53dfde9340c324f5e",
-      "server/src/config.ts": "05c4423e9a325281700ed1afe230fe1c4236a95fdf3dace4dcd3954b060f3ee1",
+      "server/src/config.ts": "9b340b2cf611097a8fd5413b6c4326bb92f54b43dd5c8d6fa0d388ed0614babf",
       "server/src/contracts/clientReportValidator.ts": "ac6c979b832219810d7c044ef9378c12654d79977f7f04e020412abe418de89f",
       "server/src/contracts/delphiJobResult.ts": "26026c70bf000791c787144a0472558dce444320e37b7af5f92453fd9802a7ee",
       "server/src/contracts/generate.ts": "654bba5e985afb61e0ed28cc652f440ec432af01a7a4687efeb236e00ac44e9f",
@@ -150,7 +152,7 @@
       "server/src/email/senders.ts": "7c001605636deb83f8fece8ed789af25da0889dd194030c7bc19f2a0f1f20fea",
       "server/src/invites/einvites.ts": "4a7df1d9bd2b762bd43f14e239f74d33599180899e17798cd7aaa47988e15fec",
       "server/src/invites/routes.ts": "d072166e485c5f91e94676c516c90f3eb6828df76283541c52846cb7189e44a0",
-      "server/src/invites/suzinvites.ts": "9a33237986e566d24540fa86abc32925abb34fb257d7a95d49c4cf9fda6ffce6",
+      "server/src/invites/suzinvites.ts": "4993768319d5da0eea566586658b3e2319f7f05383dccf869078657f2d76bf9b",
       "server/src/invites/treevites.ts": "ba951196f40d7ddf9aa34591c355a08cf65438508a0ef1e7d0b5c24be97b1927",
       "server/src/nextComment.ts": "5c0e981c56582be6eb2a1fc070f4d0cca1e3706d9ac2f7ae2fa3ff39ce11c37b",
       "server/src/ops/activityNow.ts": "c55c85561a02fa9ad24e060cc12b6961b343479f7868c5fe90dc4ed74c0fabff",
@@ -172,7 +174,7 @@
       "server/src/ops/textThreshold.ts": "9f2cdb2bde689366eebe079f0d8c6681afac0e52bfbd12baccc2c59447b29bb7",
       "server/src/ops/topics.ts": "b9bb59d185a291290226b1311f4de7b8c2652eab8b18b23b8bf1afc624a3a0dc",
       "server/src/ops/types.ts": "aedd51238409f4752d374e80b6f8fb8a4edf8d6da14936400b43825a0d41a0ad",
-      "server/src/participant.ts": "fcf3635749fb4ac3a62574c277347fb58bb530b591d024c7f716f36e4edb56b7",
+      "server/src/participant.ts": "3972cf298eea0ce46e082c993e3012ab6c50f05c17b370a4eb63fbac1a1949a4",
       "server/src/queue/enqueue.ts": "0d7e7f962e484d6bdedc43a9580cc8d324c4931ce28afcc899d52dc83713659c",
       "server/src/queue/protocol.ts": "8ec51c007def845d45fd6fe56494e846baaf07e8edc2952fc0e6d692bed9bfa0",
       "server/src/report.ts": "b6d36c496d3314e9375c7a450e64097ff644b812a821a2c5f6a7fcc89924c5b1",
@@ -182,8 +184,7 @@
       "server/src/routes/commentMod.ts": "c899150c1ce1bf71308bc7e6793892149cbf55326278e666aa0b71bdad953ab8",
       "server/src/routes/comments.ts": "dc54244e79d89879aef6b1c2eb3859f08ece25d03f569e145eb39b6ff15fe099",
       "server/src/routes/conversationUuid.ts": "60cf0cde805e46a3d58c16ebf1f58bcce453609da4dfe58c74efc6ce3c8fa667",
-      "server/src/routes/conversations.ts": "d9f94c74f176a5eda3926be76dcfb088be9de9925f51ba67ebef24039310bad0",
-      "server/src/routes/dataExport.ts": "78dc09f30af8da182c3d98c1a32635fc41d95f40e1a5c97992a0d1598faf767a",
+      "server/src/routes/conversations.ts": "5f2ca89b276f2cc44697138ffc7af0d7d24b22e589d9f895970a2e8fc1c96aed",
       "server/src/routes/delphi/batchReports.ts": "bf6b0d20afe942ec27819a64efec355fbf0841c0c48169c4024c64e81082331d",
       "server/src/routes/delphi/collectiveBody.ts": "da93f385216ce9177453447206c607419ba231e43fe4ed45573d90dc3f2a4edd",
       "server/src/routes/delphi/collectiveExchange.ts": "eedeead9a4fcf05d6b4df920f84cb23d1035a33efe97c4255112c5dd86b3703f",
@@ -200,9 +201,9 @@
       "server/src/routes/delphi.ts": "7ef24c7454483bd49a7085926d920d7c60f3a5874a4b07aa6808271a593afd5b",
       "server/src/routes/export.ts": "0000a7c541215e3d447c24544c971e455d69b02a8a93d5b033f865a4555a144f",
       "server/src/routes/implicitConversation.ts": "a3e539e1d6edac56b139250137abccf81be20fe8d277f374a4404caaf93409e1",
-      "server/src/routes/math.ts": "4cba8d09072de11aeb46a02fe3ed8db0f5869c82afc18dc4dc0528a17174fe80",
+      "server/src/routes/math.ts": "85671aea251e5865bf917eff00a77a77d60bd7d76a3936de208e1b8309bc9156",
       "server/src/routes/metadata.ts": "cfcbb05073791dbe01f6583fa52a2cf8e8af020110737ce4c7e19cae2462ebea",
-      "server/src/routes/notify.ts": "0ab60ea520dacfdbf1ce3f79407a59749053b44f9d42277d62c0c8527e7a0f32",
+      "server/src/routes/notify.ts": "b022cd8e0e7557d19127e8d6c357c68eb3a5ff752424870392e9ac6d31130836",
       "server/src/routes/ops.ts": "94fa94607275ef0add1493a8c75946c81a7c7ee82a445b11e64e16c96de99ccf",
       "server/src/routes/participantsOfInterest.ts": "9ea9d8e4667359c5c06b2f17c0baead153dc3fd4639320b3b1a463195fdf66b4",
       "server/src/routes/participation/topicPrioritize.ts": "50f1a6f87326ed96322190ac6da2fbc672d146c7ffe442e9ca43bfb60c9642ad",
@@ -210,23 +211,23 @@
       "server/src/routes/reportNarrative.ts": "cdd662af33adf963a3f824b8d24a4e943eb733334a049d54a71974dbd560bbbc",
       "server/src/routes/reports.ts": "a92470394ff569a90faeec16dc213699525a2aced9ba6a27c2cad9b4635da9a1",
       "server/src/routes/topicStats.ts": "a9eac641321dbc5a3eae0c5fdf1b283dfacd7869378fd46e073d66c2e5526a4d",
-      "server/src/routes/users.ts": "af1a615e26150f209ebdb0fa06164e94608a5a6871cad71acb1bc096dfaf1fb7",
+      "server/src/routes/users.ts": "833221232d6c775a2bde837789c7ca6a2696483ddbb6ee720e3c95775beb5a51",
       "server/src/routes/version.ts": "05180c766267e1bb271de258cb62b56e6800274b29dd242bae97ceb6dcdb3006",
       "server/src/routes/votes.ts": "15b4b5cce53e60110c5ba4b579d2039425bd183dd5832952fa22aedd69dc6496",
       "server/src/routes/xids.ts": "7022960cbb945d7174e7be17346fd0db08c8a51d1fe7c3fe001e144576c714db",
       "server/src/server-helpers.ts": "f1b413a16126ff152d9adeb40a264b6748d5ba49415582405cea9f8467ccaf1f",
       "server/src/server-middleware.ts": "822627b3d29d595f18e1d6087b4336600517339015cd5e07376a438961e85b97",
-      "server/src/server.ts": "84c2023ac0925150d646fa590bdaed9f2c34ceed8a77f78cca83c51ffd409e4f",
+      "server/src/server.ts": "b3180ea346f8e7136df2677e5c781f605f6dbc53bd7c1e057a3784cf205553e0",
       "server/src/session.ts": "43b2a8c651bc94dbd5fd804e68d754e68933b90432f2f2936d7900fdf0357697",
       "server/src/user.ts": "d367b1cadb737ce523f4dd5b67810454af024c5636ccbe417c3e220b99068f3b",
       "server/src/utils/commentClusters.ts": "a19785d50a49e7246aa8cceb4cd41aa2a0d0613a40dce045557b596f34fde191",
-      "server/src/utils/common.ts": "68c9940d6f84ec69706bd43ff8d9b0e9065bb4b31d033ba5849999ef1591d146",
+      "server/src/utils/common.ts": "f2c9b3c816d2b3b9f2efbb2c4522afebaf093a797ac8b71fedfa804ed0804484",
       "server/src/utils/constants.ts": "c46e7a165fd0df70be48217962c83756ca32f7569d8fa9d9c9b90805722449ce",
       "server/src/utils/delphiResultSnapshot.ts": "e692e6438b7886142b3d1b3d3e06cb31a4906233a9cae86241b15d7decc5f423",
       "server/src/utils/delphiResultWriter.ts": "6a671442a12c5b1b33e9ec42d82b1ec885387fba921c8d1069c03a52fe0a282c",
       "server/src/utils/delphiResults.ts": "abd2201311236e26b8a7bbf60e280a2f2e448ef6e9f488efd78ea7bf9084d1b4",
       "server/src/utils/delphiStorageCodec.ts": "169847c08d819939923fc06d894c336a2c2569d6ce0e075740e53f0f06e8652f",
-      "server/src/utils/domain.ts": "10989280c5bf88817b1c8376156209bf02dcd913d0676b7947c68801dbb69bbb",
+      "server/src/utils/domain.ts": "56200e8106c98613e36380445eea7966135c3e43dc63d32d9643539d099a774c",
       "server/src/utils/dynamoClient.ts": "ce8d9121fd9d79afea99816e76875001a2e9db8ccdd377af4019a9fed7618dad",
       "server/src/utils/fail.ts": "c07b6706256ed81a396596ba2ca208b7a9a5e864dcba942ffefdf2e95f4f408f",
       "server/src/utils/file-fetcher.ts": "2b44888ab927517f1fb0bf3cca3d3368ae523a1dd0830d2b823d4767dbf1a77b",
@@ -238,7 +239,7 @@
       "server/src/utils/pagination.ts": "1c0afe17e8c1f66128e3c9aaf431d90df030e176685ce5d4c827b763f3dddeb6",
       "server/src/utils/parameter.ts": "de93f1b27a6360175a724d297abd2fcc9fe822a4f6b047b59d9a52b133e1e15d",
       "server/src/utils/participants.ts": "213067f6ee76a264603765e8a0d27ccec48cd5540f6cda53ae3ba5bd2d9b25da",
-      "server/src/utils/pca.ts": "fa684c05a073e9f7531a3864388c38a17d81975d9e6a01cad6f6b5dbc892db43",
+      "server/src/utils/pca.ts": "64ad84e2c5034bb404b9223f0469bd90304321a79eb68398ae6080ce86dfcc85",
       "server/src/utils/pcaPresentation.ts": "8cba45f563a5a1d070691f63a2edf25537a07032ba4f9fa063acffa7a64b7f98",
       "server/src/utils/seedCsv.ts": "4e1cb9445d5a43041aee40918874993e5e534273bc072294a853d92dadfed55f",
       "server/src/utils/sqs.ts": "9020e2086ecb1da573bc73a39f223c478d2abcd54cba3cc4a5bd2832886e26de",
@@ -252,7 +253,7 @@
     }
   },
   "runtime": {
-    "node": "v22.23.3",
+    "node": "v22.23.4",
     "exemptions": [
       "node-tls-close-immediate",
       "pg-pool-idle-client-timeout",
@@ -926,7 +927,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -1571,7 +1572,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -2221,7 +2222,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -2866,7 +2867,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -3511,7 +3512,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -4156,7 +4157,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -4801,7 +4802,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -5451,7 +5452,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -6101,7 +6102,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -7122,7 +7123,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -8162,7 +8163,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -9193,7 +9194,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -10225,7 +10226,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -11256,7 +11257,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -12291,7 +12292,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -13324,7 +13325,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -14360,7 +14361,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -15686,7 +15687,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -16899,7 +16900,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -18062,7 +18063,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -19225,7 +19226,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -20393,7 +20394,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -21797,7 +21798,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -23038,7 +23039,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -24279,7 +24280,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -25525,7 +25526,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -26828,7 +26829,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -28177,7 +28178,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -29514,7 +29515,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -30851,7 +30852,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -32188,7 +32189,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -33525,7 +33526,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -34862,7 +34863,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -36519,7 +36520,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -38062,7 +38063,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -39616,7 +39617,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -41337,7 +41338,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -43034,7 +43035,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -44681,7 +44682,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -46328,7 +46329,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -48310,7 +48311,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -50197,7 +50198,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -52321,7 +52322,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -54539,7 +54540,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -56918,7 +56919,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -59183,7 +59184,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -61398,7 +61399,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -63613,7 +63614,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -65828,7 +65829,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -68093,7 +68094,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -70308,7 +70309,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -72522,7 +72523,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -74737,7 +74738,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -76952,7 +76953,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -79167,7 +79168,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -81381,7 +81382,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -83596,7 +83597,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -85811,7 +85812,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -88026,7 +88027,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -90242,7 +90243,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -92459,7 +92460,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -94675,7 +94676,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -96892,7 +96893,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -99108,7 +99109,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -101323,7 +101324,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -103538,7 +103539,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -105753,7 +105754,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -107968,7 +107969,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -110181,7 +110182,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -112395,7 +112396,7 @@
       "routeHits": [
         1,
         3,
-        115
+        114
       ]
     },
     {
@@ -114610,7 +114611,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -116823,7 +116824,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -119037,7 +119038,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -121252,7 +121253,7 @@
       "routeHits": [
         1,
         3,
-        116
+        115
       ]
     },
     {
@@ -123467,7 +123468,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -125680,7 +125681,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -127894,7 +127895,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -130109,7 +130110,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -132324,7 +132325,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -134537,7 +134538,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -136751,7 +136752,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -138971,7 +138972,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     },
     {
@@ -141186,7 +141187,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -143410,7 +143411,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -145625,7 +145626,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -147838,7 +147839,7 @@
       "routeHits": [
         1,
         3,
-        118
+        117
       ]
     },
     {
@@ -150053,7 +150054,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -152266,7 +152267,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -154480,7 +154481,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -156695,7 +156696,7 @@
       "routeHits": [
         1,
         3,
-        122
+        121
       ]
     },
     {
@@ -158910,7 +158911,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -161123,7 +161124,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -163337,7 +163338,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -165552,7 +165553,7 @@
       "routeHits": [
         1,
         3,
-        119
+        118
       ]
     },
     {
@@ -167767,7 +167768,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -169980,7 +169981,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -172194,7 +172195,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -174414,7 +174415,7 @@
       "routeHits": [
         1,
         3,
-        123
+        122
       ]
     },
     {
@@ -177070,7 +177071,7 @@
       "routeHits": [
         1,
         3,
-        117
+        116
       ]
     },
     {
@@ -179491,7 +179492,7 @@
       "routeHits": [
         1,
         3,
-        120
+        119
       ]
     },
     {
@@ -181917,7 +181918,7 @@
       "routeHits": [
         1,
         3,
-        121
+        120
       ]
     }
   ]

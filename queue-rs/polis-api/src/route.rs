@@ -1127,7 +1127,10 @@ fn host(req: &Request) -> &str {
 /// request path this process does not serve: nginx forwards the raw URI, so
 /// a path nginx normalised to the route (`//`, `%70ca2`) arrives here
 /// unnormalised and goes back to Node, which answers it as it always has.
+#[cfg_attr(test, track_caller)]
 pub fn bad_gateway() -> Outgoing {
+    #[cfg(test)]
+    crate::startup_routes::dispatch_tests::observe_handback(std::panic::Location::caller());
     let bytes = b"Bad Gateway\n".to_vec();
     Outgoing {
         status: 502,
@@ -7048,3 +7051,7 @@ mod tests {
             c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE")).unwrap();}).await.unwrap();
     }
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "startup_pools_tests.rs"]
+mod startup_pools_tests;

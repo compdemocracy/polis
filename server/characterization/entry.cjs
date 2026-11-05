@@ -132,8 +132,7 @@ async function main() {
                 node: process.version,
                 exemptions: require("./barrier.cjs").exemptions,
               },
-              routes: Object.values(app.routes)
-                .flat()
+              routes: state.mountedRoutes(app)
                 .map((r) => r.__p027),
               boot,
               middleware: state.middleware,

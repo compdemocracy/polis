@@ -122,3 +122,31 @@ when that cached image predates them. `NGINX_RENDERED_DIR` optionally saves
 `nginx -T` output for the tested routes-off and routes-on selections. The
 harness owns a unique container/network prefix and uses ephemeral loopback
 ports. `X54_NGINX_PREFIX` can override that prefix.
+
+### Production upstream check
+
+Run `make check-nginx-upstreams` from the repository root (Python 3.12+ and
+`envsubst`, provided by gettext, are required). The Nginx production upstreams
+workflow runs the same command for changes to the proxy, Compose file or
+production startup hook. No Docker daemon, database or environment file is used.
+
+The check reads the web role's image list and Compose startup commands in
+`scripts/after_install.sh`, compares them with `docker-compose.yml` service
+names and dependencies, then reads every `.template` and `.conf` file below
+the nginx directory. Includes are not followed; included files with other
+extensions are outside coverage. It also runs `render-rust-api.sh` with all route templates selected, using the
+Compose default Rust upstream. Only the renderer's container-local template
+path is relocated to a temporary directory. Literal proxy hosts, upstream
+pool members and host variables defined by `set` or `map` must name a service
+the web role starts. Exceptions belong in `production_upstreams.py` with an
+explanation; the list is currently empty.
+
+This is a source topology check, not a live readiness probe: conditional Rust
+startup counts as available when its routes are selected. Deployment-specific
+environment overrides, DNS reachability and container health are outside its
+scope. The shell and Compose readers support the current explicit startup
+and short dependency-list forms, not general shell evaluation or arbitrary
+YAML. Unsupported startup arguments, dependencies and host variables fail;
+changes to those source forms need matching reader tests. The deployment hook
+is never executed. The test includes the short-lived migration invocation in
+its startup review but does not count it as a serving upstream.

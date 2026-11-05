@@ -330,6 +330,7 @@ for (const [moduleName, clientName, service] of [
   };
 }
 const express = require("express");
+state.mountedRoutes = require("./route-observation.cjs").trackMounts(express);
 const fingerprint = (fn) =>
   require("./core.cjs").hash(Function.prototype.toString.call(fn));
 const originalUse = express.application.use;
@@ -361,7 +362,11 @@ for (const method of [...new Set([...require("methods"), "all"])]) {
     };
     state.registrations.push(registration);
     const hit = (req, res, next) => {
-      state.hits.push(registrationIndex);
+      state.hits.push({
+        method: registration.declaredMethod,
+        path: registration.path,
+        callback: handlers.flat(Infinity).at(-1).name,
+      });
       next();
     };
     const previous = new Set(Object.values(this.routes || {}).flat());

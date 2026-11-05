@@ -38,6 +38,24 @@ pub(crate) struct Writer {
 }
 
 impl Writer {
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn startup_pools(&self) -> [&Arc<db::Pool>; 3] {
+        // No rest pattern: new fields must be classified for this inventory.
+        let Self {
+            pool,
+            background,
+            verifier: _,
+            reads,
+            admins: _,
+        } = self;
+        let NotificationPool {
+            pool: background_pool,
+            admitted: _,
+            dropped: _,
+        } = background.as_ref();
+        [pool, background_pool, reads]
+    }
+
     pub(crate) fn set_revocations(&mut self, snapshot: Arc<polis_auth::revocation::Revocations>) {
         self.verifier.set_revocations(snapshot);
     }
