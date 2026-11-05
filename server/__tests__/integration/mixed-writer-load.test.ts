@@ -107,16 +107,30 @@ async function snapshot(label: string) {
   }
   const primaryPools = observer.snapshot();
   output({ label, activity, locks, primaryPools, secondPools });
+  const writerPids = new Set<number>();
   for (const diagnostics of [primaryPools, secondPools]) {
     if (typeof diagnostics !== "object") continue;
     for (const pool of (diagnostics as any).pools) {
+      for (const pid of pool.backendPids) writerPids.add(pid);
       if (pool.role === "participation")
         expect(pool.max).toBe(PARTICIPATION_POOL_MAX);
       if (pool.role === "participation-read")
         expect(pool.max).toBe(PARTICIPATION_READ_POOL_MAX);
     }
   }
-  return activity;
+  expect(writerPids.size).toBeGreaterThan(0);
+  // Keep the full database snapshot for diagnosis, but assertions about these
+  // writers use only connections observed in their pools. An external HTTP
+  // handler has no pool diagnostics here; its sessions are not opened by us.
+  return {
+    activity,
+    writerActivity: activity.filter((row) => writerPids.has(row.pid)),
+  };
+}
+function assertNoIdleTransactions(activity: { state: string | null }[]) {
+  expect(
+    activity.filter((row) => row.state?.startsWith("idle in transaction"))
+  ).toHaveLength(0);
 }
 async function call(
   url: string,
@@ -403,6 +417,49 @@ afterAll(async () => {
     server ? server.close(() => resolve()) : resolve()
   );
   await admin?.end();
+});
+
+test("idle transaction check excludes an unrelated connection with a writer application name", async () => {
+  const unrelated = new Client({
+    connectionString: process.env.DATABASE_URL,
+    application_name: "mixed-writer-secondary",
+  });
+  await unrelated.connect();
+  try {
+    const pid = (await unrelated.query("SELECT pg_backend_pid() AS pid"))
+      .rows[0].pid;
+    await unrelated.query("BEGIN");
+    const { activity, writerActivity } = await snapshot("unrelated-idle");
+    expect(activity.find((row) => row.pid === pid)?.state).toBe(
+      "idle in transaction"
+    );
+    expect(() => assertNoIdleTransactions(activity)).toThrow();
+    expect(writerActivity.some((row) => row.pid === pid)).toBe(false);
+    assertNoIdleTransactions(writerActivity);
+  } finally {
+    await unrelated.query("ROLLBACK");
+    await unrelated.end();
+  }
+});
+
+test("idle transaction check still rejects a connection in the writer pool", async () => {
+  const client = await pg.connect();
+  try {
+    const pid = (await client.query("SELECT pg_backend_pid() AS pid")).rows[0]
+      .pid;
+    await client.query("BEGIN");
+    const { writerActivity } = await snapshot("owned-idle");
+    expect(writerActivity.find((row) => row.pid === pid)?.state).toBe(
+      "idle in transaction"
+    );
+    expect(() => assertNoIdleTransactions(writerActivity)).toThrow();
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+  assertNoIdleTransactions(
+    (await snapshot("owned-idle-released")).writerActivity
+  );
 });
 
 test("Node control, split ownership, reversed ownership and Node down phase preserve every write", async () => {
@@ -739,15 +796,13 @@ test("mixed writes stay prompt while every slow-work pool is occupied and result
       "all export connections parked"
     );
     const before = await snapshot("slow-work-parked");
-    expect(
-      before.filter((row) => row.state?.startsWith("idle in transaction"))
-    ).toHaveLength(0);
+    assertNoIdleTransactions(before.writerActivity);
     const outcomes = await burst(tids[9], true);
     expect(waiting).toBe(RESULT_SNAPSHOT_POOL_MAX);
     prompt(outcomes);
     const after = await snapshot("participation-complete-before-release");
     expect(
-      after.filter(
+      after.activity.filter(
         (row) =>
           row.query.includes("mixed writer export barrier") &&
           row.wait_event_type === "Lock"
