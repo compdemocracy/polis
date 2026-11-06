@@ -27,6 +27,14 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Free runner disk when short
+        working-directory: .
+        run: |
+          df -h /
+          if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+            df -h /
+          fi
       - name: Prove one-shot importer against local DynamoDB
         run: bash scripts/test-production-import.sh
       - name: Retain generated aggregate proof

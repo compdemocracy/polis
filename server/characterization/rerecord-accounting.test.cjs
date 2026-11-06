@@ -104,21 +104,22 @@ test("ALL fanout keeps verb identities", () => {
     1
   );
 });
-test("route reorder or metadata changes remain structural", () => {
+test("route metadata changes remain structural", () => {
   const d = censusDelta(
     census([route()]),
-    census([{ ...route(), path: "/b" }]),
+    census([{ ...route(), declaredMethod: "ALL" }]),
     attribution
   );
   assert.equal(d.structureChanges.length, 1);
 });
 test("new/deleted registrations and middleware are visible", () => {
   const a = census([route()]),
-    b = census([route("new", 1)]);
+    b = census([{ ...route("new", 1), path: "/b" }]);
   b.middleware = [["changed"]];
   const d = censusDelta(a, b, attribution);
   assert.equal(d.added.length, 1);
   assert.equal(d.removed.length, 1);
+  assert.deepEqual(d.callbacks, []);
   assert.equal(d.middlewareChanged, true);
 });
 test("callback arity changes are structural, new slot is unattributed", () => {
@@ -275,7 +276,7 @@ test("committed moderation callback is attributed to its changing commit", () =>
 });
 
 test("census array reorder, runtime and serialization changes block eligibility", () => {
-  const a = census([route(), route("other", 1)]);
+  const a = census([route(), { ...route("other", 1), path: "/b" }]);
   for (const mutate of [
     (b) => b.routes.reverse(),
     (b) => {
@@ -340,6 +341,283 @@ test("changed shared schema or fixture requires review even with unchanged outco
     r.sharedFiles.push({ path: file, before: "old", after: "new" });
     assert.equal(eligible(r), false);
   }
+});
+
+function recordedCensus() {
+  const fs = require("node:fs");
+  const { testBaseline } = require(path.join(
+    repo,
+    "server/characterization/baseline.cjs"
+  ));
+  return JSON.parse(fs.readFileSync(path.join(testBaseline(), "routes.json")));
+}
+
+test("recorded census compared with itself has no accounting changes", () => {
+  const before = recordedCensus();
+  const d = censusDelta(before, structuredClone(before), () => {
+    assert.fail("unchanged callbacks must not need attribution");
+  });
+  assert.deepEqual(d, {
+    before: before.routes.length,
+    after: before.routes.length,
+    added: [],
+    removed: [],
+    structureChanges: [],
+    callbacks: [],
+    middlewareChanged: false,
+    orderChanged: false,
+    runtimeChanged: false,
+    serializationChanged: false,
+  });
+});
+
+test("an earlier mounted route does not reassign recorded route accounting", () => {
+  const before = recordedCensus();
+  const express = require(path.join(repo, "server/node_modules/express"));
+  const mountedRoutes = require("./route-observation.cjs").trackMounts(express);
+  const extra = {
+    ...route("mounted", 0),
+    method: "POST",
+    declaredMethod: "POST",
+    path: "/recording-extra",
+  };
+  // Register the archived declarations with inert callbacks: only the census is
+  // under test. Preserve the recorded fingerprints instead of inventing new ones.
+  function registerArchive(mountFirst) {
+    const app = express();
+    const rows = new WeakMap();
+    let ordinal = 0;
+    function add(owner, entries) {
+      const prior = new Set(Object.values(owner.routes).flat());
+      const declaration = entries[0];
+      owner[declaration.declaredMethod.toLowerCase()](
+        declaration.path,
+        (req, res) => res.end()
+      );
+      for (const [method, routes] of Object.entries(owner.routes)) {
+        for (const r of routes.filter((r) => !prior.has(r))) {
+          const recorded = entries.find(
+            (e) => e.method === method.toUpperCase()
+          );
+          assert.ok(recorded, "every Express fanout must have a recorded row");
+          rows.set(r, {
+            ...structuredClone(recorded),
+            registrationIndex: ordinal,
+          });
+        }
+      }
+      ordinal++;
+    }
+    if (mountFirst) {
+      const child = express();
+      child.disable("x-powered-by");
+      add(child, [extra]);
+      app.use(child);
+    }
+    const declarations = new Map();
+    for (const row of before.routes) {
+      const group = declarations.get(row.registrationIndex) || [];
+      group.push(row);
+      declarations.set(row.registrationIndex, group);
+    }
+    for (const [, group] of [...declarations].sort(([a], [b]) => a - b))
+      add(app, group);
+    return mountedRoutes(app).map((r) => rows.get(r));
+  }
+  assert.deepEqual(registerArchive(false), before.routes);
+  const after = { ...structuredClone(before), routes: registerArchive(true) };
+  assert.equal(after.routes.length, before.routes.length + 1);
+  for (const [i, row] of before.routes.entries())
+    assert.deepEqual(after.routes[i], {
+      ...row,
+      registrationIndex: row.registrationIndex + 1,
+    });
+  after.middleware.push(["mounted application"]);
+  const d = censusDelta(before, after, () => {
+    assert.fail("an unrelated mount must not reattribute recorded callbacks");
+  });
+  assert.equal(d.before, before.routes.length);
+  assert.equal(d.after, before.routes.length + 1);
+  assert.deepEqual(d.added, [extra]);
+  assert.deepEqual(d.removed, []);
+  assert.deepEqual(d.structureChanges, []);
+  assert.deepEqual(d.callbacks, []);
+  assert.equal(d.orderChanged, true);
+  assert.equal(d.middlewareChanged, true);
+  assert.equal(eligible({ ...good(), census: d }), false);
+
+  // A subsequent callback change must still name that same route and slot.
+  const changed = after.routes.find(
+    (r) => r.method === "POST" && r.path === "/api/v3/comments"
+  );
+  assert.ok(changed);
+  const original = changed.ordered_callback_fingerprints[0];
+  changed.ordered_callback_fingerprints[0] = "changed";
+  const calls = [];
+  const updated = censusDelta(before, after, (a, b) => {
+    calls.push([a, b]);
+    return { status: "attributed" };
+  });
+  assert.deepEqual(calls, [[original, "changed"]]);
+  assert.deepEqual(updated.callbacks, [
+    {
+      registrationIndex: changed.registrationIndex,
+      method: changed.method,
+      path: changed.path,
+      slot: 0,
+      before: original,
+      after: "changed",
+      attribution: { status: "attributed" },
+    },
+  ]);
+  assert.deepEqual(updated.structureChanges, []);
+  assert.deepEqual(updated.added, [extra]);
+  assert.deepEqual(updated.removed, []);
+});
+
+test("recorded repeated routes attribute by occurrence after ordinal shifts", () => {
+  const before = recordedCensus();
+  const after = structuredClone(before);
+  for (const row of after.routes) row.registrationIndex += 7;
+  const repeated = after.routes.filter(
+    (r) => r.method === "GET" && r.path === "/api/v3/*"
+  );
+  assert.equal(repeated.length, 2);
+  const calls = [];
+  const expected = repeated.map((r, i) => {
+    const previous = r.ordered_callback_fingerprints[0];
+    r.ordered_callback_fingerprints[0] = `changed-${i}`;
+    return [previous, `changed-${i}`];
+  });
+  const d = censusDelta(before, after, (a, b) => {
+    calls.push([a, b]);
+    return { status: "attributed" };
+  });
+  assert.deepEqual(calls, expected);
+  assert.deepEqual(
+    d.callbacks.map((r) => r.registrationIndex),
+    repeated.map((r) => r.registrationIndex)
+  );
+  assert.deepEqual(d.structureChanges, []);
+  assert.deepEqual(d.added, []);
+  assert.deepEqual(d.removed, []);
+});
+
+test("equal-count same-pair reorder reports callbacks at each occurrence", () => {
+  const before = census([route("first", 0), route("second", 1)]);
+  const after = census([...before.routes].reverse());
+  const calls = [];
+  const d = censusDelta(before, after, (a, b) => {
+    calls.push([a, b]);
+    return { status: "unattributed" };
+  });
+  assert.deepEqual(calls, [
+    ["first", "second"],
+    ["second", "first"],
+  ]);
+  assert.deepEqual(d.callbacks, [
+    {
+      registrationIndex: 1,
+      method: "GET",
+      path: "/a",
+      slot: 0,
+      before: "first",
+      after: "second",
+      attribution: { status: "unattributed" },
+    },
+    {
+      registrationIndex: 0,
+      method: "GET",
+      path: "/a",
+      slot: 0,
+      before: "second",
+      after: "first",
+      attribution: { status: "unattributed" },
+    },
+  ]);
+  assert.equal(d.orderChanged, false);
+  assert.deepEqual(d.added, []);
+  assert.deepEqual(d.removed, []);
+  assert.deepEqual(d.structureChanges, []);
+  assert.equal(eligible({ ...good(), census: d }), false);
+});
+
+for (const change of ["insert", "remove"])
+  test(`recorded same-pair ${change} is refused by name before attribution`, () => {
+    const before = recordedCensus();
+    const after = structuredClone(before);
+    const i = after.routes.findIndex(
+      (r) => r.method === "GET" && r.path === "/api/v3/*"
+    );
+    assert.notEqual(i, -1);
+    if (change === "insert") {
+      after.routes.splice(i, 0, {
+        ...structuredClone(after.routes[i]),
+        registrationIndex:
+          Math.max(...after.routes.map((r) => r.registrationIndex)) + 1,
+        ordered_callback_fingerprints: ["inserted"],
+      });
+    } else {
+      after.routes.splice(i, 1);
+    }
+    // Even a change elsewhere must not trigger attribution before the refusal.
+    after.routes.find(
+      (r) => r.path !== "/api/v3/*"
+    ).ordered_callback_fingerprints[0] = "changed";
+    let calls = 0;
+    assert.throws(
+      () =>
+        censusDelta(before, after, () => {
+          calls++;
+        }),
+      {
+        message: `route occurrence count changed: GET /api/v3/* (archive 2, run ${
+          change === "insert" ? 3 : 1
+        })`,
+      }
+    );
+    assert.equal(calls, 0);
+  });
+
+test("a unique pair becoming repeated is refused in either direction", () => {
+  const single = census([route()]);
+  const repeated = census([route(), route("second", 1)]);
+  for (const [before, after] of [
+    [single, repeated],
+    [repeated, single],
+  ]) {
+    assert.throws(
+      () =>
+        censusDelta(before, after, () => {
+          assert.fail("ambiguous pairs must not be attributed");
+        }),
+      /route occurrence count changed: GET \/a \(archive [12], run [12]\)/
+    );
+  }
+});
+
+test("all changed pair counts are named in the refusal", () => {
+  const before = census([route(), { ...route("post"), method: "POST" }]);
+  const after = structuredClone(before);
+  after.routes.push(route("extra", 1), {
+    ...route("extra", 1),
+    method: "POST",
+  });
+  assert.throws(() => censusDelta(before, after, attribution), {
+    message:
+      "route occurrence count changed: GET /a (archive 1, run 2); POST /a (archive 1, run 2)",
+  });
+});
+
+test("a new method on the same path is a separate pair", () => {
+  const before = census([route()]);
+  const extra = { ...route("post", 1), method: "POST" };
+  const d = censusDelta(before, census([route(), extra]), () => {
+    assert.fail("a new method must not reattribute the existing method");
+  });
+  assert.deepEqual(d.added, [extra]);
+  assert.deepEqual(d.removed, []);
+  assert.deepEqual(d.callbacks, []);
 });
 
 // Real Git reads over a self-contained loose-object fixture. No network, checkout,

@@ -142,6 +142,7 @@ The other workloads cap themselves through their own pool settings, each a membe
 - **Math engines** read `DATABASE_POOL_SIZE` (the Clojure engine's HikariCP pool, default 3; the Python engine's pool, default 5) and the Python engine also reads **`DATABASE_MAX_OVERFLOW`** (default 10), so one Python engine process uses at most 5 + 10 = 15 pooled connections plus one dedicated writer-lock connection. One process per shard.
 - **`POLIS_JOBS_CONCURRENCY`** the queue daemon's worker count (default 1); each daemon uses two connections plus one per running job.
 - **`POLIS_API_DB_POOL`** the typed read API server's pool (default 8), with **`POLIS_API_DB_ACQUIRE_TIMEOUT_MS`** (2000) and **`POLIS_API_DB_STATEMENT_TIMEOUT_MS`** (3000).
+- **`POLIS_API_PCA_CACHE_ENTRIES`** maximum conversations retained in each per-process PCA math and presentation cache. Default `300`; accepts positive integers. `CACHE_MATH_RESULTS=false` keeps each cache at one entry. This bounds entries, not bytes: a large conversation measured about 3.8 MiB of process memory, so size the count for the process memory limit and expected conversation sizes. Other route caches are unchanged.
 - The import worker reuses the API server's read-write and read pools (never the participation pools), so it carries those pools' per-process budget; it scales to a small number of tasks on queue depth.
 
 Production total against its single primary (no read replica; the RDS
