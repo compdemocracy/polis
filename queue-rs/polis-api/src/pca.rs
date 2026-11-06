@@ -13,7 +13,7 @@ use crate::{
 use anyhow::{Result, bail};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
 };
 
 /// One cache entry: the engine-facing structure and its stored gzip body
@@ -63,11 +63,155 @@ struct Presentation {
     expiration: f64,
 }
 
+// An uncommitted row still answers existing joiners. Keep its unprocessed
+// object because callers can request different ticks; the early no-update
+// answer must not process a body that this caller would never have read.
+#[derive(Clone)]
+enum MathRefresh {
+    Ready(Arc<PcaItem>, &'static str),
+    Uncommitted { pojo: Arc<Obj>, expiration: f64 },
+}
+
+impl MathRefresh {
+    fn expiration(&self) -> f64 {
+        match self {
+            Self::Ready(item, _) => item.expiration,
+            Self::Uncommitted { expiration, .. } => *expiration,
+        }
+    }
+}
+
+// Only pca2 callers in this instance can wait on these per-conversation
+// flights. Completed errors go to existing joiners, never to a later request.
+struct Refreshes<T>(Mutex<HashMap<i32, Weak<Flight<T>>>>);
+
+struct Flight<T> {
+    value: Arc<tokio::sync::Mutex<Option<std::result::Result<T, RefreshError>>>>,
+    failed: std::sync::atomic::AtomicBool,
+}
+
+#[derive(Clone)]
+struct RefreshError {
+    message: String,
+    unavailable: bool,
+}
+
+impl RefreshError {
+    fn error(&self) -> anyhow::Error {
+        if self.unavailable {
+            db::Unavailable(self.message.clone()).into()
+        } else {
+            anyhow::anyhow!(self.message.clone())
+        }
+    }
+}
+
+struct Refresh<T> {
+    flight: Arc<Flight<T>>,
+    value: tokio::sync::OwnedMutexGuard<Option<std::result::Result<T, RefreshError>>>,
+}
+
+impl<T: Clone + Send + 'static> Refresh<T> {
+    fn shared(&self) -> Result<Option<T>> {
+        self.value
+            .as_ref()
+            .map(|v| v.clone().map_err(|e| e.error()))
+            .transpose()
+    }
+
+    fn complete(&mut self, result: Result<T>) -> Result<T> {
+        match result {
+            Ok(value) => {
+                *self.value = Some(Ok(value.clone()));
+                Ok(value)
+            }
+            Err(error) => {
+                self.fail(&error, db::is_unavailable(&error));
+                Err(error)
+            }
+        }
+    }
+
+    fn fail(&mut self, error: &anyhow::Error, unavailable: bool) {
+        *self.value = Some(Err(RefreshError {
+            message: format!("{error:#}"),
+            unavailable,
+        }));
+        self.flight
+            .failed
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+
+    async fn read<R, F>(self, pool: &Arc<Pool>, read: F) -> Result<(Self, R)>
+    where
+        R: Send + 'static,
+        F: FnOnce(&mut postgres::Client) -> Result<R> + Send + 'static,
+    {
+        // Keep the lease recoverable if acquisition fails before the closure
+        // runs. Once it starts, the blocking operation owns the lease until
+        // its read ends, even if the HTTP future is cancelled.
+        let handoff = Arc::new(Mutex::new(Some(self)));
+        let dispatched = handoff.clone();
+        let result = pool
+            .with(move |c| {
+                let mut refresh = lock(&dispatched)?
+                    .take()
+                    .ok_or_else(|| anyhow::anyhow!("refresh already dispatched"))?;
+                match read(c) {
+                    Ok(row) => Ok((refresh, row)),
+                    Err(error) => {
+                        refresh.fail(&error, true);
+                        Err(error)
+                    }
+                }
+            })
+            .await;
+        if let Err(error) = &result
+            && let Some(mut refresh) = lock(&handoff)?.take()
+        {
+            refresh.fail(error, true);
+        }
+        result
+    }
+}
+
+impl<T> Refreshes<T> {
+    async fn acquire(&self, zid: i32, timeout: std::time::Duration) -> Result<Refresh<T>> {
+        let flight = {
+            let mut entries = lock(&self.0)?;
+            if let Some(flight) = entries
+                .get(&zid)
+                .and_then(Weak::upgrade)
+                .filter(|f| !f.failed.load(std::sync::atomic::Ordering::Acquire))
+            {
+                flight
+            } else {
+                entries.retain(|_, entry| entry.strong_count() != 0);
+                let flight = Arc::new(Flight {
+                    value: Arc::new(tokio::sync::Mutex::new(None)),
+                    failed: std::sync::atomic::AtomicBool::new(false),
+                });
+                entries.insert(zid, Arc::downgrade(&flight));
+                flight
+            }
+        };
+        // A joiner can wait for both the leader's pool acquisition and read.
+        // A leader still acquires its pool slot under the pool's own shorter
+        // limit. The enclosing HTTP deadline cancels either wait if earlier.
+        let value = tokio::time::timeout(timeout, flight.value.clone().lock_owned())
+            .await
+            .map_err(|_| db::Unavailable("pca refresh wait timed out".into()))?;
+        Ok(Refresh { flight, value })
+    }
+}
+
 pub struct Pca {
     db: Arc<Pool>,
     math_env: String,
     cache: Mutex<Lru<i32, Arc<PcaItem>>>,
     presentations: Mutex<Lru<i32, Presentation>>,
+    refreshes: Refreshes<MathRefresh>,
+    presentation_refreshes: Refreshes<Presentation>,
     /// `pcaResultsExistForZid` (routes/math.ts).
     results_exist: Mutex<HashMap<i32, bool>>,
 }
@@ -102,6 +246,8 @@ impl Pca {
             cache: _,
             presentations: _,
             results_exist: _,
+            refreshes: _,
+            presentation_refreshes: _,
         } = self;
         [db]
     }
@@ -113,6 +259,8 @@ impl Pca {
             cache: Mutex::new(Lru::new(cache_size)),
             presentations: Mutex::new(Lru::new(cache_size)),
             results_exist: Mutex::new(HashMap::new()),
+            refreshes: Refreshes(Mutex::new(HashMap::new())),
+            presentation_refreshes: Refreshes(Mutex::new(HashMap::new())),
         }
     }
 
@@ -133,67 +281,129 @@ impl Pca {
             record_cache("hit");
             return Ok(answer(item.clone(), math_tick));
         }
-        if let Some(item) = cached.filter(|c| c.reusable) {
-            let env = self.math_env.clone();
-            let tick = self
-                .db
-                .with(move |c| db::math_main_tick(c, zid, &env))
-                .await?;
-            if tick.is_some_and(|t| t as f64 == item.math_tick()) {
-                let mut cache = lock(&self.cache)?;
-                // Do not replace an entry published while the read was in flight.
-                if cache
-                    .get(&zid)
-                    .is_some_and(|current| Arc::ptr_eq(&current, &item))
-                {
-                    // Only the freshness metadata changes. Both body allocations
-                    // are shared, so renewing under the lock does not copy them.
-                    let mut renewed = (*item).clone();
-                    renewed.expiration = now_ms() + TTL_MS;
-                    let renewed = Arc::new(renewed);
-                    cache.set(zid, renewed.clone());
-                    record_cache("revalidated");
-                    return Ok(answer(renewed, math_tick));
-                }
-            }
+        let refresh = self
+            .refreshes
+            .acquire(zid, self.db.refresh_timeout())
+            .await?;
+        if let Some(shared) = refresh.shared()?
+            && shared.expiration() > now_ms()
+        {
+            return self.finish_math_refresh(zid, math_tick, refresh, shared);
         }
-        record_cache("miss");
+        // A previous refresh may have finished between the initial lookup
+        // and joining this flight.
+        let cached = lock(&self.cache)?.get(&zid);
+        if let Some(item) = cached.as_ref().filter(|c| c.expiration > now_ms()) {
+            record_cache("hit");
+            return Ok(answer(item.clone(), math_tick));
+        }
+        let reusable = cached.filter(|c| c.reusable);
+        let held_tick = reusable.as_ref().map(|c| c.math_tick());
         let env = self.math_env.clone();
-        let row = self.db.with(move |c| db::math_main(c, zid, &env)).await?;
-        let Some(row) = row else {
-            if math_tick == -1.0 {
-                // No row at all: the empty presentation, so reports render.
-                let pojo = ensure_complete(None, now_ms());
-                return Ok(Some(self.store(zid, pojo, true, false)?));
+        // Move ownership into the blocking operation: a cancelled HTTP caller
+        // cannot release this conversation while its read is still running.
+        // The database permit is released before parsing or compressing.
+        let (mut refresh, row) = refresh
+            .read(&self.db, move |c| {
+                db::math_main_refresh(c, zid, &env, held_tick)
+            })
+            .await
+            .inspect_err(|_| {
+                if held_tick.is_none() {
+                    record_cache("miss");
+                }
+            })?;
+        let built = (|| {
+            let (item, outcome) = if let Some((_, None)) = row.as_ref()
+                && let Some(item) = reusable
+            {
+                let mut renewed = (*item).clone();
+                renewed.expiration = now_ms() + TTL_MS;
+                (Arc::new(renewed), "revalidated")
+            } else if let Some((row_tick, Some(data))) = row {
+                record_cache("miss");
+                let mut parsed = js::parse(&data)?;
+                let Some(item) = parsed.as_obj_mut() else {
+                    bail!("math_main.data is not a JSON object");
+                };
+                let tick = row_tick as f64;
+                item.set("math_tick", Js::Num(tick));
+                if tick <= -1.0 {
+                    return Ok(MathRefresh::Uncommitted {
+                        pojo: Arc::new(std::mem::take(item)),
+                        expiration: now_ms() + TTL_MS,
+                    });
+                }
+                let reusable = tick >= 0.0
+                    && item
+                        .get("lastVoteTimestamp")
+                        .is_some_and(|v| matches!(v, Js::Num(_)) || v.truthy());
+                let mut item = std::mem::take(item);
+                process_math_object(&mut item)?;
+                let mut pojo = ensure_complete(Some(item), now_ms());
+                pojo.remove("zid");
+                (Self::build(pojo, false, reusable)?, "miss")
+            } else {
+                record_cache("miss");
+                (
+                    Self::build(ensure_complete(None, now_ms()), true, false)?,
+                    "miss",
+                )
+            };
+            Ok(MathRefresh::Ready(item, outcome))
+        })();
+        let shared = refresh.complete(built)?;
+        self.finish_math_refresh(zid, math_tick, refresh, shared)
+    }
+
+    fn finish_math_refresh(
+        &self,
+        zid: i32,
+        math_tick: f64,
+        mut refresh: Refresh<MathRefresh>,
+        shared: MathRefresh,
+    ) -> Result<Option<Arc<PcaItem>>> {
+        let (item, outcome) = match shared {
+            MathRefresh::Ready(item, outcome) => (item, outcome),
+            MathRefresh::Uncommitted { pojo, .. } => {
+                record_cache("miss");
+                if pojo.get("math_tick").map_or(f64::NAN, js_number) <= math_tick {
+                    return Ok(None);
+                }
+                let built = (|| {
+                    let mut pojo = (*pojo).clone();
+                    process_math_object(&mut pojo)?;
+                    let mut pojo = ensure_complete(Some(pojo), now_ms());
+                    pojo.remove("zid");
+                    Ok(MathRefresh::Ready(Self::build(pojo, false, false)?, "miss"))
+                })();
+                let MathRefresh::Ready(item, outcome) = refresh.complete(built)? else {
+                    unreachable!("a processed row has a body");
+                };
+                (item, outcome)
             }
-            return Ok(None);
         };
-        let mut parsed = js::parse(&row.data)?;
-        let Some(item) = parsed.as_obj_mut() else {
-            // Every writer stores an object; Node would fail differently on a
-            // scalar and reshape an array. Neither is served here.
-            bail!("math_main.data is not a JSON object");
-        };
-        // The column is authoritative, including a committed tick of 0.
-        let tick = row.math_tick as f64;
-        item.set("math_tick", Js::Num(tick));
-        if tick <= -1.0 && tick <= math_tick {
+        record_cache(outcome);
+        self.refreshed_answer(zid, item, math_tick)
+    }
+
+    fn refreshed_answer(
+        &self,
+        zid: i32,
+        item: Arc<PcaItem>,
+        math_tick: f64,
+    ) -> Result<Option<Arc<PcaItem>>> {
+        if (item.synthesized && math_tick != -1.0)
+            || (!item.synthesized && item.math_tick() <= -1.0 && item.math_tick() <= math_tick)
+        {
             return Ok(None);
         }
-        // Match Node's exclusion of clock-derived templates from row reuse.
-        let reusable = tick >= 0.0
-            && item
-                .get("lastVoteTimestamp")
-                .is_some_and(|v| matches!(v, Js::Num(_)) || v.truthy());
-        let mut item = std::mem::take(item);
-        process_math_object(&mut item)?;
-        let mut pojo = ensure_complete(Some(item), now_ms());
-        // `Object.assign(data, {zid})` then `delete item.zid`: never served.
-        pojo.remove("zid");
-        Ok(answer(self.store(zid, pojo, false, reusable)?, math_tick))
+        lock(&self.cache)?.set(zid, item.clone());
+        Ok(answer(item, math_tick))
     }
 
     /// `updatePcaCache`.
+    #[cfg(test)]
     fn store(
         &self,
         zid: i32,
@@ -201,6 +411,12 @@ impl Pca {
         synthesized: bool,
         reusable: bool,
     ) -> Result<Arc<PcaItem>> {
+        let item = Self::build(pojo, synthesized, reusable)?;
+        lock(&self.cache)?.set(zid, item.clone());
+        Ok(item)
+    }
+
+    fn build(pojo: Obj, synthesized: bool, reusable: bool) -> Result<Arc<PcaItem>> {
         let json = js::stringify(&Js::Obj(pojo.clone()));
         let gzip = compress::gzip(json.as_bytes())?;
         let item = Arc::new(PcaItem {
@@ -210,7 +426,6 @@ impl Pca {
             synthesized,
             reusable,
         });
-        lock(&self.cache)?.set(zid, item.clone());
         Ok(item)
     }
 
@@ -241,54 +456,77 @@ impl Pca {
         {
             return Ok(p.presented);
         }
+        let mut refresh = self
+            .presentation_refreshes
+            .acquire(zid, self.db.refresh_timeout())
+            .await?;
+        if let Some(p) = refresh.shared()?
+            && Arc::ptr_eq(&p.source, &item)
+            && p.expiration > now_ms()
+        {
+            return Ok(p.presented.clone());
+        }
+        if let Some(p) = lock(&self.presentations)?.get(&zid)
+            && Arc::ptr_eq(&p.source, &item)
+            && p.expiration > now_ms()
+        {
+            return Ok(p.presented);
+        }
         let tids = if fill_tids || fill_count || fill_extremity {
             // Node serves an empty list when its own read fails. Here a failed
             // read is a 502, so nginx asks Node, which has its own database
             // connection, instead of this process guessing.
-            self.db.with(move |c| db::approved_tids(c, zid)).await?
+            let (returned, tids) = refresh
+                .read(&self.db, move |c| db::approved_tids(c, zid))
+                .await?;
+            refresh = returned;
+            tids
         } else {
             Vec::new()
         };
-        let mut pojo = (*item.pojo).clone();
-        let mut pca = pca.clone();
-        if fill_center {
-            pca.set("center", Js::Arr(vec![Js::Num(0.0), Js::Num(0.0)]));
-        }
-        if fill_extremity {
-            pca.set(
-                "comment-extremity",
-                Js::Arr(tids.iter().map(|_| Js::Num(0.0)).collect()),
-            );
-        }
-        if fill_projection {
-            pca.set("comment-projection", Js::Obj(Obj::new()));
-        }
-        pojo.set("pca", Js::Obj(pca));
-        if fill_tids {
-            pojo.set(
-                "tids",
-                Js::Arr(tids.iter().map(|t| Js::Num(f64::from(*t))).collect()),
-            );
-        }
-        if fill_count {
-            pojo.set("n-cmts", Js::Num(tids.len() as f64));
-        }
-        let json = js::stringify(&Js::Obj(pojo.clone()));
-        let presented = Arc::new(PcaItem {
-            pojo: Arc::new(pojo),
-            gzip: compress::gzip(json.as_bytes())?.into(),
-            expiration: item.expiration,
-            synthesized: item.synthesized,
-            reusable: item.reusable,
-        });
-        lock(&self.presentations)?.set(
-            zid,
-            Presentation {
-                source: item,
+        let built = (|| {
+            let mut pojo = (*item.pojo).clone();
+            let mut pca = pca.clone();
+            if fill_center {
+                pca.set("center", Js::Arr(vec![Js::Num(0.0), Js::Num(0.0)]));
+            }
+            if fill_extremity {
+                pca.set(
+                    "comment-extremity",
+                    Js::Arr(tids.iter().map(|_| Js::Num(0.0)).collect()),
+                );
+            }
+            if fill_projection {
+                pca.set("comment-projection", Js::Obj(Obj::new()));
+            }
+            pojo.set("pca", Js::Obj(pca));
+            if fill_tids {
+                pojo.set(
+                    "tids",
+                    Js::Arr(tids.iter().map(|t| Js::Num(f64::from(*t))).collect()),
+                );
+            }
+            if fill_count {
+                pojo.set("n-cmts", Js::Num(tids.len() as f64));
+            }
+            let json = js::stringify(&Js::Obj(pojo.clone()));
+            let presented = Arc::new(PcaItem {
+                pojo: Arc::new(pojo),
+                gzip: compress::gzip(json.as_bytes())?.into(),
+                expiration: item.expiration,
+                synthesized: item.synthesized,
+                reusable: item.reusable,
+            });
+            let presentation = Presentation {
+                source: item.clone(),
                 presented: presented.clone(),
                 expiration: now_ms() + TTL_MS,
-            },
-        );
+            };
+            Ok(presentation)
+        })();
+        let presentation = refresh.complete(built)?;
+        let presented = presentation.presented.clone();
+        lock(&self.presentations)?.set(zid, presentation);
         Ok(presented)
     }
 }
@@ -869,3 +1107,15 @@ mod tests {
         }
     }
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "pca_refresh_tests.rs"]
+mod refresh_tests;
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "pca_failure_tests.rs"]
+mod failure_tests;
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "pca_outcome_tests.rs"]
+mod outcome_tests;
