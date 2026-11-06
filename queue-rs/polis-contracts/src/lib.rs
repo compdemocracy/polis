@@ -46,6 +46,7 @@ pub mod post_votes;
 pub mod ptptois;
 pub mod recent_activity;
 pub mod recent_started;
+pub mod report_comments;
 pub mod report_export;
 pub mod reports_read;
 pub mod robots;

@@ -228,6 +228,13 @@ const ROUTES: &[Route] = &[
         "math_membership::LOCATIONS_PATH"
     ),
     exact!(
+        report_comments,
+        ["GET", "HEAD"],
+        crate::report_comments::PATH,
+        ["POLIS_API_REPORT_COMMENTS_READS"],
+        "report_comments::PATH"
+    ),
+    exact!(
         moderation_comments,
         ["GET", "HEAD"],
         crate::moderation_comments::PATH,

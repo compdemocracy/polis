@@ -1,0 +1,18 @@
+# Optional report statement list. Disabled unless reportComments is named in
+# RUST_API_ROUTES and POLIS_API_REPORT_COMMENTS_READS=1 on the API process.
+# The legacy Node route and report clients are unchanged. A handback reaches
+# Node's existing response for this new path; it is not a projection adapter.
+location = /api/v3/comments/report {
+    error_page 418 = @polis_node_api;
+    if ($polis_api_plain = 0) { return 418; }
+    proxy_pass http://$polis_api_target;
+    proxy_intercept_errors on;
+    error_page 502 503 504 = @polis_node_api;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_connect_timeout 2s;
+    proxy_send_timeout 5s;
+    proxy_read_timeout 5s;
+    proxy_buffering off;
+    proxy_request_buffering off;
+}

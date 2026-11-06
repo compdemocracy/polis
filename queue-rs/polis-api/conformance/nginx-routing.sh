@@ -80,7 +80,7 @@ start() { # routes [docker run args...]
   local routes=${1:-}
   shift || true
   docker rm -f "$p-proxy" >/dev/null 2>&1 || true
-  docker run -d --name "$p-proxy" --network "$net" -p 127.0.0.1::80 -e RUST_API_ROUTES="$routes" "$@" "$image" >/dev/null
+  docker run -d --name "$p-proxy" --network "$net" -p "127.0.0.1:${X54_NGINX_PORT:-}:80" -e RUST_API_ROUTES="$routes" "$@" "$image" >/dev/null
   for _ in $(seq 20); do
     docker exec "$p-proxy" wget -qO- http://127.0.0.1/ >/dev/null 2>&1 && return 0
     sleep 0.5
@@ -1426,7 +1426,7 @@ if [[ -z ${NGINX_FILE_SERVER_IMAGE:-} ]]; then
   docker build -q -t "$files_image" -f "$root/file-server/Dockerfile" "$root" >/dev/null
 fi
 docker run -d --name "$p-files" --network "$net" --network-alias file-server \
-  -p 127.0.0.1::8080 -e PORT=8080 "$files_image" >/dev/null
+  -p "127.0.0.1:${X54_FILES_PORT:-}:8080" -e PORT=8080 "$files_image" >/dev/null
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 for routes in '' pca2,conversationPage,robots,adminPage; do
@@ -1437,3 +1437,23 @@ done
 docker stop "$p-files" "$p-node" >/dev/null
 python3 "$root/file-server/nginx/test-edge-routing.py" "$p" offline "$root"
 echo "ok edge routing: local 404s, emitted assets, API and page destinations in both selections"
+
+# Report route selection is independent of the overloaded statement list.
+docker rm -f "$p-node" "$p-rust" >/dev/null
+stub "$p-node" server 5000 200 node
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/comments/report node "report list off"
+start reportComments,reportComments
+expect /api/v3/comments/report rust "report list on"
+expect /api/v3/comments node "report list leaves legacy comments alone"
+expect /api/v3/nextComment node "report list leaves participation alone"
+[[ $(included | grep -c 'location = /api/v3/comments/report') == 1 ]] || fail "report list duplicated"
+expect_upstream polis-api GET /api/v3/comments/report
+expect_upstream polis-api HEAD /api/v3/comments/report
+expect_upstream server POST /api/v3/comments/report $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/comments/report $'Content-Length: 2\r\n' '{}'
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 fallback
+expect /api/v3/comments/report node "report list handback"
+echo "ok report list off/on/deduplicated, methods/body, handback"
