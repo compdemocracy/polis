@@ -138,6 +138,11 @@ const App = (props) => {
   );
 
 
+  useEffect(() => {
+    const topic = typeof conversation?.topic === "string" ? conversation.topic.trim() : "";
+    document.title = topic ? `Polis report: ${topic}` : "Polis report";
+  }, [conversation?.topic]);
+
   // Effect to get auth token when authentication state changes
   useEffect(() => {
     const getToken = async () => {
