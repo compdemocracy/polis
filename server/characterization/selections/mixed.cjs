@@ -26,7 +26,7 @@ async function main(){
   if(req.url==='/fixture/release'){assert.ok(gate?.entered);gate.released=true;gate.release();reply({released:true});return;}
   f.app(req,res);
  });
- server.listen(58955,'127.0.0.1',()=>console.log('generated Node mixed-writer fixture ready'));
+ server.listen(28955,'127.0.0.1',()=>console.log('generated Node mixed-writer fixture ready'));
  async function close(){if(gate)gate.release();await new Promise(r=>server.close(r));await f.db.end();process.exit(0);}
  process.on('SIGTERM',close);process.on('SIGINT',close);
 }

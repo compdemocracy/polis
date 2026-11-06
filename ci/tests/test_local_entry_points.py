@@ -182,6 +182,7 @@ class Checkout:
         self.bin = self.tmp / "bin"
         for name in ENTRY_POINTS:
             write(self.root / "ci/local" / name, (REPO / "ci/local" / name).read_text(), 0o644)
+        write(self.root / "ci/host_ports.py", (REPO / "ci/host_ports.py").read_text(), 0o644)
         write(self.root / "ci/local/test-images.sh", TEST_IMAGES)
         write(self.root / "ci/local/delphi-python.sh", DELPHI_PYTHON)
         write(self.root / "ci/tests/test_delphi_python_results.py", COMBINE_SELF_TEST)
@@ -499,7 +500,7 @@ class WritersTests(EntryPointTest):
 
     def writers(self, **env: str) -> subprocess.CompletedProcess:
         return self.c.run("ci/local/dynamo-writers.sh", COMPOSE_PROJECT_NAME=self.P,
-                          POLIS_RECOVERY_PG_PORT="55999", **env)
+                          POLIS_RECOVERY_PG_PORT="25999", **env)
 
     def use_real_launcher(self) -> None:
         write(self.c.root / "scripts/test-dynamo-writers.sh",
@@ -574,7 +575,7 @@ class ResultReadsTests(EntryPointTest):
 
     def reads(self, **env: str) -> subprocess.CompletedProcess:
         return self.c.run("ci/local/delphi-result-reads.sh", RESULT_READS_PROJECT=self.P,
-                          RESULT_READS_PG_PORT="55998", RESULT_READS_DYNAMO_PORT="55997", **env)
+                          RESULT_READS_PG_PORT="25998", RESULT_READS_DYNAMO_PORT="25997", **env)
 
     def test_existing_raw_container_is_refused(self):
         self.c.set_state(containers=[f"{self.P}-postgres"])
@@ -592,7 +593,7 @@ class ImportTests(EntryPointTest):
     def test_proof_goes_under_ci_out(self):
         p = "polis-import-test-probe"
         r = self.c.run("ci/local/production-import.sh", COMPOSE_PROJECT_NAME=p,
-                       POLIS_RECOVERY_PG_PORT="55996")
+                       POLIS_RECOVERY_PG_PORT="25996")
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn(f"IMPORT_PROOF_ROOT={self.c.root}/.ci-out/{p}", self.c.calls_text())
 
@@ -602,7 +603,7 @@ class ImportTests(EntryPointTest):
         elsewhere.mkdir()
         (self.c.root / ".ci-out").symlink_to(elsewhere)
         r = self.c.run("ci/local/production-import.sh", COMPOSE_PROJECT_NAME="polis-import-test-probe",
-                       POLIS_RECOVERY_PG_PORT="55996")
+                       POLIS_RECOVERY_PG_PORT="25996")
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertNotIn("launcher", self.c.calls_text())
         self.assertEqual(list(elsewhere.iterdir()), [])
@@ -614,7 +615,7 @@ class ImportTests(EntryPointTest):
         proof.mkdir(parents=True)
         (proof / "unit.log").symlink_to(self.c.tmp / "outside.log")
         r = self.c.run("ci/local/production-import.sh", COMPOSE_PROJECT_NAME=p,
-                       POLIS_RECOVERY_PG_PORT="55996")
+                       POLIS_RECOVERY_PG_PORT="25996")
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertNotIn("launcher", self.c.calls_text())
 

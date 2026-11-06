@@ -24,8 +24,8 @@ jobs:
     timeout-minutes: 45
     env:
       COMPOSE_PROJECT_NAME: coordinator-ci-${{ github.run_id }}-${{ github.run_attempt }}
-      POLIS_RECOVERY_PG_PORT: '55492'
-      RECOVERY_PG_PORT: '55492'
+      POLIS_RECOVERY_PG_PORT: '25492'
+      RECOVERY_PG_PORT: '25492'
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -45,7 +45,7 @@ jobs:
           # file out of a campaign directory still counts as touching that directory.
           changed=$(git diff --name-only --no-renames HEAD^1...HEAD)
           printf '%s\n' "$changed" | sed 's/^/changed: /'
-          if printf '%s\n' "$changed" | grep -Eq '^(coordinator-rs/|delphi/|math/|server/|\.github/workflows/coordinator-ci\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(ci/host_ports\.py$|ci/test_host_ports\.py$|coordinator-rs/|delphi/|math/|server/|\.github/workflows/coordinator-ci\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"; echo "campaign paths changed: running"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"; echo "no campaign path changed: the required check passes without replay"
@@ -72,8 +72,8 @@ jobs:
         working-directory: coordinator-rs
         env:
           COMPOSE_PROJECT_NAME: coordinator-tls-${{ github.run_id }}-${{ github.run_attempt }}
-          POLIS_RECOVERY_PG_PORT: '55493'
-          RECOVERY_PG_PORT: '55493'
+          POLIS_RECOVERY_PG_PORT: '25493'
+          RECOVERY_PG_PORT: '25493'
         run: |
           cargo test --locked --features tls-tests --test database
           python tools/d07/test_tls.py

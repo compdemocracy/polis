@@ -3,14 +3,16 @@
 # Usage: report-comments-run.sh [result.json], with unique project and P027 ports.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 out=${1:-/dev/stdout}
 here="$root/server/characterization"
 # Dedicated loopback ports must stay below the host ephemeral range.
-python3 - <<'PORTS'
+PYTHONPATH="$root/ci${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PORTS'
 import os, re, socket
+from host_ports import port as host_port
 assert re.fullmatch(r'p027[a-z0-9_-]+', os.environ['COMPOSE_PROJECT_NAME'])
-ports = [int(os.environ[k]) for k in ('POLIS_RECOVERY_PG_PORT', 'P027_HTTP_PORT', 'P027_CONTROL_PORT')]
-assert len(set(ports)) == 3 and all(1024 <= p < 49152 for p in ports)
+ports = [host_port(os.environ[k], k) for k in ('POLIS_RECOVERY_PG_PORT', 'P027_HTTP_PORT', 'P027_CONTROL_PORT')]
+assert len(set(ports)) == 3
 for port in ports:
     for family, host in ((socket.AF_INET, '127.0.0.1'), (socket.AF_INET6, '::1')):
         with socket.socket(family, socket.SOCK_STREAM) as s:

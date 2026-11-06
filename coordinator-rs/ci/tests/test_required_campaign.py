@@ -284,7 +284,7 @@ def test_reference_loader_preserves_exact_git_bytes(tmp_path, monkeypatch):
 @pytest.mark.parametrize("opt", ["P026_NODE_READER_OPTIONAL", "PYTEST_ADDOPTS", "PYTHONOPTIMIZE"])
 def test_runner_refuses_skip_and_assertion_escape_before_starting_docker(tmp_path, opt):
     import os
-    env = dict(os.environ, COMPOSE_PROJECT_NAME="coordinator-control-test", POLIS_RECOVERY_PG_PORT="55492", RECOVERY_PG_PORT="55492")
+    env = dict(os.environ, COMPOSE_PROJECT_NAME="coordinator-control-test", POLIS_RECOVERY_PG_PORT="25492", RECOVERY_PG_PORT="25492")
     env[opt] = "1"
     result = subprocess.run([sys.executable, str(CI / "run.py"), "--output", str(tmp_path / "new")],
                             env=env, capture_output=True, text=True)

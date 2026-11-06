@@ -23,7 +23,11 @@ const db=new Pool({connectionString:process.env.DATABASE_URL});
 const Z=8700101, U=8700201, CID='2selectionfixture';
 const net=require('node:net');
 const connect=net.Socket.prototype.connect;
-const allowedPorts=new Set([58950,58951,58952,58953,58954,58955]);
+const allowedPorts=new Set([28950,28951,28952,28953,28954,28955]);
+require('node:child_process').execFileSync('python3', [
+ require('node:path').resolve(__dirname, '../../../ci/host_ports.py'), 'ports',
+ ...Array.from(allowedPorts, String),
+]);
 const outbound=[];
 net.Socket.prototype.connect=function(...args){
  const options=Array.isArray(args[0])?args[0][0]:net._normalizeArgs(args)[0];
@@ -130,7 +134,7 @@ async function main(){
  assert.ok(new URL(process.env.DATABASE_URL).hostname==='localhost' || new URL(process.env.DATABASE_URL).hostname==='127.0.0.1');
  assert.equal(new URL(process.env.DATABASE_URL).pathname,'/polis-test');
  await appReady;
- server=app.listen(58955,'127.0.0.1');
+ server=app.listen(28955,'127.0.0.1');
  await new Promise(resolve=>server.once('listening',resolve));
  const out=process.argv[2]; assert.ok(out);
  const oidc=process.env.SELECTION_PROVIDER_TOKEN_FILE?JSON.parse(fs.readFileSync(process.env.SELECTION_PROVIDER_TOKEN_FILE,'utf8')):null;
@@ -150,7 +154,7 @@ async function main(){
   for(const [name,field,value] of [['wrong-issuer','iss','generated-invalid'],['wrong-audience','aud','generated-invalid'],['future','nbf',Math.floor(Date.now()/1000)+86400]]) tokens[name]=jwt.sign({...claims,[field]:value},keys.privateKey,{algorithm:'RS256'});
   const before=await snapshot();
   const body={conversation_id:CID,...(spec.method==='DELETE'?{}:{selections:selection}),...spec.body};
-  let req=request('http://127.0.0.1:58955')[spec.method.toLowerCase()]('/api/v3/topicAgenda/selections'+(spec.query||''))
+  let req=request('http://127.0.0.1:28955')[spec.method.toLowerCase()]('/api/v3/topicAgenda/selections'+(spec.query||''))
    .set('accept-encoding','identity').set('content-type',spec.contentType||'application/json').set('x-forwarded-proto','https');
   if(tokens[spec.auth]) req=req.set('Authorization',(spec.auth==='lowercase'?'bearer ':'Bearer ')+tokens[spec.auth]);
   if(spec.auth==='cookie') req=req.set('Cookie','pc=generated-cookie');

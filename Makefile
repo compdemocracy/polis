@@ -446,3 +446,7 @@ check-client-errors: ## Run client error reporting behaviour and path checks
 .PHONY: check-nginx-upstreams
 check-nginx-upstreams: ## Check that production starts every nginx upstream
 	@python3 file-server/nginx/test-production-upstreams.py
+
+.PHONY: check-host-ports
+check-host-ports:
+	bash ci/local/host-ports.sh

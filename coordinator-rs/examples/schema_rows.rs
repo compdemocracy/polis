@@ -11,7 +11,12 @@ fn main() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("local port required"))?
         .parse()?;
     ensure!(
-        (55432..=65000).contains(&port),
+        std::process::Command::new("python3")
+            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../ci/host_ports.py"))
+            .arg("database-ports")
+            .arg(port.to_string())
+            .status()?
+            .success(),
         "local fixture port required"
     );
     let mut client = Client::connect(

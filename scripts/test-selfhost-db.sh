@@ -6,7 +6,8 @@ set -x
 : "${SELFHOST_TEST_DB_IMAGE:?Set to a local build of server/Dockerfile-db}"
 export COMPOSE_PROJECT_NAME="selfhost-check-$(date -u +%s)-$$"
 export POSTGRES_VOLUME=custom_data
-export POSTGRES_PORT=${SELFHOST_TEST_PORT:-56439}
+export POSTGRES_PORT=${SELFHOST_TEST_PORT:-26439}
+python3 ci/host_ports.py database-ports "$POSTGRES_PORT"
 export POSTGRES_USER=postgres POSTGRES_PASSWORD=selfhost-test-password POSTGRES_DB=polis
 fixture=".selfhost-test-$$"
 mkdir "$fixture"

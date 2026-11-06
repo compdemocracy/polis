@@ -3,6 +3,7 @@
 # consumer additionally replays every accept/login before-state against Rust.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX P027_TREEVITE_RUST_PORT P027_TREEVITE_HOST_PG_PORT
 : "${P027_TREEVITE_RUST_PORT:?unique Rust listen port required}"
 : "${P027_TREEVITE_RUST_URL:?address reachable from the sealed driver required}"
 export P027_TREEVITE_RUST_KEYS=1

@@ -87,7 +87,7 @@ Use public fixtures only and an unused project/port:
 ```sh
 python3 -B -m unittest discover -s ci/probe_box -p 'test_*.py'
 python3 -B -m unittest discover -s ci/private_cert -p 'test_*image*.py'
-COMPOSE_PROJECT_NAME=p027census-example POLIS_RECOVERY_PG_PORT=56886 RECOVERY_PG_PORT=56886 \
+COMPOSE_PROJECT_NAME=p027census-example POLIS_RECOVERY_PG_PORT=26886 RECOVERY_PG_PORT=26886 \
   python3 -B ci/private_cert/images/roles_rehearsal.py
 ```
 

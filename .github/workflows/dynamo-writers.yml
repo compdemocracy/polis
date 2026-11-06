@@ -1,7 +1,7 @@
 name: Postgres Delphi writers
 on:
   pull_request:
-    paths: ['delphi/**', 'server/**', 'queue-rs/**', 'scripts/test-dynamo-writers.sh', '.github/workflows/dynamo-writers.yml']
+    paths: ['ci/host_ports.py', 'ci/test_host_ports.py', 'delphi/**', 'server/**', 'queue-rs/**', 'scripts/test-dynamo-writers.sh', '.github/workflows/dynamo-writers.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,8 +11,8 @@ jobs:
     timeout-minutes: 90
     env:
       COMPOSE_PROJECT_NAME: polis-graph-test-writers-${{ github.run_id }}-${{ github.run_attempt }}
-      POLIS_RECOVERY_PG_PORT: '55453'
-      RECOVERY_PG_PORT: '55453'
+      POLIS_RECOVERY_PG_PORT: '25453'
+      RECOVERY_PG_PORT: '25453'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

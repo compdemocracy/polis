@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
 : "${POLIS_JOBS_TEST_DATABASE_URL:?provide an isolated PostgreSQL 17 database}"
 
 (

@@ -6,6 +6,10 @@ census carries no column types or function bodies and is never executable SQL.
 from __future__ import annotations
 from collections import Counter
 import json
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from host_ports import database_port as host_port
 from psycopg2 import sql, Error
 from psycopg2.extensions import TRANSACTION_STATUS_IDLE
 from roles_census import FAMILIES, normalize, encoded, validate_receipt, validate_census, identity as catalog_identity
@@ -68,10 +72,9 @@ def object_kind(kind):
 
 def restore(conn,receipt,job,*,settings_presence=False):
     parameters=conn.get_dsn_parameters()
-    try:port=int(parameters.get('port','0'))
+    try:port=host_port(parameters.get('port','0'))
     except (TypeError,ValueError):raise ValueError('REVERSAL_ISOLATED_PG17_REQUIRED') from None
-    if (parameters.get('host')!='127.0.0.1' or parameters.get('dbname')!='probe_test'
-            or not 55432<=port<=65000):
+    if (parameters.get('host')!='127.0.0.1' or parameters.get('dbname')!='probe_test'):
         raise ValueError('REVERSAL_ISOLATED_PG17_REQUIRED')
     validate_receipt(receipt,job)
     if receipt['verdict']!='PASS' or receipt['coverage']['external_dependencies']:

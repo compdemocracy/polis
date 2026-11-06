@@ -5,6 +5,8 @@ name: polis-cli-differential
 on:
   pull_request:
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'polis-cli/**'
@@ -17,6 +19,8 @@ on:
   push:
     branches: [edge, stable]
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'polis-cli/**'
@@ -40,12 +44,12 @@ jobs:
     timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: p027cli-diff-${{ github.run_id }}-${{ github.run_attempt }}
-      P027_PORT_MIN: '56201'
-      P027_PORT_MAX: '56203'
-      POLIS_RECOVERY_PG_PORT: '56201'
-      RECOVERY_PG_PORT: '56201'
-      P027_HTTP_PORT: '56202'
-      P027_CONTROL_PORT: '56203'
+      P027_PORT_MIN: '26201'
+      P027_PORT_MAX: '26203'
+      POLIS_RECOVERY_PG_PORT: '26201'
+      RECOVERY_PG_PORT: '26201'
+      P027_HTTP_PORT: '26202'
+      P027_CONTROL_PORT: '26203'
       CLI_DIFF_NODE_IMAGE: cli-diff-node:ci
       CLI_DIFF_POSTGRES_IMAGE: cli-diff-postgres:ci
       CLI_DIFF_OIDC_IMAGE: cli-diff-oidc:ci

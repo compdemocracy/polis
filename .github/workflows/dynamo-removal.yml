@@ -3,6 +3,8 @@ name: Dynamo removal
 on:
   pull_request:
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'delphi/**'
@@ -28,8 +30,8 @@ jobs:
     timeout-minutes: 150
     env:
       COMPOSE_PROJECT_NAME: polis-graph-test-dynamo-${{ github.run_id }}-${{ github.run_attempt }}
-      POLIS_RECOVERY_PG_PORT: '55449'
-      RECOVERY_PG_PORT: '55449'
+      POLIS_RECOVERY_PG_PORT: '25449'
+      RECOVERY_PG_PORT: '25449'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:

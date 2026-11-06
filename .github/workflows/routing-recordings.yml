@@ -1,10 +1,10 @@
 name: Routing recordings
 on:
   pull_request:
-    paths: ['server/**', '.github/workflows/routing-recordings.yml', 'ci/local/**', 'Makefile']
+    paths: ['ci/host_ports.py', 'ci/test_host_ports.py', 'server/**', '.github/workflows/routing-recordings.yml', 'ci/local/**', 'Makefile']
   push:
     branches: [edge]
-    paths: ['server/**', '.github/workflows/routing-recordings.yml', 'ci/local/**', 'Makefile']
+    paths: ['ci/host_ports.py', 'ci/test_host_ports.py', 'server/**', '.github/workflows/routing-recordings.yml', 'ci/local/**', 'Makefile']
 permissions:
   contents: read
 jobs:
@@ -16,10 +16,10 @@ jobs:
         env:
           POSTGRES_PASSWORD: generatedlocal
           POSTGRES_DB: routing_recordings
-        ports: ['55630:5432']
+        ports: ['25630:5432']
         options: --health-cmd pg_isready --health-interval 2s --health-retries 30
     env:
-      POLIS_RECOVERY_PG_PORT: '55630'
+      POLIS_RECOVERY_PG_PORT: '25630'
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}

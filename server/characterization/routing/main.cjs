@@ -43,7 +43,10 @@ async function main() {
   assert.ok(['record','replay','mutations'].includes(mode));
   // Deliberately no DATABASE_URL support, remote host, arbitrary database or schema.
   const port=Number(process.env.POLIS_RECOVERY_PG_PORT);
-  assert.ok(Number.isInteger(port)&&port>=55432&&port<=65535,'set isolated local Postgres port');
+  require('node:child_process').execFileSync('python3', [
+    path.resolve(dir, '../../../ci/host_ports.py'), 'database-ports',
+    process.env.POLIS_RECOVERY_PG_PORT ?? '',
+  ]);
   const client=new Client({host:'127.0.0.1',port,user:'postgres',password:'generatedlocal',database:'routing_recordings'});
   await client.connect();
   try {

@@ -14,6 +14,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 LOCAL = Path(__file__).resolve().parent
 
 
@@ -31,8 +33,8 @@ def main():
     project = os.environ.get('COMPOSE_PROJECT_NAME', '')
     port = os.environ.get('POLIS_RECOVERY_PG_PORT', '')
     if (not re.fullmatch(r'p027worker-[a-z0-9-]+', project) or not port.isdigit()
-            or not 55432 <= int(port) <= 65000 or os.environ.get('RECOVERY_PG_PORT') != port):
-        p.error('set a unique COMPOSE_PROJECT_NAME=p027worker-<slug> and equal PG ports (55432..65000)')
+            or os.environ.get('RECOVERY_PG_PORT') != port):
+        p.error('set a unique COMPOSE_PROJECT_NAME=p027worker-<slug> and equal explicit host PG ports')
     if args.pipeline_replacements and not args.pipeline:p.error('--pipeline-replacements requires --pipeline')
     if args.pipeline:
         if not args.archives:p.error('--pipeline requires admitted public-image archives')
@@ -43,6 +45,7 @@ def main():
             name = 'producer' if args.job == 'sampled-paired-battery-v1' and role == 'reader' else role
             if not (args.archives / (name+'.oci.tar')).is_file():
                 p.error('missing '+name+'.oci.tar')
+    host_port(port, 'POLIS_RECOVERY_PG_PORT')
     results = args.results.resolve()
     results.mkdir(mode=0o700, parents=True, exist_ok=False)
     env = dict(os.environ, PROBE_WORKER_SOURCE=str(ROOT), PROBE_WORKER_RESULTS=str(results), BUILDX_CONFIG=str(results/'buildx'))

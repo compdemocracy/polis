@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from tls_fixture import TlsFixture
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 
 
 def main():
@@ -17,7 +19,7 @@ def main():
     port = int(os.environ['POLIS_RECOVERY_PG_PORT'])
     assert os.environ['RECOVERY_PG_PORT'] == str(port)
     assert project.startswith('p027') or project.startswith('coordinator-tls-')
-    assert 55432 <= port <= 65000
+    host_port(port)
     fixture = TlsFixture()
     env = dict(os.environ, **fixture.environment())
     env['DATABASE_URL'] = f'postgresql://postgres@127.0.0.1:{port}/p026'

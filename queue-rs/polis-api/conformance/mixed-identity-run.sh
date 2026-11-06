@@ -3,6 +3,7 @@
 # three rounds per case. No automatic retry of a failed campaign.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env MIXED_PG_PORT MIXED_DYNAMO_PORT MIXED_NODE_PORT MIXED_API_PORT POLIS_MIXED_WORKER_PORT MIXED_PROVIDER_PORT
 : "${COMPOSE_PROJECT_NAME:?unique project required}"
 : "${MIXED_PG_PORT:?}" "${MIXED_DYNAMO_PORT:?}" "${MIXED_NODE_PORT:?}"
 : "${MIXED_API_PORT:?}" "${POLIS_MIXED_WORKER_PORT:?}" "${MIXED_PROVIDER_PORT:?}"

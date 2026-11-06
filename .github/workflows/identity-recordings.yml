@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [edge, stable]
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'server/characterization/**'
@@ -36,6 +38,8 @@ on:
   push:
     branches: [edge]
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'server/characterization/**'
@@ -78,11 +82,11 @@ jobs:
     timeout-minutes: 30
     env:
       COMPOSE_PROJECT_NAME: p027identity-ci-${{ github.run_id }}-${{ github.run_attempt }}
-      P027_PORT_MIN: '56444'
-      P027_PORT_MAX: '56446'
-      POLIS_RECOVERY_PG_PORT: '56444'
-      P027_HTTP_PORT: '56445'
-      P027_CONTROL_PORT: '56446'
+      P027_PORT_MIN: '26444'
+      P027_PORT_MAX: '26446'
+      POLIS_RECOVERY_PG_PORT: '26444'
+      P027_HTTP_PORT: '26445'
+      P027_CONTROL_PORT: '26446'
       P027_SERVER_IMAGE: identity-server
       P027_POSTGRES_IMAGE: identity-postgres
       P027_OIDC_IMAGE: identity-oidc

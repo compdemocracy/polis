@@ -2,6 +2,7 @@
 # Called between each freshly seeded Node recording/replay by the wrapper.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_TREEVITE_RUST_PORT P027_TREEVITE_HOST_PG_PORT
 artifacts="$root/server/characterization/artifacts"
 if [[ -f "$artifacts/treevite-rust.pid" ]]; then
   kill "$(cat "$artifacts/treevite-rust.pid")" 2>/dev/null || true

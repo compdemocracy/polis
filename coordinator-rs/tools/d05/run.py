@@ -20,6 +20,8 @@ import psycopg2
 from tunnel import Tunnel
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 
 import runpy
 apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
@@ -38,8 +40,8 @@ class Campaign:
     def __init__(self, output, project, port):
         if not re.fullmatch(r"[a-z][a-z0-9-]{7,62}", project):
             raise ValueError("unique COMPOSE_PROJECT_NAME required")
-        if not 55432 <= port <= 65000:
-            raise ValueError("unique port range required")
+        host_port(port)
+        host_port(port + 11, "last reader control port")
         output.mkdir(parents=True, exist_ok=False)
         self.output, self.project, self.port = output, project, port
         self.env = dict(os.environ, COMPOSE_PROJECT_NAME=project,

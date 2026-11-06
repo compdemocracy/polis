@@ -94,8 +94,8 @@ choose three unused ports and a unique project:
 
 ```sh
 COMPOSE_PROJECT_NAME=p027identity-$(openssl rand -hex 4) \
-P027_PORT_MIN=56280 P027_PORT_MAX=56282 \
-POLIS_RECOVERY_PG_PORT=56280 P027_HTTP_PORT=56281 P027_CONTROL_PORT=56282 \
+P027_PORT_MIN=26280 P027_PORT_MAX=26282 \
+POLIS_RECOVERY_PG_PORT=26280 P027_HTTP_PORT=26281 P027_CONTROL_PORT=26282 \
 P027_POSTGRES_IMAGE=identity-postgres:local \
 queue-rs/polis-api/conformance/identity-run.sh
 ```

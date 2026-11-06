@@ -11,7 +11,7 @@ available `postgres:17.11` image:
 
 ```sh
 COMPOSE_PROJECT_NAME=p027-reversal-review \
-POLIS_RECOVERY_PG_PORT=55548 RECOVERY_PG_PORT=55548 \
+POLIS_RECOVERY_PG_PORT=25548 RECOVERY_PG_PORT=25548 \
 REVERSAL_EVIDENCE_DIR=/tmp/reversal-review \
 python -B ci/probe_box/reversal_rehearsal.py
 python -B -m unittest discover -s ci/probe_box -p test_reversal_fixture.py -v

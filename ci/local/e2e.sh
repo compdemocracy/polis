@@ -99,6 +99,7 @@ if [ -n "${POLIS_TEST_IMAGES:-}" ]; then
 fi
 COMPOSE_ARGS+=(--env-file "$STACK/test.env")
 compose() { docker compose "${COMPOSE_ARGS[@]}" "$@"; }
+compose config --format json | python3 ci/host_ports.py compose
 
 cleanup() {
   local rc=$?

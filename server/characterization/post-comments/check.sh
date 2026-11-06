@@ -2,6 +2,7 @@
 # Hosted and local entry point. Images must already contain dependencies.
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
+python3 ci/host_ports.py env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 : "${COMPOSE_PROJECT_NAME:?unique project required}"
 : "${POLIS_RECOVERY_PG_PORT:?unique port required}"
 : "${P027_HTTP_PORT:?unique port required}"

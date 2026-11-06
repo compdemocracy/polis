@@ -23,6 +23,8 @@ from compressor import observe_node, admit_node
 from replay_pins import child_runtimes, kernel_environment, select_pin, validate_kernel
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 
 import runpy
 apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
@@ -71,7 +73,7 @@ def main():
     project = os.environ.get("COMPOSE_PROJECT_NAME", "")
     port = os.environ.get("POLIS_RECOVERY_PG_PORT", "")
     require(re.fullmatch(r"[a-z][a-z0-9-]{7,62}", project), "choose a unique COMPOSE_PROJECT_NAME")
-    require(port.isdigit() and 55432 <= int(port) <= 65535, "choose POLIS_RECOVERY_PG_PORT >= 55432")
+    host_port(port, "POLIS_RECOVERY_PG_PORT")
     require(os.environ.get("RECOVERY_PG_PORT") == port, "both recovery port variables must match")
     require(not os.environ.get("P026_NODE_READER_OPTIONAL"), "Node opt-out is forbidden")
     require(not os.environ.get("PYTEST_ADDOPTS"), "PYTEST_ADDOPTS can alter the required inventory")
