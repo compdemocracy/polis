@@ -15,6 +15,11 @@ class Header extends Component {
           contributions from around the {emoji('🌍🌏🌎')}
         </Box>
         <Box sx={{ mb: [2, null, 3] }}>
+          Emoji graphics from <Link href="https://github.com/twitter/twemoji">Twemoji</Link>, by
+          Twitter, Inc and other contributors, licensed under{' '}
+          <Link href="https://creativecommons.org/licenses/by/4.0/">CC-BY 4.0</Link>.
+        </Box>
+        <Box sx={{ mb: [2, null, 3] }}>
           © {new Date().getFullYear()} The Authors <Link href="tos">TOS</Link>{' '}
           <Link href="privacy">Privacy</Link>
         </Box>
