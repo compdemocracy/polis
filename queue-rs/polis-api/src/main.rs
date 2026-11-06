@@ -176,6 +176,7 @@ fn health_response(
     switches.sort_by_key(js::stringify);
     routing.set("enabledSwitches", js::Js::Arr(switches));
     body.set("routing", js::Js::Obj(routing));
+    body.set("pcaCache", app.pca.health());
     body.set("identity", identity_observability::snapshot(counters));
     body.set("postVotes", post_votes::health(app));
     body.set("postTreeviteWaves", post_treevite_waves::health(app));
@@ -1900,6 +1901,7 @@ mod health_tests {
             math_env: "python".into(),
             cache_size: 1,
             pca_cache_size: 1,
+            pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
             dev_mode: false,
             use_network_host: false,
             production: true,
@@ -1949,7 +1951,11 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 126);
+            assert_eq!(body.as_object().unwrap().len(), 127);
+            assert_eq!(
+                body["pcaCache"],
+                json!({"entries":0,"bytes":0,"maxEntries":1,"maxBytes":crate::pca::DEFAULT_CACHE_BYTES,"evictionsEntries":0,"evictionsBytes":0,"oversized":0})
+            );
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],

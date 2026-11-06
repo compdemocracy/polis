@@ -549,6 +549,7 @@ mod tests {
             math_env: "test".into(),
             cache_size: 10,
             pca_cache_size: 10,
+            pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
             dev_mode: true,
             use_network_host: false,
             production: true,

@@ -154,12 +154,29 @@ replaced), `POLIS_API_LISTEN`
 (`127.0.0.1:5100`; the image uses `0.0.0.0:5100`). `GET /health` reports
 database reachability and counts; it is not routed by nginx.
 
-`POLIS_API_PCA_CACHE_ENTRIES` sets the per-process capacity of each PCA math
-and presentation cache (default 300; a positive integer). Blank uses the
-default; invalid values prevent startup. `CACHE_MATH_RESULTS=false` keeps
-both at one entry regardless of that setting. Other route caches retain
-their existing capacities. This is an entry-count limit, not a byte limit;
-large conversations use more memory, and entries leave through LRU eviction.
+`POLIS_API_PCA_CACHE_ENTRIES` (default 300; positive integer) and
+`POLIS_API_PCA_CACHE_BYTES` (default 201326592, or 192 MiB; nonnegative integer)
+bound one per-process LRU cache of conversations, each holding its latest math
+and presentation bodies. Blank settings use their defaults; invalid values
+refuse startup. `CACHE_MATH_RESULTS=false` limits it to one conversation while
+the byte bound still applies. Other route caches retain their existing limits.
+
+The byte charge counts parsed object capacities, gzip bodies, allocation padding
+and entry metadata; shared math/presentation storage is counted once. It is not
+process RSS: active responses, temporary builds and allocator retention are
+outside this budget. The default leaves 320 MiB of a 512 MiB container for those
+and other process memory, without guaranteeing a resident-memory ceiling.
+Conversations leave in least-recently-used order until both bounds hold. An
+oversized conversation is served without retaining it; an oversized presentation
+also drops its source. `0` retains no bodies, so every request reads the full math
+row, parses and rebuilds it, including gzip. Very small budgets repeatedly rebuild
+larger conversations; sets just above either limit can miss on every cyclic poll.
+A byte setting above the container memory limit is accepted silently: container
+limits are external to configuration parsing, and such an override can remove
+memory protection. Choose explicit overrides with room for memory outside the
+cache. `/health.pcaCache` reports entries, accounted bytes, both limits, and
+cumulative entry/byte evictions and oversized admissions.
+
 The cache keeps only the latest generation per conversation and math
 environment. It ignores cache-busting query parameters. After three seconds,
 a reusable row is checked against its committed `math_tick`; an unchanged
