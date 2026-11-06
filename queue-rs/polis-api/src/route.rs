@@ -1153,21 +1153,32 @@ pub fn bad_gateway() -> Outgoing {
 
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
-    let (mut out, cache) = crate::pca::CACHE_OUTCOME
-        .scope(std::cell::Cell::new("none"), async {
-            let mut out = serve(&app, &req).await;
-            // A refresh may land between the entry guard and an older route's
-            // Option-based verifier. Never let that refusal turn into fallback.
-            if out.status == 502
-                && let Some(raw) = req.headers.get("authorization")
-                && crate::revocation::refusal(&app, raw, (crate::clock::now_ms() / 1000.0) as u64)
+    let observation = Arc::new(crate::db_connect::Observation::default());
+    let (mut out, cache) = crate::db_connect::OBSERVATION
+        .scope(
+            observation.clone(),
+            crate::pca::CACHE_OUTCOME.scope(std::cell::Cell::new("none"), async {
+                let mut out = serve(&app, &req).await;
+                // A refresh may land between the entry guard and an older route's
+                // Option-based verifier. Never let that refusal turn into fallback.
+                if out.status == 502
+                    && let Some(raw) = req.headers.get("authorization")
+                    && crate::revocation::refusal(
+                        &app,
+                        raw,
+                        (crate::clock::now_ms() / 1000.0) as u64,
+                    )
                     .is_some()
-            {
-                let origin = app.cors.resolve(&req.headers).ok().flatten();
-                out = crate::treevite_codes::session_revoked(&req, default_head(origin.as_deref()));
-            }
-            (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
-        })
+                {
+                    let origin = app.cors.resolve(&req.headers).ok().flatten();
+                    out = crate::treevite_codes::session_revoked(
+                        &req,
+                        default_head(origin.as_deref()),
+                    );
+                }
+                (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
+            }),
+        )
         .await;
     if req.path() == crate::domain_whitelist::PATH {
         if out.status == 502 {
@@ -1611,14 +1622,28 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     } else {
         app.served.fetch_add(1, Ordering::Relaxed);
     }
-    access_log(&app, &req, out.status, started.elapsed(), cache);
+    access_log(
+        &app,
+        &req,
+        out.status,
+        started.elapsed(),
+        cache,
+        &observation,
+    );
     out
 }
 
 /// One line per request, in the shape family of the Node server's
 /// `http_request` log (`middleware_http_json_logger`). The path only: no
 /// query string, no headers, nothing a credential could ride in.
-fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, cache: &str) {
+fn access_log(
+    app: &App,
+    req: &Request,
+    status: u16,
+    took: std::time::Duration,
+    cache: &str,
+    observation: &crate::db_connect::Observation,
+) {
     let level = match status {
         500.. => "error",
         400.. => "warn",
@@ -1640,7 +1665,20 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
         Js::Num((took.as_secs_f64() * 1000.0 * 1000.0).round() / 1000.0),
     );
     line.set("cache", Js::Str(cache.into()));
-    println!("{}", js::stringify(&Js::Obj(line)));
+    let setup = observation.snapshot();
+    let mut line = js::stringify(&Js::Obj(line));
+    // Append after the existing keys, preserving their order and encoding.
+    // String formatting keeps milliseconds numeric with exactly three decimals.
+    line.pop();
+    use std::fmt::Write;
+    let _ = write!(
+        line,
+        ",\"db_connect\":{{\"count\":{},\"failed\":{},\"ms\":{:.3},\"in_flight\":{}}}}}",
+        setup.count, setup.failed, setup.ms, setup.in_flight,
+    );
+    #[cfg(test)]
+    db_connect_tests::record(&line);
+    println!("{line}");
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
@@ -7123,3 +7161,7 @@ mod tests {
 #[cfg(all(test, feature = "db-tests"))]
 #[path = "startup_pools_tests.rs"]
 mod startup_pools_tests;
+
+#[cfg(test)]
+#[path = "db_connect_tests.rs"]
+mod db_connect_tests;

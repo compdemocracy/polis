@@ -299,6 +299,7 @@ impl Pool {
             .acquired
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let pool = self.clone();
+        let observation = crate::db_connect::OBSERVATION.try_with(Arc::clone).ok();
         tokio::task::spawn_blocking(move || -> Result<T> {
             let _permit = permit;
             #[cfg(all(test, feature = "db-tests"))]
@@ -324,7 +325,15 @@ impl Pool {
                 Some((c, born)) if !c.is_closed() && born.elapsed() < pool.limits.max_lifetime => {
                     (c, born)
                 }
-                _ => (pool.connect().map_err(unavailable)?, Instant::now()),
+                _ => {
+                    let mut scope = observation.as_ref().map(|o| o.begin());
+                    let client = pool.connect().map_err(unavailable)?;
+                    if let Some(scope) = scope.as_mut() {
+                        scope.succeeded();
+                    }
+                    drop(scope);
+                    (client, Instant::now())
+                }
             };
             let out = f(&mut client).map_err(unavailable);
             if !client.is_closed() && born.elapsed() < pool.limits.max_lifetime {
