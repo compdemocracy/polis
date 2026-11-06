@@ -20,6 +20,7 @@ from harness import (HERE, RUST_ONLY, Cli, Stack, differences, load_routes, rout
 from cases import cases
 from reads import add_read_cases, capture_reads, compare_reads
 from pages import capture_pages, compare_pages
+from report_comments import capture_report_comments, compare_report_comments
 
 
 def census(schema):
@@ -47,6 +48,7 @@ def main():
     args=p.parse_args()
     binary=str(Path(args.binary).resolve());output=Path(args.output).resolve()
     routes=load_routes()
+    report_views={}
     stack=Stack()
     report={'schema':'polis-cli-differential/1','rows':[],'rust_only':[],'mismatches':0,'byte_replays_run':False,'switches':sorted(routes),'scope':'all inventoried staged switches; Rust-only contracts reported separately; scoped Node handoffs counted','complete':False}
     started=time.monotonic()
@@ -184,6 +186,7 @@ def main():
                 report[phase+'_seconds']=round(time.monotonic()-phase_start,3)
                 report[phase+'_slowest']=sorted(timings,key=lambda r:r['seconds'],reverse=True)[:5]
                 captured_reads[phase]=capture_reads(stack.origin, stack.tokens['owner'])
+                report_views[phase]=capture_report_comments(stack.origin, stack.tokens['owner'], phase)
                 log=stack.nginx_log()
                 report[phase+'_routing']={}
                 serving_failures=[]
@@ -204,6 +207,8 @@ def main():
                     continue
                 diff=differences(a,b)
                 report['rows'].append({'command':row['command'],'scenario':row.get('scenario',row['command']),'scope':row['scope'],'node_exit':a['exit'],'rust_exit':b['exit'],'equal':not diff,'different_paths':diff,'node_error':(a['json'].get('error') or {}).get('code'),'node_status':((a['json'].get('error') or {}).get('upstream') or {}).get('status'),'rust_status':((b['json'].get('error') or {}).get('upstream') or {}).get('status'),'rust_error':(b['json'].get('error') or {}).get('code')})
+            report['report_comments']=compare_report_comments(report_views['node'], report_views['rust'])
+            report['report_comments_mismatches']=sum(not row['equal'] for row in report['report_comments'])
             report['reads']=compare_reads(captured_reads['node'],captured_reads['rust'])
             report['read_mismatches']=sum(not row['equal'] for row in report['reads'])
             report['pages'] = compare_pages(page_values['node'], page_values['rust'])
@@ -224,6 +229,6 @@ def main():
         output.parent.mkdir(parents=True,exist_ok=True)
         output.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({k:v for k,v in report.items() if k not in ['rows','rust_only']},indent=2))
-    return 0 if report['complete'] and not report['mismatches'] and not report.get('read_mismatches') and not report.get('page_mismatches') and not report.get('rust_only_failures') and not report.get('unexpected_outcomes') and report['cleanup_passed'] and not report.get('serving_failures') else 1
+    return 0 if report['complete'] and not report['mismatches'] and not report.get('report_comments_mismatches') and not report.get('read_mismatches') and not report.get('page_mismatches') and not report.get('rust_only_failures') and not report.get('unexpected_outcomes') and report['cleanup_passed'] and not report.get('serving_failures') else 1
 
 if __name__=='__main__':sys.exit(main())
