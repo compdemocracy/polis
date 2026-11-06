@@ -97,7 +97,7 @@ void (function (root) {
         if (v8) return ''
         // Firefox function names may include '/', e.g. handleVote/<@URL.
         var at = line.indexOf('@')
-        if (at !== -1 && line.slice(0, at).indexOf(':') === -1)
+        if (at >= 0 && !line.slice(0, at).includes(':'))
           line = line.slice(at + 1)
       }
       // Anchored at the frame location: never search inside unsupported schemes
