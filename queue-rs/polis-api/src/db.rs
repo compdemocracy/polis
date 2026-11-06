@@ -40,6 +40,15 @@ pub fn zid_for_conversation_id(client: &mut Client, conversation_id: &str) -> Re
     Ok(rows.first().map(|r| r.get::<_, i32>(0)))
 }
 
+/// Read the committed generation without fetching the JSONB payload.
+pub fn math_main_tick(client: &mut Client, zid: i32, math_env: &str) -> Result<Option<i64>> {
+    let rows = client.query(
+        "select math_tick from math_main where zid = ($1) and math_env = ($2)",
+        &[&zid, &math_env],
+    )?;
+    Ok(rows.first().map(|r| r.get(0)))
+}
+
 pub fn math_main(client: &mut Client, zid: i32, math_env: &str) -> Result<Option<MathMainRow>> {
     let rows = client.query(
         "select math_tick, data::text from math_main where zid = ($1) and math_env = ($2)",

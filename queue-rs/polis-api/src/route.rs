@@ -522,7 +522,7 @@ impl App {
             production: cfg.production,
             topic_selection_writer: None,
             cors: Cors::from_env(),
-            pca: Pca::new(db.clone(), cfg.math_env.clone(), cfg.cache_size),
+            pca: Pca::new(db.clone(), cfg.math_env.clone(), cfg.pca_cache_size),
             db,
             zids: Mutex::new(Lru::new(1000)),
             served: AtomicU64::new(0),
@@ -2374,7 +2374,7 @@ async fn pca2(app: &App, req: &Request, body: &Js, mut res: Res) -> anyhow::Resu
     if let Some(etag) = etag {
         res.set("Etag", etag);
     }
-    Ok(send(req, res, Payload::Bytes(data.gzip.clone())))
+    Ok(send(req, res, Payload::Bytes(data.gzip.to_vec())))
 }
 
 #[cfg(test)]
@@ -2485,6 +2485,7 @@ mod tests {
             listen: String::new(),
             math_env: "p".into(),
             cache_size: 300,
+            pca_cache_size: 300,
             dev_mode,
             use_network_host: false,
             production: true,
