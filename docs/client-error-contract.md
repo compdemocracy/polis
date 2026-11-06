@@ -16,7 +16,7 @@ Every browser report contains these fields:
 | `page` | Page path after privacy projection, at most 160 characters |
 | `kind` | `error`, `unhandledrejection`, `console_error`, `console_warn`, `fetch`, `xhr`, `resource`, or `csp` |
 | `message` | Allowlisted error category, at most 256 characters |
-| `stack` | Recognized script paths and line/column positions, at most 1024 characters |
+| `stack` | Recognized script paths with positions, or a projected document path without positions; at most 1024 characters |
 | `resource` | Failed request or resource path after privacy projection, at most 160 characters |
 | `method` | Empty or `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `CONNECT`, `TRACE` |
 | `status` | Integer from 0 to 599; 0 means unavailable |
@@ -36,8 +36,37 @@ use path families; third-party resources keep only their host, without credentia
 or a port. Dynamic
 route segments become `:id`; recognized static path families remain identifiable. Unknown path text is
 redacted as well. Messages retain only known error categories or HTTP status;
-arbitrary console prose becomes `Error`. Stack function names and free text are
-removed. The server applies the same projection again, ignores extra input keys,
+arbitrary console prose becomes `Error`. The exact browser string `Script error.`
+is a separate category; longer messages beginning with it are not preserved.
+Stack function names, V8 message lines and free text are removed. Input stacks
+are limited to 8192 characters and 12 lines; a line over 1024 characters is
+ignored before parsing. Locations must begin with an HTTP(S) URL or `/`;
+`data:`, `blob:`, file and extension locations are dropped.
+
+Inline document code can follow server-inserted conversation data. Its line and
+column therefore reveal content length. All four clients omit both coordinates
+for document frames. If a recognized bundle frame exists, only bundle frames are
+kept: this also excludes the inline reporter's fetch and XHR wrapper frames from
+the grouping location. Otherwise a document frame becomes the projected page
+path alone (for example `/:id`). Inline-only bugs in the same category and page
+family can consequently merge; precision is deliberately limited by privacy.
+Distinct inline-only bugs in the same category on one page share one signature: the browser sends the first occurrence and counts the rest.
+On `/:id` pages, single-segment third-party script frames (including analytics and Cloudflare) show the same page marker as our inline code.
+Stackless errors use the browser's supplied location under these same rules.
+
+Only these 15 shipped same-origin PNG basenames keep their exact names under
+`/twemoji/14.0.2/72x72/`: `1f1fa-1f1f8`, `1f30d`, `1f30e`, `1f30f`, `1f3ce`,
+`1f44b`, `1f479`, `1f47e`, `1f4be`, `1f4d6`, `1f529`, `1f5de`, `2697`, `26a1`,
+and `2764`. Other names, versions, extensions and third-party paths stay projected.
+Showing separate filenames can spend the per-address budget on one page load.
+Directory-level aggregation with an occurrence count would better describe an
+all-images outage and preserve room for other diagnostics. It is a recommended
+follow-up; this contract still groups these 15 failures by exact filename, and
+neither transport nor rate limits change.
+
+The shared reporter program is marked `prettier-ignore` as a single syntax node,
+so the clients' different formatter versions preserve byte-identical copies.
+ The server applies the same projection again, ignores extra input keys,
 and logs an explicit field list. The log event has `message: "client_error"` and
 renames the projected message to `error_message`. Its only additional field is
 `user_agent`, restricted to recognized browser product/version tokens, at most
@@ -48,9 +77,9 @@ level and can record IP and the original User-Agent as it does for other routes.
 The signature joins client, kind, nonzero status (or projected message), and
 first projected stack frame (or projected resource when no frame exists) with a
 newline. Before hashing, only the content hash in a bundle filename is removed.
-Line and column remain part of every frame signature, so different positions
-on one page produce separate reports. The diagnostic stack retains its original
-projected filename and positions. Cross-build comparisons that also ignore
+Line and column remain part of bundle-frame signatures, so different bundle
+positions produce separate reports. Document markers have no coordinates.
+The diagnostic stack retains projected bundle filenames and positions. Cross-build comparisons that also ignore
 changed offsets are an explicit offline triage view; see
 [client error triage](client-error-triage.md). Two unsigned 32-bit hashes start at 2166136261 and 5381. For each UTF-16
 code unit, they respectively apply `Math.imul(hash ^ code, 16777619)` and
@@ -91,3 +120,6 @@ Fetch and XHR responses with status 304 are successful and are not reported.
 Network failures, timeouts and HTTP status 400 or above are reported. Navigation
 cancellation (fetch rejection or XHR status 0) can still produce a failed-request
 category; it carries no response body.
+
+Client errors terminate at the existing `client_error` log line. They do not
+feed an automated fixer or another service.
