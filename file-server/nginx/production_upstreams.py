@@ -235,10 +235,10 @@ def web_services(script, compose):
                     elif '=' in option and option.split('=', 1)[0] in options:
                         require(option.split('=', 1)[1], f'missing Docker option value at {location}')
                         command = command[1:]
-                    elif option in {'--debug', '-D', '--tls', '--tlsverify'}:
+                    elif option in {'--debug', '-D', '--tls', '--tlsverify',
+                                    '--version', '-v', '--help'}:
+                        # Docker can still run a subcommand after lookup options.
                         command = command[1:]
-                    elif option in {'--version', '-v', '--help'}:
-                        command = []  # A lookup starts nothing.
                     else:
                         raise ValueError(f'unrecognized Docker option {option!r} at {location}')
             if word == 'docker-compose' or (word == 'docker' and command[:1] == ['compose']):
