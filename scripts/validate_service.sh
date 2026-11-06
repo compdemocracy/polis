@@ -44,7 +44,8 @@ polis_api_ready() {
           const selected = routes(expected).split(",");
           const expectedSwitches = [
             ...(selected.includes("testConnection") ? ["POLIS_API_CONNECTION_READS"] : []),
-            ...(selected.includes("version") ? ["POLIS_API_VERSION_READS"] : [])
+            ...(selected.includes("version") ? ["POLIS_API_VERSION_READS"] : []),
+            ...(selected.includes("comments") ? ["POLIS_API_COMMENT_READS"] : [])
           ].sort().join(",");
           if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
               routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
