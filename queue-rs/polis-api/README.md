@@ -206,7 +206,7 @@ cd queue-rs
 cargo fmt -p polis-api --check
 cargo clippy --locked -p polis-api --all-targets -- -D warnings
 cargo test --locked -p polis-api
-POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/scratch \
+POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:25462/scratch \
   cargo test --locked -p polis-api --features db-tests   # a throwaway Postgres
 cd ..
 queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
@@ -216,8 +216,8 @@ docker build --build-arg FEATURES=fixture-clock -t x54pca2-polis-api:conformance
   -f queue-rs/polis-api/Dockerfile .
 docker build -t x54pca2-postgres:local -f server/Dockerfile-db server
 COMPOSE_PROJECT_NAME=p027x54pca2-$(openssl rand -hex 3) \
-P027_PORT_MIN=55479 P027_PORT_MAX=55481 POLIS_RECOVERY_PG_PORT=55479 \
-P027_HTTP_PORT=55480 P027_CONTROL_PORT=55481 \
+P027_PORT_MIN=25479 P027_PORT_MAX=25481 POLIS_RECOVERY_PG_PORT=25479 \
+P027_HTTP_PORT=25480 P027_CONTROL_PORT=25481 \
   queue-rs/polis-api/conformance/run.sh result.json
 ```
 
@@ -1360,7 +1360,7 @@ mode as they are in Node. No handler, schema, writer or production setting chang
 
 Conformance with locally built Node, migrated Postgres and fixture-clock API images:
 ```sh
-COMPOSE_PROJECT_NAME=topics-proof POLIS_RECOVERY_PG_PORT=58241 \
+COMPOSE_PROJECT_NAME=topics-proof POLIS_RECOVERY_PG_PORT=28241 \
 DELPHI_TOPICS_PG_NODE_IMAGE=topics-node:local \
 DELPHI_TOPICS_PG_POSTGRES_IMAGE=topics-postgres:local \
 DELPHI_TOPICS_PG_API_IMAGE=topics-api:local \

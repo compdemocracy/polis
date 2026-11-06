@@ -40,7 +40,7 @@ on:
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
-      - '.github/workflows/queue-rs-ci.yml'
+      - '.github/workflows/**'
   push:
     branches: [edge, stable]
     paths:
@@ -76,7 +76,7 @@ on:
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
-      - '.github/workflows/queue-rs-ci.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:

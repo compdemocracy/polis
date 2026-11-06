@@ -227,5 +227,16 @@ Host-port validation reads only the inputs named by each launcher. Unrelated
 shell variables do not affect a check. Direct database harnesses refuse port
 5432 to avoid connecting to the development database; fixed Compose
 publications may still use it. Run `make check-host-ports` with Python 3.12 and
-psycopg2 installed to test the shared rule and its isolation checks. Concurrent
+psycopg2 installed to test the shared rule and its isolation checks. The same
+check scans every workflow's literal environment and service-port inputs, local
+and conformance shell launchers, shell helpers and test Compose defaults.
+It lists tracked and nonignored untracked files through Git; ignored output
+directories are excluded and symbolic links are refused. It also runs the
+coordinator tunnel-window boundary tests.
+Failures name the file, line and variable. Computed values still pass through
+the launcher's runtime validator; container listeners are not host inputs.
+`make test-recovery` and `make test-recovery-races` default to 25432 and validate
+`RECOVERY_PG_PORT` before starting Docker. Both Compose and the pytest URL use
+that value. Set a unique `COMPOSE_PROJECT_NAME` and choose a free
+`RECOVERY_PG_PORT` for concurrent recovery runs. Concurrent
 API checks must set distinct `X54_NGINX_PORT` and `X54_FILES_PORT` values.

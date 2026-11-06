@@ -34,8 +34,8 @@ check_project "$IMPORTANCE_PROJECT"
 
 (
   cd "$CHECK_ROOT/queue-rs"
-  export POLIS_API_TEST_DATABASE_URL="${POLIS_API_TEST_DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/polis_api_test}"
-  export POLIS_AUTH_TEST_DATABASE_URL="${POLIS_AUTH_TEST_DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/polis_api_test}"
+  export POLIS_API_TEST_DATABASE_URL
+  export POLIS_AUTH_TEST_DATABASE_URL
   cargo test --locked -p polis-api --features db-tests
 )
 

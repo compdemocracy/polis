@@ -101,7 +101,7 @@ loopback port; its public role/table fixture does not apply migration 000021:
 
 ```sh
 cargo build --manifest-path coordinator-rs/Cargo.toml --locked --bin coordinator-idle
-COMPOSE_PROJECT_NAME=p027-idle-review POLIS_RECOVERY_PG_PORT=55566 RECOVERY_PG_PORT=55566 python3 -B coordinator-rs/deploy/test_idle.py
+COMPOSE_PROJECT_NAME=p027-idle-review POLIS_RECOVERY_PG_PORT=25566 RECOVERY_PG_PORT=25566 python3 -B coordinator-rs/deploy/test_idle.py
 ```
 
 Use an unused project/port. The rehearsal checks TLS, idle state, privilege drift,
