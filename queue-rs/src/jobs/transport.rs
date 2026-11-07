@@ -145,6 +145,47 @@ impl Connector {
         }
     }
 
+    /// Opt-in bounds for route pools. Existing job connectors retain their
+    /// transport policy; each route pool supplies its own setup deadline.
+    pub fn connect_bounded(
+        &self,
+        deadline: std::time::Instant,
+        io_timeout: Duration,
+    ) -> Result<Client> {
+        let configure = |config: &PgConfig| {
+            let mut config = config.clone();
+            config.setup_deadline(Some(deadline));
+            let idle = config.get_keepalives_idle().min(Duration::from_secs(2));
+            let interval = config
+                .get_keepalives_interval()
+                .unwrap_or(Duration::from_secs(1))
+                .min(Duration::from_secs(1));
+            let retries = config.get_keepalives_retries().unwrap_or(3).min(3);
+            let user_timeout = config
+                .get_tcp_user_timeout()
+                .copied()
+                .filter(|timeout| !timeout.is_zero())
+                .unwrap_or(Duration::from_secs(5))
+                .min(Duration::from_secs(5));
+            config
+                .keepalives(true)
+                .keepalives_idle(idle)
+                .keepalives_interval(interval)
+                .keepalives_retries(retries)
+                .tcp_user_timeout(user_timeout);
+            config
+        };
+        let mut client = match self {
+            Self::Tls(config, tls) => {
+                configure(config).connect(MakeTlsConnector::new(tls.clone()))?
+            }
+            Self::Plain(config) => configure(config).connect(NoTls)?,
+        };
+        client.set_deadline(Some(deadline));
+        client.set_io_timeout(Some(io_timeout));
+        Ok(client)
+    }
+
     pub fn connect(&self) -> Result<Client> {
         Ok(match self {
             Self::Tls(config, tls) => config.connect(MakeTlsConnector::new(tls.clone()))?,

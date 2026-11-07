@@ -1845,3 +1845,6 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
         );
     }
 }
+
+#[path = "post_votes_connection_tests.rs"]
+mod connection_bounds;
