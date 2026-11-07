@@ -384,7 +384,16 @@ Node's visibility rules, created-only ordering, 999-candidate cap, zero-weight
 fallback, `randomN`, initial status, count semantics and empty translations.
 The initial branch retains Node's negative participant sentinel in eligibility
 reads; it never resolves or creates a participant. Committed math priorities
-have a bounded three-second process-local cache. Independent process caches
+have a bounded three-second process-local cache keyed by math environment and
+conversation. On expiry, one database exchange checks the committed tick and
+returns only `data->'comment-priorities'` when it differs. An unchanged tick
+renews the existing parsed allocation. Concurrent admitted reads share one
+refresh and its success, absence or failure; errors and absent rows are not
+cached. A joiner waits at most the acquisition plus statement budget (51 ms),
+and never beyond its remaining 75 ms handler deadline. Sharing happens inside
+the existing next-statement pool lease: a caller refused by pool admission
+never joins a flight, and a joiner retains its own slot while waiting. No
+other route or pool uses these flights. Independent process caches
 and concurrent database publications can observe different generations; static
 fixture byte proof is not a concurrent-publication equivalence claim.
 

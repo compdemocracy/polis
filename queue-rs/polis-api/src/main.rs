@@ -66,6 +66,7 @@ mod moderation_comments;
 mod my_invites_csv;
 mod negotiate;
 mod next_comment;
+mod next_priorities;
 mod ops_catchall;
 mod ops_page;
 mod ops_whoami;
