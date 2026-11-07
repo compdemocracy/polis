@@ -25,9 +25,9 @@ pub(crate) const MAX_BODY_BYTES: usize = 65536;
 const REJECTED_COMMENT_MOD: i32 = -1;
 const ADMISSION_DEADLINE: Duration = Duration::from_millis(250);
 const DISPATCH_DEADLINE: Duration = Duration::from_secs(1);
-// Accepted work may outlive the HTTP response. Report a minute of writer
-// contention, then keep the same acquisition queued until a slot is available.
-const DISPATCH_ACQUIRE_ALARM: Duration = Duration::from_secs(60);
+// Accepted work may outlive the HTTP response. Report writer contention while
+// preserving queue position until the pool's dispatched-acquisition cutoff.
+const DISPATCH_ACQUIRE_ALARM: Duration = Duration::from_secs(1);
 
 pub(crate) struct Writer {
     pool: Arc<db::Pool>,
@@ -550,12 +550,12 @@ async fn dispatch(
         .as_ref()
         .and_then(|o| o.lock().unwrap().acquire_alarm_after)
         .unwrap_or(alarm_after);
-    let (zid, pid, tid, vote) = (admitted.zid, admitted.pid, fields.tid, fields.vote.wire());
+    let (zid, tid) = (admitted.zid, fields.tid);
     let created = pool
         .with_acquire_alarm(alarm_after, move || {
-            let count = ACQUIRE_ALARM_HITS.fetch_add(1, Ordering::Relaxed) + 1;
+            ACQUIRE_ALARM_HITS.fetch_add(1, Ordering::Relaxed);
             eprintln!(
-                "{{\"event\":\"post_votes_writer_acquire_alarm\",\"count\":{count},\"alarmMs\":{},\"zid\":{zid},\"pid\":{pid},\"tid\":{tid},\"vote\":{vote}}}",
+                "{{\"event\":\"post_votes_writer_acquire_alarm\",\"alarmMs\":{},\"zid\":{zid},\"tid\":{tid}}}",
                 alarm_after.as_millis()
             );
             #[cfg(all(test, feature = "db-tests"))]
@@ -578,7 +578,15 @@ async fn dispatch(
                 },
             }
         })
-        .await?;
+        .await
+        .inspect_err(|error| {
+            if let Some(timeout) = error.downcast_ref::<db::DispatchedAcquireTimeout>() {
+                eprintln!(
+                    "{{\"event\":\"post_votes_writer_acquire_cutoff\",\"zid\":{zid},\"tid\":{tid},\"wait_ms\":{}}}",
+                    timeout.waited.as_millis()
+                );
+            }
+        })?;
     let created = match created {
         Ok(created) => created,
         Err(outcome) => return Ok(outcome),

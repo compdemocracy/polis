@@ -2,6 +2,7 @@
 # The root package (the polis-queue/1 adapter and the polis-jobs daemon) and the
 # polis-api route server share one lockfile, one toolchain and one CI job.
 members = [".", "polis-api", "polis-migrate", "polis-auth"]
+exclude = ["vendor/postgres"]
 resolver = "3"
 
 [package]
@@ -41,3 +42,6 @@ polis-migrate = { path = "polis-migrate" }
 [lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
+
+[patch.crates-io]
+postgres = { path = "vendor/postgres" }
