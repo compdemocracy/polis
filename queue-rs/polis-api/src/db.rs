@@ -23,15 +23,6 @@ use std::{
 };
 use tokio::sync::Semaphore;
 
-/// One `math_main` row for `(zid, math_env)`.
-#[derive(Clone, Debug)]
-pub struct MathMainRow {
-    /// `math_main.math_tick` (BIGINT, default -1 before a tick is assigned).
-    pub math_tick: i64,
-    /// `math_main.data` (JSONB) as Postgres prints it.
-    pub data: String,
-}
-
 pub fn zid_for_conversation_id(client: &mut Client, conversation_id: &str) -> Result<Option<i32>> {
     let rows = client.query(
         "select zid from zinvites where zinvite = ($1)",
@@ -60,17 +51,6 @@ pub fn math_main_refresh(
         ],
     )?;
     Ok(rows.first().map(|r| (r.get(0), r.get(1))))
-}
-
-pub fn math_main(client: &mut Client, zid: i32, math_env: &str) -> Result<Option<MathMainRow>> {
-    let rows = client.query(
-        "select math_tick, data::text from math_main where zid = ($1) and math_env = ($2)",
-        &[&zid, &math_env],
-    )?;
-    Ok(rows.first().map(|r| MathMainRow {
-        math_tick: r.get(0),
-        data: r.get(1),
-    }))
 }
 
 /// `select tid from comments where zid = ($1) and mod >= 1 order by tid`
@@ -553,10 +533,19 @@ mod tests {
                 .unwrap(),
             None
         );
-        let row = pool.with(|c| math_main(c, 7, "p")).await.unwrap().unwrap();
-        assert_eq!(row.math_tick, 9);
-        assert_eq!(row.data, r#"{"n": 2, "tids": [1]}"#);
-        assert!(pool.with(|c| math_main(c, 7, "r")).await.unwrap().is_none());
+        let row = pool
+            .with(|c| math_main_refresh(c, 7, "p", None))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.0, 9);
+        assert_eq!(row.1.unwrap(), r#"{"n": 2, "tids": [1]}"#);
+        assert!(
+            pool.with(|c| math_main_refresh(c, 7, "r", None))
+                .await
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(
             pool.with(|c| approved_tids(c, 7)).await.unwrap(),
             vec![2, 3]
