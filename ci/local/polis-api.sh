@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/vendor_postgres.py"
+python3 -m unittest discover -s "$CHECK_ROOT/ci" -p test_vendor_postgres.py -v
 python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT
 GITHUB_SHA="${GITHUB_SHA:-$(git rev-parse --verify HEAD)}"
 export GITHUB_SHA
@@ -36,6 +38,9 @@ check_project "$IMPORTANCE_PROJECT"
   cd "$CHECK_ROOT/queue-rs"
   export POLIS_API_TEST_DATABASE_URL
   export POLIS_AUTH_TEST_DATABASE_URL
+  # Keep aggregate test pools below PostgreSQL's default connection limit.
+  # Pin this here so local and hosted checks use the same database budget.
+  export RUST_TEST_THREADS=2
   cargo test --locked -p polis-api --features db-tests
 )
 
