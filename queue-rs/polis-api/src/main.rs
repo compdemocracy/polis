@@ -20,6 +20,7 @@ mod conversation_stats;
 mod cors;
 mod database;
 mod db;
+mod db_connect;
 mod perf_stats;
 mod version;
 // The Delphi run-record contract (delphi-run/1) and the modules it is built
