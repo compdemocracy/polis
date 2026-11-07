@@ -323,7 +323,9 @@ Without `--json`, `conversation list` prints a table (topic, description, the
 conversation URL and its newest report URL); other network results use pretty JSON.
 
 Network waits default to 30 seconds, configurable from 1 to 300. Responses are bounded
-to 8 MiB. Redirects and **all automatic HTTP retries** are disabled; a redirected
+to 8 MiB. Redirects and transport-level automatic retries are disabled. The typed
+`vote` command alone may retry an explicit HTTP 202 unknown receipt once, as
+described below; raw `api` requests never retry. A redirected
 write reports outcome `unknown` (exit 7), since the site may have stored it. Requests cannot
 escape the selected origin's `/api/v3/` prefix. Non-JSON responses, malformed JSON,
 HTTP-200 error envelopes, partial seed imports, and 304 responses are not successes.
@@ -819,9 +821,12 @@ receipt. As on the page, every vote request carries `high_priority`: `true`
 when marked, `false` otherwise. Reports and exports count importance only in
 conversations where it is enabled.
 
-No request is automatically retried. A lost or incompatible response, or a
-credential-save failure after a response, exits 7: check participation before
-resubmitting. Node may create membership before rejecting a vote; an error does
+Only HTTP 202 with exactly `{"acceptance":"unknown","retry":"same_vote"}`
+makes the typed `vote` command retry the identical vote once after 300 ms. Any
+failed retry reports outcome `unknown` (exit 7), including a rejection or refused
+connection: the first vote may already be stored. A lost or incompatible response
+or a credential-save failure also exits 7. Check participation before resubmitting.
+Other errors are not retried. The raw `api` command returns the response without retrying. Node may create membership before rejecting a vote; an error does
 not guarantee that membership is unchanged. Interactive quit sends no vote.
 Comment text is untrusted content and terminal control characters are removed.
 `polis vote list` continues to provide the existing separate read command.
