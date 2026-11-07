@@ -1,0 +1,37 @@
+{
+  "version": "0.19.14",
+  "archive_sha256": "33ad20e0aa0b24f5a394eab4f78c781d248982b22b25cecc7e3aa46a681605bd",
+  "files": {
+    ".cargo_vcs_info.json": "3bef09d34c1fc907389c21bffa599a508ed545ab9933b518306c908c34ca35d1",
+    "CHANGELOG.md": "90db5e8808ba581268ca461ea29754b91ffa4d43c8d295dee575a8b75cc28334",
+    "Cargo.lock": "d112990fc297dd707073d944d76e8043034c157c3197686fd84be96994c31da8",
+    "Cargo.toml": "0678b5f208798cd410ab947e9e6b1f4d787c983e58e729656e020144f131f892",
+    "Cargo.toml.orig": "838454e4c96aecd358ca4a90a25aa474dd6cbb012393dc463c98f0c7aa86c878",
+    "LICENSE-APACHE": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+    "LICENSE-MIT": "4d033ae2577fa5055e26ed7e4aa3b885522f20570d18366bbc0178e0ddc19e0f",
+    "README.md": "e4e7c2898f072a85c14db07fc4ee2d32cc5916215e7ed1b180653173ae389a0c",
+    "benches/bench.rs": "fd14ad99f956493c20148d750addc10417b9dfe6f6f5b9ac2dc5dbded70a55f3",
+    "src/binary_copy.rs": "2951ee790af6a8f8489e0938e3c981525b1020e851a1c30283d1cfde62543442",
+    "src/cancel_token.rs": "b71298c23a4a1adb4c91d6d2d4c3ab492ee5c49674981a29b8e5e43ab8c6af1c",
+    "src/client.rs": "f800871b735add96767e64e2869ef68e2db6486266780ac6a58824754dec713d",
+    "src/config.rs": "96a8aa95c1e40602524f17699e53931bd5895662889ffa3ed5a467dcd3559f37",
+    "src/connection.rs": "e4e8b16b20a201db8783933d15f966bfcf7ba72345fab29338ca8a05e45b3d74",
+    "src/copy_in_writer.rs": "6f288bfd4d854c74f6ee30755dc925ed82b745241c91527dd5b1f4f23a636aa7",
+    "src/copy_out_reader.rs": "f4c9b76ab23212eb8c9a6f8e0b25cf09cd3ec9abfd23a12f583969ef8b0ed6ca",
+    "src/generic_client.rs": "cd37ee82255a8324a249f581417b97fb25e826a0da419ecaa5947a06db68b6e8",
+    "src/lazy_pin.rs": "6a6b25a1cb0c20f53d2a363fc2cb0bc8362821294469ad99cd064331955c9934",
+    "src/lib.rs": "9254c245c7a8efd8db8d70bb3f04206e8e465aa23b8123055838616553d6bce4",
+    "src/notifications.rs": "528ff07b8d9fdfb9f3fbca32b7fef5e1edb608c3776e5c209fa88caff5b7c992",
+    "src/row_iter.rs": "7ee7fcc0110fdb9a26d3aeb0ecb447bf9090e2510653604fb89660e6332057ac",
+    "src/test.rs": "c1f4d265fbe5f5fdb7dd10883dd8a406830b80be32bf5b745354cae194d4b3f5",
+    "src/transaction.rs": "99062bc37782c15d0f11d6a0e28c830051e66924d8230932228ce6f927e16293",
+    "src/transaction_builder.rs": "707eaf579127f65af78119ea23f2162fce45455bfcb3c8d71d8f28103ba4ac89"
+  },
+  "omitted": [
+    ".cargo_vcs_info.json",
+    "CHANGELOG.md",
+    "Cargo.lock",
+    "Cargo.toml.orig",
+    "benches/bench.rs"
+  ]
+}

@@ -240,3 +240,7 @@ the launcher's runtime validator; container listeners are not host inputs.
 that value. Set a unique `COMPOSE_PROJECT_NAME` and choose a free
 `RECOVERY_PG_PORT` for concurrent recovery runs. Concurrent
 API checks must set distinct `X54_NGINX_PORT` and `X54_FILES_PORT` values.
+
+`make check-polis-api` starts with the offline vendored-postgres provenance/delta
+check and its tests (Python 3.11+); see `queue-rs/vendor/postgres/README.md` for
+the checksum-verified refresh procedure. No registry cache or network is needed.
