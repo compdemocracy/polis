@@ -141,12 +141,21 @@ async fn db_connect_stalled_next_comment_is_censored_at_the_real_deadline() {
         Connector::Plain(Box::new(cfg)),
         crate::next_comment::pool_limits(),
     );
+    let started = std::time::Instant::now();
     let (out, line) = logged(app(db.clone()), NEXT).await;
+    let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
     assert_eq!(out.status, 502);
     assert_eq!(line["db_connect"]["count"], 1);
     assert_eq!(line["db_connect"]["failed"], 0);
     assert_eq!(line["db_connect"]["in_flight"], 1);
-    assert!(line["db_connect"]["ms"].as_f64().unwrap() >= 75.0, "{line}");
+    let setup_ms = line["db_connect"]["ms"].as_f64().unwrap();
+    // Setup begins after the route timer and is censored when that timer is
+    // polled. The enclosing measured interval contains the snapshot even if
+    // scheduling delays either event; allow only the field's rounding unit.
+    assert!(
+        setup_ms > 0.0 && setup_ms <= elapsed_ms + 0.001,
+        "{line}; elapsed_ms={elapsed_ms}"
+    );
     release.send(()).unwrap();
     peer.join().unwrap();
 }
@@ -201,16 +210,34 @@ impl Drop for Fixture {
 #[tokio::test]
 async fn db_connect_cold_warm_and_expired_pool_requests() {
     let fixture = Fixture::new("lifetime").await;
-    let state = app(pool(fixture.config.clone(), Duration::from_millis(250)));
+    let state = app(pool(fixture.config.clone(), Duration::from_secs(300)));
     let (out, first) = logged(state.clone(), PCA).await;
     assert_eq!(out.status, 200);
     cold(&first);
     let (out, warm) = logged(state.clone(), "/api/v3/math/pca2?conversation_id=b").await;
     assert_eq!(out.status, 200);
     zeros(&warm);
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    let (out, expired) = logged(state, "/api/v3/math/pca2?conversation_id=c").await;
-    assert_eq!(out.status, 200);
+    // Expiry is a separate single-checkout request. A slow multi-checkout
+    // PCA request must not expire its client between its own queries.
+    let lifetime = Duration::from_millis(250);
+    let expired_pool = pool(fixture.config.clone(), lifetime);
+    expired_pool.with(|_| Ok(())).await.unwrap();
+    let warmed = std::time::Instant::now();
+    while warmed.elapsed() < lifetime {
+        tokio::time::sleep(lifetime.saturating_sub(warmed.elapsed())).await;
+    }
+    assert!(warmed.elapsed() >= lifetime);
+    let before = expired_pool.evidence.snapshot()[0];
+    let (out, expired) = logged(
+        app(expired_pool.clone()),
+        "/api/v3/math/pca2?conversation_id=missing",
+    )
+    .await;
+    assert_eq!(
+        out.status, 400,
+        "unknown conversation stops after one checkout"
+    );
+    assert_eq!(expired_pool.evidence.snapshot()[0] - before, 1);
     cold(&expired);
 }
 #[cfg(feature = "db-tests")]
@@ -231,7 +258,7 @@ async fn db_connect_concurrent_requests_do_not_share_pool_observations() {
 #[tokio::test]
 async fn db_connect_pca_miss_hit_and_warm_and_expired_revalidation() {
     let fixture = Fixture::new("cache").await;
-    let db = pool(fixture.config.clone(), Duration::from_secs(4));
+    let db = pool(fixture.config.clone(), Duration::from_secs(300));
     let state = app(db.clone());
     let (out, miss) = logged(state.clone(), PCA).await;
     assert_eq!(out.status, 200);
@@ -257,9 +284,35 @@ async fn db_connect_pca_miss_hit_and_warm_and_expired_revalidation() {
         2,
         "tick read and presentation backfill"
     );
-    tokio::time::sleep(Duration::from_millis(3050)).await;
-    let (out, expired) = logged(state, PCA).await;
+    // Keep client expiry separate from the warm-cache checks. Revalidation
+    // still reads the tick and backfills the presentation through this pool.
+    let lifetime = Duration::from_millis(250);
+    let expired_pool = pool(fixture.config.clone(), lifetime);
+    let expired_state = app(expired_pool.clone());
+    let (out, primed) = logged(expired_state.clone(), PCA).await;
+    assert_eq!(out.status, 200);
+    assert_eq!(primed["cache"], "miss");
+    expired_pool.with(|_| Ok(())).await.unwrap();
+    let warmed = std::time::Instant::now();
+    let age = lifetime.max(Duration::from_millis(3050));
+    while warmed.elapsed() < age {
+        tokio::time::sleep(age.saturating_sub(warmed.elapsed())).await;
+    }
+    assert!(warmed.elapsed() >= lifetime);
+    let before = expired_pool.evidence.snapshot()[0];
+    let (out, expired) = logged(expired_state, PCA).await;
     assert_eq!(out.status, 200);
     assert_eq!(expired["cache"], "revalidated");
-    cold(&expired);
+    assert_eq!(
+        expired_pool.evidence.snapshot()[0] - before,
+        2,
+        "tick read and presentation backfill"
+    );
+    // The replacement can itself expire between the two checkouts. Each
+    // checkout opens at most one client, and the first must replace an old one.
+    let count = expired["db_connect"]["count"].as_u64().unwrap();
+    assert!((1..=2).contains(&count), "{expired}");
+    assert_eq!(expired["db_connect"]["failed"], 0);
+    assert_eq!(expired["db_connect"]["in_flight"], 0);
+    assert!(expired["db_connect"]["ms"].as_f64().unwrap() > 0.0);
 }
