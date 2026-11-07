@@ -22,7 +22,6 @@ fn unsupported_shapes_are_handed_back_before_identity_or_database_work() {
         "{}",
         "[]",
         r#"{"conversation_id":"a","xid":"external"}"#,
-        r#"{"conversation_id":"a","pid":0}"#,
         r#"{"conversation_id":"a","unknown":true}"#,
         r#"{"conversation_id":"a/b"}"#,
     ] {
@@ -345,4 +344,32 @@ fn observing_dispatch<T>(observation: &DispatchObservation, poll: impl FnOnce() 
     });
     let _clear = Clear;
     poll()
+}
+
+#[test]
+fn vote_admission_discards_body_identity_hints_without_changing_fields() {
+    let body = serde_json::json!({
+        "conversation_id": "2fixture", "tid": 7, "vote": crate::votes::WIRE_AGREE,
+        "starred": true, "high_priority": true
+    });
+    let (_, original) = request(&req(&body.to_string())).unwrap();
+    for hint in [
+        serde_json::json!(0),
+        serde_json::json!(-1),
+        serde_json::json!(999),
+        serde_json::json!("untrusted"),
+        serde_json::Value::Null,
+        serde_json::json!({"nested": [true]}),
+    ] {
+        let mut with_hints = body.clone();
+        with_hints["pid"] = hint.clone();
+        with_hints["agid"] = hint;
+        let (cid, parsed) = request(&req(&with_hints.to_string())).unwrap();
+        assert_eq!(cid, "2fixture");
+        assert_eq!(parsed.parse_fields(), original.parse_fields());
+        assert_eq!(
+            serde_json::to_value(parsed).unwrap(),
+            serde_json::to_value(&original).unwrap()
+        );
+    }
 }
