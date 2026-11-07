@@ -36,6 +36,9 @@ check_project "$IMPORTANCE_PROJECT"
   cd "$CHECK_ROOT/queue-rs"
   export POLIS_API_TEST_DATABASE_URL
   export POLIS_AUTH_TEST_DATABASE_URL
+  # Keep aggregate test pools below PostgreSQL's default connection limit.
+  # Pin this here so local and hosted checks use the same database budget.
+  export RUST_TEST_THREADS=2
   cargo test --locked -p polis-api --features db-tests
 )
 
