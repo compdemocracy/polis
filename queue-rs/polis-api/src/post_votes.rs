@@ -246,7 +246,13 @@ fn admit(
     }))
 }
 
-fn next(c: &mut Client, a: &Admitted, env: &str, unit: f64) -> Result<Option<Js>> {
+fn next(
+    c: &mut Client,
+    a: &Admitted,
+    env: &str,
+    unit: f64,
+    lang: Option<&str>,
+) -> Result<Option<Js>> {
     let strict = c
         .query_one(
             "select strict_moderation from conversations where zid=$1",
@@ -294,8 +300,49 @@ fn next(c: &mut Client, a: &Admitted, env: &str, unit: f64) -> Result<Option<Js>
     row.set("randomN", Js::Num(random));
     row.set("remaining", Js::Num(counts.try_get::<_, i64>(0)? as f64));
     row.set("total", Js::Num(counts.try_get::<_, i64>(1)? as f64));
-    row.set("translations", Js::Arr(vec![]));
+    // Node skips the stored read entirely without a requested language. Keep
+    // language admission closed until provider suppression is known before
+    // dispatch; this follow-on must never authorize replaying a committed vote.
+    let translations = if lang.is_some_and(|lang| !lang.is_empty()) {
+        // Optional translation failure keeps the selected statement, as Node
+        // does. This SELECT uses the existing reads client/statement deadline,
+        // after commit, with no provider, transaction or explicit lock.
+        stored_translations(c, a.zid, tids[index]).unwrap_or_default()
+    } else {
+        vec![]
+    };
+    row.set("translations", Js::Arr(translations));
     Ok(Some(Js::Obj(row)))
+}
+
+// Node's SELECT * returns all languages/sources, in database order. Preserve
+// both that row order and column order; int8 values remain strings, as in pg.
+fn stored_translations(c: &mut Client, zid: i32, tid: i32) -> Result<Vec<Js>> {
+    c.query(
+        "select * from comment_translations where zid = ($1) and tid = ($2);",
+        &[&zid, &tid],
+    )?
+    .iter()
+    .map(|row| {
+        let mut out = js::Obj::new();
+        for (index, column) in row.columns().iter().enumerate() {
+            let value = match *column.type_() {
+                postgres::types::Type::INT4 => row
+                    .try_get::<_, Option<i32>>(index)?
+                    .map(|n| Js::Num(f64::from(n))),
+                postgres::types::Type::INT8 => row
+                    .try_get::<_, Option<i64>>(index)?
+                    .map(|n| Js::Str(n.to_string())),
+                postgres::types::Type::VARCHAR | postgres::types::Type::TEXT => {
+                    row.try_get::<_, Option<String>>(index)?.map(Js::Str)
+                }
+                _ => anyhow::bail!("unsupported translation column"),
+            };
+            out.set(column.name(), value.unwrap_or(Js::Null));
+        }
+        Ok(Js::Obj(out))
+    })
+    .collect()
 }
 
 enum Outcome {
@@ -380,8 +427,14 @@ fn star(c: &mut Client, a: &Admitted, fields: &ParsedFields, created: i64) -> Re
     Ok(())
 }
 
-fn complete(c: &mut Client, a: &Admitted, env: &str, unit: f64) -> Result<contract::Success> {
-    let next_comment = next(c, a, env, unit)?
+fn complete(
+    c: &mut Client,
+    a: &Admitted,
+    env: &str,
+    unit: f64,
+    lang: Option<&str>,
+) -> Result<contract::Success> {
+    let next_comment = next(c, a, env, unit, lang)?
         .map(|next| {
             serde_json::value::RawValue::from_string(js::stringify(&next))
                 .map(contract::NextComment)
@@ -611,6 +664,7 @@ async fn dispatch(
     if !notified {
         body.follow_on.notifications = NotificationState::Degraded;
     }
+    let lang = fields.lang.clone();
     if fields.starred.is_some() {
         let a = admitted.clone();
         if pool
@@ -623,7 +677,10 @@ async fn dispatch(
         body.follow_on.star = FollowOnState::Complete;
     }
     let a = admitted.clone();
-    if let Ok(completed) = reads.with(move |c| complete(c, &a, &env, unit)).await {
+    if let Ok(completed) = reads
+        .with(move |c| complete(c, &a, &env, unit, lang.as_deref()))
+        .await
+    {
         body.next_comment = completed.next_comment;
         body.follow_on.next_comment = if body.next_comment.is_some() {
             FollowOnState::Complete
