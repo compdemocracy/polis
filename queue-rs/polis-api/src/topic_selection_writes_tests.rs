@@ -40,6 +40,7 @@ fn app(url: &str, key: &[u8]) -> App {
         math_env: "test".into(),
         cache_size: 1,
         pca_cache_size: 1,
+        pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
         dev_mode: true,
         use_network_host: false,
         production: true,

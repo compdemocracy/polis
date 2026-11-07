@@ -3,7 +3,10 @@
 //! (`server/src/utils/pca.ts`, `server/src/utils/pcaPresentation.ts`),
 //! including their 3-second freshness windows and committed-generation reuse.
 
-use crate::lru::Lru;
+#[path = "pca_cache.rs"]
+mod cache;
+use cache::Cache;
+
 use crate::{
     clock::now_ms,
     compress,
@@ -16,6 +19,8 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
+pub const DEFAULT_CACHE_BYTES: usize = 192 * 1024 * 1024;
+
 /// One cache entry: the engine-facing structure and its stored gzip body
 /// (`PcaCacheItem.asPOJO` and `asBufferOfGzippedJson`).
 #[derive(Clone, Debug)]
@@ -27,12 +32,23 @@ pub struct PcaItem {
     /// no generation, so the route gives it no generation tag.
     pub synthesized: bool,
     reusable: bool,
+    retained_bytes: usize,
 }
 
 impl PcaItem {
     pub fn math_tick(&self) -> f64 {
         self.pojo.get("math_tick").map_or(f64::NAN, js_number)
     }
+}
+
+// Arc allocation headers are two usize counters. The object charge includes
+// Vec/String capacities recursively; JSON serialization is temporary.
+fn item_bytes(pojo: &Obj, gzip: usize) -> usize {
+    let header = 2 * std::mem::size_of::<usize>();
+    js::allocation_bytes(header + std::mem::size_of::<PcaItem>())
+        .saturating_add(js::allocation_bytes(header + std::mem::size_of::<Obj>()))
+        .saturating_add(pojo.retained_bytes())
+        .saturating_add(js::allocation_bytes(header + gzip))
 }
 
 fn answer(item: Arc<PcaItem>, requested_tick: f64) -> Option<Arc<PcaItem>> {
@@ -208,8 +224,7 @@ impl<T> Refreshes<T> {
 pub struct Pca {
     db: Arc<Pool>,
     math_env: String,
-    cache: Mutex<Lru<i32, Arc<PcaItem>>>,
-    presentations: Mutex<Lru<i32, Presentation>>,
+    cache: Mutex<Cache>,
     refreshes: Refreshes<MathRefresh>,
     presentation_refreshes: Refreshes<Presentation>,
     /// `pcaResultsExistForZid` (routes/math.ts).
@@ -244,7 +259,6 @@ impl Pca {
             db,
             math_env: _,
             cache: _,
-            presentations: _,
             results_exist: _,
             refreshes: _,
             presentation_refreshes: _,
@@ -252,15 +266,26 @@ impl Pca {
         [db]
     }
 
+    #[cfg(test)]
     pub fn new(db: Arc<Pool>, math_env: String, cache_size: usize) -> Self {
+        Self::with_budget(db, math_env, cache_size, DEFAULT_CACHE_BYTES)
+    }
+
+    pub fn with_budget(db: Arc<Pool>, math_env: String, cache_size: usize, bytes: usize) -> Self {
         Self {
             db,
             math_env,
-            cache: Mutex::new(Lru::new(cache_size)),
-            presentations: Mutex::new(Lru::new(cache_size)),
+            cache: Mutex::new(Cache::new(cache_size, bytes)),
             results_exist: Mutex::new(HashMap::new()),
             refreshes: Refreshes(Mutex::new(HashMap::new())),
             presentation_refreshes: Refreshes(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn health(&self) -> Js {
+        match lock(&self.cache) {
+            Ok(cache) => cache.health(),
+            Err(_) => Js::Null,
         }
     }
 
@@ -419,12 +444,14 @@ impl Pca {
     fn build(pojo: Obj, synthesized: bool, reusable: bool) -> Result<Arc<PcaItem>> {
         let json = js::stringify(&Js::Obj(pojo.clone()));
         let gzip = compress::gzip(json.as_bytes())?;
+        let retained_bytes = item_bytes(&pojo, gzip.len());
         let item = Arc::new(PcaItem {
             pojo: Arc::new(pojo),
             gzip: gzip.into(),
             expiration: now_ms() + TTL_MS,
             synthesized,
             reusable,
+            retained_bytes,
         });
         Ok(item)
     }
@@ -449,7 +476,7 @@ impl Pca {
         if !(fill_tids || fill_count || fill_center || fill_extremity || fill_projection) {
             return Ok(item);
         }
-        let cached = lock(&self.presentations)?.get(&zid);
+        let cached = lock(&self.cache)?.presentation(&zid);
         if let Some(p) = cached
             && Arc::ptr_eq(&p.source, &item)
             && p.expiration > now_ms()
@@ -466,7 +493,7 @@ impl Pca {
         {
             return Ok(p.presented.clone());
         }
-        if let Some(p) = lock(&self.presentations)?.get(&zid)
+        if let Some(p) = lock(&self.cache)?.presentation(&zid)
             && Arc::ptr_eq(&p.source, &item)
             && p.expiration > now_ms()
         {
@@ -510,12 +537,15 @@ impl Pca {
                 pojo.set("n-cmts", Js::Num(tids.len() as f64));
             }
             let json = js::stringify(&Js::Obj(pojo.clone()));
+            let gzip = compress::gzip(json.as_bytes())?;
+            let retained_bytes = item_bytes(&pojo, gzip.len());
             let presented = Arc::new(PcaItem {
                 pojo: Arc::new(pojo),
-                gzip: compress::gzip(json.as_bytes())?.into(),
+                gzip: gzip.into(),
                 expiration: item.expiration,
                 synthesized: item.synthesized,
                 reusable: item.reusable,
+                retained_bytes,
             });
             let presentation = Presentation {
                 source: item.clone(),
@@ -526,7 +556,7 @@ impl Pca {
         })();
         let presentation = refresh.complete(built)?;
         let presented = presentation.presented.clone();
-        lock(&self.presentations)?.set(zid, presentation);
+        lock(&self.cache)?.set_presentation(zid, presentation);
         Ok(presented)
     }
 }
@@ -1031,11 +1061,12 @@ mod tests {
         use crate::{config::Config, route::App};
         use std::time::Duration;
 
-        let cfg = Config {
+        let mut cfg = Config {
             listen: String::new(),
             math_env: "a".into(),
             cache_size: 300,
             pca_cache_size: 2,
+            pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
             dev_mode: false,
             use_network_host: false,
             production: true,
@@ -1051,10 +1082,10 @@ mod tests {
             polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(pg)),
             cfg.pool.clone(),
         );
-        let app = App::new(&cfg, db);
+        let app = App::new(&cfg, db.clone());
         for zid in 1..=3 {
             let item = app.pca.store(zid, Obj::new(), false, true).unwrap();
-            lock(&app.pca.presentations).unwrap().set(
+            lock(&app.pca.cache).unwrap().set_presentation(
                 zid,
                 Presentation {
                     source: item.clone(),
@@ -1067,10 +1098,20 @@ mod tests {
         assert!(cache.get(&1).is_none(), "PCA must use its own capacity");
         assert!(cache.get(&2).is_some());
         assert!(cache.get(&3).is_some());
-        let mut presentations = lock(&app.pca.presentations).unwrap();
-        assert!(presentations.get(&1).is_none());
-        assert!(presentations.get(&2).is_some());
-        assert!(presentations.get(&3).is_some());
+        drop(cache);
+        let mut presentations = lock(&app.pca.cache).unwrap();
+        assert!(presentations.presentation(&1).is_none());
+        assert!(presentations.presentation(&2).is_some());
+        assert!(presentations.presentation(&3).is_some());
+        drop(presentations);
+        cfg.pca_cache_bytes = 0;
+        let app = App::new(&cfg, db);
+        let served = app.pca.store(1, Obj::new(), false, true).unwrap();
+        assert!(!served.gzip.is_empty());
+        assert!(
+            lock(&app.pca.cache).unwrap().get(&1).is_none(),
+            "PCA must use its configured byte budget"
+        );
     }
 
     #[test]
@@ -1089,7 +1130,7 @@ mod tests {
             let pca = Pca::new(db.clone(), "a".into(), capacity);
             for zid in 0..=capacity as i32 {
                 let item = pca.store(zid, Obj::new(), false, true).unwrap();
-                lock(&pca.presentations).unwrap().set(
+                lock(&pca.cache).unwrap().set_presentation(
                     zid,
                     Presentation {
                         source: item.clone(),
@@ -1101,9 +1142,10 @@ mod tests {
             let mut cache = lock(&pca.cache).unwrap();
             assert!(cache.get(&0).is_none());
             assert!(cache.get(&(capacity as i32)).is_some());
-            let mut presentations = lock(&pca.presentations).unwrap();
-            assert!(presentations.get(&0).is_none());
-            assert!(presentations.get(&(capacity as i32)).is_some());
+            drop(cache);
+            let mut presentations = lock(&pca.cache).unwrap();
+            assert!(presentations.presentation(&0).is_none());
+            assert!(presentations.presentation(&(capacity as i32)).is_some());
         }
     }
 }
@@ -1119,3 +1161,7 @@ mod failure_tests;
 #[cfg(all(test, feature = "db-tests"))]
 #[path = "pca_outcome_tests.rs"]
 mod outcome_tests;
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "pca_budget_tests.rs"]
+mod budget_tests;

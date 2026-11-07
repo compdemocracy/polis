@@ -377,7 +377,7 @@ async fn cancelled_refresh_keeps_its_conversation_until_the_read_finishes() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn disabled_cache_still_shares_overlapping_refreshes() {
     let mut f = Fixture::new().await;
-    Arc::get_mut(&mut f.pca).unwrap().cache = Mutex::new(Lru::new(0));
+    Arc::get_mut(&mut f.pca).unwrap().cache = Mutex::new(Cache::new(0, DEFAULT_CACHE_BYTES));
     let before = f.pca.db.evidence.acquired.load(SeqCst);
     let mut tasks = Vec::new();
     for _ in 0..16 {

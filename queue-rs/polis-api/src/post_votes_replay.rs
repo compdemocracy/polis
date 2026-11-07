@@ -272,6 +272,7 @@ fn recorded_votes_pin_node_differences_or_pre_mutation_handoff() {
         math_env: "p027".into(),
         cache_size: 300,
         pca_cache_size: 300,
+        pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
         dev_mode: false,
         use_network_host: false,
         production: true,
