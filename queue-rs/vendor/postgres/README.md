@@ -77,3 +77,34 @@ To re-vendor an upstream fix:
 4. Update Cargo.lock and run the API database fault tests, workspace checks and
    route byte replays. Check setup expiry, socket closure and permit reclamation
    on Linux as well as default behaviour for clients that do not opt in.
+
+Offline verification (Python 3.11 or newer, standard library only):
+
+```sh
+python3 ci/vendor_postgres.py
+python3 -m unittest discover -s ci -p test_vendor_postgres.py -v
+```
+
+Both commands also run in `make check-polis-api`. No network or Cargo registry
+cache is needed: the committed per-file SHA-256 manifest anchors the upstream
+bytes and the recorded diff accounts for every retained-file change.
+
+The archive checksum is recorded here and in `UPSTREAM_SHA256.json`. Cargo
+records the resolved version for a path dependency, with no registry source or
+checksum; the check compares that version with the vendored crate and documents.
+No custom lockfile entries are needed. These reviewed records are trust anchors,
+not independent attestations. When refreshing, update the version and verified
+archive checksum here and in `POLIS_CHANGES.md`, update Cargo's resolved version,
+and run from the repository root:
+
+```sh
+python3 ci/vendor_postgres.py --refresh /path/to/postgres-VERSION.crate
+python3 ci/vendor_postgres.py
+```
+
+Refresh first verifies the archive against this README's checksum, then regenerates
+`UPSTREAM_SHA256.json` and `POLIS_CHANGES.patch`. Review both changes against the
+published archive; never refresh merely to silence an unexpected drift failure.
+If upstream packaging changes, review the explicit omission list in the checker.
+The check detects local drift; discovering new upstream fixes still requires
+reviewing upstream releases and advisories.
