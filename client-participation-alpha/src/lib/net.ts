@@ -238,32 +238,51 @@ async function polisFetch<T = unknown>(
     body
   })
 
-  // Add timeout to avoid indefinite hangs (especially during SSR)
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  let response: Response
-  try {
-    response = await fetch(url, {
-      method: method,
-      headers: headers,
-      body: body,
-      signal: controller.signal
-    })
-  } catch (err: unknown) {
-    const error = err as Error & { status?: number }
-    if (error && error.name === 'AbortError') {
-      const timeoutError: PolisApiError = new Error(
-        `Request timed out after ${REQUEST_TIMEOUT_MS}ms: ${method} ${url}`
-      )
-      timeoutError.status = 408
-      throw timeoutError
+  // Reuse the serialized payload and identity headers on the one allowed retry.
+  async function send(): Promise<Response> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    try {
+      return await fetch(url, {
+        method: method,
+        headers: headers,
+        body: body,
+        signal: controller.signal
+      })
+    } catch (err: unknown) {
+      const error = err as Error & { status?: number }
+      if (error && error.name === 'AbortError') {
+        const timeoutError: PolisApiError = new Error(
+          `Request timed out after ${REQUEST_TIMEOUT_MS}ms: ${method} ${url}`
+        )
+        timeoutError.status = 408
+        throw timeoutError
+      }
+      throw err
+    } finally {
+      clearTimeout(timeout)
     }
-    throw err
-  } finally {
-    clearTimeout(timeout)
+  }
+  let response = await send()
+  const isVote = method === 'POST' && (api === '/votes' || api === '/api/v3/votes')
+  if (isVote && response.status === 202) {
+    const receipt = await response
+      .clone()
+      .json()
+      .catch(() => null)
+    if (
+      receipt &&
+      Object.keys(receipt).length === 2 &&
+      receipt.acceptance === 'unknown' &&
+      receipt.retry === 'same_vote'
+    ) {
+      // Allow the commit receipt to arrive; never retry a second unknown result.
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      response = await send()
+    }
   }
 
-  if (!response.ok && response.status !== 304) {
+  if ((!response.ok && response.status !== 304) || (isVote && response.status === 202)) {
     // Read the response body to include in the error
     const errorBody = await response.text()
     console.error('❌ API Error Response:', {

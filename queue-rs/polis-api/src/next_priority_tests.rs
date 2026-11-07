@@ -74,7 +74,10 @@ fn overlapping_priority_reads_issue_one_statement() {
     f.client
         .batch_execute("BEGIN; LOCK TABLE stored_math IN ACCESS EXCLUSIVE MODE")
         .unwrap();
-    let cache = Arc::new(Priorities::new(4));
+    // This checks shared reads, not request latency. Give this cache instance a
+    // watchdog independent of the production caller and pool deadlines.
+    let timeout = std::time::Duration::from_secs(30);
+    let cache = Arc::new(Priorities::with_test_flight_timeout(4, timeout));
     let barrier = Arc::new(Barrier::new(3));
     let threads: Vec<_> = (0..2)
         .map(|_| {
@@ -83,15 +86,19 @@ fn overlapping_priority_reads_issue_one_statement() {
             let barrier = barrier.clone();
             std::thread::spawn(move || {
                 barrier.wait();
-                cache.read(&mut client, 1, "test").unwrap()
+                cache
+                    .read_until(&mut client, 1, "test", std::time::Instant::now() + timeout)
+                    .unwrap()
             })
         })
         .collect();
     barrier.wait();
+    // The counter excludes the leader: two callers have one joining reader.
     cache.wait_for_joiners(1);
     f.client.batch_execute("ROLLBACK").unwrap();
     for t in threads {
-        assert!(t.join().unwrap().is_some());
+        let data = t.join().unwrap().unwrap();
+        assert_eq!(js::stringify(&data), r#"{"comment-priorities":{"0":2}}"#);
     }
     let count: i64 = f
         .client
