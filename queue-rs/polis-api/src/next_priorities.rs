@@ -34,6 +34,8 @@ pub(crate) struct Priorities {
     state: Mutex<State>,
     #[cfg(test)]
     joined: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    test_flight_timeout: Option<std::time::Duration>,
 }
 impl Priorities {
     pub(crate) fn new(size: usize) -> Self {
@@ -44,7 +46,15 @@ impl Priorities {
             }),
             #[cfg(test)]
             joined: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            test_flight_timeout: None,
         }
+    }
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn with_test_flight_timeout(size: usize, timeout: std::time::Duration) -> Self {
+        let mut cache = Self::new(size);
+        cache.test_flight_timeout = Some(timeout);
+        cache
     }
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn read(&self, c: &mut Client, zid: i32, env: &str) -> Result<Option<Arc<Js>>> {
@@ -110,6 +120,10 @@ impl Priorities {
         let limits = super::next_comment::pool_limits();
         let until =
             deadline.min(Instant::now() + limits.acquire_timeout + limits.statement_timeout);
+        #[cfg(test)]
+        let until = self
+            .test_flight_timeout
+            .map_or(until, |timeout| deadline.min(Instant::now() + timeout));
         let outcome = flight
             .outcome
             .lock()
@@ -134,7 +148,10 @@ impl Priorities {
     }
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn wait_for_joiners(&self, count: usize) {
-        let deadline = Instant::now() + std::time::Duration::from_secs(1);
+        let deadline = Instant::now()
+            + self
+                .test_flight_timeout
+                .unwrap_or(std::time::Duration::from_secs(1));
         while self.joined.load(std::sync::atomic::Ordering::SeqCst) < count {
             assert!(Instant::now() < deadline, "waiter did not join");
             std::thread::yield_now();
