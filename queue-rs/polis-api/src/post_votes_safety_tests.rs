@@ -1848,3 +1848,123 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
 
 #[path = "post_votes_connection_tests.rs"]
 mod connection_bounds;
+
+// Exercise the real route, verifier, membership lookup and writer. Body hints
+// and cookies cannot select the actor; handbacks must precede dispatch.
+fn vote_admission_case(
+    label: &str,
+    hints: bool,
+    cookie: bool,
+    token: &str,
+    extra: Option<&str>,
+    served: bool,
+) {
+    let db = Database::new(label);
+    let (app, mut request) = setup(&db);
+    let mut body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+    if hints {
+        body["pid"] = json!(999);
+        body["agid"] = json!({"ignored": true});
+    }
+    if let Some(field) = extra {
+        body[field] = json!("en");
+    }
+    request.body = serde_json::to_vec(&body).unwrap();
+    let saved = request.headers.get("authorization").unwrap().to_owned();
+    let mut headers = vec![
+        ("host", "localhost"),
+        ("content-type", "application/json"),
+        ("x-forwarded-proto", "https"),
+    ];
+    if cookie {
+        headers.push(("cookie", "pc=another-participant; session=untrusted"));
+    }
+    match token {
+        "valid" => headers.push(("authorization", &saved)),
+        "invalid" => headers.push(("authorization", "Bearer invalid")),
+        "missing" => {}
+        _ => panic!("unknown fixture credential"),
+    }
+    request.headers = Headers::from_raw(headers);
+    runtime().block_on(async {
+        let (response, _, observation) =
+            observed_handle_with_completion(app.clone(), request).await;
+        if served {
+            assert_eq!(response.status, 200);
+            assert_eq!(
+                accepted_body(&response).current_pid,
+                0,
+                "signed pid wins over body and cookie"
+            );
+            let receipt = durable_dispatch(&db, &response, observation).await;
+            assert!(!receipt.replayed);
+        } else {
+            assert_handback(&response);
+            assert!(!observation.lock().unwrap().created);
+        }
+        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+    });
+    let mut c = db.connect();
+    assert_eq!(
+        c.query_one("SELECT count(*) FROM votes", &[])
+            .unwrap()
+            .get::<_, i64>(0),
+        i64::from(served)
+    );
+    assert_eq!(
+        c.query_one("SELECT count(*) FROM votes_latest_unique", &[])
+            .unwrap()
+            .get::<_, i64>(0),
+        i64::from(served)
+    );
+    if served {
+        let row = c.query_one("SELECT pid, vote FROM votes", &[]).unwrap();
+        assert_eq!(row.get::<_, i32>(0), 0);
+        assert_eq!(
+            i32::from(row.get::<_, i16>(1)),
+            contract::stored_vote(VoteChoice::Agree)
+        );
+    }
+}
+
+#[test]
+fn vote_admission_body_hints_with_verified_token_are_served() {
+    vote_admission_case("admit_hints", true, false, "valid", None, true);
+}
+
+#[test]
+fn vote_admission_other_unknown_key_hands_back() {
+    vote_admission_case(
+        "admit_unknown",
+        true,
+        false,
+        "valid",
+        Some("unknown"),
+        false,
+    );
+}
+
+#[test]
+fn vote_admission_cookie_with_verified_token_is_served() {
+    vote_admission_case("admit_cookie", false, true, "valid", None, true);
+}
+
+#[test]
+fn vote_admission_cookie_and_body_hints_with_verified_token_are_served() {
+    vote_admission_case("admit_combined", true, true, "valid", None, true);
+}
+
+#[test]
+fn vote_admission_cookie_without_token_hands_back() {
+    vote_admission_case("admit_missing", false, true, "missing", None, false);
+}
+
+#[test]
+fn vote_admission_cookie_with_invalid_token_hands_back() {
+    vote_admission_case("admit_invalid", false, true, "invalid", None, false);
+}
+
+#[test]
+fn vote_admission_nonempty_language_still_hands_back() {
+    vote_admission_case("admit_language", true, true, "valid", Some("lang"), false);
+}

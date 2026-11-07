@@ -117,7 +117,6 @@ fn request(req: &Request) -> Option<(String, contract::Request)> {
     if req.method != "POST"
         || req.query().is_some_and(|q| !q.is_empty())
         || req.body.len() > MAX_BODY_BYTES
-        || req.headers.get("cookie").is_some()
         || req.headers.get("content-encoding").is_some()
         || !matches!(
             req.headers.get("content-type"),
@@ -131,11 +130,20 @@ fn request(req: &Request) -> Option<(String, contract::Request)> {
     if obj.keys().any(|k| {
         !matches!(
             k.as_str(),
-            "conversation_id" | "tid" | "vote" | "starred" | "high_priority" | "lang"
+            "conversation_id"
+                | "tid"
+                | "vote"
+                | "starred"
+                | "high_priority"
+                | "lang"
+                | "pid"
+                | "agid"
         )
     }) {
         return None;
     }
+    // Node ignores body pid/agid. The field codec discards them too; only the
+    // verified token and resolved membership may identify the voter.
     let raw: contract::Request = serde_json::from_value(value).ok()?;
     let cid = contract::string(raw.conversation_id.as_ref()?, 100)?;
     if cid.is_empty() || !cid.bytes().all(|b| b.is_ascii_alphanumeric()) {
@@ -145,6 +153,8 @@ fn request(req: &Request) -> Option<(String, contract::Request)> {
 }
 
 pub(crate) fn eligible(app: &App, req: &Request) -> bool {
+    // Cookies neither authenticate nor disqualify a caller. handle still
+    // requires a supported verified Bearer and membership before dispatch.
     app.post_votes.is_some()
         && app.production
         && request(req).is_some()
