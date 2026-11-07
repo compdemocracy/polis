@@ -77,6 +77,7 @@ mod participation_read;
 mod pca;
 mod post_treevite_waves;
 mod post_votes;
+mod report_comments;
 mod treevite_write;
 #[path = "../../polis-contracts/src/treevite_write.rs"]
 mod treevite_write_contract;
@@ -378,6 +379,14 @@ fn health_response(
     body.set(
         "metadataAnswersFallback",
         js::Js::Num(app.metadata_answers_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "reportCommentsServed",
+        js::Js::Num(app.report_comments_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "reportCommentsFallback",
+        js::Js::Num(app.report_comments_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
         "moderationCommentsServed",
@@ -710,6 +719,7 @@ async fn dispatch_at_clock(
         | treevite_waves::PATH
         | math_membership::BID_PATH
         | math_membership::LOCATIONS_PATH
+        | report_comments::PATH
         | moderation_comments::PATH
         | participant_comments::PATH
         | participants_read::PATH
@@ -1221,6 +1231,32 @@ async fn startup() -> Result<Startup> {
             metadata_answers::pool_limits(),
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
+    if std::env::var("POLIS_API_REPORT_COMMENTS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_REPORT_COMMENTS_DATABASE_URL")
+            .context("POLIS_API_REPORT_COMMENTS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.report_comments_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-report-comments/1")?,
+            report_comments::pool_limits(),
+        ));
+        state.report_comments_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-report-comments-auth/1")?,
+            report_comments::pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_MODERATION_COMMENTS_READS")
         .ok()
@@ -1951,11 +1987,13 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 127);
+            assert_eq!(body.as_object().unwrap().len(), 129);
             assert_eq!(
                 body["pcaCache"],
                 json!({"entries":0,"bytes":0,"maxEntries":1,"maxBytes":crate::pca::DEFAULT_CACHE_BYTES,"evictionsEntries":0,"evictionsBytes":0,"oversized":0})
             );
+            assert_eq!(body["reportCommentsServed"], 0);
+            assert_eq!(body["reportCommentsFallback"], 0);
             assert_eq!(body["participantKeysLoaded"], true);
             assert_eq!(
                 body["participantPublicKeyFingerprint"],

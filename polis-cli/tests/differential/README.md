@@ -190,3 +190,13 @@ frozen replay clock. No committed recording is refreshed by this change.
 seed-derived instant throughout each phase. It reports the existing shared
 math-cache difference through the known-differences registry, with the same
 zero bound; this mode is a diagnostic, not an equivalence pass.
+
+`report_comments.py` exercises the new report-view URL separately from the CLI
+command census. For anonymous and owner requests at `mod_gt=-2,-1,0`, the disabled
+selector must send GET/HEAD to Node and return its existing 404. With the selector
+and handler enabled, all twelve requests must be served by Rust without a Node
+handoff. Each GET must match the exact compact UTF-8 bytes of the legacy Node
+report-field projection, retaining row/property order and absent fields; HEAD
+must retain GET status/content type with an empty body. The six legacy oracle
+reads still hand to Node in the enabled phase. These tests change no route or
+client behavior and do not claim the absent Node URL is an equivalent API.

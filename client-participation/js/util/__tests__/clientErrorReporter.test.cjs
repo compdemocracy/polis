@@ -212,3 +212,98 @@ for(const file of files) {
     assert.equal(f.calls.length,0); f.report("error",new Error("Failed to fetch")); assert.equal(f.calls.length,1);
   });
 }
+
+for (const file of files) {
+  test(file + ": inline document frames never carry conversation-dependent positions", () => {
+    const project = fixture(file).win.PolisClientErrors.fields;
+    for (const raw of [
+      "Error: private message\n at privateName (https://example.test/2private?token=secret:123:45)",
+      "privateName@https://example.test/2private?token=secret:123:45"
+    ]) {
+      const data = project({client: "participation", kind: "error", page: "/2private", message: "private message", stack: raw});
+      assert.equal(data.stack, "/:id");
+      assert.equal(data.message, "Error");
+      assert.deepEqual(project(data), data);
+      assert.doesNotMatch(JSON.stringify(data), /private|secret|token/);
+      assert.equal(data.signature, project({...data, stack: "/:id:999:98765"}).signature);
+    }
+    assert.equal(project({client: "admin", kind: "error", page: "/home", stack: "at https://example.test/home:12:3"}).stack, "/home");
+    assert.equal(project({client: "admin", kind: "error", page: "/home", stack: "at https://example.test/private:12:3"}).stack, "");
+  });
+  test(file + ": stackless errors use browser coordinates and opaque errors stay explicit", async () => {
+    const f = fixture(file);
+    f.listeners.error({message: "private text", filename: "https://example.test/js/app.js?token=secret", lineno: 41, colno: 9});
+    f.listeners.error({message: "Script error.", filename: "", lineno: 0, colno: 0});
+    const data = await Promise.all(f.calls.map(async c => JSON.parse(await c.body.text())));
+    assert.equal(data[0].stack, "/js/app.js:41:9");
+    assert.equal(data[0].message, "Error");
+    assert.equal(data[1].stack, "");
+    assert.equal(data[1].message, "Script error.");
+    assert.doesNotMatch(JSON.stringify(data), /private|secret|token/);
+    data.forEach(d => assert.deepEqual(JSON.parse(JSON.stringify(f.win.PolisClientErrors.fields(d))), d));
+  });
+  test(file + ": only shipped emoji asset names survive projection", () => {
+    const project = fixture(file).win.PolisClientErrors.fields;
+    const dir = path.join(root, "client-admin/public/twemoji/14.0.2/72x72");
+    for (const name of fs.readdirSync(dir).filter(n => n.endsWith(".png"))) {
+      const resource = "/twemoji/14.0.2/72x72/" + name;
+      const data = project({client: "admin", kind: "resource", resource: resource + "?token=secret#private"});
+      assert.equal(data.resource, resource);
+      assert.deepEqual(project(data), data);
+    }
+    for (const name of ["private.png", "12345.png", "1f600.png", "1f44b.svg"]) {
+      const data = project({client: "admin", kind: "resource", resource: "/twemoji/14.0.2/72x72/" + name});
+      assert.equal(data.resource, "/twemoji/:id/:id/:id");
+    }
+    assert.equal(project({client: "admin", kind: "resource", resource: "https://third.example/twemoji/14.0.2/72x72/1f44b.png"}).resource, "https://third.example");
+  });
+}
+
+for (const file of files) {
+  test(file + ": inline reporter wrappers do not hide distinct bundle callers", () => {
+    const project = fixture(file).win.PolisClientErrors.fields;
+    const payloads = [10, 20].map(column => project({client: "participation", kind: "unhandledrejection", page: "/2private", message: "Failed to fetch", stack: "TypeError: Failed to fetch\n    at win.fetch (https://example.test/2private:1:458)\n    at caller (https://example.test/js/app.js:2:" + column + ")"}));
+    assert.deepEqual(payloads.map(p => p.stack), ["/js/app.js:2:10", "/js/app.js:2:20"]);
+    assert.notEqual(payloads[0].signature, payloads[1].signature);
+  });
+  test(file + ": Firefox nested function names keep the throwing frame", () => {
+    const project = fixture(file).win.PolisClientErrors.fields;
+    const payload = project({client: "participation", kind: "error", stack: "handleVote/<@https://example.test/js/app.js:4:57\nhandleVote@https://example.test/js/app.js:4:35"});
+    assert.equal(payload.stack, "/js/app.js:4:57\n/js/app.js:4:35");
+  });
+  test(file + ": V8 message tails never supply positions", () => {
+    const project = fixture(file).win.PolisClientErrors.fields;
+    for (const tail of ["/2private:5550100:42", "https://example.test/2private:1234:5678", "/js/x.js:5550100:42"]) {
+      const payload = project({client: "participation", kind: "error", page: "/2private", stack: "Error: see " + tail + "\n    at caller (https://example.test/js/app.js:2:3)"});
+      assert.equal(payload.stack, "/js/app.js:2:3");
+    }
+    assert.equal(project({client: "participation", kind: "error", stack: "Error: person@/js/private.js:42:42"}).stack, "");
+    for (const prefix of ["data:x", "blob:https://example.test", "chrome-extension://abc", "file:///tmp"]) {
+      assert.equal(project({client: "participation", kind: "error", stack: "Error\n    at " + prefix + "/js/alice.js:1:5"}).stack, "");
+    }
+  });
+  test(file + ": stackless inline errors are identical across preload sizes", async () => {
+    const payloads = [];
+    for (const [id, line, col] of [["2first", 1, 12282], ["2second", 12, 12333]]) {
+      const f = fixture(file, {location: {href: "https://example.test/" + id, origin: "https://example.test", pathname: "/" + id}});
+      f.listeners.error({message: "private", filename: f.win.location.href, lineno: line, colno: col});
+      payloads.push(JSON.parse(await f.calls[0].body.text()));
+    }
+    assert.deepEqual(payloads[0], payloads[1]);
+    assert.equal(payloads[0].stack, "/:id");
+  });
+}
+test("receiver projection bounds worst-case stack CPU per report and burst", () => {
+  const project = require(path.join(root, "server/src/utils/clientErrorReporter.js")).fields;
+  const inputs = ["/".repeat(4000), "/a".repeat(2000), "/js/".repeat(1000), "https://".repeat(500), Array(12).fill("/".repeat(682)).join("\n")];
+  for (const stack of inputs) {
+    const input = {client: "participation", kind: "error", page: "/2private", stack};
+    project(input);
+    const start = performance.now();
+    for (let i = 0; i < 100; i++) project(input);
+    const burst = performance.now() - start;
+    assert.ok(burst < 50, "100-report projection burst must cost <50 ms; got " + burst);
+  }
+});
+
+for (const file of files) require("./clientErrorPrivacyCases.cjs")(root, file + "/clientErrorReporter.js");

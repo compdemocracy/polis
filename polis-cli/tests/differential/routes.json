@@ -23,8 +23,8 @@
     "path": "/api/v3/comments",
     "minimum_rust_successes": 4,
     "commands": [],
-    "expected_requests": 11,
-    "expected_node_handoffs": 4,
+    "expected_requests": 17,
+    "expected_node_handoffs": 10,
     "scope": "Moderation reads use verified caller visibility. Plain OIDC, report enrichment and unsupported identities remain Node handoffs; non-read methods stay on Node."
   },
   "nextComment": {
@@ -586,5 +586,13 @@
     "expected_node_handoffs": 1,
     "commands": [],
     "scope": "Supplemental page requests compare status, content type and full body bytes for GET, HEAD and an unsupported-query Node handoff. These are HTTP scenarios, not CLI commands."
+  },
+  "reportComments": {
+    "path": "/api/v3/comments/report",
+    "minimum_rust_successes": 12,
+    "expected_requests": 12,
+    "expected_node_handoffs": 0,
+    "commands": [],
+    "scope": "Anonymous and owner report views at all three moderation levels: GET and HEAD are Node 404 with switches off; enabled Rust GET bytes equal the legacy Node report-field projection, with empty HEAD bodies. Six legacy reads remain Node handoffs."
   }
 }

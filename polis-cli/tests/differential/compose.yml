@@ -28,6 +28,8 @@ services:
     networks: [sealed]
     volumes: ["./artifacts:/artifacts:ro"]
     environment:
+      POLIS_API_REPORT_COMMENTS_READS: "1"
+      POLIS_API_REPORT_COMMENTS_DATABASE_URL: postgres://postgres@postgres:5432/p027
       POLIS_API_OWNER_LIST: "1"
       POLIS_API_OWNER_JWKS_FILE: /artifacts/read-jwks.json
       POLIS_API_OWNER_DATABASE_URL: postgres://postgres@postgres:5432/p027
