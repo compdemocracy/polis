@@ -29,7 +29,7 @@ that same fixture:
 
 ```sh
 cargo test --locked --test schema
-cargo run --locked --example schema_rows -- 55553
+cargo run --locked --example schema_rows -- 25553
 ```
 
 The example connects only to 127.0.0.1, an explicit high port, database probe_test,

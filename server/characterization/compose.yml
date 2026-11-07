@@ -127,6 +127,7 @@ services:
     command: [/repo/server/characterization/seed-pca2.py]
     working_dir: /repo
     volumes:
+      - ../../ci/host_ports.py:/repo/ci/host_ports.py:ro
       - ../../delphi:/repo/delphi:ro
       - ./:/repo/server/characterization:ro
       - ./artifacts:/repo/server/characterization/artifacts
@@ -135,8 +136,8 @@ services:
       POLIS_RECOVERY_PG_PORT: ${POLIS_RECOVERY_PG_PORT}
       P027_HTTP_PORT: ${P027_HTTP_PORT}
       P027_CONTROL_PORT: ${P027_CONTROL_PORT}
-      P027_PORT_MIN: ${P027_PORT_MIN:-55930}
-      P027_PORT_MAX: ${P027_PORT_MAX:-55939}
+      P027_PORT_MIN: ${P027_PORT_MIN:-25930}
+      P027_PORT_MAX: ${P027_PORT_MAX:-25939}
       OPENBLAS_CORETYPE: "${OPENBLAS_CORETYPE:-}"
       PYTHONDONTWRITEBYTECODE: "1"
       OPENBLAS_NUM_THREADS: "1"

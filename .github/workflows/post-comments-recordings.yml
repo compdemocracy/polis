@@ -2,10 +2,10 @@ name: POST comments recordings
 on:
   pull_request:
     branches: [edge, stable]
-    paths: ['server/**', 'queue-rs/polis-contracts/**', 'ci/post_comments_golden_guard.sh', '.github/workflows/post-comments-recordings.yml', 'ci/local/**', 'Makefile']
+    paths: ['ci/host_ports.py', 'ci/test_host_ports.py', 'server/**', 'queue-rs/polis-contracts/**', 'ci/post_comments_golden_guard.sh', '.github/workflows/post-comments-recordings.yml', 'ci/local/**', 'Makefile']
   push:
     branches: [edge]
-    paths: ['server/**', 'queue-rs/polis-contracts/**', 'ci/post_comments_golden_guard.sh', '.github/workflows/post-comments-recordings.yml', 'ci/local/**', 'Makefile']
+    paths: ['ci/host_ports.py', 'ci/test_host_ports.py', 'server/**', 'queue-rs/polis-contracts/**', 'ci/post_comments_golden_guard.sh', '.github/workflows/post-comments-recordings.yml', 'ci/local/**', 'Makefile']
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,9 +18,9 @@ jobs:
     timeout-minutes: 30
     env:
       COMPOSE_PROJECT_NAME: post-comments-ci
-      POLIS_RECOVERY_PG_PORT: '56441'
-      P027_HTTP_PORT: '56442'
-      P027_CONTROL_PORT: '56443'
+      POLIS_RECOVERY_PG_PORT: '26441'
+      P027_HTTP_PORT: '26442'
+      P027_CONTROL_PORT: '26443'
       P027_SERVER_IMAGE: post-comments-server
       P027_POSTGRES_IMAGE: post-comments-postgres
       P027_OIDC_IMAGE: post-comments-oidc

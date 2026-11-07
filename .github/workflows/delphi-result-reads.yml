@@ -1,7 +1,7 @@
 name: Postgres Delphi result reads
 on:
   pull_request:
-    paths: ['server/**', 'queue-rs/polis-migrate/**', 'scripts/test-delphi-result-reads.sh', '.github/workflows/delphi-result-reads.yml']
+    paths: ['ci/host_ports.py', 'ci/test_host_ports.py', 'server/**', 'queue-rs/polis-migrate/**', 'scripts/test-delphi-result-reads.sh', '.github/workflows/delphi-result-reads.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,8 +11,8 @@ jobs:
     timeout-minutes: 45
     env:
       RESULT_READS_PROJECT: result-reads-${{ github.run_id }}-${{ github.run_attempt }}
-      RESULT_READS_PG_PORT: '55463'
-      RESULT_READS_DYNAMO_PORT: '55464'
+      RESULT_READS_PG_PORT: '25463'
+      RESULT_READS_DYNAMO_PORT: '25464'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

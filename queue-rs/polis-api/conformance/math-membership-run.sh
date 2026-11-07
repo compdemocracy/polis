@@ -4,15 +4,17 @@
 # Usage: math-membership-run.sh [result.json], with unique project and P027 ports.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 out=${1:-/dev/stdout}
 here="$root/server/characterization"
 # Require an explicitly named disposable project and three distinct loopback ports.
-python3 - <<'CHECK'
+PYTHONPATH="$root/ci${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'CHECK'
 import os,re
+from host_ports import port
 project=os.environ.get("COMPOSE_PROJECT_NAME", "")
 assert re.fullmatch(r"[a-z][a-z0-9_-]{5,63}",project), "unique project required"
-ports=[int(os.environ[k]) for k in ["POLIS_RECOVERY_PG_PORT","P027_HTTP_PORT","P027_CONTROL_PORT"]]
-assert len(set(ports))==3 and all(55432<=p<=65535 for p in ports)
+ports=[port(os.environ[k], k) for k in ["POLIS_RECOVERY_PG_PORT","P027_HTTP_PORT","P027_CONTROL_PORT"]]
+assert len(set(ports))==3
 CHECK
 export P027_POSTGRES_IMAGE=${P027_POSTGRES_IMAGE:-x54pca2-postgres:local}
 compose=(docker compose -f "$here/compose.yml" -f "$root/queue-rs/polis-api/conformance/compose.yml" -f "$root/queue-rs/polis-api/conformance/participant-compose.yml" -f "$root/queue-rs/polis-api/conformance/math-membership-compose.yml")

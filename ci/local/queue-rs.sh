@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
 : "${POLIS_JOBS_TEST_DATABASE_URL:?provide an isolated PostgreSQL 17 database}"
 
 (
@@ -20,7 +22,7 @@
 
 (
   cd "$CHECK_ROOT/queue-rs"
-  export POLIS_JOBS_TEST_DATABASE_URL="${POLIS_JOBS_TEST_DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/queue_acceptance}"
+  export POLIS_JOBS_TEST_DATABASE_URL
   export POLIS_JOBS_TEST_PYTHON="${POLIS_JOBS_TEST_PYTHON:-python3}"
   cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
 )

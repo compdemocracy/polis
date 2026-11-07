@@ -20,12 +20,15 @@ import psycopg2
 from tunnel import Tunnel
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port, port as host_port
 
 import runpy
 apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
 
 sys.path.insert(0, str(ROOT / "delphi/tests"))
 from vote_fixtures import AGREE, DISAGREE, PASS, seed_vote  # noqa: E402  (the fixture vote writer)
+READER_TARGET_PORTS = (5000, 5001, 5002)
 TABLES = ("ticks", "bidtopid", "ptptstats", "main")
 FIXTURES = {1: "populated", 2: "zero", 3: "published-empty", 4: "absent", 5: "dormant", 6: "import"}
 
@@ -38,8 +41,12 @@ class Campaign:
     def __init__(self, output, project, port):
         if not re.fullmatch(r"[a-z][a-z0-9-]{7,62}", project):
             raise ValueError("unique COMPOSE_PROJECT_NAME required")
-        if not 55432 <= port <= 65000:
-            raise ValueError("unique port range required")
+        database_port(port)
+        self.readers = {"server": ("legacy", port+1), "reader_l2": ("legacy", port+4),
+                        "reader_p1": ("rustproto", port+7), "reader_p2": ("rustproto", port+10)}
+        for reader, (_, base) in self.readers.items():
+            for offset, _ in enumerate(READER_TARGET_PORTS):
+                host_port(base + offset, f"{reader} tunnel port")
         output.mkdir(parents=True, exist_ok=False)
         self.output, self.project, self.port = output, project, port
         self.env = dict(os.environ, COMPOSE_PROJECT_NAME=project,
@@ -53,8 +60,6 @@ class Campaign:
         self.config = output / "compose.json"
         self.connection = None
         self.tunnels = {}
-        self.readers = {"server": ("legacy", port+1), "reader_l2": ("legacy", port+4),
-                        "reader_p1": ("rustproto", port+7), "reader_p2": ("rustproto", port+10)}
         paths = [p for directory in ("coordinator-rs/src", "coordinator-rs/tools/d05", "coordinator-rs/schemas",
                                       "delphi/polismath", "server/src", "server/characterization", "server/postgres/migrations")
                  for p in (ROOT/directory).rglob("*") if p.is_file() and p.suffix in (".rs", ".py", ".ts", ".sql", ".json", ".cjs")
@@ -236,7 +241,7 @@ class Campaign:
             container = self.dc("ps", "-q", reader).strip()
             script = "const s=require('net').connect(Number(process.argv[1]),'127.0.0.1');process.stdin.pipe(s);s.pipe(process.stdout);s.on('error',()=>process.exit(1));"
             self.tunnels[reader] = [Tunnel(self.readers[reader][1]+i, ["docker", "exec", "-i", container, "node", "-e", script, str(target)])
-                                    for i,target in enumerate((5000,5001,5002))]
+                                    for i,target in enumerate(READER_TARGET_PORTS)]
             self.ready(reader)
         ids = self.dc("ps", "-q").split()
         containers = json.loads(self.command(["docker", "inspect", *ids]))

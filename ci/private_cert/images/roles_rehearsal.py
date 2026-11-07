@@ -10,6 +10,8 @@ import sys
 
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[2]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 sys.path.insert(0,str(ROOT/'ci/probe_box'))
 from roles_census import FAMILIES, FLAGS, POLICY_SHA, encoded, normalize, validate_census
 from roles_queries import QUERIES
@@ -65,7 +67,8 @@ def test_job():
 def main():
     import psycopg2
     project=os.environ['COMPOSE_PROJECT_NAME'];port=int(os.environ['POLIS_RECOVERY_PG_PORT'])
-    assert project.startswith('p027census-') and os.environ['RECOVERY_PG_PORT']==str(port) and 55432<=port<=65000
+    assert project.startswith('p027census-') and os.environ['RECOVERY_PG_PORT']==str(port)
+    host_port(port)
     dc=['docker','compose','-f',str(ROOT/'ci/probe_box/test.compose.yml')]
     def command(*args):return subprocess.run([*dc,*args],check=True,capture_output=True,text=True)
     assert not subprocess.check_output(['docker','ps','-aq','--filter',f'label=com.docker.compose.project={project}']).strip()

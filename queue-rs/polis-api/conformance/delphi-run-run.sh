@@ -8,7 +8,7 @@
 # each record against pd_run_record's own output. Public-fixture data only.
 #
 #   COMPOSE_PROJECT_NAME=delphi-run-$(openssl rand -hex 3) \
-#   DELPHI_RUN_PG_PORT=55471 DELPHI_RUN_API_PORT=55472 \
+#   DELPHI_RUN_PG_PORT=25471 DELPHI_RUN_API_PORT=25472 \
 #   DELPHI_RUN_WORKER_IMAGE=<a Delphi image with polis-jobs> \
 #   DELPHI_RUN_POLIS_API_IMAGE=<polis-api image> \
 #   queue-rs/polis-api/conformance/delphi-run-run.sh [result.json]
@@ -24,6 +24,7 @@
 # always removed on exit, volumes included.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env DELPHI_RUN_PG_PORT DELPHI_RUN_API_PORT
 here="$root/queue-rs/polis-api/conformance"
 out=${1:-/dev/stdout}
 : "${COMPOSE_PROJECT_NAME:?set a unique project}"

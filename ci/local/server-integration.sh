@@ -1,44 +1,16 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT
+python3 "$CHECK_ROOT/ci/host_ports.py" env DATABASE_URL
 check_node 22.23.4
 : "${COMPOSE_PROJECT_NAME:?choose an owned unique project}"
 : "${POLIS_RECOVERY_PG_PORT:?choose a free PostgreSQL port}"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT
 : "${RUNNER_TEMP:?choose an owned temporary directory}"
 export POLIS_TEST_IMAGE_TAG="${POLIS_TEST_IMAGE_TAG:-ci}"
-# Published ports must stay outside the host's ephemeral allocation range.
-# On macOS, IPv6 sockets can receive ports already held by IPv4 forwarders.
-python3 - <<'PORTS'
-import json
-import os
-import re
-import subprocess
-import sys
-
-
-def check_port(label, value):
-    text = str(value)
-    if not re.fullmatch(r"[0-9]+(?:-[0-9]+)?", text):
-        sys.exit(f"{label}: choose a published port from 1 through 49151")
-    bounds = [int(part) for part in text.split("-")]
-    if min(bounds) < 1 or max(bounds) >= 49152 or bounds[0] > bounds[-1]:
-        sys.exit(
-            f"{label}: published port {text} must be from 1 through 49151. "
-            "macOS allocates ephemeral ports from 49152 through 65535; "
-            "IPv6 test sockets can take a port held by an IPv4 container "
-            "forwarder, misdirecting PostgreSQL connections or hanging them."
-        )
-
-
-check_port("POLIS_RECOVERY_PG_PORT", os.environ["POLIS_RECOVERY_PG_PORT"])
-config = subprocess.run(
-    ["docker", "compose", "-f", "docker-compose.test.yml", "--env-file", "test.env",
-     "config", "--format", "json"],
-    check=True, capture_output=True, text=True,
-)
-for name, service in json.loads(config.stdout)["services"].items():
-    for port in service.get("ports", []):
-        check_port(f"{name} published port", port.get("published", 0))
-PORTS
+# Validate resolved publications too, including fixed ports and ranges.
+docker compose -f docker-compose.test.yml --env-file test.env config --format json | \
+  python3 "$CHECK_ROOT/ci/host_ports.py" compose
 check_project "$COMPOSE_PROJECT_NAME"
 mkdir -p .simulacrum/certs
 (cd .simulacrum/certs && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal)
@@ -135,6 +107,7 @@ trap 'exit 143' TERM
 
 (
   cd "$CHECK_ROOT/server"
+  python3 "$CHECK_ROOT/ci/host_ports.py" env DATABASE_URL
   export DATABASE_URL="${DATABASE_URL:-postgres://postgres:PdwPNS2mDN73Vfbc@127.0.0.1:${POLIS_RECOVERY_PG_PORT}/polis-test}"
   export DATABASE_SSL="${DATABASE_SSL:-false}"
   node src/db/migrations.cjs

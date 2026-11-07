@@ -25,8 +25,8 @@ Choose an unused project and a free contiguous range of 13 loopback ports:
 
 ```sh
 export COMPOSE_PROJECT_NAME=p026-reader-transition-example
-export POLIS_RECOVERY_PG_PORT=56600
-export RECOVERY_PG_PORT=56600
+export POLIS_RECOVERY_PG_PORT=26600
+export RECOVERY_PG_PORT=26600
 python -B coordinator-rs/tools/d05/campaign.py --output /tmp/p026-reader-transition-example
 ```
 

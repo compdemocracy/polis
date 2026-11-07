@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
  : "${COMPOSE_PROJECT_NAME:?choose an owned unique project}"
 : "${POLIS_RECOVERY_PG_PORT:?choose a free test port}"
 export RECOVERY_PG_PORT="$POLIS_RECOVERY_PG_PORT"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 check_project "$COMPOSE_PROJECT_NAME"
 export SETUP_ADMISSION_PROJECT="${SETUP_ADMISSION_PROJECT:-setup-admission-${GITHUB_RUN_ID:?choose SETUP_ADMISSION_PROJECT locally}-${GITHUB_RUN_ATTEMPT:-1}}"
 check_project "$SETUP_ADMISSION_PROJECT"

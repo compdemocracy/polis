@@ -78,7 +78,7 @@ jobs:
       working-directory: .
       env:
         COMPOSE_PROJECT_NAME: server-check-${{ github.run_id }}-${{ github.run_attempt }}
-        POLIS_RECOVERY_PG_PORT: '5432'
+        POLIS_RECOVERY_PG_PORT: '25432'
         POLIS_TEST_IMAGES_CACHE_FROM: type=gha,scope=polis-test-{image}
         GITHUB_EVENT_NAME: ${{ github.event_name }}
         CHECK_BASE_REF: origin/${{ github.base_ref }}

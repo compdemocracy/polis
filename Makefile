@@ -200,16 +200,17 @@ refresh-devdb: ## Force dev DB mode (migrations), drop postgres_data volume, and
 # The suite FAILS rather than skips without a Postgres (P-022 §C Acceptance:
 # "Missing Postgres is a failing required job, not pytest skip"), so this is the
 # supported way to run it.
-RECOVERY_PG_PORT ?= 55432
+RECOVERY_PG_PORT ?= 25432
 RECOVERY_COMPOSE = POLIS_RECOVERY_PG_PORT=$(RECOVERY_PG_PORT) docker compose \
 	-f docker-compose.test.yml -f docker-compose.recovery.yml --env-file test.env
 RECOVERY_PG_PASSWORD = $(shell grep -e ^POSTGRES_PASSWORD test.env | cut -d= -f2)
-RECOVERY_PG_URL = postgresql://postgres:$(RECOVERY_PG_PASSWORD)@localhost:$(RECOVERY_PG_PORT)/polis-test
+RECOVERY_PG_URL = postgresql://postgres:$(RECOVERY_PG_PASSWORD)@127.0.0.1:$(RECOVERY_PG_PORT)/polis-test
 # Runs in a SUBSHELL so the `cd` cannot leak into the cleanup trap (which must
 # still find this Makefile in the repository root).
 RECOVERY_PYTEST = cd $(CURDIR)/delphi && POLIS_TEST_POSTGRES_URL="$(RECOVERY_PG_URL)" uv run --no-sync pytest
 
 test-recovery-up: ## Start the recovery suite's Postgres (real migrations, ephemeral)
+	python3 ci/host_ports.py database-ports "$(RECOVERY_PG_PORT)"
 	$(RECOVERY_COMPOSE) up -d --force-recreate postgres
 	@echo "waiting for postgres to become healthy on port $(RECOVERY_PG_PORT)..."
 	@cid=$$($(RECOVERY_COMPOSE) ps -q postgres); \
@@ -446,3 +447,7 @@ check-client-errors: ## Run client error reporting behaviour and path checks
 .PHONY: check-nginx-upstreams
 check-nginx-upstreams: ## Check that production starts every nginx upstream
 	@python3 file-server/nginx/test-production-upstreams.py
+
+.PHONY: check-host-ports
+check-host-ports:
+	bash ci/local/host-ports.sh

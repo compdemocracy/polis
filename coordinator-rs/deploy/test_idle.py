@@ -7,6 +7,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 sys.path.insert(0, str(ROOT/'coordinator-rs/tools/d07'))
 from tls_fixture import TlsFixture
 
@@ -15,7 +17,7 @@ def main():
     project = os.environ['COMPOSE_PROJECT_NAME']
     port = int(os.environ['POLIS_RECOVERY_PG_PORT'])
     assert project.startswith('p027-idle-') and os.environ['RECOVERY_PG_PORT'] == str(port)
-    assert 55432 <= port <= 65000
+    host_port(port)
     for args in (['ps', '-aq'], ['network', 'ls', '-q'], ['volume', 'ls', '-q']):
         assert not subprocess.check_output(['docker', *args, '--filter', 'label=com.docker.compose.project='+project]).strip()
     checks = []

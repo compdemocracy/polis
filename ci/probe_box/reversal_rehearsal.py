@@ -9,6 +9,8 @@ import sys
 import psycopg2
 
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 sys.path.insert(0,str(ROOT/'ci/private_cert/images'))
 from roles_rehearsal import SEED,test_job
 from roles_reader import projection
@@ -32,7 +34,9 @@ CREATE FUNCTION public.overloaded(text DEFAULT 'fixture-withheld-marker') RETURN
 
 def run():
     project=os.environ['COMPOSE_PROJECT_NAME'];port=int(os.environ['POLIS_RECOVERY_PG_PORT'])
-    if not project.startswith('p027-reversal-') or not 55432<=port<65000 or os.environ['RECOVERY_PG_PORT']!=str(port):raise ValueError('OWNED_PROJECT_REQUIRED')
+    if not project.startswith('p027-reversal-') or os.environ['RECOVERY_PG_PORT']!=str(port):raise ValueError('OWNED_PROJECT_REQUIRED')
+    host_port(port)
+    host_port(port + 1, 'target database port')
     work=Path(os.environ['REVERSAL_EVIDENCE_DIR']);work.mkdir(parents=True,exist_ok=True)
     commands=[];owned=[];connections=[];outcomes=[]
     def command(args,content=None):

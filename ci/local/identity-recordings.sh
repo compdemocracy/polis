@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
  : "${COMPOSE_PROJECT_NAME:?choose an owned unique project}"
 : "${POLIS_RECOVERY_PG_PORT:?choose a free test port}"
 export RECOVERY_PG_PORT="$POLIS_RECOVERY_PG_PORT"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 check_project "$COMPOSE_PROJECT_NAME"
 for name in P027_SERVER_IMAGE P027_POSTGRES_IMAGE P027_OIDC_IMAGE P027_FILE_SERVER_IMAGE; do
   [ -n "${!name:-}" ] || { echo "$name must name an owned image" >&2; exit 2; }

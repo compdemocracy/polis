@@ -19,6 +19,7 @@
 # Usage, from the repository root: queue-rs/polis-api/conformance/nginx-routing.sh
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env X54_NGINX_PORT X54_FILES_PORT
 p=${X54_NGINX_PREFIX:-nginx-routing-$$-${RANDOM}}
 net="$p-net"
 image=${X54_NGINX_IMAGE:-$p:local}
@@ -80,7 +81,7 @@ start() { # routes [docker run args...]
   local routes=${1:-}
   shift || true
   docker rm -f "$p-proxy" >/dev/null 2>&1 || true
-  docker run -d --name "$p-proxy" --network "$net" -p "127.0.0.1:${X54_NGINX_PORT:-}:80" -e RUST_API_ROUTES="$routes" "$@" "$image" >/dev/null
+  docker run -d --name "$p-proxy" --network "$net" -p "127.0.0.1:${X54_NGINX_PORT:-25466}:80" -e RUST_API_ROUTES="$routes" "$@" "$image" >/dev/null
   for _ in $(seq 20); do
     docker exec "$p-proxy" wget -qO- http://127.0.0.1/ >/dev/null 2>&1 && return 0
     sleep 0.5
@@ -1426,7 +1427,7 @@ if [[ -z ${NGINX_FILE_SERVER_IMAGE:-} ]]; then
   docker build -q -t "$files_image" -f "$root/file-server/Dockerfile" "$root" >/dev/null
 fi
 docker run -d --name "$p-files" --network "$net" --network-alias file-server \
-  -p "127.0.0.1:${X54_FILES_PORT:-}:8080" -e PORT=8080 "$files_image" >/dev/null
+  -p "127.0.0.1:${X54_FILES_PORT:-25467}:8080" -e PORT=8080 "$files_image" >/dev/null
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 for routes in '' pca2,conversationPage,robots,adminPage; do

@@ -100,13 +100,13 @@ ordinary admission. No egress exception was added.
 ## Isolated operation
 
 Use three unused host ports and a fresh random project suffix. The shared host/
-seed guard defaults to 55930–55939; set P027_PORT_MIN/MAX together to use your
+seed isolation check defaults to 25930–25939; set P027_PORT_MIN/MAX together to use your
 assigned window. The project must stay in the p027 namespace:
 
 ```sh
 export COMPOSE_PROJECT_NAME=p027-review-$(openssl rand -hex 4)
-export P027_PORT_MIN=55930 P027_PORT_MAX=55939
-export POLIS_RECOVERY_PG_PORT=55930 P027_HTTP_PORT=55931 P027_CONTROL_PORT=55932
+export P027_PORT_MIN=25930 P027_PORT_MAX=25939
+export POLIS_RECOVERY_PG_PORT=25930 P027_HTTP_PORT=25931 P027_CONTROL_PORT=25932
 python3 server/characterization/run.py record recording
 python3 server/characterization/run.py down
 python3 server/characterization/run.py replay recording
@@ -343,7 +343,7 @@ projection. Witnesses describe existing Node behavior; this
 harness contains no Rust dispatch implementation or authorization for routing.
 
 ```sh
-# Use a fresh project and assigned 55950–55959 ports as in Isolated operation.
+# Use a fresh project and assigned 25950–25959 ports as in Isolated operation.
 python3 server/characterization/run.py record round6 round6
 python3 server/characterization/run.py down
 python3 server/characterization/run.py replay round6 round6

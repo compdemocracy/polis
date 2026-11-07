@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [edge, stable]
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'server/characterization/**'
@@ -28,6 +30,8 @@ on:
   push:
     branches: [edge]
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'server/characterization/**'
@@ -62,11 +66,11 @@ jobs:
     timeout-minutes: 30
     env:
       COMPOSE_PROJECT_NAME: p027treevite-ci-${{ github.run_id }}-${{ github.run_attempt }}
-      P027_PORT_MIN: '56585'
-      P027_PORT_MAX: '56587'
-      POLIS_RECOVERY_PG_PORT: '56585'
-      P027_HTTP_PORT: '56586'
-      P027_CONTROL_PORT: '56587'
+      P027_PORT_MIN: '26585'
+      P027_PORT_MAX: '26587'
+      POLIS_RECOVERY_PG_PORT: '26585'
+      P027_HTTP_PORT: '26586'
+      P027_CONTROL_PORT: '26587'
       P027_SERVER_IMAGE: treevite-server
       P027_POSTGRES_IMAGE: treevite-postgres
       P027_OIDC_IMAGE: treevite-oidc

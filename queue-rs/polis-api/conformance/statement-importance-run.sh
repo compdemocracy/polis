@@ -6,6 +6,7 @@ set -euo pipefail
 : "${IMPORTANCE_API_PORT:?Set a unique loopback port}"
 : "${IMPORTANCE_OFF_PORT:?Set a unique loopback port}"
 here=$(cd "$(dirname "$0")" && pwd)
+python3 "$here/../../../ci/host_ports.py" env POLIS_RECOVERY_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT
 compose=(docker compose -f "$here/statement-importance-compose.yml")
 if [[ -n $(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME") ]]; then
   echo "project already exists; refusing to touch it" >&2; exit 1

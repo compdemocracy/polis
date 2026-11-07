@@ -13,7 +13,7 @@ an expectation from current output, or selects a retired platform.
 
 For a fresh replay, provision the existing campaign dependencies, choose a unique
 `COMPOSE_PROJECT_NAME` and unused matching `POLIS_RECOVERY_PG_PORT` /
-`RECOVERY_PG_PORT` (at least 55432), then supply a new directory outside the checkout:
+`RECOVERY_PG_PORT` (admitted by `ci/host_ports.py`), then supply a new directory outside the checkout:
 
 ```sh
 python3 coordinator-rs/ci/reproduce_pin.py <digest> --output /absolute/new/reproduction

@@ -2,6 +2,8 @@ name: Mixed participant admission
 on:
   pull_request:
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - "server/src/auth/**"
@@ -20,12 +22,12 @@ jobs:
     timeout-minutes: 30
     env:
       COMPOSE_PROJECT_NAME: mixed-identity-${{ github.run_id }}-${{ github.run_attempt }}
-      MIXED_PG_PORT: "56498"
-      MIXED_DYNAMO_PORT: "56497"
-      MIXED_NODE_PORT: "56496"
-      MIXED_API_PORT: "56494"
-      POLIS_MIXED_WORKER_PORT: "56493"
-      MIXED_PROVIDER_PORT: "56492"
+      MIXED_PG_PORT: "26498"
+      MIXED_DYNAMO_PORT: "26497"
+      MIXED_NODE_PORT: "26496"
+      MIXED_API_PORT: "26494"
+      POLIS_MIXED_WORKER_PORT: "26493"
+      MIXED_PROVIDER_PORT: "26492"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

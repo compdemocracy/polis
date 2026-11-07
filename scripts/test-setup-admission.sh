@@ -7,10 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${CLI_DIFF_NODE_IMAGE:?}" "${CLI_DIFF_POSTGRES_IMAGE:?}" "${CLI_DIFF_OIDC_IMAGE:?}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-polis-setup-admission}"
-export P027_PORT_MIN="${P027_PORT_MIN:-56211}" P027_PORT_MAX="${P027_PORT_MAX:-56213}"
-export POLIS_RECOVERY_PG_PORT="${POLIS_RECOVERY_PG_PORT:-56211}" RECOVERY_PG_PORT="${RECOVERY_PG_PORT:-56211}"
-export P027_HTTP_PORT="${P027_HTTP_PORT:-56212}" P027_CONTROL_PORT="${P027_CONTROL_PORT:-56213}"
+export P027_PORT_MIN="${P027_PORT_MIN:-26211}" P027_PORT_MAX="${P027_PORT_MAX:-26213}"
+export POLIS_RECOVERY_PG_PORT="${POLIS_RECOVERY_PG_PORT:-26211}" RECOVERY_PG_PORT="${RECOVERY_PG_PORT:-26211}"
+export P027_HTTP_PORT="${P027_HTTP_PORT:-26212}" P027_CONTROL_PORT="${P027_CONTROL_PORT:-26213}"
 mkdir -p server/characterization/artifacts
+python3 ci/host_ports.py env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 (cd polis-cli && cargo run -q --locked -p polis-contracts --example setup_predictions) \
   > server/characterization/artifacts/setup-predictions.json
 compose=(docker compose -f server/characterization/compose.yml -f polis-cli/tests/admission/compose.yml)

@@ -244,6 +244,6 @@ Choose another unused port if necessary. It leaves verified host dumps in
 ```sh
 docker build --build-context queue-rs=queue-rs -f server/Dockerfile-db \
   -t selfhost-test-db:local server
-SELFHOST_TEST_DB_IMAGE=selfhost-test-db:local SELFHOST_TEST_PORT=56439 \
+SELFHOST_TEST_DB_IMAGE=selfhost-test-db:local SELFHOST_TEST_PORT=26439 \
   bash scripts/test-selfhost-db.sh
 ```

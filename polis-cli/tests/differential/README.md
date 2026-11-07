@@ -23,9 +23,9 @@ the include-generation symlink. A stock nginx image is insufficient.
 
 ```sh
 export COMPOSE_PROJECT_NAME=p027cli-diff-local
-export P027_PORT_MIN=56201 P027_PORT_MAX=56203
-export POLIS_RECOVERY_PG_PORT=56201 RECOVERY_PG_PORT=56201
-export P027_HTTP_PORT=56202 P027_CONTROL_PORT=56203
+export P027_PORT_MIN=26201 P027_PORT_MAX=26203
+export POLIS_RECOVERY_PG_PORT=26201 RECOVERY_PG_PORT=26201
+export P027_HTTP_PORT=26202 P027_CONTROL_PORT=26203
 export CLI_DIFF_NODE_IMAGE=cli-diff-node CLI_DIFF_POSTGRES_IMAGE=cli-diff-postgres
 export CLI_DIFF_OIDC_IMAGE=cli-diff-oidc CLI_DIFF_RUST_IMAGE=cli-diff-rust
 bash scripts/test-polis-cli-differential.sh \
