@@ -1,4 +1,4 @@
-//! Bounded same-origin HTTP with no automatic redirect or request retry.
+//! Bounded same-origin HTTP; only explicit unknown vote receipts retry once.
 use polis_contracts::{Error, Result};
 use reqwest::{blocking::Client as Http, Method};
 use serde_json::{json, Value};
@@ -124,17 +124,45 @@ impl Client {
     ) -> Result<Value> {
         let (status, content_type, bytes) =
             self.exchange(method, path, query, body, effect, false)?;
-        if status == 204 {
-            return Ok(json!({"state":"no_content"}));
+        response_json(status, &content_type, &bytes, effect)
+    }
+    /// Only the typed vote operation retries an explicit unknown receipt.
+    /// General requests, including the raw API command, remain single-shot.
+    pub fn submit_vote(&self, body: Value) -> Result<Value> {
+        let (mut status, mut content_type, mut bytes) = self.exchange(
+            "POST",
+            "/api/v3/votes",
+            &[],
+            Some(body.clone()),
+            true,
+            false,
+        )?;
+        if status == 202 {
+            let json_type =
+                content_type.contains("application/json") || content_type.contains("+json");
+            if !json_type
+                || serde_json::from_slice::<Value>(&bytes).ok()
+                    != Some(json!({"acceptance":"unknown","retry":"same_vote"}))
+            {
+                return Err(protocol(true, "Vote acceptance is unknown."));
+            }
+            // The receipt is published after commit acknowledgement. Reuse
+            // the exact body and credentials, once, after a short delay.
+            std::thread::sleep(Duration::from_millis(300));
+            (status, content_type, bytes) = self
+                .exchange("POST", "/api/v3/votes", &[], Some(body), true, false)
+                .map_err(|mut error| {
+                    // A refused retry cannot prove the first vote was not stored.
+                    error.outcome = "unknown";
+                    error.exit = 7;
+                    error.action = "Read back participation before retrying; the first vote may already be stored.";
+                    error
+                })?;
+            if status != 200 {
+                return Err(protocol(true, "Vote acceptance is unknown."));
+            }
         }
-        if !content_type.contains("application/json") && !content_type.contains("+json") {
-            return Err(protocol(
-                effect,
-                "Expected JSON; the site may be serving a login page or frontend.",
-            ));
-        }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| protocol(effect, "Site returned malformed JSON."))
+        response_json(status, &content_type, &bytes, true)
     }
     /// Bounded bytes for dedicated existing API operations (CSV or an HTML
     /// success receipt). Error bodies still use the normal safe error mapping.
@@ -641,6 +669,19 @@ fn client_error_details(upstream: &mut Value, data: &Value, token: Option<&str>)
         }
         upstream["message"] = json!(safe);
     }
+}
+
+fn response_json(status: u16, content_type: &str, bytes: &[u8], effect: bool) -> Result<Value> {
+    if status == 204 {
+        return Ok(json!({"state":"no_content"}));
+    }
+    if !content_type.contains("application/json") && !content_type.contains("+json") {
+        return Err(protocol(
+            effect,
+            "Expected JSON; the site may be serving a login page or frontend.",
+        ));
+    }
+    serde_json::from_slice(bytes).map_err(|_| protocol(effect, "Site returned malformed JSON."))
 }
 
 fn has_error(v: &Value) -> bool {
