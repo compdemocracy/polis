@@ -1,0 +1,270 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -63,11 +63,6 @@
+ name = "postgres"
+ path = "src/lib.rs"
+ 
+-[[bench]]
+-name = "bench"
+-path = "benches/bench.rs"
+-harness = false
+-
+ [dependencies.bytes]
+ version = "1.11"
+ 
+@@ -92,5 +87,3 @@
+ [dependencies.tokio-postgres]
+ version = "0.7.18"
+ 
+-[dev-dependencies.criterion]
+-version = "0.7"
+--- a/README.md
++++ b/README.md
+@@ -44,3 +44,67 @@
+ 1. Run `docker-compose up -d`.
+ 1. Run `cargo test`.
+ 1. Run `docker-compose stop`.
++
++## This vendored copy
++
++This is `postgres` 0.19.14 from crates.io, redistributed under its MIT licence.
++`LICENSE-MIT` and `LICENSE-APACHE` are unchanged upstream files. The upstream
++archive SHA-256 is
++`33ad20e0aa0b24f5a394eab4f78c781d248982b22b25cecc7e3aa46a681605bd`.
++The retained sources are byte-identical except for `src/config.rs`,
++`src/client.rs` and `src/connection.rs`: an 85-line addition (25 lines replaced)
++adds opt-in whole-setup and protocol-I/O deadlines with socket closure. The
++manifest omits the unused benchmark and its criterion development dependency;
++this README and `POLIS_CHANGES.md` document the copy. Upstream packaging metadata,
++changelog, lockfile and benchmark are omitted.
++
++The published synchronous client owns a private runtime and cannot be built
++from an externally bounded connection. Its TCP connect timeout excludes DNS,
++TLS, authentication and session setup. An outer timeout abandons a blocking
++operation without closing its socket or releasing its pool slot; keepalive and
++TCP_USER_TIMEOUT cannot end a peer that ACKs but never answers. See
++`POLIS_CHANGES.md` for the opt-in API and unchanged default behaviour.
++
++To re-vendor an upstream fix:
++
++1. Download the new crates.io archive and verify its SHA-256 against the registry
++   checksum before extracting it. Review the upstream release and security fixes.
++2. Replace the retained files, preserving upstream licence files byte for byte.
++   Update the version and checksum here and in `POLIS_CHANGES.md`.
++3. Reapply only the documented three-source deadline delta and benchmark removal,
++   or remove the delta if upstream supplies equivalent cancellation and socket
++   closure. Review the complete diff against the verified archive.
++4. Update Cargo.lock and run the API database fault tests, workspace checks and
++   route byte replays. Check setup expiry, socket closure and permit reclamation
++   on Linux as well as default behaviour for clients that do not opt in.
++
++Offline verification (Python 3.11 or newer, standard library only):
++
++```sh
++python3 ci/vendor_postgres.py
++python3 -m unittest discover -s ci -p test_vendor_postgres.py -v
++```
++
++Both commands also run in `make check-polis-api`. No network or Cargo registry
++cache is needed: the committed per-file SHA-256 manifest anchors the upstream
++bytes and the recorded diff accounts for every retained-file change.
++
++The archive checksum is recorded here and in `UPSTREAM_SHA256.json`. Cargo
++records the resolved version for a path dependency, with no registry source or
++checksum; the check compares that version with the vendored crate and documents.
++No custom lockfile entries are needed. These reviewed records are trust anchors,
++not independent attestations. When refreshing, update the version and verified
++archive checksum here and in `POLIS_CHANGES.md`, update Cargo's resolved version,
++and run from the repository root:
++
++```sh
++python3 ci/vendor_postgres.py --refresh /path/to/postgres-VERSION.crate
++python3 ci/vendor_postgres.py
++```
++
++Refresh first verifies the archive against this README's checksum, then regenerates
++`UPSTREAM_SHA256.json` and `POLIS_CHANGES.patch`. Review both changes against the
++published archive; never refresh merely to silence an unexpected drift failure.
++If upstream packaging changes, review the explicit omission list in the checker.
++The check detects local drift; discovering new upstream fixes still requires
++reviewing upstream releases and advisories.
+--- a/src/client.rs
++++ b/src/client.rs
+@@ -26,6 +26,18 @@
+         Client { connection, client }
+     }
+ 
++    /// Bound each synchronous protocol operation. Expiry closes the transport;
++    /// it does not merely stop waiting for a response. None preserves upstream.
++    pub fn set_io_timeout(&mut self, timeout: Option<Duration>) {
++        self.connection.io_timeout(timeout);
++    }
++
++    /// Apply one absolute deadline across multiple operations, such as session
++    /// setup. Clear it only after that complete phase has succeeded.
++    pub fn set_deadline(&mut self, deadline: Option<std::time::Instant>) {
++        self.connection.deadline(deadline);
++    }
++
+     /// A convenience function which parses a configuration string into a `Config` and then connects to the database.
+     ///
+     /// See the documentation for [`Config`] for information about the connection syntax.
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -132,6 +132,7 @@
+ #[derive(Clone)]
+ pub struct Config {
+     config: tokio_postgres::Config,
++    setup_deadline: Option<std::time::Instant>,
+     notice_callback: Arc<dyn Fn(DbError) + Send + Sync>,
+ }
+ 
+@@ -446,6 +447,13 @@
+         F: Fn(DbError) + Send + Sync + 'static,
+     {
+         self.notice_callback = Arc::new(f);
++        self
++    }
++
++    /// Bound the complete connection attempt, including name resolution, TLS,
++    /// startup and authentication. None preserves upstream behaviour.
++    pub fn setup_deadline(&mut self, deadline: Option<std::time::Instant>) -> &mut Self {
++        self.setup_deadline = deadline;
+         self
+     }
+ 
+@@ -462,7 +470,27 @@
+             .build()
+             .unwrap(); // FIXME don't unwrap
+ 
+-        let (client, connection) = runtime.block_on(self.config.connect(tls))?;
++        let result = runtime.block_on(async {
++            let connect = self.config.connect(tls);
++            match self.setup_deadline {
++                Some(deadline) => tokio::time::timeout_at(deadline.into(), connect)
++                    .await
++                    .unwrap_or_else(|_| Err(Error::__private_api_timeout())),
++                None => connect.await,
++            }
++        });
++        let (client, connection) = match result {
++            Ok(connected) => connected,
++            Err(error) => {
++                // A blocking OS resolver cannot be cancelled. Dropping the
++                // connect future prevents it from opening a socket later;
++                // do not let runtime teardown wait for that resolver thread.
++                if self.setup_deadline.is_some() {
++                    runtime.shutdown_background();
++                }
++                return Err(error);
++            }
++        };
+ 
+         let connection = Connection::new(runtime, connection, self.notice_callback.clone());
+         Ok(Client::new(connection, client))
+@@ -481,6 +509,7 @@
+     fn from(config: tokio_postgres::Config) -> Config {
+         Config {
+             config,
++            setup_deadline: None,
+             notice_callback: Arc::new(|notice| {
+                 info!("{}: {}", notice.severity(), notice.message())
+             }),
+--- a/src/connection.rs
++++ b/src/connection.rs
+@@ -13,6 +13,8 @@
+ 
+ pub struct Connection {
+     runtime: Runtime,
++    io_timeout: Option<std::time::Duration>,
++    deadline: Option<std::time::Instant>,
+     connection: Pin<Box<dyn Stream<Item = Result<AsyncMessage, Error>> + Send>>,
+     notifications: VecDeque<Notification>,
+     notice_callback: Arc<dyn Fn(DbError) + Sync + Send>,
+@@ -30,10 +32,20 @@
+     {
+         Connection {
+             runtime,
++            io_timeout: None,
++            deadline: None,
+             connection: Box::pin(ConnectionStream { connection }),
+             notifications: VecDeque::new(),
+             notice_callback,
+         }
++    }
++
++    pub fn io_timeout(&mut self, timeout: Option<std::time::Duration>) {
++        self.io_timeout = timeout;
++    }
++
++    pub fn deadline(&mut self, deadline: Option<std::time::Instant>) {
++        self.deadline = deadline;
+     }
+ 
+     pub fn as_ref(&mut self) -> ConnectionRef<'_> {
+@@ -60,29 +72,47 @@
+     where
+         F: FnMut(&mut Context<'_>, &mut VecDeque<Notification>, bool) -> Poll<Result<T, Error>>,
+     {
++        let deadline = match (self.deadline, self.io_timeout) {
++            (Some(absolute), Some(timeout)) => {
++                Some(absolute.min(std::time::Instant::now() + timeout))
++            }
++            (absolute, None) => absolute,
++            (None, Some(timeout)) => Some(std::time::Instant::now() + timeout),
++        };
+         let connection = &mut self.connection;
+         let notifications = &mut self.notifications;
+         let notice_callback = &mut self.notice_callback;
+-        self.runtime.block_on({
+-            future::poll_fn(|cx| {
+-                let done = loop {
+-                    match connection.as_mut().poll_next(cx) {
+-                        Poll::Ready(Some(Ok(AsyncMessage::Notification(notification)))) => {
+-                            notifications.push_back(notification);
+-                        }
+-                        Poll::Ready(Some(Ok(AsyncMessage::Notice(notice)))) => {
+-                            notice_callback(notice)
+-                        }
+-                        Poll::Ready(Some(Ok(_))) => {}
+-                        Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(e)),
+-                        Poll::Ready(None) => break true,
+-                        Poll::Pending => break false,
++        let work = future::poll_fn(|cx| {
++            let done = loop {
++                match connection.as_mut().poll_next(cx) {
++                    Poll::Ready(Some(Ok(AsyncMessage::Notification(notification)))) => {
++                        notifications.push_back(notification);
+                     }
+-                };
++                    Poll::Ready(Some(Ok(AsyncMessage::Notice(notice)))) => notice_callback(notice),
++                    Poll::Ready(Some(Ok(_))) => {}
++                    Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(e)),
++                    Poll::Ready(None) => break true,
++                    Poll::Pending => break false,
++                }
++            };
+ 
+-                f(cx, notifications, done)
+-            })
+-        })
++            f(cx, notifications, done)
++        });
++        let result = self.runtime.block_on(async {
++            match deadline {
++                Some(deadline) => tokio::time::timeout_at(deadline.into(), work).await,
++                None => Ok(work.await),
++            }
++        });
++        match result {
++            Ok(result) => result,
++            Err(_) => {
++                // Dropping the connection stream closes the actual socket and
++                // its request receiver before the caller can release a slot.
++                self.connection = Box::pin(futures_util::stream::empty());
++                Err(Error::__private_api_timeout())
++            }
++        }
+     }
+ 
+     pub fn notifications(&self) -> &VecDeque<Notification> {

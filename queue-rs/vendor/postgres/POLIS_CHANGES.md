@@ -31,3 +31,22 @@ after a client has been idle longer than the five-second keepalive window. The s
 socket may not yet have set `Client::is_closed`. Recently used clients add no checkout round trip. A stale idle client
 adds one bounded network round trip; a failed check discards the client and returns an error without a
 second connection attempt in the same checkout.
+
+## Exact recorded delta
+
+[POLIS_CHANGES.patch](POLIS_CHANGES.patch) is the canonical unified diff from
+the published crate to every retained file, including Cargo.toml and README.
+`UPSTREAM_SHA256.json` records every file in the checksum-verified upstream
+archive. The five omitted packaging/development files are explicitly listed in
+that manifest; only this document, the hash manifest and the diff are additions.
+The check reverses the diff without fuzz, verifies every retained upstream hash,
+and regenerates and compares the diff byte for byte. Unexpected, missing and
+symlinked files fail with their names.
+
+Cargo does not assign a registry checksum to a patched path dependency. The
+archive checksum stays in README, this document and `UPSTREAM_SHA256.json`;
+the check requires them to agree and their version to match the postgres package
+in Cargo.lock and Cargo.toml. No hand-added lockfile entries are needed.
+File contents are compared; file modes are not checked.
+This verifies the reviewed vendoring; it does not poll for newer releases or
+security advisories. Upstream release/security review remains part of re-vendoring.

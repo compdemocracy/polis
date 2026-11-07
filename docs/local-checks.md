@@ -104,6 +104,17 @@ names; on a shared Docker host supply unique values. Before any tests or builds,
 the API job derives `GITHUB_SHA` from the full checked-out commit using Git
 when it is unset or empty; an explicitly supplied hosted SHA is preserved.
 Local runs therefore need a real Git checkout or an explicit `GITHUB_SHA`.
+
+The API entry point pins `RUST_TEST_THREADS=2` for its full Rust test suite,
+overriding any inherited value for that step. Local and hosted runs both use
+`make check-polis-api`. Each database test can open several pools: on a 14-core
+host, sampling `pg_stat_activity` every 100 ms measured peaks of 70 client
+connections at default parallelism and 14 to 30 at two threads across repeats,
+including one sampler connection, against PostgreSQL's default limit of 100.
+These are sampled peaks, not upper bounds. At a shell open-file limit of 256,
+default parallelism also fails tests with "Too many open files"; two threads pass. Two threads leave headroom without requiring a larger test
+database; test selection, assertions and concurrency within each test are unchanged.
+
 CLI differential needs
 its `CLI_DIFF_*_IMAGE` variables and an independent `SETUP_ADMISSION_PROJECT`.
 Mixed identity uses all six `MIXED_*_PORT` / `POLIS_MIXED_WORKER_PORT` values.
@@ -240,3 +251,7 @@ the launcher's runtime validator; container listeners are not host inputs.
 that value. Set a unique `COMPOSE_PROJECT_NAME` and choose a free
 `RECOVERY_PG_PORT` for concurrent recovery runs. Concurrent
 API checks must set distinct `X54_NGINX_PORT` and `X54_FILES_PORT` values.
+
+`make check-polis-api` starts with the offline vendored-postgres provenance/delta
+check and its tests (Python 3.11+); see `queue-rs/vendor/postgres/README.md` for
+the checksum-verified refresh procedure. No registry cache or network is needed.

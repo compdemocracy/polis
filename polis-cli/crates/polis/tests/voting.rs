@@ -545,3 +545,168 @@ fn credential_save_failure_after_vote_response_is_unknown_and_not_retried() {
     assert!(!v.to_string().contains(TOKEN));
     assert_eq!(t.join().unwrap().len(), 1);
 }
+
+#[test]
+fn vote_unknown_receipt_retries_the_same_post_once() {
+    for second_status in [200, 202, 400, 401, 403, 429, 500, 0] {
+        let d = tempfile::tempdir().unwrap();
+        let unknown = json!({"acceptance":"unknown","retry":"same_vote"});
+        let t = server(
+            d.path(),
+            vec![
+                json_res(receipt()),
+                (202, "application/json", unknown.to_string()),
+                (
+                    second_status,
+                    "application/json",
+                    if second_status == 200 {
+                        json!({
+                            "currentPid": 0,
+                            "vote": {"tid": 0, "vote": polis_contracts::votes::VoteChoice::Agree.wire(),
+                                "created": 1, "replayed": true},
+                            "followOn": {"star": "absent", "nextComment": "absent",
+                                "notifications": "best_effort"}
+                        })
+                    } else {
+                        unknown
+                    }
+                    .to_string(),
+                ),
+            ],
+        );
+        let (code, value) = call(
+            d.path(),
+            &["join", "2demo", "--invite", "invite"],
+            None,
+            false,
+        );
+        assert_eq!(code, 0, "{value}");
+        let saved = private(d.path());
+        assert_eq!(saved[0]["token"], TOKEN);
+        let started = std::time::Instant::now();
+        let (code, value) = call(
+            d.path(),
+            &[
+                "vote",
+                "2demo",
+                "--statement",
+                "0",
+                "--agree",
+                "--important",
+            ],
+            None,
+            false,
+        );
+        let requests = t.join().unwrap();
+        assert!(started.elapsed() >= std::time::Duration::from_millis(300));
+        assert_eq!(requests.len(), 3);
+        assert_eq!(requests[1], requests[2], "same headers and serialized body");
+        assert!(requests[1].starts_with("POST /api/v3/votes "));
+        assert!(requests[1].contains(&format!("authorization: Bearer {TOKEN}")));
+        assert_eq!(private(d.path()), saved);
+        if second_status == 200 {
+            assert_eq!(code, 0, "{value}");
+            assert_eq!(value["data"]["state"], "recorded");
+            assert_eq!(private(d.path())[0]["token"], TOKEN);
+        } else {
+            assert_eq!(code, 7, "{value}");
+            assert_eq!(value["error"]["outcome"], "unknown");
+        }
+    }
+}
+
+#[test]
+fn vote_ordinary_success_still_posts_once() {
+    let d = tempfile::tempdir().unwrap();
+    let t = server(d.path(), vec![json_res(vote_receipt())]);
+    let (code, value) = call(
+        d.path(),
+        &["vote", "2demo", "--statement", "0", "--agree"],
+        None,
+        false,
+    );
+    assert_eq!(code, 0, "{value}");
+    assert_eq!(value["data"]["state"], "recorded");
+    assert_eq!(t.join().unwrap().len(), 1);
+}
+
+#[test]
+fn vote_unrecognized_accepted_responses_never_retry() {
+    for body in [
+        json!({}),
+        json!(null),
+        json!({"acceptance":"unknown","retry":"same_vote","extra":true}),
+        json!({"acceptance":"unknown","retry":"other"}),
+    ] {
+        let d = tempfile::tempdir().unwrap();
+        let t = server(d.path(), vec![(202, "application/json", body.to_string())]);
+        let (code, value) = call(
+            d.path(),
+            &["vote", "2demo", "--statement", "0", "--agree"],
+            None,
+            false,
+        );
+        assert_eq!(code, 7, "{value}");
+        assert_eq!(value["error"]["outcome"], "unknown");
+        assert_eq!(t.join().unwrap().len(), 1);
+    }
+}
+
+#[test]
+fn vote_retry_connection_refused_keeps_the_first_outcome_unknown() {
+    let d = tempfile::tempdir().unwrap();
+    let t = server(
+        d.path(),
+        vec![
+            json_res(receipt()),
+            (
+                202,
+                "application/json",
+                json!({"acceptance":"unknown","retry":"same_vote"}).to_string(),
+            ),
+        ],
+    );
+    assert_eq!(
+        call(
+            d.path(),
+            &["join", "2demo", "--invite", "invite"],
+            None,
+            false
+        )
+        .0,
+        0
+    );
+    let saved = private(d.path());
+    let (code, value) = call(
+        d.path(),
+        &["vote", "2demo", "--statement", "0", "--agree"],
+        None,
+        false,
+    );
+    assert_eq!(code, 7, "{value}");
+    assert_eq!(value["error"]["outcome"], "unknown");
+    assert_eq!(t.join().unwrap().len(), 2);
+    assert_eq!(private(d.path()), saved);
+}
+
+#[test]
+fn raw_api_vote_unknown_receipt_is_returned_without_retry() {
+    let d = tempfile::tempdir().unwrap();
+    let unknown = json!({"acceptance":"unknown","retry":"same_vote"});
+    let t = server(
+        d.path(),
+        vec![(202, "application/json", unknown.to_string())],
+    );
+    let input = json!({"conversation_id":"2demo","tid":0,
+        "vote":polis_contracts::votes::VoteChoice::Agree.wire()})
+    .to_string();
+    let (code, value) = call(
+        d.path(),
+        &["api", "/api/v3/votes", "--method", "POST", "--input", "-"],
+        Some(&input),
+        true,
+    );
+    assert_eq!(code, 0, "{value}");
+    assert_eq!(value["data"], unknown);
+    assert_eq!(t.join().unwrap().len(), 1);
+}
