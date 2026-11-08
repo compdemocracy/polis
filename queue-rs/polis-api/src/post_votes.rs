@@ -267,10 +267,10 @@ fn next(
     };
     let rows = c.query(
         &format!(
-            "select * from comments where zid=$1
+            "select tid from comments where zid=$1
          and tid not in (select tid from votes_latest_unique where zid=$1 and pid=$2)
          and active=true and {moderation} and velocity>0
-         order by created limit 999"
+         order by created"
         ),
         &[&a.zid, &a.pid],
     )?;
@@ -278,10 +278,6 @@ fn next(
         .iter()
         .map(|row| row.try_get::<_, i32>("tid"))
         .collect::<Result<Vec<_>, _>>()?;
-    let rows = rows
-        .iter()
-        .map(comments::project)
-        .collect::<Result<Vec<_>>>()?;
     let data = priorities(c, a.zid, env)?;
     let counts = c.query_one(
         "with v as (select * from votes_latest_unique where zid=$1 and pid=$2),
@@ -291,12 +287,19 @@ fn next(
          select remaining.n,total.n from remaining,total",
         &[&a.zid, &a.pid],
     )?;
-    if rows.is_empty() {
+    if tids.is_empty() {
         return Ok(None);
     }
     let priorities = data.as_ref().and_then(Js::as_obj);
     let (index, random) = next_comment::select(&tids, priorities, unit)?;
-    let mut row = rows[index].as_obj().cloned().context("invalid statement")?;
+    let selected = c.query_one(
+        "select * from comments where zid=$1 and tid=$2",
+        &[&a.zid, &tids[index]],
+    )?;
+    let mut row = comments::project(&selected)?
+        .as_obj()
+        .cloned()
+        .context("invalid statement")?;
     row.set("randomN", Js::Num(random));
     row.set("remaining", Js::Num(counts.try_get::<_, i64>(0)? as f64));
     row.set("total", Js::Num(counts.try_get::<_, i64>(1)? as f64));

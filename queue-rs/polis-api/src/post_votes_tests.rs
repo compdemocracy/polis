@@ -377,3 +377,7 @@ fn vote_admission_discards_body_identity_hints_without_changing_fields() {
 #[cfg(feature = "db-tests")]
 #[path = "post_votes_translation_tests.rs"]
 mod translations;
+
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_candidate_tests.rs"]
+mod candidates;
