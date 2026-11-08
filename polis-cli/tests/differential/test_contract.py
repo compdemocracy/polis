@@ -181,3 +181,45 @@ class ImportanceDisplayTests(unittest.TestCase):
         for code in ['operation_failed','transport_unavailable','forbidden',None]:
             bad=copy.deepcopy(node);bad['json']['data']['importance']['error']=code
             self.assertFalse(all(importance_display_checks(bad,rust).values()))
+
+
+class ReportCommentsTests(unittest.TestCase):
+    def fixture(self):
+        from report_comments import cases
+        projected = dict(status=200, content_type='application/json', body=b'[{"tid":1}]')
+        node, rust = {}, {}
+        for actor, level in cases():
+            name = f'reportComments:{actor}:mod_gt={level}'
+            node[name] = dict(projected=projected.copy(), typed=dict(status=404, body=b'missing'))
+            rust[name] = dict(projected=projected.copy(), typed=projected.copy())
+        return node, rust
+
+    def test_projection_preserves_order_text_and_missing_fields(self):
+        from report_comments import project
+        self.assertEqual(project('[{"ignored":1,"txt":"é\\n\\\"","tid":2,"agree_count":0},{"pid":4,"tid":1}]'),
+                         '[{"txt":"é\\n\\\"","tid":2,"agree_count":0},{"pid":4,"tid":1}]'.encode())
+
+    def test_projection_and_off_response_mutations_fail(self):
+        import copy
+        from report_comments import compare_report_comments
+        node, rust = self.fixture()
+        self.assertTrue(all(row['equal'] for row in compare_report_comments(node, rust)))
+        for field, value in [('body', b'[]'), ('status', 404), ('content_type', 'text/html')]:
+            bad = copy.deepcopy(rust)
+            bad['reportComments:owner:mod_gt=0']['typed'][field] = value
+            self.assertEqual(sum(not row['equal'] for row in compare_report_comments(node, bad)), 1)
+        bad = copy.deepcopy(node)
+        bad['reportComments:anonymous:mod_gt=-2']['typed']['status'] = 200
+        self.assertEqual(sum(not row['equal'] for row in compare_report_comments(bad, rust)), 1)
+        del rust['reportComments:owner:mod_gt=0']
+        with self.assertRaises(RuntimeError):
+            compare_report_comments(node, rust)
+
+    def test_report_selector_requires_every_get_and_head_without_handoff(self):
+        from harness import load_routes
+        contract = load_routes()['reportComments']
+        self.assertEqual(contract['expected_requests'], 12)
+        self.assertTrue(serving_matches(dict(requests=12, rust_200=12, rust_fallbacks=0), contract))
+        for counts in [dict(requests=12, rust_200=11, rust_fallbacks=1),
+                       dict(requests=11, rust_200=11, rust_fallbacks=0)]:
+            self.assertFalse(serving_matches(counts, contract))

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env RESULT_READS_PG_PORT RESULT_READS_DYNAMO_PORT
 check_node 24.22.1
+python3 "$CHECK_ROOT/ci/host_ports.py" env RESULT_READS_PG_PORT RESULT_READS_DYNAMO_PORT
 : "${RESULT_READS_PROJECT:?choose an owned unique project}"
 : "${RESULT_READS_PG_PORT:?choose a free test port}"
 : "${RESULT_READS_DYNAMO_PORT:?choose a free test port}"

@@ -14,5 +14,5 @@ function forward(port, host, destination) {
 }
 forward(5432, "postgres", 5432);
 const port = Number(process.env.P027_TREEVITE_RUST_PORT);
-if (!Number.isInteger(port) || port < 1024 || port > 65535) throw Error("unique Rust port required");
+if (!Number.isInteger(port)) throw Error("unique Rust port required");
 forward(port, "host.lima.internal", port);

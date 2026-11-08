@@ -55,6 +55,7 @@ fn setup_with_statement_timeout(db: &Database, statement_timeout: Duration) -> (
         math_env: "test".into(),
         cache_size: 10,
         pca_cache_size: 10,
+        pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
         dev_mode: false,
         use_network_host: false,
         production: true,
@@ -70,6 +71,8 @@ fn setup_with_statement_timeout(db: &Database, statement_timeout: Duration) -> (
         )),
         verifier: participant::Verifier::new(&public, "fixture", "fixture").unwrap(),
         admins: vec![],
+        priorities: Arc::default(),
+        follow_on: Arc::new(FollowOnLane::default()),
     });
     let mut request = req(&json!({"conversation_id":"2fixture","tid":7,
         "vote":crate::votes::WIRE_AGREE})
@@ -391,6 +394,8 @@ async fn wait_for_idle(writer: &Writer) {
 
 /// The trigger cannot proceed until the test releases its database-scoped lock.
 /// Its own lock timeout is disabled; the test pool's statement watchdog remains.
+/// Move the lock-holding session into the tested future: on panic it must release the lock
+/// before runtime shutdown waits for the blocking SQL that holds pool slots.
 struct SqlGate {
     holder: Option<postgres::Client>,
     pid: i32,
@@ -551,9 +556,11 @@ fn dispatch_deadline_reports_unknown_and_retains_late_append() {
             max_lifetime: Duration::from_secs(300),
         },
     );
-    let mut append_gate = SqlGate::new(&db, "votes", "INSERT", 1);
-    let mut notification_gate = SqlGate::new(&db, "participants", "UPDATE", 2);
+    let append_gate = SqlGate::new(&db, "votes", "INSERT", 1);
+    let notification_gate = SqlGate::new(&db, "participants", "UPDATE", 2);
     runtime().block_on(async {
+        let mut append_gate = append_gate;
+        let mut notification_gate = notification_gate;
         let writer = app.post_votes.as_ref().unwrap();
         warm_pool(&writer.pool, 1).await;
         let task = tokio::spawn(handle_after_admission_timed(app.clone(), request));
@@ -623,9 +630,10 @@ fn notification_runs_before_slow_star_without_count_or_activity_writes() {
         "vote":crate::votes::WIRE_AGREE,"starred":true})
     .to_string()
     .into_bytes();
-    let mut star_gate = SqlGate::new(&db, "stars", "INSERT", 1);
+    let star_gate = SqlGate::new(&db, "stars", "INSERT", 1);
     let mut observer = db.connect();
     runtime().block_on(async {
+        let mut star_gate = star_gate;
         // Observe commit independently of star entry: a delay before both
         // notification and star would otherwise satisfy gate ordering alone.
         // Establish the observer before dispatch so connection setup and
@@ -769,8 +777,9 @@ fn stalled_connect_returns_terminal_deadline_without_releasing_slot() {
 fn lost_response_does_not_cancel_or_repeat_dispatched_vote() {
     let db = Database::new("lost_response");
     let (app, request) = setup_with_statement_timeout(&db, EVENT_WATCHDOG);
-    let mut append_gate = SqlGate::new(&db, "votes", "INSERT", 1);
+    let append_gate = SqlGate::new(&db, "votes", "INSERT", 1);
     runtime().block_on(async {
+        let mut append_gate = append_gate;
         let retry = copy_request(&request);
         let writer = app.post_votes.as_ref().unwrap();
         let task = tokio::spawn(handle_after_admission(app.clone(), request));
@@ -1079,7 +1088,7 @@ fn post_commit_failures_and_follow_on_deadline_keep_the_vote_and_retry_receipt()
     ] {
         let db = Database::new(name);
         let (app, mut request) = setup_with_statement_timeout(&db, EVENT_WATCHDOG);
-        let mut gate = (name == "star_deadline").then(|| SqlGate::new(&db, "stars", "INSERT", 1));
+        let gate = (name == "star_deadline").then(|| SqlGate::new(&db, "stars", "INSERT", 1));
         if star {
             let mut body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
             body["starred"] = json!(true);
@@ -1088,6 +1097,7 @@ fn post_commit_failures_and_follow_on_deadline_keep_the_vote_and_retry_receipt()
         db.connect().batch_execute("CREATE OR REPLACE FUNCTION now_as_millis() RETURNS bigint LANGUAGE sql AS 'SELECT 1700000000000::bigint'").unwrap();
         db.connect().batch_execute(fault).unwrap();
         runtime().block_on(async {
+            let mut gate = gate;
             let first_task = tokio::spawn(handle_after_admission(app.clone(), copy_request(&request)));
             if let Some(gate) = &gate {
                 gate.entered(&db).await;
@@ -1625,6 +1635,21 @@ async fn count_statements(
 
 #[test]
 fn revocation_snapshot_adds_no_vote_request_statements() {
+    // The setup connection later holds the refresh lock. An early panic must
+    // close it off the route runtime: synchronous Client::drop runs block_on.
+    struct LockSession(Option<postgres::Client>);
+    impl LockSession {
+        fn take(&mut self) -> postgres::Client {
+            self.0.take().unwrap()
+        }
+    }
+    impl Drop for LockSession {
+        fn drop(&mut self) {
+            if let Some(client) = self.0.take() {
+                std::thread::spawn(move || drop(client)).join().unwrap();
+            }
+        }
+    }
     let mut measurements = Vec::new();
     for with_snapshot in [false, true] {
         let db = Database::new(if with_snapshot {
@@ -1647,8 +1672,23 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
             VALUES(1,1,'fixture','fixture',true);",
         )
         .unwrap();
+        let mut lock_session = LockSession(Some(c));
+        // Keep route polls single-threaded for dispatch attribution, but let
+        // proxy I/O progress independently while a panic drops synchronous
+        // pool clients. This runtime outlives the measured future, including
+        // its unwind and the route runtime's blocking-task shutdown.
+        let proxy_runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .unwrap();
         let measured = runtime().block_on(async {
-            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            // Register the listener with the proxy's reactor as well as
+            // polling its tasks there; the route reactor can stop on unwind.
+            let listener = proxy_runtime
+                .spawn(async { tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap() })
+                .await
+                .unwrap();
             let port = listener.local_addr().unwrap().port();
             let backend_port = db.config.get_ports()[0];
             let backend_host = match &db.config.get_hosts()[0] {
@@ -1658,7 +1698,7 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
             let counts = Arc::new(Mutex::new(std::collections::BTreeMap::new()));
             let observed = counts.clone();
             let (stop_proxy, mut stopping) = tokio::sync::oneshot::channel::<()>();
-            let proxy = tokio::spawn(async move {
+            let proxy = proxy_runtime.spawn(async move {
                 let mut connections = tokio::task::JoinSet::new();
                 loop {
                     let (client, _) = tokio::select! {
@@ -1710,6 +1750,7 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
             let (release_lock, held) = std::sync::mpsc::channel::<()>();
             let (ready, locked) = tokio::sync::oneshot::channel();
             let holder = tokio::task::spawn_blocking(move || {
+                let mut c = lock_session.take();
                 c.batch_execute("BEGIN; LOCK TABLE treevite_login_codes IN ACCESS EXCLUSIVE MODE").unwrap();
                 let pid: i32 = c.query_one("select pg_backend_pid()", &[]).unwrap().get(0);
                 ready.send(pid).unwrap();
@@ -1806,3 +1847,252 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
         );
     }
 }
+
+#[path = "post_votes_connection_tests.rs"]
+mod connection_bounds;
+
+// Exercise the real route, verifier, membership lookup and writer. Body hints
+// and cookies cannot select the actor; handbacks must precede dispatch.
+fn vote_admission_case(
+    label: &str,
+    hints: bool,
+    cookie: bool,
+    token: &str,
+    extra: Option<&str>,
+    served: bool,
+) {
+    let db = Database::new(label);
+    let (app, mut request) = setup(&db);
+    let mut body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+    if hints {
+        body["pid"] = json!(999);
+        body["agid"] = json!({"ignored": true});
+    }
+    if let Some(field) = extra {
+        body[field] = json!("en");
+    }
+    request.body = serde_json::to_vec(&body).unwrap();
+    let saved = request.headers.get("authorization").unwrap().to_owned();
+    let mut headers = vec![
+        ("host", "localhost"),
+        ("content-type", "application/json"),
+        ("x-forwarded-proto", "https"),
+    ];
+    if cookie {
+        headers.push(("cookie", "pc=another-participant; session=untrusted"));
+    }
+    match token {
+        "valid" => headers.push(("authorization", &saved)),
+        "invalid" => headers.push(("authorization", "Bearer invalid")),
+        "missing" => {}
+        _ => panic!("unknown fixture credential"),
+    }
+    request.headers = Headers::from_raw(headers);
+    runtime().block_on(async {
+        let (response, _, observation) =
+            observed_handle_with_completion(app.clone(), request).await;
+        if served {
+            assert_eq!(response.status, 200);
+            assert_eq!(
+                accepted_body(&response).current_pid,
+                0,
+                "signed pid wins over body and cookie"
+            );
+            let receipt = durable_dispatch(&db, &response, observation).await;
+            assert!(!receipt.replayed);
+        } else {
+            assert_handback(&response);
+            assert!(!observation.lock().unwrap().created);
+        }
+        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+    });
+    let mut c = db.connect();
+    assert_eq!(
+        c.query_one("SELECT count(*) FROM votes", &[])
+            .unwrap()
+            .get::<_, i64>(0),
+        i64::from(served)
+    );
+    assert_eq!(
+        c.query_one("SELECT count(*) FROM votes_latest_unique", &[])
+            .unwrap()
+            .get::<_, i64>(0),
+        i64::from(served)
+    );
+    if served {
+        let row = c.query_one("SELECT pid, vote FROM votes", &[]).unwrap();
+        assert_eq!(row.get::<_, i32>(0), 0);
+        assert_eq!(
+            i32::from(row.get::<_, i16>(1)),
+            contract::stored_vote(VoteChoice::Agree)
+        );
+    }
+}
+
+#[test]
+fn vote_admission_body_hints_with_verified_token_are_served() {
+    vote_admission_case("admit_hints", true, false, "valid", None, true);
+}
+
+#[test]
+fn vote_admission_other_unknown_key_hands_back() {
+    vote_admission_case(
+        "admit_unknown",
+        true,
+        false,
+        "valid",
+        Some("unknown"),
+        false,
+    );
+}
+
+#[test]
+fn vote_admission_cookie_with_verified_token_is_served() {
+    vote_admission_case("admit_cookie", false, true, "valid", None, true);
+}
+
+#[test]
+fn vote_admission_cookie_and_body_hints_with_verified_token_are_served() {
+    vote_admission_case("admit_combined", true, true, "valid", None, true);
+}
+
+#[test]
+fn vote_admission_cookie_without_token_hands_back() {
+    vote_admission_case("admit_missing", false, true, "missing", None, false);
+}
+
+#[test]
+fn vote_admission_cookie_with_invalid_token_hands_back() {
+    vote_admission_case("admit_invalid", false, true, "invalid", None, false);
+}
+
+#[test]
+fn vote_admission_language_serves_stored_node_bytes_without_a_provider() {
+    for (index, lang) in ["fr", "EN-gb", ""].into_iter().enumerate() {
+        let db = Database::new(&format!("admit_language_{index}"));
+        let (app, mut request) = setup(&db);
+        db.connect()
+            .batch_execute(
+                "INSERT INTO comments(zid,pid,uid,txt,lang,created)
+            VALUES(1,0,1,'Generated statement','en',10);
+            INSERT INTO comment_translations(zid,tid,src,txt,lang,created,modified) VALUES
+            (1,0,23,'Bonjour 🌍','fr',9007199254740993,NULL),
+            (1,0,-1,'Hallo \"Welt\"','de',12,13);",
+            )
+            .unwrap();
+        let mut fields: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+        fields["lang"] = json!(lang);
+        fields["pid"] = json!(999);
+        request.body = serde_json::to_vec(&fields).unwrap();
+        runtime().block_on(async {
+            let (response, _, observation) =
+                observed_handle_with_completion(app.clone(), request).await;
+            assert_eq!(response.status, 200);
+            assert!(observation.lock().unwrap().created);
+            let receipt = durable_dispatch(&db, &response, observation).await;
+            assert!(!receipt.replayed);
+            let body = accepted_body(&response);
+            let next = body.next_comment.unwrap();
+            let raw = next.0.get();
+            let start = raw.find("\"translations\":").unwrap() + "\"translations\":".len();
+            let expected = if lang.is_empty() {
+                "[]"
+            } else {
+                super::translations::stored_node_rows()
+            };
+            assert_eq!(&raw[start..raw.len() - 1], expected);
+            wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+        });
+        let mut c = db.connect();
+        assert_eq!(
+            c.query_one("SELECT count(*) FROM votes", &[])
+                .unwrap()
+                .get::<_, i64>(0),
+            1
+        );
+        assert_eq!(
+            c.query_one("SELECT count(*) FROM votes_latest_unique", &[])
+                .unwrap()
+                .get::<_, i64>(0),
+            1
+        );
+        assert_eq!(
+            i32::from(
+                c.query_one("SELECT vote FROM votes", &[])
+                    .unwrap()
+                    .get::<_, i16>(0)
+            ),
+            contract::stored_vote(VoteChoice::Agree)
+        );
+    }
+}
+
+#[test]
+fn stored_translation_dispatch_uses_reads_after_commit_and_keeps_receipt_on_timeout() {
+    let db = Database::new("translation_dispatch");
+    let (app, _) = setup(&db);
+    db.connect()
+        .batch_execute(
+            "INSERT INTO comments(zid,pid,uid,txt,lang) VALUES(1,0,1,'Generated statement','en');
+         INSERT INTO comment_translations(zid,tid,src,txt,lang,created,modified)
+         VALUES(1,0,23,'Bonjour','fr',10,11);",
+        )
+        .unwrap();
+    let mut lock = db.connect();
+    for blocked in [false, true] {
+        if blocked {
+            lock.batch_execute("BEGIN; LOCK TABLE comment_translations IN ACCESS EXCLUSIVE MODE")
+                .unwrap();
+        }
+        let receipt = Arc::new(Mutex::new(None));
+        let mut fields = database::fields(VoteChoice::Agree);
+        fields.lang = Some("fr".into());
+        // Exercise the follow-on directly to isolate translation-read failure
+        // after the receipt has committed.
+        let body = runtime().block_on(async {
+            let writer = app.post_votes.as_ref().unwrap();
+            let result = dispatch(
+                writer.pool.clone(),
+                writer.reads.clone(),
+                writer.background.clone(),
+                database::actor(),
+                fields,
+                "test".into(),
+                0.5,
+                receipt.clone(),
+                tokio::time::Instant::now() + DISPATCH_DEADLINE,
+                ActiveDispatch::new(),
+            )
+            .await
+            .unwrap();
+            wait_for_idle(writer).await;
+            match result {
+                Outcome::Success(body) => body,
+                Outcome::Failure(_, code) => panic!("unexpected failure: {code}"),
+            }
+        });
+        assert!(receipt.lock().unwrap().is_some());
+        assert_eq!(body.vote.replayed, blocked);
+        assert_eq!(body.follow_on.next_comment, FollowOnState::Complete);
+        let bytes = serde_json::to_string(&body.next_comment.unwrap()).unwrap();
+        if blocked {
+            assert!(bytes.ends_with("\"translations\":[]}"));
+            lock.batch_execute("ROLLBACK").unwrap();
+        } else {
+            assert!(bytes.ends_with(r#""translations":[{"zid":1,"tid":0,"src":23,"txt":"Bonjour","lang":"fr","created":"10","modified":"11"}]}"#));
+        }
+        assert_eq!(
+            db.connect()
+                .query_one("SELECT count(*) FROM votes", &[])
+                .unwrap()
+                .get::<_, i64>(0),
+            1
+        );
+    }
+}
+
+#[path = "post_votes_priorities_tests.rs"]
+mod priority_capacity;
+
+#[path = "post_votes_follow_on_tests.rs"]
+mod follow_on_tests;

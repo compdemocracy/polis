@@ -60,7 +60,8 @@ def logical_lines(script):
         # An odd trailing backslash count escapes the newline, except in a
         # comment: its newline ends the comment even after a backslash.
         trailing = len(line) - len(line.rstrip('\\'))
-        if trailing % 2 and not comment and quote != "'":
+        if (trailing % 2 and not comment and quote != "'"
+                and not line.lstrip().startswith('#')):
             pending += line[:-1]
             continue
         yield start, pending + line
@@ -149,6 +150,46 @@ def foreground_run(command):
     return False
 
 
+def command_positions(words):
+    """Locate commands in the supported shell forms, excluding their arguments."""
+    expecting, wrapper, value = True, None, False
+    wrapper_values = {
+        'sudo': {'-u', '--user', '-g', '--group', '-h', '--host', '-p', '--prompt',
+                 '-C', '--close-from', '-D', '--chdir', '-R', '--chroot'},
+        'env': {'-u', '--unset', '-C', '--chdir'},
+        'command': set(),
+    }
+    # Commands that never run their arguments; after any other command word
+    # (exec, nohup, time, timeout, '{', a case pattern) a command may follow.
+    inert = {'echo', 'printf', 'ln', 'test', '['}
+    for index, word in enumerate(words):
+        if word and all(c in '();&|' for c in word):
+            # A case pattern ends with ')', and NAME=$(...) can prefix a command.
+            expecting = True
+            wrapper, value = None, False
+            continue
+        if not expecting:
+            continue
+        if value:
+            value = False
+            continue
+        if wrapper and word.startswith('-'):
+            if wrapper == 'command' and word in {'-v', '-V'}:
+                expecting = False  # A lookup does not execute its argument.
+            value = word in wrapper_values[wrapper]
+            continue
+        if re.match(r'^[a-zA-Z_][a-zA-Z_0-9]*=', word):
+            continue
+        if word in {'if', 'elif', 'then', 'else', 'do', 'while', 'until', '!'}:
+            continue
+        executable = os.path.basename(word)
+        if executable in wrapper_values:
+            wrapper = executable
+            continue
+        yield index
+        expecting, wrapper = executable not in inert, None
+
+
 def web_services(script, compose):
     # Inspect the image case and actual startup separately: pulling an image
     # alone does not mean a service runs. Rust is conditional on route selection.
@@ -173,21 +214,37 @@ def web_services(script, compose):
             words = list(lexer)
         except ValueError as error:
             raise ValueError(f'shell tokenization failed at {location}: {error}') from error
-        for index, word in enumerate(words):
-            word = os.path.basename(word)
-            command = words[index + 1:]
-            # Finding a binary is not an invocation. Continue scanning so a
-            # later invocation on this same line is still checked.
-            if index >= 2 and words[index - 2:index] == ['command', '-v']:
+        for index in command_positions(words):
+            word = os.path.basename(words[index])
+            if word not in {'docker', 'docker-compose'}:
                 continue
+            command = words[index + 1:]
+            # Array definitions and substitutions terminate at shell punctuation.
+            stop = next((i for i, token in enumerate(command)
+                         if token and all(c in '();&|' for c in token)), len(command))
+            command = command[:stop]
+            if word == 'docker':
+                options = {'--context', '-c', '--host', '-H', '--config', '--log-level', '-l',
+                           '--tlscacert', '--tlscert', '--tlskey'}
+                while command and command[0].startswith('-'):
+                    option = command[0]
+                    if option in options:
+                        require(len(command) >= 2 and not command[1].startswith('-'),
+                                f'missing Docker option value at {location}')
+                        command = command[2:]
+                    elif '=' in option and option.split('=', 1)[0] in options:
+                        require(option.split('=', 1)[1], f'missing Docker option value at {location}')
+                        command = command[1:]
+                    elif option in {'--debug', '-D', '--tls', '--tlsverify',
+                                    '--version', '-v', '--help'}:
+                        # Docker can still run a subcommand after lookup options.
+                        command = command[1:]
+                    else:
+                        raise ValueError(f'unrecognized Docker option {option!r} at {location}')
             if word == 'docker-compose' or (word == 'docker' and command[:1] == ['compose']):
                 if word == 'docker':
                     command = command[1:]
-                # Array definitions and substitutions terminate at shell
-                # punctuation; global options precede the Compose subcommand.
-                stop = next((i for i, token in enumerate(command)
-                             if token and all(c in '();&|' for c in token)), len(command))
-                command = command[:stop]
+                # Global options precede the Compose subcommand.
                 options = {'-f', '--file', '--profile', '--env-file', '-p',
                            '--project-name', '--project-directory'}
                 while command:

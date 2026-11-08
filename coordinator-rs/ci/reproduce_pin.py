@@ -142,7 +142,7 @@ def locate(digest, root=ROOT):
                 'coordinator-rs/ci/inventory-v2.json', 'coordinator-rs/ci/replay-pins.json',
                 'coordinator-rs/evidence/python-requirements.txt', 'coordinator-rs/Cargo.lock',
                 'server/package-lock.json', 'Node 24', 'Docker Compose public TLS PostgreSQL fixture',
-                'unique COMPOSE_PROJECT_NAME; matching POLIS_RECOVERY_PG_PORT and RECOVERY_PG_PORT >=55432'],
+                'unique COMPOSE_PROJECT_NAME; matching POLIS_RECOVERY_PG_PORT and RECOVERY_PG_PORT admitted by ci/host_ports.py'],
             'locations': locations, 'origins': origins, 'targets': targets, 'source_targets': source_targets,
             'historical_limit': 'Explicit historical receipt/archive attribution is evidence-only; '
                 'the campaign produces new observations, not identical historical receipt bytes. '

@@ -41,15 +41,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install mkcert
-      run: |
-        # Install mkcert for certificate generation
-        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-        chmod +x mkcert-v*-linux-amd64
-        sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-        
-        # Install CA in system trust store
-        mkcert -install
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
@@ -78,7 +69,7 @@ jobs:
       working-directory: .
       env:
         COMPOSE_PROJECT_NAME: server-check-${{ github.run_id }}-${{ github.run_attempt }}
-        POLIS_RECOVERY_PG_PORT: '5432'
+        POLIS_RECOVERY_PG_PORT: '25432'
         POLIS_TEST_IMAGES_CACHE_FROM: type=gha,scope=polis-test-{image}
         GITHUB_EVENT_NAME: ${{ github.event_name }}
         CHECK_BASE_REF: origin/${{ github.base_ref }}

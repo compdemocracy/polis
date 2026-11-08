@@ -19,7 +19,7 @@ Choose a new project, unused loopback PG port and **new** results directory:
 
 ```sh
 COMPOSE_PROJECT_NAME=p027worker-mychange \
-POLIS_RECOVERY_PG_PORT=55881 RECOVERY_PG_PORT=55881 \
+POLIS_RECOVERY_PG_PORT=25881 RECOVERY_PG_PORT=25881 \
 python3 -B ci/probe_box/local/rehearse_worker.py \
   --results /absolute/private/worker-mychange
 ```
@@ -35,7 +35,7 @@ containing `reader.oci.tar`, `producer.oci.tar`, and `verifier.oci.tar`:
 
 ```sh
 COMPOSE_PROJECT_NAME=p027worker-census \
-POLIS_RECOVERY_PG_PORT=55882 RECOVERY_PG_PORT=55882 \
+POLIS_RECOVERY_PG_PORT=25882 RECOVERY_PG_PORT=25882 \
 python3 -B ci/probe_box/local/rehearse_worker.py \
   --results /absolute/private/worker-census \
   --archives /absolute/private/roles-census-release
@@ -63,7 +63,7 @@ and the existing generated participant/dense boundary cases:
 
 ```sh
 COMPOSE_PROJECT_NAME=p027worker-pipeline-review \
-POLIS_RECOVERY_PG_PORT=55556 RECOVERY_PG_PORT=55556 \
+POLIS_RECOVERY_PG_PORT=25556 RECOVERY_PG_PORT=25556 \
 python -B ci/probe_box/local/rehearse_worker.py --pipeline \
   --results /absolute/private/pipeline-review \
   --archives /absolute/private/paired-release \

@@ -25,12 +25,12 @@ jobs:
       OPENBLAS_NUM_THREADS: '1'
       OMP_NUM_THREADS: '1'
       COMPOSE_PROJECT_NAME: p027-rerecord-${{ github.run_id }}-${{ github.run_attempt }}
-      P027_PORT_MIN: '55930'
-      P027_PORT_MAX: '55939'
-      POLIS_RECOVERY_PG_PORT: '55930'
-      RECOVERY_PG_PORT: '55930'
-      P027_HTTP_PORT: '55931'
-      P027_CONTROL_PORT: '55932'
+      P027_PORT_MIN: '25930'
+      P027_PORT_MAX: '25939'
+      POLIS_RECOVERY_PG_PORT: '25930'
+      RECOVERY_PG_PORT: '25930'
+      P027_HTTP_PORT: '25931'
+      P027_CONTROL_PORT: '25932'
     steps:
       # Keep the job/accounting code from the dispatch separately from the target.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -72,6 +72,14 @@ jobs:
         env:
           P027_ACCOUNTING_REPO: ${{ github.workspace }}/target
         run: node --test ci/p027_dispatch_tools.test.cjs
+      - name: Free runner disk when short
+        working-directory: .
+        run: |
+          df -h /
+          if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+            df -h /
+          fi
       - name: Record, account, fresh replay, controls and repack
         working-directory: target
         run: bash ../control/ci/p027_rerecord.sh

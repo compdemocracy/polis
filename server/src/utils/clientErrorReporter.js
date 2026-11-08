@@ -1,6 +1,7 @@
 /* eslint-env browser */
 // Copied into each independently built client and the server. The parity test
 // keeps these dependency-free copies identical.
+// prettier-ignore
 void (function (root) {
   // Generated from the route census and static path table by ci/local/client-error-paths.cjs.
   var words =
@@ -27,6 +28,13 @@ void (function (root) {
       .replace(/^https?:\/\/[^/]+/i, '')
       .split(/[?#]/)[0]
     if (value.charAt(0) !== '/') return ''
+    // Only the public Twemoji files shipped with the admin client keep their names.
+    var emoji = value.match(/^\/twemoji\/14\.0\.2\/72x72\/([a-f0-9-]+)\.png$/)
+    var emojiNames =
+      '1f1fa-1f1f8 1f30d 1f30e 1f30f 1f3ce 1f44b 1f479 1f47e 1f4be 1f4d6 1f529 1f5de 2697 26a1 2764'.split(
+        ' '
+      )
+    if (emoji && emojiNames.indexOf(emoji[1]) !== -1) return value
     if (
       /^\/(?:_astro|js|static|assets)\/[A-Za-z0-9_./-]+\.(?:js|mjs|css)$/.test(value) ||
       /^\/report_(?:bundle|vendor)[A-Za-z0-9_.-]*\.js$/.test(value)
@@ -44,9 +52,11 @@ void (function (root) {
   function message(value, kind) {
     if (typeof value !== 'string') value = ''
     value = value.slice(0, 2048)
-    if (['Network error', 'SyntaxError: Invalid JSON'].indexOf(value) !== -1) return value
+    if (['Network error', 'SyntaxError: Invalid JSON', 'Script error.'].indexOf(value) !== -1)
+      return value
     var status = value.match(/\b(?:HTTP(?: error!? status:)?|status)\s*([1-5][0-9]{2})\b/i)
-    if (kind === 'fetch' || kind === 'xhr') return status ? 'HTTP ' + status[1] : 'Request failed'
+    if (kind === 'fetch' || kind === 'xhr')
+      return status ? 'HTTP ' + status[1] : 'Request failed'
     if (/Cannot read (?:properties|property) of (?:undefined|null)/.test(value))
       return (
         'TypeError: Cannot read properties of ' + (/of null/.test(value) ? 'null' : 'undefined')
@@ -64,25 +74,48 @@ void (function (root) {
     )
     return type ? type[1] : 'Error'
   }
-  function stack(value) {
+  function stack(value, page) {
     if (typeof value !== 'string') return ''
-    return value
-      .slice(0, 8192)
-      .split('\n')
-      .slice(0, 12)
-      .map(function (line) {
-        var frame = line.match(
-          /((?:https?:\/\/[^\s)]+|\/(?:_astro|js|static|assets)\/[^\s)]+|\/report_(?:bundle|vendor)[^\s)]+)):(\d{1,8}):(\d{1,8})\)?$/
-        )
-        if (!frame) return ''
-        var source = path(frame[1])
-        return source && source.indexOf(':id') === -1 && /\.(?:js|mjs)$/.test(source)
-          ? source + ':' + frame[2] + ':' + frame[3]
-          : ''
-      })
-      .filter(Boolean)
-      .join('\n')
-      .slice(0, 1024)
+    var lines = value.slice(0, 8192).split('\n').slice(0, 12)
+    var v8 = lines.some(function (line) { return /^\s*at /.test(line) })
+    var documentFrame = false
+    var scripts = lines.map(function (line) {
+      // Bound work before parsing, including on the server's event loop.
+      if (line.length > 1024) return ''
+      line = line.trim()
+      // Already projected document markers must survive receiver projection.
+      if (!v8 && line === page) {
+        documentFrame = true
+        return ''
+      }
+      if (line.indexOf('at ') === 0) {
+        line = line.slice(3)
+        var open = line.lastIndexOf('(')
+        if (open !== -1 && line.endsWith(')')) line = line.slice(open + 1, -1)
+      } else {
+        // V8 message lines are never frames, even when they end in a location.
+        if (v8) return ''
+        // Firefox function names may include '/', e.g. handleVote/<@URL.
+        var at = line.indexOf('@')
+        if (at >= 0 && !line.slice(0, at).includes(':'))
+          line = line.slice(at + 1)
+      }
+      // Anchored at the frame location: never search inside unsupported schemes
+      // or message text. A single URL scan and bounded numeric suffixes are linear.
+      var frame = line.match(/^((?:https?:\/\/|\/)[^\s()]+):(\d{1,8}):(\d{1,8})$/)
+      if (!frame) return ''
+      var source = path(frame[1])
+      if (source && source.indexOf(':id') === -1 && /\.(?:js|mjs)$/.test(source))
+        return source + ':' + frame[2] + ':' + frame[3]
+      // Server-rendered content can shift both line and column. Never transmit
+      // document coordinates, including those on apparently static pages.
+      if (source && source === page) documentFrame = true
+      return ''
+    }).filter(Boolean)
+    // The prelude's fetch/XHR wrappers live in the document. Excluding document
+    // frames whenever bundle frames exist keeps callers as the grouping location.
+    // Inline-only errors retain a page marker, with no content-dependent numbers.
+    return scripts.length ? scripts.join('\n').slice(0, 1024) : documentFrame ? page : ''
   }
   var kinds = [
     'error',
@@ -142,10 +175,11 @@ void (function (root) {
       page: path(input.page),
       kind: input.kind,
       message: message(input.message, input.kind).slice(0, 256),
-      stack: stack(input.stack),
+      stack: stack(input.stack, path(input.page)),
       resource: resourcePath(input.resource),
       method: network && methods.indexOf(method) !== -1 ? method : '',
-      status: network && input.status >= 0 && input.status <= 599 ? integer(input.status, 599) : 0,
+      status:
+        network && input.status >= 0 && input.status <= 599 ? integer(input.status, 599) : 0,
       duration_ms: network ? integer(input.duration_ms, 60000) : 0,
       signature: '',
       count: Math.max(1, integer(input.count, 1000))
@@ -288,8 +322,8 @@ void (function (root) {
               error && typeof error.message === 'string'
                 ? error.message
                 : typeof error === 'string'
-                  ? error
-                  : '',
+                ? error
+                : '',
             stack: error && typeof error.stack === 'string' ? error.stack : '',
             resource: resource,
             method: details.method,
@@ -330,7 +364,32 @@ void (function (root) {
             var target = event.target
             if (target && target !== win && target.tagName)
               report('resource', '', target.currentSrc || target.src || target.href)
-            else report('error', event.error || event.message, event.filename)
+            else {
+              var error = event.error
+              var frames = error && typeof error.stack === 'string' ? error.stack : ''
+              // A thrown primitive may have coordinates but no Error object.
+              // Use the browser's location; never invent a reporting-handler stack.
+              if (
+                !frames &&
+                typeof event.filename === 'string' &&
+                Number.isInteger(event.lineno) &&
+                event.lineno > 0 &&
+                event.lineno <= 99999999 &&
+                Number.isInteger(event.colno) &&
+                event.colno > 0 &&
+                event.colno <= 99999999
+              )
+                frames = event.filename + ':' + event.lineno + ':' + event.colno
+              report(
+                'error',
+                {
+                  message:
+                    error && typeof error.message === 'string' ? error.message : event.message,
+                  stack: frames
+                },
+                event.filename
+              )
+            }
           } catch {
             /* Optional event properties. */
           }
@@ -395,10 +454,10 @@ void (function (root) {
               typeof input === 'string'
                 ? input
                 : input && typeof input.url === 'string'
-                  ? input.url
-                  : input instanceof URL
-                    ? input.href
-                    : '',
+                ? input.url
+                : input instanceof URL
+                ? input.href
+                : '',
             method: (init && init.method) || (input && input.method) || 'GET'
           }
         } catch {

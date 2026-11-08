@@ -20,6 +20,8 @@ import sys
 import psycopg2
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "ci"))
+from host_ports import database_port as host_port
 
 import runpy
 apply_migration = runpy.run_path(str(ROOT / "server/bin/apply-test-migration.py"))["apply_migration"]
@@ -76,8 +78,9 @@ def public_census():
 
 class Boundary:
     def __init__(self, output, project, port):
-        if not re.fullmatch(r"[a-z][a-z0-9-]{7,62}", project) or not 55432 <= port <= 65000:
+        if not re.fullmatch(r"[a-z][a-z0-9-]{7,62}", project):
             raise ValueError("unique project and test port required")
+        host_port(port)
         if output.is_relative_to(ROOT):
             raise ValueError("output must be outside the checkout")
         output.mkdir(parents=True, exist_ok=False)

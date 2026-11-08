@@ -10,6 +10,40 @@ var _ = require("lodash");
 var urlPrefix = URLs.urlPrefix;
 var basePath = "";
 
+// Retry only the vote writer's explicit unknown receipt. Keep the serialized
+// body and identity headers fixed; a second unknown receipt is a failed vote.
+function postVote(config) {
+  var result = $.Deferred();
+  function send(retried) {
+    $.ajax(config)
+      .done(function (data, textStatus, xhr) {
+        if (xhr.status === 202) {
+          if (
+            !retried &&
+            data &&
+            Object.keys(data).length === 2 &&
+            data.acceptance === "unknown" &&
+            data.retry === "same_vote"
+          ) {
+            // Give the commit receipt a chance to arrive without a tight loop.
+            setTimeout(function () {
+              send(true);
+            }, 300);
+          } else {
+            result.reject(xhr, "error", "Vote acceptance is unknown");
+          }
+        } else {
+          result.resolve(data, textStatus, xhr);
+        }
+      })
+      .fail(function (xhr, textStatus, errorThrown) {
+        result.reject(xhr, textStatus, errorThrown);
+      });
+  }
+  send(false);
+  return result.promise();
+}
+
 function polisAjax(api, data, type, headers) {
   if (!_.isString(api)) {
     throw "api param should be a string";
@@ -60,12 +94,11 @@ function polisAjax(api, data, type, headers) {
       })
     );
   } else if ("POST" === type) {
-    promise = $.ajax(
-      $.extend(config, {
-        type: "POST",
-        data: JSON.stringify(data)
-      })
-    );
+    $.extend(config, {
+      type: "POST",
+      data: JSON.stringify(data)
+    });
+    promise = /^\/?api\/v3\/votes$/.test(api) ? postVote(config) : $.ajax(config);
   } else if ("PUT" === type) {
     promise = $.ajax(
       $.extend(config, {
@@ -85,7 +118,10 @@ function polisAjax(api, data, type, headers) {
 
   promise.fail(function (jqXHR, textStatus) {
     if (textStatus === "parsererror" && type === "GET" && /^\/?api\/v3\/(?:math\/pca2|comments)(?:[?#]|$)/.test(api)) {
-      reportClientFetch({ name: "SyntaxError", message: "SyntaxError: Invalid JSON" }, api.charAt(0) === "/" ? api : "/" + api);
+      reportClientFetch(
+        { name: "SyntaxError", message: "SyntaxError: Invalid JSON" },
+        api.charAt(0) === "/" ? api : "/" + api
+      );
     }
     if (403 === jqXHR.status) {
       eb.trigger(eb.authNeeded);

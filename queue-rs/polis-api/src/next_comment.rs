@@ -1,52 +1,25 @@
 //! Anonymous and existing-participant next-statement reads; unsupported identity, topical and translation work
 //! hands back to Node before admission. A separate pool and a short total
 //! deadline keep this hop from queuing behind slower API routes.
+#[cfg(test)]
+use crate::js;
 use crate::{
     comments, db,
     http::{Outgoing, Request},
-    js::{self, Js, Obj},
+    js::{Js, Obj},
     params,
     route::{self, App, Res},
 };
 use anyhow::{Result, bail};
 use postgres::Client;
-use std::{sync::Mutex, time::Duration};
+use std::time::{Duration, Instant};
 
-pub(crate) struct Priorities(Mutex<crate::lru::Lru<i32, (f64, Js)>>);
-impl Priorities {
-    pub(crate) fn new(size: usize) -> Self {
-        Self(Mutex::new(crate::lru::Lru::new(size)))
-    }
-    pub(crate) fn read(&self, c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
-        let cached = self
-            .0
-            .lock()
-            .map_err(|_| anyhow::anyhow!("priority cache lock"))?
-            .get(&zid);
-        if let Some((_, data)) = cached.filter(|(until, _)| *until > crate::clock::now_ms()) {
-            return Ok(Some(data));
-        }
-        let data = db::math_main(c, zid, env)?
-            .filter(|m| m.math_tick >= 0)
-            .map(|m| js::parse(&m.data))
-            .transpose()?;
-        if data.as_ref().is_some_and(|d| d.as_obj().is_none()) {
-            bail!("unsupported math shape");
-        }
-        if let Some(data) = &data {
-            self.0
-                .lock()
-                .map_err(|_| anyhow::anyhow!("priority cache lock"))?
-                .set(zid, (crate::clock::now_ms() + 3000.0, data.clone()));
-        }
-        Ok(data)
-    }
-}
+pub(crate) use crate::next_priorities::Priorities;
 
 pub const PATH: &str = "/api/v3/nextComment";
 const REJECTED_COMMENT_MOD: i32 = -1;
 const ANONYMOUS_PARTICIPANT_ID: i32 = -1;
-const DEADLINE: Duration = Duration::from_millis(75);
+pub(crate) const DEADLINE: Duration = Duration::from_millis(75);
 pub(crate) fn pool_limits() -> db::Limits {
     db::Limits {
         size: 2,
@@ -156,6 +129,7 @@ pub(crate) fn select(tids: &[i32], priorities: Option<&Obj>, unit: f64) -> Resul
         .ok_or_else(|| anyhow::anyhow!("no weighted candidate"))?;
     Ok((selected, random))
 }
+#[cfg(all(test, feature = "db-tests"))]
 fn read(
     c: &mut Client,
     q: Query,
@@ -163,6 +137,26 @@ fn read(
     unit: f64,
     cache: &Priorities,
     identity: Option<polis_auth::participant::Verified>,
+) -> Result<Option<Js>> {
+    read_until(
+        c,
+        q,
+        math_env,
+        unit,
+        cache,
+        identity,
+        Instant::now() + DEADLINE,
+    )
+}
+#[allow(clippy::too_many_arguments)]
+fn read_until(
+    c: &mut Client,
+    q: Query,
+    math_env: &str,
+    unit: f64,
+    cache: &Priorities,
+    identity: Option<polis_auth::participant::Verified>,
+    deadline: Instant,
 ) -> Result<Option<Js>> {
     let Some(zid) = db::zid_for_conversation_id(c, &q.cid)? else {
         return Ok(None);
@@ -214,7 +208,7 @@ fn read(
     // Node awaits its parallel math/count reads even when the candidate list
     // is empty. Preserve failure handoff instead of manufacturing an empty 200.
     let data = if q.initial.is_none() {
-        cache.read(c, zid, math_env)?
+        cache.read_until(c, zid, math_env, deadline)?
     } else {
         None
     };
@@ -239,7 +233,7 @@ fn read(
     } else {
         if data
             .as_ref()
-            .and_then(Js::as_obj)
+            .and_then(|data| data.as_obj())
             .and_then(|o| o.get("comment-priorities"))
             .is_some_and(|v| matches!(v, Js::Arr(_)))
         {
@@ -247,9 +241,9 @@ fn read(
         }
         let priorities = data
             .as_ref()
-            .and_then(Js::as_obj)
+            .and_then(|data| data.as_obj())
             .and_then(|o| o.get("comment-priorities"))
-            .and_then(Js::as_obj);
+            .and_then(|data| data.as_obj());
         let (i, r) = select(&tids, priorities, unit)?;
         (i, Some(r))
     };
@@ -300,9 +294,10 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let math_env = app.math_env.clone();
     let unit = draw(req);
     let cache = app.next_comment_priorities.clone();
+    let deadline = Instant::now() + DEADLINE;
     match tokio::time::timeout(
         DEADLINE,
-        pool.with(move |c| read(c, q, &math_env, unit, &cache, identity)),
+        pool.with(move |c| read_until(c, q, &math_env, unit, &cache, identity, deadline)),
     )
     .await
     {
@@ -450,7 +445,7 @@ mod tests {
             old,
             "cached weights must survive until expiry"
         );
-        cache.0.lock().unwrap().set(1, (0.0, old.clone().unwrap()));
+        cache.expire(1, "test");
         assert_ne!(
             cache.read(&mut c, 1, "test").unwrap(),
             old,
@@ -549,6 +544,7 @@ mod tests {
             math_env: "test".into(),
             cache_size: 10,
             pca_cache_size: 10,
+            pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
             dev_mode: true,
             use_network_host: false,
             production: true,
@@ -871,3 +867,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "next_priority_tests.rs"]
+mod priority_tests;

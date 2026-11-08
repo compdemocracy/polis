@@ -153,11 +153,43 @@ function caseDelta(before, after, compare) {
   for (const id of a.keys()) if (!b.has(id)) result.removed.push(id);
   return result;
 }
-const routeKey = (r) => JSON.stringify([r.registrationIndex, r.method]);
+function routeOccurrences(routes) {
+  // Validate census rows separately from the identity used for attribution.
+  indexed(routes, (r) => JSON.stringify([r.registrationIndex, r.method]));
+  const counts = new Map(),
+    rows = new Map();
+  for (const r of routes) {
+    const pair = JSON.stringify([r.method, r.path]);
+    const occurrence = counts.get(pair) || 0;
+    counts.set(pair, occurrence + 1);
+    rows.set(JSON.stringify([r.method, r.path, occurrence]), r);
+  }
+  return { counts, rows };
+}
 function censusDelta(before, after, attribute) {
   if (!before.ready || !after.ready) throw Error("census not ready");
-  const a = indexed(before.routes, routeKey),
-    b = indexed(after.routes, routeKey);
+  const oldRoutes = routeOccurrences(before.routes),
+    newRoutes = routeOccurrences(after.routes);
+  const mismatches = [];
+  for (const [pair, count] of oldRoutes.counts) {
+    const current = newRoutes.counts.get(pair);
+    // Entirely new/removed pairs are reported below, with no attribution.
+    if (current !== undefined && current !== count) {
+      const [method, routePath] = JSON.parse(pair);
+      mismatches.push(
+        `${method} ${routePath} (archive ${count}, run ${current})`
+      );
+    }
+  }
+  // The archive has no callback names to disambiguate inserted/removed repeats.
+  // Refuse before attributing anything; equal counts pair by occurrence only.
+  // An equal-count replacement or reorder within a pair is reported as callback
+  // changes at those occurrences, not as added, removed or reordered. It can be
+  // eligible only if attribution succeeds.
+  if (mismatches.length)
+    throw Error(`route occurrence count changed: ${mismatches.join("; ")}`);
+  const a = oldRoutes.rows,
+    b = newRoutes.rows;
   const result = {
     before: a.size,
     after: b.size,
@@ -177,7 +209,11 @@ function censusDelta(before, after, attribute) {
     }
     const old = a.get(id);
     const shape = (x) => {
-      const { ordered_callback_fingerprints: _fingerprints, ...rest } = x;
+      const {
+        registrationIndex: _registrationIndex,
+        ordered_callback_fingerprints: _fingerprints,
+        ...rest
+      } = x;
       return rest;
     };
     if (

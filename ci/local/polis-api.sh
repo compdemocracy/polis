@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/vendor_postgres.py"
+python3 -m unittest discover -s "$CHECK_ROOT/ci" -p test_vendor_postgres.py -v
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT
 GITHUB_SHA="${GITHUB_SHA:-$(git rev-parse --verify HEAD)}"
 export GITHUB_SHA
  : "${POLIS_API_TEST_DATABASE_URL:?provide an isolated PostgreSQL 17 database}"
@@ -8,9 +11,10 @@ export POLIS_API_TEST_IMAGE="${POLIS_API_TEST_IMAGE:-polis-api:ci}"
 export IMPORTANCE_API_IMAGE="${IMPORTANCE_API_IMAGE:-$POLIS_API_TEST_IMAGE}"
 export POLIS_VERSION_SERVER_IMAGE="${POLIS_VERSION_SERVER_IMAGE:-polis-version-server:ci}"
 export IMPORTANCE_PROJECT="${IMPORTANCE_PROJECT:-statement-importance-ci}"
-export IMPORTANCE_PG_PORT="${IMPORTANCE_PG_PORT:-55463}"
-export IMPORTANCE_API_PORT="${IMPORTANCE_API_PORT:-55464}"
-export IMPORTANCE_OFF_PORT="${IMPORTANCE_OFF_PORT:-55465}"
+export IMPORTANCE_PG_PORT="${IMPORTANCE_PG_PORT:-25463}"
+export IMPORTANCE_API_PORT="${IMPORTANCE_API_PORT:-25464}"
+export IMPORTANCE_OFF_PORT="${IMPORTANCE_OFF_PORT:-25465}"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT
 check_project "$IMPORTANCE_PROJECT"
 
 
@@ -32,9 +36,15 @@ check_project "$IMPORTANCE_PROJECT"
 
 (
   cd "$CHECK_ROOT/queue-rs"
-  export POLIS_API_TEST_DATABASE_URL="${POLIS_API_TEST_DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/polis_api_test}"
-  export POLIS_AUTH_TEST_DATABASE_URL="${POLIS_AUTH_TEST_DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/polis_api_test}"
+  export POLIS_API_TEST_DATABASE_URL
+  export POLIS_AUTH_TEST_DATABASE_URL
+  # Keep aggregate test pools below PostgreSQL's default connection limit.
+  # Pin this here so local and hosted checks use the same database budget.
+  export RUST_TEST_THREADS=2
   cargo test --locked -p polis-api --features db-tests
+  # Compare timely replies with full selections from the same run. Execute
+  # the optimized queue test in both local and hosted CI.
+  cargo test --release --locked -p polis-api --features db-tests sustained_votes_keep_delivering -- --nocapture
 )
 
 (

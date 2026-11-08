@@ -74,8 +74,19 @@ for sums and time bins.
 ## Compare across builds
 
 The queries above retain precise report signatures. Browser deduplication keeps
-line and column, stripping only the filename's content hash. Different errors
+bundle line and column, stripping only the filename's content hash. Different errors
 in one minified bundle therefore remain separate log events and default rows.
+
+Inline-only reports instead carry a projected page marker without line or column:
+server-rendered content can change both. These markers cannot identify an inline
+source statement and do not split when preload sizes or template offsets change.
+Distinct inline-only bugs in the same category on one page share one signature: the browser sends the first occurrence and counts the rest.
+On `/:id` pages, single-segment third-party script frames (including analytics and Cloudflare) show the same page marker as our inline code.
+When bundle frames exist, they take precedence over document frames, including
+inline fetch/XHR wrappers. Historic reports keep their stored signatures; compare
+changed categories across deployment by client, kind, error message and page.
+The broader query below includes only content-hashed bundles; it excludes document
+markers (and any older document-coordinate records).
 
 For an explicit broader view of content-hashed bundles in Logs Insights:
 

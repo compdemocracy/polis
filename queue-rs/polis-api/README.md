@@ -154,12 +154,29 @@ replaced), `POLIS_API_LISTEN`
 (`127.0.0.1:5100`; the image uses `0.0.0.0:5100`). `GET /health` reports
 database reachability and counts; it is not routed by nginx.
 
-`POLIS_API_PCA_CACHE_ENTRIES` sets the per-process capacity of each PCA math
-and presentation cache (default 300; a positive integer). Blank uses the
-default; invalid values prevent startup. `CACHE_MATH_RESULTS=false` keeps
-both at one entry regardless of that setting. Other route caches retain
-their existing capacities. This is an entry-count limit, not a byte limit;
-large conversations use more memory, and entries leave through LRU eviction.
+`POLIS_API_PCA_CACHE_ENTRIES` (default 300; positive integer) and
+`POLIS_API_PCA_CACHE_BYTES` (default 201326592, or 192 MiB; nonnegative integer)
+bound one per-process LRU cache of conversations, each holding its latest math
+and presentation bodies. Blank settings use their defaults; invalid values
+refuse startup. `CACHE_MATH_RESULTS=false` limits it to one conversation while
+the byte bound still applies. Other route caches retain their existing limits.
+
+The byte charge counts parsed object capacities, gzip bodies, allocation padding
+and entry metadata; shared math/presentation storage is counted once. It is not
+process RSS: active responses, temporary builds and allocator retention are
+outside this budget. The default leaves 320 MiB of a 512 MiB container for those
+and other process memory, without guaranteeing a resident-memory ceiling.
+Conversations leave in least-recently-used order until both bounds hold. An
+oversized conversation is served without retaining it; an oversized presentation
+also drops its source. `0` retains no bodies, so every request reads the full math
+row, parses and rebuilds it, including gzip. Very small budgets repeatedly rebuild
+larger conversations; sets just above either limit can miss on every cyclic poll.
+A byte setting above the container memory limit is accepted silently: container
+limits are external to configuration parsing, and such an override can remove
+memory protection. Choose explicit overrides with room for memory outside the
+cache. `/health.pcaCache` reports entries, accounted bytes, both limits, and
+cumulative entry/byte evictions and oversized admissions.
+
 The cache keeps only the latest generation per conversation and math
 environment. It ignores cache-busting query parameters. After three seconds,
 a reusable row is checked against its committed `math_tick`; an unchanged
@@ -206,7 +223,7 @@ cd queue-rs
 cargo fmt -p polis-api --check
 cargo clippy --locked -p polis-api --all-targets -- -D warnings
 cargo test --locked -p polis-api
-POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/scratch \
+POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:25462/scratch \
   cargo test --locked -p polis-api --features db-tests   # a throwaway Postgres
 cd ..
 queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
@@ -216,8 +233,8 @@ docker build --build-arg FEATURES=fixture-clock -t x54pca2-polis-api:conformance
   -f queue-rs/polis-api/Dockerfile .
 docker build -t x54pca2-postgres:local -f server/Dockerfile-db server
 COMPOSE_PROJECT_NAME=p027x54pca2-$(openssl rand -hex 3) \
-P027_PORT_MIN=55479 P027_PORT_MAX=55481 POLIS_RECOVERY_PG_PORT=55479 \
-P027_HTTP_PORT=55480 P027_CONTROL_PORT=55481 \
+P027_PORT_MIN=25479 P027_PORT_MAX=25481 POLIS_RECOVERY_PG_PORT=25479 \
+P027_HTTP_PORT=25480 P027_CONTROL_PORT=25481 \
   queue-rs/polis-api/conformance/run.sh result.json
 ```
 
@@ -384,7 +401,16 @@ Node's visibility rules, created-only ordering, 999-candidate cap, zero-weight
 fallback, `randomN`, initial status, count semantics and empty translations.
 The initial branch retains Node's negative participant sentinel in eligibility
 reads; it never resolves or creates a participant. Committed math priorities
-have a bounded three-second process-local cache. Independent process caches
+have a bounded three-second process-local cache keyed by math environment and
+conversation. On expiry, one database exchange checks the committed tick and
+returns only `data->'comment-priorities'` when it differs. An unchanged tick
+renews the existing parsed allocation. Concurrent admitted reads share one
+refresh and its success, absence or failure; errors and absent rows are not
+cached. A joiner waits at most the acquisition plus statement budget (51 ms),
+and never beyond its remaining 75 ms handler deadline. Sharing happens inside
+the existing next-statement pool lease: a caller refused by pool admission
+never joins a flight, and a joiner retains its own slot while waiting. No
+other route or pool uses these flights. Independent process caches
 and concurrent database publications can observe different generations; static
 fixture byte proof is not a concurrent-publication equivalence claim.
 
@@ -1360,7 +1386,7 @@ mode as they are in Node. No handler, schema, writer or production setting chang
 
 Conformance with locally built Node, migrated Postgres and fixture-clock API images:
 ```sh
-COMPOSE_PROJECT_NAME=topics-proof POLIS_RECOVERY_PG_PORT=58241 \
+COMPOSE_PROJECT_NAME=topics-proof POLIS_RECOVERY_PG_PORT=28241 \
 DELPHI_TOPICS_PG_NODE_IMAGE=topics-node:local \
 DELPHI_TOPICS_PG_POSTGRES_IMAGE=topics-postgres:local \
 DELPHI_TOPICS_PG_API_IMAGE=topics-api:local \

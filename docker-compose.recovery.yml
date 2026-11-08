@@ -15,6 +15,6 @@
 services:
   postgres:
     ports: !override
-      - "${POLIS_RECOVERY_PG_PORT:-55432}:5432"
+      - "${POLIS_RECOVERY_PG_PORT:-25432}:5432"
     tmpfs:
       - /var/lib/postgresql/data

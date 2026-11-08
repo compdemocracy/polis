@@ -53,6 +53,10 @@ pub struct App {
     pub conversation_page_dbs: [Option<Arc<Pool>>; 1],
     pub conversation_page_served: [AtomicU64; 1],
     pub conversation_page_fallback: [AtomicU64; 1],
+    pub report_comments_db: Option<Arc<Pool>>,
+    pub report_comments_auth_db: Option<Arc<Pool>>,
+    pub report_comments_served: AtomicU64,
+    pub report_comments_fallback: AtomicU64,
     pub moderation_comments_db: Option<Arc<Pool>>,
     pub moderation_comments_auth_db: Option<Arc<Pool>>,
     pub moderation_comments_served: AtomicU64,
@@ -292,6 +296,10 @@ impl App {
             conversation_page_dbs: std::array::from_fn(|_| None),
             conversation_page_served: std::array::from_fn(|_| AtomicU64::new(0)),
             conversation_page_fallback: std::array::from_fn(|_| AtomicU64::new(0)),
+            report_comments_db: None,
+            report_comments_auth_db: None,
+            report_comments_served: AtomicU64::new(0),
+            report_comments_fallback: AtomicU64::new(0),
             moderation_comments_db: None,
             moderation_comments_auth_db: None,
             moderation_comments_served: AtomicU64::new(0),
@@ -514,7 +522,12 @@ impl App {
             production: cfg.production,
             topic_selection_writer: None,
             cors: Cors::from_env(),
-            pca: Pca::new(db.clone(), cfg.math_env.clone(), cfg.pca_cache_size),
+            pca: Pca::with_budget(
+                db.clone(),
+                cfg.math_env.clone(),
+                cfg.pca_cache_size,
+                cfg.pca_cache_bytes,
+            ),
             db,
             zids: Mutex::new(Lru::new(1000)),
             served: AtomicU64::new(0),
@@ -1145,21 +1158,32 @@ pub fn bad_gateway() -> Outgoing {
 
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
-    let (mut out, cache) = crate::pca::CACHE_OUTCOME
-        .scope(std::cell::Cell::new("none"), async {
-            let mut out = serve(&app, &req).await;
-            // A refresh may land between the entry guard and an older route's
-            // Option-based verifier. Never let that refusal turn into fallback.
-            if out.status == 502
-                && let Some(raw) = req.headers.get("authorization")
-                && crate::revocation::refusal(&app, raw, (crate::clock::now_ms() / 1000.0) as u64)
+    let observation = Arc::new(crate::db_connect::Observation::default());
+    let (mut out, cache) = crate::db_connect::OBSERVATION
+        .scope(
+            observation.clone(),
+            crate::pca::CACHE_OUTCOME.scope(std::cell::Cell::new("none"), async {
+                let mut out = serve(&app, &req).await;
+                // A refresh may land between the entry guard and an older route's
+                // Option-based verifier. Never let that refusal turn into fallback.
+                if out.status == 502
+                    && let Some(raw) = req.headers.get("authorization")
+                    && crate::revocation::refusal(
+                        &app,
+                        raw,
+                        (crate::clock::now_ms() / 1000.0) as u64,
+                    )
                     .is_some()
-            {
-                let origin = app.cors.resolve(&req.headers).ok().flatten();
-                out = crate::treevite_codes::session_revoked(&req, default_head(origin.as_deref()));
-            }
-            (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
-        })
+                {
+                    let origin = app.cors.resolve(&req.headers).ok().flatten();
+                    out = crate::treevite_codes::session_revoked(
+                        &req,
+                        default_head(origin.as_deref()),
+                    );
+                }
+                (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
+            }),
+        )
         .await;
     if req.path() == crate::domain_whitelist::PATH {
         if out.status == 502 {
@@ -1191,6 +1215,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.conversation_page_fallback[page.index()].fetch_add(1, Ordering::Relaxed);
         } else {
             app.conversation_page_served[page.index()].fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    if req.path() == crate::report_comments::PATH {
+        if out.status == 502 {
+            app.report_comments_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.report_comments_served.fetch_add(1, Ordering::Relaxed);
         }
     }
     if req.path() == crate::moderation_comments::PATH {
@@ -1596,14 +1627,28 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     } else {
         app.served.fetch_add(1, Ordering::Relaxed);
     }
-    access_log(&app, &req, out.status, started.elapsed(), cache);
+    access_log(
+        &app,
+        &req,
+        out.status,
+        started.elapsed(),
+        cache,
+        &observation,
+    );
     out
 }
 
 /// One line per request, in the shape family of the Node server's
 /// `http_request` log (`middleware_http_json_logger`). The path only: no
 /// query string, no headers, nothing a credential could ride in.
-fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, cache: &str) {
+fn access_log(
+    app: &App,
+    req: &Request,
+    status: u16,
+    took: std::time::Duration,
+    cache: &str,
+    observation: &crate::db_connect::Observation,
+) {
     let level = match status {
         500.. => "error",
         400.. => "warn",
@@ -1625,7 +1670,20 @@ fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, 
         Js::Num((took.as_secs_f64() * 1000.0 * 1000.0).round() / 1000.0),
     );
     line.set("cache", Js::Str(cache.into()));
-    println!("{}", js::stringify(&Js::Obj(line)));
+    let setup = observation.snapshot();
+    let mut line = js::stringify(&Js::Obj(line));
+    // Append after the existing keys, preserving their order and encoding.
+    // String formatting keeps milliseconds numeric with exactly three decimals.
+    line.pop();
+    use std::fmt::Write;
+    let _ = write!(
+        line,
+        ",\"db_connect\":{{\"count\":{},\"failed\":{},\"ms\":{:.3},\"in_flight\":{}}}}}",
+        setup.count, setup.failed, setup.ms, setup.in_flight,
+    );
+    #[cfg(test)]
+    db_connect_tests::record(&line);
+    println!("{line}");
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
@@ -1763,6 +1821,12 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::conversation_pages::matches(req.path())
         && crate::conversation_pages::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
+    if req.path() == crate::report_comments::PATH
+        && crate::report_comments::parse(app, req)
+            == Err(crate::report_comments::ParseError::Handback)
     {
         return bad_gateway();
     }
@@ -2120,6 +2184,9 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     if crate::conversation_pages::matches(req.path()) {
         return crate::conversation_pages::handle(app, req, res).await;
     }
+    if req.path() == crate::report_comments::PATH {
+        return crate::report_comments::handle(app, req, res).await;
+    }
     if req.path() == crate::moderation_comments::PATH {
         return crate::moderation_comments::handle(app, req, res).await;
     }
@@ -2462,6 +2529,7 @@ mod tests {
             math_env: "p".into(),
             cache_size: 300,
             pca_cache_size: 300,
+            pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
             dev_mode,
             use_network_host: false,
             production: true,
@@ -4465,6 +4533,49 @@ mod tests {
                 0
             );
         }
+    }
+
+    #[tokio::test]
+    async fn report_comments_switch_and_boundaries() {
+        let mut state = app(true);
+        let make = || {
+            let mut req = request("GET", &[("host", "localhost")]);
+            req.target =
+                "/api/v3/comments/report?conversation_id=generated&report_id=rGenerated&mod_gt=-2"
+                    .into();
+            req
+        };
+        assert_eq!(handle(state.clone(), make()).await.status, 502);
+        let pool = state.db.clone();
+        Arc::get_mut(&mut state).unwrap().report_comments_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().report_comments_auth_db = Some(pool);
+        assert!(crate::report_comments::parse(&state, &make()).is_ok());
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&lang=fr", vec![]),
+            ("GET", "&translate=true", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let mut req = request(method, &extra);
+            req.target = format!("{}{tail}", make().target);
+            assert_eq!(
+                crate::report_comments::parse(&state, &req),
+                Err(crate::report_comments::ParseError::Handback)
+            );
+            assert_eq!(handle(state.clone(), req).await.status, 502);
+        }
+        let mut req = make();
+        req.body = vec![1];
+        assert_eq!(
+            crate::report_comments::parse(&state, &req),
+            Err(crate::report_comments::ParseError::Handback)
+        );
+        let mut req = make();
+        req.target.push_str("&report_id=again");
+        assert_eq!(handle(state.clone(), req).await.status, 400);
     }
 
     #[tokio::test]
@@ -7056,3 +7167,7 @@ mod tests {
 #[cfg(all(test, feature = "db-tests"))]
 #[path = "startup_pools_tests.rs"]
 mod startup_pools_tests;
+
+#[cfg(test)]
+#[path = "db_connect_tests.rs"]
+mod db_connect_tests;

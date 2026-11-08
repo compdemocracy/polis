@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT COORDINATOR_TLS_PORT
 check_node 24.22.1
 check_python
 # The source snapshot and historical attribution require a real Git checkout.
 git rev-parse --verify HEAD >/dev/null
 git ls-files --error-unmatch coordinator-rs/ci/run.py >/dev/null
 : "${COMPOSE_PROJECT_NAME:?choose a unique Compose project}"
-: "${POLIS_RECOVERY_PG_PORT:?choose a free port >= 55432}"
+: "${POLIS_RECOVERY_PG_PORT:?choose a free host port}"
 : "${COORDINATOR_TLS_PROJECT:?choose a unique coordinator-tls- project}"
-: "${COORDINATOR_TLS_PORT:?choose a different free port >= 55432}"
+: "${COORDINATOR_TLS_PORT:?choose a different free host port}"
 : "${COORDINATOR_OUT:?choose a new output directory outside the checkout}"
 case "$COMPOSE_PROJECT_NAME" in
   ''|*[!a-z0-9-]*) echo 'Invalid Compose project' >&2; exit 2 ;;
@@ -20,13 +21,11 @@ esac
 case "$COORDINATOR_TLS_PROJECT" in
   *[!a-z0-9-]*) echo 'Invalid TLS project' >&2; exit 2 ;;
 esac
-for port in "$POLIS_RECOVERY_PG_PORT" "$COORDINATOR_TLS_PORT"; do
-  case "$port" in ''|*[!0-9]*) echo 'Invalid test port' >&2; exit 2 ;; esac
-  [ "$port" -ge 55432 ] && [ "$port" -le 65535 ] || exit 2
-done
+python3 "$CHECK_ROOT/ci/host_ports.py" database-ports "$POLIS_RECOVERY_PG_PORT" "$COORDINATOR_TLS_PORT"
 [ "$POLIS_RECOVERY_PG_PORT" != "$COORDINATOR_TLS_PORT" ] || exit 2
 [ "$COMPOSE_PROJECT_NAME" != "$COORDINATOR_TLS_PROJECT" ] || exit 2
 export RECOVERY_PG_PORT="$POLIS_RECOVERY_PG_PORT"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT COORDINATOR_TLS_PORT
 export COMPOSE_PROJECT_NAME POLIS_RECOVERY_PG_PORT PYTHONDONTWRITEBYTECODE=1
 # Refuse an occupied project before registering teardown; never adopt a stack.
 for project in "$COMPOSE_PROJECT_NAME" "$COORDINATOR_TLS_PROJECT"; do

@@ -40,7 +40,7 @@ and port, and a new output directory outside the checkout:
 
 ```sh
 COMPOSE_PROJECT_NAME=p027-d07-boundary-example \
-POLIS_RECOVERY_PG_PORT=56227 RECOVERY_PG_PORT=56227 \
+POLIS_RECOVERY_PG_PORT=26227 RECOVERY_PG_PORT=26227 \
 python -B coordinator-rs/tools/d07/boundary.py --output /tmp/p027-d07-boundary-example
 ```
 
@@ -143,8 +143,8 @@ measurements and cleanup. The additional vote is not a public-battery cut.
 
 ```sh
 export COMPOSE_PROJECT_NAME=p027-d07-startup-example
-export POLIS_RECOVERY_PG_PORT=56600
-export RECOVERY_PG_PORT=56600
+export POLIS_RECOVERY_PG_PORT=26600
+export RECOVERY_PG_PORT=26600
 python -B coordinator-rs/tools/d07/startup_campaign.py --output /tmp/p027-d07-startup-example
 ```
 
@@ -219,7 +219,7 @@ remains OPERATOR_NOT_EVALUATED; full-contract admission remains FAIL.
 
 ```sh
 export COMPOSE_PROJECT_NAME=p027-d07-public-example
-export POLIS_RECOVERY_PG_PORT=56700 RECOVERY_PG_PORT=56700
+export POLIS_RECOVERY_PG_PORT=26700 RECOVERY_PG_PORT=26700
 python -B coordinator-rs/tools/d07/campaign.py --profile all --controls \
   --output /tmp/p027-d07-public-example
 ```

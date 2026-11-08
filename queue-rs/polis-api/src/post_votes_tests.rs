@@ -22,7 +22,6 @@ fn unsupported_shapes_are_handed_back_before_identity_or_database_work() {
         "{}",
         "[]",
         r#"{"conversation_id":"a","xid":"external"}"#,
-        r#"{"conversation_id":"a","pid":0}"#,
         r#"{"conversation_id":"a","unknown":true}"#,
         r#"{"conversation_id":"a/b"}"#,
     ] {
@@ -48,15 +47,33 @@ mod database {
     use postgres::NoTls;
     use std::sync::Barrier;
 
+    // Ordinary vote fixtures share this lock through database teardown. Timing
+    // fixtures take it exclusively before creating their database, keeping
+    // other fixtures' migrations and database drops out of their measurements.
+    static FIXTURE_LOCK: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
     /// A separately owned database uses the published table definitions and
     /// rule, rather than mocking the append or latest-state SQL.
     pub(super) struct Database {
+        _fixture_lock: Box<dyn std::any::Any>,
         admin: Client,
         name: String,
         pub(super) config: postgres::Config,
     }
     impl Database {
         pub(super) fn new(label: &str) -> Self {
+            Self::create(
+                label,
+                Box::new(FIXTURE_LOCK.read().unwrap_or_else(|e| e.into_inner())),
+            )
+        }
+        pub(super) fn exclusive(label: &str) -> Self {
+            Self::create(
+                label,
+                Box::new(FIXTURE_LOCK.write().unwrap_or_else(|e| e.into_inner())),
+            )
+        }
+        fn create(label: &str, fixture_lock: Box<dyn std::any::Any>) -> Self {
             let mut config: postgres::Config = std::env::var("POLIS_API_TEST_DATABASE_URL")
                 .unwrap()
                 .parse()
@@ -79,6 +96,7 @@ mod database {
             admin.batch_execute(&create).unwrap();
             config.dbname(&name);
             let db = Self {
+                _fixture_lock: fixture_lock,
                 admin,
                 name,
                 config,
@@ -165,6 +183,9 @@ mod database {
             pid: 0,
             uid: 1,
             active: true,
+            _priority_lease: None,
+            priorities: Arc::default(),
+            follow_on: Arc::new(FollowOnLane::default()),
         }
     }
 
@@ -305,6 +326,7 @@ pub(super) struct DispatchState {
     pub(super) acquire_alarms: u64,
     pub(super) receipt: Option<Arc<Mutex<Option<AcceptedVote>>>>,
     pub(super) notification_scheduled: bool,
+    pub(super) selection_started: bool,
 }
 
 #[cfg(feature = "db-tests")]
@@ -345,4 +367,104 @@ fn observing_dispatch<T>(observation: &DispatchObservation, poll: impl FnOnce() 
     });
     let _clear = Clear;
     poll()
+}
+
+#[test]
+fn vote_admission_discards_body_identity_hints_without_changing_fields() {
+    let body = serde_json::json!({
+        "conversation_id": "2fixture", "tid": 7, "vote": crate::votes::WIRE_AGREE,
+        "starred": true, "high_priority": true
+    });
+    let (_, original) = request(&req(&body.to_string())).unwrap();
+    for hint in [
+        serde_json::json!(0),
+        serde_json::json!(-1),
+        serde_json::json!(999),
+        serde_json::json!("untrusted"),
+        serde_json::Value::Null,
+        serde_json::json!({"nested": [true]}),
+    ] {
+        let mut with_hints = body.clone();
+        with_hints["pid"] = hint.clone();
+        with_hints["agid"] = hint;
+        let (cid, parsed) = request(&req(&with_hints.to_string())).unwrap();
+        assert_eq!(cid, "2fixture");
+        assert_eq!(parsed.parse_fields(), original.parse_fields());
+        assert_eq!(
+            serde_json::to_value(parsed).unwrap(),
+            serde_json::to_value(&original).unwrap()
+        );
+    }
+}
+
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_translation_tests.rs"]
+mod translations;
+
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_candidate_tests.rs"]
+mod candidates;
+
+#[test]
+fn vote_language_startup_requires_provider_off() {
+    const CHILD: &str = "POLIS_VOTE_LANGUAGE_STARTUP_TEST";
+    if std::env::var(CHILD).ok().as_deref() == Some("1") {
+        let result = Writer::from_env();
+        if std::env::var("SHOULD_USE_TRANSLATION_API").ok().as_deref() == Some("false") {
+            assert!(result.unwrap().is_some());
+        } else {
+            let error = result.err().expect("provider must be explicitly off");
+            assert!(
+                error.to_string().contains("SHOULD_USE_TRANSLATION_API"),
+                "{error}"
+            );
+        }
+        return;
+    }
+    let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+    let dir = std::env::temp_dir().join(format!("vote-language-startup-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let key = dir.join("public.pem");
+    std::fs::write(&key, rsa.public_key_to_pem().unwrap()).unwrap();
+    for setting in [
+        None,
+        Some(""),
+        Some("true"),
+        Some("1"),
+        Some("yes"),
+        Some("on"),
+        Some("unknown"),
+        Some("false"),
+    ] {
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+        child
+            .args([
+                "--exact",
+                "post_votes::tests::vote_language_startup_requires_provider_off",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env(CHILD, "1")
+            .env("POLIS_API_POST_VOTES", "1")
+            .env("TOPICAL_COMMENT_RATIO", "0")
+            .env(
+                "POLIS_API_POST_VOTES_DATABASE_URL",
+                "postgres://postgres@127.0.0.1:9/postgres",
+            )
+            .env("POLIS_API_DB_TRANSPORT", "loopback")
+            .env("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE", &key)
+            .env("POLIS_JWT_ISSUER", "fixture")
+            .env("POLIS_JWT_AUDIENCE", "fixture");
+        if let Some(setting) = setting {
+            child.env("SHOULD_USE_TRANSLATION_API", setting);
+        }
+        let result = child.output().unwrap();
+        assert!(
+            result.status.success(),
+            "setting={setting:?}\n{}\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
 }

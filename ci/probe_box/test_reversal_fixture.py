@@ -24,13 +24,13 @@ class ReversalControls(unittest.TestCase):
         self.receipt['controls']=controls(self.job)
         self.census=self.receipt['census']
         self.conn=Mock()
-        self.conn.get_dsn_parameters.return_value={'host':'127.0.0.1','dbname':'probe_test','port':'55548'}
+        self.conn.get_dsn_parameters.return_value={'host':'127.0.0.1','dbname':'probe_test','port':'25548'}
         self.conn.get_transaction_status.return_value=0
 
     def test_remote_or_unowned_coordinates_refused_before_sql(self):
-        for key,value in [('host','db.example.invalid'),('host','/tmp'),('dbname','other'),('port','5432'),('port','bad')]:
+        for key,value in [('host','db.example.invalid'),('host','/tmp'),('dbname','other'),('port','5432'),('port','32768'),('port','bad')]:
             with self.subTest(key=key,value=value):
-                self.conn.get_dsn_parameters.return_value={'host':'127.0.0.1','dbname':'probe_test','port':'55548',key:value}
+                self.conn.get_dsn_parameters.return_value={'host':'127.0.0.1','dbname':'probe_test','port':'25548',key:value}
                 with self.assertRaisesRegex(ValueError,'^REVERSAL_ISOLATED_PG17_REQUIRED$'):
                     restore(self.conn,self.receipt,self.job,settings_presence=True)
         self.conn.cursor.assert_not_called()

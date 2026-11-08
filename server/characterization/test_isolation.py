@@ -16,8 +16,8 @@ HERE = Path(__file__).resolve().parent
 
 
 def fixture(**updates):
-    env = dict(COMPOSE_PROJECT_NAME='p027-review-a1', POLIS_RECOVERY_PG_PORT='55930',
-               P027_HTTP_PORT='55931', P027_CONTROL_PORT='55932')
+    env = dict(COMPOSE_PROJECT_NAME='p027-review-a1', POLIS_RECOVERY_PG_PORT='25930',
+               P027_HTTP_PORT='25931', P027_CONTROL_PORT='25932')
     env.update(updates)
     return env
 
@@ -36,14 +36,14 @@ class IsolationTest(unittest.TestCase):
 
     def test_defaults_and_no_input_mutation(self):
         env = fixture(RECOVERY_PG_PORT='9999')
-        self.assertEqual(isolated_environment(env)['RECOVERY_PG_PORT'], '55930')
+        self.assertEqual(isolated_environment(env)['RECOVERY_PG_PORT'], '25930')
         self.assertEqual(env['RECOVERY_PG_PORT'], '9999')
 
     def test_review_window_no_longer_requires_source_patch(self):
-        env = fixture(COMPOSE_PROJECT_NAME='p027r5-e44', P027_PORT_MIN='55920',
-                      P027_PORT_MAX='55929', POLIS_RECOVERY_PG_PORT='55921',
-                      P027_HTTP_PORT='55922', P027_CONTROL_PORT='55923')
-        self.assertEqual(isolated_environment(env)['RECOVERY_PG_PORT'], '55921')
+        env = fixture(COMPOSE_PROJECT_NAME='p027r5-e44', P027_PORT_MIN='25920',
+                      P027_PORT_MAX='25929', POLIS_RECOVERY_PG_PORT='25921',
+                      P027_HTTP_PORT='25922', P027_CONTROL_PORT='25923')
+        self.assertEqual(isolated_environment(env)['RECOVERY_PG_PORT'], '25921')
 
     def test_invalid_projects(self):
         for project in ['', 'prod', 'p027', 'p027-', 'p027-review-', 'p027/a1']:
@@ -51,10 +51,10 @@ class IsolationTest(unittest.TestCase):
                 isolated_environment(fixture(COMPOSE_PROJECT_NAME=project))
 
     def test_invalid_ports_and_bounds(self):
-        for update in [dict(P027_HTTP_PORT='55930'), dict(P027_CONTROL_PORT='55940'),
+        for update in [dict(P027_HTTP_PORT='25930'), dict(P027_CONTROL_PORT='25940'),
                        dict(P027_HTTP_PORT=''), dict(P027_HTTP_PORT='nan'),
-                       dict(P027_PORT_MIN='1'), dict(P027_PORT_MAX='65536'),
-                       dict(P027_PORT_MIN='55940'), dict(P027_PORT_MAX='55931')]:
+                       dict(P027_PORT_MIN='0'), dict(P027_PORT_MAX='65536'),
+                       dict(P027_PORT_MIN='25940'), dict(P027_PORT_MAX='25931')]:
             with self.subTest(update=update), self.assertRaises(RuntimeError):
                 isolated_environment(fixture(**update))
         for key in ['POLIS_RECOVERY_PG_PORT', 'P027_HTTP_PORT', 'P027_CONTROL_PORT']:
@@ -62,6 +62,12 @@ class IsolationTest(unittest.TestCase):
             del env[key]
             with self.subTest(missing=key), self.assertRaises(RuntimeError):
                 isolated_environment(env)
+
+    def test_database_default_is_refused_in_an_otherwise_valid_window(self):
+        with self.assertRaisesRegex(RuntimeError, "other than 5432"):
+            isolated_environment(fixture(P027_PORT_MIN="5432", P027_PORT_MAX="5434",
+                                         POLIS_RECOVERY_PG_PORT="5432",
+                                         P027_HTTP_PORT="5433", P027_CONTROL_PORT="5434"))
 
     def test_both_real_entrypoints_fail_before_side_effects(self):
         for script in ['run.py', 'seed-pca2.py']:

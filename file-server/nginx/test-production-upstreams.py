@@ -299,6 +299,112 @@ printf 'location /example { proxy_pass http://%s; }' "$RUST_API_UPSTREAM" > "$1/
                     with self.assertRaisesRegex(ValueError, 'direct container startup at line 1:'):
                         web_services(f'{executable} {command}\n' + HOOK, COMPOSE)
 
+    def test_heredoc_quote_does_not_continue_a_comment_to_startup(self):
+        for quote in ['"', "'"]:
+            with self.subTest(quote=quote):
+                prefix = f'cat <<EOF\nsay {quote}hi\nEOF\n# previous form: docker run --rm \\\n'
+                with self.assertRaisesRegex(ValueError, 'direct container startup at line 5:'):
+                    web_services(prefix + 'sudo docker run -d file-server-image\n' + HOOK, COMPOSE)
+
+    def test_binary_paths_in_arguments_are_not_commands(self):
+        for line in [
+            'sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose',
+            'echo "using /usr/local/bin/docker-compose" >&2',
+            'echo /usr/local/bin/docker-compose up -d file-server',
+            'echo sudo docker-compose up -d file-server',
+            'env LABEL=docker-compose echo docker-compose up -d file-server',
+            'echo docker run -d file-server-image',
+        ]:
+            with self.subTest(line=line):
+                self.assertEqual(web_services(line + '\n' + HOOK, COMPOSE),
+                                 {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_commands_after_wrappers_and_shell_operators_are_checked(self):
+        for prefix, suffix in [
+            ('', ''), ('sudo ', ''), ('env MODE=test ', ''),
+            ('sudo -u root env MODE=test ', ''), ('MODE=test ', ''),
+            ('command -- ', ''), ('echo done; ', ''), ('echo done && ', ''),
+            ('echo done || ', ''), ('echo done | ', ''), ('echo done & ', ''),
+            ('(', ')'), ('X=$(', ')'),
+            ('if [ "$OPTIONAL" = 1 ]; then ', '; fi'),
+        ]:
+            for command, message in [
+                ('/usr/local/bin/docker-compose up -d file-server', 'direct Compose command'),
+                ('/usr/bin/docker run -d file-server-image', 'direct container startup'),
+            ]:
+                with self.subTest(prefix=prefix, command=command):
+                    with self.assertRaisesRegex(ValueError, message + ' at line 1:'):
+                        web_services(prefix + command + suffix + '\n' + HOOK, COMPOSE)
+
+    def test_docker_global_options_do_not_hide_compose_startup(self):
+        for options in ['--context default', '-c default', '--context=default',
+                        '--host unix:///tmp/docker.sock', '-H unix:///tmp/docker.sock',
+                        '--config /tmp/config', '--log-level debug', '-l debug',
+                        '--context default --host=unix:///tmp/docker.sock']:
+            for executable in ['sudo docker', 'env MODE=test /usr/bin/docker']:
+                with self.subTest(options=options, executable=executable):
+                    prefix = f'{executable} {options} compose -f a.yml '
+                    with self.assertRaisesRegex(ValueError, 'direct Compose command at line 1:'):
+                        web_services(prefix + 'up -d file-server\n' + HOOK, COMPOSE)
+                    self.assertEqual(web_services(prefix + 'config --quiet\n' + HOOK, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_docker_global_options_do_not_hide_container_startup(self):
+        for options in ['--context default', '--host=unix:///tmp/docker.sock',
+                        '--config /tmp/config --log-level debug']:
+            with self.subTest(options=options):
+                prefix = f'sudo docker {options} '
+                for command in ['run -d file-server-image', 'container start file-server']:
+                    with self.assertRaisesRegex(ValueError, 'direct container startup at line 1:'):
+                        web_services(prefix + command + '\n' + HOOK, COMPOSE)
+                self.assertEqual(web_services(prefix + 'run --rm migration-image\n' + HOOK, COMPOSE),
+                                 {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_commands_after_other_prefixes_are_checked(self):
+        for prefix, suffix in [
+            ('case "$MODE" in on) ', ' ;; esac'),
+            ('case "$MODE" in\n  on) ', ' ;;\nesac'),
+            ('TAG=$(cat tag) ', ''), ('{ ', '; }'),
+            ('exec ', ''), ('nohup ', ''), ('time ', ''), ('timeout 600 ', ''),
+            ('nice -n 5 ', ''), ('sudo -nu root ', ''), ('>/dev/null ', ''),
+        ]:
+            for command, message in [
+                ('/usr/local/bin/docker-compose up -d file-server', 'direct Compose command'),
+                ('/usr/bin/docker run -d file-server-image', 'direct container startup'),
+            ]:
+                with self.subTest(prefix=prefix, command=command):
+                    number = 2 if '\n' in prefix else 1
+                    with self.assertRaisesRegex(ValueError, message + f' at line {number}:'):
+                        web_services(prefix + command + suffix + '\n' + HOOK, COMPOSE)
+
+    def test_docker_lookups_start_nothing(self):
+        for line in ['sudo docker --version', 'docker -v', 'docker --help >/dev/null']:
+            with self.subTest(line=line):
+                self.assertEqual(web_services(line + '\n' + HOOK, COMPOSE),
+                                 {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_docker_lookup_options_do_not_hide_a_subcommand(self):
+        for option in ['--version', '-v', '--help']:
+            for command, message in [
+                ('run -d file-server-image', 'direct container startup'),
+                ('container start file-server', 'direct container startup'),
+                ('compose up -d file-server', 'direct Compose command'),
+                ('--context default compose up -d file-server', 'direct Compose command'),
+            ]:
+                with self.subTest(option=option, command=command):
+                    with self.assertRaisesRegex(ValueError, message + ' at line 1:'):
+                        web_services(f'sudo docker {option} {command}\n' + HOOK, COMPOSE)
+            for command in ['run --rm migration-image', 'compose config --quiet']:
+                with self.subTest(option=option, command=command):
+                    self.assertEqual(web_services(f'docker {option} {command}\n' + HOOK, COMPOSE),
+                                     {'server', 'nginx-proxy', 'polis-api'})
+
+    def test_docker_global_options_require_values(self):
+        for option in ['--context', '-c', '--host', '-H', '--config', '--log-level', '-l']:
+            with self.subTest(option=option):
+                with self.assertRaisesRegex(ValueError, 'missing Docker option value at line 1:'):
+                    web_services(f'COMPOSE=(sudo docker {option})\n' + HOOK, COMPOSE)
+
     def test_function_header_spacing_and_keyword(self):
         for header in ['worker_daemon () {', 'worker_daemon\t() {',
                        'function worker_daemon {', 'function worker_daemon() {',

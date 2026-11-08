@@ -1,5 +1,9 @@
 """Shared host/seed isolation checks; no Docker or database side effects."""
 import re
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ci"))
+from host_ports import DEFAULT_WINDOW, database_port, port as host_port
 
 PORT_KEYS = ("POLIS_RECOVERY_PG_PORT", "P027_HTTP_PORT", "P027_CONTROL_PORT")
 
@@ -14,12 +18,15 @@ def isolated_environment(environ):
         value = env.get(key, default)
         if not isinstance(value, str) or not re.fullmatch(r"[0-9]+", value):
             raise RuntimeError(f"{key} must be an explicit decimal port")
-        return int(value)
+        try:
+            return (database_port if key == "POLIS_RECOVERY_PG_PORT" else host_port)(value, key)
+        except ValueError as error:
+            raise RuntimeError(str(error)) from error
 
-    low = port("P027_PORT_MIN", "55930")
-    high = port("P027_PORT_MAX", "55939")
-    if not 55432 <= low <= high <= 65535 or high - low < 2:
-        raise RuntimeError("P027_PORT_MIN/MAX must allow at least three ports in 55432..65535")
+    low = port("P027_PORT_MIN", str(DEFAULT_WINDOW[0]))
+    high = port("P027_PORT_MAX", str(DEFAULT_WINDOW[1]))
+    if high - low < 2:
+        raise RuntimeError("P027_PORT_MIN/MAX must allow at least three host ports")
     ports = [port(key) for key in PORT_KEYS]
     if len(set(ports)) != 3 or any(p < low or p > high for p in ports):
         raise RuntimeError(f"set three distinct host ports in {low}..{high}")

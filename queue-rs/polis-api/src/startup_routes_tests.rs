@@ -25,6 +25,7 @@ fn app() -> Arc<route::App> {
         math_env: "python".into(),
         cache_size: 1,
         pca_cache_size: 1,
+        pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
         dev_mode: true,
         use_network_host: false,
         production: true,

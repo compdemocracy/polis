@@ -16,6 +16,8 @@ pub struct Config {
     pub cache_size: usize,
     /// Per-process PCA math and presentation cache capacities.
     pub pca_cache_size: usize,
+    /// Shared budget for retained PCA math and presentation bodies.
+    pub pca_cache_bytes: usize,
     pub dev_mode: bool,
     pub use_network_host: bool,
     pub production: bool,
@@ -51,6 +53,13 @@ fn pca_cache_size(cache: Option<&str>, capacity: Option<&str>) -> Result<usize> 
     } else {
         1
     })
+}
+
+fn pca_cache_bytes(value: Option<&str>) -> Result<usize> {
+    match value.filter(|v| !v.is_empty()) {
+        None => Ok(crate::pca::DEFAULT_CACHE_BYTES),
+        Some(v) => v.parse::<usize>().context("POLIS_API_PCA_CACHE_BYTES"),
+    }
 }
 
 impl Config {
@@ -101,6 +110,7 @@ impl Config {
             math_env,
             cache_size,
             pca_cache_size,
+            pca_cache_bytes: pca_cache_bytes(env("POLIS_API_PCA_CACHE_BYTES").as_deref())?,
             dev_mode: is_true(std::env::var("DEV_MODE").ok().as_deref()),
             use_network_host: is_true(std::env::var("USE_NETWORK_HOST").ok().as_deref()),
             production: std::env::var("NODE_ENV").ok().as_deref() == Some("production"),
@@ -203,6 +213,22 @@ fn docker_internal(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pca_byte_budget_defaults_overrides_and_invalid_values() {
+        assert_eq!(pca_cache_bytes(None).unwrap(), 192 * 1024 * 1024);
+        assert_eq!(pca_cache_bytes(Some("")).unwrap(), 192 * 1024 * 1024);
+        assert_eq!(pca_cache_bytes(Some("0")).unwrap(), 0);
+        assert_eq!(pca_cache_bytes(Some("1024")).unwrap(), 1024);
+        // Deployment memory limits are external; an explicit larger budget is accepted.
+        assert_eq!(
+            pca_cache_bytes(Some("1073741824")).unwrap(),
+            1024 * 1024 * 1024
+        );
+        for invalid in ["-1", "1.5", "abc", "18446744073709551616"] {
+            assert!(pca_cache_bytes(Some(invalid)).is_err());
+        }
+    }
 
     #[test]
     fn pca_capacity_defaults_overrides_and_disabled_cache() {

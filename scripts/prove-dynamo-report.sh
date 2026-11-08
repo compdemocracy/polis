@@ -17,7 +17,8 @@ proof_prefix="${DYNAMO_PROOF_CONTAINER_PREFIX:-dynamo-proof-${COMPOSE_PROJECT_NA
 [[ "$proof_prefix" == dynamo-proof-* ]]
 proof_server="$proof_prefix-server"
 proof_web="$proof_prefix-web"
-proof_port="${DYNAMO_PROOF_PORT:-58244}"
+proof_port="${DYNAMO_PROOF_PORT:-28244}"
+python3 "$repo_root/ci/host_ports.py" database-ports "$proof_port"
 proof_image="${DYNAMO_PROOF_SERVER_IMAGE:-$proof_prefix:server}"
 mkdir -p "$DYNAMO_PROOF_OUTPUT"
 # Each invocation owns these exact names. Refuse to replace existing processes.

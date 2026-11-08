@@ -54,4 +54,17 @@ describe('self-contained admin client', () => {
       .filter((src) => !fs.existsSync(path.join(publicDir, src)))
     expect(missing).toEqual([])
   })
+
+  it('keeps the emoji graphics licence beside the images it covers', () => {
+    const twemojiDir = path.join(publicDir, 'twemoji')
+    const versions = fs.readdirSync(twemojiDir)
+    expect(versions).toEqual(['14.0.2'])
+    for (const version of versions) {
+      const licence = fs.readFileSync(path.join(twemojiDir, version, 'LICENSE.txt'), 'utf8')
+      expect(licence).toContain('Twitter, Inc and other contributors')
+      expect(licence).toContain('https://creativecommons.org/licenses/by/4.0/')
+      expect(licence).toContain('Attribution 4.0 International')
+      expect(fs.readdirSync(path.join(twemojiDir, version))).toEqual(['72x72', 'LICENSE.txt'])
+    }
+  })
 })

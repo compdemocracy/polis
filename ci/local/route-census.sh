@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
 check_node 22.23.4
 
 (
@@ -14,13 +15,8 @@ node server/characterization/check-inventory.cjs
 : "${P027_HTTP_PORT:?choose a free HTTP port}"
 : "${P027_CONTROL_PORT:?choose a free control port}"
 export RECOVERY_PG_PORT="$POLIS_RECOVERY_PG_PORT"
-for name in POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT; do
-  value="${!name}"
-  if [[ ! "$value" =~ ^[1-9][0-9]{0,4}$ ]] || (( 10#$value >= 49152 )); then
-    echo "$name must be an integer from 1 to 49151 on every platform; this shared test-port policy avoids macOS ephemeral IPv6 collisions with IPv4 Docker publications (Linux ephemeral ranges can differ)" >&2
-    exit 2
-  fi
-done
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P027_PORT_MIN P027_PORT_MAX
+python3 "$CHECK_ROOT/ci/host_ports.py" ports "$POLIS_RECOVERY_PG_PORT" "$P027_HTTP_PORT" "$P027_CONTROL_PORT"
 if [ "$POLIS_RECOVERY_PG_PORT" = "$P027_HTTP_PORT" ] ||
    [ "$POLIS_RECOVERY_PG_PORT" = "$P027_CONTROL_PORT" ] ||
    [ "$P027_HTTP_PORT" = "$P027_CONTROL_PORT" ]; then

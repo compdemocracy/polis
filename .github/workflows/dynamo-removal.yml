@@ -3,6 +3,8 @@ name: Dynamo removal
 on:
   pull_request:
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'ci/local/**'
       - 'Makefile'
       - 'delphi/**'
@@ -28,8 +30,8 @@ jobs:
     timeout-minutes: 150
     env:
       COMPOSE_PROJECT_NAME: polis-graph-test-dynamo-${{ github.run_id }}-${{ github.run_attempt }}
-      POLIS_RECOVERY_PG_PORT: '55449'
-      RECOVERY_PG_PORT: '55449'
+      POLIS_RECOVERY_PG_PORT: '25449'
+      RECOVERY_PG_PORT: '25449'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -40,6 +42,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.23.4"
+      - name: Free runner disk when short
+        working-directory: .
+        run: |
+          df -h /
+          if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+            df -h /
+          fi
       - name: Run dynamo-removal checks
         run: make check-dynamo-removal
         working-directory: .

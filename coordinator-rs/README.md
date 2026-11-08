@@ -321,14 +321,14 @@ compose project name and port that are yours alone so two runs never collide
 alongside someone else's:
 
 ```sh
-COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
+COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=25458 RECOVERY_PG_PORT=25458 \
   docker compose -f coordinator-rs/compose.yml up -d --wait
 
-POLIS_TEST_POSTGRES_URL=postgresql://postgres@127.0.0.1:55458/p026 \
+POLIS_TEST_POSTGRES_URL=postgresql://postgres@127.0.0.1:25458/p026 \
   PYTHONPATH=delphi PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
   python -m pytest -o addopts='' --confcutdir=delphi/tests/coordinator delphi/tests/coordinator -q
 
-COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
+COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=25458 RECOVERY_PG_PORT=25458 \
   docker compose -f coordinator-rs/compose.yml down -v
 ```
 
@@ -390,7 +390,7 @@ project, port and output directory (the output must be outside the checkout):
 
 ```sh
 COMPOSE_PROJECT_NAME=coordinator-local-unique \
-POLIS_RECOVERY_PG_PORT=55492 RECOVERY_PG_PORT=55492 \
+POLIS_RECOVERY_PG_PORT=25492 RECOVERY_PG_PORT=25492 \
 python coordinator-rs/ci/run.py --output /tmp/coordinator-campaign-unique
 ```
 

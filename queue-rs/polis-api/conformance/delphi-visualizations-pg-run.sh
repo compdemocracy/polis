@@ -3,6 +3,7 @@
 # Requires three local images (Node, migration Postgres, fixture-clock polis-api).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env POLIS_RECOVERY_PG_PORT
 out=${1:?provide a results JSON path}
 : "${COMPOSE_PROJECT_NAME:?set a unique project}"
 : "${POLIS_RECOVERY_PG_PORT:?set a unique port}"

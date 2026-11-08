@@ -92,6 +92,9 @@ fn read_case(expires: u64, lock: bool, expected: Option<&str>, kind: &str) {
     let mut request = None;
     while start.elapsed() < Duration::from_secs(5) {
         if let Ok((mut socket, _)) = listener.accept() {
+            // Accepted sockets can inherit nonblocking mode. Wait for request data
+            // within the read timeout instead of racing the client's first write.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();

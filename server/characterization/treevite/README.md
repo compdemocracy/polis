@@ -77,8 +77,8 @@ loopback ports:
 
 ```sh
 export COMPOSE_PROJECT_NAME=p027treevite-$(openssl rand -hex 4)
-export P027_PORT_MIN=56585 P027_PORT_MAX=56587
-export POLIS_RECOVERY_PG_PORT=56585 P027_HTTP_PORT=56586 P027_CONTROL_PORT=56587
+export P027_PORT_MIN=26585 P027_PORT_MAX=26587
+export POLIS_RECOVERY_PG_PORT=26585 P027_HTTP_PORT=26586 P027_CONTROL_PORT=26587
 export P027_POSTGRES_IMAGE=treevite-postgres:local
 bash server/characterization/treevite/run.sh
 ```

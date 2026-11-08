@@ -55,7 +55,28 @@ pub fn array_index(key: &str) -> Option<u32> {
     }
 }
 
+/// Conservative allocation charge: capacity, 16-byte rounding, and space for
+/// allocator metadata. This measures retained storage, not process RSS.
+pub(crate) fn allocation_bytes(capacity: usize) -> usize {
+    if capacity == 0 {
+        0
+    } else {
+        (capacity.saturating_add(15) / 16 * 16).saturating_add(32)
+    }
+}
+
 impl Obj {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.entries.iter().fold(
+            allocation_bytes(self.entries.capacity() * std::mem::size_of::<(String, Js)>()),
+            |total, (key, value)| {
+                total
+                    .saturating_add(allocation_bytes(key.capacity()))
+                    .saturating_add(value.retained_bytes())
+            },
+        )
+    }
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -110,6 +131,18 @@ impl Obj {
 }
 
 impl Js {
+    fn retained_bytes(&self) -> usize {
+        match self {
+            Self::Str(s) => allocation_bytes(s.capacity()),
+            Self::Arr(a) => a.iter().fold(
+                allocation_bytes(a.capacity() * std::mem::size_of::<Self>()),
+                |total, value| total.saturating_add(value.retained_bytes()),
+            ),
+            Self::Obj(o) => o.retained_bytes(),
+            Self::Null | Self::Bool(_) | Self::Num(_) => 0,
+        }
+    }
+
     pub fn as_obj(&self) -> Option<&Obj> {
         match self {
             Js::Obj(o) => Some(o),
@@ -330,6 +363,7 @@ impl Parser<'_> {
             Some(b'{') => {
                 self.i += 1;
                 let mut obj = Obj::new();
+                let mut positions = std::collections::HashMap::<String, usize>::new();
                 self.ws();
                 if self.peek() == Some(b'}') {
                     self.i += 1;
@@ -342,12 +376,23 @@ impl Parser<'_> {
                     self.expect(b':')?;
                     self.ws();
                     let v = self.value(depth + 1)?;
-                    obj.set(&key, v);
+                    // Accumulate without scanning earlier properties. Duplicate
+                    // keys replace their first slot; numeric ordering is applied
+                    // once, after the object has been read.
+                    if let Some(&at) = positions.get(&key) {
+                        obj.entries[at].1 = v;
+                    } else {
+                        positions.insert(key.clone(), obj.entries.len());
+                        obj.entries.push((key, v));
+                    }
                     self.ws();
                     match self.peek() {
                         Some(b',') => self.i += 1,
                         Some(b'}') => {
                             self.i += 1;
+                            obj.entries.sort_by_key(|(key, _)| {
+                                array_index(key).map_or(u64::MAX, u64::from)
+                            });
                             return Ok(Js::Obj(obj));
                         }
                         _ => bail!("expected , or }} at {}", self.i),
@@ -567,6 +612,21 @@ mod tests {
 
     fn round(text: &str) -> String {
         stringify(&parse(text).unwrap())
+    }
+
+    #[test]
+    fn retained_storage_counts_unused_capacity_and_nested_allocations() {
+        let mut text = String::with_capacity(1024);
+        text.push('x');
+        let mut array = Vec::with_capacity(16);
+        array.push(Js::Str(text));
+        let value = Js::Arr(array);
+        assert!(value.retained_bytes() >= 1024 + 16 * std::mem::size_of::<Js>());
+        assert_eq!(Js::Null.retained_bytes(), 0);
+        assert_eq!(Js::Arr(Vec::new()).retained_bytes(), 0);
+        let mut obj = Obj::new();
+        obj.set("nested", value);
+        assert!(obj.retained_bytes() > 1024 + 16 * std::mem::size_of::<Js>());
     }
 
     #[test]

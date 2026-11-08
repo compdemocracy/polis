@@ -102,7 +102,7 @@ fn cast(
         timeout,
         saved.as_ref().map(|s| s.token.clone()),
     )?
-    .request("POST", "/api/v3/votes", &[], Some(body), true)
+    .submit_vote(body)
     .map_err(safe_error)?;
     let issued = participation::issued_token(&data, true).map_err(|_| invalid(true))?;
     // Retain a valid issued credential even if another receipt field is malformed:

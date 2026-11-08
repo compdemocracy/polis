@@ -2,6 +2,8 @@ name: Production importer
 on:
   pull_request:
     paths:
+      - 'ci/host_ports.py'
+      - 'ci/test_host_ports.py'
       - 'delphi/**'
       - 'queue-rs/**'
       - 'server/postgres/**'
@@ -21,12 +23,20 @@ jobs:
     timeout-minutes: 60
     env:
       COMPOSE_PROJECT_NAME: polis-import-test-${{ github.run_id }}-${{ github.run_attempt }}
-      POLIS_RECOVERY_PG_PORT: '55461'
-      RECOVERY_PG_PORT: '55461'
+      POLIS_RECOVERY_PG_PORT: '25461'
+      RECOVERY_PG_PORT: '25461'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Free runner disk when short
+        working-directory: .
+        run: |
+          df -h /
+          if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+            df -h /
+          fi
       - name: Prove one-shot importer against local DynamoDB
         run: bash scripts/test-production-import.sh
       - name: Retain generated aggregate proof

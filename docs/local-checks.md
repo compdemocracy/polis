@@ -31,7 +31,7 @@ check. No command reduces the test selection or changes an assertion.
 | Delphi characterization | `make check-delphi-characterization` | Node 22.23.4, Python 3.12, PostgreSQL 17.11, DynamoDB Local |
 | Nginx production upstreams | `make check-nginx-upstreams` | Python 3.12, gettext envsubst |
 | Routing recordings | `make check-routing-recordings` | Node 22.23.4, PostgreSQL 17.11 |
-| Route census | `make check-route-census` | Node 22.23.4, Docker; owned Compose project, three distinct ports below 49152 and server/PostgreSQL/OIDC image tags |
+| Route census | `make check-route-census` | Node 22.23.4, Docker; owned Compose project, three distinct ports below 32768 and server/PostgreSQL/OIDC image tags |
 | Server integration | `make check-server-integration` | Node 22.23.4, Python 3, mkcert, Docker |
 | Delphi result reads | `make check-delphi-result-reads` | Node 24.22.1, pinned Rust, Docker |
 | Delphi writers | `make check-dynamo-writers` | pinned Rust, Docker |
@@ -79,7 +79,7 @@ all route fields. It then starts the characterization server and runs
 `cli.cjs coverage` against its mounted routes. Set `COMPOSE_PROJECT_NAME`,
 `POLIS_RECOVERY_PG_PORT`, `P027_HTTP_PORT`, `P027_CONTROL_PORT`,
 `P027_SERVER_IMAGE`, `P027_POSTGRES_IMAGE` and `P027_OIDC_IMAGE` as in
-`route-census.yml`, using owned names and distinct ports below 49152 on every
+`route-census.yml`, using owned names and distinct ports below 32768 on every
 platform. Readiness and database connections stay on the internal Docker network;
 any host-side database probes must use `127.0.0.1`. The target removes its Compose
 services and volumes on exit.
@@ -104,6 +104,17 @@ names; on a shared Docker host supply unique values. Before any tests or builds,
 the API job derives `GITHUB_SHA` from the full checked-out commit using Git
 when it is unset or empty; an explicitly supplied hosted SHA is preserved.
 Local runs therefore need a real Git checkout or an explicit `GITHUB_SHA`.
+
+The API entry point pins `RUST_TEST_THREADS=2` for its full Rust test suite,
+overriding any inherited value for that step. Local and hosted runs both use
+`make check-polis-api`. Each database test can open several pools: on a 14-core
+host, sampling `pg_stat_activity` every 100 ms measured peaks of 70 client
+connections at default parallelism and 14 to 30 at two threads across repeats,
+including one sampler connection, against PostgreSQL's default limit of 100.
+These are sampled peaks, not upper bounds. At a shell open-file limit of 256,
+default parallelism also fails tests with "Too many open files"; two threads pass. Two threads leave headroom without requiring a larger test
+database; test selection, assertions and concurrency within each test are unchanged.
+
 CLI differential needs
 its `CLI_DIFF_*_IMAGE` variables and an independent `SETUP_ADMISSION_PROJECT`.
 Mixed identity uses all six `MIXED_*_PORT` / `POLIS_MIXED_WORKER_PORT` values.
@@ -127,10 +138,16 @@ check and v1 ratchet remain required. TLS is a twelve-image matrix: set one
 every leg. The server leg also runs the backup-package tests.
 
 Server integration needs an owned `RUNNER_TEMP`, `POLIS_TEST_IMAGE_TAG`,
-Compose project and database port. It generates certificates and edits only
+Compose project and database port. When `RUNNER_ENVIRONMENT=github-hosted`,
+the shared entry point installs mkcert from the signed Ubuntu package
+repositories with three download retries and trusts its CA. A failed package
+index update or install stops setup with an error naming the failed step.
+There is no GitHub release download. Local and self-hosted runs use the
+existing mkcert and leave host trust stores unchanged.
+It generates certificates and edits only
 the disposable checkout's test environment. Other service ports follow the
-existing test stack. Choose published ports below 49152 (for example 45000–48999);
-the entrypoint refuses any published Compose port at or above 49152 before
+existing test stack. Choose published ports below 32768 (for example 20000–29999);
+the entrypoint refuses any published Compose port at or above 32768 before
 setup. macOS can allocate an IPv6 ephemeral socket on a port already held by
 an IPv4 container forwarder, sending database connections to a test listener
 or back to themselves. The test database URLs use `127.0.0.1` to reach the
@@ -139,6 +156,14 @@ override too. It retains the original 60-iteration readiness loop,
 contract generation check, migration check and Jest arguments. A redundant,
 nonfatal AWS CLI localhost diagnostic is omitted; Dynamo readiness still uses
 the same HTTP request. No cloud account is needed.
+
+For E2E, the shared entry point installs mkcert from the signed Ubuntu package
+repositories when `RUNNER_ENVIRONMENT=github-hosted`, with three
+package-download retries, and trusts its CA there. Package failures stop setup
+with an error naming the failed apt step. It does not download a GitHub release.
+The distribution's mkcert 1.4.4 supports the DNS names and IP addresses used by
+the test certificates. Local and self-hosted runs use the existing mkcert and
+leave host trust stores unchanged.
 
 For E2E use an exclusive host with the fixed stack ports free. Set
 `E2E_CHECK_PROJECT` and `E2E_CHECK_OUT` per shard, and leave `E2E_CHECK_KEEP`
@@ -185,7 +210,7 @@ The coordinator workflow deliberately keeps its literal inline work steps:
 its existing required-job control asserts those commands. The matching local
 target additionally requires `COORDINATOR_TLS_PROJECT` (a unique
 `coordinator-tls-` name), `COORDINATOR_TLS_PORT`, and a new `COORDINATOR_OUT`
-outside the checkout. Both ports must differ and be at least 55432. Use a
+outside the checkout. Both ports must differ and pass `ci/host_ports.py`. Use a
 clean full-history source. `CHECK_SOURCE_ROOT` can select that pristine source
 when reviewing an uncommitted launcher; it changes the execution directory,
 not the campaign's source checks or admission rules. The recorded platform and
@@ -201,3 +226,46 @@ node_modules, targets and images. Release and deployment workflows are not
 local verification commands.
 
 The API entrypoint defaults `IMPORTANCE_API_IMAGE` to `POLIS_API_TEST_IMAGE`, so the final statement-importance proof uses the same image built by the job. Set either override only to images owned by this run.
+
+### Shared host-port range
+
+All local check and replay launchers use `ci/host_ports.py`: an explicit host
+publication must be in 1..32767. Choose unused unprivileged ports, normally
+20000..29999, and a unique Compose project. Fixed web ports such as 80 and 443
+remain in range. Zero, dynamic publications and ranges crossing the upper
+bound are refused. Use `127.0.0.1` for a host-side PostgreSQL URL; container
+service names remain unchanged.
+
+The upper bound stays below both Linux's default ephemeral range
+(32768..60999) and macOS's (49152..65535). In particular, an IPv6 ephemeral
+socket must not take a port used by an IPv4 container forwarder. On a host
+with a customized ephemeral range, reserve the selected ports outside it
+before running these checks. Port preflight does not reserve a socket against
+another concurrent harness: each invocation still needs its own ports.
+
+Characterization keeps its three distinct ports and optional narrower
+`P027_PORT_MIN`/`P027_PORT_MAX` window; its default window is 25930..25939.
+The CLI differential imports that same validator. Recorded HTTP assertions,
+load levels and deadlines do not depend on the host-side port numbers.
+
+Host-port validation reads only the inputs named by each launcher. Unrelated
+shell variables do not affect a check. Direct database harnesses refuse port
+5432 to avoid connecting to the development database; fixed Compose
+publications may still use it. Run `make check-host-ports` with Python 3.12 and
+psycopg2 installed to test the shared rule and its isolation checks. The same
+check scans every workflow's literal environment and service-port inputs, local
+and conformance shell launchers, shell helpers and test Compose defaults.
+It lists tracked and nonignored untracked files through Git; ignored output
+directories are excluded and symbolic links are refused. It also runs the
+coordinator tunnel-window boundary tests.
+Failures name the file, line and variable. Computed values still pass through
+the launcher's runtime validator; container listeners are not host inputs.
+`make test-recovery` and `make test-recovery-races` default to 25432 and validate
+`RECOVERY_PG_PORT` before starting Docker. Both Compose and the pytest URL use
+that value. Set a unique `COMPOSE_PROJECT_NAME` and choose a free
+`RECOVERY_PG_PORT` for concurrent recovery runs. Concurrent
+API checks must set distinct `X54_NGINX_PORT` and `X54_FILES_PORT` values.
+
+`make check-polis-api` starts with the offline vendored-postgres provenance/delta
+check and its tests (Python 3.11+); see `queue-rs/vendor/postgres/README.md` for
+the checksum-verified refresh procedure. No registry cache or network is needed.

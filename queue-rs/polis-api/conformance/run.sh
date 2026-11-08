@@ -3,8 +3,8 @@
 # and polis-api, side by side on one sealed, generated-fixture stack.
 #
 #   COMPOSE_PROJECT_NAME=p027x54pca2-$(openssl rand -hex 3) \
-#   P027_PORT_MIN=55479 P027_PORT_MAX=55481 POLIS_RECOVERY_PG_PORT=55479 \
-#   P027_HTTP_PORT=55480 P027_CONTROL_PORT=55481 \
+#   P027_PORT_MIN=25479 P027_PORT_MAX=25481 POLIS_RECOVERY_PG_PORT=25479 \
+#   P027_HTTP_PORT=25480 P027_CONTROL_PORT=25481 \
 #   queue-rs/polis-api/conformance/run.sh [result.json]
 #
 # Needs the local images the characterization harness uses (p027-server,
