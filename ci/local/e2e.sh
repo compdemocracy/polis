@@ -30,8 +30,8 @@
 # localhost, oidc-simulator and host.docker.internal, written with the CA's
 # public certificate into the results directory; the containers mount that
 # directory and Node trusts the CA through NODE_EXTRA_CA_CERTS. Nothing is
-# installed into a trust store here (hosted CI runs `mkcert -install` first,
-# as it always has).
+# installed into a local host trust store. On disposable hosted runners, this
+# entry point installs the distribution package and trusts its CA as before.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -61,6 +61,15 @@ done
 case "$SHARD" in [0-9]*/[0-9]*) ;; *) die "--shard must look like 2/4" ;; esac
 SHARD_I="${SHARD%/*}"; SHARD_N="${SHARD#*/}"
 [ "$SHARD_I" -ge 1 ] && [ "$SHARD_I" -le "$SHARD_N" ] || die "--shard out of range: $SHARD"
+# Use the signed distribution packages on disposable hosted runners. A release
+# redirect can return an error body instead of an executable; certificate setup
+# must not depend on that download. Local hosts use their existing mkcert.
+if [ "${RUNNER_ENVIRONMENT:-}" = "github-hosted" ]; then
+  sudo apt-get -o Acquire::Retries=3 update || die "mkcert setup: apt-get update failed"
+  sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends mkcert || \
+    die "mkcert setup: apt-get install mkcert failed"
+  mkcert -install
+fi
 for tool in docker node npm mkcert python3 openssl curl; do
   command -v "$tool" >/dev/null 2>&1 || die "$tool is required"
 done
