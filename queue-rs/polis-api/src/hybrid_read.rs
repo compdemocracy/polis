@@ -480,3 +480,7 @@ mod tests {
         .unwrap();
     }
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+#[path = "comments_oidc_tests.rs"]
+mod comments_tests;
