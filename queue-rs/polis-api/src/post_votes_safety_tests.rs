@@ -1965,8 +1965,64 @@ fn vote_admission_cookie_with_invalid_token_hands_back() {
 }
 
 #[test]
-fn vote_admission_nonempty_language_still_hands_back() {
-    vote_admission_case("admit_language", true, true, "valid", Some("lang"), false);
+fn vote_admission_language_serves_stored_node_bytes_without_a_provider() {
+    for (index, lang) in ["fr", "EN-gb", ""].into_iter().enumerate() {
+        let db = Database::new(&format!("admit_language_{index}"));
+        let (app, mut request) = setup(&db);
+        db.connect()
+            .batch_execute(
+                "INSERT INTO comments(zid,pid,uid,txt,lang,created)
+            VALUES(1,0,1,'Generated statement','en',10);
+            INSERT INTO comment_translations(zid,tid,src,txt,lang,created,modified) VALUES
+            (1,0,23,'Bonjour 🌍','fr',9007199254740993,NULL),
+            (1,0,-1,'Hallo \"Welt\"','de',12,13);",
+            )
+            .unwrap();
+        let mut fields: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+        fields["lang"] = json!(lang);
+        fields["pid"] = json!(999);
+        request.body = serde_json::to_vec(&fields).unwrap();
+        runtime().block_on(async {
+            let (response, _, observation) =
+                observed_handle_with_completion(app.clone(), request).await;
+            assert_eq!(response.status, 200);
+            assert!(observation.lock().unwrap().created);
+            let receipt = durable_dispatch(&db, &response, observation).await;
+            assert!(!receipt.replayed);
+            let body = accepted_body(&response);
+            let next = body.next_comment.unwrap();
+            let raw = next.0.get();
+            let start = raw.find("\"translations\":").unwrap() + "\"translations\":".len();
+            let expected = if lang.is_empty() {
+                "[]"
+            } else {
+                super::translations::stored_node_rows()
+            };
+            assert_eq!(&raw[start..raw.len() - 1], expected);
+            wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+        });
+        let mut c = db.connect();
+        assert_eq!(
+            c.query_one("SELECT count(*) FROM votes", &[])
+                .unwrap()
+                .get::<_, i64>(0),
+            1
+        );
+        assert_eq!(
+            c.query_one("SELECT count(*) FROM votes_latest_unique", &[])
+                .unwrap()
+                .get::<_, i64>(0),
+            1
+        );
+        assert_eq!(
+            i32::from(
+                c.query_one("SELECT vote FROM votes", &[])
+                    .unwrap()
+                    .get::<_, i16>(0)
+            ),
+            contract::stored_vote(VoteChoice::Agree)
+        );
+    }
 }
 
 #[test]
@@ -1989,8 +2045,8 @@ fn stored_translation_dispatch_uses_reads_after_commit_and_keeps_receipt_on_time
         let receipt = Arc::new(Mutex::new(None));
         let mut fields = database::fields(VoteChoice::Agree);
         fields.lang = Some("fr".into());
-        // Exercise the follow-on directly: HTTP admission deliberately still
-        // hands language back before dispatch. This cannot enable that route.
+        // Exercise the follow-on directly to isolate translation-read failure
+        // after the receipt has committed.
         let body = runtime().block_on(async {
             let writer = app.post_votes.as_ref().unwrap();
             let result = dispatch(

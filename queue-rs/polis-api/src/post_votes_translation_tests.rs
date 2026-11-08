@@ -109,3 +109,7 @@ fn stored_translation_exhaustion_omits_next_comment() {
         r#"{"currentPid":0}"#
     );
 }
+
+pub(super) fn stored_node_rows() -> &'static str {
+    TWO_ROWS
+}

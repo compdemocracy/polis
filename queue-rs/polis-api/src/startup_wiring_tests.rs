@@ -234,6 +234,7 @@ fn configured_pools_keep_next_statement_separate() {
             ("MATH_ENV", "test"),
             ("POLIS_API_LISTEN", "127.0.0.1:0"),
             ("TOPICAL_COMMENT_RATIO", "0"),
+            ("SHOULD_USE_TRANSLATION_API", "false"),
             ("POLIS_JWT_ISSUER", "https://issuer.example"),
             ("POLIS_JWT_AUDIENCE", "test"),
             ("AUTH_ISSUER", "https://issuer.example"),
