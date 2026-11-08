@@ -148,6 +148,98 @@ async fn comments_oidc_existing_subjects_read_plain_lists_without_membership_or_
             assert_eq!(value["comments"].as_array().unwrap().len(), 1);
         }
     }
+    // Each refusal starts with valid JSON and a verified, mapped caller. The
+    // adjacent accepted request proves the body condition is the only refusal.
+    let token = sign(&claims);
+    let json_request = |query: &str, body: Vec<u8>, length: usize| {
+        let mut req = request("plain", query, Some(&token));
+        let length = length.to_string();
+        req.headers = Headers::from_raw([
+            ("authorization", token.as_str()),
+            ("content-type", "application/json"),
+            ("content-length", length.as_str()),
+        ]);
+        req.body = body;
+        req
+    };
+    let padded_json = |length: usize| {
+        let mut body = b"{}".to_vec();
+        body.resize(length, b' ');
+        body
+    };
+    let moderation = route::handle(
+        app.clone(),
+        request("plain", "&moderation=true", Some(&token)),
+    )
+    .await;
+    assert_eq!(moderation.status, 200);
+    for (label, req) in [
+        (
+            "moderation body",
+            json_request("&moderation=true", b"{}".to_vec(), 2),
+        ),
+        ("short content length", json_request("", b"{}".to_vec(), 1)),
+        ("long content length", json_request("", b"{}".to_vec(), 3)),
+        (
+            "body over 64 KiB",
+            json_request("", padded_json(65537), 65537),
+        ),
+    ] {
+        let served = app.served.load(std::sync::atomic::Ordering::Relaxed);
+        let participant_served = app
+            .participant_served
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let handed_back = app
+            .participant_fallback
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let pools = [
+            &app.db,
+            app.comments_db.as_ref().unwrap(),
+            app.comments_count_db.as_ref().unwrap(),
+        ];
+        let before = pools.map(|pool| pool.evidence.snapshot());
+        let response = route::handle(app.clone(), req).await;
+        assert_eq!(response.status, 502, "{label}");
+        // Reads use the 502/plain-text response as their Node hand-back marker.
+        assert!(
+            response
+                .headers
+                .iter()
+                .any(|(name, value)| name.eq_ignore_ascii_case("content-type")
+                    && value == "text/plain; charset=utf-8"),
+            "{label}"
+        );
+        assert_eq!(bytes(response), b"Bad Gateway\n", "{label}");
+        assert_eq!(
+            app.served.load(std::sync::atomic::Ordering::Relaxed),
+            served,
+            "{label}"
+        );
+        assert_eq!(
+            app.participant_served
+                .load(std::sync::atomic::Ordering::Relaxed),
+            participant_served,
+            "{label}"
+        );
+        assert_eq!(
+            app.participant_fallback
+                .load(std::sync::atomic::Ordering::Relaxed),
+            handed_back + 1,
+            "{label}"
+        );
+        assert_eq!(
+            pools.map(|pool| pool.evidence.snapshot()),
+            before,
+            "{label}: refusal must precede database work"
+        );
+    }
+    let expected = bytes(route::handle(app.clone(), request("plain", "", Some(&token))).await);
+    for length in [2, 65536] {
+        let response =
+            route::handle(app.clone(), json_request("", padded_json(length), length)).await;
+        assert_eq!(response.status, 200, "accepted body length {length}");
+        assert_eq!(bytes(response), expected, "accepted body length {length}");
+    }
     let mut disabled = App::new(&cfg, make());
     disabled.comments_db = Some(make());
     disabled.comments_count_db = Some(make());

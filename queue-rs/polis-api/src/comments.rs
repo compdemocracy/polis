@@ -522,6 +522,14 @@ mod tests {
         let q = Query::parse(&req, &body).unwrap();
         assert_eq!(q.limit, 1);
         assert_eq!(q.tids, Some(vec![]));
+        // A numeric, incorrect length must fail independently of parsing it.
+        let mismatch = (req.body.len() + 1).to_string();
+        req.headers = Headers::from_raw([
+            ("authorization", "Bearer fixture"),
+            ("content-type", "application/json"),
+            ("content-length", &mismatch),
+        ]);
+        assert!(Query::parse(&req, &body).is_none());
     }
     #[test]
     fn public_query_parsing_keeps_legacy_and_paginated_rules() {
