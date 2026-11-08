@@ -47,15 +47,33 @@ mod database {
     use postgres::NoTls;
     use std::sync::Barrier;
 
+    // Ordinary vote fixtures share this lock through database teardown. Timing
+    // fixtures take it exclusively before creating their database, keeping
+    // other fixtures' migrations and database drops out of their measurements.
+    static FIXTURE_LOCK: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
     /// A separately owned database uses the published table definitions and
     /// rule, rather than mocking the append or latest-state SQL.
     pub(super) struct Database {
+        _fixture_lock: Box<dyn std::any::Any>,
         admin: Client,
         name: String,
         pub(super) config: postgres::Config,
     }
     impl Database {
         pub(super) fn new(label: &str) -> Self {
+            Self::create(
+                label,
+                Box::new(FIXTURE_LOCK.read().unwrap_or_else(|e| e.into_inner())),
+            )
+        }
+        pub(super) fn exclusive(label: &str) -> Self {
+            Self::create(
+                label,
+                Box::new(FIXTURE_LOCK.write().unwrap_or_else(|e| e.into_inner())),
+            )
+        }
+        fn create(label: &str, fixture_lock: Box<dyn std::any::Any>) -> Self {
             let mut config: postgres::Config = std::env::var("POLIS_API_TEST_DATABASE_URL")
                 .unwrap()
                 .parse()
@@ -78,6 +96,7 @@ mod database {
             admin.batch_execute(&create).unwrap();
             config.dbname(&name);
             let db = Self {
+                _fixture_lock: fixture_lock,
                 admin,
                 name,
                 config,
@@ -164,6 +183,9 @@ mod database {
             pid: 0,
             uid: 1,
             active: true,
+            _priority_lease: None,
+            priorities: Arc::default(),
+            follow_on: Arc::new(FollowOnLane::default()),
         }
     }
 
@@ -304,6 +326,7 @@ pub(super) struct DispatchState {
     pub(super) acquire_alarms: u64,
     pub(super) receipt: Option<Arc<Mutex<Option<AcceptedVote>>>>,
     pub(super) notification_scheduled: bool,
+    pub(super) selection_started: bool,
 }
 
 #[cfg(feature = "db-tests")]

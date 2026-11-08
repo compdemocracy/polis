@@ -42,6 +42,9 @@ check_project "$IMPORTANCE_PROJECT"
   # Pin this here so local and hosted checks use the same database budget.
   export RUST_TEST_THREADS=2
   cargo test --locked -p polis-api --features db-tests
+  # Compare timely replies with full selections from the same run. Execute
+  # the optimized queue test in both local and hosted CI.
+  cargo test --release --locked -p polis-api --features db-tests sustained_votes_keep_delivering -- --nocapture
 )
 
 (

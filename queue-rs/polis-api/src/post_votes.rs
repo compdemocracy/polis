@@ -20,6 +20,9 @@ use std::{
     time::Duration,
 };
 
+#[path = "writer_priorities.rs"]
+mod writer_priorities;
+
 pub const PATH: &str = contract::PATH;
 pub(crate) const MAX_BODY_BYTES: usize = 65536;
 const REJECTED_COMMENT_MOD: i32 = -1;
@@ -35,6 +38,8 @@ pub(crate) struct Writer {
     verifier: participant::Verifier,
     reads: Arc<db::Pool>,
     admins: Vec<i32>,
+    priorities: Arc<writer_priorities::Cache>,
+    follow_on: Arc<FollowOnLane>,
 }
 
 impl Writer {
@@ -47,6 +52,8 @@ impl Writer {
             verifier: _,
             reads,
             admins: _,
+            priorities: _,
+            follow_on: _,
         } = self;
         let NotificationPool {
             pool: background_pool,
@@ -113,6 +120,8 @@ impl Writer {
                 read_limits(),
             ),
             admins,
+            priorities: Arc::default(),
+            follow_on: Arc::new(FollowOnLane::default()),
         }))
     }
 }
@@ -173,6 +182,10 @@ struct Admitted {
     pid: i32,
     uid: i32,
     active: bool,
+    // Retain the validated generation until the dispatched work completes.
+    _priority_lease: Option<Arc<writer_priorities::Weights>>,
+    priorities: Arc<writer_priorities::Cache>,
+    follow_on: Arc<FollowOnLane>,
 }
 
 fn read_limits() -> db::Limits {
@@ -184,23 +197,13 @@ fn read_limits() -> db::Limits {
     }
 }
 
-// Fetch only the selection weights. Large projection/cluster payloads never
-// cross this boundary or consume a writer connection. No cross-request cache:
-// each read observes the currently published generation, as an independent read.
+#[cfg(all(test, feature = "db-tests"))]
+// The narrow-read isolation test uses the production snapshot query and returns
+// its raw representation so its existing byte assertions remain unchanged.
 fn priorities(c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
-    let row = c.query_opt(
-        "select jsonb_typeof(data), (data->'comment-priorities')::text
-         from math_main where zid=$1 and math_env=$2 and math_tick>=0",
-        &[&zid, &env],
-    )?;
-    let Some(row) = row else { return Ok(None) };
-    anyhow::ensure!(
-        row.try_get::<_, Option<String>>(0)?.as_deref() == Some("object"),
-        "unsupported math shape"
-    );
-    row.try_get::<_, Option<String>>(1)?
-        .map(|text| js::parse(&text))
-        .transpose()
+    Arc::new(writer_priorities::Cache::default())
+        .snapshot(c, zid, env)?
+        .raw_for_test()
 }
 
 fn admit(
@@ -208,7 +211,9 @@ fn admit(
     cid: &str,
     identity: &participant::Verified,
     env: &str,
-) -> Result<Option<Admitted>> {
+    cache: Arc<writer_priorities::Cache>,
+    follow_on: Arc<FollowOnLane>,
+) -> Result<Option<(Admitted, writer_priorities::Snapshot)>> {
     let Some(zid) = db::zid_for_conversation_id(c, cid)? else {
         return Ok(None);
     };
@@ -229,25 +234,19 @@ fn admit(
     {
         return Ok(None);
     }
-    // Validate the math branch before mutation. A later read failure is still
-    // possible; committed votes return durable acceptance, never a handoff.
-    if let Some(priorities) = priorities(c, zid, env)? {
-        let Some(priorities) = priorities.as_obj() else {
-            return Ok(None);
-        };
-        if priorities.iter().any(|(_, p)| {
-            !matches!(p, Js::Null | Js::Bool(false))
-                && !matches!(p, Js::Num(n) if n.is_finite() && *n >= 0.0)
-        }) {
-            return Ok(None);
-        }
-    }
-    Ok(Some(Admitted {
-        zid,
-        pid: pid.0 as i32,
-        uid: identity.uid().0,
-        active: row.try_get::<_, Option<bool>>(0)?.unwrap_or(false),
-    }))
+    let snapshot = cache.snapshot(c, zid, env)?;
+    Ok(Some((
+        Admitted {
+            zid,
+            pid: pid.0 as i32,
+            uid: identity.uid().0,
+            active: row.try_get::<_, Option<bool>>(0)?.unwrap_or(false),
+            _priority_lease: None,
+            priorities: cache,
+            follow_on,
+        },
+        snapshot,
+    )))
 }
 
 fn next(
@@ -282,7 +281,7 @@ fn next(
         .iter()
         .map(|row| row.try_get::<_, i32>("tid"))
         .collect::<Result<Vec<_>, _>>()?;
-    let data = priorities(c, a.zid, env)?;
+    let weights = a.priorities.snapshot(c, a.zid, env)?.validate()?;
     let counts = c.query_one(
         "with v as (select * from votes_latest_unique where zid=$1 and pid=$2),
          c as (select * from get_visible_comments($1)),
@@ -294,8 +293,7 @@ fn next(
     if tids.is_empty() {
         return Ok(None);
     }
-    let priorities = data.as_ref().and_then(Js::as_obj);
-    let (index, random) = next_comment::select(&tids, priorities, unit)?;
+    let (index, random) = weights.select(&tids, unit)?;
     let selected = c.query_one(
         "select * from comments where zid=$1 and tid=$2",
         &[&a.zid, &tids[index]],
@@ -307,9 +305,9 @@ fn next(
     row.set("randomN", Js::Num(random));
     row.set("remaining", Js::Num(counts.try_get::<_, i64>(0)? as f64));
     row.set("total", Js::Num(counts.try_get::<_, i64>(1)? as f64));
-    // Node skips the stored read entirely without a requested language. Keep
-    // language admission closed until provider suppression is known before
-    // dispatch; this follow-on must never authorize replaying a committed vote.
+    // Node skips the stored read entirely without a requested language. The
+    // provider is disabled at startup; this follow-on never authorizes replay
+    // of a committed vote.
     let translations = if lang.is_some_and(|lang| !lang.is_empty()) {
         // Optional translation failure keeps the selected statement, as Node
         // does. This SELECT uses the existing reads client/statement deadline,
@@ -320,6 +318,34 @@ fn next(
     };
     row.set("translations", Js::Arr(translations));
     Ok(Some(Js::Obj(row)))
+}
+
+// Match next()'s candidate eligibility, not its total/remaining counts (which
+// deliberately include muted comments). EXISTS stops at the first eligible row
+// without sorting, materializing every id, reading priorities or translations.
+fn exhausted(c: &mut Client, a: &Admitted) -> Result<bool> {
+    let strict = c
+        .query_one(
+            "select strict_moderation from conversations where zid=$1",
+            &[&a.zid],
+        )?
+        .try_get::<_, Option<bool>>(0)?
+        .unwrap_or(false);
+    let moderation = if strict {
+        "mod = 1".to_owned()
+    } else {
+        format!("mod != {REJECTED_COMMENT_MOD}")
+    };
+    Ok(!c
+        .query_one(
+            &format!(
+                "select exists(select 1 from comments where zid=$1
+         and tid not in (select tid from votes_latest_unique where zid=$1 and pid=$2)
+         and active=true and {moderation} and velocity>0)"
+            ),
+            &[&a.zid, &a.pid],
+        )?
+        .try_get::<_, bool>(0)?)
 }
 
 // Node's SELECT * returns all languages/sources, in database order. Preserve
@@ -481,10 +507,23 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         return route::bad_gateway();
     }
     let env = app.math_env.clone();
-    let admission = tokio::time::timeout(
-        ADMISSION_DEADLINE,
-        writer.reads.with(move |c| admit(c, &cid, &identity, &env)),
-    )
+    let admission = tokio::time::timeout(ADMISSION_DEADLINE, async {
+        let cache = writer.priorities.clone();
+        let follow_on = writer.follow_on.clone();
+        let prepared = writer
+            .reads
+            .with(move |c| admit(c, &cid, &identity, &env, cache, follow_on))
+            .await?;
+        let Some((mut admitted, snapshot)) = prepared else {
+            return Ok::<_, anyhow::Error>(None);
+        };
+        // Parsing, coalescing and shape validation hold no admission SQL
+        // slot. A timed-out first caller can leave the generation warming,
+        // but cannot retain a connection or dispatch a vote afterwards.
+        admitted._priority_lease =
+            Some(tokio::task::spawn_blocking(move || snapshot.validate()).await??);
+        Ok(Some(admitted))
+    })
     .await;
     let Ok(Ok(Some(admitted))) = admission else {
         return route::bad_gateway();
@@ -515,6 +554,7 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     if let Some(observation) = &active_dispatch.observation {
         observation.lock().unwrap().receipt = Some(receipt.clone());
     }
+    let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
     let task = tokio::spawn(dispatch(
         writer.pool.clone(),
         writer.reads.clone(),
@@ -524,9 +564,10 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         app.math_env.clone(),
         next_comment::draw(req),
         receipt.clone(),
+        reply_deadline,
         active_dispatch,
     ));
-    match tokio::time::timeout(DISPATCH_DEADLINE, task).await {
+    match tokio::time::timeout_at(reply_deadline, task).await {
         Ok(Ok(Ok(Outcome::Success(body)))) => accepted(req, res, body),
         Ok(Ok(Ok(Outcome::Failure(status, code)))) => {
             route::fail_json(req, res, status, Js::Str(code.into()))
@@ -606,6 +647,7 @@ async fn dispatch(
     env: String,
     unit: f64,
     receipt: Arc<Mutex<Option<AcceptedVote>>>,
+    reply_deadline: tokio::time::Instant,
     _active_dispatch: ActiveDispatch,
 ) -> Result<Outcome> {
     let a = admitted.clone();
@@ -682,17 +724,55 @@ async fn dispatch(
         body.follow_on.star = FollowOnState::Complete;
     }
     let a = admitted.clone();
+    // Waiting is post-receipt: it owns no database connection and can outlive
+    // the unchanged HTTP deadline. At most one follow-on enters the reads
+    // pool, leaving the other existing slot for admission.
+    let Ok(permits) = admitted.follow_on.acquire_until(reply_deadline).await else {
+        return Ok(Outcome::Success(body));
+    };
+    #[cfg(all(test, feature = "db-tests"))]
+    let selection_observation = _active_dispatch.observation.clone();
+    let selection_started = tokio::time::Instant::now();
     if let Ok(completed) = reads
-        .with(move |c| complete(c, &a, &env, unit, lang.as_deref()))
+        .with_acquire_alarm(
+            DISPATCH_ACQUIRE_ALARM,
+            || eprintln!("{{\"event\":\"post_votes_follow_on_acquire_alarm\"}}"),
+            move |c| {
+                // Keep both capacity limits until the blocking work ends,
+                // including when its awaiting future has been dropped.
+                let _permits = permits;
+                if !a.follow_on.can_finish(reply_deadline) {
+                    // Too little time remains for a full selection, or the
+                    // reply has already gone. Keep exhaustion analytics without
+                    // spending the lane on a row unlikely to reach the caller.
+                    Ok((None, exhausted(c, &a)?))
+                } else {
+                    #[cfg(all(test, feature = "db-tests"))]
+                    if let Some(observation) = selection_observation {
+                        observation.lock().unwrap().selection_started = true;
+                    }
+                    let completed = complete(c, &a, &env, unit, lang.as_deref());
+                    // Include acquiring the reads connection and blocking-task
+                    // scheduling, not just SQL, in the next duration estimate.
+                    a.follow_on.record_selection(selection_started.elapsed());
+                    let completed = completed?;
+                    let exhausted = completed.next_comment.is_none();
+                    Ok((Some(completed), exhausted))
+                }
+            },
+        )
         .await
     {
-        body.next_comment = completed.next_comment;
-        body.follow_on.next_comment = if body.next_comment.is_some() {
-            FollowOnState::Complete
-        } else {
-            FollowOnState::Absent
-        };
-        if body.next_comment.is_none()
+        let (completed, exhausted) = completed;
+        if let Some(completed) = completed {
+            body.next_comment = completed.next_comment;
+            body.follow_on.next_comment = if body.next_comment.is_some() {
+                FollowOnState::Complete
+            } else {
+                FollowOnState::Absent
+            };
+        }
+        if exhausted
             && !background.schedule(move |c| {
                 c.execute(
                     "insert into event_ptpt_no_more_comments(zid,pid,votes_placed)
@@ -706,6 +786,131 @@ async fn dispatch(
         }
     }
     Ok(Outcome::Success(body))
+}
+
+// Bound retained post-receipt work independently of vote admission. Overflow
+// or wait expiry degrades only this optional work, never the durable receipt.
+// The reads pool separately bounds dispatched acquisition at five seconds;
+// neither wait holds a connection. SQL and HTTP deadlines stay unchanged.
+const FOLLOW_ON_MAX_PENDING: usize = 64;
+const FOLLOW_ON_WAIT: Duration = Duration::from_secs(30);
+#[derive(Debug)]
+struct FollowOnLane {
+    pending: Arc<tokio::sync::Semaphore>,
+    running: Arc<tokio::sync::Semaphore>,
+    waiting: Mutex<std::collections::BTreeSet<(tokio::time::Instant, u64)>>,
+    selection: Mutex<Option<(tokio::time::Instant, Duration)>>,
+    sequence: AtomicU64,
+    changed: tokio::sync::Notify,
+}
+impl Default for FollowOnLane {
+    fn default() -> Self {
+        Self {
+            pending: Arc::new(tokio::sync::Semaphore::new(FOLLOW_ON_MAX_PENDING)),
+            running: Arc::new(tokio::sync::Semaphore::new(1)),
+            waiting: Mutex::default(),
+            selection: Mutex::default(),
+            sequence: AtomicU64::new(0),
+            changed: tokio::sync::Notify::new(),
+        }
+    }
+}
+// Cancellation, wait expiry and blocking completion all release capacity and
+// wake waiting tasks. The queue lock is held only to choose/remove an entry,
+// never while waiting, querying PostgreSQL or selecting a comment.
+#[derive(Debug)]
+struct FollowOnSlot {
+    lane: Arc<FollowOnLane>,
+    key: (tokio::time::Instant, u64),
+    _pending: tokio::sync::OwnedSemaphorePermit,
+    running: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+impl Drop for FollowOnSlot {
+    fn drop(&mut self) {
+        self.lane
+            .waiting
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.key);
+        drop(self.running.take());
+        self.lane.changed.notify_waiters();
+    }
+}
+impl FollowOnLane {
+    fn can_finish(&self, deadline: tokio::time::Instant) -> bool {
+        let now = tokio::time::Instant::now();
+        let selection = self.selection.lock().unwrap_or_else(|e| e.into_inner());
+        // A short-lived estimate recovers after a host pause or a change of
+        // conversation size. Without a recent sample, attempt live work.
+        let estimate = selection
+            .filter(|(at, _)| now.duration_since(*at) < DISPATCH_DEADLINE)
+            .map_or(Duration::ZERO, |(_, duration)| duration);
+        deadline.saturating_duration_since(now) > estimate
+    }
+
+    fn record_selection(&self, elapsed: Duration) {
+        let now = tokio::time::Instant::now();
+        let mut selection = self.selection.lock().unwrap_or_else(|e| e.into_inner());
+        // A recent selection plus 25% headroom reserves time for returning the
+        // result. This is a prediction, never an extension of the reply budget.
+        *selection = Some((now, elapsed.saturating_add(elapsed / 4)));
+    }
+
+    #[cfg(all(test, feature = "db-tests"))]
+    async fn acquire(self: &Arc<Self>) -> Result<FollowOnSlot> {
+        self.acquire_until(tokio::time::Instant::now() + DISPATCH_DEADLINE)
+            .await
+    }
+
+    async fn acquire_until(
+        self: &Arc<Self>,
+        deadline: tokio::time::Instant,
+    ) -> Result<FollowOnSlot> {
+        let pending = self
+            .pending
+            .clone()
+            .try_acquire_owned()
+            .context("follow-on queue full")?;
+        let key = (deadline, self.sequence.fetch_add(1, Ordering::Relaxed));
+        let mut slot = FollowOnSlot {
+            lane: self.clone(),
+            key,
+            _pending: pending,
+            running: None,
+        };
+        self.waiting
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(key);
+        tokio::time::timeout(FOLLOW_ON_WAIT, async {
+            loop {
+                // Register before testing the queue so a completion cannot be
+                // missed between checking capacity and waiting for it.
+                let notified = self.changed.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                {
+                    let mut waiting = self.waiting.lock().unwrap_or_else(|e| e.into_inner());
+                    // Earliest reply deadline first. Entries with insufficient
+                    // time run only the exhaustion check in the blocking task;
+                    // they cannot consume a full selection ahead of live work.
+                    if waiting.first().copied() == Some(key)
+                        && let Ok(running) = self.running.clone().try_acquire_owned()
+                    {
+                        waiting.remove(&key);
+                        slot.running = Some(running);
+                        return;
+                    }
+                }
+                // Deadline order never changes as time passes. Removal and
+                // completion notify all waiters; no expiry timer is needed.
+                notified.await;
+            }
+        })
+        .await
+        .context("follow-on wait expired")?;
+        Ok(slot)
+    }
 }
 
 /// A separate admission bound covers both active work and tasks waiting for

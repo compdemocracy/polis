@@ -363,6 +363,7 @@ impl Parser<'_> {
             Some(b'{') => {
                 self.i += 1;
                 let mut obj = Obj::new();
+                let mut positions = std::collections::HashMap::<String, usize>::new();
                 self.ws();
                 if self.peek() == Some(b'}') {
                     self.i += 1;
@@ -375,12 +376,23 @@ impl Parser<'_> {
                     self.expect(b':')?;
                     self.ws();
                     let v = self.value(depth + 1)?;
-                    obj.set(&key, v);
+                    // Accumulate without scanning earlier properties. Duplicate
+                    // keys replace their first slot; numeric ordering is applied
+                    // once, after the object has been read.
+                    if let Some(&at) = positions.get(&key) {
+                        obj.entries[at].1 = v;
+                    } else {
+                        positions.insert(key.clone(), obj.entries.len());
+                        obj.entries.push((key, v));
+                    }
                     self.ws();
                     match self.peek() {
                         Some(b',') => self.i += 1,
                         Some(b'}') => {
                             self.i += 1;
+                            obj.entries.sort_by_key(|(key, _)| {
+                                array_index(key).map_or(u64::MAX, u64::from)
+                            });
                             return Ok(Js::Obj(obj));
                         }
                         _ => bail!("expected , or }} at {}", self.i),
