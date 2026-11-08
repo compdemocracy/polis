@@ -156,8 +156,12 @@ and a console link.
 
 **First response:** open the deployment in the console, read the failed
 lifecycle event, and check whether instances were left in a partially deployed
-state. EventBridge delivery is best effort; the deploying workflow's own status
-remains the authoritative record.
+state. EventBridge delivery is best effort. For the two deployments the deploy
+workflow creates, the run's own status is the authoritative record: each step
+waits for its deployment and fails when CodeDeploy ends it Failed or Stopped, or
+when the wait gives up after about 30 minutes. A deployment CodeDeploy starts by
+itself, for an instance an Auto Scaling group launches, has no run behind it;
+this email is its signal.
 
 **Authorization.** The rule publishes through its own execution role rather than
 through an `events.amazonaws.com` principal on the topic policy, so the topic
