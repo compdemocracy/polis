@@ -64,9 +64,10 @@ SHARD_I="${SHARD%/*}"; SHARD_N="${SHARD#*/}"
 # Use the signed distribution packages on disposable hosted runners. A release
 # redirect can return an error body instead of an executable; certificate setup
 # must not depend on that download. Local hosts use their existing mkcert.
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
-  sudo apt-get -o Acquire::Retries=3 update
-  sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends mkcert
+if [ "${RUNNER_ENVIRONMENT:-}" = "github-hosted" ]; then
+  sudo apt-get -o Acquire::Retries=3 update || die "mkcert setup: apt-get update failed"
+  sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends mkcert || \
+    die "mkcert setup: apt-get install mkcert failed"
   mkcert -install
 fi
 for tool in docker node npm mkcert python3 openssl curl; do

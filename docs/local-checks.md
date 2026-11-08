@@ -152,10 +152,12 @@ nonfatal AWS CLI localhost diagnostic is omitted; Dynamo readiness still uses
 the same HTTP request. No cloud account is needed.
 
 For E2E, the shared entry point installs mkcert from the signed Ubuntu package
-repositories on hosted runners, with three package-download retries, and trusts
-its CA there. It does not download a GitHub release. The distribution's mkcert
-1.4.4 supports the DNS names and IP addresses used by the test certificates.
-Local runs use the existing mkcert and leave host trust stores unchanged.
+repositories when `RUNNER_ENVIRONMENT=github-hosted`, with three
+package-download retries, and trusts its CA there. Package failures stop setup
+with an error naming the failed apt step. It does not download a GitHub release.
+The distribution's mkcert 1.4.4 supports the DNS names and IP addresses used by
+the test certificates. Local and self-hosted runs use the existing mkcert and
+leave host trust stores unchanged.
 
 For E2E use an exclusive host with the fixed stack ports free. Set
 `E2E_CHECK_PROJECT` and `E2E_CHECK_OUT` per shard, and leave `E2E_CHECK_KEEP`
