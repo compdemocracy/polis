@@ -73,6 +73,10 @@ impl Writer {
             std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0"),
             "post votes requires explicit ordinary next-statement selection"
         );
+        anyhow::ensure!(
+            std::env::var("SHOULD_USE_TRANSLATION_API").ok().as_deref() == Some("false"),
+            "post votes requires SHOULD_USE_TRANSLATION_API=false"
+        );
         let dsn = std::env::var("POLIS_API_POST_VOTES_DATABASE_URL")
             .context("post votes requires an explicit primary database")?;
         let key = std::fs::read(std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")?)?;
@@ -489,9 +493,7 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         Ok(fields) => fields,
         Err(_) => return route::parameter_error(app, req, res),
     };
-    if fields.lang.as_ref().is_some_and(|s| !s.is_empty())
-        || !(i32::MIN as f64..=i32::MAX as f64).contains(&fields.tid)
-    {
+    if !(i32::MIN as f64..=i32::MAX as f64).contains(&fields.tid) {
         return route::bad_gateway();
     }
     if !admitted.active {

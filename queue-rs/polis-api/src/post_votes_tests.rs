@@ -381,3 +381,67 @@ mod translations;
 #[cfg(feature = "db-tests")]
 #[path = "post_votes_candidate_tests.rs"]
 mod candidates;
+
+#[test]
+fn vote_language_startup_requires_provider_off() {
+    const CHILD: &str = "POLIS_VOTE_LANGUAGE_STARTUP_TEST";
+    if std::env::var(CHILD).ok().as_deref() == Some("1") {
+        let result = Writer::from_env();
+        if std::env::var("SHOULD_USE_TRANSLATION_API").ok().as_deref() == Some("false") {
+            assert!(result.unwrap().is_some());
+        } else {
+            let error = result.err().expect("provider must be explicitly off");
+            assert!(
+                error.to_string().contains("SHOULD_USE_TRANSLATION_API"),
+                "{error}"
+            );
+        }
+        return;
+    }
+    let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+    let dir = std::env::temp_dir().join(format!("vote-language-startup-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let key = dir.join("public.pem");
+    std::fs::write(&key, rsa.public_key_to_pem().unwrap()).unwrap();
+    for setting in [
+        None,
+        Some(""),
+        Some("true"),
+        Some("1"),
+        Some("yes"),
+        Some("on"),
+        Some("unknown"),
+        Some("false"),
+    ] {
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+        child
+            .args([
+                "--exact",
+                "post_votes::tests::vote_language_startup_requires_provider_off",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env(CHILD, "1")
+            .env("POLIS_API_POST_VOTES", "1")
+            .env("TOPICAL_COMMENT_RATIO", "0")
+            .env(
+                "POLIS_API_POST_VOTES_DATABASE_URL",
+                "postgres://postgres@127.0.0.1:9/postgres",
+            )
+            .env("POLIS_API_DB_TRANSPORT", "loopback")
+            .env("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE", &key)
+            .env("POLIS_JWT_ISSUER", "fixture")
+            .env("POLIS_JWT_AUDIENCE", "fixture");
+        if let Some(setting) = setting {
+            child.env("SHOULD_USE_TRANSLATION_API", setting);
+        }
+        let result = child.output().unwrap();
+        assert!(
+            result.status.success(),
+            "setting={setting:?}\n{}\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
