@@ -12,6 +12,19 @@ export POLIS_TEST_IMAGE_TAG="${POLIS_TEST_IMAGE_TAG:-ci}"
 docker compose -f docker-compose.test.yml --env-file test.env config --format json | \
   python3 "$CHECK_ROOT/ci/host_ports.py" compose
 check_project "$COMPOSE_PROJECT_NAME"
+# Use the signed Ubuntu packages only on disposable GitHub-hosted runners.
+# Local and self-hosted runs keep using their existing mkcert and trust store.
+if [ "${RUNNER_ENVIRONMENT:-}" = "github-hosted" ]; then
+  sudo apt-get -o Acquire::Retries=3 update || {
+    echo '[server-integration] mkcert setup: apt-get update failed' >&2
+    exit 2
+  }
+  sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends mkcert || {
+    echo '[server-integration] mkcert setup: apt-get install mkcert failed' >&2
+    exit 2
+  }
+  mkcert -install
+fi
 mkdir -p .simulacrum/certs
 (cd .simulacrum/certs && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal)
 cp "$(mkcert -CAROOT)/rootCA.pem" .simulacrum/certs/rootCA.pem
@@ -31,11 +44,12 @@ cleanup() {
   trap - EXIT
   set +e
   if [ "$result" != 0 ]; then docker compose -f docker-compose.test.yml logs --tail 100 oidc-simulator postgres dynamodb; fi
-  (
+  if ! (
     cd "$CHECK_ROOT/."
     docker compose -f docker-compose.test.yml down -v
-  )
-  [ "$?" = 0 ] || result=1
+  ); then
+    result=1
+  fi
   exit "$result"
 }
 trap cleanup EXIT
@@ -75,7 +89,7 @@ trap 'exit 143' TERM
 (
   cd "$CHECK_ROOT/."
   # Wait (up to 120 s) until postgres, the OIDC simulator, DynamoDB and MinIO answer.
-  for i in $(seq 1 60); do
+  for _ in $(seq 1 60); do
     docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres >/dev/null 2>&1 \
       && curl -ksf -o /dev/null https://localhost:3000/.well-known/jwks.json \
       && curl -s -o /dev/null http://localhost:8000 \
