@@ -61,6 +61,9 @@ fn seed(c: &mut Client, case: &Value) {
             pid: row["pid"].as_i64().unwrap() as i32,
             uid: 1,
             active: true,
+            _priority_lease: None,
+            priorities: Arc::default(),
+            follow_on: Arc::new(FollowOnLane::default()),
         };
         let choice = StorageConvention::CURRENT
             .decode(row["vote"].as_i64().map(|v| v as i32))
@@ -302,6 +305,8 @@ fn recorded_votes_pin_node_differences_or_pre_mutation_handoff() {
         verifier: participant::Verifier::new(&public, "fixture", "fixture").unwrap(),
         reads: db::Pool::new(connector(), read_limits()),
         admins: vec![],
+        priorities: Arc::default(),
+        follow_on: Arc::new(FollowOnLane::default()),
     });
     let mut c = db.connect();
     let app = Arc::new(app);

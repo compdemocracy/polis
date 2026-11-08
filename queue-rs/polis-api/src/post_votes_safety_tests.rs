@@ -71,6 +71,8 @@ fn setup_with_statement_timeout(db: &Database, statement_timeout: Duration) -> (
         )),
         verifier: participant::Verifier::new(&public, "fixture", "fixture").unwrap(),
         admins: vec![],
+        priorities: Arc::default(),
+        follow_on: Arc::new(FollowOnLane::default()),
     });
     let mut request = req(&json!({"conversation_id":"2fixture","tid":7,
         "vote":crate::votes::WIRE_AGREE})
@@ -2058,6 +2060,7 @@ fn stored_translation_dispatch_uses_reads_after_commit_and_keeps_receipt_on_time
                 "test".into(),
                 0.5,
                 receipt.clone(),
+                tokio::time::Instant::now() + DISPATCH_DEADLINE,
                 ActiveDispatch::new(),
             )
             .await
@@ -2087,3 +2090,9 @@ fn stored_translation_dispatch_uses_reads_after_commit_and_keeps_receipt_on_time
         );
     }
 }
+
+#[path = "post_votes_priorities_tests.rs"]
+mod priority_capacity;
+
+#[path = "post_votes_follow_on_tests.rs"]
+mod follow_on_tests;
