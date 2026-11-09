@@ -21,7 +21,7 @@ def _validate_service_path():
 
 VALIDATE_SERVICE_PATH = _validate_service_path()
 
-def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0, start='0', routes='', rust_http=0, rust_state='running false none', config_status=0):
+def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0, start='0', routes='', rust_http=0, rust_state='running false none', config_status=0, shadow_http=0, shadow_state='running false none'):
     bin_dir=tmp_path/'bin';bin_dir.mkdir()
     (tmp_path/'service_type.txt').write_text(role)
     (tmp_path/'VERSION').write_text('2.0.0\n')
@@ -36,18 +36,19 @@ def probe(tmp_path, role='server', state='running false none', http=0, missing=F
         'docker-compose':'''shift 4
 case "$*" in *"config --format json"*) exit "$CONFIG_STATUS";; esac
 case "$1" in
- ps) [ "$MISSING" = 1 ] || { [ "${@: -1}" != polis-api ] && echo owned || echo rust; } ;;
+ ps) [ "$MISSING" = 1 ] || case "${@: -1}" in polis-api) echo rust;; polis-api-shadow) echo shadow;; *) echo owned;; esac ;;
  exec) case "$*" in *polis-api:5100*) echo rust >> "$CALLS"; exit "$RUST_HTTP";;
+       *polis-api-shadow:5101*) echo shadow >> "$CALLS"; exit "$SHADOW_HTTP";;
        *) echo http >> "$CALLS"; exit "$HTTP_STATUS";; esac ;;
  *) exit 90 ;; esac''',
         'jq':'''cat >/dev/null
 case "$*" in *POLIS_API_START*) echo "$START";; *) echo "$ROUTES";; esac''',
-        'docker':'''case "$*" in *' rust') echo "$RUST_STATE";; *Health*) echo "$STATE";; *) echo 'running false';; esac''',
+        'docker':'''case "$*" in *' rust') echo "$RUST_STATE";; *' shadow') echo "$SHADOW_STATE";; *Health*) echo "$STATE";; *) echo 'running false';; esac''',
         'systemctl':'''n=0; [ ! -f "$COUNT" ] || n=$(cat "$COUNT"); n=$((n+1)); echo "$n" > "$COUNT"; [ "$n" -gt "$DRAIN" ]''',
     }
     for name,body in fakes.items():
         f=bin_dir/name;f.write_text('#!/bin/bash\n'+body+'\n');f.chmod(0o755)
-    env=dict(os.environ,PATH=str(bin_dir)+':/usr/bin:/bin',STATE=state,HTTP_STATUS=str(http),START=start,ROUTES=routes,RUST_HTTP=str(rust_http),RUST_STATE=rust_state,CONFIG_STATUS=str(config_status),MISSING=str(int(missing)),DRAIN=str(drain),COUNT=str(tmp_path/'count'),CALLS=str(tmp_path/'calls'))
+    env=dict(os.environ,PATH=str(bin_dir)+':/usr/bin:/bin',STATE=state,HTTP_STATUS=str(http),START=start,ROUTES=routes,RUST_HTTP=str(rust_http),RUST_STATE=rust_state,CONFIG_STATUS=str(config_status),SHADOW_HTTP=str(shadow_http),SHADOW_STATE=shadow_state,MISSING=str(int(missing)),DRAIN=str(drain),COUNT=str(tmp_path/'count'),CALLS=str(tmp_path/'calls'))
     return subprocess.run(['bash',str(script)],env=env,text=True,capture_output=True,timeout=30)
 
 def test_healthy_server_requires_three_http_successes(tmp_path):
@@ -94,3 +95,38 @@ def test_rust_failure_only_rejects_validation_when_a_route_is_selected(tmp_path,
 @pytest.mark.parametrize("kw", [dict(start='true'), dict(config_status=1)])
 def test_invalid_or_unreadable_config_cannot_skip_health(tmp_path, kw):
     assert probe(tmp_path, **kw).returncode != 0
+
+
+# The vote shadow (votesShadow) is its own service, polis-api-shadow. Selected,
+# its health is required on every poll, after the main polis-api's.
+@pytest.mark.parametrize("routes", ["votesShadow", "pca2,votesShadow", " pca2 votesShadow "])
+def test_selected_shadow_is_probed_three_times_and_required(tmp_path, routes):
+    p = probe(tmp_path, routes=routes)
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls').read_text().splitlines() == ['http', 'rust', 'shadow'] * 3
+    assert p.stdout.count('polis-api-shadow health ok') == 3
+
+
+@pytest.mark.parametrize("kw", [dict(shadow_http=1), dict(shadow_state='running true none'),
+                                dict(shadow_state='exited false none')])
+def test_shadow_failure_rejects_validation(tmp_path, kw):
+    p = probe(tmp_path, routes='pca2,votesShadow', **kw)
+    assert p.returncode != 0
+    assert 'polis-api-shadow health failed' in p.stderr
+    assert 'ValidateService failed' in p.stderr
+
+
+@pytest.mark.parametrize("routes", ["", "pca2", "votesShadows", "votesRead"])
+def test_unselected_shadow_is_not_probed(tmp_path, routes):
+    p = probe(tmp_path, start='1', routes=routes, shadow_http=1)
+    assert p.returncode == 0, p.stderr
+    assert 'shadow' not in (tmp_path/'calls').read_text().splitlines()
+
+
+@pytest.mark.parametrize("routes", ["postVotes,votesShadow", "votesShadow postVotes"])
+def test_shadow_with_the_live_vote_writer_is_refused_before_polling(tmp_path, routes):
+    p = probe(tmp_path, routes=routes)
+    assert p.returncode != 0
+    assert 'votesShadow and postVotes' in p.stderr
+    assert not (tmp_path/'calls').exists()
+

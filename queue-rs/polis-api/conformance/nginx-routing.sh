@@ -24,7 +24,7 @@ p=${X54_NGINX_PREFIX:-nginx-routing-$$-${RANDOM}}
 net="$p-net"
 image=${X54_NGINX_IMAGE:-$p:local}
 cleanup() {
-  docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" "$p-files" >/dev/null 2>&1 || true
+  docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" "$p-files" "$p-shadow" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -1403,6 +1403,115 @@ echo "ok vote write hand-back: no reply is answered 504 without Node; refused an
 docker rm -f "$p-node" >/dev/null
 stub "$p-node" server 5000 200 node
 stub "$p-rust" polis-api 5100 200 rust
+
+# The vote shadow (votesShadow): POST /api/v3/votes stays Node's, and nginx's
+# mirror sends a copy to polis-api-shadow. Here only the rendered locations and
+# the routing are checked, with a shadow stand-in that answers 204;
+# nginx-shadow.sh checks what Node and the shadow receive in every failure
+# mode, and the copy's cost under load.
+stub "$p-shadow" polis-api-shadow 5101 204 shadow
+block() { # header: one rendered location, from its header line to its closing brace
+  included | sed -n "/^location $1 {\$/,/^}\$/p"
+}
+vote_post() { expect_upstream server POST /api/v3/votes $'Content-Type: application/json\r\nContent-Length: 2\r\n' '{}'; }
+start votesShadow,votesShadow
+shadow_conf=$(included)
+[[ $(grep -c '^location = /api/v3/votes {$' <<<"$shadow_conf") == 1 ]] || fail "shadow: vote path not rendered once"
+[[ $(grep -c '^location @polis_shadow_votesShadow {$' <<<"$shadow_conf") == 1 ]] || fail "shadow: named location not rendered once"
+[[ $(grep -c '^location = /_polis_shadow/votesShadow {$' <<<"$shadow_conf") == 1 ]] || fail "shadow: copy location not rendered once"
+[[ $(grep -c '^log_format polis_shadow_edge ' <<<"$shadow_conf") == 1 ]] || fail "shadow: edge log format missing"
+[[ $(grep -c '^log_format polis_shadow_mirror ' <<<"$shadow_conf") == 1 ]] || fail "shadow: copy log format missing"
+mirror=$(block '= \/_polis_shadow\/votesShadow')
+named=$(block '@polis_shadow_votesShadow')
+diversion=$(block '= \/api\/v3\/votes')
+# The copy's four timeouts bound how long the next request on a participant's
+# connection can wait for it: each is asserted exactly, and no other is set.
+for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/nginx/access.log polis_shadow_mirror;' \
+    '    if ($request_method != POST) {' '    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {' \
+    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/votes;' \
+    '    proxy_set_header X-Request-Id $request_id;' '    proxy_set_header X-Polis-Shadow votesShadow;' \
+    '    proxy_next_upstream off;' '    resolver_timeout 30ms;' '    proxy_connect_timeout 20ms;' \
+    '    proxy_send_timeout 20ms;' '    proxy_read_timeout 30ms;'; do
+  grep -qxF -- "$line" <<<"$mirror" || fail "shadow: the copy location lacks '$line'"
+done
+[[ $(grep -c '_timeout ' <<<"$mirror") == 4 ]] || fail "shadow: the copy location sets other timeouts"
+for line in '    mirror /_polis_shadow/votesShadow;' '    mirror_request_body on;' \
+    '    access_log /var/log/nginx/access.log main;' '    access_log /var/log/nginx/access.log polis_shadow_edge;' \
+    '    include /etc/nginx/node-proxy.conf;' '    proxy_set_header X-Request-Id $request_id;'; do
+  grep -qxF -- "$line" <<<"$named" || fail "shadow: the named location lacks '$line'"
+done
+for line in '    error_page 420 = @polis_shadow_votesShadow;' '    if ($request_method = POST) {' \
+    '        return 420;' '    include /etc/nginx/node-proxy.conf;'; do
+  grep -qxF -- "$line" <<<"$diversion" || fail "shadow: the vote location lacks '$line'"
+done
+# Nothing on the copy's side can reach Node: no error_page, no named Node
+# location and no retry, in the copy's location or the one that starts it.
+for part in "$mirror" "$named"; do
+  ! grep -qE 'error_page|@polis_node_api|recursive_error_pages|server:|proxy_next_upstream (error|timeout|on)' <<<"$part" \
+    || fail "shadow: a copy could reach Node: $part"
+done
+# The shadow host appears in one directive, as a literal; no setting reaches it.
+[[ $(grep -v '^[[:space:]]*#' <<<"$shadow_conf" | grep -c 'polis-api-shadow') == 1 ]] || fail "shadow: the copy target is not one literal"
+vote_post
+expect_upstream server GET /api/v3/votes
+expect_upstream server HEAD /api/v3/votes
+expect_upstream server PUT /api/v3/votes $'Content-Length: 2\r\n' '{}'
+expect_upstream server OPTIONS /api/v3/votes
+expect_upstream server POST /api/v3/votes/ $'Content-Length: 2\r\n' '{}'
+python3 - "$p-proxy" "$p-node" <<'PYTHON'
+import http.client, subprocess, sys
+proxy, node = sys.argv[1:]
+def logs():
+    return subprocess.check_output(['docker', 'logs', node], stderr=subprocess.STDOUT)
+before = logs()
+host, port = subprocess.check_output(['docker', 'port', proxy, '80/tcp'], text=True).strip().rsplit(':', 1)
+for method in ('GET', 'POST'):
+    c = http.client.HTTPConnection(host, int(port), timeout=5)
+    c.request(method, '/_polis_shadow/votesShadow', body=b'{}' if method == 'POST' else None)
+    assert c.getresponse().status == 404, method
+    c.close()
+assert logs() == before, 'a direct request to the copy location reached Node'
+PYTHON
+echo "ok vote shadow alone: one vote location and one copy location; literal target, body bound and the four timeouts exactly; no route from the copy to Node; votes and the copy location's direct requests answered as before"
+
+for routes in votesRead,votesShadow votesShadow,votesRead; do
+  start "$routes"
+  shadow_conf=$(included)
+  [[ $(grep -c '^location = /api/v3/votes {$' <<<"$shadow_conf") == 1 ]] || fail "$routes: vote path not rendered once"
+  [[ $(grep -c '^location = /api/v3/votes/me {$' <<<"$shadow_conf") == 1 ]] || fail "$routes: personal vote read not rendered once"
+  shared=$(block '= \/api\/v3\/votes')
+  # The POST diversion precedes the read's own checks.
+  [[ $(grep -nxF '    error_page 420 = @polis_shadow_votesShadow;' <<<"$shared" | cut -d: -f1) -lt \
+     $(grep -nxF '    if ($polis_api_plain = 0) {' <<<"$shared" | cut -d: -f1) ]] || fail "$routes: diversion after the read check"
+  # Exactly the read route's location, with the diversion first.
+  expected=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/votes {$/,/^}$/p' /etc/nginx/rust-api-templates/votesRead.location.conf.template \
+    | awk '{ print } NR == 1 { print "    error_page 420 = @polis_shadow_votesShadow;"; print "    if ($request_method = POST) {"; print "        return 420;"; print "    }" }')
+  [[ $shared == "$expected" ]] || fail "$routes: the shared vote location is not the read route's plus the diversion"
+  vote_post
+  expect_upstream polis-api GET /api/v3/votes
+  expect_upstream polis-api HEAD /api/v3/votes
+  expect_upstream polis-api GET /api/v3/votes/me
+  expect_upstream server OPTIONS /api/v3/votes
+done
+echo "ok vote shadow with the vote reads: one vote location, the POST diversion first, reads keep their directives"
+
+start pca2,votesShadow
+expect '/api/v3/math/pca2?conversation_id=x' rust "shadow beside pca2"
+vote_post
+# Unselected, the read route renders exactly its template.
+start votesRead
+! included | grep -q 'polis_shadow' || fail "votesRead alone: shadow text rendered"
+reads=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/votes {$/,/^}$/p' /etc/nginx/rust-api-templates/votesRead.location.conf.template)
+[[ $(block '= \/api\/v3\/votes') == "$reads" ]] || fail "votesRead alone: rendered location differs from its template"
+# The live vote writer and its shadow are refused together: every route stays on Node.
+for routes in postVotes,votesShadow 'votesShadow postVotes'; do
+  start "$routes"
+  logged 'votesShadow and postVotes' "$routes: refusal not logged"
+  [[ -z $(included) ]] || fail "$routes: refused selection rendered"
+  vote_post
+done
+docker rm -f "$p-shadow" >/dev/null
+echo "ok vote shadow beside pca2; votesRead alone unchanged; votesShadow with postVotes refused, every route on Node"
 
 # Independent metrics selector; disabled by default and unrelated to participation.
 docker rm -f "$p-rust" >/dev/null
