@@ -170,8 +170,16 @@ async function main() {
     });
     const body = Buffer.concat(request.body.map(c => Buffer.from(c.bytes.base64, "base64")));
     const result = await compare(request.request_id, requestBytes(request.method, target, headers, body), request.method === "HEAD");
+    const query = new URL(target, "http://localhost").searchParams;
+    const oidc = ["comments-owner", "comments-moderator", "comments-foreign", "admin"].includes(request.actor_ref);
+    const plainOidc = oidc && !query.has("report_id") &&
+      query.getAll("limit").length <= 1 && query.get("moderation") !== "true";
+    if (plainOidc && result.fallback) result.unexpectedFallback = true;
     const isModeration = request.request_id.includes("/moderation-true");
     if (isModeration && result.fallback) result.unexpectedFallback = true;
+    if (plainOidc && result.equal) {
+      recordings.push({request, node:result.node.toString("base64"), rust:result.rust.toString("base64")});
+    }
     if (isModeration && result.equal) {
       recordings.push({request, node:result.node.toString("base64"), rust:result.rust.toString("base64")});
       const raw=result.node;
@@ -193,7 +201,7 @@ async function main() {
     results.push(result);
   }
   const differences = results.filter(r => !r.equal && (!r.fallback || r.unexpectedFallback));
-  const summary = {recorded: cases.length, supplemental: extra.length, recordings, servedByRust: results.filter(r=>r.equal).length, handedToNode: results.filter(r=>r.fallback && !r.unexpectedFallback).length, dateRetries, differences};
+  const summary = {recorded: cases.length, supplemental: extra.length, recordings, results, recordedServedByRust: results.slice(0,cases.length).filter(r=>r.equal).length, servedByRust: results.filter(r=>r.equal).length, handedToNode: results.filter(r=>r.fallback && !r.unexpectedFallback).length, dateRetries, differences};
   console.log(JSON.stringify(summary,null,2));
   if (differences.length || summary.servedByRust === 0) process.exitCode=1;
 }
