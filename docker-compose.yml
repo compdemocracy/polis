@@ -501,6 +501,51 @@ services:
       - "polis-net"
     restart: unless-stopped
 
+  # The vote writer's shadow (queue-rs/polis-api/README.md, "Vote writer: the
+  # shadow role and observe mode"): the polis-api image in its shadow role, in
+  # observe mode. The web deploy starts it only when RUST_API_ROUTES names
+  # votesShadow; nginx then sends it a copy of each POST /api/v3/votes that Node
+  # answers. It answers each copy 204 and writes nothing: no writer pool, and
+  # read-only database sessions. Its writer settings are here, for this
+  # service only; the shared env file carries none of them. In the rust-api
+  # profile, so the deploy's teardown removes it with polis-api.
+  polis-api-shadow:
+    profiles: [rust-api]
+    image: polis/polis-api:local
+    env_file:
+      - ${SERVER_ENV_FILE:-.env}
+    environment:
+      - POLIS_API_ROLE=shadow
+      - POLIS_API_SHADOW_LISTEN=0.0.0.0:5101
+      # Copies observed per second on this box; the rest are recorded as shed.
+      # At most 25: the readback retries at 10 s, so up to ten seconds' worth
+      # wait at once, within the 256 the process holds.
+      - POLIS_API_SHADOW_MAX_PER_SECOND=8
+      - POLIS_API_POST_VOTES=observe
+      # The writer's primary, interpolated from the box's own DATABASE_URL
+      # (the deploy appends it to the project .env); never in the env secret.
+      - POLIS_API_POST_VOTES_DATABASE_URL=${DATABASE_URL:-}
+      - TOPICAL_COMMENT_RATIO=0
+      - SHOULD_USE_TRANSLATION_API=false
+      # 128 MiB, so the priorities cache fits the memory limit below.
+      - POLIS_API_WRITER_PRIORITIES_CACHE_BYTES=134217728
+      # The process mints nothing: it verifies with the public key alone.
+      - JWT_PRIVATE_KEY=
+      - JWT_PRIVATE_KEY_PATH=
+      # The same database transport as polis-api; it must verify TLS.
+      - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-}
+      - POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-tls}
+      - POLIS_API_DB_CA_FILE=${POLIS_API_DB_CA_FILE:-/etc/polis/rds-global-bundle.pem}
+      - POLIS_API_DB_HOST_ALLOWLIST=${POLIS_API_DB_HOST_ALLOWLIST:-}
+    cpus: 0.25
+    mem_limit: 384m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks:
+      - "polis-net"
+    restart: unless-stopped
+
   file-server:
     image: docker.io/compdem/polis-file-server:${TAG:-dev}
     build:

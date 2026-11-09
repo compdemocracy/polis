@@ -1,0 +1,9 @@
+
+# Rendered only when RUST_API_ROUTES names a shadow (votesShadow). One line
+# for each shadowed request as nginx answered it (Node's status and time, the
+# participant's total time), and one for each copy (the shadow service's
+# status and how long the copy held the connection). Both carry nginx's
+# $request_id, which Node and the shadow receive as X-Request-Id; neither
+# carries an address, a header value or a body.
+log_format polis_shadow_edge escape=json '{"message":"shadow_edge","listener":"shadow","service":"nginx-proxy","route":"$request_method $uri","request_id":"$request_id","edge_status":$status,"edge_upstream_status":"$upstream_status","edge_upstream_s":"$upstream_response_time","edge_request_s":$request_time,"time":"$time_iso8601"}';
+log_format polis_shadow_mirror escape=json '{"message":"shadow_mirror","listener":"shadow","service":"nginx-proxy","shadow":"$polis_shadow_name","request_id":"$request_id","mirror_status":$status,"mirror_upstream_status":"$upstream_status","mirror_s":$request_time,"time":"$time_iso8601"}';

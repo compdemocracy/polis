@@ -22,6 +22,15 @@ import tempfile
 # the host here and explain why production can reach it without a Compose service.
 EXCEPTIONS = {}
 
+# Web services that run another web service's image: the hook pulls that image
+# once and its Compose override names the same digest for both. The shadow of
+# the vote writer runs the polis-api image with its own role and settings.
+SHARED_IMAGES = {'polis-api-shadow': 'polis-api'}
+
+# A shadow selection is refused together with the route that writes what it
+# observes, so the checker renders the shadows in a selection of their own.
+SHADOW_CONFLICTS = {'votesShadow': 'postVotes'}
+
 
 def require(condition, message):
     if not condition:
@@ -276,7 +285,9 @@ def web_services(script, compose):
                 continue
             require(re.fullmatch(r'[a-z][a-z0-9-]*', word), f'unrecognized startup argument {word!r} at {location}')
             started.add(word)
-    require(started == images, f'web image/start mismatch: images={sorted(images)}, started={sorted(started)}')
+    borrowed = {name for name in started if name in SHARED_IMAGES and SHARED_IMAGES[name] in images}
+    require(started - borrowed == images,
+            f'web image/start mismatch: images={sorted(images)}, started={sorted(started)}')
     # Service names are two-space keys under services, not similarly indented
     # networks/volumes. Reject alternative formatting rather than infer a name.
     section = re.search(r'^services:\n(.*?)(?=^[^\s#]|\Z)', compose, re.M | re.S)
@@ -399,8 +410,9 @@ def check(root):
     require(len(upstreams) == 1, 'unrecognized Compose Rust upstream default')
     documents = {}
     for path in paths:
-        if path == folder / 'rust-api/upstreams.conf.template':
-            continue  # Its map placeholders are checked after the real renderer.
+        if path in (folder / 'rust-api/upstreams.conf.template',
+                    folder / 'rust-api/shadow-mirror.conf.template'):
+            continue  # Their placeholders are checked after the real renderer.
         value = path.read_text()
         for key, default in defaults.items():
             value = value.replace('${' + key + '}', default)
@@ -419,15 +431,23 @@ def check(root):
         renderer = renderer.replace('/etc/nginx/rust-api-templates/', str(folder / 'rust-api') + '/')
         script = temp / 'render.sh'
         script.write_text(renderer)
-        env = {'PATH': os.environ['PATH'], 'RUST_API_ROUTES': ','.join(routes),
-               'RUST_API_UPSTREAM': upstreams[0], **defaults}
-        result = subprocess.run(['sh', str(script), str(temp / 'rendered')], env=env,
-                                capture_output=True, text=True)
-        require(result.returncode == 0,
-                f'Rust route renderer failed (exit {result.returncode}): {result.stderr.strip()}')
-        for path in sorted((temp / 'rendered').glob('*.conf')):
-            require(path.stat().st_size > 0, f'empty rendered file: {path.name}')
-            documents['rendered/' + path.name] = path.read_text()
+        # Every route together; then every shadow the renderer knows, with every
+        # route that is not refused beside it.
+        shadows = sorted(re.findall(r'^    ([A-Za-z0-9]+Shadow)\)$', renderer, re.M))
+        selections = [('rendered', routes)]
+        if shadows:
+            refused = {SHADOW_CONFLICTS.get(name) for name in shadows}
+            selections.append(('rendered-shadow', [r for r in routes if r not in refused] + shadows))
+        for label, selection in selections:
+            env = {'PATH': os.environ['PATH'], 'RUST_API_ROUTES': ','.join(selection),
+                   'RUST_API_UPSTREAM': upstreams[0], **defaults}
+            result = subprocess.run(['sh', str(script), str(temp / label)], env=env,
+                                    capture_output=True, text=True)
+            require(result.returncode == 0,
+                    f'Rust route renderer failed (exit {result.returncode}): {result.stderr.strip()}')
+            for path in sorted((temp / label).glob('*.conf')):
+                require(path.stat().st_size > 0, f'empty rendered file: {path.name}')
+                documents[label + '/' + path.name] = path.read_text()
     sources = {}
     hosts = nginx_hosts(documents, sources)
     require(hosts, 'no nginx upstream hosts found')
@@ -437,4 +457,5 @@ def check(root):
     details = {host: sorted(sources[host]) for host in sorted(missing)}
     require(not missing, f'nginx upstreams absent from production web role: {sorted(missing)}; configs: {details}')
     return {'hosts': sorted(hosts), 'web_services': sorted(services),
-            'source_configs': len(paths), 'rendered_routes': len(routes)}
+            'source_configs': len(paths), 'rendered_routes': len(routes),
+            'shadow_selections': len(selections) - 1}

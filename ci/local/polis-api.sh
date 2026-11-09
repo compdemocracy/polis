@@ -76,6 +76,13 @@ check_project "$IMPORTANCE_PROJECT"
 
 (
   cd "$CHECK_ROOT/."
+  # The vote shadow's behaviour in every failure mode. Its load series
+  # (--load) measures latency and runs on a quiet box.
+  queue-rs/polis-api/conformance/nginx-shadow.sh
+)
+
+(
+  cd "$CHECK_ROOT/."
   export COMPOSE_PROJECT_NAME="$IMPORTANCE_PROJECT"
   export POLIS_RECOVERY_PG_PORT="$IMPORTANCE_PG_PORT"
   export IMPORTANCE_API_PORT="${IMPORTANCE_API_PORT:-${IMPORTANCE_API_PORT}}"
