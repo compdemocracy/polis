@@ -30,7 +30,7 @@ an arm64 host (the package needs `pkg-config` and `libssl-dev`).
 | `shadow_edge` | nginx, each shadowed vote (`file-server/nginx/rust-api/shadow-http.conf.template`) | `request_id`, `edge_status` (Node's status as nginx saw it), `edge_upstream_s` (Node's time) |
 | `shadow_mirror` | nginx, each copy | `mirror_status`, `mirror_upstream_status` (empty: not copied), `mirror_s` (how long the copy held the participant's connection) |
 | `vote_reply` | Node's vote handler (`server/src/routes/votes.ts`), only for a request carrying nginx's `X-Request-Id` | `node_status`, `node_next` (`statement`, `topical` or `none`), `node_next_tid`, `node_remaining`, `node_total`, `zid` |
-| `http_request` | Node's access line, which carries `request_id` for such a request (`server/src/server-middleware.ts`) | `http.status_code`: Node's answer when its middleware refused the vote before the handler |
+| `http_request` | Node's access line, which carries `request_id` for such a request (`server/src/server-middleware.ts`). Its `message` is written `"http_request http_request"` (winston appends the meta's `message`); the queries accept both spellings, and a test refuses a query that tests the single one | `http.status_code`: Node's answer when its middleware refused the vote before the handler; for every vote (with or without a request id), `http.route`, `http.status_code` and `duration_ms` for the stop rule's vote inputs |
 | `shadow_observation` | the shadow service (`queue-rs/polis-api/src/shadow.rs`) | `outcome`, `admitted`, `status`, `reason`, the durations, `follow_on`, `next_tid`, `remaining`, `total`, `prev`, `node_vote` |
 
 None of the five carries a vote value. Every container on a web box writes into
@@ -65,7 +65,9 @@ is written to disk.
 The stop rule's metrics, read with `cloudwatch get-metric-statistics`: the
 database's `CPUUtilization` (5-minute averages), and the load balancer's
 `TargetResponseTime` p99 by hour and `HTTPCode_Target_5XX_Count` by day, each
-also for the same window a week earlier.
+also for the same window a week earlier. The vote inputs come from one more
+query, `node_votes` (Node's access lines for every vote, by hour), run over
+the window and over the same window a week earlier.
 
 ## Running it
 
@@ -93,8 +95,9 @@ total.
 from results saved as `<query>.json` (`get-query-results` output) and
 `metric-<name>.json` (`get-metric-statistics` output).
 
-Exit status: 0 pass, 1 stop, 2 too little evidence (or a criterion not
-evaluated), 3 an error.
+Exit status: 0 pass, 1 stop (remove the shadow), 2 too little evidence (or a
+criterion not evaluated), 3 an error, 4 examine (enough evidence, no stop, a
+criterion missed: examine before the flip).
 
 ## What each number means
 
@@ -113,10 +116,15 @@ evaluated), 3 an error.
    quick change of vote, `different`: a vote-sign stop, `absent`,
    `unavailable`); the would-be next statement (`complete`, `absent`,
    `degraded`); membership (`hit`, `miss`, `new`, `revote`, `none`).
-5. **Joined with Node.** Coverage (copied votes with an observation); Node
-   replies from the handler and refusals before it; status agreement on
-   admitted copies the shadow would serve, with a Node 500 after the vote was
-   stored as its own class; next statement presence and exhaustion where both
+5. **Joined with Node.** Coverage (copied votes with an observation, where a
+   copy nginx answered itself because the shadow's host was absent counts as
+   copied, so a down shadow counts against coverage); Node replies from the
+   handler and refusals before it; status agreement on admitted copies the
+   shadow would serve, on Node's handler status where it replied (nginx's
+   where it refused before the handler), with a Node 500 after the vote was
+   stored as its own class, and two classes not compared: the participant went
+   away (nginx 499) and a 5xx nginx answered with no reply from Node's
+   handler; next statement presence and exhaustion where both
    answered 200; `remaining` and `total` equality. A self-check compares the
    second stage's total of nginx lines with the one-stage count: if they differ,
    the account did not run the two stages as written and the joined comparison
@@ -124,10 +132,24 @@ evaluated), 3 an error.
    reported as refused.
 6. **The shadow's latency** on admitted copies: queue, admission, selection,
    total and readback, append excluded.
-7. **The stop rule**: database CPU above 60 % in two consecutive 5-minute
-   periods; the copy's hold above 10 ms p99 in an hour or 60 ms once; the load
-   balancer's p99 more than 20 % above the same hour a week earlier; target 5xx
-   above the same day a week earlier.
+7. **The stop rule** (any one is a stop):
+   1. database CPU above 60 % in two consecutive 5-minute periods;
+   2. the copy's hold above 10 ms p99 in an hour, or any copy above 60 ms;
+   3. the load balancer's p99 (all routes) more than 20 % **and** more than
+      100 ms above the same hour a week earlier, in three hours in a row;
+   4. vote errors: at least 10 of Node's 5xx on `POST /api/v3/votes` in the
+      window, a share more than three times the same span's a week earlier
+      **and** more than half a percentage point above it;
+   5. vote latency: Node's `duration_ms` p99 for votes more than 20 % **and**
+      more than 50 ms above the same hour a week earlier, in three hours in a
+      row, counting only hours with at least 20 votes in both weeks.
+
+   Target 5xx over all routes are printed as context and are not a stop:
+   they are non-zero on nearly every day and swing from 15 to 1,999 a day
+   (deploys among them), so a day above the week before says nothing about
+   the shadow. The floors and the three-hour runs exist for the same reason:
+   one slow hour or one bad day happens every week; what the shadow could
+   cause (database contention, a held connection) persists while it runs.
 8. **Draw distributions** (`--distributions`): for each copy that both Node and
    the shadow served with a statement, Node's draw and the shadow's draw for
    the same request; a chi-square of homogeneity per conversation (statements
@@ -140,12 +162,12 @@ evaluated), 3 an error.
 | Criterion | Pass |
 |---|---|
 | The copy's cost | largest hourly p99 at most 5 ms, largest at most 60 ms |
-| Coverage | observations for at least 99.5 % of copied votes |
+| Coverage | observations for at least 99.5 % of copied votes, a down shadow's included |
 | Evidence volume | at least 5,000 admitted observations across at least 50 conversations, else too little evidence |
 | Admitted share, copied share | reported, no threshold |
 | Would-be failures | none (CORS refusals excepted and reported); a failure is a stop |
 | Status agreement | 100 % on admitted would-serve copies, a Node 500 after store its own class; a disagreement is a stop |
-| `node_vote` | `different` zero (a stop); `same` or `ambiguous` at least 99.9 % of those checked; no would-be 403 that Node stored |
+| `node_vote` | `different` zero (a stop); `same` or `ambiguous` at least 99.9 % of admitted would-be 200s (a readback that never ran counts against it); no would-be 403 that Node stored |
 | `remaining` and `total` | equal on at least 99.5 % where both served a statement |
 | Exhaustion and presence | agreement at least 99.9 % |
 | Membership | `hit` at least 98 % of `hit` and `miss` |
@@ -155,8 +177,8 @@ evaluated), 3 an error.
 | The stop rule | never fired |
 
 The verdict is STOP if any criterion is a stop, then TOO LITTLE EVIDENCE if
-any is short or not evaluated, then STOP if any other criterion missed, else
-PASS. Every miss is examined before the flip.
+any is short or not evaluated, then EXAMINE if any other criterion missed,
+else PASS. Every miss is examined before the flip.
 
 ## What it cannot compare
 

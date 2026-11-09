@@ -16,6 +16,8 @@ pub struct Route {
     pub method: &'static str,
     /// The `message` of Node's per-reply line.
     pub node_line: &'static str,
+    /// The Express route path on Node's access line (`http.route`).
+    pub path: &'static str,
 }
 
 pub const VOTES: Route = Route {
@@ -24,6 +26,7 @@ pub const VOTES: Route = Route {
     route: "POST /api/v3/votes",
     method: "POST",
     node_line: "vote_reply",
+    path: "/api/v3/votes",
 };
 
 pub const ROUTES: &[Route] = &[VOTES];
@@ -69,7 +72,7 @@ impl Route {
     /// (middleware refusals included).
     fn http(&self) -> E {
         and(vec![
-            is("message", "http_request"),
+            E::In("message", ACCESS_LINE.to_vec()),
             is("service", "server"),
             E::Present("request_id"),
             is("http.method", self.method),
@@ -88,6 +91,7 @@ impl Route {
             self.conversations(),
             self.latency(),
             self.join(),
+            self.node_votes(),
         ]
     }
 
@@ -106,6 +110,7 @@ impl Route {
             fields: vec![],
             stages: vec![stats],
             pad_s: 0,
+            previous_week: false,
         }
     }
 
@@ -273,8 +278,15 @@ impl Route {
                         is("mirror_upstream_status", "204"),
                     ])),
                 ),
+                (
+                    "n_mirror_204",
+                    Agg::Sum(and(vec![
+                        message("shadow_mirror"),
+                        num_is("mirror_status", 204),
+                    ])),
+                ),
                 ("n_reply", Agg::Sum(message(self.node_line))),
-                ("n_http", Agg::Sum(message("http_request"))),
+                ("n_http", Agg::Sum(E::In("message", ACCESS_LINE.to_vec()))),
                 ("n_obs", Agg::Sum(message("shadow_observation"))),
                 ("n_would", Agg::Sum(E::In("outcome", WOULD.to_vec()))),
                 ("n_shed", Agg::Sum(is("outcome", "shed"))),
@@ -340,7 +352,23 @@ impl Route {
                 ),
                 (
                     "not_copied",
-                    Agg::Sum(with(vote(), vec![one("n_mirror"), num_is("n_copied", 0)])),
+                    Agg::Sum(with(
+                        vote(),
+                        vec![one("n_mirror"), num_is("n_copied", 0), one("n_mirror_204")],
+                    )),
+                ),
+                // nginx answered the copy itself (the shadow's host absent, a
+                // shadow that is down): copied as far as coverage goes.
+                (
+                    "host_absent",
+                    Agg::Sum(with(
+                        vote(),
+                        vec![
+                            one("n_mirror"),
+                            num_is("n_copied", 0),
+                            num_is("n_mirror_204", 0),
+                        ],
+                    )),
                 ),
                 (
                     "copied",
@@ -459,7 +487,11 @@ impl Route {
                 ),
                 ("cors", Agg::Sum(with(vote(), vec![ge(f("n_cors"), n(1))]))),
             ],
-            by: vec![Key::Field("edge_st"), Key::Field("rust_st")],
+            by: vec![
+                Key::Field("edge_st"),
+                Key::Field("node_st"),
+                Key::Field("rust_st"),
+            ],
         };
         Query {
             name: "join",
@@ -479,6 +511,34 @@ impl Route {
             fields: vec![("t", E::TimestampMs)],
             stages: vec![first, second],
             pad_s: 60,
+            previous_week: false,
+        }
+    }
+
+    /// Node's access lines for every vote, not only shadowed ones, by hour:
+    /// the stop rule's vote latency and vote errors. `run` issues it for the
+    /// window and for the same window a week earlier.
+    fn node_votes(&self) -> Query {
+        Query {
+            name: "node_votes",
+            about: "Node's answers to every vote by hour, the window and a week earlier (the stop rule's vote latency and errors).",
+            filter: and(vec![
+                E::In("message", ACCESS_LINE.to_vec()),
+                is("service", "server"),
+                is("http.method", self.method),
+                is("http.route", self.path),
+            ]),
+            fields: vec![],
+            stages: vec![Stats {
+                aggs: vec![
+                    ("n", Agg::Count),
+                    ("e5", Agg::Sum(ge(f("http.status_code"), n(500)))),
+                    ("p99_ms", Agg::Pct("duration_ms", 99)),
+                ],
+                by: vec![Key::Hour],
+            }],
+            pad_s: 0,
+            previous_week: true,
         }
     }
 
@@ -537,6 +597,7 @@ impl Route {
                 },
             ],
             pad_s: 0,
+            previous_week: false,
         }
     }
 }

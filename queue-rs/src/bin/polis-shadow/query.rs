@@ -157,6 +157,9 @@ pub struct Query {
     /// retry (10 s) apart, so the join reads a little past both bounds and
     /// counts only requests whose nginx line falls inside the window.
     pub pad_s: i64,
+    /// Also run over the same window a week earlier (the stop rule's
+    /// baseline); its rows are stored as `<name>_previous`.
+    pub previous_week: bool,
 }
 
 /// The window bounds a rendering fills in.
@@ -335,6 +338,7 @@ pub const MEASURE_ALLOWLIST: &[&str] = &[
     "selection_ms",
     "total_ms",
     "readback_s",
+    "duration_ms",
 ];
 
 /// Names that may never leave AWS in any form a query returns.
@@ -359,6 +363,9 @@ pub const NEVER: &[&str] = &[
 /// and no expression anywhere in a final stage names a field in `NEVER`.
 pub fn refusal(q: &Query) -> Option<String> {
     if let Some(why) = clash(q) {
+        return Some(why);
+    }
+    if let Some(why) = single_access_spelling(q) {
         return Some(why);
     }
     let (first, last) = match q.stages.as_slice() {
@@ -439,6 +446,45 @@ pub fn refusal(q: &Query) -> Option<String> {
         }
     }
     None
+}
+
+/// Node's access line: winston appends the meta's `message` to the message
+/// argument (winston 3 `logger.js`), so production writes
+/// `"message":"http_request http_request"`. A query that tests `message`
+/// against the single spelling alone would never match it.
+pub const ACCESS_LINE: [&str; 2] = ["http_request", "http_request http_request"];
+
+fn single_access_spelling(q: &Query) -> Option<String> {
+    fn bad(e: &E) -> bool {
+        match e {
+            E::Cmp(a, _, b) => {
+                matches!((&**a, &**b), (E::Field("message"), E::Str("http_request")))
+                    || matches!((&**a, &**b), (E::Str("http_request"), E::Field("message")))
+                    || bad(a)
+                    || bad(b)
+            }
+            E::In("message", values) => {
+                values.contains(&"http_request") && !values.contains(&ACCESS_LINE[1])
+            }
+            E::And(parts) | E::Or(parts) => parts.iter().any(bad),
+            _ => false,
+        }
+    }
+    let mut exprs = vec![&q.filter];
+    exprs.extend(q.fields.iter().map(|(_, e)| e));
+    for stage in &q.stages {
+        for (_, agg) in &stage.aggs {
+            if let Agg::Sum(e) = agg {
+                exprs.push(e);
+            }
+        }
+    }
+    exprs.into_iter().any(bad).then(|| {
+        format!(
+            "{}: matches Node's access line by its single spelling; production writes \"http_request http_request\"",
+            q.name
+        )
+    })
 }
 
 /// A name defined twice, or defined after something earlier in the query

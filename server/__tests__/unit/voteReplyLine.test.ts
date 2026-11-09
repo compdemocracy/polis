@@ -352,6 +352,7 @@ describe("vote_reply", () => {
     ["31 characters", { "x-request-id": REQUEST_ID.slice(1) }],
     ["33 characters", { "x-request-id": REQUEST_ID + "0" }],
     ["not hex", { "x-request-id": "g".repeat(32) }],
+    ["a line break", { "x-request-id": REQUEST_ID + "\n" }],
     ["a repeated header", { "x-request-id": [REQUEST_ID, REQUEST_ID] }],
   ])("%s: no line", async (_name, headers) => {
     await vote({ headers, next: { ...statement } });

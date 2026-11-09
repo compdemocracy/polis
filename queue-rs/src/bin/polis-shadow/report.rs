@@ -16,8 +16,12 @@ pub type Metrics = BTreeMap<String, Result<Vec<(i64, f64)>, String>>;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verdict {
     Pass,
+    /// A stop mark: remove the shadow.
     Stop,
     TooLittle,
+    /// No stop, enough evidence, and a criterion missed: examine before the
+    /// flip.
+    Examine,
 }
 
 impl Verdict {
@@ -26,6 +30,7 @@ impl Verdict {
             Verdict::Pass => 0,
             Verdict::Stop => 1,
             Verdict::TooLittle => 2,
+            Verdict::Examine => 4,
         }
     }
     fn text(self) -> &'static str {
@@ -33,6 +38,7 @@ impl Verdict {
             Verdict::Pass => "PASS",
             Verdict::Stop => "STOP",
             Verdict::TooLittle => "TOO LITTLE EVIDENCE",
+            Verdict::Examine => "EXAMINE",
         }
     }
 }
@@ -156,6 +162,15 @@ mod bar {
     pub const STOP_MIRROR_P99_MS: f64 = 10.0;
     pub const STOP_MIRROR_MAX_MS: f64 = 60.0;
     pub const LB_RATIO: f64 = 1.2;
+    pub const LB_FLOOR_S: f64 = 0.1;
+    pub const SUSTAINED_HOURS: u32 = 3;
+    pub const VOTE_P99_RATIO: f64 = 1.2;
+    pub const VOTE_P99_FLOOR_MS: f64 = 50.0;
+    pub const VOTE_MIN_PER_HOUR: u64 = 20;
+    pub const VOTE_5XX_MIN: u64 = 10;
+    pub const VOTE_5XX_RATIO: f64 = 3.0;
+    /// Percentage points (the shares are in percent).
+    pub const VOTE_5XX_POINTS: f64 = 0.5;
 }
 
 pub fn build(inputs: &Inputs) -> Report {
@@ -198,7 +213,12 @@ pub fn build(inputs: &Inputs) -> Report {
                     "the shadow, each copy (shadow_observation)",
                 ),
             ] {
-                let n = sum(lines, "lines", |row| text(row, "message") == message);
+                // Node's access line is written "http_request http_request".
+                let n = sum(lines, "lines", |row| {
+                    let m = text(row, "message");
+                    m == message
+                        || (message == "http_request" && crate::query::ACCESS_LINE.contains(&m))
+                });
                 if message == "shadow_edge" {
                     edge_lines = Some(n);
                 }
@@ -481,17 +501,19 @@ pub fn build(inputs: &Inputs) -> Report {
                 out,
                 "   would-be 403 (closed) that Node stored: {closed_same}"
             );
-            let checked = same + ambiguous + different + absent;
-            let agree = share(same + ambiguous, checked);
+            // Over every admitted would-be 200, so a readback that never ran
+            // (unavailable, not checked) counts against the share.
+            let agree = share(same + ambiguous, served_n);
             add(
                 "node_vote",
                 format!(
-                    "different {different}; same or ambiguous {} of {checked} checked; would-be 403 stored by Node {closed_same}",
-                    pct(agree)
+                    "different {different}; same or ambiguous {} of {served_n} admitted would-be 200s ({} read back); would-be 403 stored by Node {closed_same}",
+                    pct(agree),
+                    same + ambiguous + different + absent
                 ),
                 if different > 0 {
                     Mark::Stop
-                } else if checked == 0 {
+                } else if served_n == 0 {
                     Mark::NotEvaluated
                 } else if agree.is_some_and(|a| a >= bar::NODE_VOTE) && closed_same == 0 {
                     Mark::Pass
@@ -655,7 +677,7 @@ pub fn build(inputs: &Inputs) -> Report {
 
     // ---- The stop rule.
     let _ = writeln!(out, "\n7. The stop rule");
-    stop_rule(&mut out, &mut add, inputs.metrics, hold);
+    stop_rule(&mut out, &mut add, inputs.results, inputs.metrics, hold);
 
     // ---- Weights.
     let _ = writeln!(
@@ -688,7 +710,7 @@ pub fn build(inputs: &Inputs) -> Report {
     {
         Verdict::TooLittle
     } else if criteria.iter().any(|c| c.mark == Mark::Miss) {
-        Verdict::Stop
+        Verdict::Examine
     } else {
         Verdict::Pass
     };
@@ -758,18 +780,25 @@ fn join_section(
     }
     let copied = all("copied");
     let covered = all("covered");
+    let host_absent = all("host_absent");
+    // A copy nginx answered itself (the shadow's host absent: a shadow that
+    // is down) is a copy the shadow should have seen.
+    let expected = copied + host_absent;
     let _ = writeln!(
         out,
-        "   copied {copied}, answered 204 {}, not copied {}, no copy line {}; observed lines for copied votes {covered} ({})",
+        "   copied {copied}, answered 204 {}, the shadow's host absent {host_absent}, outside the body bound {}, no copy line {}; observed lines for copied votes {covered} ({} of copied and host-absent)",
         all("answered"),
         all("not_copied"),
         all("no_mirror"),
-        pct(share(covered, copied))
+        pct(share(covered, expected))
     );
-    let coverage = share(covered, copied);
+    let coverage = share(covered, expected);
     add(
         "coverage",
-        format!("{} of copied votes ({covered} / {copied})", pct(coverage)),
+        format!(
+            "{} of copied votes, a down shadow included ({covered} / {expected})",
+            pct(coverage)
+        ),
         match coverage {
             None => Mark::NotEvaluated,
             Some(c) if c >= bar::COVERAGE => Mark::Pass,
@@ -786,34 +815,51 @@ fn join_section(
         all("http_edge_mismatch")
     );
     // Status agreement on admitted copies the shadow would serve (200, 400,
-    // 403); Node's status is nginx's view of it. A Node 500 after the vote
-    // was stored (the shadow's 200 with Node's row read back) is its own
-    // class.
+    // 403). Node's status is its handler's (vote_reply) where it replied,
+    // else nginx's view (a refusal before the handler). Two classes are not
+    // compared: the participant went away (nginx 499; Node's handler may
+    // still have finished), and a 5xx nginx answered with no reply from
+    // Node's handler (Node down or cut off). A Node 500 after the vote was
+    // stored (the shadow's 200 with Node's row read back) is its own class.
+    let node_status = |row: &Row| {
+        let handler = status(row, "node_st");
+        if handler == "none" {
+            status(row, "edge_st")
+        } else {
+            handler
+        }
+    };
+    let gone = |row: &Row| status(row, "edge_st") == "499";
+    let nginx_only = |row: &Row| {
+        !gone(row) && status(row, "node_st") == "none" && status(row, "edge_st").starts_with('5')
+    };
     let serving = |row: &Row| matches!(status(row, "rust_st").as_str(), "200" | "400" | "403");
-    let compared = sum(join, "admitted_n", serving);
+    let compared_row = |row: &Row| serving(row) && !gone(row) && !nginx_only(row);
+    let went_away = sum(join, "admitted_n", |row| serving(row) && gone(row));
+    let nginx_answered = sum(join, "admitted_n", |row| serving(row) && nginx_only(row));
+    let compared = sum(join, "admitted_n", compared_row);
     let agree = sum(join, "admitted_n", |row| {
-        serving(row) && status(row, "edge_st") == status(row, "rust_st")
+        compared_row(row) && node_status(row) == status(row, "rust_st")
     });
+    let stored_then_500 = |row: &Row| node_status(row) == "500" && status(row, "rust_st") == "200";
     let after_store = sum(join, "same", |row| {
-        status(row, "edge_st") == "500" && status(row, "rust_st") == "200"
+        compared_row(row) && stored_then_500(row)
     });
     let disagree = compared.saturating_sub(agree + after_store);
     let _ = writeln!(
         out,
-        "   status on admitted would-serve copies: agree {agree} of {compared}; Node 500 after storing the vote {after_store}; disagree {disagree}"
+        "   status on admitted would-serve copies: agree {agree} of {compared}; Node 500 after storing the vote {after_store}; disagree {disagree}; not compared: the participant went away (499) {went_away}, nginx answered 5xx without Node's handler {nginx_answered}"
     );
     let mut pairs: Vec<(String, String, u64)> = join
         .iter()
-        .filter(|row| serving(row) && status(row, "edge_st") != status(row, "rust_st"))
+        .filter(|row| compared_row(row) && node_status(row) != status(row, "rust_st"))
         .map(|row| {
-            let n = count(row, "admitted_n").saturating_sub(
-                if status(row, "edge_st") == "500" && status(row, "rust_st") == "200" {
-                    count(row, "same")
-                } else {
-                    0
-                },
-            );
-            (status(row, "edge_st"), status(row, "rust_st"), n)
+            let n = count(row, "admitted_n").saturating_sub(if stored_then_500(row) {
+                count(row, "same")
+            } else {
+                0
+            });
+            (node_status(row), status(row, "rust_st"), n)
         })
         .filter(|p| p.2 > 0)
         .collect();
@@ -824,7 +870,7 @@ fn join_section(
     add(
         "status agreement",
         format!(
-            "{} ({agree} / {compared}); Node 500 after store {after_store}; disagree {disagree}",
+            "{} ({agree} / {compared}); Node 500 after store {after_store}; disagree {disagree}; went away {went_away}, nginx-only 5xx {nginx_answered} (not compared)",
             pct(share(agree, compared))
         ),
         if compared == 0 {
@@ -835,8 +881,9 @@ fn join_section(
             Mark::Stop
         },
     );
-    // The next statement, where both answered 200.
-    let both_200 = |row: &Row| status(row, "edge_st") == "200" && status(row, "rust_st") == "200";
+    // The next statement, where Node's handler and the shadow both answered
+    // 200 (whether or not the participant stayed for the reply).
+    let both_200 = |row: &Row| status(row, "node_st") == "200" && status(row, "rust_st") == "200";
     let s = |key: &str| sum(join, key, both_200);
     let topical = s("node_topical");
     let both_next = s("both_next");
@@ -878,9 +925,25 @@ fn join_section(
     );
 }
 
+/// The longest run of consecutive breached hours.
+fn longest_run(hours: &[(i64, bool)]) -> u32 {
+    let (mut best, mut run, mut last) = (0, 0, None);
+    for &(t, breach) in hours {
+        run = match (breach, last) {
+            (false, _) => 0,
+            (true, Some(prev)) if t - prev == 3600 && run > 0 => run + 1,
+            (true, _) => 1,
+        };
+        last = Some(t);
+        best = best.max(run);
+    }
+    best
+}
+
 fn stop_rule(
     out: &mut String,
     add: &mut impl FnMut(&'static str, String, Mark),
+    results: &Results,
     metrics: &Metrics,
     hold: Option<(f64, f64)>,
 ) {
@@ -936,63 +999,115 @@ fn stop_rule(
     }
     // 3. The load balancer's p99 against the same hour a week earlier.
     const WEEK: i64 = 7 * 86_400;
-    let compare = |now: &[(i64, f64)], before: &[(i64, f64)]| -> Vec<(f64, f64)> {
-        now.iter()
-            .filter_map(|(t, v)| {
-                before
-                    .iter()
-                    .find(|(b, _)| *b == t - WEEK)
-                    .map(|(_, w)| (*v, *w))
-            })
-            .collect()
-    };
+    // 3. The load balancer's p99, sustained: three hours in a row each more
+    // than 20 % and more than 100 ms above the same hour a week earlier.
     match (series("lb_p99"), series("lb_p99_previous")) {
         (Some(now), Some(before)) => {
-            let pairs = compare(now, before);
-            let worst = pairs
+            let hours: Vec<(i64, bool)> = now
                 .iter()
-                .filter(|(_, w)| *w > 0.0)
-                .map(|(v, w)| v / w)
-                .fold(0.0, f64::max);
-            let breach = pairs.iter().any(|(v, w)| *w > 0.0 && v / w > bar::LB_RATIO);
+                .filter_map(|(t, v)| {
+                    before
+                        .iter()
+                        .find(|(b, _)| *b == t - WEEK)
+                        .map(|(_, w)| (*t, *v > w * bar::LB_RATIO && v - w > bar::LB_FLOOR_S))
+                })
+                .collect();
+            let run = longest_run(&hours);
             let _ = writeln!(
                 out,
-                "   3. load balancer p99 against the same hour a week earlier: largest ratio {worst:.2} over {} hours: {}",
-                pairs.len(),
-                if breach { "above 1.2" } else { "within it" }
+                "   3. load balancer p99, all routes: {} of {} hours more than 20 % and 100 ms above the same hour a week earlier, longest run {run}; stops at {} in a row",
+                hours.iter().filter(|h| h.1).count(),
+                hours.len(),
+                bar::SUSTAINED_HOURS
             );
-            if breach {
-                fired.push("load balancer p99".into());
+            if run >= bar::SUSTAINED_HOURS {
+                fired.push("load balancer p99, sustained".into());
             }
         }
         _ => missing.push("load balancer p99".into()),
     }
-    // 4. Target 5xx against the same day a week earlier. CloudWatch writes
-    // no datapoint for a period with no 5xx, so a missing day is zero.
-    match (series("target_5xx"), series("target_5xx_previous")) {
+    // 4 and 5. Votes, from Node's access lines for every POST /api/v3/votes
+    // (not only shadowed ones), against the same span a week earlier.
+    // (hour, votes, 5xx, p99 ms) per hour of Node's vote lines.
+    type Hour = (i64, u64, u64, Option<f64>);
+    let hourly = |name: &str| -> Option<Vec<Hour>> {
+        let Some(Ok(rows)) = results.get(name) else {
+            return None;
+        };
+        let mut out: Vec<_> = rows
+            .iter()
+            .filter_map(|row| {
+                let t = crate::time::parse(text(row, "hour")).ok()?;
+                Some((t, count(row, "n"), count(row, "e5"), num(row, "p99_ms")))
+            })
+            .collect();
+        out.sort_by_key(|h| h.0);
+        Some(out)
+    };
+    match (hourly("node_votes"), hourly("node_votes_previous")) {
         (Some(now), Some(before)) => {
-            let pairs: Vec<(f64, f64)> = now
-                .iter()
-                .map(|(t, v)| {
-                    let w = before
-                        .iter()
-                        .find(|(b, _)| *b == t - WEEK)
-                        .map_or(0.0, |(_, w)| *w);
-                    (*v, w)
-                })
-                .collect();
-            let breach = pairs.iter().any(|(v, w)| v > w);
+            // 4. Vote errors over the window: at least 10 Node 5xx on votes,
+            // a share more than three times the earlier week's and more than
+            // half a percentage point above it.
+            let (n, e5) = now.iter().fold((0, 0), |a, h| (a.0 + h.1, a.1 + h.2));
+            let (n0, e50) = before.iter().fold((0, 0), |a, h| (a.0 + h.1, a.1 + h.2));
+            let rate = share(e5, n).unwrap_or(0.0);
+            let rate0 = share(e50, n0).unwrap_or(0.0);
+            let errors = e5 >= bar::VOTE_5XX_MIN
+                && rate > rate0 * bar::VOTE_5XX_RATIO
+                && rate - rate0 > bar::VOTE_5XX_POINTS;
             let _ = writeln!(
                 out,
-                "   4. target 5xx per day against the same day a week earlier: {} of {} days above",
-                pairs.iter().filter(|(v, w)| v > w).count(),
-                pairs.len()
+                "   4. vote errors (Node's 5xx on POST /api/v3/votes): {e5} of {n} ({}) against {e50} of {n0} ({}) a week earlier: {}",
+                pct(Some(rate)),
+                pct(Some(rate0)),
+                if errors {
+                    "above the rule"
+                } else {
+                    "within it"
+                }
             );
-            if breach {
-                fired.push("target 5xx".into());
+            if errors {
+                fired.push("vote errors".into());
+            }
+            // 5. Vote latency, sustained: three hours in a row, each with at
+            // least 20 votes in both weeks, whose p99 is more than 20 % and
+            // more than 50 ms above the same hour a week earlier.
+            let hours: Vec<(i64, bool)> = now
+                .iter()
+                .filter_map(|&(t, n, _, p99)| {
+                    let &(_, n0, _, p0) = before.iter().find(|b| b.0 == t - WEEK)?;
+                    let (p99, p0) = (p99?, p0?);
+                    (n >= bar::VOTE_MIN_PER_HOUR && n0 >= bar::VOTE_MIN_PER_HOUR).then_some((
+                        t,
+                        p99 > p0 * bar::VOTE_P99_RATIO && p99 - p0 > bar::VOTE_P99_FLOOR_MS,
+                    ))
+                })
+                .collect();
+            let run = longest_run(&hours);
+            let _ = writeln!(
+                out,
+                "   5. vote p99 (Node's duration_ms): {} of {} comparable hours more than 20 % and 50 ms above a week earlier, longest run {run}; stops at {} in a row",
+                hours.iter().filter(|h| h.1).count(),
+                hours.len(),
+                bar::SUSTAINED_HOURS
+            );
+            if run >= bar::SUSTAINED_HOURS {
+                fired.push("vote p99, sustained".into());
             }
         }
-        _ => missing.push("target 5xx".into()),
+        _ => missing.push("Node's vote lines".into()),
+    }
+    // Target 5xx over all routes: context only. They are non-zero on nearly
+    // every day and swing by two orders of magnitude (15 to 1,999 a day),
+    // deploys included, so they cannot attribute a stop to the shadow.
+    if let (Some(now), Some(before)) = (series("target_5xx"), series("target_5xx_previous")) {
+        let _ = writeln!(
+            out,
+            "   target 5xx, all routes (context, not a stop): {} in the window, {} the same span a week earlier",
+            now.iter().map(|p| p.1).sum::<f64>(),
+            before.iter().map(|p| p.1).sum::<f64>()
+        );
     }
     for name in &missing {
         let _ = writeln!(out, "   {name}: no metric read");

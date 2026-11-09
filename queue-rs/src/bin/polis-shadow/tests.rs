@@ -104,20 +104,32 @@ fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>) -> (i64, 
 }
 
 /// Node's `http_request` access line with the request id
-/// (server/src/server-middleware.ts).
+/// (server/src/server-middleware.ts), as winston 3 writes it: the meta's
+/// `message` is appended to the message argument, so `message` is
+/// "http_request http_request" (the bytes the real logger writes; pinned on
+/// the Node side by server/__tests__/unit/shadowLineBytes.test.ts).
 fn access(id: &str, at: i64, status: u16) -> (i64, String) {
-    (
-        at,
-        json!({
-            "level": if status >= 400 { "warn" } else { "info" }, "message": "http_request",
-            "service": "server", "env": "prod",
-            "http": {"method": "POST", "url": "/api/v3/votes", "route": "/api/v3/votes", "status_code": status},
-            "network": {"client": {"ip": "203.0.113.5"}}, "useragent": "fixture",
-            "duration_ms": 12.5, "request_id": id, "timestamp": "2026-11-09T10:00:00.012Z"
-        })
-        .to_string(),
-    )
+    access_taking(Some(id), at, status, 12.5)
 }
+
+fn access_taking(id: Option<&str>, at: i64, status: u16, ms: f64) -> (i64, String) {
+    let mut line = json!({
+        "level": if status >= 500 { "error" } else if status >= 400 { "warn" } else { "info" },
+        "message": "http_request http_request",
+        "service": "server", "env": "prod",
+        "http": {"method": "POST", "url": "/api/v3/votes", "route": "/api/v3/votes", "status_code": status},
+        "network": {"client": {"ip": "203.0.113.5"}}, "useragent": "fixture",
+        "duration_ms": ms, "timestamp": "2026-11-09T10:00:00.012Z"
+    });
+    if let Some(id) = id {
+        line.as_object_mut()
+            .unwrap()
+            .insert("request_id".into(), json!(id));
+    }
+    (at, line.to_string())
+}
+
+const WEEK_S: i64 = 7 * 86_400;
 
 /// The shadow's `shadow_observation` keys, in its order (polis-api
 /// `shadow.rs`, `Line::print`).
@@ -273,6 +285,15 @@ enum Case {
     Cors,
     /// Copied, the copy timed out, and no observation.
     Uncovered,
+    /// The participant closed the connection (nginx 499); Node's handler
+    /// finished and stored the vote; the shadow would serve it.
+    ClientGone,
+    /// nginx answered 502 with no reply from Node's handler.
+    NginxOnly5xx,
+    /// The shadow is down: nginx answered the copy 502 itself.
+    HostAbsent,
+    /// Served, with a readback that never ran.
+    NotReadBack,
 }
 
 struct Fixture {
@@ -395,6 +416,40 @@ impl Fixture {
                 o.status = Some(500);
                 push(observation(&id, t + 1_000, &o));
             }
+            Case::ClientGone => {
+                push(edge(&id, t, 499, "0.012"));
+                push(mirror(&id, t, 204, "204", 0.001));
+                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(observation(
+                    &id,
+                    t + 2_500,
+                    &Obs::serve(zid, Some((rust_tid, 12, 20))),
+                ));
+            }
+            Case::NginxOnly5xx => {
+                push(edge(&id, t, 502, "0.001"));
+                push(mirror(&id, t, 204, "204", 0.001));
+                push(observation(
+                    &id,
+                    t + 2_500,
+                    &Obs::serve(zid, Some((rust_tid, 12, 20))),
+                ));
+            }
+            Case::HostAbsent => {
+                push(edge(&id, t, 200, "0.012"));
+                push(mirror(&id, t, 502, "", 0.0));
+                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(access(&id, t, 200));
+            }
+            Case::NotReadBack => {
+                push(edge(&id, t, 200, "0.012"));
+                push(mirror(&id, t, 204, "204", 0.001));
+                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(access(&id, t, 200));
+                let mut o = Obs::serve(zid, Some((rust_tid, 12, 20)));
+                o.node_vote = "not_checked";
+                push(observation(&id, t + 2_500, &o));
+            }
             Case::Uncovered => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 504, "504", 0.030));
@@ -453,9 +508,22 @@ struct FakeAws {
 }
 
 impl FakeAws {
+    /// A further line in the window (Node's access lines for the vote rules).
+    fn push(&mut self, (at, json): (i64, String)) {
+        self.lines.push(eval::line(at, &json));
+    }
+
     fn new(fixture: &Fixture, distributions: bool) -> Self {
+        // The stop rule's baseline: Node's access lines the same week, a
+        // week earlier, so the vote rules compare like with like.
+        let mut lines = fixture.eval_lines();
+        for (at, json) in &fixture.lines {
+            if json.contains(r#""message":"http_request http_request""#) {
+                lines.push(eval::line(at - WEEK_S * 1000, json));
+            }
+        }
         FakeAws {
-            lines: fixture.eval_lines(),
+            lines,
             metrics: quiet_metrics(window()),
             window: window(),
             distributions,
@@ -488,14 +556,28 @@ impl Aws for FakeAws {
                 if self.distributions {
                     queries.extend(VOTES.distribution_queries());
                 }
+                let start: i64 = arg(args, "--start-time").parse().unwrap();
+                let end: i64 = arg(args, "--end-time").parse().unwrap();
                 let q = queries
                     .iter()
-                    .find(|q| q.text(self.window.bounds()) == text)
+                    .find(|q| {
+                        let w = Window {
+                            from_s: start + q.pad_s,
+                            to_s: end - q.pad_s,
+                        };
+                        q.text(w.bounds()) == text
+                    })
                     .expect("only compiled queries are issued");
-                assert_eq!(
-                    arg(args, "--start-time"),
-                    (self.window.from_s - q.pad_s).to_string()
+                let (from_s, to_s) = (start + q.pad_s, end - q.pad_s);
+                // The window, or for the stop rule's baseline the same window
+                // a week earlier.
+                assert!(
+                    from_s == self.window.from_s
+                        || (q.previous_week && from_s == self.window.from_s - WEEK_S),
+                    "{}",
+                    q.name
                 );
+                assert_eq!(to_s - from_s, self.window.to_s - self.window.from_s);
                 if self.refuse_two_stage && q.two_stage() {
                     return Ok(Reply {
                         ok: false,
@@ -503,7 +585,7 @@ impl Aws for FakeAws {
                         stderr: "An error occurred (MalformedQueryException) when calling the StartQuery operation: unexpected symbol found stats".into(),
                     });
                 }
-                let rows = eval::run(q, &self.lines, self.window.from_s, self.window.to_s);
+                let rows = eval::run(q, &self.lines, from_s, to_s);
                 let mut results = self.results.borrow_mut();
                 results.push(rows);
                 ok(json!({ "queryId": format!("q{}", results.len() - 1) }).to_string())
@@ -646,11 +728,12 @@ fn every_compiled_query_passes_the_allowlist() {
         route: "POST /api/v3/comments",
         method: "POST",
         node_line: "comment_reply",
+        path: "/api/v3/comments",
     };
     for r in [VOTES, second] {
         let mut queries = r.queries();
         queries.extend(r.distribution_queries());
-        assert_eq!(queries.len(), 10);
+        assert_eq!(queries.len(), 11);
         for q in &queries {
             assert_eq!(query::refusal(q), None, "{}", q.name);
             // No literal can break out of its quotes.
@@ -678,6 +761,7 @@ fn the_allowlist_refuses_what_would_leave_aws() {
         fields: vec![],
         stages,
         pad_s: 0,
+        previous_week: false,
     };
     let count_by = |keys: Vec<Key>| Stats {
         aggs: vec![("n", Agg::Count)],
@@ -721,6 +805,20 @@ fn the_allowlist_refuses_what_would_leave_aws() {
         }]),
         // Three stages.
         base(vec![count_by(vec![]), count_by(vec![]), count_by(vec![])]),
+        // Node's access line by its single spelling: production writes
+        // "http_request http_request", so these would never match.
+        Query {
+            filter: query::is("message", "http_request"),
+            ..base(vec![count_by(vec![])])
+        },
+        Query {
+            filter: E::In("message", vec!["http_request"]),
+            ..base(vec![count_by(vec![])])
+        },
+        base(vec![Stats {
+            aggs: vec![("n", Agg::Sum(query::is("message", "http_request")))],
+            by: vec![],
+        }]),
         // A second-stage name that is also a field the first stage reads:
         // Logs Insights refuses it ("Cycle found in operation dependency
         // graph", seen on the server log group).
@@ -810,7 +908,7 @@ fn the_votes_queries_render_as_reviewed() {
     assert!(text("latency").contains("| stats count(*) as n, pct(queue_ms, 99) as queue_p99, pct(admission_ms, 50) as admission_p50, pct(admission_ms, 99) as admission_p99"));
     let lines = text("lines");
     assert!(lines.ends_with("| stats count(*) as lines by message\n| limit 10000"));
-    assert!(lines.contains(r#"(message = "http_request" and service = "server" and ispresent(request_id) and http.method = "POST")"#));
+    assert!(lines.contains(r#"(message in ["http_request", "http_request http_request"] and service = "server" and ispresent(request_id) and http.method = "POST")"#));
     let join = text("join");
     let commands: Vec<&str> = join.lines().collect();
     assert_eq!(commands.len(), 5, "{join}");
@@ -823,7 +921,7 @@ fn the_votes_queries_render_as_reviewed() {
         "sum(message = \"shadow_mirror\" and mirror_upstream_status like /[0-9]/) as n_copied"
     ));
     assert!(commands[3].starts_with("| stats count(*) as ids, sum(n_edge_in) as edge_lines, sum(n_edge = 1 and n_edge_in = 1) as votes"));
-    assert!(commands[3].ends_with(" by edge_st, rust_st"));
+    assert!(commands[3].ends_with(" by edge_st, node_st, rust_st"));
     assert!(!commands[3].contains("request_id"));
     // Logs Insights refuses a query string over 10,000 characters.
     assert!(join.len() < 10_000, "{}", join.len());
@@ -840,6 +938,7 @@ fn a_second_route_entry_compiles_with_its_own_names() {
         route: "POST /api/v3/comments",
         method: "POST",
         node_line: "comment_reply",
+        path: "/api/v3/comments",
     };
     for q in comments.queries() {
         let text = q.text(Bounds::Placeholders);
@@ -929,11 +1028,13 @@ fn run_issues_only_compiled_queries_and_fixed_metrics() {
     let fake = FakeAws::new(&fx, true);
     let report = run(&fake, true);
     let issued = fake.issued.borrow();
+    // A query with a week-earlier baseline is issued twice, the second time
+    // over the window a week earlier.
     let expected: Vec<String> = VOTES
         .queries()
         .iter()
         .chain(VOTES.distribution_queries().iter())
-        .map(|q| q.text(window().bounds()))
+        .flat_map(|q| vec![q.text(window().bounds()); 1 + usize::from(q.previous_week)])
         .collect();
     assert_eq!(*issued, expected);
     assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
@@ -1131,6 +1232,9 @@ fn verdict_stop_on_a_vote_read_back_with_the_other_choice() {
 #[test]
 fn verdict_stop_on_the_stop_rule() {
     let fx = passing_fixture(None);
+    let hour = |h: i64| (window().from_s + h * 3600) * 1000;
+    let stop = |fake: &FakeAws| run(fake, true).mark("stop rule");
+    // 1. Database CPU, two consecutive five-minute averages above 60 %.
     let mut fake = FakeAws::new(&fx, true);
     let cpu = fake.metrics.get_mut("db_cpu").unwrap();
     cpu[10].1 = 75.0;
@@ -1144,30 +1248,90 @@ fn verdict_stop_on_the_stop_rule() {
     );
     assert!(report.text.contains("fired: database CPU"));
     assert_eq!(report.verdict, Verdict::Stop);
+    assert_eq!(report.verdict.exit_code(), 1);
     // One period above is not two consecutive.
     let mut fake = FakeAws::new(&fx, true);
     fake.metrics.get_mut("db_cpu").unwrap()[10].1 = 75.0;
-    assert_eq!(run(&fake, true).mark("stop rule"), Some(Mark::Pass));
-    // The load balancer's p99 a fifth above the same hour last week.
+    assert_eq!(stop(&fake), Some(Mark::Pass));
+    // 3. The load balancer's p99: one hour a quarter above last week is not
+    // a stop, two hours well above are not, three in a row are.
     let mut fake = FakeAws::new(&fx, true);
     fake.metrics.get_mut("lb_p99").unwrap()[3].1 = 0.25;
-    assert_eq!(run(&fake, true).mark("stop rule"), Some(Mark::Stop));
-    // Target 5xx above last week's.
+    assert_eq!(stop(&fake), Some(Mark::Pass));
     let mut fake = FakeAws::new(&fx, true);
-    fake.metrics.get_mut("target_5xx").unwrap()[0].1 = 6.0;
-    assert_eq!(run(&fake, true).mark("stop rule"), Some(Mark::Stop));
-    // Last week had none: CloudWatch wrote no datapoint, which counts as zero.
+    for h in [3, 4] {
+        fake.metrics.get_mut("lb_p99").unwrap()[h].1 = 0.35;
+    }
+    assert_eq!(stop(&fake), Some(Mark::Pass));
+    let mut fake = FakeAws::new(&fx, true);
+    for h in [3, 4, 5] {
+        fake.metrics.get_mut("lb_p99").unwrap()[h].1 = 0.35;
+    }
+    let report = run(&fake, true);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+    assert!(report.text.contains("fired: load balancer p99, sustained"));
+    // Target 5xx are context, not a stop: the pulse's week of 2026-11-02
+    // had days of 1,999 against 284 a week before.
+    let mut fake = FakeAws::new(&fx, true);
+    fake.metrics.get_mut("target_5xx").unwrap()[0].1 = 1999.0;
+    fake.metrics.get_mut("target_5xx_previous").unwrap()[0].1 = 284.0;
+    assert_eq!(stop(&fake), Some(Mark::Pass));
     let mut fake = FakeAws::new(&fx, true);
     fake.metrics.get_mut("target_5xx_previous").unwrap().clear();
-    assert_eq!(run(&fake, true).mark("stop rule"), Some(Mark::Stop));
-    // A copy held 70 ms.
-    let mut slow = passing_fixture(None);
-    let at = slow.at;
-    slow.lines.push(mirror(&id(1), at, 504, "504", 0.070));
+    assert_eq!(stop(&fake), Some(Mark::Pass));
+    // 4. Vote errors: 60 more Node 5xx on votes (1 % of votes, against one
+    // in 6,000 a week earlier) stop; 8 more do not (under ten in all).
+    let mut fake = FakeAws::new(&fx, true);
+    for i in 0..60 {
+        fake.push(access_taking(None, hour(2) + i * 1000, 500, 20.0));
+    }
+    let report = run(&fake, true);
     assert_eq!(
-        run(&FakeAws::new(&slow, true), true).mark("stop rule"),
-        Some(Mark::Stop)
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
     );
+    assert!(report.text.contains("fired: vote errors"));
+    let mut fake = FakeAws::new(&fx, true);
+    for i in 0..8 {
+        fake.push(access_taking(None, hour(2) + i * 1000, 500, 20.0));
+    }
+    assert_eq!(stop(&fake), Some(Mark::Pass));
+    // 5. Vote p99: slow votes in three hours in a row stop; in two, not.
+    let slow = |hours: &[i64]| {
+        let mut fake = FakeAws::new(&fx, true);
+        for &h in hours {
+            for i in 0..30 {
+                fake.push(access_taking(
+                    None,
+                    hour(h) + 100_000 + i * 1000,
+                    200,
+                    500.0,
+                ));
+            }
+        }
+        fake
+    };
+    assert_eq!(stop(&slow(&[3, 4])), Some(Mark::Pass));
+    let report = run(&slow(&[3, 4, 5]), true);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+    assert!(report.text.contains("fired: vote p99, sustained"));
+    // 2. A copy held 70 ms.
+    let mut held = passing_fixture(None);
+    let at = held.at;
+    held.lines.push(mirror(&id(1), at, 504, "504", 0.070));
+    assert_eq!(stop(&FakeAws::new(&held, true)), Some(Mark::Stop));
 }
 
 #[test]
@@ -1203,7 +1367,72 @@ fn different_weights_are_a_miss() {
     let fx = passing_fixture(Some(&[1.0, 1.0, 1.0, 1.0, 3.0, 5.0][..]));
     let report = run(&FakeAws::new(&fx, true), true);
     assert_eq!(report.mark("weights"), Some(Mark::Miss), "{}", report.text);
-    assert_eq!(report.verdict, Verdict::Stop);
+    // A miss is "examine before the flip", not a stop.
+    assert_eq!(report.verdict, Verdict::Examine);
+    assert_eq!(report.verdict.exit_code(), 4);
+}
+
+#[test]
+fn a_client_that_goes_away_is_not_a_disagreement() {
+    // The passing fixture's 6,003 admitted would-serve copies, plus one whose
+    // participant closed the connection (nginx 499) after Node's handler
+    // stored the vote.
+    let mut fx = passing_fixture(None);
+    fx.vote(73_001, Case::ClientGone, (1, 1));
+    let report = run(&FakeAws::new(&fx, true), true);
+    assert!(
+        report.text.contains("agree 6002 of 6003; Node 500 after storing the vote 1; disagree 0; not compared: the participant went away (499) 1, nginx answered 5xx without Node's handler 0"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("status agreement"), Some(Mark::Pass));
+    assert_eq!(report.verdict, Verdict::Pass);
+    // A 502 nginx answered with no reply from Node's handler: its own class.
+    let mut fx = passing_fixture(None);
+    fx.vote(73_001, Case::NginxOnly5xx, (1, 1));
+    let report = run(&FakeAws::new(&fx, true), true);
+    assert!(
+        report
+            .text
+            .contains("nginx answered 5xx without Node's handler 1"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.verdict, Verdict::Pass);
+}
+
+#[test]
+fn a_down_shadow_counts_against_coverage() {
+    let mut fx = passing_fixture(None);
+    for _ in 0..40 {
+        fx.vote(73_002, Case::HostAbsent, (1, 1));
+    }
+    let report = run(&FakeAws::new(&fx, true), true);
+    assert!(
+        report.text.contains("the shadow's host absent 40"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("coverage"), Some(Mark::Miss));
+    assert_eq!(report.verdict, Verdict::Examine);
+}
+
+#[test]
+fn readbacks_that_never_ran_count_against_the_stored_vote_share() {
+    let mut fx = passing_fixture(None);
+    for _ in 0..10 {
+        fx.vote(73_003, Case::NotReadBack, (1, 1));
+    }
+    let report = run(&FakeAws::new(&fx, true), true);
+    assert!(
+        report
+            .text
+            .contains("of 6013 admitted would-be 200s (6003 read back)"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("node_vote"), Some(Mark::Miss));
+    assert_eq!(report.verdict, Verdict::Examine);
 }
 
 #[test]
@@ -1328,8 +1557,19 @@ fn report_reads_a_results_directory() {
     std::fs::create_dir_all(&dir).unwrap();
     let mut queries = VOTES.queries();
     queries.extend(VOTES.distribution_queries());
+    let lines = FakeAws::new(&fx, true).lines;
+    let mut saved = vec![];
     for q in &queries {
-        let rows = eval::run(q, &fx.eval_lines(), w.from_s, w.to_s);
+        saved.push((q.name.to_owned(), eval::run(q, &lines, w.from_s, w.to_s)));
+        if q.previous_week {
+            let before = w.earlier(WEEK_S);
+            saved.push((
+                format!("{}_previous", q.name),
+                eval::run(q, &lines, before.from_s, before.to_s),
+            ));
+        }
+    }
+    for (name, rows) in &saved {
         let results: Vec<Value> = rows
             .iter()
             .map(|row| {
@@ -1341,7 +1581,7 @@ fn report_reads_a_results_directory() {
             })
             .collect();
         std::fs::write(
-            dir.join(format!("{}.json", q.name)),
+            dir.join(format!("{name}.json")),
             json!({"status": "Complete", "results": results}).to_string(),
         )
         .unwrap();

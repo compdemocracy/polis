@@ -33,7 +33,11 @@ const USAGE: &str = "usage:
                    [--distributions] [--aws <program>] [--timeout-s <seconds>]
   polis-shadow report --route votes --results <directory>
                    [--from <UTC time> --to <UTC time>] [--distributions]
-Exit: 0 pass, 1 stop, 2 too little evidence (or not evaluated), 3 error.";
+Exit: 0 pass, 1 stop, 2 too little evidence (or not evaluated), 3 error,
+      4 examine (a criterion missed; no stop).";
+
+/// The stop rule's baseline is the same span a week earlier.
+const WEEK_S: i64 = 7 * 86_400;
 
 /// The longest window one run may read (a week and a day of margin).
 const MAX_WINDOW_S: i64 = 8 * 86_400;
@@ -226,7 +230,19 @@ pub fn run(
     let timeout = Duration::from_secs(args.timeout_s);
     let mut results = report::Results::new();
     let mut scanned = 0.0;
+    let mut issues = vec![];
     for q in compiled(route, args.distributions)? {
+        let previous = q.previous_week.then(|| {
+            (
+                format!("{}_previous", q.name),
+                q.clone(),
+                window.earlier(WEEK_S),
+            )
+        });
+        issues.push((q.name.to_owned(), q, window));
+        issues.extend(previous);
+    }
+    for (name, q, window) in issues {
         let outcome = aws::run_query(aws, &args.log_group, &q, window, timeout)?;
         let entry = match outcome {
             Outcome::Rows {
@@ -234,11 +250,11 @@ pub fn run(
                 bytes_scanned,
             } => {
                 scanned += bytes_scanned;
-                let _ = writeln!(progress, "query {}: {} rows", q.name, rows.len());
+                let _ = writeln!(progress, "query {name}: {} rows", rows.len());
                 Ok(rows)
             }
             Outcome::Refused(message) => {
-                let _ = writeln!(progress, "query {}: refused", q.name);
+                let _ = writeln!(progress, "query {name}: refused");
                 Err(if q.two_stage() {
                     format!(
                         "Logs Insights refused this query, which has two stats stages; this account may not support them ({message})"
@@ -248,7 +264,7 @@ pub fn run(
                 })
             }
         };
-        results.insert(q.name.to_owned(), entry);
+        results.insert(name, entry);
     }
     let _ = writeln!(progress, "Logs Insights scanned {:.1} MB", scanned / 1e6);
     let mut metrics = report::Metrics::new();
@@ -275,8 +291,15 @@ pub fn report_from(
     distributions: bool,
 ) -> Result<report::Report> {
     let mut results = report::Results::new();
+    let mut names = vec![];
     for q in compiled(route, distributions)? {
-        let path = dir.join(format!("{}.json", q.name));
+        names.push(q.name.to_owned());
+        if q.previous_week {
+            names.push(format!("{}_previous", q.name));
+        }
+    }
+    for name in names {
+        let path = dir.join(format!("{name}.json"));
         let entry = match std::fs::read_to_string(&path) {
             Ok(text) => match aws::parse_results(&text) {
                 Ok((status, rows, _)) if status == "Complete" || status.is_empty() => Ok(rows),
@@ -285,7 +308,7 @@ pub fn report_from(
             },
             Err(_) => Err("not in the results directory".into()),
         };
-        results.insert(q.name.to_owned(), entry);
+        results.insert(name, entry);
     }
     let window = Window {
         from_s: window.0,
@@ -320,6 +343,12 @@ fn real_main() -> Result<i32> {
             let route = route::find(route).context("unknown route")?;
             for q in compiled(route, distributions)? {
                 writeln!(stdout, "-- {}: {}", q.name, q.about)?;
+                if q.previous_week {
+                    writeln!(
+                        stdout,
+                        "-- runs over the window, and again over the same window a week earlier"
+                    )?;
+                }
                 if q.pad_s > 0 {
                     writeln!(
                         stdout,
