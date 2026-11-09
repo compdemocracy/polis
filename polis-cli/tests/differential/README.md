@@ -97,8 +97,11 @@ for each phase's independent counts. The route-template census rejects missing e
 Selectors covering multiple paths also declare `paths` contracts; the runner
 checks each path independently as well as the selector total. `votesRead`
 exercises `vote list` and `vote mine` with empty and single-row results served
-from Rust, then requires a Node handoff for each multi-row read. Vote POSTs
-remain Node requests and count separately from the read successes.
+from Rust, then requires a Node handoff for each multi-row read. `postVotes`
+shares the `/api/v3/votes` path and names its one method, POST. Its writer is
+off in this fixture, so each vote POST reaches polis-api and hands back to Node
+with its marked 502: both selectors count those handoffs, and neither claims
+a Rust write.
 The performance collector, metadata selection and Postgres report export selectors
 exercise the real CLI reads, with every export subtype downloaded and hashed
 through an anonymous CLI profile. The original signed-in format download retains

@@ -44,9 +44,12 @@ def differences(left,right,path='$'):
 
 def route_lines(log, contract):
     path = contract['path']
+    # A selector that shares its path with another (postVotes with votesRead)
+    # names the one method it takes.
+    method = contract.get('method')
     def matches(line):
         fields = line.split()
-        if len(fields) < 4:
+        if len(fields) < 4 or (method is not None and fields[0] != method):
             return False
         return bool(re.search(path, fields[1])) if path.startswith('^') else fields[1] == path
     return [line for line in log.splitlines() if matches(line)]

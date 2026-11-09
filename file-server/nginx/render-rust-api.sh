@@ -7,11 +7,14 @@ export API_SERVER_PORT=${API_SERVER_PORT:-5000}
 # a name that is not a known route, an upstream or resolver that is not a
 # plain host[:port] list, or a rendered configuration that nginx -t refuses
 # is reported loudly and every route stays on Node. A route named twice is
-# rendered once.
+# rendered once. votesRead and postVotes share /api/v3/votes: with both
+# selected, the postVotes location answers that path for every method and
+# votesRead adds only /api/v3/votes/me.
 mkdir -p "$1"
 : >${1}/upstreams.conf
 : >${1}/locations.conf
 RUST_API_MAP_ENTRIES=""
+RUST_API_VOTE_MAP_ENTRIES=""
 rust_api_locations=""
 rust_api_unknown=""
 export RUST_API_UPSTREAM=${RUST_API_UPSTREAM:-polis-api:5100}
@@ -113,6 +116,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
     /api/v3/votes/me ${RUST_API_UPSTREAM};
 "
       rust_api_locations="${rust_api_locations} votesRead"
+      ;;
+    postVotes)
+      case " $rust_api_locations " in *" postVotes "*) continue ;; esac
+      RUST_API_VOTE_MAP_ENTRIES="    /api/v3/votes ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} postVotes"
       ;;
     metadataRead)
       case " $rust_api_locations " in *" metadataRead "*) continue ;; esac
@@ -367,22 +376,28 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 done
 export RUST_API_RESOLVER=${RUST_API_RESOLVER:-127.0.0.11}
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments reportComments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage locations bid myInvitesCsv participantsRead ptptois votesRead metadataRead metadataChoices recentStarted recentActivity treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments reportComments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage locations bid myInvitesCsv participantsRead ptptois votesRead postVotes metadataRead metadataChoices recentStarted recentActivity treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
   exit 1
-elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
+elif [ -n "$rust_api_locations" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then
   echo "ERROR RUST_API_UPSTREAM: '${RUST_API_UPSTREAM}' is not host:port. Selection rejected." >&2
   exit 1
-elif [ -n "$RUST_API_MAP_ENTRIES" ] &&
+elif [ -n "$rust_api_locations" ] &&
   ! echo "$RUST_API_RESOLVER" | grep -Eqx '[][A-Za-z0-9.:_-]+( [][A-Za-z0-9.:_=-]+)*'; then
   echo "ERROR RUST_API_RESOLVER: '${RUST_API_RESOLVER}' is not a list of resolver addresses. Selection rejected." >&2
   exit 1
-elif [ -n "$RUST_API_MAP_ENTRIES" ]; then
-  export RUST_API_MAP_ENTRIES
-  envsubst '${RUST_API_RESOLVER} ${RUST_API_MAP_ENTRIES}' \
+elif [ -n "$rust_api_locations" ]; then
+  export RUST_API_MAP_ENTRIES RUST_API_VOTE_MAP_ENTRIES
+  envsubst '${RUST_API_RESOLVER} ${RUST_API_MAP_ENTRIES} ${RUST_API_VOTE_MAP_ENTRIES}' \
     </etc/nginx/rust-api-templates/upstreams.conf.template >${1}/upstreams.conf
   for route in $rust_api_locations; do
-    cat /etc/nginx/rust-api-templates/${route}.location.conf.template >>${1}/locations.conf
+    case "$route:$rust_api_locations " in
+      votesRead:*" postVotes "*) ;;
+      *) cat /etc/nginx/rust-api-templates/${route}.location.conf.template >>${1}/locations.conf ;;
+    esac
+    if [ "$route" = votesRead ]; then
+      cat /etc/nginx/rust-api-templates/votesRead-me.conf.template >>${1}/locations.conf
+    fi
   done
   envsubst '${API_SERVER_PORT}' \
     </etc/nginx/rust-api-templates/node.location.conf.template >>${1}/locations.conf

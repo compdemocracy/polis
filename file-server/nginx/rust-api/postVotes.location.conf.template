@@ -1,0 +1,83 @@
+# POST /api/v3/votes goes to polis-api's vote writer (RUST_API_ROUTES contains
+# postVotes) when its body is small and of known length: a Content-Length from
+# 1 to 9999. Any other POST goes straight to Node.
+# GET and HEAD without a body follow the votesRead selection: polis-api, with
+# the directives of votesRead.location.conf.template, when votesRead is also
+# selected (it maps this path), otherwise Node. Every other request goes to
+# Node. 418 and 419 here are only internal hand-overs, never sent.
+location = /api/v3/votes {
+    # The write is answered from a named location that has its own
+    # hand-back, so a second error_page redirect must be allowed.
+    recursive_error_pages on;
+    error_page 418 = @polis_node_api;
+    error_page 419 = @polis_api_vote_write;
+    if ($request_method = POST) {
+        return 419;
+    }
+    if ($polis_api_plain = 0) {
+        return 418;
+    }
+    if ($polis_api_target = "") {
+        return 418;
+    }
+    proxy_pass http://$polis_api_target;
+    proxy_intercept_errors on;
+    error_page 502 503 504 = @polis_node_api;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_connect_timeout 100ms;
+    proxy_send_timeout 100ms;
+    proxy_read_timeout 100ms;
+    proxy_buffering off;
+    proxy_request_buffering off;
+}
+
+# The vote writer. nginx reads the whole body before it contacts polis-api,
+# so a hand-back can give Node the complete request. polis-api answers within
+# its own deadlines (250 ms to admit the vote, then 1 s for the dispatched
+# write, after which it answers 202 "acceptance unknown" instead of failing);
+# the 5 s read timeout is for a process that has stopped answering. polis-api's
+# own answers, 202 and the 4xx and 500 refusals included, pass through.
+location @polis_api_vote_write {
+    recursive_error_pages on;
+    error_page 418 = @polis_node_api;
+    # A chunked body has no Content-Length, so it goes to Node too.
+    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {
+        return 418;
+    }
+    proxy_pass http://$polis_api_vote_target;
+    proxy_intercept_errors on;
+    error_page 502 504 = @polis_api_vote_handback;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_connect_timeout 100ms;
+    proxy_send_timeout 5s;
+    proxy_read_timeout 5s;
+    proxy_buffering off;
+    proxy_request_buffering on;
+}
+
+# Node takes a vote back only when it cannot have been written: polis-api said
+# so (it marks every hand-back X-Polis-Vote-Dispatch: not-started, and hands
+# back only before it dispatches the write), or no byte of the request reached
+# polis-api (no such host, connection refused, connect timeout). Any other
+# failure (a reset, a close or a timeout after polis-api received the request)
+# can follow a committed vote, and Node would record it a second time, so
+# nginx answers its own 502 or 504 and Node is not called.
+location @polis_api_vote_handback {
+    error_page 418 = @polis_node_api;
+    set $polis_api_vote_dispatch unknown;
+    if ($upstream_http_x_polis_vote_dispatch = "not-started") {
+        set $polis_api_vote_dispatch not-started;
+    }
+    if ($upstream_bytes_sent ~ "^[0, ]*$") {
+        set $polis_api_vote_dispatch not-started;
+    }
+    if ($polis_api_vote_dispatch = not-started) {
+        return 418;
+    }
+    if ($upstream_status ~ "504$") {
+        return 504;
+    }
+    return 502;
+}
