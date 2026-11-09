@@ -11,7 +11,43 @@ use std::{
 const MAX_ENTRIES: usize = 128;
 const MAX_BYTES: usize = 256 * 1024 * 1024;
 const MAX_TEXT_BYTES: usize = 8 * 1024 * 1024;
+/// Sets the cache's byte bound for a process with a smaller memory limit (the
+/// shadow service). Unset, the bound is `MAX_BYTES`, as it has always been.
+const MAX_BYTES_SETTING: &str = "POLIS_API_WRITER_PRIORITIES_CACHE_BYTES";
 type Key = (i32, String, i64);
+
+/// Every resident generation is held by work in progress, so none can be
+/// evicted. Its own type lets observe mode report the reason; the message is
+/// the one this refusal has always carried.
+#[derive(Debug)]
+pub(super) struct CacheBusy;
+impl std::fmt::Display for CacheBusy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("priority cache is busy")
+    }
+}
+impl std::error::Error for CacheBusy {}
+
+/// The configured byte bound: `MAX_BYTES` unless the setting names a positive
+/// number of bytes.
+pub(super) fn max_bytes_from_env() -> Result<usize> {
+    match std::env::var(MAX_BYTES_SETTING)
+        .ok()
+        .filter(|value| !value.is_empty())
+    {
+        None => Ok(MAX_BYTES),
+        Some(value) => {
+            let bytes = value
+                .parse::<usize>()
+                .ok()
+                .filter(|bytes| *bytes > 0)
+                .with_context(|| {
+                    format!("{MAX_BYTES_SETTING} must be a positive number of bytes")
+                })?;
+            Ok(bytes)
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Weight {
@@ -86,9 +122,22 @@ struct Entries {
     values: HashMap<Key, Arc<Entry>>,
     bytes: usize,
 }
-#[derive(Default)]
 pub(super) struct Cache {
     entries: Mutex<Entries>,
+    max_bytes: usize,
+}
+impl Default for Cache {
+    fn default() -> Self {
+        Self::with_max_bytes(MAX_BYTES)
+    }
+}
+impl Cache {
+    pub(super) fn with_max_bytes(max_bytes: usize) -> Self {
+        Self {
+            entries: Mutex::default(),
+            max_bytes,
+        }
+    }
 }
 
 pub(super) struct Snapshot {
@@ -98,6 +147,11 @@ pub(super) struct Snapshot {
     text: Option<String>,
 }
 impl Snapshot {
+    /// The math generation these weights come from; None without a committed one.
+    pub(super) fn tick(&self) -> Option<i64> {
+        self.key.as_ref().map(|(_, _, tick)| *tick)
+    }
+
     #[cfg(all(test, feature = "db-tests"))]
     pub(super) fn raw_for_test(self) -> Result<Option<Js>> {
         self.text.map(|text| js::parse(&text)).transpose()
@@ -127,9 +181,10 @@ impl Snapshot {
                     .map_or(0, String::len)
                     .saturating_mul(32)
                     .saturating_add(4096);
-                anyhow::ensure!(charge <= MAX_BYTES, "priority map exceeds cache budget");
+                let max_bytes = self.cache.max_bytes;
+                anyhow::ensure!(charge <= max_bytes, "priority map exceeds cache budget");
                 while entries.values.len() >= MAX_ENTRIES
-                    || entries.bytes.saturating_add(charge) > MAX_BYTES
+                    || entries.bytes.saturating_add(charge) > max_bytes
                 {
                     let expired = entries
                         .values
@@ -143,7 +198,7 @@ impl Snapshot {
                                 })
                         })
                         .map(|(key, _)| key.clone())
-                        .context("priority cache is busy")?;
+                        .ok_or(CacheBusy)?;
                     let removed = entries
                         .values
                         .remove(&expired)

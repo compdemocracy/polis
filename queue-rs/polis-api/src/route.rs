@@ -267,6 +267,8 @@ pub struct App {
     pub next_comment_db: Option<Arc<Pool>>,
     pub next_comment_plain: bool,
     pub post_votes: Option<crate::post_votes::Writer>,
+    /// The vote writer in observe mode: built only by the shadow role.
+    pub post_votes_observe: Option<crate::post_votes::Observer>,
     pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
     pub treevite_write: Option<Arc<crate::treevite_write::Writer>>,
     pub revocations: Option<Arc<crate::revocation::Refresh>>,
@@ -282,6 +284,11 @@ pub struct App {
 }
 
 impl App {
+    /// The `env` label the request log carries.
+    pub(crate) fn dd_env(&self) -> &str {
+        &self.dd_env
+    }
+
     pub fn new(cfg: &Config, db: Arc<Pool>) -> Self {
         Self {
             domain_whitelist_db: None,
@@ -510,6 +517,7 @@ impl App {
             next_comment_db: None,
             next_comment_plain: false,
             post_votes: None,
+            post_votes_observe: None,
             post_treevite_waves: None,
             treevite_write: None,
             revocations: None,
@@ -1156,6 +1164,19 @@ pub fn bad_gateway() -> Outgoing {
     }
 }
 
+/// A refresh may land between the revocation check at entry and an older
+/// route's Option-based verifier. Never let that refusal turn into fallback.
+pub(crate) fn revoked_rewrite(app: &App, req: &Request, out: Outgoing) -> Outgoing {
+    if out.status == 502
+        && let Some(raw) = req.headers.get("authorization")
+        && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
+    {
+        let origin = app.cors.resolve(&req.headers).ok().flatten();
+        return crate::treevite_codes::session_revoked(req, default_head(origin.as_deref()));
+    }
+    out
+}
+
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
     let started = std::time::Instant::now();
     let observation = Arc::new(crate::db_connect::Observation::default());
@@ -1163,24 +1184,8 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
         .scope(
             observation.clone(),
             crate::pca::CACHE_OUTCOME.scope(std::cell::Cell::new("none"), async {
-                let mut out = serve(&app, &req).await;
-                // A refresh may land between the entry guard and an older route's
-                // Option-based verifier. Never let that refusal turn into fallback.
-                if out.status == 502
-                    && let Some(raw) = req.headers.get("authorization")
-                    && crate::revocation::refusal(
-                        &app,
-                        raw,
-                        (crate::clock::now_ms() / 1000.0) as u64,
-                    )
-                    .is_some()
-                {
-                    let origin = app.cors.resolve(&req.headers).ok().flatten();
-                    out = crate::treevite_codes::session_revoked(
-                        &req,
-                        default_head(origin.as_deref()),
-                    );
-                }
+                let out = serve(&app, &req).await;
+                let out = revoked_rewrite(&app, &req, out);
                 (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
             }),
         )
@@ -1649,6 +1654,21 @@ fn access_log(
     cache: &str,
     observation: &crate::db_connect::Observation,
 ) {
+    access_log_as(app, req, status, took, cache, observation, None);
+}
+
+/// `access_log` for a listener other than the main one (the shadow's): its
+/// own service name and a `listener` key, so no query counting the main
+/// process's requests counts these. With None, the main line exactly.
+pub(crate) fn access_log_as(
+    app: &App,
+    req: &Request,
+    status: u16,
+    took: std::time::Duration,
+    cache: &str,
+    observation: &crate::db_connect::Observation,
+    listener: Option<&str>,
+) {
     let level = match status {
         500.. => "error",
         400.. => "warn",
@@ -1662,7 +1682,13 @@ fn access_log(
     let mut line = Obj::new();
     line.set("level", Js::Str(level.into()));
     line.set("message", Js::Str("http_request".into()));
-    line.set("service", Js::Str("polis-api".into()));
+    match listener {
+        None => line.set("service", Js::Str("polis-api".into())),
+        Some(listener) => {
+            line.set("service", Js::Str(format!("polis-api-{listener}")));
+            line.set("listener", Js::Str(listener.into()));
+        }
+    }
     line.set("env", Js::Str(app.dd_env.clone()));
     line.set("http", Js::Obj(http));
     line.set(
@@ -1683,10 +1709,14 @@ fn access_log(
     );
     #[cfg(test)]
     db_connect_tests::record(&line);
+    #[cfg(test)]
+    if listener.is_some() {
+        crate::shadow::tests::record_line(&line);
+    }
     println!("{line}");
 }
 
-async fn serve(app: &App, req: &Request) -> Outgoing {
+pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     // Terminal before every route's hand-back branches. A Node fallback cannot
     // enforce this snapshot, even for credentials unsupported by a read route.
     if let Some(raw) = req.headers.get("authorization")
