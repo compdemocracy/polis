@@ -103,12 +103,7 @@
           },
           {
             "name": "Access-Control-Allow-Origin",
-            "value": "https://localhost",
-            "credential_ref": null
-          },
-          {
-            "name": "Access-Control-Allow-Credentials",
-            "value": "true",
+            "value": "*",
             "credential_ref": null
           },
           {
@@ -168,8 +163,7 @@
       },
       "completed": true,
       "headers": {
-        "access-control-allow-credentials": "true",
-        "access-control-allow-origin": "https://localhost",
+        "access-control-allow-origin": "*",
         "cache-control": "no-cache",
         "content-type": "application/json; charset=utf-8"
       },
