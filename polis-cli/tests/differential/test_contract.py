@@ -5,6 +5,15 @@ class ComparatorTests(unittest.TestCase):
     def test_exact_route_log_matching_does_not_accept_neighbors(self):
         log = 'GET /api/v3/reports 127.0.0.1:5100 200\nGET /api/v3/reportsSuffix 127.0.0.1:5000 404'
         self.assertEqual(len(route_lines(log, {'path':'/api/v3/reports'})), 1)
+    def test_method_scoped_route_counts_only_that_method(self):
+        log = '\n'.join(['GET /api/v3/votes 127.0.0.1:5100 200',
+                         'POST /api/v3/votes 127.0.0.1:5100 : 127.0.0.1:5000 502 : 200',
+                         'POST /api/v3/votes/me 127.0.0.1:5000 200',
+                         'HEAD /api/v3/votes 127.0.0.1:5100 200'])
+        posts = route_lines(log, {'path':'/api/v3/votes', 'method':'POST'})
+        self.assertEqual(posts, ['POST /api/v3/votes 127.0.0.1:5100 : 127.0.0.1:5000 502 : 200'])
+        self.assertEqual(routing_counts(posts), {'requests':1,'rust_200':0,'rust_fallbacks':1})
+        self.assertEqual(len(route_lines(log, {'path':'/api/v3/votes'})), 3)
     def test_regex_route_log_matching_counts_capability_paths(self):
         log = 'GET /api/v3/xid/generated-xid.csv 127.0.0.1:5100, 127.0.0.1:5000 502, 200\nGET /api/v3/xid/ 127.0.0.1:5000 404'
         self.assertEqual(len(route_lines(log, {'path':'^/api/v3/xid/[^/]+$'})), 1)

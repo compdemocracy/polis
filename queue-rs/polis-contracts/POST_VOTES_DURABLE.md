@@ -3,7 +3,8 @@
 `post-votes-durable/1` is an intentional difference from `post-votes/1`.
 `post_votes::Response` continues to decode the recorded Node contract unchanged;
 `post_votes::DurableSuccess` decodes the Rust acceptance body. The writer is off
-by default (`POLIS_API_POST_VOTES` must equal `1`), with no nginx selection.
+by default (`POLIS_API_POST_VOTES` must equal `1`), and nginx sends it nothing
+unless `RUST_API_ROUTES` names `postVotes`.
 It admits only verified, conversation-bound, existing memberships. It does not
 create users, participants, XID mappings or tokens. Unsupported identity, bare
 XID, cookies, first contact, topical selection and translation remain Node work,
@@ -97,10 +98,15 @@ presenting a saved vote as rejected and avoids inflating history on a lost reply
 The Node source and its current behavior are intentionally unchanged.
 
 Pre-dispatch 502 responses carry `X-Polis-Vote-Dispatch: not-started`, including
-parser-level chunked/oversized hand-backs. A future write gateway must require
-that upstream marker before sending to Node; a proxy-generated 502, timeout or
-EOF is not evidence that no vote committed. The read-route fallback template
-is unsafe for writes and is not enabled by this change.
+parser-level chunked/oversized hand-backs. nginx's vote write location
+(`file-server/nginx/rust-api/postVotes.location.conf.template`) sends a vote to
+Node only with that upstream marker, or when no byte of the request reached
+polis-api (`$upstream_bytes_sent` zero or absent: no such host, connection
+refused, connect timeout), because polis-api cannot dispatch a request it never
+received. A proxy-generated 502, timeout or EOF after bytes were sent is not
+evidence that no vote committed: nginx answers its own 502 or 504 and does not
+call Node. The read-route fallback template is unsafe for writes and is not
+used for this path.
 
 The replay's existing-choice `vote-failure` and `duplicate-sqlstate` cases do
 not execute an INSERT under the retry rule, so Rust returns 200 despite Node's

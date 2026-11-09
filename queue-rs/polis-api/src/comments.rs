@@ -1,4 +1,4 @@
-//! Bodyless comment reads, including the legacy moderator/participant projection.
+//! Comment reads, including the legacy moderator/participant projection.
 //! Report enrichment and provider-dependent filters retain the Node handoff.
 use crate::{
     db,
@@ -49,15 +49,35 @@ fn integer(v: &Js) -> Option<i32> {
 impl Query {
     fn parse(req: &Request, body: &Js) -> Option<Self> {
         // Even a malformed credential belongs to Node's optional auth chain.
-        if req.headers.get("cookie").is_some()
-            || req.headers.get("content-length").is_some()
-            || req.headers.get("transfer-encoding").is_some()
-        {
+        if req.headers.get("cookie").is_some() || req.headers.get("transfer-encoding").is_some() {
             return None;
         }
         let p = params::merged(body, &params::parse_query(req.query().unwrap_or_default()));
+        let present = |k: &str| p.get(k).filter(|v| !matches!(v, Js::Null));
+        if present("report_id").is_some() {
+            return None;
+        }
+        let moderation = present("moderation")
+            .map(boolean)
+            .transpose_option()?
+            .unwrap_or(false);
+        if let Some(length) = req.headers.get("content-length") {
+            // The shared body parser already checked encoding and JSON syntax.
+            // Admit bounded plain-list bodies; keep moderation framing unchanged.
+            if moderation
+                || length.parse::<usize>().ok()? != req.body.len()
+                || req.body.len() > 65536
+            {
+                return None;
+            }
+        }
         if req.headers.get("authorization").is_some()
             && p.iter().any(|(k, _)| {
+                if !moderation {
+                    // Node ignores unrelated plain-list parameters. Identity
+                    // overrides and PID lookup still belong to Node.
+                    return matches!(k.as_str(), "pid" | "uid" | "xid" | "owner_uid");
+                }
                 !matches!(
                     k.as_str(),
                     "conversation_id"
@@ -74,14 +94,6 @@ impl Query {
         {
             return None;
         }
-        let present = |k: &str| p.get(k).filter(|v| !matches!(v, Js::Null));
-        if present("report_id").is_some() {
-            return None;
-        }
-        let moderation = present("moderation")
-            .map(boolean)
-            .transpose_option()?
-            .unwrap_or(false);
         let mod_in = present("modIn").map(boolean).transpose_option()?;
         let voting_patterns = present("include_voting_patterns")
             .map(boolean)
@@ -395,50 +407,30 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
     ) else {
         return route::bad_gateway();
     };
-    let uid = if q.moderation {
-        let Some(identity) = crate::hybrid_read::resolve_scoped(
-            req.headers.get("authorization"),
-            app.participant_verifier.as_deref(),
-            app.read_oidc.as_deref(),
-            pool,
-            Some(&q.cid),
-        )
-        .await
-        else {
-            return route::bad_gateway();
-        };
-        identity.uid()
-    } else {
-        None
+    // Preserve the participant-read opt-in for authenticated plain lists.
+    if !q.moderation
+        && req.headers.get("authorization").is_some()
+        && app.participant_verifier.is_none()
+    {
+        return route::bad_gateway();
+    }
+    // GET comments does not run ensureParticipant on Node. An existing OIDC
+    // subject mapping is enough; no membership creation, XID lookup, owner-site
+    // permission or translation provider is involved in the plain projection.
+    let Some(identity) = crate::hybrid_read::resolve_scoped(
+        req.headers.get("authorization"),
+        app.participant_verifier.as_deref(),
+        app.read_oidc.as_deref(),
+        pool,
+        Some(&q.cid),
+    )
+    .await
+    else {
+        return route::bad_gateway();
     };
-    let identity =
-        if q.moderation {
-            None
-        } else {
-            match req.headers.get("authorization") {
-                None => None,
-                Some(raw) => {
-                    let Some(v) = app.participant_verifier.as_ref().and_then(|v| {
-                        v.verify(raw, &q.cid, (crate::clock::now_ms() / 1000.0) as u64)
-                    }) else {
-                        return route::bad_gateway();
-                    };
-                    Some(v)
-                }
-            }
-        };
+    let uid = if q.moderation { identity.uid() } else { None };
     let cid = q.cid.clone();
-    let ctx = pool
-        .with(move |c| {
-            let ctx = context(c, &cid)?;
-            if let (Some(identity), Some((zid, _))) = (&identity, ctx)
-                && polis_auth::participant::resolve(c, polis_auth::Zid(zid), identity)?.is_none()
-            {
-                return Ok(None);
-            }
-            Ok(ctx)
-        })
-        .await;
+    let ctx = pool.with(move |c| context(c, &cid)).await;
     let Ok(Some((zid, strict))) = ctx else {
         return route::bad_gateway();
     };
@@ -512,6 +504,32 @@ mod tests {
             headers: Headers::default(),
             body: vec![],
         }
+    }
+    #[test]
+    fn comments_authenticated_ignored_keys_and_json_parameters() {
+        let mut req = request("conversation_id=abc&unused=value");
+        req.headers = Headers::from_raw([("authorization", "Bearer fixture")]);
+        assert!(Query::parse(&req, &Js::Null).is_some());
+        req = request("conversation_id=abc&limit=1");
+        req.body = br#"{"limit":2,"tids":[]}"#.to_vec();
+        let length = req.body.len().to_string();
+        req.headers = Headers::from_raw([
+            ("authorization", "Bearer fixture"),
+            ("content-type", "application/json"),
+            ("content-length", &length),
+        ]);
+        let body = crate::js::parse(std::str::from_utf8(&req.body).unwrap()).unwrap();
+        let q = Query::parse(&req, &body).unwrap();
+        assert_eq!(q.limit, 1);
+        assert_eq!(q.tids, Some(vec![]));
+        // A numeric, incorrect length must fail independently of parsing it.
+        let mismatch = (req.body.len() + 1).to_string();
+        req.headers = Headers::from_raw([
+            ("authorization", "Bearer fixture"),
+            ("content-type", "application/json"),
+            ("content-length", &mismatch),
+        ]);
+        assert!(Query::parse(&req, &body).is_none());
     }
     #[test]
     fn public_query_parsing_keeps_legacy_and_paginated_rules() {

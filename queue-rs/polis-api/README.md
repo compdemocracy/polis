@@ -1521,6 +1521,71 @@ the old container themselves. The explicit stop leaves it stopped across the
 rollback. Never stop Rust before selected traffic drains; first use the drained
 switch helper with an empty list when any route is selected.
 
+## Vote writer: the shadow role and observe mode
+
+`POLIS_API_POST_VOTES` selects the vote writer's mode: unset, empty or `0` is
+off, `1` is live (it serves `POST /api/v3/votes`), and `observe` is observe
+mode. Any other value stops the process at startup; before observe existed,
+every value but `1` meant off.
+
+`POLIS_API_ROLE` selects the process: `main` (the default) or `shadow`. The main
+role refuses `observe`. The shadow role is its own process, run as its own
+Compose service with its own CPU and memory limits, and listens only on
+`POLIS_API_SHADOW_LISTEN`. It refuses `POLIS_API_POST_VOTES=1`, builds no other
+writer, and configures no read route whatever switches its env file carries. It
+serves `GET /health` and copies of votes: `POST /api/v3/votes` carrying
+`X-Polis-Shadow: votesShadow`, as nginx's mirror sends them. Nothing in this
+release sends it copies: no service runs with the shadow role and no route
+selects it.
+
+A copy is answered `204 No Content` at once, before any database work. Then, in
+a lane of at most 32 observations and `POLIS_API_SHADOW_MAX_PER_SECOND` per
+second (required, 1 to 10000), it runs through the same route prelude and vote
+handler as a live request:
+
+- Admission, the follow-on lane and next-statement selection are the live
+  writer's own code, on the same `reads` limits (2 connections, 100 ms acquire,
+  100 ms statements, the 250 ms admission deadline and the 1 s reply deadline).
+  The statement voted on counts as voted, as it does after the live writer's
+  commit and after Node's insert, whether or not Node's commit is visible yet.
+  With the writer live, the statements, their text and their order are
+  unchanged.
+- Observe mode never appends, stars, updates notification state or inserts the
+  no-more-comments row. It builds neither the writer pool nor the notification
+  pool, so none of those has a connection to run on; both of its pools are
+  read-only sessions as the backstop.
+- After selection it holds no connection and no priority generation. At 2 s
+  after receipt (and once more at 10 s if nothing is there yet) it reads back
+  the vote Node stored for the same member and statement, in a window anchored
+  on database time read at the copy's arrival, and classifies it through the
+  storage convention: `same`, `ambiguous` (rows disagree: a quick change of
+  vote), `different`, `absent`, `unavailable` or `not_checked`.
+
+One `shadow_observation` line is printed per copy, with `listener: "shadow"`:
+the request id, the outcome (`would_serve`, `would_hand_back`, `would_fail`,
+`shed`, `not_observed`), the would-be status and its reason, durations, the
+conversation and statement ids, the would-be next statement and its counts,
+the membership class and the readback class. It never carries the vote value,
+a participant id, comment text, a token or a header value. Every other line
+the shadow prints is marked as the shadow's too (`service:
+"polis-api-shadow"` and `listener: "shadow"`, or an event name starting
+`shadow_`), so no query that counts the main process's vote lines counts them.
+
+The shadow's `/health` reports `role: "shadow"`, `postVotes.enabled: false`
+(enabled means serving participants), `postVotes.mode: "observe"`, its
+counters, its two pools (`reads`, `readback`, both `readOnly: true`) and the
+lane (`listening`, `inFlight`, `capacity`, `maxPerSecond`, and the request heads
+it could not parse). The main process's `/health` reports `postVotes.mode`
+(`off` or `live`); `postVotes.enabled` is true only when live.
+
+The writer, live or observe, verifies participant tokens with the key in
+`POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE` when that is set, and otherwise with
+the participant keys the process already loads at startup (`JWT_PUBLIC_KEY` or
+`JWT_PUBLIC_KEY_PATH`), as the participant read routes do. With neither, a
+selected writer refuses to start. `POLIS_API_WRITER_PRIORITIES_CACHE_BYTES`
+bounds the writer's priorities cache (default 256 MiB) for a process with a
+smaller memory limit.
+
 ## Build version (opt-in)
 
 `POLIS_API_VERSION_READS=1` and nginx's `RUST_API_ROUTES=version` select

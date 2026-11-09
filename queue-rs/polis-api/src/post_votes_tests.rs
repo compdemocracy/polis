@@ -468,3 +468,6 @@ fn vote_language_startup_requires_provider_off() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[path = "post_votes_observe_tests.rs"]
+mod observe_tests;

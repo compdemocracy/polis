@@ -21,11 +21,11 @@
   },
   "comments": {
     "path": "/api/v3/comments",
-    "minimum_rust_successes": 4,
+    "minimum_rust_successes": 6,
     "commands": [],
     "expected_requests": 17,
-    "expected_node_handoffs": 10,
-    "scope": "Moderation reads use verified caller visibility. Plain OIDC, report enrichment and unsupported identities remain Node handoffs; non-read methods stay on Node."
+    "expected_node_handoffs": 8,
+    "scope": "Mapped OIDC plain reads and supported moderation reads use verified caller visibility. Report enrichment and unsupported identities remain Node handoffs; non-read methods stay on Node."
   },
   "nextComment": {
     "path": "/api/v3/nextComment",
@@ -391,17 +391,17 @@
     "path": "^/api/v3/votes(/me)?$",
     "minimum_rust_successes": 4,
     "expected_requests": 8,
-    "expected_node_handoffs": 2,
+    "expected_node_handoffs": 4,
     "commands": ["vote list", "vote mine", "vote"],
-    "scope": "Empty and single-row reads serve from Rust. Each path hands its multi-row read to Node because the source query promises no row order. The two vote POSTs bypass Rust.",
+    "scope": "Empty and single-row reads serve from Rust. Each path hands its multi-row read to Node because the source query promises no row order. The two vote POSTs reach polis-api through postVotes, whose writer is off in this fixture, and hand back to Node; they are the other two handoffs.",
     "paths": [
       {
         "path": "/api/v3/votes",
         "minimum_rust_successes": 2,
         "expected_requests": 5,
-        "expected_node_handoffs": 1,
+        "expected_node_handoffs": 3,
         "commands": ["vote list", "vote list single", "vote list multiple", "vote", "vote important"],
-        "scope": "The original owner read is empty; account-authenticated reads target the PID returned by the participant's vote after one and two votes. Empty and single-row latest reads serve from Rust; the multi-row read hands to Node. Both POSTs stay on Node."
+        "scope": "The original owner read is empty; account-authenticated reads target the PID returned by the participant's vote after one and two votes. Empty and single-row latest reads serve from Rust; the multi-row read hands to Node. Both POSTs hand back to Node from the vote writer, which is off in this fixture."
       },
       {
         "path": "/api/v3/votes/me",
@@ -412,6 +412,15 @@
         "scope": "The owner's empty history and the participant's single-row history serve from Rust. The existing later participant history scenario has two rows and must hand to Node without inventing an order."
       }
     ]
+  },
+  "postVotes": {
+    "path": "/api/v3/votes",
+    "method": "POST",
+    "minimum_rust_successes": 0,
+    "expected_requests": 2,
+    "expected_node_handoffs": 2,
+    "commands": ["vote", "vote important"],
+    "scope": "The vote writer is off in this fixture, so each CLI vote POST reaches polis-api through the write selector and hands back before dispatch with its marked 502; nginx replays the whole body to Node, which records the vote. Only POST lines count here; no Rust write is claimed."
   },
   "delphiLogs": {
     "path": "/api/v3/delphi/logs",

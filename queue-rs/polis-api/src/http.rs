@@ -363,8 +363,58 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
     }))
 }
 
+/// Which process a listener belongs to. The main listener's behaviour is
+/// unchanged by the shadow's existence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Listener {
+    Main,
+    /// The shadow role's listener (`crate::shadow`): it counts the request
+    /// heads it cannot parse, and answers a copy whose body the writer would
+    /// not read with 204 rather than the vote hand-back marker.
+    Shadow,
+}
+
+/// A request head this server could not parse: the connection is dropped
+/// without an answer. Displays as the parse error itself.
+#[derive(Debug)]
+pub struct HeadRefused(anyhow::Error);
+
+impl std::fmt::Display for HeadRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for HeadRefused {}
+
+impl HeadRefused {
+    /// A fixed word for the kind of head, never a byte of the request.
+    pub fn class(&self) -> &'static str {
+        if self.0.downcast_ref::<std::str::Utf8Error>().is_some() {
+            "header_utf8"
+        } else if let Some(error) = self.0.downcast_ref::<httparse::Error>() {
+            if *error == httparse::Error::TooManyHeaders {
+                "too_many_headers"
+            } else {
+                "head_syntax"
+            }
+        } else {
+            "head_other"
+        }
+    }
+}
+
 /// Accepts connections forever, answering each request with `handler`.
 pub async fn serve<H, F>(listener: TcpListener, handler: Arc<H>) -> Result<()>
+where
+    H: Fn(Request) -> F + Send + Sync + 'static,
+    F: Future<Output = Outgoing> + Send + 'static,
+{
+    serve_as(listener, handler, Listener::Main).await
+}
+
+/// `serve`, for the listener of `role`.
+pub async fn serve_as<H, F>(listener: TcpListener, handler: Arc<H>, role: Listener) -> Result<()>
 where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
@@ -373,17 +423,32 @@ where
         let (socket, _) = listener.accept().await?;
         let handler = handler.clone();
         tokio::spawn(async move {
-            if let Err(e) = connection(socket, handler).await {
-                eprintln!(
-                    "{{\"event\":\"http_connection_error\",\"detail\":{:?}}}",
-                    e.to_string()
-                );
+            if let Err(e) = connection_as(socket, handler, role).await {
+                match role {
+                    Listener::Main => eprintln!(
+                        "{{\"event\":\"http_connection_error\",\"detail\":{:?}}}",
+                        e.to_string()
+                    ),
+                    Listener::Shadow => match e.downcast_ref::<HeadRefused>() {
+                        Some(refused) => crate::shadow::head_refused(refused.class()),
+                        None => crate::shadow::connection_error(&e.to_string()),
+                    },
+                }
             }
         });
     }
 }
 
-async fn connection<H, F>(mut socket: TcpStream, handler: Arc<H>) -> Result<()>
+#[cfg(test)]
+async fn connection<H, F>(socket: TcpStream, handler: Arc<H>) -> Result<()>
+where
+    H: Fn(Request) -> F + Send + Sync + 'static,
+    F: Future<Output = Outgoing> + Send + 'static,
+{
+    connection_as(socket, handler, Listener::Main).await
+}
+
+async fn connection_as<H, F>(mut socket: TcpStream, handler: Arc<H>, role: Listener) -> Result<()>
 where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
@@ -400,7 +465,9 @@ where
             Some(Instant::now())
         };
         let head = loop {
-            if let Some(head) = parse_head(&input)? {
+            if let Some(head) =
+                parse_head(&input).map_err(|e| anyhow::Error::new(HeadRefused(e)))?
+            {
                 break head;
             }
             let read = match started {
@@ -427,6 +494,21 @@ where
             }
         };
         let deadline = started.unwrap_or_else(Instant::now) + REQUEST_DEADLINE;
+        if head.hand_back && role == Listener::Shadow {
+            // The live writer would hand this back unread. The shadow answers
+            // the copy 204, never the hand-back marker, and closes.
+            crate::shadow::body_unread();
+            let response = Outgoing {
+                status: 204,
+                headers: vec![],
+                body: Body::Empty,
+                close: true,
+            };
+            let bytes = write_response_for(&response, false, false, head.http10, &date_now())?;
+            tokio::time::timeout_at(deadline, socket.write_all(&bytes)).await??;
+            socket.shutdown().await.ok();
+            return Ok(());
+        }
         if head.hand_back {
             // No body is decoded or dispatched. Close so unread body bytes can
             // never be interpreted as another request on this connection.

@@ -142,6 +142,10 @@ impl App {
                 revocations,
             ],
             other: [
+                // Never configured in the main role, whose startup refuses
+                // observe mode. The shadow role's two read-only pools are
+                // Observer::startup_pools (post_votes_observe_tests.rs).
+                post_votes_observe,
                 math_env,
                 dev_mode,
                 use_network_host,

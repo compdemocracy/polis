@@ -95,6 +95,9 @@ jobs:
         with:
           role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
           role-session-name: polis-deploy-${{ github.run_id }}
+          # Two hours (the role's maximum): the steps below wait up to about 30
+          # minutes each for their deployments, past the default one hour.
+          role-duration-seconds: 7200
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Create US deployment package
@@ -112,18 +115,32 @@ jobs:
       - name: Upload US deployment package to S3
         run: aws s3 cp deployment-us.zip "s3://$DEPLOY_BUCKET/deployments/deployment.zip"
 
+      # OVERWRITE: CodeDeploy tracks installed files per deployment group, so a
+      # box moved between groups would otherwise fail at Install on its own files.
+      # Each step waits for its deployment and fails if CodeDeploy ends it Failed
+      # or Stopped, so the run's result is the boxes' result. The waiter polls
+      # GetDeployment every 15 s and gives up after 120 polls (about 30 minutes),
+      # which also fails the step. Workers start only after web has succeeded.
       - name: Create US CodeDeploy deployment (web)
         run: |
-          aws deploy create-deployment \
+          ID=$(aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisDeploymentGroup \
             --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
-            --region us-east-1
+            --file-exists-behavior OVERWRITE \
+            --region us-east-1 \
+            --query deploymentId --output text)
+          echo "CodeDeploy deployment (web): $ID"
+          aws deploy wait deployment-successful --deployment-id "$ID" --region us-east-1
 
       - name: Create US CodeDeploy deployment (workers)
         run: |
-          aws deploy create-deployment \
+          ID=$(aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisWorkersDeploymentGroup \
             --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
-            --region us-east-1
+            --file-exists-behavior OVERWRITE \
+            --region us-east-1 \
+            --query deploymentId --output text)
+          echo "CodeDeploy deployment (workers): $ID"
+          aws deploy wait deployment-successful --deployment-id "$ID" --region us-east-1
