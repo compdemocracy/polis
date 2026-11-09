@@ -40,7 +40,13 @@ jest.mock("../../src/utils/logger", () => ({
     error: jest.fn(),
   },
 }));
-jest.mock("../../src/utils/fail", () => ({ failJson: jest.fn() }));
+// failJson answers synchronously and so sets the status, as Express's
+// res.status() does; the handler's line reads it from there.
+jest.mock("../../src/utils/fail", () => ({
+  failJson: jest.fn((res: { statusCode?: number }, status: number) => {
+    res.statusCode = status;
+  }),
+}));
 jest.mock("../../src/server-helpers", () => ({
   addNoMoreCommentsRecord: jest.fn(),
   addStar: jest.fn(),
@@ -127,19 +133,31 @@ async function vote(options: {
   return res;
 }
 
-function replyLines() {
-  return (logger.log as jest.Mock).mock.calls.filter(
-    (call) => call[1] === "vote_reply"
-  );
+const LEVELS = ["info", "warn", "error"] as const;
+
+// Every `vote_reply` call, at whichever level it was written.
+function replyLines(): {
+  level: string;
+  meta: Record<string, unknown>;
+  order: number;
+}[] {
+  return LEVELS.flatMap((level) => {
+    const mock = logger[level] as jest.Mock;
+    return mock.mock.calls
+      .map((call, i) => ({ call, order: mock.mock.invocationCallOrder[i] }))
+      .filter(({ call }) => call[0] === "vote_reply")
+      .map(({ call, order }) => ({
+        level,
+        meta: call[1] as Record<string, unknown>,
+        order,
+      }));
+  });
 }
 
 function onlyLine(): { level: unknown; meta: Record<string, unknown> } {
   const lines = replyLines();
   expect(lines).toHaveLength(1);
-  return {
-    level: lines[0][0],
-    meta: lines[0][2] as Record<string, unknown>,
-  };
+  return { level: lines[0].level, meta: lines[0].meta };
 }
 
 function expectNothingPrivate(meta: Record<string, unknown>) {
@@ -169,7 +187,6 @@ const statement = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (logger.log as jest.Mock).mockImplementation(() => logger);
 });
 
 describe("vote_reply", () => {
@@ -239,7 +256,6 @@ describe("vote_reply", () => {
     const metas = [];
     for (const v of [WIRE_AGREE, WIRE_PASS, WIRE_DISAGREE]) {
       jest.clearAllMocks();
-      (logger.log as jest.Mock).mockImplementation(() => logger);
       await vote({ headers: header, next: { ...statement }, vote: v });
       metas.push(onlyLine().meta);
     }
@@ -348,7 +364,6 @@ describe("vote_reply", () => {
   test("the reply and the database calls are the same with and without the line", async () => {
     const observe = async (headers: Record<string, unknown>, next: Next) => {
       jest.clearAllMocks();
-      (logger.log as jest.Mock).mockImplementation(() => logger);
       const res = await vote({ headers, next });
       return {
         res,
@@ -381,18 +396,32 @@ describe("vote_reply", () => {
   test("the line is written after the reply is handed to Express", async () => {
     await vote({ headers: header, next: { ...statement } });
     const replied = (finishOne as jest.Mock).mock.invocationCallOrder[0];
-    const logged = (logger.log as jest.Mock).mock.invocationCallOrder[
-      (logger.log as jest.Mock).mock.calls.findIndex(
-        (c) => c[1] === "vote_reply"
-      )
-    ];
-    expect(logged).toBeGreaterThan(replied);
+    expect(onlyLine()).toBeDefined();
+    expect(replyLines()[0].order).toBeGreaterThan(replied);
+    // On a failure, after failJson.
+    jest.clearAllMocks();
+    await vote({
+      headers: header,
+      conversation: [{ zid: ZID, is_active: false }],
+    });
+    const failed = (failJson as jest.Mock).mock.invocationCallOrder[0];
+    expect(replyLines()[0].order).toBeGreaterThan(failed);
   });
 
   test("a logger that throws changes no reply and never answers twice", async () => {
-    (logger.log as jest.Mock).mockImplementation(() => {
-      throw new Error("log transport closed");
+    for (const level of LEVELS) {
+      (logger[level] as jest.Mock).mockImplementation((message: unknown) => {
+        if (message === "vote_reply") throw new Error("log transport closed");
+      });
+    }
+    const closed = await vote({
+      headers: header,
+      conversation: [{ zid: ZID, is_active: false }],
     });
+    expect(failJson).toHaveBeenCalledTimes(1);
+    expect((failJson as jest.Mock).mock.calls[0][1]).toBe(403);
+    expect(closed.status).not.toHaveBeenCalled();
+    jest.clearAllMocks();
     database({});
     (getNextComment as jest.Mock).mockResolvedValue({ ...statement } as never);
     const req = {
@@ -404,5 +433,6 @@ describe("vote_reply", () => {
     ).resolves.toBeUndefined();
     expect(finishOne).toHaveBeenCalledTimes(1);
     expect(failJson).not.toHaveBeenCalled();
+    for (const level of LEVELS) (logger[level] as jest.Mock).mockReset();
   });
 });
