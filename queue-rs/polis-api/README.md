@@ -138,8 +138,10 @@ compose stacks, whose Postgres has no TLS.
 It reads the Node server's env file, so these match Node: `MATH_ENV`
 (required; there is no default, as in Node), `READ_ONLY_DATABASE_URL` and
 `DATABASE_URL`, `DD_ENV` (the log's `env`), `DEV_MODE`, `NODE_ENV`,
-`DOMAIN_OVERRIDE`, `USE_NETWORK_HOST`, `TESTING`, `API_DEV_HOSTNAME`,
-`API_PROD_HOSTNAME`, `DOMAIN_WHITELIST_ITEM_01..08`, `CACHE_MATH_RESULTS`.
+`DOMAIN_OVERRIDE` (when set, every `/api/v3` answer carries the CORS headers),
+`USE_NETWORK_HOST`, `CACHE_MATH_RESULTS`. Like Node, it answers a request from
+any origin: the CORS headers are `Access-Control-Allow-Origin: *` with the
+allowed headers and methods, and no credentials header (`cors.rs`).
 It refuses to start if `POLIS_REACHABLE_ERROR_HANDLER` is on, because it only
 implements Node's default error pages.
 

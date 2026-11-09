@@ -376,12 +376,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -481,8 +476,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -821,12 +815,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -900,8 +889,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -1044,12 +1032,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -1134,8 +1117,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -1462,12 +1444,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -1802,8 +1779,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -2110,12 +2086,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -2450,8 +2421,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -2758,12 +2728,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -3098,8 +3063,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -3406,12 +3370,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -3472,8 +3431,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -3577,12 +3535,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -3860,8 +3813,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -3965,12 +3917,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -4248,8 +4195,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -4372,12 +4318,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -4478,8 +4419,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -4830,12 +4770,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -4936,8 +4871,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -5288,12 +5222,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -5394,8 +5323,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -5746,12 +5674,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -5812,8 +5735,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -5934,12 +5856,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -6000,8 +5917,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -6122,12 +6038,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -6188,8 +6099,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -6312,12 +6222,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -6404,8 +6309,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -6763,12 +6667,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -6855,8 +6754,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -7205,12 +7103,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -7297,8 +7190,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -7647,12 +7539,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -7713,8 +7600,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -7835,12 +7721,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -7901,8 +7782,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -8023,12 +7903,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -8089,8 +7964,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -8220,12 +8094,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -8299,8 +8168,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -8445,12 +8313,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -8536,8 +8399,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -8870,12 +8732,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -8961,8 +8818,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -9331,12 +9187,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -9437,8 +9288,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -9795,12 +9645,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -9886,8 +9731,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -10220,12 +10064,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -10284,8 +10123,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -10439,12 +10277,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -10518,8 +10351,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -10862,12 +10694,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -10941,8 +10768,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -11084,12 +10910,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -11189,8 +11010,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -11529,12 +11349,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -11635,8 +11450,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -11985,12 +11799,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -12051,8 +11860,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -12194,12 +12002,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -12256,8 +12059,7 @@
         "body": "Internal Server Error\n",
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "text/html; charset=utf-8"
         },
@@ -12546,12 +12348,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -12652,8 +12449,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -13001,12 +12797,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -13094,8 +12885,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -13432,12 +13222,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -13522,8 +13307,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -13695,12 +13479,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -13761,8 +13540,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -13882,12 +13660,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -13948,8 +13721,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -14053,12 +13825,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -14117,8 +13884,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -14228,12 +13994,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -14292,8 +14053,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -14420,12 +14180,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -14485,8 +14240,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -14614,12 +14368,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -14679,8 +14428,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -14809,12 +14557,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -14874,8 +14617,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -15003,12 +14745,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -15068,8 +14805,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -15197,12 +14933,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -15262,8 +14993,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -15391,12 +15121,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -15456,8 +15181,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -15586,12 +15310,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -15651,8 +15370,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -15780,12 +15498,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -15845,8 +15558,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -15974,12 +15686,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -16039,8 +15746,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -16168,12 +15874,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -16233,8 +15934,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -16362,12 +16062,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -16427,8 +16122,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -16557,12 +16251,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -16622,8 +16311,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -16752,12 +16440,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -16817,8 +16500,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -16946,12 +16628,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -17011,8 +16688,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -17140,12 +16816,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -17205,8 +16876,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -17334,12 +17004,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -17399,8 +17064,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -17528,12 +17192,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -17594,8 +17253,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -17723,12 +17381,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -17789,8 +17442,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -17918,12 +17570,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -17983,8 +17630,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -18112,12 +17758,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -18177,8 +17818,7 @@
         },
         "completed": true,
         "headers": {
-          "access-control-allow-credentials": "true",
-          "access-control-allow-origin": "https://localhost",
+          "access-control-allow-origin": "*",
           "cache-control": "no-cache",
           "content-type": "application/json; charset=utf-8"
         },
@@ -18219,8 +17859,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "938",
@@ -18610,8 +18249,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "260",
@@ -19038,8 +18676,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "694",
@@ -19503,8 +19140,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "4602",
@@ -20055,8 +19691,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "4615",
@@ -20706,8 +20341,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "4619",
@@ -21455,8 +21089,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "88",
@@ -22253,8 +21886,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "3412",
@@ -23051,8 +22683,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "3410",
@@ -23849,8 +23480,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "989",
@@ -24696,8 +24326,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "1002",
@@ -25641,8 +25270,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "1003",
@@ -26684,8 +26312,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "88",
@@ -27776,8 +27403,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "82",
@@ -28868,8 +28494,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "82",
@@ -29960,8 +29585,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "765",
@@ -31101,8 +30725,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "776",
@@ -32340,8 +31963,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "779",
@@ -33677,8 +33299,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "88",
@@ -35063,8 +34684,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "82",
@@ -36449,8 +36069,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "82",
@@ -37835,8 +37454,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "292",
@@ -39221,8 +38839,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "746",
@@ -40631,8 +40248,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "747",
@@ -42114,8 +41730,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "1028",
@@ -43695,8 +43310,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "764",
@@ -45349,8 +44963,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "16",
@@ -47027,8 +46640,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "291",
@@ -48747,8 +48359,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "260",
@@ -50509,8 +50120,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "974",
@@ -52308,8 +51918,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "1030",
@@ -54193,8 +53802,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "102",
@@ -56140,8 +55748,7 @@
           "content-type": "text/html; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "x-content-type-options": "nosniff",
@@ -58137,8 +57744,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "1025",
@@ -60220,8 +59826,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "759",
@@ -62393,8 +61998,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "697",
@@ -64606,8 +64210,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "120",
@@ -66819,8 +66422,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "112",
@@ -69032,8 +68634,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "41",
@@ -71245,8 +70846,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "41",
@@ -73458,8 +73058,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "88",
@@ -75671,8 +75270,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "64",
@@ -77884,8 +77482,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "64",
@@ -80097,8 +79694,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "64",
@@ -82310,8 +81906,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "64",
@@ -84523,8 +84118,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "70",
@@ -86736,8 +86330,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "70",
@@ -88949,8 +88542,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "70",
@@ -91162,8 +90754,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "70",
@@ -93375,8 +92966,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "97",
@@ -95588,8 +95178,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "98",
@@ -97801,8 +97390,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "97",
@@ -100014,8 +99602,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "98",
@@ -102227,8 +101814,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "97",
@@ -104440,8 +104026,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "98",
@@ -106653,8 +106238,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "95",
@@ -108866,8 +108450,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "136",
@@ -111079,8 +110662,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "137",
@@ -113292,8 +112874,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "81",
@@ -115505,8 +115086,7 @@
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-cache",
           "connection": "keep-alive",
-          "access-control-allow-origin": "https://localhost",
-          "access-control-allow-credentials": "true",
+          "access-control-allow-origin": "*",
           "access-control-allow-headers": "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
           "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
           "content-length": "88",

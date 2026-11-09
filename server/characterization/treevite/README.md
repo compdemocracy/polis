@@ -6,6 +6,12 @@ rules change. The participant endpoint is `myInvites` (camel case), and both
 `invites/csv` and `myInvites/csv` are included. This directory is independent of
 the identity and post-comments fixtures.
 
+Every recorded response's CORS headers were later rewritten in place to the set
+the server sends since the /api/v3 domain allowlist was removed (2026-11-09):
+`Access-Control-Allow-Origin: *` and no `Access-Control-Allow-Credentials`.
+Nothing else in any case changed; the replay checks that live Node still serves
+these bytes.
+
 `cases.cjs` is the ordered scenario matrix. It covers root and child wave
 creation, explicit and default parents, immediate and lazy child issuance,
 wave/invite reads and pagination, empty and populated participant reads, both

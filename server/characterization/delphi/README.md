@@ -2,6 +2,12 @@
 
 The PostgreSQL baseline in `recordings-postgres/` contains 272 generated read-route cases across 19 routes, recorded on 2026-10-19 from published commit `c77910845486cb56f6671ee04c4a07715b22ab89`.
 
+Every recorded response's CORS headers were later rewritten in place to the set
+the server sends since the /api/v3 domain allowlist was removed (2026-11-09):
+`Access-Control-Allow-Origin: *` and no `Access-Control-Allow-Credentials`.
+Nothing else in any case changed; the replay checks that live Node still serves
+these bytes.
+
 Run from `server/` with the disposable local services configured as described
 in `main.cjs` and `POSTGRES.txt`:
 
