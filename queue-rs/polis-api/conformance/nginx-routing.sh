@@ -1314,7 +1314,8 @@ expect_vote() { # label status upstream body|'*' method [header lines] [body]
     fail "$label"
   fi
 }
-vote_body='{"conversation_id":"2fixture","tid":0,"vote":-1,"agid":1,"pid":"mypid","lang":"en"}'
+# No stand-in reads the vote, so it is a pass: no sign is restated here.
+vote_body='{"conversation_id":"2fixture","tid":0,"vote":0,"agid":1,"pid":"mypid","lang":"en"}'
 vote_json=$'Content-Type: application/json\r\nContent-Length: '"${#vote_body}"$'\r\n'
 largest=$(printf '%09999d' 0)
 
