@@ -41,6 +41,28 @@ function redactUrlForLog(url: string): string {
   return url.replace(IDENTITY_QUERY_PATTERN, "$1[redacted]");
 }
 
+// nginx's $request_id: 32 lowercase hex characters. nginx sets X-Request-Id to
+// it on a vote it also copies to the read-only shadow service, so Node's lines
+// for that vote can be joined with the copy's. Any other value (absent, or a
+// header a client sent on a path nginx does not shadow) is not a request id
+// and is not logged.
+const REQUEST_ID_PATTERN = /^[0-9a-f]{32}$/;
+
+function requestIdOf(req: { headers?: unknown }): string | undefined {
+  const headers = req.headers as Record<string, unknown> | undefined;
+  const value = headers?.["x-request-id"];
+  return typeof value === "string" && REQUEST_ID_PATTERN.test(value)
+    ? value
+    : undefined;
+}
+
+// The level of a request's log line, by its HTTP status.
+function httpLogLevel(statusCode: number): "error" | "warn" | "info" {
+  if (statusCode >= 500) return "error";
+  if (statusCode >= 400) return "warn";
+  return "info";
+}
+
 function middleware_log_request_body(
   req: ExpressRequest,
   res: ExpressResponse,
@@ -111,14 +133,10 @@ function middleware_http_json_logger(
       ],
       duration_ms: durationMs,
     };
+    const requestId = requestIdOf(req);
+    if (requestId) log.request_id = requestId;
 
-    // status level
-    let level: "error" | "warn" | "info";
-    if (statusCode >= 500) level = "error";
-    else if (statusCode >= 400) level = "warn";
-    else level = "info";
-
-    logger.log(level, "http_request", log);
+    logger.log(httpLogLevel(statusCode), "http_request", log);
   });
 
   next();
@@ -314,6 +332,8 @@ export {
   middleware_responseTime_start,
   middleware_http_json_logger,
   globalErrorHandler,
+  httpLogLevel,
   redactUrlForLog,
+  requestIdOf,
   setupGlobalProcessHandlers,
 };
