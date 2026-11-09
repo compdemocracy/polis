@@ -10,7 +10,9 @@ resolver_timeout 2s;
 # Only GET and HEAD requests without a body go to polis-api; every other
 # method, and any request carrying a body (Content-Length or
 # Transfer-Encoding), is answered by Node before any of it is read, so the
-# request body handling and the non-GET paths stay Node's own.
+# request body handling and the non-GET paths stay Node's own. The two
+# exceptions admit a small POST in their own locations: metadataQuery and
+# postVotes.
 map "$request_method:$http_content_length:$http_transfer_encoding" $polis_api_plain {
     default 0;
     "GET::" 1;
@@ -22,4 +24,11 @@ map "$request_method:$http_content_length:$http_transfer_encoding" $polis_api_pl
 map $uri $polis_api_target {
     default "";
 ${RUST_API_MAP_ENTRIES}
+}
+
+# Where a vote write goes (see postVotes.location.conf.template). The
+# entrypoint writes its line when RUST_API_ROUTES contains postVotes.
+map $uri $polis_api_vote_target {
+    default "";
+${RUST_API_VOTE_MAP_ENTRIES}
 }

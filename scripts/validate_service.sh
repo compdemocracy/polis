@@ -45,12 +45,22 @@ polis_api_ready() {
           const expectedSwitches = [
             ...(selected.includes("testConnection") ? ["POLIS_API_CONNECTION_READS"] : []),
             ...(selected.includes("version") ? ["POLIS_API_VERSION_READS"] : []),
-            ...(selected.includes("comments") ? ["POLIS_API_COMMENT_READS"] : [])
+            ...(selected.includes("comments") ? ["POLIS_API_COMMENT_READS"] : []),
+            ...(selected.includes("postVotes") ? ["POLIS_API_POST_VOTES"] : [])
           ].sort().join(",");
+          // The vote writer reports itself enabled, with its counters, exactly
+          // when its route is selected.
+          const writer = h.postVotes;
+          const writerReady = selected.includes("postVotes") ?
+            writer?.enabled === true && ["served", "handedBack",
+              "durableAcceptedWithDegradedFollowOn", "unknown", "writerAcquireAlarmHits",
+              "inFlight", "notificationsInFlight", "notificationDropped"]
+              .every(key => Number.isSafeInteger(writer[key]) && writer[key] >= 0) :
+            writer?.enabled !== true;
           if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
               routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
               routes((h.routing?.enabledSwitches ?? ["!"]).join(",")) !==
-                expectedSwitches ||
+                expectedSwitches || !writerReady ||
               !p?.readOnly || !p.reachable || p.limit !== 8 ||
               p.acquireTimeoutMs !== 2000 || p.statementTimeoutMs !== 3000 ||
               p.maxLifetimeMs !== 300000 || h.version !== process.argv[3] || !h.commit ||
