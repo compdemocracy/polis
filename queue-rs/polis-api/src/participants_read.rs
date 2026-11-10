@@ -69,59 +69,125 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         if zid <= 0 {
             return None;
         }
-        pool.with(move |c| read(c, zid, uid.0)).await.ok().flatten()
+        pool.with(move |c| read_as_stored(c, zid, uid.0))
+            .await
+            .ok()
+            .flatten()
     })
     .await;
     match result {
-        Ok(Some(response)) => match serde_json::to_string(&response) {
+        Ok(Some((response, order))) => match body(&response, &order) {
             Ok(body) => route::json_text(req, res, 200, body),
             Err(_) => route::bad_gateway(),
         },
         _ => route::bad_gateway(),
     }
 }
+/// The keys of a participant in a database built from the migrations: the
+/// order of `contract::Participant`.
+const MIGRATIONS_ORDER: [&str; 10] = [
+    "pid",
+    "uid",
+    "zid",
+    "vote_count",
+    "last_interaction",
+    "subscribed",
+    "last_notified",
+    "nsli",
+    "mod",
+    "created",
+];
+/// The answer, and the keys of its participant in the order the table stores
+/// its columns (none without a participant).
+type Stored = (contract::Response, Vec<&'static str>);
+/// The answer's bytes. Node answers with its `SELECT p.*` row, so its keys
+/// are the columns of `participants` in their stored order. In a database
+/// built from the migrations that is the contract's own order and the
+/// contract's own encoding; an installation older than the migrations stores
+/// the same columns in another order, and the same values are written in that
+/// one.
+fn body(response: &contract::Response, order: &[&'static str]) -> serde_json::Result<String> {
+    let Some(participant) = response else {
+        return serde_json::to_string(response);
+    };
+    if order == MIGRATIONS_ORDER {
+        return serde_json::to_string(response);
+    }
+    let value = serde_json::to_value(participant)?;
+    let mut body = String::from("{");
+    for (index, key) in order.iter().enumerate() {
+        if index > 0 {
+            body.push(',');
+        }
+        body.push_str(&serde_json::to_string(key)?);
+        body.push(':');
+        body.push_str(&serde_json::to_string(&value[*key])?);
+    }
+    body.push('}');
+    Ok(body)
+}
 /// Duplicate projected vote_count replaces its original value without moving
 /// that property's position. Multiple rows or schema extensions stay on Node.
+/// The handler reads through `read_as_stored`; this is its typed result.
+#[cfg(all(test, feature = "db-tests"))]
 pub fn read(
     c: &mut postgres::Client,
     zid: i32,
     uid: i32,
 ) -> anyhow::Result<Option<contract::Response>> {
+    Ok(read_as_stored(c, zid, uid)?.map(|(response, _)| response))
+}
+/// `read`, with the order the table stores its columns in. A schema extension
+/// is a column added or missing; the order of the columns is not one, and the
+/// keys of the answer follow it, as Node's do.
+fn read_as_stored(c: &mut postgres::Client, zid: i32, uid: i32) -> anyhow::Result<Option<Stored>> {
     let rows=c.query("SELECT p.*, (SELECT CASE WHEN COUNT(*)=0 AND p.vote_count IS NULL THEN NULL ELSE COUNT(*)::integer END FROM votes v WHERE v.zid=p.zid AND v.pid=p.pid) AS vote_count FROM participants p WHERE uid=$1 AND zid=$2 LIMIT 2",&[&uid,&zid])?;
     if rows.len() > 1 {
         return Ok(None);
     }
     let Some(r) = rows.first() else {
-        return Ok(Some(None));
+        return Ok(Some((None, vec![])));
     };
-    let expected = [
-        "pid",
-        "uid",
-        "zid",
-        "vote_count",
-        "last_interaction",
-        "subscribed",
-        "last_notified",
-        "nsli",
-        "mod",
-        "created",
-        "vote_count",
-    ];
-    if r.columns().iter().map(|c| c.name()).collect::<Vec<_>>() != expected {
+    // The table's columns, then the projected count under the name of one of
+    // them.
+    let names: Vec<&str> = r.columns().iter().map(|c| c.name()).collect();
+    let Some((&"vote_count", table)) = names.split_last() else {
+        return Ok(None);
+    };
+    let mut order = Vec::with_capacity(table.len());
+    for name in table {
+        let Some(known) = MIGRATIONS_ORDER.iter().find(|known| *known == name) else {
+            return Ok(None);
+        };
+        if order.contains(known) {
+            return Ok(None);
+        }
+        order.push(*known);
+    }
+    if order.len() != MIGRATIONS_ORDER.len() {
         return Ok(None);
     }
-    Ok(Some(Some(contract::Participant {
-        pid: r.try_get(0)?,
-        uid: r.try_get(1)?,
-        zid: r.try_get(2)?,
-        vote_count: r.try_get(10)?,
-        last_interaction: r.try_get::<_, Option<i64>>(4)?.map(|n| n.to_string()),
-        subscribed: r.try_get(5)?,
-        last_notified: r.try_get::<_, Option<i64>>(6)?.map(|n| n.to_string()),
-        nsli: r.try_get(7)?,
-        moderation: r.try_get(8)?,
-        created: r.try_get::<_, Option<i64>>(9)?.map(|n| n.to_string()),
-    })))
+    Ok(Some((
+        Some(contract::Participant {
+            pid: r.try_get("pid")?,
+            uid: r.try_get("uid")?,
+            zid: r.try_get("zid")?,
+            vote_count: r.try_get(table.len())?,
+            last_interaction: r
+                .try_get::<_, Option<i64>>("last_interaction")?
+                .map(|n| n.to_string()),
+            subscribed: r.try_get("subscribed")?,
+            last_notified: r
+                .try_get::<_, Option<i64>>("last_notified")?
+                .map(|n| n.to_string()),
+            nsli: r.try_get("nsli")?,
+            moderation: r.try_get("mod")?,
+            created: r
+                .try_get::<_, Option<i64>>("created")?
+                .map(|n| n.to_string()),
+        }),
+        order,
+    )))
 }
 #[cfg(all(test, feature = "db-tests"))]
 #[path = "participants_read_tests.rs"]
