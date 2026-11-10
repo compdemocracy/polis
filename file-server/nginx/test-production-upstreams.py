@@ -510,5 +510,52 @@ fi
                 nginx_hosts({'example.conf': f'{name} file-server:8080;'})
 
 
+    # The shadow of the vote writer runs the polis-api image, which the hook
+    # pulls once for both services.
+    SHADOW_START = ('  if [ "$SHADOW_SELECTED" = 1 ]; then\n'
+                    '    "${COMPOSE[@]}" up -d --no-deps --no-build --force-recreate polis-api-shadow\n'
+                    '  fi\n')
+    SHADOW_COMPOSE = COMPOSE + '  polis-api-shadow:\n    image: rust\n'
+
+    def with_shadow(self):
+        return self.replace_once(HOOK, '  fi\nelif', '  fi\n' + self.SHADOW_START + 'elif')
+
+    def test_shadow_runs_the_polis_api_image(self):
+        self.assertEqual(web_services(self.with_shadow(), self.SHADOW_COMPOSE),
+                         {'server', 'nginx-proxy', 'polis-api', 'polis-api-shadow'})
+
+    def test_shadow_without_its_image_is_refused(self):
+        changed = self.replace_once(self.with_shadow(), 'ROLE_IMAGES="server nginx-proxy polis-api"',
+                                    'ROLE_IMAGES="server nginx-proxy"')
+        changed = self.replace_once(changed, 'up -d --no-deps --no-build --force-recreate polis-api\n',
+                                    'up -d --no-deps --no-build --force-recreate server\n')
+        with self.assertRaisesRegex(ValueError, 'image/start'):
+            web_services(changed, self.SHADOW_COMPOSE)
+
+    def test_another_service_cannot_borrow_an_image(self):
+        changed = self.replace_once(self.with_shadow(), 'polis-api-shadow\n', 'polis-api-copy\n')
+        compose = self.SHADOW_COMPOSE.replace('polis-api-shadow:', 'polis-api-copy:')
+        with self.assertRaisesRegex(ValueError, 'image/start'):
+            web_services(changed, compose)
+
+    def test_shadow_absent_from_compose_is_refused(self):
+        with self.assertRaisesRegex(ValueError, 'Compose'):
+            web_services(self.with_shadow(), COMPOSE)
+
+    def test_repository_shadow_target_is_a_started_web_service(self):
+        # The renderer's shadow selection is rendered too, so its literal
+        # mirror target is checked against what the hook starts.
+        result = check(ROOT)
+        self.assertIn('polis-api-shadow', result['hosts'])
+        self.assertIn('polis-api-shadow', result['web_services'])
+        self.assertGreaterEqual(result['shadow_selections'], 1)
+
+    def test_mirror_target_must_be_started(self):
+        docs = {'mirror.conf': 'set $polis_shadow_target polis-api-shadow:5101;\n'
+                               'location = /_polis_shadow/votesShadow { internal; '
+                               'proxy_pass http://$polis_shadow_target/api/v3/votes; }'}
+        self.assertEqual(nginx_hosts(docs), {'polis-api-shadow'})
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -23,6 +23,10 @@ use std::{
 #[path = "writer_priorities.rs"]
 mod writer_priorities;
 
+#[path = "post_votes_observe.rs"]
+pub(crate) mod observe;
+pub(crate) use observe::Observer;
+
 pub const PATH: &str = contract::PATH;
 pub(crate) const MAX_BODY_BYTES: usize = 65536;
 const REJECTED_COMMENT_MOD: i32 = -1;
@@ -70,76 +74,205 @@ impl Writer {
         self.verifier.check_revocation(raw, now)
     }
 
+    /// The live writer `configure` builds in the main role, for the tests of
+    /// its startup conditions.
+    #[cfg(test)]
     pub(crate) fn from_env() -> Result<Option<Self>> {
-        if std::env::var("POLIS_API_POST_VOTES").ok().as_deref() != Some("1") {
-            return Ok(None);
+        match configure(
+            crate::shadow::Role::Main,
+            polis_auth::keys::Keys::from_env_optional()?.as_ref(),
+        )? {
+            Configured::Live(writer) => Ok(Some(writer)),
+            Configured::Off => Ok(None),
+            Configured::Observe(_) => {
+                anyhow::bail!("observe mode is built only by the shadow role")
+            }
         }
-        // Topical selection and translation providers cannot be part of this
-        // admitted slice. An absent setting does not imply ordinary selection.
-        anyhow::ensure!(
-            std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0"),
-            "post votes requires explicit ordinary next-statement selection"
-        );
-        anyhow::ensure!(
-            std::env::var("SHOULD_USE_TRANSLATION_API").ok().as_deref() == Some("false"),
-            "post votes requires SHOULD_USE_TRANSLATION_API=false"
-        );
-        let dsn = std::env::var("POLIS_API_POST_VOTES_DATABASE_URL")
-            .context("post votes requires an explicit primary database")?;
-        let key = std::fs::read(std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")?)?;
-        let verifier = participant::Verifier::new(
-            &key,
-            &std::env::var("POLIS_JWT_ISSUER")?,
-            &std::env::var("POLIS_JWT_AUDIENCE")?,
-        )
-        .context("invalid participant verifier configuration")?;
-        let admins =
-            serde_json::from_str(&std::env::var("ADMIN_UIDS").unwrap_or_else(|_| "[]".into()))?;
-        Ok(Some(Self {
-            pool: db::Pool::writer(
-                config::connector_for_dsn(&dsn, "polis-api-post-votes/1")?,
-                db::Limits {
-                    size: 4,
-                    acquire_timeout: Duration::from_millis(100),
-                    statement_timeout: Duration::from_millis(1000),
-                    max_lifetime: Duration::from_secs(300),
-                },
-            ),
-            background: NotificationPool::new(db::Pool::writer(
-                config::connector_for_dsn(&dsn, "polis-api-vote-notifications/1")?,
-                db::Limits {
-                    size: 2,
-                    acquire_timeout: Duration::from_millis(100),
-                    statement_timeout: Duration::from_millis(1000),
-                    max_lifetime: Duration::from_secs(300),
-                },
-            )),
-            verifier,
-            reads: db::Pool::new(
-                config::connector_for_dsn(&dsn, "polis-api-vote-reads/1")?,
-                read_limits(),
-            ),
-            admins,
-            priorities: Arc::default(),
-            follow_on: Arc::new(FollowOnLane::default()),
-        }))
+    }
+
+    fn admission(&self) -> Admission<'_> {
+        Admission {
+            verifier: &self.verifier,
+            reads: &self.reads,
+            admins: &self.admins,
+            priorities: &self.priorities,
+            follow_on: &self.follow_on,
+        }
     }
 }
 
-fn request(req: &Request) -> Option<(String, contract::Request)> {
-    if req.method != "POST"
-        || req.query().is_some_and(|q| !q.is_empty())
-        || req.body.len() > MAX_BODY_BYTES
-        || req.headers.get("content-encoding").is_some()
-        || !matches!(
-            req.headers.get("content-type"),
-            Some("application/json" | "application/json; charset=utf-8")
-        )
-    {
-        return None;
+/// What `POLIS_API_POST_VOTES` asks for. Unset, empty or `0` is off, as any
+/// value but `1` was before observe existed; another value is a startup error
+/// rather than a silent off.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Switch {
+    Off,
+    Live,
+    Observe,
+}
+
+fn switch() -> Result<Switch> {
+    match std::env::var("POLIS_API_POST_VOTES").ok().as_deref() {
+        None | Some("" | "0") => Ok(Switch::Off),
+        Some("1") => Ok(Switch::Live),
+        Some("observe") => Ok(Switch::Observe),
+        Some(_) => anyhow::bail!("POLIS_API_POST_VOTES must be unset, 0, 1 or observe"),
     }
-    let value: serde_json::Value = serde_json::from_slice(&req.body).ok()?;
-    let obj = value.as_object()?;
+}
+
+pub(crate) enum Configured {
+    Off,
+    Live(Writer),
+    Observe(Observer),
+}
+
+/// The vote writer this process's role builds. The main role builds the live
+/// writer for `1` and refuses `observe`; the shadow role builds the observe
+/// writer for `observe` and refuses `1`. Both modes share every startup
+/// condition below. Both verify participant tokens with the key in
+/// POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE when that is set, and otherwise with
+/// the participant keys the process loaded at startup (the container that
+/// runs this has no key file; the participant reads use the same keys).
+pub(crate) fn configure(
+    role: crate::shadow::Role,
+    keys: Option<&polis_auth::keys::Keys>,
+) -> Result<Configured> {
+    let switch = switch()?;
+    match (role, switch) {
+        (_, Switch::Off) => return Ok(Configured::Off),
+        (crate::shadow::Role::Main, Switch::Observe) => anyhow::bail!(
+            "POLIS_API_POST_VOTES=observe is accepted only by the shadow role (POLIS_API_ROLE=shadow)"
+        ),
+        (crate::shadow::Role::Shadow, Switch::Live) => anyhow::bail!(
+            "the shadow role never builds the live vote writer: POLIS_API_POST_VOTES=1 is refused there"
+        ),
+        _ => {}
+    }
+    // Topical selection and translation providers cannot be part of this
+    // admitted slice. An absent setting does not imply ordinary selection.
+    anyhow::ensure!(
+        std::env::var("TOPICAL_COMMENT_RATIO").ok().as_deref() == Some("0"),
+        "post votes requires explicit ordinary next-statement selection"
+    );
+    anyhow::ensure!(
+        std::env::var("SHOULD_USE_TRANSLATION_API").ok().as_deref() == Some("false"),
+        "post votes requires SHOULD_USE_TRANSLATION_API=false"
+    );
+    let dsn = std::env::var("POLIS_API_POST_VOTES_DATABASE_URL")
+        .context("post votes requires an explicit primary database")?;
+    let key = match std::env::var("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE")
+        .ok()
+        .filter(|path| !path.is_empty())
+    {
+        Some(path) => Some(std::fs::read(path)?),
+        None => None,
+    };
+    let issuer = std::env::var("POLIS_JWT_ISSUER")?;
+    let audience = std::env::var("POLIS_JWT_AUDIENCE")?;
+    let verifier = match (key, keys) {
+        (Some(key), _) => participant::Verifier::new(&key, &issuer, &audience),
+        (None, Some(keys)) => keys.verifier(&issuer, &audience),
+        (None, None) => anyhow::bail!(
+            "post votes requires the participant public key: POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE, or the participant keys the process loads (JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH)"
+        ),
+    }
+    .context("invalid participant verifier configuration")?;
+    let admins: Vec<i32> =
+        serde_json::from_str(&std::env::var("ADMIN_UIDS").unwrap_or_else(|_| "[]".into()))?;
+    let priorities = Arc::new(writer_priorities::Cache::with_max_bytes(
+        writer_priorities::max_bytes_from_env()?,
+    ));
+    if switch == Switch::Observe {
+        // Observe never calls db::Pool::writer: both pools are read-only
+        // sessions, and there is no notification pool.
+        return Ok(Configured::Observe(Observer::new(
+            verifier,
+            db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-vote-reads/1")?,
+                read_limits(),
+            ),
+            db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-vote-shadow-readback/1")?,
+                observe::readback_limits(),
+            ),
+            admins,
+            priorities,
+        )));
+    }
+    Ok(Configured::Live(Writer {
+        pool: db::Pool::writer(
+            config::connector_for_dsn(&dsn, "polis-api-post-votes/1")?,
+            db::Limits {
+                size: 4,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(1000),
+                max_lifetime: Duration::from_secs(300),
+            },
+        ),
+        background: NotificationPool::new(db::Pool::writer(
+            config::connector_for_dsn(&dsn, "polis-api-vote-notifications/1")?,
+            db::Limits {
+                size: 2,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(1000),
+                max_lifetime: Duration::from_secs(300),
+            },
+        )),
+        verifier,
+        reads: db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-vote-reads/1")?,
+            read_limits(),
+        ),
+        admins,
+        priorities,
+        follow_on: Arc::new(FollowOnLane::default()),
+    }))
+}
+
+/// What admission uses, from the live writer or the observe writer.
+struct Admission<'a> {
+    verifier: &'a participant::Verifier,
+    reads: &'a Arc<db::Pool>,
+    admins: &'a [i32],
+    priorities: &'a Arc<writer_priorities::Cache>,
+    follow_on: &'a Arc<FollowOnLane>,
+}
+
+fn request(req: &Request) -> Option<(String, contract::Request)> {
+    request_reasoned(req).ok()
+}
+
+/// `request`, with the reason a request is handed back. The checks and their
+/// results are the same; observe mode records the reason.
+fn request_reasoned(req: &Request) -> Result<(String, contract::Request), &'static str> {
+    if req.method != "POST" {
+        return Err("shape_method");
+    }
+    if req.query().is_some_and(|q| !q.is_empty()) {
+        return Err("shape_query");
+    }
+    if req.body.len() > MAX_BODY_BYTES {
+        return Err("shape_size");
+    }
+    if req.headers.get("content-encoding").is_some() {
+        return Err("shape_encoding");
+    }
+    // The three forms the clients send, each of which Node parses as UTF-8
+    // JSON. The upper-case one is the jQuery participation client's
+    // `charset=utf-8` as a browser's XMLHttpRequest sends it: for a string
+    // body it rewrites the charset value to `UTF-8`.
+    if !matches!(
+        req.headers.get("content-type"),
+        Some(
+            "application/json"
+                | "application/json; charset=utf-8"
+                | "application/json; charset=UTF-8"
+        )
+    ) {
+        return Err("shape_content_type");
+    }
+    let value: serde_json::Value = serde_json::from_slice(&req.body).map_err(|_| "shape_json")?;
+    let obj = value.as_object().ok_or("shape_json")?;
     if obj.keys().any(|k| {
         !matches!(
             k.as_str(),
@@ -153,22 +286,26 @@ fn request(req: &Request) -> Option<(String, contract::Request)> {
                 | "agid"
         )
     }) {
-        return None;
+        return Err("shape_keys");
     }
     // Node ignores body pid/agid. The field codec discards them too; only the
     // verified token and resolved membership may identify the voter.
-    let raw: contract::Request = serde_json::from_value(value).ok()?;
-    let cid = contract::string(raw.conversation_id.as_ref()?, 100)?;
+    let raw: contract::Request = serde_json::from_value(value).map_err(|_| "shape_json")?;
+    let cid = raw
+        .conversation_id
+        .as_ref()
+        .and_then(|v| contract::string(v, 100))
+        .ok_or("shape_conversation_id")?;
     if cid.is_empty() || !cid.bytes().all(|b| b.is_ascii_alphanumeric()) {
-        return None;
+        return Err("shape_conversation_id");
     }
-    Some((cid, raw))
+    Ok((cid, raw))
 }
 
 pub(crate) fn eligible(app: &App, req: &Request) -> bool {
     // Cookies neither authenticate nor disqualify a caller. handle still
     // requires a supported verified Bearer and membership before dispatch.
-    app.post_votes.is_some()
+    (app.post_votes.is_some() || app.post_votes_observe.is_some())
         && app.production
         && request(req).is_some()
         && (app.dev_mode
@@ -206,6 +343,7 @@ fn priorities(c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
         .raw_for_test()
 }
 
+/// Admission's reads. A refusal is Ok(Err(reason)); live hands every one back.
 fn admit(
     c: &mut Client,
     cid: &str,
@@ -213,12 +351,12 @@ fn admit(
     env: &str,
     cache: Arc<writer_priorities::Cache>,
     follow_on: Arc<FollowOnLane>,
-) -> Result<Option<(Admitted, writer_priorities::Snapshot)>> {
+) -> Result<Result<(Admitted, writer_priorities::Snapshot), &'static str>> {
     let Some(zid) = db::zid_for_conversation_id(c, cid)? else {
-        return Ok(None);
+        return Ok(Err("unknown_conversation"));
     };
     let Some(pid) = participant::resolve(c, Zid(zid), identity)? else {
-        return Ok(None);
+        return Ok(Err("not_a_participant"));
     };
     let row = c.query_one(
         "select c.is_active, c.xid_required, c.use_xid_whitelist,
@@ -227,15 +365,20 @@ fn admit(
          left join users u on u.uid=$2 where c.zid=$1",
         &[&zid, &identity.uid().0],
     )?;
-    if (identity.kind == participant::Kind::StandardUser
-        && row.try_get::<_, Option<bool>>(3)?.unwrap_or(false))
-        || row.try_get::<_, Option<bool>>(1)?.unwrap_or(false)
-        || row.try_get::<_, Option<bool>>(2)?.unwrap_or(false)
+    // The same three tests, in the same order, as one disjunction before.
+    if identity.kind == participant::Kind::StandardUser
+        && row.try_get::<_, Option<bool>>(3)?.unwrap_or(false)
     {
-        return Ok(None);
+        return Ok(Err("site_owner_standard_user"));
+    }
+    if row.try_get::<_, Option<bool>>(1)?.unwrap_or(false) {
+        return Ok(Err("xid_required"));
+    }
+    if row.try_get::<_, Option<bool>>(2)?.unwrap_or(false) {
+        return Ok(Err("xid_allowlist"));
     }
     let snapshot = cache.snapshot(c, zid, env)?;
-    Ok(Some((
+    Ok(Ok((
         Admitted {
             zid,
             pid: pid.0 as i32,
@@ -255,6 +398,42 @@ fn next(
     env: &str,
     unit: f64,
     lang: Option<&str>,
+) -> Result<Option<Js>> {
+    next_selecting(c, a, env, unit, lang, None)
+}
+
+/// What observe mode records of a selection. `voted` is the statement the
+/// copied vote is on: it counts as voted, as it does after the live writer's
+/// commit and after Node's insert, whether or not Node's commit is visible.
+#[derive(Debug, Default)]
+pub(super) struct Selection {
+    pub(super) voted: i32,
+    pub(super) candidates: Vec<i32>,
+    pub(super) weights_tick: Option<i64>,
+    pub(super) next_tid: Option<i32>,
+    pub(super) remaining: Option<i64>,
+    pub(super) total: Option<i64>,
+}
+
+impl Selection {
+    pub(super) fn new(voted: i32) -> Self {
+        Self {
+            voted,
+            ..Self::default()
+        }
+    }
+}
+
+/// `next`. With `observed` None (live) the statements, their text and their
+/// order are next's own. With Some, the voted statement leaves the candidates
+/// and the remaining count, and the selection is recorded.
+fn next_selecting(
+    c: &mut Client,
+    a: &Admitted,
+    env: &str,
+    unit: f64,
+    lang: Option<&str>,
+    mut observed: Option<&mut Selection>,
 ) -> Result<Option<Js>> {
     let strict = c
         .query_one(
@@ -277,19 +456,38 @@ fn next(
         ),
         &[&a.zid, &a.pid],
     )?;
-    let tids = rows
+    let mut tids = rows
         .iter()
         .map(|row| row.try_get::<_, i32>("tid"))
         .collect::<Result<Vec<_>, _>>()?;
-    let weights = a.priorities.snapshot(c, a.zid, env)?.validate()?;
-    let counts = c.query_one(
-        "with v as (select * from votes_latest_unique where zid=$1 and pid=$2),
+    if let Some(observed) = observed.as_deref() {
+        tids.retain(|tid| *tid != observed.voted);
+    }
+    let snapshot = a.priorities.snapshot(c, a.zid, env)?;
+    let weights_tick = snapshot.tick();
+    let weights = snapshot.validate()?;
+    let counts = match observed.as_deref() {
+        None => c.query_one(
+            "with v as (select * from votes_latest_unique where zid=$1 and pid=$2),
          c as (select * from get_visible_comments($1)),
          remaining as (select count(*) as n from c left join v on c.tid=v.tid where v.vote is null),
          total as (select count(*) as n from c)
          select remaining.n,total.n from remaining,total",
-        &[&a.zid, &a.pid],
-    )?;
+            &[&a.zid, &a.pid],
+        )?,
+        Some(observed) => c.query_one(
+            "with v as (select * from votes_latest_unique where zid=$1 and pid=$2),
+         c as (select * from get_visible_comments($1)),
+         remaining as (select count(*) as n from c left join v on c.tid=v.tid where v.vote is null and c.tid <> $3),
+         total as (select count(*) as n from c)
+         select remaining.n,total.n from remaining,total",
+            &[&a.zid, &a.pid, &observed.voted],
+        )?,
+    };
+    if let Some(observed) = observed.as_deref_mut() {
+        observed.candidates.clone_from(&tids);
+        observed.weights_tick = weights_tick;
+    }
     if tids.is_empty() {
         return Ok(None);
     }
@@ -303,8 +501,14 @@ fn next(
         .cloned()
         .context("invalid statement")?;
     row.set("randomN", Js::Num(random));
-    row.set("remaining", Js::Num(counts.try_get::<_, i64>(0)? as f64));
-    row.set("total", Js::Num(counts.try_get::<_, i64>(1)? as f64));
+    let (remaining, total) = (counts.try_get::<_, i64>(0)?, counts.try_get::<_, i64>(1)?);
+    row.set("remaining", Js::Num(remaining as f64));
+    row.set("total", Js::Num(total as f64));
+    if let Some(observed) = observed {
+        observed.next_tid = Some(tids[index]);
+        observed.remaining = Some(remaining);
+        observed.total = Some(total);
+    }
     // Node skips the stored read entirely without a requested language. The
     // provider is disabled at startup; this follow-on never authorizes replay
     // of a committed vote.
@@ -492,57 +696,162 @@ fn notification_state(c: &mut Client, a: &Admitted) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
-    let (Some(writer), Some((cid, raw))) = (&app.post_votes, request(req)) else {
-        return route::bad_gateway();
-    };
-    let Some(identity) = req.headers.get("authorization").and_then(|auth| {
+/// A request admission accepted: an existing member of an open or closed
+/// conversation, with valid fields.
+struct Prepared {
+    admitted: Admitted,
+    fields: ParsedFields,
+    res: Res,
+    admission: Duration,
+}
+
+/// A request handed back or refused before dispatch: the live answer, and the
+/// reason observe mode records.
+struct Refused {
+    out: Outgoing,
+    reason: &'static str,
+    /// The member (zid, pid) when admission accepted the request.
+    member: Option<(i32, i32)>,
+    /// The fields, when they parsed and the conversation was closed.
+    fields: Option<ParsedFields>,
+    admission: Option<Duration>,
+}
+
+impl Refused {
+    #[cfg_attr(test, track_caller)]
+    fn handback(reason: &'static str) -> Box<Self> {
+        Box::new(Self {
+            out: route::bad_gateway(),
+            reason,
+            member: None,
+            fields: None,
+            admission: None,
+        })
+    }
+}
+
+/// Everything before dispatch, for live and observe alike: the request
+/// shape, the token, the admin refusal, admission under its deadline, the
+/// fields, the tid range and the closed conversation.
+async fn prepare(
+    app: &App,
+    writer: Admission<'_>,
+    req: &Request,
+    res: Res,
+) -> Result<Prepared, Box<Refused>> {
+    let (cid, raw) = request_reasoned(req).map_err(Refused::handback)?;
+    let auth = req.headers.get("authorization");
+    let Some(identity) = auth.and_then(|auth| {
         writer
             .verifier
             .verify(auth, &cid, (crate::clock::now_ms() / 1000.0) as u64)
     }) else {
-        return route::bad_gateway();
+        return Err(Refused::handback(if auth.is_none() {
+            "no_token"
+        } else {
+            "token_refused"
+        }));
     };
     if writer.admins.contains(&identity.uid().0) {
-        return route::bad_gateway();
+        return Err(Refused::handback("admin"));
     }
     let env = app.math_env.clone();
+    let started = tokio::time::Instant::now();
     let admission = tokio::time::timeout(ADMISSION_DEADLINE, async {
         let cache = writer.priorities.clone();
         let follow_on = writer.follow_on.clone();
         let prepared = writer
             .reads
             .with(move |c| admit(c, &cid, &identity, &env, cache, follow_on))
-            .await?;
-        let Some((mut admitted, snapshot)) = prepared else {
-            return Ok::<_, anyhow::Error>(None);
-        };
+            .await
+            .map_err(|_| "admission_unavailable")?;
+        let (mut admitted, snapshot) = prepared?;
         // Parsing, coalescing and shape validation hold no admission SQL
         // slot. A timed-out first caller can leave the generation warming,
         // but cannot retain a connection or dispatch a vote afterwards.
-        admitted._priority_lease =
-            Some(tokio::task::spawn_blocking(move || snapshot.validate()).await??);
-        Ok(Some(admitted))
+        admitted._priority_lease = Some(
+            match tokio::task::spawn_blocking(move || snapshot.validate()).await {
+                Ok(Ok(weights)) => weights,
+                Ok(Err(error)) if error.is::<writer_priorities::CacheBusy>() => {
+                    return Err("priorities_busy");
+                }
+                Ok(Err(_)) => return Err("priorities_invalid"),
+                Err(_) => return Err("admission_unavailable"),
+            },
+        );
+        Ok::<_, &'static str>(admitted)
     })
     .await;
-    let Ok(Ok(Some(admitted))) = admission else {
-        return route::bad_gateway();
+    let admission_time = started.elapsed();
+    let admitted = match admission {
+        Ok(Ok(admitted)) => admitted,
+        Ok(Err(reason)) => {
+            let mut refused = Refused::handback(reason);
+            refused.admission = Some(admission_time);
+            return Err(refused);
+        }
+        Err(_) => {
+            let mut refused = Refused::handback("admission_timeout");
+            refused.admission = Some(admission_time);
+            return Err(refused);
+        }
+    };
+    let member = Some((admitted.zid, admitted.pid));
+    let refused = |out, reason| {
+        Box::new(Refused {
+            out,
+            reason,
+            member,
+            fields: None,
+            admission: Some(admission_time),
+        })
     };
     let fields = match raw.parse_fields() {
         Ok(fields) => fields,
-        Err(_) => return route::parameter_error(app, req, res),
+        Err(_) => return Err(refused(route::parameter_error(app, req, res), "parameter")),
     };
     if !(i32::MIN as f64..=i32::MAX as f64).contains(&fields.tid) {
-        return route::bad_gateway();
+        return Err(refused(route::bad_gateway(), "tid_range"));
     }
     if !admitted.active {
-        return route::fail_json(
-            req,
-            res,
-            403,
-            Js::Str("polis_err_conversation_is_closed".into()),
+        let mut closed = refused(
+            route::fail_json(
+                req,
+                res,
+                403,
+                Js::Str("polis_err_conversation_is_closed".into()),
+            ),
+            "closed",
         );
+        closed.fields = Some(fields);
+        return Err(closed);
     }
+    Ok(Prepared {
+        admitted,
+        fields,
+        res,
+        admission: admission_time,
+    })
+}
+
+pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
+    // A process holds one mode. Observe is checked first, so a copy can never
+    // reach the live writer's dispatch.
+    if let Some(observer) = &app.post_votes_observe {
+        return observe::handle(app, observer, req, res).await;
+    }
+    let Some(writer) = &app.post_votes else {
+        return route::bad_gateway();
+    };
+    let Prepared {
+        admitted,
+        fields,
+        res,
+        admission: _,
+    } = match prepare(app, writer.admission(), req, res).await {
+        Ok(prepared) => prepared,
+        Err(refused) => return refused.out,
+    };
     // Publish a receipt immediately after SQL acknowledges the vote transaction commit. A
     // disconnected caller cannot cancel the task. A deadline without a receipt
     // is explicitly unknown (202), never a failure that nginx may replay.
@@ -1022,7 +1331,21 @@ pub(crate) fn observe(out: &Outgoing) {
 
 pub(crate) fn health(app: &App) -> Js {
     let mut body = js::Obj::new();
+    // Enabled means serving participants: the live writer only.
     body.set("enabled", Js::Bool(app.post_votes.is_some()));
+    body.set(
+        "mode",
+        Js::Str(
+            if app.post_votes.is_some() {
+                "live"
+            } else if app.post_votes_observe.is_some() {
+                "observe"
+            } else {
+                "off"
+            }
+            .into(),
+        ),
+    );
     for (key, value) in [
         ("served", &SERVED),
         ("handedBack", &HANDED_BACK),
@@ -1050,6 +1373,71 @@ pub(crate) fn health(app: &App) -> Js {
         ),
     );
     Js::Obj(body)
+}
+
+/// Why the route prelude answered a vote without reaching `handle`, in the
+/// prelude's own order (`route::serve`): the revocation snapshot, the
+/// writer's eligibility, the HTTPS rule and the body checks. The prelude
+/// refuses no request for its origin, so there is no origin reason. Pure: no
+/// database work. Observe mode records it when the record has no reason.
+pub(crate) fn shape_reason(app: &App, req: &Request) -> Option<&'static str> {
+    if let Some(raw) = req.headers.get("authorization")
+        && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
+    {
+        return Some("revoked");
+    }
+    if app.post_votes.is_none() && app.post_votes_observe.is_none() {
+        return Some("unconfigured");
+    }
+    if !app.production {
+        return Some("not_production");
+    }
+    if let Err(reason) = request_reasoned(req) {
+        return Some(reason);
+    }
+    if !(app.dev_mode
+        || app.use_network_host
+        || req.headers.get("x-forwarded-proto") == Some("https"))
+    {
+        return Some("not_https");
+    }
+    let has_body = req.headers.get("transfer-encoding").is_some()
+        || req
+            .headers
+            .get("content-length")
+            .is_some_and(|v| !js::string_to_number(v).is_nan());
+    if has_body
+        && !crate::params::body_is_modelled(
+            req.headers.get("content-type"),
+            req.headers.get("content-encoding"),
+        )
+    {
+        return Some("body_unmodelled");
+    }
+    if matches!(
+        crate::params::parse_body(req.headers.get("content-type"), has_body, &req.body),
+        crate::params::Body::Invalid
+    ) {
+        return Some("parameter");
+    }
+    None
+}
+
+/// What a copy says about itself without any database work: the statement
+/// (when its tid parses within range), and whether it carries a star and a
+/// language. Never the vote, the token or the conversation code.
+pub(crate) fn copy_facts(req: &Request) -> (Option<i32>, bool, bool) {
+    let Ok((_, raw)) = request_reasoned(req) else {
+        return (None, false, false);
+    };
+    let present = |v: &Option<serde_json::Value>| v.as_ref().is_some_and(|v| !v.is_null());
+    let tid = raw
+        .parse_fields()
+        .ok()
+        .map(|fields| fields.tid)
+        .filter(|tid| (i32::MIN as f64..=i32::MAX as f64).contains(tid))
+        .map(|tid| tid as i32);
+    (tid, present(&raw.starred), present(&raw.lang))
 }
 
 /// A future gateway can distinguish explicit pre-dispatch hand-back from its

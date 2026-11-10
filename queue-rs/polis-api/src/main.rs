@@ -98,6 +98,7 @@ mod report_export;
 mod reports_read;
 mod robots;
 mod route;
+mod shadow;
 mod startup_routes;
 mod votes_read;
 #[allow(dead_code)]
@@ -812,7 +813,15 @@ async fn startup() -> Result<Startup> {
             state.conversation_pages[i] = conversation_pages::Client::from_env_for(switch).await?;
         }
     }
-    state.post_votes = post_votes::Writer::from_env()?;
+    // The writer's participant key falls back to the keys loaded above.
+    state.post_votes =
+        match post_votes::configure(shadow::Role::Main, state.participant_keys.as_ref())? {
+            post_votes::Configured::Off => None,
+            post_votes::Configured::Live(writer) => Some(writer),
+            post_votes::Configured::Observe(_) => {
+                anyhow::bail!("observe mode is built only by the shadow role")
+            }
+        };
     state.post_treevite_waves = post_treevite_waves::Writer::from_env()?;
     if state.post_treevite_waves.is_some() {
         state.read_oidc = hybrid_read::Oidc::from_env()?;
@@ -1898,6 +1907,11 @@ async fn startup() -> Result<Startup> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // The shadow role is its own process with its own listener; it shares
+    // nothing below with the main role.
+    if shadow::role()? == shadow::Role::Shadow {
+        return shadow::run().await;
+    }
     let Startup {
         cfg,
         app,

@@ -1,0 +1,46 @@
+# ${SHADOW_NAME}: POST ${SHADOW_PATH} is answered by Node exactly as without
+# this selection, with one added header, X-Request-Id. nginx's mirror sends a
+# copy to the shadow service (polis-api-shadow), which answers 204 at once and
+# writes nothing. Node's answer never waits for the copy; the next request on
+# the same client connection waits for it at most the copy's four timeouts
+# below. Neither location has an error_page, a retry or a route to Node: a
+# failed copy ends where it fails.
+location @polis_shadow_${SHADOW_NAME} {
+    mirror /_polis_shadow/${SHADOW_NAME};
+    mirror_request_body on;
+    access_log /var/log/nginx/access.log main;
+    access_log /var/log/nginx/access.log polis_shadow_edge;
+    include /etc/nginx/node-proxy.conf;
+    proxy_set_header X-Request-Id $request_id;
+}
+
+location = /_polis_shadow/${SHADOW_NAME} {
+    internal;
+    log_subrequest on;
+    access_log /var/log/nginx/access.log polis_shadow_mirror;
+    set $polis_shadow_name ${SHADOW_NAME};
+    # Exactly what the vote write location sends to polis-api: POST with a
+    # Content-Length from 1 to 9999. Anything else is not copied.
+    if ($request_method != POST) {
+        return 204;
+    }
+    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {
+        return 204;
+    }
+    # A literal target. The variable only makes nginx resolve the name per
+    # request, so nginx starts while the shadow container is absent; no
+    # setting reaches it.
+    set $polis_shadow_target polis-api-shadow:5101;
+    proxy_pass http://$polis_shadow_target${SHADOW_PATH};
+    proxy_pass_request_headers on;
+    proxy_pass_request_body on;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_set_header X-Request-Id $request_id;
+    proxy_set_header X-Polis-Shadow ${SHADOW_NAME};
+    proxy_next_upstream off;
+    resolver_timeout 30ms;
+    proxy_connect_timeout 20ms;
+    proxy_send_timeout 20ms;
+    proxy_read_timeout 30ms;
+}

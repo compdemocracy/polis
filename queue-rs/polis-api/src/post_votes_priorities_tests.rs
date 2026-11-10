@@ -2,7 +2,19 @@ use super::*;
 
 #[test]
 fn populated_priorities_admit_three_votes_and_another_conversation() {
-    let db = Database::exclusive("priority_capacity");
+    populated_priorities("jsonb");
+}
+
+/// The same with `math_main.data` as json, the type installations older than
+/// the migrations have.
+#[test]
+fn populated_priorities_admit_three_votes_on_a_json_math_column() {
+    populated_priorities("json");
+}
+
+fn populated_priorities(column_type: &str) {
+    let db =
+        Database::exclusive(&format!("priority_capacity_{column_type}")).math_data(column_type);
     let (mut app, _) = setup(&db);
     let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
     let key = EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap();
@@ -116,8 +128,19 @@ fn populated_priorities_admit_three_votes_and_another_conversation() {
 #[cfg(feature = "db-tests")]
 #[test]
 fn generation_reads_revalidate_without_reparsing_and_isolate_conversations() {
+    generation_reads("jsonb");
+}
+
+#[cfg(feature = "db-tests")]
+#[test]
+fn generation_reads_revalidate_and_isolate_on_a_json_math_column() {
+    generation_reads("json");
+}
+
+#[cfg(feature = "db-tests")]
+fn generation_reads(column_type: &str) {
     use crate::post_votes::writer_priorities::Cache;
-    let db = Database::new("priority_generations");
+    let db = Database::new(&format!("priority_generations_{column_type}")).math_data(column_type);
     let mut c = db.connect();
     c.batch_execute("INSERT INTO conversations(zid,is_active,modified) VALUES(1,true,0),(2,true,0); INSERT INTO math_main(zid,math_env,math_tick,last_vote_timestamp,data)
             VALUES(1,'test',0,0,'{\"comment-priorities\":{\"0\":2}}'),(2,'test',0,0,'{\"comment-priorities\":{\"0\":3}}');").unwrap();
@@ -335,4 +358,154 @@ fn sustained_votes_keep_delivering_next_statements_above_lane_capacity() {
                 "second {second}: {} of {full} full selections reached the participant; floor is 80%", rows[&second][0]);
         }
     });
+}
+
+/// The live writer and a conversation whose math document cannot be read
+/// within the reads pool's statement timeout. The first vote pays for the
+/// failed read. Every vote after it in that generation is handed back before
+/// dispatch without another read of the document, votes in another
+/// conversation are served meanwhile, and no vote is stored for the
+/// conversation that is handed back. Its next generation is read again.
+#[test]
+fn unreadable_math_document_is_read_once_and_other_conversations_are_served() {
+    for column_type in ["jsonb", "json"] {
+        unreadable_document(column_type);
+    }
+}
+
+fn unreadable_document(column_type: &str) {
+    use std::sync::atomic::Ordering::SeqCst;
+    let db = Database::exclusive(&format!("unreadable_{column_type}")).math_data(column_type);
+    let (mut app, _) = setup(&db);
+    let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+    let key = EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap();
+    Arc::get_mut(&mut app)
+        .unwrap()
+        .post_votes
+        .as_mut()
+        .unwrap()
+        .verifier =
+        participant::Verifier::new(&rsa.public_key_to_pem().unwrap(), "fixture", "fixture")
+            .unwrap();
+    // Conversation 1's document sleeps when it is read, so the statement
+    // timeout always ends its first read; conversation 2's reads at once.
+    db.connect().batch_execute(&format!("INSERT INTO users(uid) VALUES(2),(3),(4),(5);
+        INSERT INTO conversations(zid,is_active,modified) VALUES(2,true,0);
+        INSERT INTO zinvites(zid,zinvite) VALUES(2,'3fixture');
+        ALTER TABLE participants DISABLE TRIGGER USER;
+        INSERT INTO participants(zid,pid,uid,nsli) VALUES(1,1,2,0),(1,2,3,0),(2,0,4,0),(2,1,5,0);
+        ALTER TABLE participants ENABLE TRIGGER USER;
+        ALTER TABLE comments DISABLE TRIGGER USER;
+        INSERT INTO comments(zid,tid,pid,uid,txt,lang,created)
+        SELECT z,t,0,CASE z WHEN 1 THEN 1 ELSE 4 END,'Statement '||z||' '||t,'en',1700000000000+t
+        FROM generate_series(1,2) z, generate_series(0,19) t;
+        ALTER TABLE comments ENABLE TRIGGER USER;
+        INSERT INTO math_main(zid,math_env,math_tick,last_vote_timestamp,data)
+        VALUES(1,'test',0,0,'{{\"comment-priorities\":{{\"0\":2}}}}'),(2,'test',0,0,'{{\"comment-priorities\":{{\"0\":2}}}}');
+        ALTER TABLE math_main RENAME TO published_math;
+        CREATE FUNCTION unreadable(value {column_type}, zid integer) RETURNS {column_type} LANGUAGE plpgsql STABLE AS
+        $$ BEGIN IF zid = 1 THEN PERFORM pg_sleep(5); END IF; RETURN value; END $$;
+        CREATE VIEW math_main AS SELECT zid,math_env,math_tick,unreadable(data,zid) AS data FROM published_math;
+        ANALYZE comments; ANALYZE participants;")).unwrap();
+    let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let request = |uid: i32, pid: i32, cid: &str, tid: i32| {
+        let token = encode(&Header::new(Algorithm::RS256), &json!({
+            "uid":uid,"pid":pid,"conversation_id":cid,"sub":format!("anon:{uid}"),
+            "iss":"fixture","aud":"fixture","exp":now+3600,"iat":now,"anonymous_participant":true
+        }), &key).unwrap();
+        let mut r = req(
+            &json!({"conversation_id":cid,"tid":tid,"vote":VoteChoice::Agree.wire()}).to_string(),
+        );
+        r.headers = Headers::from_raw([
+            ("host", "localhost"),
+            ("content-type", "application/json; charset=UTF-8"),
+            ("x-forwarded-proto", "https"),
+            ("authorization", &format!("Bearer {token}")),
+        ]);
+        r
+    };
+    let writer = || app.post_votes.as_ref().unwrap();
+    let first_reads = || writer().priorities.first_reads.load(SeqCst);
+    runtime().block_on(async {
+        // The other conversation's generation is read once and stays resident.
+        let served = route::handle(app.clone(), request(4, 0, "3fixture", 0)).await;
+        assert_eq!(served.status, 200, "{column_type}");
+        wait_for_idle(writer()).await;
+        assert_eq!(first_reads(), 1);
+        // The unreadable conversation's first vote: one read, ended by the
+        // statement timeout, and the vote handed back.
+        assert_handback(&route::handle(app.clone(), request(2, 1, "2fixture", 0)).await);
+        wait_for_idle(writer()).await;
+        assert_eq!(first_reads(), 2);
+        // Twelve more of its votes, twenty a second, with a vote in the
+        // other conversation beside every second one.
+        let before = writer().reads.evidence.snapshot();
+        let mut unreadable = Vec::new();
+        let mut other = Vec::new();
+        for n in 0..12 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let r = request(2 + (n % 2), 1 + (n % 2), "2fixture", 1 + n);
+            unreadable.push(tokio::spawn(route::handle(app.clone(), r)));
+            if n % 2 == 0 {
+                let member = (n / 2) % 2;
+                let r = request(4 + member, member, "3fixture", 1 + n / 2);
+                other.push(tokio::spawn(route::handle(app.clone(), r)));
+            }
+        }
+        for vote in unreadable {
+            assert_handback(&vote.await.unwrap());
+        }
+        for vote in other {
+            assert_eq!(
+                vote.await.unwrap().status,
+                200,
+                "a vote in another conversation was not served ({column_type})"
+            );
+        }
+        wait_for_idle(writer()).await;
+        assert_eq!(first_reads(), 2, "the failed read was repeated");
+        let after = writer().reads.evidence.snapshot();
+        assert_eq!(
+            after[2], before[2],
+            "a vote waited out the reads pool's acquire timeout"
+        );
+    });
+    // The document becomes readable. The generation that failed is still not
+    // read; the next generation is, and its vote is stored.
+    db.connect()
+        .batch_execute(&format!(
+            "CREATE OR REPLACE FUNCTION unreadable(value {column_type}, zid integer)
+             RETURNS {column_type} LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN value; END $$"
+        ))
+        .unwrap();
+    runtime().block_on(async {
+        assert_handback(&route::handle(app.clone(), request(2, 1, "2fixture", 15)).await);
+        wait_for_idle(writer()).await;
+        assert_eq!(first_reads(), 2);
+    });
+    db.connect()
+        .batch_execute("UPDATE published_math SET math_tick=1 WHERE zid=1")
+        .unwrap();
+    runtime().block_on(async {
+        let served = route::handle(app.clone(), request(2, 1, "2fixture", 15)).await;
+        assert_eq!(served.status, 200, "{column_type}");
+        wait_for_idle(writer()).await;
+        assert_eq!(first_reads(), 3);
+    });
+    let mut c = db.connect();
+    for (zid, votes) in [(1, 1i64), (2, 7)] {
+        let row = c
+            .query_one(
+                "SELECT count(*), min(vote), max(vote) FROM votes WHERE zid=$1",
+                &[&zid],
+            )
+            .unwrap();
+        assert_eq!(row.get::<_, i64>(0), votes, "zid {zid} ({column_type})");
+        for column in [1, 2] {
+            assert_eq!(
+                i32::from(row.get::<_, i16>(column)),
+                contract::stored_vote(VoteChoice::Agree)
+            );
+        }
+    }
 }

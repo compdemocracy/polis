@@ -222,6 +222,63 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
   const { zid, pid, uid, tid, vote, weight, high_priority, starred, lang } =
     req.p;
 
+  /**
+   * One `vote_reply` line for a vote nginx also copied to the read-only
+   * shadow service (the request carries nginx's X-Request-Id, 32 lowercase
+   * hex, the rule requestIdOf in server-middleware.ts applies): what Node
+   * answered, so the copy's would-be answer can be compared with it. Written
+   * after the reply is handed to Express, at the level the request's
+   * `http_request` line has, with no await and no database work; it never
+   * throws. The request id, the conversation, Node's status and, on a 200,
+   * the next statement: `node_next` is "statement" (with its tid, `remaining`
+   * and `total`), "topical" (a topic-agenda pick: a tid and no counts) or
+   * "none" (nothing left to vote on). A value that does not exist is left
+   * out, never written as null. Never the vote, the participant or any text.
+   * It is defined here because the routing recordings replay this handler on
+   * its own.
+   */
+  const voteReply = (
+    status: number,
+    next?: { tid?: number; remaining?: number; total?: number } | null
+  ): void => {
+    try {
+      const request_id = (req.headers as Record<string, unknown> | undefined)?.[
+        "x-request-id"
+      ];
+      if (
+        typeof request_id !== "string" ||
+        !/^[0-9a-f]{32}$/.test(request_id)
+      ) {
+        return;
+      }
+      const line: Record<string, unknown> = {
+        listener: "shadow",
+        route: "POST /api/v3/votes",
+        request_id,
+        zid,
+        node_status: status,
+      };
+      if (status === 200) {
+        if (!next) {
+          line.node_next = "none";
+        } else if (next.remaining === undefined) {
+          line.node_next = "topical";
+          line.node_next_tid = next.tid;
+        } else {
+          line.node_next = "statement";
+          line.node_next_tid = next.tid;
+          line.node_remaining = next.remaining;
+          line.node_total = next.total;
+        }
+      }
+      if (status >= 500) logger.error("vote_reply", line);
+      else if (status >= 400) logger.warn("vote_reply", line);
+      else logger.info("vote_reply", line);
+    } catch {
+      // A log line never changes or fails a vote's reply.
+    }
+  };
+
   try {
     // 1. Submit the vote - that's all we need to do now!
     const voteResult = await votesPost(
@@ -281,6 +338,7 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
     // 7. Auth token will be automatically included by attachAuthToken middleware
 
     finishOne(res, result);
+    voteReply(200, nextComment);
   } catch (err) {
     logger.error("Error in handle_POST_votes:", err);
 
@@ -297,6 +355,8 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
     } else {
       failJson(res, 500, "polis_err_vote", err);
     }
+    // failJson has set the status it answered.
+    voteReply(res.statusCode);
   }
 }
 

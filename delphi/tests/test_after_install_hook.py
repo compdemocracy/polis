@@ -70,7 +70,7 @@ FAKES = {
     "sudo": '#!/bin/bash\nexec "$@"\n',
     "yum": RECORD,
     "systemctl": RECORD,
-    "docker-compose": RECORD + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
+    "docker-compose": RECORD + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # Real jq consumes its input; the fake must too, or pipefail can report
     # SIGPIPE from the producer when this reader exits before it writes.
@@ -187,7 +187,8 @@ def _manifest(revision=REVISION, changes=None):
 
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
-            not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls", **kw):
+            not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls",
+            shadow_start_failure=False, **kw):
     root, env = _box(tmp_path, service_type, **kw)
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
     env["FAKE_PULL_FAILURE_REF"] = pull_failure_ref
@@ -195,6 +196,7 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
     env["FAKE_POLIS_API_START"] = polis_api_start
     env["FAKE_POLIS_API_TRANSPORT"] = transport
     env["FAKE_RUST_START_FAILURE"] = "1" if rust_start_failure else "0"
+    env["FAKE_SHADOW_START_FAILURE"] = "1" if shadow_start_failure else "0"
     env["FAKE_NOT_ON_BRANCH"] = "1" if not_on_branch else ""
     # The deploy workflow writes the bundle's commit and image manifest next to the hook.
     if revision is not None:
@@ -519,3 +521,93 @@ def test_disabling_the_warm_start_removes_the_previous_profile_container(tmp_pat
     calls = _compose(log)
     assert calls.index("--profile rust-api down") < calls.index(UNCHANGED["server"][0])
     assert not any(c.startswith("up") and c.endswith("polis-api") for c in calls)
+
+
+# The vote shadow (RUST_API_ROUTES names votesShadow): nginx copies each vote
+# Node answers to polis-api-shadow, which runs the polis-api image the hook
+# already pulls. The route list is split on commas and blanks, as nginx's
+# renderer splits it.
+POLIS_API_UP = "up -d --no-deps --no-build --force-recreate polis-api"
+SHADOW_UP = "up -d --no-deps --no-build --force-recreate polis-api-shadow"
+SHADOW_TRANSPORT = '-r .services["polis-api-shadow"].environment.POLIS_API_DB_TRANSPORT // "tls"'
+
+
+@pytest.mark.parametrize("routes", ["votesShadow", "pca2,votesShadow", " pca2 , votesShadow ",
+                                    "pca2 votesShadow", "votesShadow,votesShadow", "votesRead,votesShadow"])
+def test_the_vote_shadow_starts_after_polis_api_when_selected(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = _compose(log)
+    assert [c for c in calls if c.startswith("up")] == UNCHANGED["server"] + [POLIS_API_UP, SHADOW_UP]
+    # The shared teardown removes the previous shadow container too.
+    assert calls.index("--profile rust-api down") < calls.index(UNCHANGED["server"][0])
+    # It runs the polis-api digest; nothing else is pulled for it.
+    pulls = [c for c in _calls(log, "docker") if c.startswith("pull ")]
+    assert pulls == [f"pull {IMAGES[name]}" for name in ["migrate", *ROLE_IMAGES["server"]]]
+    override = (tmp_path / "root/opt/polis/polis/docker-compose.images.yml").read_text()
+    assert f"  polis-api-shadow:\n    image: {IMAGES['polis-api']}\n" in override
+    # Its database transport is checked before anything is replaced.
+    assert SHADOW_TRANSPORT in _calls(log, "jq")
+    assert log.index(f"jq {SHADOW_TRANSPORT}") < log.index(f"docker pull {IMAGES['migrate']}")
+
+
+@pytest.mark.parametrize("routes", ["", " , ", "pca2", "votesRead", "votesShadows", "xvotesShadow",
+                                    "votesshadow", "pca2,votesRead"])
+def test_the_vote_shadow_is_not_started_unselected(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = _compose(log)
+    assert SHADOW_UP not in calls
+    assert SHADOW_TRANSPORT not in _calls(log, "jq")
+    # The shadow is in the rust-api profile, so a container from an earlier
+    # selection is removed by the teardown before anything starts.
+    assert calls.index("--profile rust-api down") < calls.index(UNCHANGED["server"][0])
+
+
+@pytest.mark.parametrize("routes", ["postVotes,votesShadow", "votesShadow postVotes",
+                                    "pca2, postVotes ,votesShadow"])
+def test_the_shadow_and_the_live_vote_writer_are_refused_together(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode != 0
+    assert "votesShadow and postVotes" in proc.stderr
+    # Refused before any image, migration or service replacement.
+    assert not [c for c in _calls(log, "docker") if c.startswith(("pull", "run"))]
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+def test_a_shadow_start_failure_fails_the_deploy(tmp_path):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes="pca2,votesShadow", shadow_start_failure=True)
+    assert proc.returncode != 0
+    assert "polis-api-shadow start failed" in proc.stderr
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["server"] + [POLIS_API_UP, SHADOW_UP]
+    assert not (tmp_path / "root/opt/polis/deployed-images.txt").exists()
+
+
+@pytest.mark.parametrize("transport", ["docker-internal", "loopback", "local"])
+def test_the_shadow_refuses_unverified_transport_before_down(tmp_path, transport):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes="votesShadow", transport=transport)
+    assert proc.returncode != 0
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+def test_the_shadow_service_carries_its_own_writer_settings():
+    # The writer's settings live in the service's own environment, so the
+    # shared env document carries none of them; the signing key is blanked.
+    compose = _find(Path("docker-compose.yml")).read_text()
+    block = compose.split("\n  polis-api-shadow:\n", 1)[1].split("\n\n", 1)[0]
+    lines = [line.strip() for line in block.splitlines()]
+    for line in ["profiles: [rust-api]", "image: polis/polis-api:local",
+                 "- POLIS_API_ROLE=shadow", "- POLIS_API_SHADOW_LISTEN=0.0.0.0:5101",
+                 "- POLIS_API_POST_VOTES=observe",
+                 "- POLIS_API_POST_VOTES_DATABASE_URL=${DATABASE_URL:-}",
+                 "- TOPICAL_COMMENT_RATIO=0", "- SHOULD_USE_TRANSLATION_API=false",
+                 "- POLIS_API_WRITER_PRIORITIES_CACHE_BYTES=134217728",
+                 "- JWT_PRIVATE_KEY=", "- JWT_PRIVATE_KEY_PATH=",
+                 "- POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-tls}",
+                 "- POLIS_API_DB_CA_FILE=${POLIS_API_DB_CA_FILE:-/etc/polis/rds-global-bundle.pem}",
+                 "- POLIS_API_DB_HOST_ALLOWLIST=${POLIS_API_DB_HOST_ALLOWLIST:-}",
+                 "cpus: 0.25", "mem_limit: 384m", "read_only: true", "cap_drop: [ALL]"]:
+        assert line in lines, line
+    (rate,) = [line for line in lines if line.startswith("- POLIS_API_SHADOW_MAX_PER_SECOND=")]
+    assert 1 <= int(rate.split("=", 1)[1]) <= 25
+    assert not [line for line in lines if line.startswith("ports:")], "the shadow publishes no port"
