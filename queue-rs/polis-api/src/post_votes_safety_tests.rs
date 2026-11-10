@@ -1966,6 +1966,148 @@ fn vote_admission_cookie_with_invalid_token_hands_back() {
     vote_admission_case("admit_invalid", false, true, "invalid", None, false);
 }
 
+// The real route and writer under one Content-Type (`None`: no header), with
+// the Content-Length nginx sends and the body fields both participation
+// clients send. Served: one stored vote. Otherwise: handed back before
+// dispatch, with nothing stored.
+fn vote_content_type_case(label: &str, content_type: Option<&str>, served: bool) {
+    let db = Database::new(label);
+    let (app, mut request) = setup(&db);
+    let mut body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+    body["pid"] = json!(0);
+    body["agid"] = json!(1);
+    body["high_priority"] = json!(false);
+    body["lang"] = json!("en");
+    request.body = serde_json::to_vec(&body).unwrap();
+    let saved = request.headers.get("authorization").unwrap().to_owned();
+    let length = request.body.len().to_string();
+    let mut headers = vec![
+        ("host", "localhost"),
+        ("content-length", length.as_str()),
+        ("x-forwarded-proto", "https"),
+        ("authorization", saved.as_str()),
+    ];
+    if let Some(content_type) = content_type {
+        headers.push(("content-type", content_type));
+    }
+    request.headers = Headers::from_raw(headers);
+    runtime().block_on(async {
+        let (response, _, observation) =
+            observed_handle_with_completion(app.clone(), request).await;
+        if served {
+            assert_eq!(response.status, 200, "{content_type:?}");
+            let receipt = durable_dispatch(&db, &response, observation).await;
+            assert!(!receipt.replayed);
+        } else {
+            assert_handback(&response);
+            assert!(!observation.lock().unwrap().created);
+        }
+        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+    });
+    let mut c = db.connect();
+    for table in ["votes", "votes_latest_unique"] {
+        assert_eq!(
+            c.query_one(&format!("SELECT count(*) FROM {table}"), &[])
+                .unwrap()
+                .get::<_, i64>(0),
+            i64::from(served),
+            "{table} under {content_type:?}"
+        );
+    }
+    if served {
+        let row = c
+            .query_one("SELECT pid, tid, vote FROM votes", &[])
+            .unwrap();
+        assert_eq!(row.get::<_, i32>(0), 0);
+        assert_eq!(row.get::<_, i32>(1), 7);
+        assert_eq!(
+            i32::from(row.get::<_, i16>(2)),
+            contract::stored_vote(VoteChoice::Agree)
+        );
+    }
+}
+
+#[test]
+fn vote_content_type_of_the_command_line_client_is_served() {
+    vote_content_type_case("type_plain", Some("application/json"), true);
+}
+
+#[test]
+fn vote_content_type_of_the_fetch_participation_client_is_served() {
+    vote_content_type_case("type_fetch", Some("application/json; charset=utf-8"), true);
+}
+
+/// A browser's XMLHttpRequest sends the jQuery client's `charset=utf-8` as
+/// `charset=UTF-8`.
+#[test]
+fn vote_content_type_of_the_jquery_participation_client_is_served() {
+    vote_content_type_case("type_jquery", Some("application/json; charset=UTF-8"), true);
+}
+
+#[test]
+fn vote_content_type_no_client_sends_hands_back() {
+    vote_content_type_case(
+        "type_nospace",
+        Some("application/json;charset=UTF-8"),
+        false,
+    );
+    vote_content_type_case("type_text", Some("text/plain;charset=UTF-8"), false);
+    vote_content_type_case("type_absent", None, false);
+}
+
+/// The live writer stores a member's vote and selects the next statement by
+/// the stored priorities whether `math_main.data` is jsonb (a database built
+/// from the migrations) or json (an installation older than them).
+#[test]
+fn vote_is_stored_and_next_selected_on_either_math_column_type() {
+    for column_type in ["jsonb", "json"] {
+        let db = Database::new(&format!("math_{column_type}")).math_data(column_type);
+        let (app, request) = setup(&db);
+        // Ten statements. The member votes on 7. Of the nine left, 4 carries
+        // all the weight a draw can reach, so the priorities decide the next
+        // one; without them it would be 4 one time in nine.
+        db.connect()
+            .batch_execute(
+                "INSERT INTO comments(zid,pid,uid,txt,lang,created)
+                 SELECT 1,0,1,'Generated statement ' || t,'en',1700000000000+t
+                 FROM generate_series(0,9) t ORDER BY t;
+                 INSERT INTO math_main(zid,math_env,math_tick,last_vote_timestamp,data)
+                 VALUES(1,'test',3,0,'{\"comment-priorities\":{\"0\":1e-300,\"1\":1e-300,
+                 \"2\":1e-300,\"3\":1e-300,\"4\":1,\"5\":1e-300,\"6\":1e-300,\"8\":1e-300,
+                 \"9\":1e-300}}');",
+            )
+            .unwrap();
+        runtime().block_on(async {
+            let (response, _, observation) =
+                observed_handle_with_completion(app.clone(), request).await;
+            assert_eq!(response.status, 200, "{column_type}");
+            let receipt = durable_dispatch(&db, &response, observation).await;
+            assert!(!receipt.replayed);
+            let next = accepted_body(&response)
+                .next_comment
+                .unwrap_or_else(|| panic!("no next statement on {column_type}"));
+            let next: serde_json::Value = serde_json::from_str(next.0.get()).unwrap();
+            assert_eq!(next["tid"], 4, "{column_type}: {next}");
+            wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+        });
+        let row = db
+            .connect()
+            .query_one(
+                "SELECT count(*), min(pid), min(tid), min(vote) FROM votes",
+                &[],
+            )
+            .unwrap();
+        assert_eq!(row.get::<_, i64>(0), 1, "{column_type}");
+        assert_eq!(row.get::<_, i32>(1), 0);
+        assert_eq!(row.get::<_, i32>(2), 7);
+        assert_eq!(
+            i32::from(row.get::<_, i16>(3)),
+            contract::stored_vote(VoteChoice::Agree),
+            "{column_type}"
+        );
+    }
+}
+
 #[test]
 fn vote_admission_language_serves_stored_node_bytes_without_a_provider() {
     for (index, lang) in ["fr", "EN-gb", ""].into_iter().enumerate() {

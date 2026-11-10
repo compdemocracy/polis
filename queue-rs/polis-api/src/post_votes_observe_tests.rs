@@ -931,6 +931,58 @@ async fn observation_line_carries_only_allowed_keys() {
     );
 }
 
+/// A copy of a vote from each client gets past the Content-Type check (it
+/// carries no token, so the next reason is recorded), and its statement is
+/// read. A copy under a form no client sends stops at that check. Each copy
+/// has the Content-Length nginx sends, so the route's body parser runs too.
+#[tokio::test]
+async fn copies_from_each_client_pass_the_content_type_check() {
+    let keys = signing();
+    let app = shadow_app(closed, Some(observer_on(closed, &keys.public)));
+    let lane = shadow::Lane::new(1000);
+    let body = vote_body("2fixture", 3, VoteChoice::Agree);
+    let length = body.to_string().len().to_string();
+    for (content_type, reason) in [
+        // The command-line client.
+        (Some("application/json"), "no_token"),
+        // The participation client built on fetch.
+        (Some("application/json; charset=utf-8"), "no_token"),
+        // The participation client built on jQuery, as a browser sends it.
+        (Some("application/json; charset=UTF-8"), "no_token"),
+        (Some("application/json;charset=UTF-8"), "shape_content_type"),
+        (Some("text/plain;charset=UTF-8"), "shape_content_type"),
+        (None, "shape_content_type"),
+    ] {
+        let id = request_id();
+        let mut req = copy(&body, None, &id);
+        let mut headers = vec![
+            ("host", "localhost"),
+            ("content-length", length.as_str()),
+            ("x-forwarded-proto", "https"),
+            ("x-request-id", id.as_str()),
+            ("x-polis-shadow", "votesShadow"),
+        ];
+        if let Some(content_type) = content_type {
+            headers.push(("content-type", content_type));
+        }
+        req.headers = crate::http::Headers::from_raw(headers);
+        assert_eq!(
+            shadow::accept(app.clone(), lane.clone(), req).await.status,
+            204
+        );
+        let line = observation(&id).await;
+        assert_line_shape(&line);
+        assert_eq!(line["outcome"], "would_hand_back", "{line}");
+        assert_eq!(line["reason"], reason, "{content_type:?}: {line}");
+        let tid = if reason == "no_token" {
+            json!(3)
+        } else {
+            Value::Null
+        };
+        assert_eq!(line["tid"], tid, "{content_type:?}: {line}");
+    }
+}
+
 /// Test 8 needs no database: the main role, with the writer off, hands a vote
 /// back with the marker and records no observation, whatever headers it has.
 #[tokio::test]
@@ -1060,6 +1112,54 @@ mod database_tests {
             retry: Duration::from_millis(150),
         };
         observer
+    }
+
+    /// A member's vote is admitted and its next statement selected whether
+    /// `math_main.data` is jsonb (a database built from the migrations) or
+    /// json (an installation older than them), with the same observation.
+    #[test]
+    fn observe_mode_admits_and_selects_on_either_math_column_type() {
+        let keys = signing();
+        let member = token(&keys, "2fixture");
+        let mut seen = vec![];
+        for column_type in ["jsonb", "json"] {
+            let db = fixture(&format!("observe_{column_type}")).math_data(column_type);
+            let app = shadow_app(connector(&db), Some(observer_for(&db, &keys)));
+            let line = runtime().block_on(async {
+                let lane = shadow::Lane::new(1000);
+                let id = request_id();
+                let req = copy(
+                    &vote_body("2fixture", 2, VoteChoice::Agree),
+                    Some(member.as_str()),
+                    &id,
+                );
+                assert_eq!(
+                    shadow::accept(app.clone(), lane.clone(), req).await.status,
+                    204
+                );
+                observation(&id).await
+            });
+            assert_line_shape(&line);
+            assert!(line["reason"].is_null(), "{column_type}: {line}");
+            let next = line["next_tid"].as_i64().unwrap();
+            assert!([4, 6, 7, 9, 10, 11, 12, 13].contains(&next), "{line}");
+            seen.push(json!([
+                line["outcome"],
+                line["admitted"],
+                line["status"],
+                line["zid"],
+                line["follow_on"],
+                line["weights_tick"],
+                line["candidates"],
+                line["remaining"],
+                line["total"],
+            ]));
+        }
+        assert_eq!(
+            seen[0],
+            json!(["would_serve", 1, 200, 1, "complete", 7, 8, 9, 12])
+        );
+        assert_eq!(seen[1], seen[0], "json differs from jsonb");
     }
 
     /// Test 1. Admission and selection as live, and no row changes: a member
