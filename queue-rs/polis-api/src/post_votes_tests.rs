@@ -37,6 +37,93 @@ fn unsupported_shapes_are_handed_back_before_identity_or_database_work() {
     assert!(request(&r).is_none());
 }
 
+/// A well-formed vote under one Content-Type (`None`: the header is absent).
+fn typed(content_type: Option<&str>) -> Request {
+    let mut headers = vec![("x-forwarded-proto", "https")];
+    if let Some(content_type) = content_type {
+        headers.push(("content-type", content_type));
+    }
+    let mut r = req(r#"{"conversation_id":"a","tid":0,"vote":0}"#);
+    r.headers = Headers::from_raw(headers);
+    r
+}
+
+/// The command-line client: its HTTP library sets the bare media type.
+#[test]
+fn content_type_of_the_command_line_client_is_admitted() {
+    assert!(request_reasoned(&typed(Some("application/json"))).is_ok());
+}
+
+/// The participation client built on `fetch`: the browser sends the header
+/// as the page wrote it.
+#[test]
+fn content_type_of_the_fetch_participation_client_is_admitted() {
+    assert!(request_reasoned(&typed(Some("application/json; charset=utf-8"))).is_ok());
+}
+
+/// The participation client built on jQuery writes the same header, but it
+/// sends a string through XMLHttpRequest, and the browser then rewrites the
+/// charset value to upper case.
+#[test]
+fn content_type_of_the_jquery_participation_client_is_admitted() {
+    assert!(request_reasoned(&typed(Some("application/json; charset=UTF-8"))).is_ok());
+}
+
+/// No client of this repository sends these. Node parses some of them as a
+/// vote (the first six, and the form body), answers 415 to the foreign
+/// charset, and reads no body at all from the rest; each stays Node's.
+#[test]
+fn content_types_no_client_sends_are_handed_back() {
+    for content_type in [
+        Some("application/json;charset=UTF-8"),
+        Some("application/json;charset=utf-8"),
+        Some("application/json; charset=Utf-8"),
+        Some("application/json; charset=\"utf-8\""),
+        Some("Application/JSON"),
+        Some("application/vnd.api+json"),
+        Some("application/json; charset=utf-16"),
+        Some("application/json; charset=utf-8; boundary=x"),
+        Some("application/x-www-form-urlencoded"),
+        Some("application/json; charset=iso-8859-1"),
+        Some("application/json;"),
+        Some("application/json; charset"),
+        Some("text/plain;charset=UTF-8"),
+        Some("multipart/form-data; boundary=x"),
+        Some(""),
+        None,
+    ] {
+        assert_eq!(
+            request_reasoned(&typed(content_type)).err(),
+            Some("shape_content_type"),
+            "{content_type:?}"
+        );
+    }
+}
+
+/// An encoded body is handed back under every admitted Content-Type.
+#[test]
+fn content_encoding_is_handed_back_under_every_admitted_content_type() {
+    for content_type in [
+        "application/json",
+        "application/json; charset=utf-8",
+        "application/json; charset=UTF-8",
+    ] {
+        for encoding in ["gzip", "identity"] {
+            let mut r = typed(Some(content_type));
+            r.headers = Headers::from_raw([
+                ("x-forwarded-proto", "https"),
+                ("content-type", content_type),
+                ("content-encoding", encoding),
+            ]);
+            assert_eq!(
+                request_reasoned(&r).err(),
+                Some("shape_encoding"),
+                "{content_type} {encoding}"
+            );
+        }
+    }
+}
+
 #[cfg(all(feature = "db-tests", feature = "fixture-clock"))]
 #[path = "post_votes_replay.rs"]
 mod replay;
@@ -131,7 +218,21 @@ mod database {
         pub(super) fn connect(&self) -> Client {
             self.config.connect(NoTls).unwrap()
         }
+        /// This database with `math_main.data` of the given type: `jsonb`, as
+        /// the migrations build it, or `json`, as installations older than
+        /// the migrations have it. Rows already stored are converted.
+        pub(super) fn math_data(self, column_type: &str) -> Self {
+            assert!(MATH_DATA_TYPES.contains(&column_type));
+            self.connect()
+                .batch_execute(&format!(
+                    "ALTER TABLE math_main ALTER COLUMN data TYPE {column_type}"
+                ))
+                .unwrap();
+            self
+        }
     }
+    /// The two types `math_main.data` has across installations.
+    const MATH_DATA_TYPES: [&str; 2] = ["jsonb", "json"];
     impl Drop for Database {
         fn drop(&mut self) {
             self.admin
@@ -468,3 +569,6 @@ fn vote_language_startup_requires_provider_off() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[path = "post_votes_observe_tests.rs"]
+mod observe_tests;

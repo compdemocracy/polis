@@ -113,10 +113,25 @@ case "$SERVICE_FROM_FILE" in
 esac
 
 POLIS_API_IMAGE_AVAILABLE=1
+SHADOW_SELECTED=0
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
   # Resolve the new revision's environment before pulling images. The previous
   # image override is not needed here. Never print config: it contains credentials.
-  RUST_API_ROUTES_NAMED=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""' | tr -d ', \t\r\n')
+  RUST_API_ROUTES_SELECTED=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""')
+  RUST_API_ROUTES_NAMED=$(printf '%s' "$RUST_API_ROUTES_SELECTED" | tr -d ', \t\r\n')
+  # votesShadow: nginx copies each vote Node answers to polis-api-shadow. The
+  # list is split on commas and blanks, as nginx's renderer splits it.
+  POST_VOTES_SELECTED=0
+  for route in $(printf '%s' "$RUST_API_ROUTES_SELECTED" | tr ',' ' '); do
+    case "$route" in
+      votesShadow) SHADOW_SELECTED=1 ;;
+      postVotes) POST_VOTES_SELECTED=1 ;;
+    esac
+  done
+  if [ "$SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
+    echo "votesShadow and postVotes cannot be selected together; refusing service replacement" >&2
+    exit 1
+  fi
   POLIS_API_START=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_START // "0"')
   case "$POLIS_API_START" in
     0|1) ;;
@@ -126,6 +141,13 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
     POLIS_API_TRANSPORT=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_DB_TRANSPORT // "tls"')
     if [ "$POLIS_API_TRANSPORT" != tls ]; then
       echo "The web deployment requires verified TLS for polis-api" >&2
+      exit 1
+    fi
+  fi
+  if [ "$SHADOW_SELECTED" = 1 ]; then
+    SHADOW_TRANSPORT=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["polis-api-shadow"].environment.POLIS_API_DB_TRANSPORT // "tls"')
+    if [ "$SHADOW_TRANSPORT" != tls ]; then
+      echo "The web deployment requires verified TLS for polis-api-shadow" >&2
       exit 1
     fi
   fi
@@ -223,6 +245,10 @@ sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 if [ -n "$ROLE_IMAGES" ]; then
   { echo "services:"
     for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
+    # The vote writer's shadow runs the polis-api image pulled above.
+    if [ "$SERVICE_FROM_FILE" == "server" ]; then
+      printf '  polis-api-shadow:\n    image: %s\n' "$(image_ref polis-api)"
+    fi
   } | sudo tee docker-compose.images.yml > /dev/null
 else
   echo "services: {}" | sudo tee docker-compose.images.yml > /dev/null
@@ -283,6 +309,14 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
         exit 1
       fi
       echo "No Rust route is selected; continuing the Node deployment" >&2
+    fi
+  fi
+  # The shadow is selected, so its start is a requirement of this deploy. It
+  # was removed with the rust-api profile above; unselected, it stays removed.
+  if [ "$SHADOW_SELECTED" = 1 ]; then
+    if ! "${COMPOSE[@]}" up -d --no-deps --no-build --force-recreate polis-api-shadow; then
+      echo "polis-api-shadow start failed" >&2
+      exit 1
     fi
   fi
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then

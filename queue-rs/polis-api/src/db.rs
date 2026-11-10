@@ -159,6 +159,12 @@ impl PoolEvidence {
     }
 }
 
+/// Writer pools built by this process, for the tests that prove a mode builds
+/// none.
+#[cfg(test)]
+pub(crate) static WRITER_POOLS_BUILT: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
 pub struct Pool {
     connector: Connector,
     idle: Mutex<Vec<(Client, Instant, Instant)>>,
@@ -220,6 +226,8 @@ impl Pool {
 
     /// Only explicitly configured writers use independent instances of this pool.
     pub(crate) fn writer(connector: Connector, limits: Limits) -> Arc<Self> {
+        #[cfg(test)]
+        WRITER_POOLS_BUILT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Self::configured(connector, limits, true)
     }
 

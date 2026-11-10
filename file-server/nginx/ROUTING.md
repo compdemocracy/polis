@@ -67,3 +67,63 @@ this preserves application routing until those routes are retired. Unknown
 paths ending in a slash now return 404 instead of Node's catch-all redirect.
 No database work, queueing, locks or admission checks are added to voting,
 comment submission or next-statement requests.
+
+## The vote shadow (`votesShadow`)
+
+`votesShadow` in `RUST_API_ROUTES` selects no Rust route. `POST
+/api/v3/votes` is still answered by Node, exactly as without it, with one
+added request header, `X-Request-Id: $request_id`. nginx's `mirror` also sends
+a copy of the request to `polis-api-shadow:5101`, the polis-api image in its
+shadow role (`queue-rs/polis-api/README.md`, "Vote writer: the shadow role
+and observe mode"). The shadow answers each copy 204 and writes nothing.
+
+- **What is copied.** Only a POST to the exact path with a Content-Length from
+  1 to 9999, the requests the live vote write location would send to
+  polis-api. GET, HEAD, PUT and other methods, an empty or larger body, a
+  chunked body, a trailing slash and other spellings of the path go to Node
+  with no copy. The copy's path carries no query string.
+- **Where it goes.** The target is a literal in
+  `rust-api/shadow-mirror.conf.template`; no setting reaches it. The copy's
+  location is `internal` (a direct request gets 404) and has no `error_page`,
+  no retry and no route to Node, so a copy can never reach Node.
+- **What it costs a participant.** Node's answer is never held behind the
+  copy. What waits is the next request on the same client connection, until
+  the copy ends: about a millisecond when the shadow answers or is down,
+  refused, absent or closing, and at most the copy's timeouts (20 ms connect,
+  20 ms send, 30 ms read, 30 ms resolve) when it is slow or silent. The body
+  is read before Node is contacted (`mirror_request_body`); votes are small.
+- **What it logs.** Two JSON lines per shadowed vote, both with
+  `listener: "shadow"` and nginx's `request_id`, beside the usual access line:
+  `shadow_edge` (Node's status and time as nginx saw them, the participant's
+  total time) and `shadow_mirror` (the copy's status and time). A copy skipped
+  by the body bound logs `mirror_status` 204 with an empty
+  `mirror_upstream_status`. Neither line carries an address, a header value or
+  a body.
+- **With `votesRead`.** The vote read route's own location answers the path,
+  with the POST diversion inserted first (POST goes to the shadow's named
+  location; every other request keeps the read route's handling).
+- **Refused.** `votesShadow` with `postVotes` (the shadow observes the votes
+  Node answers): the renderer refuses the selection and every route stays on
+  Node, and the web deploy and its validation refuse it before anything
+  changes.
+- **The service.** The web deploy starts `polis-api-shadow` only when
+  `votesShadow` is selected (it is in the `rust-api` profile, so every deploy's
+  teardown removes it), and validation then requires its `/health`:
+  `role: "shadow"`, `postVotes.mode: "observe"`, `postVotes.enabled: false`,
+  its two read-only pools, `shadow.listening`, a rate cap of at most 25 per
+  second, and the release's version and commit. `scripts/rust-api-switch.sh`
+  neither starts nor stops it: select or remove `votesShadow` through a deploy.
+- **Rollback.** Remove `votesShadow` from `RUST_API_ROUTES` and deploy. nginx
+  renders no shadow location, the teardown removes the container, and nothing
+  was written.
+
+Checks: the vote shadow sections of `queue-rs/polis-api/conformance/nginx-routing.sh`
+(the rendered locations, the four timeouts line by line, the literal target,
+no route from the copy to Node, the refusal), and
+`queue-rs/polis-api/conformance/nginx-shadow.sh`, which runs the production
+nginx image against a recording Node stand-in and a shadow stand-in that
+answers, refuses, is absent from DNS, closes at once, stays silent, or answers
+after 40 ms or 5 s (`--load` adds 16 keepalive connections of votes with a
+silent shadow, against a control). `make check-nginx-upstreams` renders the
+shadow selection and requires its target to be a service the web deploy
+starts.

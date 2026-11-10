@@ -19,6 +19,20 @@ if [ "$role" = server ]; then
     POLIS_API_HEALTH_REQUIRED=1
   fi
 fi
+# votesShadow: the vote writer's shadow, its own service. Split as nginx's
+# renderer splits the list. It is refused together with the live vote writer.
+SHADOW_SELECTED=0
+POST_VOTES_SELECTED=0
+for route in $(printf '%s' "$RUST_API_ROUTES" | tr ',' ' '); do
+  case "$route" in
+    votesShadow) SHADOW_SELECTED=1 ;;
+    postVotes) POST_VOTES_SELECTED=1 ;;
+  esac
+done
+if [ "$SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
+  echo "votesShadow and postVotes cannot be selected together" >&2
+  exit 1
+fi
 containers_ready() {
   local service ids id state
   for service in "$@"; do
@@ -85,6 +99,36 @@ polis_api_ready() {
     fi
     echo "polis-api health ok"
 }
+# The shadow's own /health, from the server container: observe mode and never
+# enabled (it serves no participant), exactly its two read-only pools and no
+# writer, listening, a rate cap of at most 25 copies a second, and the
+# release's identity. The main polis-api's checks above are unchanged.
+shadow_ready() {
+    if ! containers_ready polis-api-shadow; then
+      echo "polis-api-shadow health failed (container absent, stopped or restarting)" >&2
+      return 1
+    fi
+    if ! compose exec -T server node -e '
+      fetch("http://polis-api-shadow:5101/health", {signal: AbortSignal.timeout(4000)})
+        .then(async r => {
+          const h = await r.json(), v = h.postVotes, s = h.shadow;
+          const pools = v?.pools ?? {};
+          const names = Object.keys(pools).sort().join(",");
+          const readOnly = p => p?.readOnly === true && p.reachable === true;
+          if (r.status !== 200 || h.status !== "ok" || h.role !== "shadow" ||
+              v?.enabled !== false || v.mode !== "observe" ||
+              names !== "readback,reads" || !readOnly(pools.reads) || !readOnly(pools.readback) ||
+              s?.listening !== true || !Number.isSafeInteger(s.maxPerSecond) ||
+              s.maxPerSecond < 1 || s.maxPerSecond > 25 ||
+              h.version !== process.argv[2] || !h.commit || h.commit !== process.argv[1])
+            throw Error("Shadow health check failed");
+        }).then(() => process.exit(0)).catch(() => process.exit(1));
+    ' "$(sed -n 's/^revision=//p' /opt/polis/deployed-images.txt)" "$(cat VERSION)"; then
+      echo "polis-api-shadow health failed (HTTP, role, mode, pools or identity check)" >&2
+      return 1
+    fi
+    echo "polis-api-shadow health ok"
+}
 server_ready() {
   containers_ready server nginx-proxy client-participation-alpha || return 1
   # A running container alone is insufficient: exercise the actual HTTP server
@@ -100,6 +144,9 @@ server_ready() {
     if ! polis_api_ready; then
       [ "$POLIS_API_HEALTH_REQUIRED" = 0 ] || return 1
     fi
+  fi
+  if [ "$SHADOW_SELECTED" = 1 ]; then
+    shadow_ready || return 1
   fi
 }
 ready() {

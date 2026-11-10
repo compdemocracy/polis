@@ -58,7 +58,10 @@ impl Refresh {
                 self.failures.fetch_add(1, Ordering::Relaxed);
                 // One attempt and fixed warning per period; never log SQL,
                 // connection strings, participant IDs or credential material.
-                eprintln!("{{\"event\":\"treevite_revocation_refresh_failed\"}}");
+                eprintln!(
+                    "{{\"event\":\"{}treevite_revocation_refresh_failed\"}}",
+                    crate::shadow::event_prefix()
+                );
             }
         }
     }
@@ -83,6 +86,7 @@ pub(crate) fn limits() -> db::Limits {
 pub(crate) async fn configure(app: &mut App) -> Result<Option<tokio::task::JoinHandle<()>>> {
     if app.participant_verifier.is_none()
         && app.post_votes.is_none()
+        && app.post_votes_observe.is_none()
         && app.topic_selection_writer.is_none()
     {
         return Ok(None);
@@ -104,6 +108,9 @@ pub(crate) async fn configure(app: &mut App) -> Result<Option<tokio::task::JoinH
     if let Some(writer) = &mut app.post_votes {
         writer.set_revocations(refresh.snapshot.clone());
     }
+    if let Some(observer) = &mut app.post_votes_observe {
+        observer.set_revocations(refresh.snapshot.clone());
+    }
     if let Some(writer) = &mut app.topic_selection_writer {
         writer.set_revocations(refresh.snapshot.clone());
     }
@@ -119,6 +126,11 @@ pub(crate) fn refusal(app: &App, raw: &str, now: u64) -> Option<polis_auth::Refu
             app.post_votes
                 .as_ref()
                 .and_then(|w| w.check_revocation(raw, now).err())
+        })
+        .or_else(|| {
+            app.post_votes_observe
+                .as_ref()
+                .and_then(|o| o.check_revocation(raw, now).err())
         })
         .or_else(|| {
             app.topic_selection_writer
