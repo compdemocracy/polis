@@ -5,6 +5,12 @@ parsing, convention and SQL paths. It defines a contract and recordings, not a
 Rust writer or migration authorization. Source pin:
 `19873803fa2b84ddca841a50cfb57009650554de`.
 
+Every recorded response's CORS headers in `golden/` were later rewritten in
+place to the set the server sends since the /api/v3 domain allowlist was
+removed (2026-11-09): `Access-Control-Allow-Origin: *` and no
+`Access-Control-Allow-Credentials`. Nothing else in any case changed; the
+replay checks that live Node still serves these bytes.
+
 The main serial profile captures 129 cases. Together with 23 additional
 seed/account cases, the disabled-provider case and four concurrent responses,
 157 completed responses are preserved in `contract-cases.json` and strictly
