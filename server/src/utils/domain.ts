@@ -62,82 +62,24 @@ function redirectIfNotHttps(
   return next();
 }
 
-const whitelistedDomains = [
-  Config.getServerHostname(),
-  ...Config.whitelistItems,
-  "localhost:5000",
-  "localhost:5001",
-  "localhost:5010",
-  "", // for API
-];
-
-function hasWhitelistMatches(host: string): boolean {
-  // Remove protocol if present
-  const hostWithoutProtocol = host.replace(/^https?:\/\//, "");
-
-  // Check each whitelisted domain
-  return whitelistedDomains.some((pattern) => {
-    if (!pattern) return false;
-
-    // Check for exact match or subdomain match
-    if (hostWithoutProtocol === pattern) {
-      return true;
-    }
-
-    // Check if it's a subdomain (e.g., sub.example.com matches example.com)
-    if (hostWithoutProtocol.endsWith("." + pattern)) {
-      return true;
-    }
-
-    return false;
-  });
-}
-
+// The API authenticates with a bearer token in the Authorization header and
+// reads no cookie, so no origin holds a credential the API could protect, and
+// a request from any origin is answered by its route. The CORS headers say so
+// with one constant value: `*` lets any page read an answer, and browsers
+// never send a credentialed request (cookies, HTTP authentication) to a `*`
+// answer. There is no Access-Control-Allow-Credentials header, and because
+// the value never depends on the request there is no `Vary: Origin` either.
+//
+// The headers are emitted when the request names an origin (Origin, else
+// Referer) or DOMAIN_OVERRIDE is set, as they always were; a request with
+// neither header (curl, the CLI, a server-side fetch) gets none.
 function addCorsHeader(
   req: ExpressRequest,
   res: ExpressResponse,
-  next: (arg0?: string) => any
+  next: () => any
 ) {
-  // Determine the origin
-  let origin = "";
-  if (Config.domainOverride) {
-    origin = `${req.protocol}://${Config.domainOverride}`;
-  } else {
-    // Use Origin header first, fall back to Referer
-    const originHeader = req.get("Origin") || req.get("Referer") || "";
-    // Clean up the origin - remove fragment and path
-    origin = originHeader
-      .replace(/#.*$/, "")
-      .replace(/^([^\/]*\/\/[^\/]*).*/, "$1");
-  }
-
-  // Determine if domain validation should be skipped.
-  const isTestingMode = Config.nodeEnv === "test" || Config.isTesting;
-  const isDevAndLocalhost =
-    Config.isDevMode && origin && origin.includes("localhost");
-
-  const shouldSkipValidation =
-    Config.domainOverride || // Skip if domain override is set.
-    !origin || // Skip if there's no origin header.
-    isTestingMode || // Skip in test environments.
-    isDevAndLocalhost; // Skip for localhost in dev mode.
-
-  // If validation is not skipped, check the origin against the whitelist.
-  if (!shouldSkipValidation) {
-    if (!hasWhitelistMatches(origin)) {
-      logger.info("CORS: domain not whitelisted", {
-        origin,
-        path: req.path,
-        headers: req.headers,
-      });
-      return next("unauthorized domain: " + origin);
-    }
-  }
-
-  // Set CORS headers
-  if (origin) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
+  if (Config.domainOverride || req.get("Origin") || req.get("Referer")) {
+    res.header("Access-Control-Allow-Origin", "*");
     res.header(
       "Access-Control-Allow-Headers",
       "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"

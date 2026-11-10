@@ -306,12 +306,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -962,12 +957,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -1607,12 +1597,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -2257,12 +2242,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -2902,12 +2882,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -3547,12 +3522,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -4192,12 +4162,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -4837,12 +4802,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -5487,12 +5447,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -6140,12 +6095,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -7161,12 +7111,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -8198,12 +8143,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -9230,12 +9170,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -10261,12 +10196,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -11296,12 +11226,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -12329,12 +12254,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -13360,12 +13280,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -14396,12 +14311,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -15722,12 +15632,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -16935,12 +16840,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -18098,12 +17998,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -19261,12 +19156,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -20429,12 +20319,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -21833,12 +21718,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -23074,12 +22954,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -24315,12 +24190,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -25564,12 +25434,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -26865,12 +26730,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -28213,12 +28073,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -29550,12 +29405,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -30887,12 +30737,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -32224,12 +32069,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -33561,12 +33401,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -34898,12 +34733,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -36555,12 +36385,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -38100,12 +37925,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -39653,12 +39473,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -41373,12 +41188,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -43070,12 +42880,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -44717,12 +44522,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -46365,12 +46165,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -48347,12 +48142,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -50234,12 +50024,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -52358,12 +52143,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -54575,12 +54355,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -56954,12 +56729,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -59219,12 +58989,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -61434,12 +61199,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -63649,12 +63409,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -65864,12 +65619,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -68129,12 +67879,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -70343,12 +70088,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -72558,12 +72298,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -74773,12 +74508,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -76988,12 +76718,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -79202,12 +78927,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -81417,12 +81137,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -83632,12 +83347,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -85847,12 +85557,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -88063,12 +87768,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -90280,12 +89980,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -92496,12 +92191,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -94713,12 +94403,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -96929,12 +96614,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -99144,12 +98824,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -101359,12 +101034,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -103574,12 +103244,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -105789,12 +105454,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -108002,12 +107662,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -110216,12 +109871,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -112431,12 +112081,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -114644,12 +114289,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -116858,12 +116498,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -119073,12 +118708,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -121288,12 +120918,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -123501,12 +123126,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -125715,12 +125335,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -127930,12 +127545,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -130145,12 +129755,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -132358,12 +131963,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -134572,12 +134172,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -136787,12 +136382,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -139007,12 +138597,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -141220,12 +140805,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -143446,12 +143026,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -145659,12 +145234,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -147874,12 +147444,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -150087,12 +149652,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -152301,12 +151861,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -154516,12 +154071,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -156731,12 +156281,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -158944,12 +158489,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -161158,12 +160698,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -163373,12 +162908,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -165588,12 +165118,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -167801,12 +167326,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -170015,12 +169535,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -172230,12 +171745,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -174450,12 +173960,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -174502,12 +174007,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -177106,12 +176606,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {
@@ -179527,12 +179022,7 @@
             },
             {
               "name": "Access-Control-Allow-Origin",
-              "value": "https://localhost",
-              "credential_ref": null
-            },
-            {
-              "name": "Access-Control-Allow-Credentials",
-              "value": "true",
+              "value": "*",
               "credential_ref": null
             },
             {

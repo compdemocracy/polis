@@ -1377,7 +1377,8 @@ pub(crate) fn health(app: &App) -> Js {
 
 /// Why the route prelude answered a vote without reaching `handle`, in the
 /// prelude's own order (`route::serve`): the revocation snapshot, the
-/// writer's eligibility, the HTTPS rule, the body checks and CORS. Pure: no
+/// writer's eligibility, the HTTPS rule and the body checks. The prelude
+/// refuses no request for its origin, so there is no origin reason. Pure: no
 /// database work. Observe mode records it when the record has no reason.
 pub(crate) fn shape_reason(app: &App, req: &Request) -> Option<&'static str> {
     if let Some(raw) = req.headers.get("authorization")
@@ -1418,9 +1419,6 @@ pub(crate) fn shape_reason(app: &App, req: &Request) -> Option<&'static str> {
         crate::params::Body::Invalid
     ) {
         return Some("parameter");
-    }
-    if app.cors.resolve(&req.headers).is_err() {
-        return Some("cors");
     }
     None
 }

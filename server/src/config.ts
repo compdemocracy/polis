@@ -232,17 +232,6 @@ export default {
   jwtPrivateKey: process.env.JWT_PRIVATE_KEY || null,
   jwtPublicKey: process.env.JWT_PUBLIC_KEY || null,
 
-  whitelistItems: [
-    process.env.DOMAIN_WHITELIST_ITEM_01 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_02 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_03 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_04 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_05 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_06 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_07 || null,
-    process.env.DOMAIN_WHITELIST_ITEM_08 || null,
-  ].filter((item) => item !== null) as string[],
-
   // Deprecated
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
 };

@@ -186,7 +186,6 @@ pub(crate) fn eligible(app: &App, req: &Request) -> bool {
     app.topic_selection_writer.is_some()
         && app.production
         && parse(req).is_some()
-        && app.cors.resolve(&req.headers).is_ok()
         && (app.dev_mode
             || app.use_network_host
             || req.headers.get("x-forwarded-proto") == Some("https"))
