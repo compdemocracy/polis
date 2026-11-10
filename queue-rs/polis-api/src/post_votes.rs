@@ -257,9 +257,17 @@ fn request_reasoned(req: &Request) -> Result<(String, contract::Request), &'stat
     if req.headers.get("content-encoding").is_some() {
         return Err("shape_encoding");
     }
+    // The three forms the clients send, each of which Node parses as UTF-8
+    // JSON. The upper-case one is the jQuery participation client's
+    // `charset=utf-8` as a browser's XMLHttpRequest sends it: for a string
+    // body it rewrites the charset value to `UTF-8`.
     if !matches!(
         req.headers.get("content-type"),
-        Some("application/json" | "application/json; charset=utf-8")
+        Some(
+            "application/json"
+                | "application/json; charset=utf-8"
+                | "application/json; charset=UTF-8"
+        )
     ) {
         return Err("shape_content_type");
     }

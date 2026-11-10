@@ -3,8 +3,10 @@ use super::{
     *,
 };
 
-fn fixture(label: &str, newest_weight: f64) -> Database {
-    let db = Database::new(label);
+/// `column_type`: `math_main.data` as jsonb (the migrations) or json (older
+/// installations).
+fn fixture(label: &str, newest_weight: f64, column_type: &str) -> Database {
+    let db = Database::new(&format!("{label}_{column_type}")).math_data(column_type);
     let mut c = db.connect();
     c.batch_execute(
         "INSERT INTO users(uid) VALUES(1);
@@ -38,24 +40,28 @@ fn selected(db: &Database, unit: f64) -> serde_json::Value {
 
 #[test]
 fn writer_next_draws_from_every_eligible_comment() {
-    let db = fixture("all_candidates", 1.0);
-    let comment = selected(&db, 0.9999);
-    assert_eq!(comment["remaining"], 1200);
-    assert_eq!(comment["total"], 1200);
-    assert_eq!(
-        comment["tid"], 1199,
-        "the newest eligible comment must enter the draw"
-    );
-    assert_eq!(comment["randomN"], 0.9999 * 1200.0);
+    for column_type in ["jsonb", "json"] {
+        let db = fixture("all_candidates", 1.0, column_type);
+        let comment = selected(&db, 0.9999);
+        assert_eq!(comment["remaining"], 1200);
+        assert_eq!(comment["total"], 1200);
+        assert_eq!(
+            comment["tid"], 1199,
+            "the newest eligible comment must enter the draw ({column_type})"
+        );
+        assert_eq!(comment["randomN"], 0.9999 * 1200.0);
+    }
 }
 
 #[test]
 fn writer_next_includes_newest_comment_priority() {
-    let db = fixture("newest_priority", 10000.0);
-    let comment = selected(&db, 0.5);
-    assert_eq!(
-        comment["tid"], 1199,
-        "the newest comment's weight must enter the draw"
-    );
-    assert_eq!(comment["randomN"], 0.5 * 11199.0);
+    for column_type in ["jsonb", "json"] {
+        let db = fixture("newest_priority", 10000.0, column_type);
+        let comment = selected(&db, 0.5);
+        assert_eq!(
+            comment["tid"], 1199,
+            "the newest comment's weight must enter the draw ({column_type})"
+        );
+        assert_eq!(comment["randomN"], 0.5 * 11199.0);
+    }
 }
