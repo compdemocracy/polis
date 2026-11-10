@@ -41,10 +41,29 @@ check_project "$IMPORTANCE_PROJECT"
   # Keep aggregate test pools below PostgreSQL's default connection limit.
   # Pin this here so local and hosted checks use the same database budget.
   export RUST_TEST_THREADS=2
+  # The first pass runs on test databases as PostgreSQL creates them. An
+  # interrupted earlier run may have left the second pass's shape installed.
+  cargo run --locked -p polis-api --example older_database_shape -- remove
   cargo test --locked -p polis-api --features db-tests
   # Compare timely replies with full selections from the same run. Execute
   # the optimized queue test in both local and hosted CI.
   cargo test --release --locked -p polis-api --features db-tests sustained_votes_keep_delivering -- --nocapture
+)
+
+(
+  cd "$CHECK_ROOT/queue-rs"
+  export POLIS_API_TEST_DATABASE_URL
+  export POLIS_AUTH_TEST_DATABASE_URL
+  export RUST_TEST_THREADS=2
+  # The second pass: the same tests, unchanged, on test databases in the shape
+  # of an installation whose database predates the migrations (json math
+  # documents, another column order, a few other columns). While
+  # polis-api/tests/older_database_shape.sql is installed in the test
+  # database and in template1, the tables it lists take that shape as the
+  # tests create them. It is removed again whatever the tests answer.
+  trap 'cargo run --locked -p polis-api --example older_database_shape -- remove' EXIT
+  cargo run --locked -p polis-api --example older_database_shape -- install
+  POLIS_API_TEST_DATABASE_SHAPE=older cargo test --locked -p polis-api --features db-tests
 )
 
 (

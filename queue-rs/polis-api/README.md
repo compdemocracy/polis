@@ -225,6 +225,9 @@ cargo clippy --locked -p polis-api --all-targets -- -D warnings
 cargo test --locked -p polis-api
 POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:25462/scratch \
   cargo test --locked -p polis-api --features db-tests   # a throwaway Postgres
+# `make check-polis-api` runs these database tests a second time on the shape
+# of an installation whose database predates the migrations
+# (tests/older_database_shape.sql; see docs/local-checks.md).
 cd ..
 queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
 # Byte-for-byte replay (needs Docker and the local characterization images;

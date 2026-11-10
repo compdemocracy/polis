@@ -187,7 +187,9 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     }
 }
 /// No order is promised by either Node query. More than one row is therefore
-/// handed back, as are noncanonical capability aliases and schema extensions.
+/// handed back, as are noncanonical capability aliases and schema extensions
+/// (a column added or missing). The order of the columns is not an extension:
+/// the keys of the answer follow it, as Node's do.
 /// A LIMIT bounds materialization without inventing a page or a sort order.
 pub fn read(
     c: &mut postgres::Client,
@@ -216,46 +218,49 @@ pub fn read(
         return Ok(None);
     }
     let row = &rows[0];
-    let expected = if mine {
-        vec![
-            "zid",
-            "pid",
-            "tid",
-            "vote",
-            "weight_x_32767",
-            "created",
-            "high_priority",
-        ]
-    } else {
-        vec!["zid", "pid", "tid", "vote", "weight_x_32767", "modified"]
-    };
-    if row.columns().iter().map(|c| c.name()).collect::<Vec<_>>() != expected {
+    // Node answers with its `SELECT *` rows: the keys are the table's columns
+    // in their stored order, without `zid`, followed by the keys Node adds. A
+    // database built from the migrations and an installation older than them
+    // store the columns of `votes` in different orders, and Node's bytes
+    // differ accordingly, so the keys here follow the stored order too. The
+    // set of columns must still be exactly the one modelled.
+    let time = if mine { "created" } else { "modified" };
+    let mut expected = vec!["zid", "pid", "tid", "vote", "weight_x_32767", time];
+    if mine {
+        expected.push("high_priority");
+    }
+    expected.sort_unstable();
+    let stored: Vec<&str> = row.columns().iter().map(|c| c.name()).collect();
+    let mut sorted = stored.clone();
+    sorted.sort_unstable();
+    if sorted != expected {
         return Ok(None);
     }
     let mut out = Obj::new();
-    out.set("pid", Js::Num(f64::from(row.try_get::<_, i32>("pid")?)));
-    out.set("tid", Js::Num(f64::from(row.try_get::<_, i32>("tid")?)));
-    let raw = row.try_get::<_, Option<i16>>("vote")?;
-    let wire = crate::votes::StorageConvention::CURRENT.wire_preserving_invalid(raw);
-    out.set(
-        "vote",
-        wire.map(|v| Js::Num(f64::from(v))).unwrap_or(Js::Null),
-    );
-    out.set(
-        "weight_x_32767",
-        row.try_get::<_, Option<i16>>("weight_x_32767")?
-            .map(|v| Js::Num(f64::from(v)))
-            .unwrap_or(Js::Null),
-    );
-    let time = if mine { "created" } else { "modified" };
-    out.set(
-        time,
-        row.try_get::<_, Option<i64>>(time)?
-            .map(|v| Js::Str(v.to_string()))
-            .unwrap_or(Js::Null),
-    );
+    for name in stored {
+        let value = match name {
+            // Node removes it before it answers.
+            "zid" => continue,
+            "pid" | "tid" => Js::Num(f64::from(row.try_get::<_, i32>(name)?)),
+            "vote" => {
+                let raw = row.try_get::<_, Option<i16>>(name)?;
+                let wire = crate::votes::StorageConvention::CURRENT.wire_preserving_invalid(raw);
+                wire.map(|v| Js::Num(f64::from(v))).unwrap_or(Js::Null)
+            }
+            "weight_x_32767" => row
+                .try_get::<_, Option<i16>>(name)?
+                .map(|v| Js::Num(f64::from(v)))
+                .unwrap_or(Js::Null),
+            "created" | "modified" => row
+                .try_get::<_, Option<i64>>(name)?
+                .map(|v| Js::Str(v.to_string()))
+                .unwrap_or(Js::Null),
+            "high_priority" => Js::Bool(row.try_get(name)?),
+            _ => return Ok(None),
+        };
+        out.set(name, value);
+    }
     if mine {
-        out.set("high_priority", Js::Bool(row.try_get("high_priority")?));
         out.set("weight", Js::Null);
     }
     out.set("conversation_id", Js::Str(cid.into()));

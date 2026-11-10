@@ -88,7 +88,15 @@ impl Cache {
     }
 }
 pub fn read(c: &mut postgres::Client, zid: i32, env: &str) -> anyhow::Result<Option<Read>> {
-    let rows=c.query("SELECT m.math_tick,b.math_tick,p.math_tick,t.math_tick,CASE WHEN octet_length(m.data::text)<=65536 THEN m.data::text END,CASE WHEN octet_length(b.data::text)<=65536 THEN b.data::text END,p.data IS NOT NULL AND p.data<>'null'::jsonb FROM math_main m LEFT JOIN math_bidtopid b ON b.zid=m.zid AND b.math_env=m.math_env LEFT JOIN math_ptptstats p ON p.zid=m.zid AND p.math_env=m.math_env LEFT JOIN math_ticks t ON t.zid=m.zid AND t.math_env=m.math_env WHERE m.zid=$1 AND m.math_env=$2 LIMIT 2",&[&zid,&env])?;
+    // The three `data` columns are jsonb in a database built from the
+    // migrations and json in installations older than them. `::text` exists
+    // for both. Whether the participant statistics are a JSON null is asked
+    // of the column's own type: only that arm of the CASE is evaluated, and
+    // its cast is to the type the column already has, so no document is
+    // converted. On jsonb this is the comparison with 'null'::jsonb it
+    // replaces. A column of another type gives SQL NULL here for a stored
+    // document, and the read is refused.
+    let rows=c.query("SELECT m.math_tick,b.math_tick,p.math_tick,t.math_tick,CASE WHEN octet_length(m.data::text)<=65536 THEN m.data::text END,CASE WHEN octet_length(b.data::text)<=65536 THEN b.data::text END,p.data IS NOT NULL AND CASE pg_typeof(p.data) WHEN 'pg_catalog.jsonb'::regtype THEN jsonb_typeof(p.data::jsonb) WHEN 'pg_catalog.json'::regtype THEN json_typeof(p.data::json) END<>'null' FROM math_main m LEFT JOIN math_bidtopid b ON b.zid=m.zid AND b.math_env=m.math_env LEFT JOIN math_ptptstats p ON p.zid=m.zid AND p.math_env=m.math_env LEFT JOIN math_ticks t ON t.zid=m.zid AND t.math_env=m.math_env WHERE m.zid=$1 AND m.math_env=$2 LIMIT 2",&[&zid,&env])?;
     if rows.len() > 1 {
         return Ok(None);
     }
@@ -104,10 +112,14 @@ pub fn read(c: &mut postgres::Client, zid: i32, env: &str) -> anyhow::Result<Opt
     };
     let mapping = r.try_get::<_, Option<String>>(5)?;
     let matching = (1..=3).all(|i| r.try_get::<_, Option<i64>>(i).ok() == Some(Some(tick)));
-    if !matching
-        || mapping.as_deref() == Some("null")
-        || !r.try_get::<_, Option<bool>>(6)?.unwrap_or(false)
-    {
+    // SQL NULL only for statistics stored in a column that is neither jsonb
+    // nor json: the expression is false, never NULL, without a document.
+    let Some(statistics) = r.try_get::<_, Option<bool>>(6)? else {
+        return Ok(None);
+    };
+    // A json column keeps a document's text as written, so its null may be
+    // surrounded by white space; a jsonb column always gives `null`.
+    if !matching || mapping.as_deref().map(str::trim) == Some("null") || !statistics {
         return Ok(Some(Read::Incoherent(tick)));
     }
     let Some(mapping) = mapping else {

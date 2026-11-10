@@ -211,3 +211,191 @@ async fn wait_for_generation(
         )
     })
 }
+
+/// The three math documents are jsonb in a database built from the migrations
+/// and json in an installation whose database predates them. The whole
+/// generation read gives the same answer on both, and refuses statistics kept
+/// in a column of any other type.
+#[test]
+fn json_and_jsonb_math_columns_give_the_same_generation() {
+    let url = std::env::var("POLIS_API_TEST_DATABASE_URL").unwrap();
+    let mut c = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+    let schema = format!("math_bundle_types_{}", std::process::id());
+    c.batch_execute(&format!(
+        "CREATE SCHEMA {schema}; SET search_path={schema};
+         CREATE TABLE math_main(zid integer,math_env text,data text,math_tick bigint);
+         CREATE TABLE math_bidtopid(zid integer,math_env text,data text,math_tick bigint);
+         CREATE TABLE math_ptptstats(zid integer,math_env text,data text,math_tick bigint);
+         CREATE TABLE math_ticks(zid integer,math_env text,math_tick bigint);"
+    ))
+    .unwrap();
+    let main = r#"{"base-clusters":{"id":[42,99]},"group-clusters":[{"members":[42]}],"n":2}"#;
+    let spaced = "{ \"group-clusters\" : [ { \"members\" : [ 99 ] } ] ,\n\t\"base-clusters\" : { \"id\" : [ 42 , 99 ] } }";
+    // (zid, main, mapping, statistics, ticks of mapping, statistics, math_ticks)
+    type Case = (
+        i32,
+        &'static str,
+        Option<&'static str>,
+        Option<&'static str>,
+        [i64; 3],
+    );
+    let cases: Vec<Case> = vec![
+        (
+            1,
+            main,
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some("{}"),
+            [7; 3],
+        ),
+        (
+            2,
+            spaced,
+            Some("{ \"bidToPid\" : [ [ 0 , 1 ] , [ 2 ] ] }"),
+            Some(" { \"a\" : 1 } "),
+            [7; 3],
+        ),
+        (
+            3,
+            main,
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some("null"),
+            [7; 3],
+        ),
+        (
+            4,
+            main,
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some(" null\n"),
+            [7; 3],
+        ),
+        (5, main, Some(r#"{"bidToPid":[[0],[2]]}"#), None, [7; 3]),
+        (6, main, Some("null"), Some("{}"), [7; 3]),
+        (7, main, Some("\tnull "), Some("{}"), [7; 3]),
+        (8, main, None, Some("{}"), [7; 3]),
+        (
+            9,
+            main,
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some("[1]"),
+            [7, 6, 7],
+        ),
+        (
+            10,
+            main,
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some("0"),
+            [7; 3],
+        ),
+        (
+            11,
+            main,
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some("\"null\""),
+            [7; 3],
+        ),
+        (
+            12,
+            "[1]",
+            Some(r#"{"bidToPid":[[0],[2]]}"#),
+            Some("false"),
+            [7; 3],
+        ),
+    ];
+    let mut reads: Vec<Vec<String>> = vec![];
+    for data_type in ["jsonb", "json"] {
+        // The types are set here, whatever shape the test database gives a
+        // newly created table.
+        c.batch_execute(&format!(
+            "TRUNCATE math_main, math_bidtopid, math_ptptstats, math_ticks;
+             ALTER TABLE math_main ALTER COLUMN data TYPE {data_type} USING data::{data_type};
+             ALTER TABLE math_bidtopid ALTER COLUMN data TYPE {data_type} USING data::{data_type};
+             ALTER TABLE math_ptptstats ALTER COLUMN data TYPE {data_type} USING data::{data_type};"
+        ))
+        .unwrap();
+        for (zid, main, mapping, statistics, ticks) in &cases {
+            c.execute(
+                &format!("INSERT INTO math_main VALUES($1,'a',$2::text::{data_type},7)"),
+                &[zid, main],
+            )
+            .unwrap();
+            if let Some(mapping) = mapping {
+                c.execute(
+                    &format!("INSERT INTO math_bidtopid VALUES($1,'a',$2::text::{data_type},$3)"),
+                    &[zid, mapping, &ticks[0]],
+                )
+                .unwrap();
+            }
+            if let Some(statistics) = statistics {
+                c.execute(
+                    &format!("INSERT INTO math_ptptstats VALUES($1,'a',$2::text::{data_type},$3)"),
+                    &[zid, statistics, &ticks[1]],
+                )
+                .unwrap();
+            }
+            c.execute(
+                "INSERT INTO math_ticks VALUES($1,'a',$2)",
+                &[zid, &ticks[2]],
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            c.query_one(
+                "SELECT pg_typeof(m.data)::text, pg_typeof(b.data)::text, pg_typeof(p.data)::text
+                 FROM math_main m, math_bidtopid b, math_ptptstats p LIMIT 1",
+                &[]
+            )
+            .map(|row| [row.get::<_, String>(0), row.get(1), row.get(2)])
+            .unwrap(),
+            [data_type; 3]
+        );
+        reads.push(
+            (1..=13)
+                .map(|zid| format!("{:?}", math_bundle::read(&mut c, zid, "a").unwrap()))
+                .collect(),
+        );
+    }
+    assert_eq!(reads[0], reads[1], "jsonb and json differ");
+    let complete = |read: &str| read.starts_with("Some(Complete(");
+    for (index, expected) in [
+        (1, "complete"),
+        (2, "complete"),
+        (3, "incoherent"),
+        (4, "incoherent"),
+        (5, "incoherent"),
+        (6, "incoherent"),
+        (7, "incoherent"),
+        (8, "incoherent"),
+        (9, "incoherent"),
+        (10, "complete"),
+        (11, "complete"),
+        (12, "refused"),
+        (13, "absent"),
+    ] {
+        let read = reads[1][index - 1].as_str();
+        let found = if complete(read) {
+            "complete"
+        } else if read == "Some(Incoherent(7))" {
+            "incoherent"
+        } else if read == "Some(Absent)" {
+            "absent"
+        } else if read == "None" {
+            "refused"
+        } else {
+            read
+        };
+        assert_eq!(found, expected, "conversation {index}: {read}");
+    }
+    // The members of the first two generations, read from a json column.
+    for (zid, pid, bid) in [(1, 2, Some(99)), (2, 1, Some(42)), (2, 2, Some(99))] {
+        let Some(Read::Complete(bundle)) = math_bundle::read(&mut c, zid, "a").unwrap() else {
+            panic!("conversation {zid} is a complete generation");
+        };
+        assert_eq!(bundle.bid(pid), bid);
+    }
+    // Statistics in a column that is neither jsonb nor json are refused.
+    c.batch_execute("ALTER TABLE math_ptptstats ALTER COLUMN data TYPE text")
+        .unwrap();
+    assert!(math_bundle::read(&mut c, 1, "a").unwrap().is_none());
+    c.batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
+        .unwrap();
+}

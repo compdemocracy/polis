@@ -2070,3 +2070,6 @@ mod health_tests {
 
 #[cfg(all(test, feature = "db-tests"))]
 mod startup_wiring_tests;
+
+#[cfg(all(test, feature = "db-tests"))]
+mod older_database_shape_tests;

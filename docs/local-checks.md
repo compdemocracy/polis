@@ -115,6 +115,50 @@ These are sampled peaks, not upper bounds. At a shell open-file limit of 256,
 default parallelism also fails tests with "Too many open files"; two threads pass. Two threads leave headroom without requiring a larger test
 database; test selection, assertions and concurrency within each test are unchanged.
 
+The API entry point runs its full Rust database test suite twice. The first
+pass uses test databases as PostgreSQL creates them, so every table a test
+builds has the shape the migrations give it. The second pass runs the same
+tests, unchanged, on the shape of an installation whose database predates the
+migrations: such a database stores the math documents as `json` where the
+migrations build `jsonb`, keeps some columns in another order, has a few
+columns the migrations never create and lacks two they do. A statement can
+depend on any of that without saying so (a function that exists for `jsonb`
+only, a `SELECT *` read by position), and only a database in that shape shows
+it. `queue-rs/polis-api/tests/older_database_shape.sql` records the shape of
+the thirteen tables that differ and that the API reads, and reshapes a table
+with one of those names when it is created; its header says exactly what is
+and is not reproduced. Between the passes the entry point installs it in the
+test database and in that server's `template1` (every database a test creates
+is a copy of `template1`), sets `POLIS_API_TEST_DATABASE_SHAPE=older` for the
+second pass, and removes it afterwards, also when the tests fail. Installing
+needs a superuser, and `template1` is shared by the whole server, so
+`POLIS_API_TEST_DATABASE_URL` must name a server that belongs to this run. One
+test in each pass checks that its databases have the shape the pass names, so
+a shape left installed by an interrupted run fails the first pass instead of
+changing it silently; the first pass also begins by removing it. To run one
+pass by hand:
+
+```sh
+cd queue-rs
+cargo run --locked -p polis-api --example older_database_shape -- install
+POLIS_API_TEST_DATABASE_SHAPE=older RUST_TEST_THREADS=2 \
+  cargo test --locked -p polis-api --features db-tests
+cargo run --locked -p polis-api --example older_database_shape -- remove
+```
+
+A test that needs a table in one particular column order, in both passes,
+creates it under another name and renames it; a test that loads a table by
+position declares fewer columns than the migrations' table or names the
+columns it inserts. The release-mode queue test runs in the first pass only.
+
+A migration that adds a column to one of the thirteen tables also adds it to
+`older_database_shape.sql`, as the last row of that table and marked `later`
+(the file's header says why). Until it does,
+`every_migration_applies_and_the_listed_tables_take_the_older_shape` fails in
+both passes and says so. Most tables the tests declare have fewer columns than
+the migrations' tables: in the second pass those keep the order the test gave
+them, and only their `jsonb` math documents become `json`.
+
 CLI differential needs
 its `CLI_DIFF_*_IMAGE` variables and an independent `SETUP_ADMISSION_PROJECT`.
 Mixed identity uses all six `MIXED_*_PORT` / `POLIS_MIXED_WORKER_PORT` values.
