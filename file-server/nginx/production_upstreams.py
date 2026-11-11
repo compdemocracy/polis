@@ -29,7 +29,9 @@ SHARED_IMAGES = {'polis-api-shadow': 'polis-api'}
 
 # A shadow selection is refused together with the route that writes what it
 # observes, so the checker renders the shadows in a selection of their own.
-SHADOW_CONFLICTS = {'votesShadow': 'postVotes'}
+# No route writes comments yet; the name reserved for it is refused with the
+# comment shadow by the deploy hook and its validation already.
+SHADOW_CONFLICTS = {'votesShadow': 'postVotes', 'commentsShadow': 'postComments'}
 
 
 def require(condition, message):
@@ -458,4 +460,4 @@ def check(root):
     require(not missing, f'nginx upstreams absent from production web role: {sorted(missing)}; configs: {details}')
     return {'hosts': sorted(hosts), 'web_services': sorted(services),
             'source_configs': len(paths), 'rendered_routes': len(routes),
-            'shadow_selections': len(selections) - 1}
+            'shadow_selections': len(selections) - 1, 'shadows': shadows}

@@ -114,22 +114,34 @@ esac
 
 POLIS_API_IMAGE_AVAILABLE=1
 SHADOW_SELECTED=0
+COMMENTS_SHADOW_SELECTED=0
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
   # Resolve the new revision's environment before pulling images. The previous
   # image override is not needed here. Never print config: it contains credentials.
   RUST_API_ROUTES_SELECTED=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["nginx-proxy"].environment.RUST_API_ROUTES // ""')
   RUST_API_ROUTES_NAMED=$(printf '%s' "$RUST_API_ROUTES_SELECTED" | tr -d ', \t\r\n')
-  # votesShadow: nginx copies each vote Node answers to polis-api-shadow. The
-  # list is split on commas and blanks, as nginx's renderer splits it.
+  # votesShadow: nginx copies each vote Node answers to polis-api-shadow.
+  # commentsShadow: the same for each comment, to the same service, which
+  # runs when either is selected. The list is split on commas and blanks, as
+  # nginx's renderer splits it. Each shadow is refused together with the
+  # route that writes what it observes.
+  VOTES_SHADOW_SELECTED=0
   POST_VOTES_SELECTED=0
+  POST_COMMENTS_SELECTED=0
   for route in $(printf '%s' "$RUST_API_ROUTES_SELECTED" | tr ',' ' '); do
     case "$route" in
-      votesShadow) SHADOW_SELECTED=1 ;;
+      votesShadow) VOTES_SHADOW_SELECTED=1; SHADOW_SELECTED=1 ;;
+      commentsShadow) COMMENTS_SHADOW_SELECTED=1; SHADOW_SELECTED=1 ;;
       postVotes) POST_VOTES_SELECTED=1 ;;
+      postComments) POST_COMMENTS_SELECTED=1 ;;
     esac
   done
-  if [ "$SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
+  if [ "$VOTES_SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
     echo "votesShadow and postVotes cannot be selected together; refusing service replacement" >&2
+    exit 1
+  fi
+  if [ "$COMMENTS_SHADOW_SELECTED" = 1 ] && [ "$POST_COMMENTS_SELECTED" = 1 ]; then
+    echo "commentsShadow and postComments cannot be selected together; refusing service replacement" >&2
     exit 1
   fi
   POLIS_API_START=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml --profile rust-api config --format json | jq -r '.services["polis-api"].environment.POLIS_API_START // "0"')
@@ -245,9 +257,15 @@ sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 if [ -n "$ROLE_IMAGES" ]; then
   { echo "services:"
     for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
-    # The vote writer's shadow runs the polis-api image pulled above.
+    # The shadow service runs the polis-api image pulled above. Its comment
+    # observer's switch is written here and nowhere else, from the route
+    # list: observe when commentsShadow is named; otherwise this file says
+    # nothing and docker-compose.yml's empty switch (off) stands.
     if [ "$SERVICE_FROM_FILE" == "server" ]; then
       printf '  polis-api-shadow:\n    image: %s\n' "$(image_ref polis-api)"
+      if [ "$COMMENTS_SHADOW_SELECTED" = 1 ]; then
+        printf '    environment:\n      - POLIS_API_POST_COMMENTS=observe\n'
+      fi
     fi
   } | sudo tee docker-compose.images.yml > /dev/null
 else
@@ -258,6 +276,21 @@ COMPOSE=(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-comp
 # Validate configuration before replacing any running container. Compose replaces
 # only this Compose project below; never remove unrelated containers or prune here.
 "${COMPOSE[@]}" config --quiet
+
+# The shadow service is about to start: the comment observer's switch that the
+# composed configuration gives it must be the one the route list calls for,
+# observe with commentsShadow and empty without. Never print config.
+if [ "$SHADOW_SELECTED" = 1 ]; then
+  SHADOW_COMMENTS_SWITCH=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile rust-api config --format json | jq -r '.services["polis-api-shadow"].environment.POLIS_API_POST_COMMENTS // ""')
+  SHADOW_COMMENTS_EXPECTED=""
+  if [ "$COMMENTS_SHADOW_SELECTED" = 1 ]; then
+    SHADOW_COMMENTS_EXPECTED=observe
+  fi
+  if [ "$SHADOW_COMMENTS_SWITCH" != "$SHADOW_COMMENTS_EXPECTED" ]; then
+    echo "polis-api-shadow's comment observer switch does not follow RUST_API_ROUTES; refusing service replacement" >&2
+    exit 1
+  fi
+fi
 
 if [ -f "/etc/app-info/log_group_name.txt" ]; then
   LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
@@ -311,8 +344,9 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
       echo "No Rust route is selected; continuing the Node deployment" >&2
     fi
   fi
-  # The shadow is selected, so its start is a requirement of this deploy. It
-  # was removed with the rust-api profile above; unselected, it stays removed.
+  # A shadow is selected (votesShadow, commentsShadow or both), so the shadow
+  # service's start is a requirement of this deploy. It was removed with the
+  # rust-api profile above; with neither selected, it stays removed.
   if [ "$SHADOW_SELECTED" = 1 ]; then
     if ! "${COMPOSE[@]}" up -d --no-deps --no-build --force-recreate polis-api-shadow; then
       echo "polis-api-shadow start failed" >&2

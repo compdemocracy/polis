@@ -39,6 +39,9 @@ on:
       - 'scripts/after_install.sh'
       - 'scripts/validate_service.sh'
       - 'scripts/tests/test_api_health.py'
+      # The shadow service's own definition and the environment its test stack starts from.
+      - 'docker-compose.yml'
+      - 'test.env'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -77,6 +80,9 @@ on:
       - 'scripts/after_install.sh'
       - 'scripts/validate_service.sh'
       - 'scripts/tests/test_api_health.py'
+      # The shadow service's own definition and the environment its test stack starts from.
+      - 'docker-compose.yml'
+      - 'test.env'
       - 'file-server/nginx/**'
       - 'file-server/nginx.Dockerfile'
       - 'server/postgres/migrations/**'
@@ -162,7 +168,9 @@ jobs:
   polis-api:
     name: polis-api build, clippy, tests, image and nginx routing
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Room for the shadow stack test and the comment shadow's behaviour
+    # series, which run in this job after the images are built.
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:17-alpine

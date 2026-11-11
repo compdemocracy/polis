@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stand-ins for the vote shadow's behaviour test (queue-rs/polis-api/conformance/nginx-shadow.sh).
+"""Stand-ins for the shadows' behaviour test (queue-rs/polis-api/conformance/nginx-shadow.sh).
 
 Each runs in its own container on the test network:
 
@@ -11,9 +11,14 @@ Each runs in its own container on the test network:
                                      silent   reads the request, never answers
                                      delay40  204 after 40 ms
                                      delay5s  204 after 5 s
+                                     status404  404 at once (a route the
+                                              shadow service does not serve)
+                                     status500  500 at once
 
 Every request read is appended to /tmp/requests.jsonl: method, path, headers
-in order (repeats kept), and the body's length and SHA-256. No vote is read.
+in order (repeats kept), the body's length and SHA-256, and two times on this
+container's clock: `head` when the request's headers had been read, `at` when
+its body had. No vote and no comment is read.
 """
 import hashlib
 import json
@@ -53,11 +58,12 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def answer(self):
+        head = time.time()
         body = read_body(self)
         digest = hashlib.sha256(body).hexdigest()
         record({'method': self.command, 'path': self.path,
                 'headers': [[name.lower(), value] for name, value in self.headers.items()],
-                'length': len(body), 'sha256': digest, 'at': time.time()})
+                'length': len(body), 'sha256': digest, 'head': head, 'at': time.time()})
         if self.mode == 'node':
             reply = f'node {self.command} {self.path} {digest}\n'.encode()
             self.send_response(200)
@@ -75,6 +81,14 @@ class Handler(BaseHTTPRequestHandler):
             time.sleep(0.04)
         elif self.mode == 'delay5s':
             time.sleep(5)
+        if self.mode in ('status404', 'status500'):
+            reply = b'Not Found\n' if self.mode == 'status404' else b'shadow failed\n'
+            self.send_response(int(self.mode[-3:]))
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.send_header('Content-Length', str(len(reply)))
+            self.end_headers()
+            self.wfile.write(reply)
+            return
         self.send_response(204)
         self.end_headers()
 

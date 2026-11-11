@@ -19,18 +19,29 @@ if [ "$role" = server ]; then
     POLIS_API_HEALTH_REQUIRED=1
   fi
 fi
-# votesShadow: the vote writer's shadow, its own service. Split as nginx's
-# renderer splits the list. It is refused together with the live vote writer.
+# votesShadow: the vote writer's shadow, its own service. commentsShadow: the
+# comment shadow, in the same service, which runs when either is selected.
+# Split as nginx's renderer splits the list. Each is refused together with
+# the route that writes what it observes.
 SHADOW_SELECTED=0
+VOTES_SHADOW_SELECTED=0
+COMMENTS_SHADOW_SELECTED=0
 POST_VOTES_SELECTED=0
+POST_COMMENTS_SELECTED=0
 for route in $(printf '%s' "$RUST_API_ROUTES" | tr ',' ' '); do
   case "$route" in
-    votesShadow) SHADOW_SELECTED=1 ;;
+    votesShadow) VOTES_SHADOW_SELECTED=1; SHADOW_SELECTED=1 ;;
+    commentsShadow) COMMENTS_SHADOW_SELECTED=1; SHADOW_SELECTED=1 ;;
     postVotes) POST_VOTES_SELECTED=1 ;;
+    postComments) POST_COMMENTS_SELECTED=1 ;;
   esac
 done
-if [ "$SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
+if [ "$VOTES_SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
   echo "votesShadow and postVotes cannot be selected together" >&2
+  exit 1
+fi
+if [ "$COMMENTS_SHADOW_SELECTED" = 1 ] && [ "$POST_COMMENTS_SELECTED" = 1 ]; then
+  echo "commentsShadow and postComments cannot be selected together" >&2
   exit 1
 fi
 containers_ready() {
@@ -103,6 +114,12 @@ polis_api_ready() {
 # enabled (it serves no participant), exactly its two read-only pools and no
 # writer, listening, a rate cap of at most 25 copies a second, and the
 # release's identity. The main polis-api's checks above are unchanged.
+# The comment observer is built exactly when commentsShadow is selected.
+# Selected: postComments is never enabled, in observe mode, with exactly its
+# two read-only pools, room for 8 observations and 64 waiting read-backs, and
+# a cap of at most 6 copies a second (the second look of a read-back is at
+# 10 s, so more would not fit the 64). Not selected: /health has no
+# postComments at all.
 shadow_ready() {
     if ! containers_ready polis-api-shadow; then
       echo "polis-api-shadow health failed (container absent, stopped or restarting)" >&2
@@ -115,16 +132,24 @@ shadow_ready() {
           const pools = v?.pools ?? {};
           const names = Object.keys(pools).sort().join(",");
           const readOnly = p => p?.readOnly === true && p.reachable === true;
+          const c = h.postComments, commentPools = c?.pools ?? {};
+          const comments = process.argv[3] === "1" ?
+            c?.enabled === false && c.mode === "observe" &&
+              Object.keys(commentPools).sort().join(",") === "readback,reads" &&
+              readOnly(commentPools.reads) && readOnly(commentPools.readback) &&
+              c.capacity === 8 && c.readbackCapacity === 64 &&
+              Number.isSafeInteger(c.maxPerSecond) && c.maxPerSecond >= 1 && c.maxPerSecond <= 6 :
+            !Object.prototype.hasOwnProperty.call(h, "postComments");
           if (r.status !== 200 || h.status !== "ok" || h.role !== "shadow" ||
               v?.enabled !== false || v.mode !== "observe" ||
               names !== "readback,reads" || !readOnly(pools.reads) || !readOnly(pools.readback) ||
               s?.listening !== true || !Number.isSafeInteger(s.maxPerSecond) ||
-              s.maxPerSecond < 1 || s.maxPerSecond > 25 ||
+              s.maxPerSecond < 1 || s.maxPerSecond > 25 || !comments ||
               h.version !== process.argv[2] || !h.commit || h.commit !== process.argv[1])
             throw Error("Shadow health check failed");
         }).then(() => process.exit(0)).catch(() => process.exit(1));
-    ' "$(sed -n 's/^revision=//p' /opt/polis/deployed-images.txt)" "$(cat VERSION)"; then
-      echo "polis-api-shadow health failed (HTTP, role, mode, pools or identity check)" >&2
+    ' "$(sed -n 's/^revision=//p' /opt/polis/deployed-images.txt)" "$(cat VERSION)" "$COMMENTS_SHADOW_SELECTED"; then
+      echo "polis-api-shadow health failed (HTTP, role, mode, pools, comment observer or identity check)" >&2
       return 1
     fi
     echo "polis-api-shadow health ok"

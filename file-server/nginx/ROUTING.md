@@ -133,6 +133,100 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   renders no shadow location, the teardown removes the container, and nothing
   was written.
 
+## The comment shadow (`commentsShadow`)
+
+`commentsShadow` in `RUST_API_ROUTES` does for `POST /api/v3/comments` what
+`votesShadow` does for votes, from the same three templates with the name and
+the path replaced: Node answers every comment exactly as without it, with the
+one added request header, and nginx's `mirror` sends a copy to the same
+service, `polis-api-shadow:5101`, whose comment observer says what the Rust
+comment handler would have done and writes nothing
+(`docs/post-comments-rust-handler.md`, "Observe mode"). Both shadows are
+normally selected together. Everything in the vote shadow's section holds for
+the comment shadow; what follows is what differs or is worth saying again.
+
+- **What is copied.** A POST to the exact path with a Content-Length from 1
+  to 9999. That holds every comment Node accepts without external-identity
+  fields: a text is at most 997 UTF-16 units, at most 5,982 bytes however
+  JSON escapes it. The seed upload and the translation read, which have paths
+  of their own under the comment path, are not touched. As for votes, the
+  copy's path carries no query string. Node reads a POST's query-string
+  parameters as it reads the body's, and they take precedence there; the
+  copy does not have them, so a comment whose `conversation_id` or `is_seed`
+  travelled in the query string is observed without it. The clients in this
+  repository send a comment's parameters in the body.
+- **The copies have a rate.** At most 2 a second on one box, and 4 more at
+  once (`limit_req`, one zone, `rust-api/shadow-rate.conf.template`). A copy
+  over the rate ends in the copy's own location with 429 before any
+  connection is opened; its `shadow_mirror` line reads `"mirror_status":429`
+  with an empty `mirror_upstream_status`, and nothing is written to the error
+  log. The zone is used in the copy's location only. The request Node answers
+  is never counted, delayed or refused: a run of comments faster than the
+  rate is answered by Node, every one. Vote copies have no nginx rate.
+- **What it does to every comment POST.** With `mirror_request_body`, nginx
+  reads the whole body before it contacts Node; without the shadow it starts
+  sending to Node as soon as it has the request's headers. For a comment that
+  arrives whole (every real one: a few hundred bytes to a few kilobytes) Node
+  has the request no later than before. A body that arrives slowly reaches
+  Node when its last byte has arrived, which is when Node could start work on
+  it either way. A body too long for nginx to hold in memory (from about 10
+  kilobytes; never a valid comment, and never copied) is written to a
+  temporary file by nginx and then sent to Node; Node's answer is the same.
+- **Reading comments is untouched.** GET and HEAD on the path, which every
+  client polls, are answered and logged exactly as before: by Node through
+  the path's location, or by polis-api when `comments` is selected too, in
+  which case the read route's own location carries the POST diversion first.
+- **The access line of a shadowed comment records no address**, in the same
+  format as a shadowed vote's, and the two JSON lines are the vote shadow's
+  formats: a copied comment's lines carry what a copied vote's carry.
+- **When the copy fails.** A shadow service that is down, absent, paused,
+  slow, answering 404 (its comment observer is not switched on) or answering
+  500 changes nothing in Node's answer, its status, headers or bytes. What
+  waits is the next request on the same client connection, for at most the
+  copy's timeouts.
+- **Refused.** `commentsShadow` together with a route that writes comments.
+  No such selector exists yet; the name reserved for it, `postComments`, is
+  refused beside `commentsShadow` by the web deploy and its validation
+  already, and the renderer refuses it as an unknown name.
+- **The service.** The web deploy starts `polis-api-shadow` when either
+  shadow is selected. The comment observer's switch is not in the env
+  document and not in `docker-compose.yml`, where it is empty: the deploy
+  derives it from the route list and writes it into the Compose override it
+  generates, `observe` exactly when `commentsShadow` is named, and checks the
+  composed value before it replaces anything. Validation then requires the
+  service's `/health` to match: with `commentsShadow`, `postComments` in
+  observe mode, never enabled, its two read-only pools and no other, room for
+  8 observations and 64 waiting read-backs, a cap of at most 6 a second;
+  without it, no `postComments` at all. The observer adds three read-only
+  connections to the primary per box (seven for the service with both
+  observers, four with the vote observer alone).
+- **Order.** Deploy a release that knows `commentsShadow` before the name is
+  put in `RUST_API_ROUTES`. A release whose renderer does not know the name
+  refuses the whole list and sends every route to Node, the routes polis-api
+  serves and the vote shadow's copies included, while that release's own
+  validation still passes. For the same reason remove the name before
+  deploying an older release. "Deployed" means on every web box: where boxes
+  are added automatically, a new box runs the deployment group's last
+  successful revision with `RUST_API_ROUTES` as it is at that moment, so the
+  name must not be there before that revision knows it.
+- **Rollback.** Remove `commentsShadow` from `RUST_API_ROUTES` and deploy.
+  nginx renders no comment shadow location, the shadow service starts without
+  the comment observer (or not at all, when `votesShadow` is not selected
+  either), and nothing was written.
+
+Checks: the comment shadow sections of
+`queue-rs/polis-api/conformance/nginx-routing.sh` (each rendered location is
+the vote shadow's with the name and path replaced, plus the rate; both
+shadows together; with the comment reads; the refusals);
+`queue-rs/polis-api/conformance/nginx-shadow.sh`, which runs the comment
+shadow through every mode of the shadow stand-in and two more (404 and 500),
+both shadows together, the reads, the rate, and bodies from 180 bytes to the
+largest nginx and Node accept (`--measure` prints what the mirror costs a
+comment); and `queue-rs/polis-api/conformance/shadow-stack.sh`, which runs
+real comments through nginx to the real Node server with the real shadow
+service under `docker-compose.yml`, started without the switch, with it,
+paused and stopped, and compares Node's replies byte for byte.
+
 Checks: the vote shadow sections of `queue-rs/polis-api/conformance/nginx-routing.sh`
 (the rendered locations, the four timeouts line by line, the literal target,
 no route from the copy to Node, the refusal), and

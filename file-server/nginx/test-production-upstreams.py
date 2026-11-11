@@ -550,6 +550,24 @@ fi
         self.assertIn('polis-api-shadow', result['web_services'])
         self.assertGreaterEqual(result['shadow_selections'], 1)
 
+    def test_repository_renders_both_shadows_beside_every_route(self):
+        # The vote shadow and the comment shadow are rendered together, with
+        # every route neither is refused with, and both copy to the one
+        # service the hook starts.
+        result = check(ROOT)
+        self.assertEqual(result['shadows'], ['commentsShadow', 'votesShadow'])
+        self.assertEqual(result['shadow_selections'], 1)
+        self.assertIn('polis-api-shadow', result['web_services'])
+
+    def test_comment_mirror_target_must_be_started(self):
+        docs = {'mirror.conf': 'set $polis_shadow_target polis-api-shadow:5101;\n'
+                               'limit_req_zone $polis_shadow_name zone=polis_shadow_commentsShadow:1m rate=2r/s;\n'
+                               'location = /_polis_shadow/commentsShadow { internal; '
+                               'set $polis_shadow_name commentsShadow; '
+                               'limit_req zone=polis_shadow_commentsShadow burst=4 nodelay; '
+                               'proxy_pass http://$polis_shadow_target/api/v3/comments; }'}
+        self.assertEqual(nginx_hosts(docs), {'polis-api-shadow'})
+
     def test_mirror_target_must_be_started(self):
         docs = {'mirror.conf': 'set $polis_shadow_target polis-api-shadow:5101;\n'
                                'location = /_polis_shadow/votesShadow { internal; '

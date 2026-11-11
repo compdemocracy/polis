@@ -177,7 +177,9 @@ In the shadow role (`POLIS_API_ROLE=shadow`) with the switch at `observe`, the
 shadow listener serves a second mirrored route beside the vote route: a copy
 of `POST /api/v3/comments` carrying `X-Polis-Shadow: commentsShadow`. Node
 answers the participant; the copy is answered 204 at once and then observed.
-Nothing sends such copies yet: no nginx file names `commentsShadow`.
+nginx sends such copies when `RUST_API_ROUTES` names `commentsShadow`
+(`file-server/nginx/ROUTING.md`, "The comment shadow"), and the web deploy
+then sets this switch for the shadow service, and only then.
 
 The observer holds two read-only pools (admission: 2 connections; the
 read-back: 1; each 100 ms to get a connection and 100 ms a statement) and
