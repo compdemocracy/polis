@@ -13,6 +13,7 @@ import http.client
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 
@@ -66,6 +67,47 @@ def write_override(comments):
       polis-net:
         aliases: [client-participation-alpha]
 ''')
+
+
+def hook_read_back(*more_files):
+    """The deploy hook's two read-backs (scripts/after_install.sh), run with
+    jq on what Compose composes from docker-compose.yml, the override and any
+    further files: the comment observer's switch, and the names of the shadow
+    service's own settings that are not what docker-compose.yml gives it."""
+    assert shutil.which('jq'), 'this test runs the deploy hook\'s jq programs: jq must be installed'
+    hook = open(f'{ROOT}/scripts/after_install.sh').read()
+    (switch,) = re.findall(r"^  SHADOW_COMMENTS_SWITCH=\$\(.* \| jq -r '([^']*)'\)$", hook, re.M)
+    (settings,) = re.findall(r"^  SHADOW_SETTINGS_WRONG=\$\(.* \| jq -r '([^']*)'\)$", hook, re.M)
+    files = [argument for file in more_files for argument in ('-f', file)]
+    composed = subprocess.run(
+        ['docker', 'compose', '-p', PROJECT, '--env-file', f'{WORK}/stack.env', '-f', f'{ROOT}/docker-compose.yml',
+         '-f', f'{WORK}/override.yml', *files, '--profile', 'rust-api', 'config', '--format', 'json'],
+        env=dict(os.environ, RUST_API_ROUTES=BOTH), text=True, capture_output=True, check=True).stdout
+    return tuple(subprocess.run(['jq', '-r', program], input=composed, text=True, capture_output=True,
+                                check=True).stdout.rstrip('\n') for program in (switch, settings))
+
+
+def check_read_back():
+    """The hook's read-backs against the real Compose: both overrides the
+    hook writes are accepted, and a composition in which the override's
+    environment replaces the service's own list is caught by the second."""
+    write_override(comments=False)
+    assert hook_read_back() == ('', ''), hook_read_back()
+    write_override(comments=True)
+    assert hook_read_back() == ('observe', ''), hook_read_back()
+    # The same one entry, replacing the service's list instead of joining it.
+    with open(f'{WORK}/replaced.yml', 'w') as file:
+        file.write('services:\n  polis-api-shadow:\n    environment: !override\n'
+                   '      - POLIS_API_POST_COMMENTS=observe\n')
+    switch, wrong = hook_read_back(f'{WORK}/replaced.yml')
+    assert switch == 'observe', switch  # the switch's own check would pass
+    assert wrong.split()[:3] == ['POLIS_API_ROLE', 'POLIS_API_SHADOW_LISTEN', 'POLIS_API_POST_VOTES'], wrong
+    assert set(wrong.split()) <= {'POLIS_API_ROLE', 'POLIS_API_SHADOW_LISTEN', 'POLIS_API_POST_VOTES',
+                                  'JWT_PRIVATE_KEY', 'JWT_PRIVATE_KEY_PATH'}, wrong
+    write_override(comments=False)
+    print(f'ok read-back: on what Compose composes, the deploy hook\'s read-backs accept the override it writes '
+          f'without and with the comment switch; with the service\'s environment list replaced by that one '
+          f'entry the switch still reads observe and the second read-back names {wrong}', flush=True)
 
 
 def wait_for(check, label, seconds=90.0, pause=0.5):
@@ -275,6 +317,7 @@ def comparable(transcript):
 
 
 def main():
+    check_read_back()
     write_override(comments=False)
     # Nothing selected: what Node answers.
     start('')

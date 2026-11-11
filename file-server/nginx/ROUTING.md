@@ -221,7 +221,13 @@ the comment shadow; what follows is what differs or is worth saying again.
   document and not in `docker-compose.yml`, where it is empty: the deploy
   derives it from the route list and writes it into the Compose override it
   generates, `observe` exactly when `commentsShadow` is named, and checks the
-  composed value before it replaces anything. Validation then requires the
+  composed value before it replaces anything. With either shadow selected it
+  also reads back, from the same composed configuration and before anything
+  is replaced, the settings that make the service the shadow service: the
+  shadow role, its listener, the vote observer's switch and the two blank
+  signing-key settings. A composition that lost them is refused by name
+  (never by value) while the box's running containers are untouched.
+  Validation then requires the
   service's `/health` to match: with `commentsShadow`, `postComments` in
   observe mode, never enabled, its two read-only pools and no other, room for
   8 observations and 64 waiting read-backs, a cap of at most 6 a second;

@@ -23,7 +23,10 @@
 #     observed as handed back for that reason (shape_query), whether Node
 #     answered 200 (the conversation also in the body) or 400 (only there);
 #   - how many database connections the shadow service holds with both
-#     observers at work.
+#     observers at work;
+#   - the deploy hook's read-backs of the composed shadow service, run with
+#     jq on what Compose composes: the override the hook writes is accepted,
+#     and a composition that replaced the service's environment list is not.
 #
 # Usage, from the repository root:
 #   queue-rs/polis-api/conformance/shadow-stack.sh
