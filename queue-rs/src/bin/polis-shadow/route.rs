@@ -79,8 +79,9 @@ impl Route {
         ])
     }
 
-    /// The queries `run` issues, in order. `--distributions` adds
-    /// `distribution_queries`.
+    /// The queries `run` issues, in order. None reads a statement number:
+    /// the shadow's line carries none, and Node's (`node_next_tid`) is never
+    /// read.
     pub fn queries(&self) -> Vec<Query> {
         vec![
             self.lines(),
@@ -92,13 +93,6 @@ impl Route {
             self.latency(),
             self.join(),
             self.node_votes(),
-        ]
-    }
-
-    pub fn distribution_queries(&self) -> Vec<Query> {
-        vec![
-            self.draws("draws_node", "nn"),
-            self.draws("draws_rust", "rn"),
         ]
     }
 
@@ -539,65 +533,6 @@ impl Route {
             }],
             pad_s: 0,
             previous_week: true,
-        }
-    }
-
-    /// The paired draws: for each admitted copy that both Node and the shadow
-    /// served with a next statement (Node's an ordinary pick, not a topical
-    /// one), one count for the statement `which` side drew, per conversation.
-    /// Only `--distributions` runs these; their rows carry conversation and
-    /// statement numbers, which the tool keeps in memory and never prints.
-    fn draws(&self, name: &'static str, which: &'static str) -> Query {
-        let message = |m: &'static str| is("message", m);
-        let one = |name: &'static str| num_is(name, 1);
-        Query {
-            name,
-            about: if which == "nn" {
-                "Node's paired draws per conversation and statement (--distributions only)."
-            } else {
-                "The shadow's paired draws per conversation and statement (--distributions only)."
-            },
-            filter: and(vec![
-                E::Present("request_id"),
-                or(vec![self.node(), self.observation()]),
-            ]),
-            fields: vec![],
-            stages: vec![
-                Stats {
-                    aggs: vec![
-                        ("n_reply", Agg::Sum(message(self.node_line))),
-                        ("n_obs", Agg::Sum(message("shadow_observation"))),
-                        ("n_would", Agg::Sum(E::In("outcome", WOULD.to_vec()))),
-                        ("adm", Agg::Max("admitted")),
-                        ("node_st", Agg::Max("node_status")),
-                        ("rust_st", Agg::Max("status")),
-                        ("x_statement", Agg::Sum(is("node_next", "statement"))),
-                        ("f_complete", Agg::Sum(is("follow_on", "complete"))),
-                        ("conv", Agg::Max("zid")),
-                        ("nn", Agg::Max("node_next_tid")),
-                        ("rn", Agg::Max("next_tid")),
-                    ],
-                    by: vec![Key::Field("request_id")],
-                },
-                Stats {
-                    aggs: vec![(
-                        "pairs",
-                        Agg::Sum(and(vec![
-                            one("n_reply"),
-                            one("n_obs"),
-                            one("n_would"),
-                            one("adm"),
-                            num_is("node_st", 200),
-                            num_is("rust_st", 200),
-                            one("x_statement"),
-                            one("f_complete"),
-                        ])),
-                    )],
-                    by: vec![Key::Field("conv"), Key::Field(which)],
-                },
-            ],
-            pad_s: 0,
-            previous_week: false,
         }
     }
 }

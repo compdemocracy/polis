@@ -1569,9 +1569,12 @@ handler as a live request:
 One `shadow_observation` line is printed per copy, with `listener: "shadow"`:
 the request id, the outcome (`would_serve`, `would_hand_back`, `would_fail`,
 `shed`, `not_observed`), the would-be status and its reason, durations, the
-conversation and statement ids, the would-be next statement and its counts,
+conversation id, whether a next statement would be served and its counts,
 the membership class and the readback class. It never carries the vote value,
-a participant id, comment text, a token or a header value. Every other line
+a participant id, a statement id (neither the one voted on nor the next one:
+beside the conversation id and the time, one picks out a row of the
+conversation's public votes), comment text, a token or a header value. The
+readback and the membership class use the statement in process. Every other line
 the shadow prints is marked as the shadow's too (`service:
 "polis-api-shadow"` and `listener: "shadow"`, or an event name starting
 `shadow_`), so no query that counts the main process's vote lines counts them.

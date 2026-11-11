@@ -14,7 +14,7 @@
 //! Every line this process prints says it is the shadow's (`listener:
 //! "shadow"`, or an event name starting `shadow_`), because every container on
 //! a box writes into one log stream. No line carries a vote value, a member id,
-//! comment text, a token or any header value.
+//! a statement number, comment text, a token or any header value.
 use crate::{
     config, db,
     http::{self, Body, Outgoing, Request},
@@ -75,7 +75,6 @@ pub(crate) struct Record {
     pub(crate) admission: Option<Duration>,
     pub(crate) selection: Option<Duration>,
     pub(crate) follow_on: Option<&'static str>,
-    pub(crate) next_tid: Option<i32>,
     pub(crate) remaining: Option<i64>,
     pub(crate) total: Option<i64>,
     pub(crate) weights_tick: Option<i64>,
@@ -177,7 +176,12 @@ impl Lane {
 }
 
 /// One `shadow_observation` line. The keys and their order are the line's
-/// contract (`LINE_KEYS` in the tests).
+/// contract (`LINE_KEYS` in the tests). No key names a statement, neither the
+/// one voted on nor the one that would be served next: beside the
+/// conversation number and the time, a statement number picks out one row of
+/// the conversation's public votes, and with it a participant. What needs the
+/// number uses it in process and the line carries the class it found
+/// (`node_vote`, `prev`, `follow_on`).
 #[derive(Default)]
 struct Line<'a> {
     request_id: Option<&'a str>,
@@ -191,9 +195,8 @@ struct Line<'a> {
     total: Option<Duration>,
     readback_s: Option<f64>,
     zid: Option<i32>,
-    facts: (Option<i32>, bool, bool),
+    facts: (bool, bool),
     follow_on: Option<&'static str>,
-    next_tid: Option<i32>,
     remaining: Option<i64>,
     total_count: Option<i64>,
     candidates: Option<usize>,
@@ -218,7 +221,7 @@ fn text(value: Option<&str>) -> Js {
 
 impl Line<'_> {
     fn print(&self, app: &App) {
-        let (tid, starred, lang) = self.facts;
+        let (starred, lang) = self.facts;
         let mut line = Obj::new();
         line.set("message", Js::Str("shadow_observation".into()));
         line.set("listener", Js::Str("shadow".into()));
@@ -237,12 +240,10 @@ impl Line<'_> {
         line.set("total_ms", ms(self.total));
         line.set("readback_s", num(self.readback_s));
         line.set("zid", num(self.zid));
-        line.set("tid", num(tid));
         line.set("starred_present", Js::Bool(starred));
         line.set("lang_present", Js::Bool(lang));
         line.set("append", Js::Str("not_modelled".into()));
         line.set("follow_on", text(self.follow_on));
-        line.set("next_tid", num(self.next_tid));
         line.set("remaining", num(self.remaining.map(|n| n as f64)));
         line.set("total", num(self.total_count.map(|n| n as f64)));
         line.set("candidates", num(self.candidates.map(|n| n as f64)));
@@ -504,7 +505,6 @@ async fn observe(
         zid: taken.zid,
         facts: post_votes::copy_facts(&req),
         follow_on: taken.follow_on,
-        next_tid: taken.next_tid,
         remaining: taken.remaining,
         total_count: taken.total,
         candidates: taken.candidates.as_ref().map(Vec::len),

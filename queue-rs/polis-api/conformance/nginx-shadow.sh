@@ -7,8 +7,12 @@
 # the shadow except X-Request-Id; the shadow gets the same body and id; a
 # client-sent id is replaced; other methods, bodies outside 1 to 9999 bytes,
 # chunked bodies and other paths are not copied; the copy's location answers
-# direct requests 404; and nginx writes one shadow_mirror and one shadow_edge
-# line per copy (file-server/nginx/test-shadow-mirror.py).
+# direct requests 404; nginx writes one shadow_mirror and one shadow_edge
+# line per copy; and the ordinary access line of a shadowed vote is the
+# image's `main` line with the peer address and the X-Forwarded-For field
+# written "-", so no access line of the vote holds the address the request
+# came from or an address it carried, while Node receives that header exactly
+# as sent (file-server/nginx/test-shadow-mirror.py).
 #
 # With --load it also runs the participation-path test: 16 keepalive
 # connections of votes, each vote followed by a request on the same

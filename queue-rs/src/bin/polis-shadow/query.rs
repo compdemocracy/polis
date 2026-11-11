@@ -302,15 +302,11 @@ impl Query {
     }
 }
 
-/// Fields a final `stats ... by` may group on: classes, statuses, and the
-/// statement and conversation numbers the distribution input needs. Never a
-/// request id, a participant, a vote, a token or text.
+/// Fields a final `stats ... by` may group on: classes and statuses. Never a
+/// request id, a participant, a statement, a vote, a token or text.
 pub const GROUP_ALLOWLIST: &[&str] = &[
     "message",
     "zid",
-    "tid",
-    "next_tid",
-    "node_next_tid",
     "weights_tick",
     "outcome",
     "reason",
@@ -341,11 +337,17 @@ pub const MEASURE_ALLOWLIST: &[&str] = &[
     "duration_ms",
 ];
 
-/// Names that may never leave AWS in any form a query returns.
+/// Names that may never leave AWS in any form a query returns. The statement
+/// numbers are here because one beside a conversation number and a time picks
+/// out a row of that conversation's public votes: `tid` and `next_tid` are no
+/// longer on the shadow's line, and Node's `node_next_tid` is never read.
 pub const NEVER: &[&str] = &[
     "request_id",
     "pid",
     "uid",
+    "tid",
+    "next_tid",
+    "node_next_tid",
     "vote",
     "txt",
     "xid",

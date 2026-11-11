@@ -32,6 +32,25 @@ MIRROR_KEYS = {'message', 'listener', 'service', 'shadow', 'request_id', 'mirror
 MIRROR_STATUS = {'answer': 204, 'delay40': 504, 'delay5s': 504, 'silent': 504,
                  'close': 502, 'refuse': 502, 'absent': 502}
 RECORDING = {'answer', 'delay40', 'delay5s', 'silent'}
+# The X-Forwarded-For chain every test request carries, as a load balancer in
+# front of nginx sends it: the participant's address, then the edge's. Both
+# are documentation addresses.
+FORWARDED_FOR = '203.0.113.77, 198.51.100.9'
+ADDRESSES = ('203.0.113.77', '198.51.100.9')
+# The image's `main` access line: peer, user, time, request line, status,
+# bytes, Referer, User-Agent, X-Forwarded-For.
+ACCESS_LINE = re.compile(r'(\S+) - (\S+) \[([^\]]+)\] "([^"]*)" (\d{3}) (\d+) "([^"]*)" "([^"]*)" "([^"]*)"')
+FORWARDED_FOR_FIELD = '"$http_x_forwarded_for"'
+# The peer address: the participant's own where no load balancer is in front.
+PEER_FIELD = '$remote_addr'
+# A line of nginx's error log. It names the peer as `client:`.
+ERROR_LINE = re.compile(r'\d{4}/\d\d/\d\d \d\d:\d\d:\d\d \[\w+\] ')
+REQUEST_ID = re.compile(r'[0-9a-f]{32}')
+# Variables that can hold an address a client or a proxy sent.
+ADDRESS_VARIABLES = ('$http_x_forwarded_for', '$proxy_add_x_forwarded_for', '$http_x_real_ip',
+                     '$realip_remote_addr', '$http_forwarded', '$http_cf_connecting_ip',
+                     '$http_true_client_ip')
+LOG_FORMAT = re.compile(r"log_format\s+(\S+)\s+(?:escape=\S+\s+)?((?:'[^']*'\s*)+);")
 
 
 def docker(*args):
@@ -81,7 +100,8 @@ def vote(case, extra=''):
 
 def case_headers(case):
     return ['Content-Type: application/json', 'Authorization: Bearer stand-in-token',
-            f'X-Test-Case: {case}']
+            f'X-Test-Case: {case}', f'User-Agent: shadow-test/{case}',
+            f'X-Forwarded-For: {FORWARDED_FOR}']
 
 
 def find(entries, case):
@@ -109,7 +129,53 @@ def shadow_lines(prefix):
 
 def normalized(headers):
     """Node's request headers, without the values that differ by design."""
-    return [[k, '<case>' if k == 'x-test-case' else v] for k, v in headers if k != 'x-request-id']
+    return [[k, '<case>' if k in ('x-test-case', 'user-agent') else v] for k, v in headers
+            if k != 'x-request-id']
+
+
+def proxy_lines(prefix):
+    return docker('logs', prefix + '-proxy').splitlines()
+
+
+def access_fields(prefix, case):
+    """The fields of the one ordinary access line nginx wrote for a case."""
+    def found():
+        return [m.groups() for m in map(ACCESS_LINE.fullmatch, proxy_lines(prefix))
+                if m and m.group(8) == f'shadow-test/{case}']
+    lines = wait_for(found, f'access line of {case}')
+    time.sleep(0.2)
+    lines = found()
+    assert len(lines) == 1, f'{len(lines)} access lines for one request: {lines}'
+    return lines[0]
+
+
+def comparable(fields, case):
+    """An access line's fields that do not differ by request or by format:
+    all but the peer, the time and the X-Forwarded-For field, with the case
+    masked."""
+    return [fields[1], fields[3], fields[4], fields[5], fields[6], fields[7].replace(case, '<case>')]
+
+
+def log_formats(prefix, path):
+    text = docker('exec', prefix + '-proxy', 'cat', path)
+    return {name: ''.join(re.findall(r"'([^']*)'", pieces)) for name, pieces in LOG_FORMAT.findall(text)}
+
+
+def check_formats(prefix):
+    """The shadowed location's access format is the image's `main` with its
+    two address fields, the peer and X-Forwarded-For, each written as "-" in
+    its place; no shadow format reads the peer address or an address a client
+    or a proxy sent."""
+    main = log_formats(prefix, '/etc/nginx/nginx.conf')['main']
+    assert main.count(FORWARDED_FOR_FIELD) == 1 and main.endswith(FORWARDED_FOR_FIELD), main
+    assert main.count(PEER_FIELD) == 1 and main.startswith(PEER_FIELD + ' - '), main
+    shadow = log_formats(prefix, '/etc/nginx/rust-api/upstreams.conf')
+    assert set(shadow) == {'polis_shadow_edge', 'polis_shadow_mirror', 'polis_shadow_access'}, sorted(shadow)
+    expected = main.replace(FORWARDED_FOR_FIELD, '"-"').replace(PEER_FIELD, '-')
+    assert shadow['polis_shadow_access'] == expected, (shadow['polis_shadow_access'], main)
+    for name, text in shadow.items():
+        for variable in ADDRESS_VARIABLES + (PEER_FIELD,):
+            assert variable not in text, f'{name} reads {variable}'
 
 
 def baseline(prefix, out):
@@ -119,9 +185,18 @@ def baseline(prefix, out):
     assert status == 200, status
     (seen,) = wait_for(lambda: find(records(prefix + '-node'), case), 'baseline vote at Node')
     assert not header(seen, 'x-request-id'), 'nothing selected: Node got a request id'
+    assert header(seen, 'x-forwarded-for') == [FORWARDED_FOR], seen['headers']
+    # With nothing selected the access line is `main`, addresses included:
+    # what the shadowed location's line is compared with. Its first field is
+    # the address this test's requests reach nginx from, with no load
+    # balancer between: the known client address of every later request.
+    fields = access_fields(prefix, case)
+    assert fields[8] == FORWARDED_FOR, fields
+    assert fields[0] != '-' and re.search(r'\d', fields[0]), fields
     with open(out, 'w') as file:
         json.dump({'headers': normalized(seen['headers']), 'response_headers': sorted(
-            k for k, _ in headers if k not in ('date',)), 'body': body.decode()}, file)
+            k for k, _ in headers if k not in ('date',)), 'body': body.decode(),
+            'access': comparable(fields, case), 'peer': fields[0]}, file)
     print('ok baseline: Node\'s view of a vote with nothing selected', flush=True)
 
 
@@ -147,6 +222,8 @@ def check_vote(prefix, port, mode, base, extra_headers=(), client_id=None):
         assert ids[0] != client_id, f'{mode}: a client-sent request id reached Node'
     # A client-sent X-Request-Id is replaced, not added to.
     assert normalized(seen['headers']) == base['headers'], (mode, seen['headers'], base['headers'])
+    # Node still receives the forwarded addresses, exactly as sent.
+    assert header(seen, 'x-forwarded-for') == [FORWARDED_FOR], (mode, seen['headers'])
     assert seen['sha256'] == hashlib.sha256(body).hexdigest()
     request_id = ids[0]
     # The shadow receives the same body under the same id, once.
@@ -179,6 +256,20 @@ def check_vote(prefix, port, mode, base, extra_headers=(), client_id=None):
         assert mirrors[0]['mirror_upstream_status'] == '', mirrors
     else:
         assert mirrors[0]['mirror_upstream_status'] not in ('', '-'), mirrors
+    # The ordinary access line of a shadowed vote is `main` with the peer
+    # address and the X-Forwarded-For field each written "-": every other
+    # field as without the shadow, and neither the address the request came
+    # from nor an address it carried.
+    fields = access_fields(prefix, case)
+    assert fields[0] == '-', f'{mode}: the access line records the peer address: {fields}'
+    assert fields[8] == '-', f'{mode}: the access line records X-Forwarded-For: {fields}'
+    assert comparable(fields, case) == base['access'], (mode, fields, base['access'])
+    # No line that names this request (its access line, its edge line, its
+    # copy's line) holds any of them.
+    for line in proxy_lines(prefix):
+        if case in line or request_id in line:
+            for address in ADDRESSES + (base['peer'],):
+                assert address not in line, f'{mode}: a line of a shadowed vote holds {address}: {line}'
     return request_id, mirrors[0]
 
 
@@ -186,6 +277,7 @@ def behaviour(prefix, mode, base_file):
     with open(base_file) as file:
         base = json.load(file)
     port = proxy_port(prefix)
+    check_formats(prefix)
     request_id, mirror = check_vote(prefix, port, mode, base)
     print(f'ok {mode}: the participant gets Node\'s exact answer; Node gets the vote once, with the same '
           f'headers plus X-Request-Id; one edge line and one copy line ({mirror["mirror_status"]} '
@@ -194,6 +286,9 @@ def behaviour(prefix, mode, base_file):
     # A client-sent request id is replaced, on both sides.
     check_vote(prefix, port, mode, base, ['X-Request-Id: client-chosen-id'], client_id='client-chosen-id')
     print(f'ok {mode}: a client-sent X-Request-Id is replaced by nginx\'s own', flush=True)
+    print(f'ok {mode}: the access line of a shadowed vote is `main` with the peer address and '
+          f'X-Forwarded-For written "-"; no line naming the vote holds the address it came from or one it '
+          f'carried; Node receives the header as sent', flush=True)
     # What is never copied: other methods, bodies outside 1..9999 bytes or of
     # unknown length, and paths other than the exact one.
     cases = {
@@ -230,8 +325,15 @@ def behaviour(prefix, mode, base_file):
             assert len(mirrors) == 1 and mirrors[0]['mirror_status'] == 204, (name, mirrors)
             # escape=json logs an unset upstream status as an empty string.
             assert mirrors[0]['mirror_upstream_status'] == '', (name, mirrors)
+            # It is still a request of the shadowed location: no address.
+            fields = access_fields(prefix, case)
+            assert (fields[0], fields[8]) == ('-', '-'), (mode, name, fields)
         else:
             assert ids == [], f'{mode}: {name} went through the shadow path'
+            # Any other location's access line is `main`, as before: the
+            # known client address first, the forwarded addresses last.
+            fields = access_fields(prefix, case)
+            assert (fields[0], fields[8]) == (base['peer'], FORWARDED_FOR), (mode, name, fields)
     print(f'ok {mode}: GET, HEAD, PUT, empty, 10000 and 20000 byte and chunked bodies, a trailing slash '
           f'and a mixed-case path reach Node once and are not copied', flush=True)
     # The copy's location is internal.
@@ -241,6 +343,36 @@ def behaviour(prefix, mode, base_file):
         assert status == 404, (mode, method, status)
     assert len(records(prefix + '-node')) == before, 'a direct request to the copy location reached Node'
     print(f'ok {mode}: a direct request to the copy location is answered 404', flush=True)
+    # Everything nginx wrote in this mode, access log and error log alike:
+    # a line that holds a forwarded address is the `main` line of a request
+    # that is not a POST to the shadowed path.
+    held = [line for line in proxy_lines(prefix) if any(address in line for address in ADDRESSES)]
+    assert held, f'{mode}: no other request logged its forwarded address'
+    for line in held:
+        fields = ACCESS_LINE.fullmatch(line)
+        assert fields and fields.group(4) != 'POST /api/v3/votes HTTP/1.1', (
+            f'{mode}: a forwarded address beside a shadowed vote: {line}')
+    # The address the requests came from: on the `main` line of a request
+    # that is not a POST to the shadowed path, or on a line of nginx's error
+    # log (`client:`), which names no request id. Never on any other line.
+    ids = {m['request_id'] for m in shadow_lines(prefix)}
+    assert ids, f'{mode}: no shadow line'
+    peer = [line for line in proxy_lines(prefix) if base['peer'] in line]
+    errors = 0
+    for line in peer:
+        fields = ACCESS_LINE.fullmatch(line)
+        if fields:
+            assert fields.group(4) != 'POST /api/v3/votes HTTP/1.1', (
+                f'{mode}: the peer address beside a shadowed vote: {line}')
+            continue
+        assert ERROR_LINE.match(line), f'{mode}: the peer address on a line of another kind: {line}'
+        assert not ids & set(REQUEST_ID.findall(line)), f'{mode}: an error line names a request id: {line}'
+        errors += 1
+    assert len(peer) - errors >= len(held), (mode, len(peer), errors, len(held))
+    print(f'ok {mode}: of {len(proxy_lines(prefix))} lines nginx wrote, the {len(held)} that hold a forwarded '
+          f'address are all `main` lines of requests that are not a POST to the path; the address the '
+          f'requests came from is on {len(peer) - errors} such `main` lines and on {errors} error-log lines, '
+          f'which name no request id', flush=True)
     # Informational: how long the next request on the same connection waits.
     waits = hold(port, 30)
     print(f'info {mode}: next request on the same connection p50 {pct(waits, 50):.2f} ms, '
