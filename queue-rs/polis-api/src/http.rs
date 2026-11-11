@@ -318,7 +318,11 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
         && req
             .path
             .is_some_and(|p| p.split('?').next() == Some(crate::post_treevite_waves::PATH));
-    let mut hand_back = transfer_encoded && (write_path || vote_path || wave_path);
+    let comment_path = req.method == Some("POST")
+        && req
+            .path
+            .is_some_and(|p| p.split('?').next() == Some(crate::post_comments::PATH));
+    let mut hand_back = transfer_encoded && (write_path || vote_path || wave_path || comment_path);
     if transfer_encoded && !hand_back {
         bail!("chunked request bodies are not accepted");
     }
@@ -332,6 +336,7 @@ fn parse_head(buf: &[u8]) -> Result<Option<Head>> {
     if (write_path && body_len > crate::topic_selection_writes::MAX_BODY_BYTES)
         || (vote_path && body_len > crate::post_votes::MAX_BODY_BYTES)
         || (wave_path && body_len > crate::post_treevite_waves::MAX_BODY_BYTES)
+        || (comment_path && body_len > crate::post_comments::MAX_BODY_BYTES)
     {
         hand_back = true;
         body_len = 0;
@@ -519,6 +524,12 @@ where
                 crate::post_votes::mark_handback(&mut response);
                 crate::post_votes::observe(&response);
             }
+            if head.method == "POST"
+                && head.target.split('?').next() == Some(crate::post_comments::PATH)
+            {
+                crate::post_comments::mark_handback(&mut response);
+                crate::post_comments::observe(&response);
+            }
             response.close = true;
             let bytes = write_response_for(&response, false, false, head.http10, &date_now())?;
             tokio::time::timeout_at(deadline, socket.write_all(&bytes)).await??;
@@ -660,6 +671,80 @@ mod tests {
             assert!(response.contains("X-Polis-Vote-Dispatch: not-started\r\n"));
             server.await.unwrap();
         }
+    }
+
+    /// A comment whose body this server would not read (chunked, or longer
+    /// than the comment handler admits) is handed back unread, marked as a
+    /// hand-back before dispatch, and the connection is closed.
+    #[tokio::test]
+    async fn chunked_and_oversized_comments_hand_back_unread_and_marked() {
+        let over = crate::post_comments::MAX_BODY_BYTES + 1;
+        for framing in [
+            "Transfer-Encoding: chunked".to_owned(),
+            format!("Content-Length: {over}"),
+            format!("Content-Length: {}", LIMIT + 1),
+            format!("Content-Length: {}", usize::MAX),
+        ] {
+            for suffix in ["", "?unsupported=true"] {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let server = tokio::spawn(async move {
+                    let (socket, _) = listener.accept().await.unwrap();
+                    connection(
+                        socket,
+                        Arc::new(|_| async {
+                            panic!("an unread comment must never reach the handler")
+                        }),
+                    )
+                    .await
+                    .unwrap();
+                });
+                let mut client = TcpStream::connect(address).await.unwrap();
+                // Only the head is sent: the hand-back does not wait for a body.
+                client
+                    .write_all(
+                        format!(
+                            "POST /api/v3/comments{suffix} HTTP/1.1\r\nHost: localhost\r\n{framing}\r\n\r\n"
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+                let mut response = Vec::new();
+                tokio::time::timeout(Duration::from_secs(1), client.read_to_end(&mut response))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let response = String::from_utf8(response).unwrap();
+                assert!(
+                    response.starts_with("HTTP/1.1 502 Bad Gateway\r\n"),
+                    "{framing}: {response}"
+                );
+                assert!(response.contains("Connection: close\r\n"));
+                assert!(response.contains("X-Polis-Comment-Dispatch: not-started\r\n"));
+                assert!(!response.contains("X-Polis-Vote-Dispatch"));
+                server.await.unwrap();
+            }
+        }
+        // The largest admitted body is read; a GET on the same path keeps
+        // the listener's general rule.
+        let head = parse_head(
+            format!(
+                "POST /api/v3/comments HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n",
+                crate::post_comments::MAX_BODY_BYTES
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!head.hand_back);
+        assert_eq!(head.body_len, crate::post_comments::MAX_BODY_BYTES);
+        assert!(
+            parse_head(
+                b"GET /api/v3/comments HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+            )
+            .is_err()
+        );
     }
 
     #[test]

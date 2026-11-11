@@ -267,6 +267,8 @@ pub struct App {
     pub next_comment_db: Option<Arc<Pool>>,
     pub next_comment_plain: bool,
     pub post_votes: Option<crate::post_votes::Writer>,
+    /// The live comment handler. Off unless POLIS_API_POST_COMMENTS=1.
+    pub post_comments: Option<crate::post_comments::Writer>,
     /// The vote writer in observe mode: built only by the shadow role.
     pub post_votes_observe: Option<crate::post_votes::Observer>,
     pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
@@ -517,6 +519,7 @@ impl App {
             next_comment_db: None,
             next_comment_plain: false,
             post_votes: None,
+            post_comments: None,
             post_votes_observe: None,
             post_treevite_waves: None,
             treevite_write: None,
@@ -1285,6 +1288,12 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
         }
         crate::post_votes::observe(&out);
     }
+    if req.path() == crate::post_comments::PATH && req.method == "POST" {
+        if out.status == 502 {
+            crate::post_comments::mark_handback(&mut out);
+        }
+        crate::post_comments::observe(&out);
+    }
     if crate::votes_read::matches(req.path())
         && !(req.path() == crate::post_votes::PATH
             && req.method == "POST"
@@ -1612,10 +1621,12 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.next_comment_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    // A posted comment is not one of the participant reads these two count.
     if matches!(
         req.path(),
         crate::comments::PATH | crate::next_comment::PATH
     ) && req.headers.get("authorization").is_some()
+        && !(req.path() == crate::post_comments::PATH && req.method == "POST")
     {
         if out.status == 502 {
             app.participant_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1976,6 +1987,12 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::post_comments::PATH
+        && req.method == "POST"
+        && !crate::post_comments::eligible(app, req)
+    {
+        return bad_gateway();
+    }
     if crate::treevite_write::matches(req.path())
         && (app.treevite_write.is_none() || req.method != "POST")
     {
@@ -2049,6 +2066,9 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if req.path() == crate::post_votes::PATH && req.method == "POST" {
         return crate::post_votes::handle(app, req, res).await;
+    }
+    if req.path() == crate::post_comments::PATH && req.method == "POST" {
+        return crate::post_comments::handle(app, req, res).await;
     }
     if crate::treevite_write::matches(req.path()) {
         return crate::treevite_write::handle(app, req, &body, res).await;

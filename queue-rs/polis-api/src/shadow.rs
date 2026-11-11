@@ -628,6 +628,15 @@ pub(crate) fn configure() -> Result<Shadow> {
             anyhow::bail!("the shadow role never builds the live vote writer")
         }
     }
+    // The comment handler's switch is read here so that a value this role
+    // does not accept stops the process. `observe` is accepted and builds
+    // nothing yet: no pool, no observer, and no comment is served or observed.
+    match crate::post_comments::configure(Role::Shadow, app.participant_keys.as_ref())? {
+        crate::post_comments::Configured::Off | crate::post_comments::Configured::Observe => {}
+        crate::post_comments::Configured::Live(_) => {
+            anyhow::bail!("the shadow role never builds the live comment writer")
+        }
+    }
     Ok(Shadow {
         app,
         lane: Lane::new(max_per_second),
