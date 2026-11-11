@@ -121,6 +121,9 @@ pub enum Agg {
     /// the condition holds.
     Sum(E),
     Max(&'static str),
+    /// `min(field)`. Used for a request's earliest line time, which places a
+    /// request id in exactly one slice of the window.
+    Min(&'static str),
     /// `sum(field)` of a first-stage count: the total of those counts.
     Total(&'static str),
     /// `pct(field, p)`.
@@ -134,6 +137,22 @@ pub enum Key {
     Field(&'static str),
     /// `bin(1h)`.
     Hour,
+    /// `bin(5m)`: the request counts a run plans its join's slices from.
+    FiveMinutes,
+    /// `bin(1d)`: for a route too quiet for an hour to hold enough requests.
+    Day,
+}
+
+impl Key {
+    /// The name a time bin is returned under.
+    pub fn bin_name(self) -> Option<&'static str> {
+        match self {
+            Key::Hour => Some("hour"),
+            Key::FiveMinutes => Some("slot"),
+            Key::Day => Some("day"),
+            Key::Field(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -160,6 +179,20 @@ pub struct Query {
     /// Also run over the same window a week earlier (the stop rule's
     /// baseline); its rows are stored as `<name>_previous`.
     pub previous_week: bool,
+    /// Read over the stop rule's span (the last eight days of the window,
+    /// `route::stop_span`) and not the whole window: the stop rule is about
+    /// what the copy is doing to production now, not about the evidence.
+    pub recent: bool,
+    /// Run over consecutive pieces of the window of at most this many
+    /// seconds, and the pieces' rows put together; 0 for a query run over
+    /// the window in one piece. For a query whose rows are bins of time,
+    /// which a long window has more of than Logs Insights returns.
+    pub chunk_s: i64,
+    /// Run once for each slice of the window and added up (`slices.rs`): a
+    /// query whose first stage has one row for each request, so that no
+    /// stage of it comes near the most rows Logs Insights handles. Its final
+    /// stage holds counts only, which add.
+    pub sliced: bool,
 }
 
 /// The window bounds a rendering fills in.
@@ -252,6 +285,7 @@ fn agg_text(agg: &Agg, bounds: Bounds) -> String {
         Agg::Count => "count(*)".into(),
         Agg::Sum(e) => format!("sum({})", expr_text(e, bounds)),
         Agg::Max(field) => format!("max({field})"),
+        Agg::Min(field) => format!("min({field})"),
         Agg::Total(field) => format!("sum({field})"),
         Agg::Pct(field, p) => format!("pct({field}, {p})"),
         Agg::CountDistinct(field) => format!("count_distinct({field})"),
@@ -284,6 +318,8 @@ impl Query {
                     .map(|key| match key {
                         Key::Field(name) => (*name).to_owned(),
                         Key::Hour => "bin(1h) as hour".to_owned(),
+                        Key::FiveMinutes => "bin(5m) as slot".to_owned(),
+                        Key::Day => "bin(1d) as day".to_owned(),
                     })
                     .collect();
                 line.push_str(" by ");
@@ -300,6 +336,34 @@ impl Query {
     pub fn two_stage(&self) -> bool {
         self.stages.len() == 2
     }
+
+    /// The final stage's group keys, by the names its rows carry them under.
+    pub fn final_keys(&self) -> Vec<&'static str> {
+        self.stages
+            .last()
+            .map(|stage| {
+                stage
+                    .by
+                    .iter()
+                    .map(|key| match key {
+                        Key::Field(name) => *name,
+                        other => other.bin_name().unwrap_or(""),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Whether every value of the final stage is a count, so that the rows
+    /// of two disjoint slices of the window add up to the rows of both.
+    pub fn additive(&self) -> bool {
+        self.stages.last().is_some_and(|stage| {
+            stage
+                .aggs
+                .iter()
+                .all(|(_, agg)| matches!(agg, Agg::Count | Agg::Sum(_) | Agg::Total(_)))
+        })
+    }
 }
 
 /// Fields a final `stats ... by` may group on: classes and statuses. Never a
@@ -313,6 +377,7 @@ pub const GROUP_ALLOWLIST: &[&str] = &[
     "status",
     "edge_status",
     "node_status",
+    "http.status_code",
     "node_next",
     "mirror_status",
     "mirror_upstream_status",
@@ -320,6 +385,19 @@ pub const GROUP_ALLOWLIST: &[&str] = &[
     "node_vote",
     "prev",
     "admitted",
+    // The comment observer's classes: each a boolean or a word from a closed
+    // set (docs/post-comments-rust-handler.md, "Observe mode").
+    "strict",
+    "vote_present",
+    "seed_present",
+    "body_class",
+    "text_row",
+    "node_comment",
+    "node_txt",
+    "node_txt_difference",
+    "node_author",
+    "node_row",
+    "node_lang",
 ];
 
 /// Fields a final stage may take a maximum or a percentile of: durations.
@@ -356,6 +434,13 @@ pub const NEVER: &[&str] = &[
     "useragent",
     "network.client.ip",
     "http.url",
+    // The comment observer prints a text's lengths beside a stored text that
+    // differs. An exact length picks a comment out of a conversation's public
+    // list, so no query may bring one out.
+    "txt_units",
+    "node_txt_units",
+    "txt_bytes",
+    "node_txt_bytes",
 ];
 
 /// Why a query may not run, or None. The rule: the first of two stages groups
@@ -389,7 +474,7 @@ pub fn refusal(q: &Query) -> Option<String> {
         match first {
             None => Ok(Some(name)),
             Some(first) => match first.aggs.iter().find(|(out, _)| *out == name) {
-                Some((_, Agg::Max(field))) => Ok(Some(*field)),
+                Some((_, Agg::Max(field) | Agg::Min(field))) => Ok(Some(*field)),
                 Some((_, Agg::Sum(_) | Agg::Count | Agg::Total(_))) => Ok(None),
                 Some((_, other)) => Err(format!(
                     "{}: final stage uses {name}, a first-stage {other:?}",
@@ -425,7 +510,7 @@ pub fn refusal(q: &Query) -> Option<String> {
                     ));
                 }
             }
-            Agg::Max(field) | Agg::Pct(field, _) => match source(field) {
+            Agg::Max(field) | Agg::Min(field) | Agg::Pct(field, _) => match source(field) {
                 Ok(Some(f)) if MEASURE_ALLOWLIST.contains(&f) => {}
                 _ => {
                     return Some(format!(
@@ -517,9 +602,11 @@ fn clash(q: &Query) -> Option<String> {
             match agg {
                 Agg::Count => {}
                 Agg::Sum(e) => seen.extend(names(e)),
-                Agg::Max(f) | Agg::Total(f) | Agg::Pct(f, _) | Agg::CountDistinct(f) => {
-                    seen.push(f)
-                }
+                Agg::Max(f)
+                | Agg::Min(f)
+                | Agg::Total(f)
+                | Agg::Pct(f, _)
+                | Agg::CountDistinct(f) => seen.push(f),
             }
         }
         for key in &stage.by {
@@ -532,10 +619,12 @@ fn clash(q: &Query) -> Option<String> {
                 return Some(why);
             }
         }
-        if stage.by.contains(&Key::Hour)
-            && let Some(why) = define("hour", &mut seen)
-        {
-            return Some(why);
+        for key in &stage.by {
+            if let Some(name) = key.bin_name()
+                && let Some(why) = define(name, &mut seen)
+            {
+                return Some(why);
+            }
         }
     }
     None

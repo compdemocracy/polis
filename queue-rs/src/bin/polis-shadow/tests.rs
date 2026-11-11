@@ -6,30 +6,35 @@ use crate::aws::{self, Aws, Reply, Row, Window};
 use crate::eval::{self, Line};
 use crate::query::{self, Agg, Bounds, E, Key, Query, Stats};
 use crate::report::{self, Mark, Verdict};
-use crate::route::{self, Route, VOTES};
+use crate::route::{self, COMMENTS, Route, VOTES};
 use crate::{Command, RunArgs, parse_args, time};
 use serde_json::{Value, json};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-const FROM: &str = "2026-11-09T00:00:00Z";
-const TO: &str = "2026-11-10T00:00:00Z";
+pub(crate) const FROM: &str = "2026-11-09T00:00:00Z";
+pub(crate) const TO: &str = "2026-11-10T00:00:00Z";
 
-fn window() -> Window {
+/// The present, for a run over the fixture window: a day after its end.
+pub(crate) fn now() -> i64 {
+    window().to_s + 86_400
+}
+
+pub(crate) fn window() -> Window {
     Window {
         from_s: time::parse(FROM).unwrap(),
         to_s: time::parse(TO).unwrap(),
     }
 }
 
-fn id(n: u64) -> String {
+pub(crate) fn id(n: u64) -> String {
     format!("{n:032x}")
 }
 
 // ---------------------------------------------------------------- producers
 
 /// nginx's `polis_shadow_edge` format (file-server/nginx/rust-api/shadow-http.conf.template).
-fn edge(id: &str, at: i64, status: u16, node_s: &str) -> (i64, String) {
+pub(crate) fn edge(id: &str, at: i64, status: u16, node_s: &str) -> (i64, String) {
     (
         at,
         json!({
@@ -58,7 +63,7 @@ fn mirror(id: &str, at: i64, status: u16, upstream: &str, seconds: f64) -> (i64,
 }
 
 #[derive(Clone, Copy)]
-enum Next {
+pub(crate) enum Next {
     Statement {
         tid: i64,
         remaining: i64,
@@ -72,7 +77,7 @@ enum Next {
 
 /// Node's `vote_reply` as winston writes it (server/src/routes/votes.ts):
 /// level, message, the line's fields, service, timestamp.
-fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>) -> (i64, String) {
+pub(crate) fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>) -> (i64, String) {
     let mut line = json!({
         "level": if status >= 500 { "error" } else if status >= 400 { "warn" } else { "info" },
         "message": "vote_reply", "listener": "shadow", "route": "POST /api/v3/votes",
@@ -129,7 +134,7 @@ fn access_taking(id: Option<&str>, at: i64, status: u16, ms: f64) -> (i64, Strin
     (at, line.to_string())
 }
 
-const WEEK_S: i64 = 7 * 86_400;
+pub(crate) const WEEK_S: i64 = 7 * 86_400;
 
 /// The shadow's `shadow_observation` keys, in its order (polis-api
 /// `shadow.rs`, `Line::print`).
@@ -256,7 +261,7 @@ fn observation(id: &str, at: i64, o: &Obs) -> (i64, String) {
 // ---------------------------------------------------------------- scenarios
 
 #[derive(Clone, Copy)]
-enum Case {
+pub(crate) enum Case {
     /// Both serve a statement; the counts agree.
     Agree,
     /// Both find nothing left.
@@ -294,14 +299,14 @@ enum Case {
     NotReadBack,
 }
 
-struct Fixture {
-    lines: Vec<(i64, String)>,
-    next: u64,
-    at: i64,
+pub(crate) struct Fixture {
+    pub(crate) lines: Vec<(i64, String)>,
+    pub(crate) next: u64,
+    pub(crate) at: i64,
 }
 
 impl Fixture {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Fixture {
             lines: vec![],
             next: 1,
@@ -311,7 +316,7 @@ impl Fixture {
 
     /// One vote of a case. Node's line names the statement it served next
     /// (`node_next_tid`, as Node writes it); the shadow's names none.
-    fn vote(&mut self, zid: i64, case: Case) -> String {
+    pub(crate) fn vote(&mut self, zid: i64, case: Case) -> String {
         let n = self.next;
         self.next += 1;
         self.at += 7_000;
@@ -459,7 +464,7 @@ impl Fixture {
         id
     }
 
-    fn eval_lines(&self) -> Vec<Line> {
+    pub(crate) fn eval_lines(&self) -> Vec<Line> {
         self.lines
             .iter()
             .map(|(at, json)| eval::line(*at, json))
@@ -469,7 +474,7 @@ impl Fixture {
 
 /// The stop rule's metrics for a quiet week: CPU 20 %, p99 0.2 s both weeks,
 /// target 5xx 3 a day against 5.
-fn quiet_metrics(w: Window) -> BTreeMap<String, Vec<(i64, f64)>> {
+pub(crate) fn quiet_metrics(w: Window) -> BTreeMap<String, Vec<(i64, f64)>> {
     let mut m = BTreeMap::new();
     let points = |from: i64, to: i64, step: i64, v: f64| {
         (from..to)
@@ -496,22 +501,33 @@ fn quiet_metrics(w: Window) -> BTreeMap<String, Vec<(i64, f64)>> {
 
 /// Serves `start-query` by running the compiled query whose text it was sent
 /// over the fixture lines, and `get-metric-statistics` from fixture series.
-struct FakeAws {
-    lines: Vec<Line>,
-    metrics: BTreeMap<String, Vec<(i64, f64)>>,
-    window: Window,
-    refuse_two_stage: bool,
-    results: RefCell<Vec<Vec<Row>>>,
-    issued: RefCell<Vec<String>>,
+pub(crate) struct FakeAws {
+    pub(crate) lines: Vec<Line>,
+    pub(crate) metrics: BTreeMap<String, Vec<(i64, f64)>>,
+    pub(crate) window: Window,
+    pub(crate) route: Route,
+    pub(crate) refuse_two_stage: bool,
+    /// Lines that arrive after this many queries have been issued, as lines
+    /// still in delivery do.
+    pub(crate) late: Vec<(usize, Line)>,
+    /// A result made this many rows long, by query name (its first row
+    /// repeated, or rows dropped).
+    pub(crate) resize: Option<(&'static str, usize)>,
+    /// An account that keeps at most this many rows of a first stage.
+    pub(crate) first_stage_cap: Option<usize>,
+    pub(crate) results: RefCell<Vec<Vec<Row>>>,
+    pub(crate) issued: RefCell<Vec<String>>,
+    /// Each query issued: its name and the window it was issued for.
+    pub(crate) asked: RefCell<Vec<(&'static str, i64, i64)>>,
 }
 
 impl FakeAws {
     /// A further line in the window (Node's access lines for the vote rules).
-    fn push(&mut self, (at, json): (i64, String)) {
+    pub(crate) fn push(&mut self, (at, json): (i64, String)) {
         self.lines.push(eval::line(at, &json));
     }
 
-    fn new(fixture: &Fixture) -> Self {
+    pub(crate) fn new(fixture: &Fixture) -> Self {
         // The stop rule's baseline: Node's access lines the same week, a
         // week earlier, so the vote rules compare like with like.
         let mut lines = fixture.eval_lines();
@@ -524,9 +540,14 @@ impl FakeAws {
             lines,
             metrics: quiet_metrics(window()),
             window: window(),
+            route: VOTES,
             refuse_two_stage: false,
+            late: vec![],
+            resize: None,
+            first_stage_cap: None,
             results: RefCell::new(vec![]),
             issued: RefCell::new(vec![]),
+            asked: RefCell::new(vec![]),
         }
     }
 }
@@ -548,8 +569,9 @@ impl Aws for FakeAws {
         match (args[0].as_str(), args[1].as_str()) {
             ("logs", "start-query") => {
                 let text = arg(args, "--query-string");
+                let issued_before = self.issued.borrow().len();
                 self.issued.borrow_mut().push(text.to_owned());
-                let queries = VOTES.queries();
+                let queries = self.route.queries();
                 let start: i64 = arg(args, "--start-time").parse().unwrap();
                 let end: i64 = arg(args, "--end-time").parse().unwrap();
                 let q = queries
@@ -563,15 +585,32 @@ impl Aws for FakeAws {
                     })
                     .expect("only compiled queries are issued");
                 let (from_s, to_s) = (start + q.pad_s, end - q.pad_s);
-                // The window, or for the stop rule's baseline the same window
-                // a week earlier.
-                assert!(
-                    from_s == self.window.from_s
-                        || (q.previous_week && from_s == self.window.from_s - WEEK_S),
-                    "{}",
-                    q.name
-                );
-                assert_eq!(to_s - from_s, self.window.to_s - self.window.from_s);
+                self.asked.borrow_mut().push((q.name, from_s, to_s));
+                if q.sliced || q.chunk_s > 0 {
+                    // A slice of the window, or a piece of it.
+                    assert!(
+                        from_s >= self.window.from_s && to_s <= self.window.to_s && from_s < to_s,
+                        "{}",
+                        q.name
+                    );
+                } else {
+                    // The window, or for the stop rule's baseline the same
+                    // window a week earlier.
+                    // The window (the stop rule's span of it, for a query
+                    // read over that), or the same a week earlier.
+                    let span = if q.recent {
+                        route::stop_span(self.window)
+                    } else {
+                        self.window
+                    };
+                    assert!(
+                        from_s == span.from_s
+                            || (q.previous_week && from_s == span.from_s - WEEK_S),
+                        "{}",
+                        q.name
+                    );
+                    assert_eq!(to_s - from_s, span.to_s - span.from_s);
+                }
                 if self.refuse_two_stage && q.two_stage() {
                     return Ok(Reply {
                         ok: false,
@@ -579,7 +618,19 @@ impl Aws for FakeAws {
                         stderr: "An error occurred (MalformedQueryException) when calling the StartQuery operation: unexpected symbol found stats".into(),
                     });
                 }
-                let rows = eval::run(q, &self.lines, from_s, to_s);
+                let mut lines = std::borrow::Cow::Borrowed(&self.lines);
+                for (after, line) in &self.late {
+                    if issued_before >= *after {
+                        lines.to_mut().push(line.clone());
+                    }
+                }
+                let mut rows = eval::run_capped(q, &lines, from_s, to_s, self.first_stage_cap);
+                if let Some((name, length)) = self.resize
+                    && name == q.name
+                    && let Some(first) = rows.first().cloned()
+                {
+                    rows.resize(length, first);
+                }
                 let mut results = self.results.borrow_mut();
                 results.push(rows);
                 ok(json!({ "queryId": format!("q{}", results.len() - 1) }).to_string())
@@ -604,7 +655,9 @@ impl Aws for FakeAws {
                 let start = time::parse(arg(args, "--start-time")).unwrap();
                 let end = time::parse(arg(args, "--end-time")).unwrap();
                 let metric = arg(args, "--metric-name");
-                let previous = start < self.window.from_s;
+                // The stop rule's metrics are asked for its own span of the
+                // window, and for the same span a week earlier.
+                let previous = start < route::stop_span(self.window).from_s;
                 let name = match (metric, previous) {
                     ("CPUUtilization", _) => "db_cpu",
                     ("TargetResponseTime", false) => "lb_p99",
@@ -639,7 +692,7 @@ impl Aws for FakeAws {
     fn pause(&self, _: std::time::Duration) {}
 }
 
-fn run_args() -> RunArgs {
+pub(crate) fn run_args() -> RunArgs {
     RunArgs {
         route: "votes",
         window: (window().from_s, window().to_s),
@@ -651,13 +704,17 @@ fn run_args() -> RunArgs {
     }
 }
 
-fn run(aws: &FakeAws) -> report::Report {
-    crate::run(aws, &run_args(), &mut std::io::sink()).unwrap()
+pub(crate) fn run(aws: &FakeAws) -> report::Report {
+    let args = RunArgs {
+        route: aws.route.key,
+        ..run_args()
+    };
+    crate::run(aws, &args, now(), &mut std::io::sink()).unwrap()
 }
 
 /// Enough evidence for the week: 60 conversations, 6,000 agreeing votes, plus
 /// a few of each explained case.
-fn passing_fixture() -> Fixture {
+pub(crate) fn passing_fixture() -> Fixture {
     let mut fx = Fixture::new();
     for c in 0..60 {
         let zid = 73_001 + c;
@@ -686,17 +743,13 @@ fn passing_fixture() -> Fixture {
 
 #[test]
 fn every_compiled_query_passes_the_allowlist() {
-    let second = Route {
-        key: "comments",
-        shadow: "commentsShadow",
-        route: "POST /api/v3/comments",
-        method: "POST",
-        node_line: "comment_reply",
-        path: "/api/v3/comments",
-    };
-    for r in [VOTES, second] {
+    for (r, count) in [(VOTES, 10), (COMMENTS, 11)] {
         let queries = r.queries();
-        assert_eq!(queries.len(), 9);
+        assert_eq!(queries.len(), count);
+        let mut names: Vec<&str> = queries.iter().map(|q| q.name).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), count, "{}: a query name is used twice", r.key);
         for q in &queries {
             assert_eq!(query::refusal(q), None, "{}", q.name);
             // No compiled query reads a statement number, from any line.
@@ -734,6 +787,9 @@ fn the_allowlist_refuses_what_would_leave_aws() {
         stages,
         pad_s: 0,
         previous_week: false,
+        recent: false,
+        chunk_s: 0,
+        sliced: false,
     };
     let count_by = |keys: Vec<Key>| Stats {
         aggs: vec![("n", Agg::Count)],
@@ -848,6 +904,9 @@ fn the_allowlist_refuses_a_statement_number() {
         stages,
         pad_s: 0,
         previous_week: false,
+        recent: false,
+        chunk_s: 0,
+        sliced: false,
     };
     let count_by = |keys: Vec<Key>| Stats {
         aggs: vec![("n", Agg::Count)],
@@ -934,7 +993,14 @@ fn the_votes_queries_render_as_reviewed() {
     assert!(text("latency").contains("| stats count(*) as n, pct(queue_ms, 99) as queue_p99, pct(admission_ms, 50) as admission_p50, pct(admission_ms, 99) as admission_p99"));
     let lines = text("lines");
     assert!(lines.ends_with("| stats count(*) as lines by message\n| limit 10000"));
-    assert!(lines.contains(r#"(message in ["http_request", "http_request http_request"] and service = "server" and ispresent(request_id) and http.method = "POST")"#));
+    assert!(lines.contains(r#"(message in ["http_request", "http_request http_request"] and service = "server" and ispresent(request_id) and http.method = "POST" and http.route = "/api/v3/votes")"#));
+    assert_eq!(
+        text("edge_bins"),
+        r#"filter listener = "shadow" and message = "shadow_edge" and route = "POST /api/v3/votes"
+| fields toMillis(@timestamp) as t
+| stats sum(t >= <from_ms> and t < <to_ms>) as n by bin(5m) as slot
+| limit 10000"#
+    );
     let join = text("join");
     let commands: Vec<&str> = join.lines().collect();
     assert_eq!(commands.len(), 5, "{join}");
@@ -953,30 +1019,52 @@ fn the_votes_queries_render_as_reviewed() {
     assert!(join.len() < 10_000, "{}", join.len());
 }
 
+/// Each route's queries name their own path, their own shadow and their own
+/// lines, and nothing of the other route's.
 #[test]
-fn a_second_route_entry_compiles_with_its_own_names() {
-    let comments = Route {
-        key: "comments",
-        shadow: "commentsShadow",
-        route: "POST /api/v3/comments",
-        method: "POST",
-        node_line: "comment_reply",
-        path: "/api/v3/comments",
+fn each_route_compiles_with_its_own_names_and_none_of_the_others() {
+    let names = |r: Route| {
+        let mut names = vec![r.path, r.shadow, r.route];
+        if let route::Kind::Votes { node_line } = r.kind {
+            names.push(node_line);
+        }
+        names
     };
-    for q in comments.queries() {
-        let text = q.text(Bounds::Placeholders);
-        for votes in ["/api/v3/votes", "votesShadow", "vote_reply"] {
-            assert!(!text.contains(votes), "{}: {text}", q.name);
+    for (own, other) in [(VOTES, COMMENTS), (COMMENTS, VOTES)] {
+        for q in own.queries() {
+            let text = q.text(Bounds::Placeholders);
+            for name in names(other) {
+                assert!(!text.contains(name), "{} {}: {text}", own.key, q.name);
+            }
+            // Every query names the route's shadow, its nginx route or its
+            // path on Node's access line: none reads lines by method alone.
+            assert!(
+                names(own).iter().any(|name| text.contains(name)),
+                "{} {}: {text}",
+                own.key,
+                q.name
+            );
+            // Wherever Node's access line is read, the path is named.
+            if text.contains("http_request") {
+                assert!(
+                    text.contains(&format!(r#"http.route = "{}""#, own.path)),
+                    "{} {}: {text}",
+                    own.key,
+                    q.name
+                );
+            }
         }
     }
-    let join = comments
+    let join = COMMENTS
         .queries()
         .into_iter()
         .find(|q| q.name == "join")
         .unwrap()
         .text(Bounds::Placeholders);
-    assert!(join.contains(r#"message = "comment_reply""#));
     assert!(join.contains(r#"shadow = "commentsShadow""#));
+    assert!(join.contains(r#"route = "POST /api/v3/comments""#));
+    // Logs Insights refuses a query string over 10,000 characters.
+    assert!(join.len() < 10_000, "{}", join.len());
 }
 
 #[test]
@@ -994,6 +1082,8 @@ fn no_argument_takes_query_text() {
         "run --route votes --from 2026-11-10T00:00:00Z --to 2026-11-09T00:00:00Z --log-group g --db-instance d --load-balancer l",
         "run --route votes --from 2026-11-01T00:00:00Z --to 2026-11-10T00:00:00Z --log-group g --db-instance d --load-balancer l",
         "queries --route nope",
+        // Ninety-three days of comments: one more than the route's bound.
+        "run --route comments --from 2026-08-01T00:00:00Z --to 2026-11-02T00:00:00Z --log-group g --db-instance d --load-balancer l",
         // The draw comparison is gone, and its flag with it.
         "queries --distributions",
         "run --route votes --from 2026-11-09T00:00:00Z --to 2026-11-10T00:00:00Z --log-group g --db-instance d --load-balancer l --distributions",
@@ -1042,6 +1132,14 @@ fn no_argument_takes_query_text() {
         parse("queries").unwrap(),
         Command::Queries { route: "votes" }
     );
+    assert_eq!(
+        parse("queries --route comments").unwrap(),
+        Command::Queries { route: "comments" }
+    );
+    // A comments window may be longer than a week: its evidence is counts.
+    assert!(
+        parse("run --route comments --from 2026-09-01T00:00:00Z --to 2026-11-01T00:00:00Z --log-group g --db-instance d --load-balancer l").is_ok()
+    );
 }
 
 #[test]
@@ -1049,15 +1147,32 @@ fn run_issues_only_compiled_queries_and_fixed_metrics() {
     let fx = passing_fixture();
     let fake = FakeAws::new(&fx);
     let report = run(&fake);
-    let issued = fake.issued.borrow();
-    // A query with a week-earlier baseline is issued twice, the second time
-    // over the window a week earlier.
-    let expected: Vec<String> = VOTES
-        .queries()
-        .iter()
-        .flat_map(|q| vec![q.text(window().bounds()); 1 + usize::from(q.previous_week)])
-        .collect();
-    assert_eq!(*issued, expected);
+    // The stand-in refuses any text that is not a compiled query's. Each
+    // query is issued once over the window, in the route's order; one with a
+    // week-earlier baseline a second time over the window a week earlier;
+    // the join once for each slice.
+    let asked = fake.asked.borrow();
+    let w = window();
+    let mut expected = vec![];
+    for q in VOTES.queries() {
+        if q.sliced {
+            let slices: Vec<_> = asked.iter().filter(|a| a.0 == q.name).collect();
+            assert!(slices.len() >= 2, "6,000 votes need more than one slice");
+            // The slices cover the window exactly once, in order.
+            assert_eq!(slices[0].1, w.from_s);
+            assert_eq!(slices[slices.len() - 1].2, w.to_s);
+            for pair in slices.windows(2) {
+                assert_eq!(pair[0].2, pair[1].1);
+            }
+            expected.extend(slices.iter().map(|a| **a));
+            continue;
+        }
+        expected.push((q.name, w.from_s, w.to_s));
+        if q.previous_week {
+            expected.push((q.name, w.from_s - WEEK_S, w.to_s - WEEK_S));
+        }
+    }
+    assert_eq!(*asked, expected);
     assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
 }
 
@@ -1808,4 +1923,83 @@ fn the_fixture_lines_carry_no_vote_and_the_observation_line_is_the_shadows() {
         r#"outcome in ["a", "b"]"#
     );
     assert_eq!(route::find("votes").map(|r| r.shadow), Some("votesShadow"));
+}
+
+/// The fixtures whose vote reports are kept as files.
+pub(crate) fn golden_fixtures() -> Vec<(&'static str, Fixture)> {
+    let mut classes = Fixture::new();
+    for _ in 0..20 {
+        classes.vote(81_001, Case::Agree);
+    }
+    for case in [
+        Case::Exhausted,
+        Case::Exhausted,
+        Case::Topical,
+        Case::RemainingOff,
+        Case::Node500AfterStore,
+        Case::HandBack("no_token"),
+        Case::HandBack("no_token"),
+        Case::HandBack("xid_required"),
+        Case::MiddlewareRefusal,
+        Case::NotCopied,
+        Case::Shed,
+        Case::Cors,
+        Case::Uncovered,
+    ] {
+        classes.vote(81_001, case);
+    }
+    let repeated = classes.vote(81_001, Case::Agree);
+    let at = classes.at;
+    classes.lines.push(edge(&repeated, at, 200, "0.012"));
+    classes
+        .lines
+        .push(reply(&id(999_999), at, 81_001, 200, Some(Next::None)));
+    let mut stop = passing_fixture();
+    stop.vote(73_001, Case::ClosedDisagree);
+    stop.vote(73_002, Case::Different);
+    let mut examine = passing_fixture();
+    for _ in 0..40 {
+        examine.vote(73_002, Case::HostAbsent);
+    }
+    for _ in 0..10 {
+        examine.vote(73_003, Case::NotReadBack);
+    }
+    examine.vote(73_001, Case::ClientGone);
+    examine.vote(73_001, Case::NginxOnly5xx);
+    let mut small = Fixture::new();
+    for _ in 0..40 {
+        small.vote(90_001, Case::Agree);
+    }
+    vec![
+        ("passing", passing_fixture()),
+        ("classes", classes),
+        ("empty", Fixture::new()),
+        ("stop", stop),
+        ("examine", examine),
+        ("small", small),
+    ]
+}
+
+/// The vote report on these fixtures is, byte for byte, the report the tool
+/// printed before it learned a second route (the files were written by that
+/// version). Naming the path on Node's access line, running the join in
+/// slices and placing ids that are not votes by their first line change no
+/// byte of it. One of the six files differs from that version's by three
+/// lines, on purpose: over an empty log the stop rule's two rules on Node's
+/// vote lines used to read "0 of 0 ... within it" and the stop rule "never
+/// fired"; with no line of Node's read they are now "not evaluated".
+#[test]
+fn the_vote_report_is_byte_for_byte_what_it_was() {
+    let saved: BTreeMap<&str, &str> = BTreeMap::from([
+        ("passing", include_str!("fixtures/votes-passing.txt")),
+        ("classes", include_str!("fixtures/votes-classes.txt")),
+        ("empty", include_str!("fixtures/votes-empty.txt")),
+        ("stop", include_str!("fixtures/votes-stop.txt")),
+        ("examine", include_str!("fixtures/votes-examine.txt")),
+        ("small", include_str!("fixtures/votes-small.txt")),
+    ]);
+    for (name, fx) in golden_fixtures() {
+        let report = run(&FakeAws::new(&fx));
+        assert_eq!(report.text, saved[name], "{name}");
+    }
 }
