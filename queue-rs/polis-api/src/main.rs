@@ -839,7 +839,7 @@ async fn startup() -> Result<Startup> {
         match post_comments::configure(shadow::Role::Main, state.participant_keys.as_ref())? {
             post_comments::Configured::Off => None,
             post_comments::Configured::Live(writer) => Some(*writer),
-            post_comments::Configured::Observe => {
+            post_comments::Configured::Observe(_) => {
                 anyhow::bail!("observe mode is accepted only by the shadow role")
             }
         };

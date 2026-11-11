@@ -271,6 +271,8 @@ pub struct App {
     pub post_comments: Option<crate::post_comments::Writer>,
     /// The vote writer in observe mode: built only by the shadow role.
     pub post_votes_observe: Option<crate::post_votes::Observer>,
+    /// The comment handler in observe mode: built only by the shadow role.
+    pub post_comments_observe: Option<crate::post_comments::Observer>,
     pub post_treevite_waves: Option<crate::post_treevite_waves::Writer>,
     pub treevite_write: Option<Arc<crate::treevite_write::Writer>>,
     pub revocations: Option<Arc<crate::revocation::Refresh>>,
@@ -521,6 +523,7 @@ impl App {
             post_votes: None,
             post_comments: None,
             post_votes_observe: None,
+            post_comments_observe: None,
             post_treevite_waves: None,
             treevite_write: None,
             revocations: None,
