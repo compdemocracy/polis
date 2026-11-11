@@ -1,7 +1,9 @@
-# ${SHADOW_NAME}: POST ${SHADOW_PATH} is answered by Node exactly as without
-# this selection, with one added header, X-Request-Id. nginx's mirror sends a
-# copy to the shadow service (polis-api-shadow), which answers 204 at once and
-# writes nothing. Node's answer never waits for the copy; the next request on
+# ${SHADOW_NAME}: a POST ${SHADOW_PATH} with a declared body of 1 to 9999
+# bytes (no other request is handed to this location) is answered by Node
+# exactly as without this selection, with one added header, X-Request-Id.
+# nginx's mirror sends a copy to the shadow service (polis-api-shadow), which
+# answers 204 at once and writes nothing. The body is read whole first, in
+# memory. Node's answer never waits for the copy; the next request on
 # the same client connection waits for it at most the copy's four timeouts
 # below. Neither location has an error_page, a retry or a route to Node: a
 # failed copy ends where it fails. The request's ordinary access line is

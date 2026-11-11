@@ -6,8 +6,11 @@
 # status and bytes; Node gets each vote once, with the same headers as without
 # the shadow except X-Request-Id; the shadow gets the same body and id; a
 # client-sent id is replaced; other methods, bodies outside 1 to 9999 bytes,
-# chunked bodies and other paths are not copied; the copy's location answers
-# direct requests 404; nginx writes one shadow_mirror and one shadow_edge
+# chunked bodies, bodies of undeclared length and other paths are not copied
+# and never enter the shadow's locations: each reaches Node exactly as with
+# nothing selected (the same headers, no request id, its body streamed, the
+# same reply to the byte, the `main` access line, no shadow line); the copy's
+# location answers direct requests 404; nginx writes one shadow_mirror and one shadow_edge
 # line per copy; and the ordinary access line of a shadowed vote is the
 # image's `main` line with the peer address and the X-Forwarded-For field
 # written "-", so no access line of the vote holds the address the request
@@ -30,8 +33,11 @@
 # copies' rate (a run of comments faster than the rate is answered by Node,
 # every one, while the copies over the rate end with 429 in the copy's own
 # location and every vote copy still arrives); and comment bodies from 180
-# bytes to the largest nginx and Node accept, whole and in parts, answered
-# with the same bytes with and without the shadow.
+# bytes to the largest nginx and Node accept, whole, in parts and chunked,
+# answered with the same bytes with and without the shadow, only those of 1
+# to 9999 declared bytes passing through the shadow's location, and no body
+# written to a temporary file that is not written to one with nothing
+# selected.
 #
 # With --measure it prints what the mirror costs a comment: the time until
 # Node has the request's first byte, until Node has the whole body, and the

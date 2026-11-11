@@ -82,6 +82,17 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   polis-api. GET, HEAD, PUT and other methods, an empty or larger body, a
   chunked body, a trailing slash and other spellings of the path go to Node
   with no copy. The copy's path carries no query string.
+- **Only what is copied passes through the mirror.** One map
+  (`$polis_shadow_copyable`, `rust-api/shadow-http.conf.template`) says
+  which requests those are, and the path's location hands a request to the
+  shadow's mirroring location on that map alone. Every other request to the
+  path, a POST with an empty, undeclared, chunked or larger body included,
+  is proxied to Node exactly as with nothing selected: its body streamed
+  (never read whole first because of the mirror), no `X-Request-Id` added,
+  the `main` access line, no `shadow_edge` or `shadow_mirror` line. The
+  bound is 9999 bytes because that is what the copy's location sends; the
+  shadow service reads up to 65536, and nginx holds a body of up to 9999
+  bytes in memory, so the mirror writes no temporary file.
 - **Where it goes.** The target is a literal in
   `rust-api/shadow-mirror.conf.template`; no setting reaches it. The copy's
   location is `internal` (a direct request gets 404) and has no `error_page`,
@@ -91,14 +102,14 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   the copy ends: about a millisecond when the shadow answers or is down,
   refused, absent or closing, and at most the copy's timeouts (20 ms connect,
   20 ms send, 30 ms read, 30 ms resolve) when it is slow or silent. The body
-  is read before Node is contacted (`mirror_request_body`); votes are small.
+  of a copied vote is read before Node is contacted (`mirror_request_body`),
+  in memory; it is at most 9999 bytes.
 - **What it logs.** Two JSON lines per shadowed vote, both with
   `listener: "shadow"` and nginx's `request_id`, beside the access line:
   `shadow_edge` (Node's status and time as nginx saw them, the participant's
-  total time) and `shadow_mirror` (the copy's status and time). A copy skipped
-  by the body bound logs `mirror_status` 204 with an empty
-  `mirror_upstream_status`. Neither line carries an address, a header value or
-  a body.
+  total time) and `shadow_mirror` (the copy's status and time). A POST that
+  is not copied writes neither line. Neither line carries an address, a
+  header value or a body.
 - **The access line of a shadowed vote records no address.** It is written in
   `polis_shadow_access`: the image's `main` format with its two address
   fields written `-`, the first (`$remote_addr`, the peer) and the last
@@ -108,16 +119,18 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   where nginx faces participants directly. `shadow_edge`, written beside the
   access line, carries the request id that joins Node's and the shadow's
   lines; with an address on the access line, one vote's lines would tie an
-  address to them. Every other request, the other methods on the same path
-  included, keeps `main`. Node and the shadow receive `X-Forwarded-For`
+  address to them. Every other request, the other methods and the POSTs that
+  are not copied on the same path included, keeps `main`: it has no shadow
+  line and no request id. Node and the shadow receive `X-Forwarded-For`
   exactly as before. Anything that counts votes or voters from an address on
   nginx's access lines reads `-` for a shadowed vote. Not changed: the
   request line, the `Referer` and the user agent on that line; and nginx's
   error log, where a line written when the copy or Node fails names the peer
   as `client:` (it carries no request id).
 - **With `votesRead`.** The vote read route's own location answers the path,
-  with the POST diversion inserted first (POST goes to the shadow's named
-  location; every other request keeps the read route's handling).
+  with the diversion inserted first (a POST that is copied goes to the
+  shadow's named location; every other request keeps the read route's
+  handling).
 - **Refused.** `votesShadow` with `postVotes` (the shadow observes the votes
   Node answers): the renderer refuses the selection and every route stays on
   Node, and the web deploy and its validation refuse it before anything
@@ -163,15 +176,20 @@ the comment shadow; what follows is what differs or is worth saying again.
   log. The zone is used in the copy's location only. The request Node answers
   is never counted, delayed or refused: a run of comments faster than the
   rate is answered by Node, every one. Vote copies have no nginx rate.
-- **What it does to every comment POST.** With `mirror_request_body`, nginx
-  reads the whole body before it contacts Node; without the shadow it starts
-  sending to Node as soon as it has the request's headers. For a comment that
-  arrives whole (every real one: a few hundred bytes to a few kilobytes) Node
-  has the request no later than before. A body that arrives slowly reaches
+- **What it does to a comment POST.** Only a POST that is copied (a declared
+  body of 1 to 9999 bytes) passes through the mirror. With
+  `mirror_request_body`, nginx reads the whole body of such a request, in
+  memory, before it contacts Node; without the shadow it starts sending to
+  Node as soon as it has the request's headers. For a comment that arrives
+  whole (every real one: a few hundred bytes to a few kilobytes) Node has the
+  request no later than before. A copied body that arrives slowly reaches
   Node when its last byte has arrived, which is when Node could start work on
-  it either way. A body too long for nginx to hold in memory (from about 10
-  kilobytes; never a valid comment, and never copied) is written to a
-  temporary file by nginx and then sent to Node; Node's answer is the same.
+  it either way. Any other POST (a larger body; an empty, chunked or undeclared one) is
+  proxied as with nothing selected, streamed and never held for the mirror,
+  and is not observed. A comment Node accepts is larger than the bound only
+  when its text and its `xid` are both long and written as `\u` escapes (six
+  bytes for each of up to 997 and 999 UTF-16 units: about 12,150 bytes at
+  most); without an `xid` it is at most about 6,150 bytes.
 - **Reading comments is untouched.** GET and HEAD on the path, which every
   client polls, are answered and logged exactly as before: by Node through
   the path's location, or by polis-api when `comments` is selected too, in
