@@ -33,7 +33,10 @@
 # polls, answered and logged exactly as with nothing selected; the comment
 # copies' rate (a run of comments faster than the rate is answered by Node,
 # every one, while the copies over the rate end with 429 in the copy's own
-# location and every vote copy still arrives); and comment bodies from 180
+# location and every vote copy still arrives); the same on one keepalive
+# connection, where a refused copy costs the next request nothing and a copy
+# sent to a silent shadow holds the next request for at most its timeouts;
+# and comment bodies from 180
 # bytes to the largest nginx and Node accept, whole, in parts and chunked,
 # answered with the same bytes with and without the shadow, only those of 1
 # to 9999 declared bytes passing through the shadow's location, and no body
@@ -149,7 +152,15 @@ echo "ok both shadows selected: each route's checks with a shadow that answers a
 shadow answer
 start votesShadow,commentsShadow
 "${driver[@]}" rate "$p"
+# The same rate on one keepalive connection, as a load balancer reuses one:
+# with the shadow answering, with it silent, and with nothing selected.
+"${driver[@]}" keepalive "$p" answering
+shadow silent
+start votesShadow,commentsShadow
+"${driver[@]}" keepalive "$p" silent
+shadow answer
 start ""
+"${driver[@]}" keepalive "$p" unselected
 "${driver[@]}" bodies "$p" "$work/bodies-control.json" unselected
 start votesShadow,commentsShadow
 "${driver[@]}" bodies "$p" "$work/bodies-shadow.json" answering

@@ -9,6 +9,7 @@ shadow-stubs.py.
   test-shadow-mirror.py compare CONTROL SHADOW              the load criteria
   test-shadow-mirror.py read PREFIX BASE                    GET and HEAD on the comment path
   test-shadow-mirror.py rate PREFIX                         the comment copies' rate
+  test-shadow-mirror.py keepalive PREFIX STATE              the rate on one keepalive connection
   test-shadow-mirror.py bodies PREFIX OUT STATE             comment bodies of every size
   test-shadow-mirror.py same-bodies CONTROL SHADOW          the two `bodies` runs answered alike
   test-shadow-mirror.py measure PREFIX NETWORK IMAGE OUT    what the mirror costs a comment
@@ -800,6 +801,143 @@ def rate(prefix):
           f'after the bucket drained a comment was copied again', flush=True)
 
 
+# One keepalive connection: how many comments it posts back to back, and the
+# bounds on what a request waits for the copy of the request before it, in
+# milliseconds. nginx's mirror keeps a request open until its copies have
+# ended, so the next request on the same client connection waits for a copy
+# that was sent: at most the copy's timeouts (20 ms to connect, 20 ms to send,
+# 30 ms to read) when the shadow is silent. A copy over the rate ends at once,
+# before any connection, and holds nothing. KEEPALIVE_QUICK is the most the
+# median request may take where no copy can hold it (measured on a work box,
+# three runs: 0.8 to 1.2 ms after a refused copy, 2.5 ms the slowest of 102);
+# KEEPALIVE_HELD is the least the median request after a copy sent to a
+# silent shadow may take (measured: 30 to 32 ms, 43 ms the slowest of 15). How
+# long such a request may take at most is not a number of milliseconds: on a
+# busy machine a copy lives longer than its timeouts add up to (measured with
+# 14 cores at a load of 9 to 15: requests of 44 to 124 ms after six sent
+# copies, and a median of 25 ms after copies an answering shadow was slow
+# to answer). It is the time nginx itself logged for that copy (mirror_s)
+# and KEEPALIVE_QUICK more: the next request waits for the copy and for
+# nothing else.
+KEEPALIVE_COMMENTS = 40
+KEEPALIVE_QUICK = 10.0
+KEEPALIVE_HELD = 15.0
+
+
+def keepalive(prefix, state):
+    """The comment copies' rate on ONE keepalive client connection, as a load
+    balancer reuses a connection: KEEPALIVE_COMMENTS comments back to back.
+    `state` is `unselected` (nothing selected: the control), `answering` or
+    `silent` (both shadows selected, the shadow in that mode). Every comment
+    is answered by Node with its exact bytes, on the same connection, and
+    received by Node once. With the shadows selected, as many copies as the
+    rate allows are sent and every other ends with 429 in the copy's own
+    location, with no upstream. A request that follows a refused copy is not
+    held by it; with a silent shadow, a request that follows a sent copy
+    waits for that copy's timeout, and no other request waits."""
+    route = ROUTES['commentsShadow']
+    port = proxy_port(prefix)
+    selected = state != 'unselected'
+    time.sleep(COMMENT_BURST / COMMENT_RATE + 1)  # an empty bucket to start from
+    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=15)
+    connection.connect()
+    socket_used = connection.sock
+    sent = []
+    started = time.perf_counter()
+    for _ in range(KEEPALIVE_COMMENTS):
+        case = uuid.uuid4().hex
+        body = route['body'](case)
+        began = time.perf_counter()
+        connection.request('POST', route['path'], body=body,
+                           headers={'Content-Type': route['content_type'], 'X-Test-Case': case})
+        response = connection.getresponse()
+        reply = response.read()
+        took = (time.perf_counter() - began) * 1000
+        # The same connection throughout: nginx neither closed it nor asked to.
+        assert connection.sock is socket_used and not response.will_close, 'the connection was not reused'
+        assert response.status == 200 and reply.decode() == (
+            f'node POST {route["path"]} {hashlib.sha256(body).hexdigest()}\n'), (state, response.status, reply)
+        sent.append((case, took))
+    elapsed = time.perf_counter() - started
+    connection.close()
+    time.sleep(1.0)
+    node, copied, lines = records(prefix + '-node'), records(prefix + '-shadow'), shadow_lines(prefix)
+    times = [took for _, took in sent]
+    outcomes, lived = [], []
+    for case, _ in sent:
+        seen = find(node, case)
+        assert len(seen) == 1, f'{state}: Node received a comment {len(seen)} times'
+        if not selected:
+            assert not header(seen[0], 'x-request-id'), seen[0]['headers']
+            continue
+        (request_id,) = header(seen[0], 'x-request-id')
+        mirrors = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
+        edges = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_edge']
+        assert len(mirrors) == 1 and len(edges) == 1 and edges[0]['edge_status'] == 200, (state, mirrors, edges)
+        lived.append(mirrors[0]['mirror_s'] * 1000)
+        if mirrors[0]['mirror_status'] == 429:
+            # Refused by the rate in the copy's own location: no upstream
+            # contacted, no time spent, nothing at the shadow.
+            assert mirrors[0]['mirror_upstream_status'] == '' and mirrors[0]['mirror_s'] < 0.02, mirrors
+            assert mirrors[0]['shadow'] == 'commentsShadow' and not find(copied, case), mirrors
+            outcomes.append('refused')
+        else:
+            # Sent: the silent shadow never answers (504 at the copy's read
+            # timeout); the answering one answers 204 unless this box is too
+            # busy for the copy's 30 ms.
+            assert mirrors[0]['mirror_upstream_status'] != '', mirrors
+            assert state != 'silent' or mirrors[0]['mirror_status'] == MIRROR_STATUS['silent'], mirrors
+            outcomes.append('sent')
+    said = (f'{KEEPALIVE_COMMENTS} comments back to back on one keepalive connection in {elapsed * 1000:.0f} ms, '
+            f'every one answered by Node with its exact bytes on that connection and received by Node once; '
+            f'a request took a median of {statistics.median(times):.2f} ms, at most {max(times):.2f} ms')
+    if not selected:
+        assert statistics.median(times) <= KEEPALIVE_QUICK, times
+        print(f'ok keepalive (nothing selected): {said}', flush=True)
+        return
+    passed, refused = outcomes.count('sent'), outcomes.count('refused')
+    most = COMMENT_BURST + 1 + int(COMMENT_RATE * elapsed) + 1
+    assert COMMENT_BURST + 1 <= passed <= most and refused == KEEPALIVE_COMMENTS - passed >= 1, (passed, most, refused)
+    limited = [line for line in proxy_lines(prefix) if 'limiting requests' in line or 'limit_req' in line]
+    assert not limited, limited
+    # What each request waited, by the outcome of the copy of the request
+    # before it on the connection.
+    after = {'sent': [], 'refused': []}
+    beyond = []
+    for outcome, copy_lived, took in zip(outcomes, lived, times[1:]):
+        after[outcome].append(took)
+        if outcome == 'sent':
+            # How much longer the request took than the copy before it lived.
+            beyond.append(took - copy_lived)
+    assert after['sent'] and after['refused'], outcomes
+    quick = statistics.median(after['refused'])
+    assert quick <= KEEPALIVE_QUICK, (
+        f'{state}: a request after a refused copy took a median of {quick:.2f} ms: {after["refused"]}')
+    held = statistics.median(after['sent'])
+    waited = sum(1 for took in times if took >= KEEPALIVE_HELD)
+    # A request after a sent copy waits for that copy, as long as nginx says
+    # the copy lived, and for nothing else.
+    over = statistics.median(beyond)
+    assert over <= KEEPALIVE_QUICK, (
+        f'{state}: a request after a sent copy took a median of {over:.2f} ms longer than the copy lived: '
+        f'{after["sent"]} against {[copy_lived for outcome, copy_lived in zip(outcomes, lived) if outcome == "sent"]}')
+    if state == 'silent':
+        # The copy sent to a silent shadow ends at its read timeout, and the
+        # next request on the connection waits for it; of the requests that
+        # follow a refused copy, few take that long (none on a quiet machine).
+        assert KEEPALIVE_HELD <= held, (
+            f'silent: a request after a sent copy took a median of {held:.2f} ms: {after["sent"]}')
+        slow = sum(1 for took in after['refused'] if took >= KEEPALIVE_HELD)
+        assert slow <= len(after['refused']) // 4, (slow, after['refused'])
+    print(f'ok keepalive (both shadows, the shadow {state}): {said}; {passed} copies were sent (at least '
+          f'{COMMENT_BURST + 1}, at most {most}) and {refused} ended with 429 in the copy\'s location, with no '
+          f'upstream and no error-log line; the request after a refused copy took a median of {quick:.2f} ms '
+          f'(at most {max(after["refused"]):.2f} ms, n={len(after["refused"])}; bound {KEEPALIVE_QUICK:.0f} ms) '
+          f'and the request after a sent copy a median of {held:.2f} ms (at most {max(after["sent"]):.2f} ms, '
+          f'n={len(after["sent"])}), {over:.2f} ms longer than the copy before it lived by nginx\'s own line; '
+          f'{waited} of the {KEEPALIVE_COMMENTS} requests took {KEEPALIVE_HELD:.0f} ms or more', flush=True)
+
+
 # Comment bodies of every size class: a short comment, the longest text Node
 # accepts as JSON writes it, each side of nginx's in-memory buffer, each side
 # of the copy's bound, and the largest body nginx and Node's parser accept.
@@ -1034,5 +1172,5 @@ def measured(control_file, shadow_file):
 if __name__ == '__main__':
     command, *args = sys.argv[1:]
     {'baseline': baseline, 'behaviour': behaviour, 'load': load, 'compare': compare, 'read': read,
-     'rate': rate, 'bodies': bodies, 'same-bodies': same_bodies, 'measure': measure,
+     'rate': rate, 'keepalive': keepalive, 'bodies': bodies, 'same-bodies': same_bodies, 'measure': measure,
      'measured': measured}[command](*args)

@@ -185,7 +185,12 @@ the comment shadow; what follows is what differs or is worth saying again.
   with an empty `mirror_upstream_status`, and nothing is written to the error
   log. The zone is used in the copy's location only. The request Node answers
   is never counted, delayed or refused: a run of comments faster than the
-  rate is answered by Node, every one. Vote copies have no nginx rate.
+  rate is answered by Node, every one. Vote copies have no nginx rate. On a
+  client connection that is reused (a load balancer's), nginx's mirror keeps
+  a request open until its copy has ended, so the next request on that
+  connection waits for a copy that was sent, for at most the copy's
+  timeouts; a copy over the rate ends before any connection is opened and
+  the next request does not wait for it at all.
 - **What it does to a comment POST.** Only a POST that is copied (a declared
   body of 1 to 9999 bytes) passes through the mirror. With
   `mirror_request_body`, nginx reads the whole body of such a request, in
