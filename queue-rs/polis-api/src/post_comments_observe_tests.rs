@@ -601,7 +601,11 @@ async fn the_line_carries_only_allowed_keys_and_words_from_closed_sets() {
     let refused = bearer(&stranger, &claims(3, 2, CID));
     let agree = crate::votes::WIRE_AGREE;
     let plain = body(CID, MARKER, json!({}));
-    let voting = body(CID, MARKER, json!({"vote": agree, "pid": NO_PID, "agid": 1}));
+    let voting = body(
+        CID,
+        MARKER,
+        json!({"vote": agree, "pid": NO_PID, "agid": 1}),
+    );
     let mut insecure = copy(&plain, Some(member.as_str()), &request_id());
     insecure.headers = crate::http::Headers::from_raw([
         ("host", "localhost"),
