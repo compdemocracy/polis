@@ -135,6 +135,7 @@ impl App {
             nested: [pca],
             optional_nested: [
                 post_votes,
+                post_comments,
                 topic_selection_writer,
                 post_treevite_waves,
                 treevite_write,

@@ -493,6 +493,13 @@ const ROUTES: &[Route] = &[
         "votes_read::PATH"
     ),
     exact!(
+        post_comments,
+        ["POST"],
+        crate::post_comments::PATH,
+        ["POLIS_API_POST_COMMENTS"],
+        "comments::PATH"
+    ),
+    exact!(
         post_treevite_waves,
         ["POST"],
         crate::post_treevite_waves::PATH,
