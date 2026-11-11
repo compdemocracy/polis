@@ -12,6 +12,9 @@ use std::collections::BTreeSet;
 
 /// The fixed time the test databases' `now_as_millis()` answers.
 const NOW: i64 = 1_700_000_000_000;
+/// The participant number the jQuery participation client puts in every
+/// request body: "not known".
+const NO_PID: i32 = -1;
 
 fn plain(config: &postgres::Config) -> Connector {
     Connector::Plain(Box::new(config.clone()))
@@ -97,7 +100,7 @@ fn member() -> Value {
 }
 
 fn agree() -> Value {
-    json!({"vote": crate::votes::WIRE_AGREE, "pid": -1, "agid": 1})
+    json!({"vote": crate::votes::WIRE_AGREE, "pid": NO_PID, "agid": 1})
 }
 
 /// The author votes again on their own comment, through the handler's own

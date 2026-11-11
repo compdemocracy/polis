@@ -23,6 +23,9 @@ use polis_queue_adapter::jobs::transport::Connector;
 use serde_json::{Value, json};
 
 const CID: &str = "2p027generated";
+/// The participant number the jQuery participation client puts in every
+/// request body: "not known".
+const NO_PID: i32 = -1;
 
 /// The observation line's complete key set, in the order it is printed. No
 /// key names a conversation, a comment, a participant or a user, and none
@@ -598,7 +601,7 @@ async fn the_line_carries_only_allowed_keys_and_words_from_closed_sets() {
     let refused = bearer(&stranger, &claims(3, 2, CID));
     let agree = crate::votes::WIRE_AGREE;
     let plain = body(CID, MARKER, json!({}));
-    let voting = body(CID, MARKER, json!({"vote": agree, "pid": -1, "agid": 1}));
+    let voting = body(CID, MARKER, json!({"vote": agree, "pid": NO_PID, "agid": 1}));
     let mut insecure = copy(&plain, Some(member.as_str()), &request_id());
     insecure.headers = crate::http::Headers::from_raw([
         ("host", "localhost"),
