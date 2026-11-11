@@ -1421,6 +1421,10 @@ shadow_conf=$(included)
 [[ $(grep -c '^location = /_polis_shadow/votesShadow {$' <<<"$shadow_conf") == 1 ]] || fail "shadow: copy location not rendered once"
 [[ $(grep -c '^log_format polis_shadow_edge ' <<<"$shadow_conf") == 1 ]] || fail "shadow: edge log format missing"
 [[ $(grep -c '^log_format polis_shadow_mirror ' <<<"$shadow_conf") == 1 ]] || fail "shadow: copy log format missing"
+[[ $(grep -c '^log_format polis_shadow_access ' <<<"$shadow_conf") == 1 ]] || fail "shadow: access log format missing"
+! grep '^log_format ' <<<"$shadow_conf" | grep -q 'forwarded_for' || fail "shadow: a log format reads X-Forwarded-For"
+! grep '^log_format ' <<<"$shadow_conf" | grep -q 'remote_addr' || fail "shadow: a log format reads the peer address"
+grep -q "^log_format polis_shadow_access '- - \$remote_user \[\$time_local\] " <<<"$shadow_conf" || fail "shadow: the access format does not keep the peer field's place"
 mirror=$(block '= \/_polis_shadow\/votesShadow')
 named=$(block '@polis_shadow_votesShadow')
 diversion=$(block '= \/api\/v3\/votes')
@@ -1436,10 +1440,13 @@ for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/ng
 done
 [[ $(grep -c '_timeout ' <<<"$mirror") == 4 ]] || fail "shadow: the copy location sets other timeouts"
 for line in '    mirror /_polis_shadow/votesShadow;' '    mirror_request_body on;' \
-    '    access_log /var/log/nginx/access.log main;' '    access_log /var/log/nginx/access.log polis_shadow_edge;' \
+    '    access_log /var/log/nginx/access.log polis_shadow_access;' '    access_log /var/log/nginx/access.log polis_shadow_edge;' \
     '    include /etc/nginx/node-proxy.conf;' '    proxy_set_header X-Request-Id $request_id;'; do
   grep -qxF -- "$line" <<<"$named" || fail "shadow: the named location lacks '$line'"
 done
+# The shadowed location writes its access line without the peer address and
+# X-Forwarded-For, and never in the `main` format beside it.
+[[ $(grep -c 'access_log ' <<<"$named") == 2 ]] || fail "shadow: the named location writes other access lines"
 for line in '    error_page 420 = @polis_shadow_votesShadow;' '    if ($request_method = POST) {' \
     '        return 420;' '    include /etc/nginx/node-proxy.conf;'; do
   grep -qxF -- "$line" <<<"$diversion" || fail "shadow: the vote location lacks '$line'"

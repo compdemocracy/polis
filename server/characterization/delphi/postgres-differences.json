@@ -42,11 +42,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -97,11 +93,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -157,11 +149,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -212,11 +200,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -272,11 +256,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -327,11 +307,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -387,11 +363,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -442,11 +414,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -502,11 +470,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -557,11 +521,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -617,11 +577,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -672,11 +628,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -732,11 +684,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -787,11 +735,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -847,11 +791,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -902,11 +842,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -962,11 +898,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1017,11 +949,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1077,11 +1005,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1132,11 +1056,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1192,11 +1112,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1247,11 +1163,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1307,11 +1219,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1362,11 +1270,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1422,11 +1326,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1477,11 +1377,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1537,11 +1433,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1592,11 +1484,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1652,11 +1540,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1707,11 +1591,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1767,11 +1647,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1822,11 +1698,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1882,11 +1754,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1937,11 +1805,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -1997,11 +1861,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2052,11 +1912,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2112,11 +1968,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2167,11 +2019,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2227,11 +2075,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2282,11 +2126,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2342,11 +2182,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2397,11 +2233,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2457,11 +2289,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2512,11 +2340,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2572,11 +2396,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2627,11 +2447,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2687,11 +2503,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2742,11 +2554,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2802,11 +2610,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2857,11 +2661,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2917,11 +2717,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -2972,11 +2768,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -3032,11 +2824,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -3087,11 +2875,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -3147,11 +2931,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -3202,11 +2982,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -3262,11 +3038,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",
@@ -3317,11 +3089,7 @@
             ],
             [
               "access-control-allow-origin",
-              "http://localhost"
-            ],
-            [
-              "access-control-allow-credentials",
-              "true"
+              "*"
             ],
             [
               "access-control-allow-headers",

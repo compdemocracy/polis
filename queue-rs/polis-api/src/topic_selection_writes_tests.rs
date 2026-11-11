@@ -47,7 +47,7 @@ fn app(url: &str, key: &[u8]) -> App {
         pool: limits(100),
     };
     let mut state = App::new(&cfg, db::Pool::new(connector(url), limits(100)));
-    state.cors = crate::cors::Cors::for_test(&["localhost"]);
+    state.cors = crate::cors::Cors::for_test(false);
     state.topic_selection_writer = Some(Writer {
         reads: db::Pool::new(connector(url), limits(50)),
         publications: db::Pool::new(connector(url), limits(100)),

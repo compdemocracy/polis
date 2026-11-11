@@ -25,7 +25,10 @@ on isolated test services and changes no participation pool, lock or handler.
 
 The workflow replays the committed DynamoDB and PostgreSQL baselines separately.
 The PostgreSQL baseline was recorded on 2026-10-19 from published commit
-c77910845486cb56f6671ee04c4a07715b22ab89. Its generated case files are unchanged
-from that capture. Named differences from the DynamoDB baseline are in
+c77910845486cb56f6671ee04c4a07715b22ab89. Its generated case files are
+unchanged from that capture, except that on 2026-11-09 every response's CORS
+headers were rewritten in place to Access-Control-Allow-Origin * with no
+Access-Control-Allow-Credentials, when the /api/v3 domain allowlist was
+removed. Named differences from the DynamoDB baseline are in
 postgres-differences.json. Both modes retain the existing Date, Connection and
 Keep-Alive header exclusions and the exact response-byte comparison.

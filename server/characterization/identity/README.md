@@ -8,6 +8,12 @@ recording workflow for first-contact writes and refusal responses. It does not
 extend `participant-run.sh` or start the Rust API. Rust consumes the returned
 tokens through the `polis-auth` integration test.
 
+Every recorded response's CORS headers were later rewritten in place to the set
+the server sends since the /api/v3 domain allowlist was removed (2026-11-09):
+`Access-Control-Allow-Origin: *` and no `Access-Control-Allow-Credentials`.
+Nothing else in any case changed; the replay checks that live Node still serves
+these bytes.
+
 The generated matrix in `cases.cjs` includes anonymous first vote and repeat,
 anonymous cross-conversation use; bare XID on participationInit, votes and
 comments with the allow-list off/on and XID required; XID tokens in their own

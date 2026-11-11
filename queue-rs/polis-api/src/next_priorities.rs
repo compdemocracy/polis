@@ -201,8 +201,22 @@ fn refresh(c: &mut Client, zid: i32, env: &str, cached: Option<Entry>) -> Result
     // Explicit parameter types batch Parse/Bind/Execute into one exchange.
     // CASE does not evaluate or transfer the JSONB projection on a cache hit.
     // A missing priority field is distinct from a reused generation (SQL NULL).
+    //
+    // `data` is jsonb in a database built from the migrations and json in
+    // installations older than them. Nothing here remembers which: the
+    // server resolves `->` and the inner CASE against the column it is
+    // reading, each time the statement runs. Only the arm of the column's
+    // own type is evaluated, and its cast is to the type the column already
+    // has, so it does nothing; the other arm's cast, which would convert the
+    // whole document, never runs. A column of any other type has no `->` and
+    // fails the statement.
     let rows = c.query_typed(
-        "select math_tick, case when math_tick = $3 then null else jsonb_typeof(data) end, \
+        "select math_tick, case when math_tick = $3 then null else \
+           case pg_typeof(data) \
+             when 'pg_catalog.jsonb'::regtype then jsonb_typeof(data::jsonb) \
+             when 'pg_catalog.json'::regtype then json_typeof(data::json) \
+           end \
+         end, \
          case when math_tick = $3 then null else (data->'comment-priorities')::text end \
          from math_main where zid=$1 and math_env=$2 and math_tick>=0",
         &[(&zid, Type::INT4), (&env, Type::TEXT), (&tick, Type::INT8)],

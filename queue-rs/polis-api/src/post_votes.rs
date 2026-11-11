@@ -402,9 +402,12 @@ fn next(
     next_selecting(c, a, env, unit, lang, None)
 }
 
-/// What observe mode records of a selection. `voted` is the statement the
-/// copied vote is on: it counts as voted, as it does after the live writer's
-/// commit and after Node's insert, whether or not Node's commit is visible.
+/// What observe mode records of a selection, in process. `voted` is the
+/// statement the copied vote is on: it counts as voted, as it does after the
+/// live writer's commit and after Node's insert, whether or not Node's commit
+/// is visible. The statement numbers here (`voted`, `candidates`, `next_tid`)
+/// never reach a line: the line carries how many candidates there were and
+/// whether a next statement was selected.
 #[derive(Debug, Default)]
 pub(super) struct Selection {
     pub(super) voted: i32,
@@ -1377,7 +1380,8 @@ pub(crate) fn health(app: &App) -> Js {
 
 /// Why the route prelude answered a vote without reaching `handle`, in the
 /// prelude's own order (`route::serve`): the revocation snapshot, the
-/// writer's eligibility, the HTTPS rule, the body checks and CORS. Pure: no
+/// writer's eligibility, the HTTPS rule and the body checks. The prelude
+/// refuses no request for its origin, so there is no origin reason. Pure: no
 /// database work. Observe mode records it when the record has no reason.
 pub(crate) fn shape_reason(app: &App, req: &Request) -> Option<&'static str> {
     if let Some(raw) = req.headers.get("authorization")
@@ -1419,27 +1423,18 @@ pub(crate) fn shape_reason(app: &App, req: &Request) -> Option<&'static str> {
     ) {
         return Some("parameter");
     }
-    if app.cors.resolve(&req.headers).is_err() {
-        return Some("cors");
-    }
     None
 }
 
-/// What a copy says about itself without any database work: the statement
-/// (when its tid parses within range), and whether it carries a star and a
-/// language. Never the vote, the token or the conversation code.
-pub(crate) fn copy_facts(req: &Request) -> (Option<i32>, bool, bool) {
+/// What a copy says about itself without any database work: whether it
+/// carries a star and a language. Never the statement, the vote, the token or
+/// the conversation code.
+pub(crate) fn copy_facts(req: &Request) -> (bool, bool) {
     let Ok((_, raw)) = request_reasoned(req) else {
-        return (None, false, false);
+        return (false, false);
     };
     let present = |v: &Option<serde_json::Value>| v.as_ref().is_some_and(|v| !v.is_null());
-    let tid = raw
-        .parse_fields()
-        .ok()
-        .map(|fields| fields.tid)
-        .filter(|tid| (i32::MIN as f64..=i32::MAX as f64).contains(tid))
-        .map(|tid| tid as i32);
-    (tid, present(&raw.starred), present(&raw.lang))
+    (present(&raw.starred), present(&raw.lang))
 }
 
 /// A future gateway can distinguish explicit pre-dispatch hand-back from its

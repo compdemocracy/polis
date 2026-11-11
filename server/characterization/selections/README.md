@@ -2,6 +2,12 @@
 
 The source pin is `19873803fa2b84ddca841a50cfb57009650554de`. `cases.json` contains 164 requests through the unchanged Node application, including its authentication and participant middleware. `controls.json` contains 13 separately labelled scheduling, failure, token-wrapper and immediate topical-read observations. All inputs are generated fixtures.
 
+Every recorded response's CORS headers were later rewritten in place to the set
+the server sends since the /api/v3 domain allowlist was removed (2026-11-09):
+`Access-Control-Allow-Origin: *` and no `Access-Control-Allow-Credentials`.
+Nothing else in any case changed; the Rust replay in the `polis-api` database
+tests compares these bytes.
+
 `record.cjs` uses the released test schema, an isolated OIDC simulator, ephemeral participant signing keys and real SQL. Publication results and explicit query failures are controlled stand-ins. It refuses socket connections outside loopback and the reserved test ports. Run it only with an isolated `polis-test` database: PostgreSQL 28950, OIDC 28951, DynamoDB 28952, email 28953, S3 28954, and the temporary Node listener 28955. It deletes and recreates only its generated fixture conversation and identities. The ordinary test suite must not run against that database concurrently.
 
 Use the normal server test environment with these service ports, `NODE_EXTRA_CA_CERTS` pointing at the test CA, and Node 22. Run `provider.cjs` inside the owned simulator and set `SELECTION_PROVIDER_TOKEN_FILE` to its generated JSON output. Never put that file, environment files or signing keys in a recording or commit.

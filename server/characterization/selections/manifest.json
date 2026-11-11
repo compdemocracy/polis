@@ -15,7 +15,7 @@
     "server/__tests__/integration/participation-under-load.test.ts": "8db39ea4a536484d74ad5124d6bd4f09490db83bb581bb6c0087f62e6b257c8b"
   },
   "corpus_sha256": {
-    "cases.json": "4ce965ff87966d370fbb7a03d8de84b720299187831d4d80b05d650f3405c5ce",
+    "cases.json": "a9fe98ae5e6b0c40a63027dd212c24c3f0388db2fe04b48156552e365b12af6e",
     "controls.json": "ce0382b8fea96f1559b68e35ee7244c001f8b925488647037f5ac136e23efddb"
   },
   "response_comparison": "Status, ordered headers and lexical body bytes; verified issued-token substitution with identity witness; validated Content-Length/ETag derived after token substitution; Date/Connection/Keep-Alive excluded.",

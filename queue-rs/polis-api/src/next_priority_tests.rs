@@ -107,3 +107,119 @@ fn overlapping_priority_reads_issue_one_statement() {
         .get(0);
     assert_eq!(count, 1, "overlapping callers must share one read");
 }
+
+/// `math_main.data` is jsonb in a database built from the migrations and json
+/// in an installation whose database predates them. The priorities read gives
+/// the same answer and the same refusal on both, and refuses a column of any
+/// other type. A json column keeps a document's text as written (spacing,
+/// repeated keys, number spelling); jsonb normalises it.
+#[test]
+fn json_and_jsonb_math_columns_give_the_same_priorities() {
+    let mut f = Fixture::new();
+    let documents = [
+        r#"{"comment-priorities":{"0":2,"1":0.5,"9":4},"unneeded":"wide payload"}"#,
+        "{ \"n\" : 5,\n\t\"comment-priorities\" : { \"9\" : 4e0 , \"1\":5E-1,\"0\":2.0, \"2\":0, \"3\":null, \"5\":false } ,\r\n \"tids\":[1,2] }",
+        r#"{"comment-priorities":{"0":1},"comment-priorities":{"0":2,"0":3,"1":7}}"#,
+        r#"{"comment-priorities":{"1":6,"10":1.50}}"#,
+        r#"{"comment-priorities":{}}"#,
+        r#"{"comment-priorities":null}"#,
+        r#"{"comment-priorities":[1,2]}"#,
+        r#"{"n":1}"#,
+        "{}",
+        "[1]",
+        "3",
+        "\"x\"",
+        "null",
+    ];
+    let mut reads: Vec<Vec<Result<Option<String>, String>>> = vec![];
+    for data_type in ["jsonb", "json"] {
+        // The type is set here, whatever shape the test database gives a
+        // newly created table.
+        f.client
+            .batch_execute(&format!(
+                "DELETE FROM math_main;
+                 ALTER TABLE math_main ALTER COLUMN data TYPE {data_type} USING data::text::{data_type}"
+            ))
+            .unwrap();
+        for (zid, document) in documents.iter().enumerate() {
+            f.client
+                .execute(
+                    &format!("INSERT INTO math_main VALUES($1,'test',$2,$3::text::{data_type})"),
+                    &[&(zid as i32), &(zid as i64 + 5), document],
+                )
+                .unwrap();
+        }
+        let stored: String = f
+            .client
+            .query_one("SELECT pg_typeof(data)::text FROM math_main LIMIT 1", &[])
+            .unwrap()
+            .get(0);
+        assert_eq!(stored, data_type);
+        reads.push(
+            (0..=documents.len())
+                .map(|zid| {
+                    Priorities::new(4)
+                        .read(&mut f.client, zid as i32, "test")
+                        .map(|data| data.map(|data| js::stringify(&data)))
+                        .map_err(|error| format!("{error:#}"))
+                })
+                .collect(),
+        );
+    }
+    assert_eq!(reads[0], reads[1], "jsonb and json differ");
+    let priorities = |text: &str| Ok(Some(format!("{{\"comment-priorities\":{text}}}")));
+    let refused = || Err("unsupported math shape".to_owned());
+    let expected = [
+        priorities(r#"{"0":2,"1":0.5,"9":4}"#),
+        priorities(r#"{"0":2,"1":0.5,"2":0,"3":null,"5":false,"9":4}"#),
+        // The last of a repeated key is the one read, on both types.
+        priorities(r#"{"0":3,"1":7}"#),
+        priorities(r#"{"1":6,"10":1.5}"#),
+        priorities("{}"),
+        priorities("null"),
+        priorities("[1,2]"),
+        Ok(Some("{}".to_owned())),
+        Ok(Some("{}".to_owned())),
+        refused(),
+        refused(),
+        refused(),
+        refused(),
+        // No committed row for the conversation.
+        Ok(None),
+    ];
+    for (zid, expected) in expected.iter().enumerate() {
+        assert_eq!(&reads[1][zid], expected, "document {zid}");
+    }
+    // Nothing remembers the column's type: on this one connection the same
+    // statement gives the same answer after the type changes under it.
+    f.client
+        .batch_execute("ALTER TABLE math_main ALTER COLUMN data TYPE jsonb")
+        .unwrap();
+    let cache = Priorities::new(4);
+    let first = cache.read(&mut f.client, 0, "test").unwrap().unwrap();
+    f.client
+        .batch_execute("ALTER TABLE math_main ALTER COLUMN data TYPE json")
+        .unwrap();
+    assert_eq!(
+        Priorities::new(4)
+            .read(&mut f.client, 0, "test")
+            .unwrap()
+            .unwrap(),
+        first
+    );
+    // A generation already held is revalidated without its document on json
+    // too: the tick is all that is read.
+    cache.expire(0, "test");
+    f.client
+        .batch_execute("UPDATE math_main SET data='{\"comment-priorities\":{\"0\":9}}' WHERE zid=0")
+        .unwrap();
+    assert_eq!(
+        cache.read(&mut f.client, 0, "test").unwrap().unwrap(),
+        first
+    );
+    // A column of any other type is refused by the statement itself.
+    f.client
+        .batch_execute("ALTER TABLE math_main ALTER COLUMN data TYPE text")
+        .unwrap();
+    assert!(Priorities::new(4).read(&mut f.client, 0, "test").is_err());
+}

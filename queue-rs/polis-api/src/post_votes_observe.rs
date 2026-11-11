@@ -11,8 +11,8 @@
 //!
 //! After selection it reads back the vote Node stored for the same member and
 //! statement, to compare the two engines' storage sign and member resolution,
-//! through `StorageConvention` only. No vote value, member id, text or token
-//! is ever written to a line.
+//! through `StorageConvention` only. No vote value, member id, statement
+//! number, text or token is ever written to a line.
 use super::*;
 use crate::{
     http::Body,
@@ -358,7 +358,6 @@ pub(super) async fn handle(app: &App, observer: &Observer, req: &Request, res: R
         record.follow_on = Some(follow_on);
         record.selection = took;
         if let Some(selection) = selection {
-            record.next_tid = selection.next_tid;
             record.remaining = selection.remaining;
             record.total = selection.total;
             record.weights_tick = selection.weights_tick;

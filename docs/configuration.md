@@ -201,7 +201,6 @@ the caps above.
 - **`API_DEV_HOSTNAME`** defaults to `localhost:5000` in [config:5](../server/src/config.ts#L5); set it to the development hostname and port you actually use.
 - **`API_PROD_HOSTNAME`** the hostname of your site (e.g. `pol.is`, or `example.com`). Should match **`DOMAIN_OVERRIDE`**. (In the future these two options may be combined into one.)
 - **`DOMAIN_OVERRIDE`** the hostname of your site. Should match **`API_PROD_HOSTNAME`**.
-- **`DOMAIN_WHITELIST_ITEM_01`** - **`08`** up to 8 possible additional whitelisted domains for client applications to make API requests from. Typical setups that use the same URL for the API service as for the public-facing web sites do not need to configure these.
 - **`EMBED_SERVICE_HOSTNAME`** is a legacy participation build input with fallback `pol.is` ([webpack:86](../client-participation/webpack.config.js#L86)); set it for the target environment. Alpha uses separate `PUBLIC_SERVICE_URL` / `INTERNAL_SERVICE_URL` inputs ([net.ts:13](../client-participation-alpha/src/lib/net.ts#L13)).
 - **`SERVICE_URL`** used by client-report to make API calls. Only necessary if client-report is hosted separately from the API service. Can be left blank.
 - **`STATIC_FILES_HOST`** Used by the API service to fetch static assets (the compiled client applications) from a static file server. Within the docker compose setup this is `file-server`, but could be an external hostname, such as a CDN or S3 bucket.

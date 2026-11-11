@@ -590,23 +590,17 @@ impl Res {
     }
 }
 
-/// `writeDefaultHead` (domain.ts) followed by `addCorsHeader`'s headers.
-fn default_head(origin: Option<&str>) -> Res {
+/// `writeDefaultHead` (domain.ts) followed by `addCorsHeader`'s headers, which
+/// it writes only when `cors` (see [`Cors::applies`]).
+fn default_head(cors: bool) -> Res {
     let mut res = Res::new(200);
     res.set("Content-Type", "application/json");
     res.set("Cache-Control", "no-cache");
     res.set("Connection", "keep-alive");
-    if let Some(origin) = origin {
-        res.set("Access-Control-Allow-Origin", origin);
-        res.set("Access-Control-Allow-Credentials", "true");
-        res.set(
-            "Access-Control-Allow-Headers",
-            "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
-        );
-        res.set(
-            "Access-Control-Allow-Methods",
-            "GET, PUT, POST, DELETE, OPTIONS",
-        );
+    if cors {
+        res.set("Access-Control-Allow-Origin", crate::cors::ALLOW_ORIGIN);
+        res.set("Access-Control-Allow-Headers", crate::cors::ALLOW_HEADERS);
+        res.set("Access-Control-Allow-Methods", crate::cors::ALLOW_METHODS);
     }
     res
 }
@@ -1171,8 +1165,10 @@ pub(crate) fn revoked_rewrite(app: &App, req: &Request, out: Outgoing) -> Outgoi
         && let Some(raw) = req.headers.get("authorization")
         && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
     {
-        let origin = app.cors.resolve(&req.headers).ok().flatten();
-        return crate::treevite_codes::session_revoked(req, default_head(origin.as_deref()));
+        return crate::treevite_codes::session_revoked(
+            req,
+            default_head(app.cors.applies(&req.headers)),
+        );
     }
     out
 }
@@ -1722,15 +1718,18 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     if let Some(raw) = req.headers.get("authorization")
         && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
     {
-        let origin = app.cors.resolve(&req.headers).ok().flatten();
-        return crate::treevite_codes::session_revoked(req, default_head(origin.as_deref()));
+        return crate::treevite_codes::session_revoked(
+            req,
+            default_head(app.cors.applies(&req.headers)),
+        );
     }
     if crate::treevite_codes::matches(req.path()) {
-        let origin = app.cors.resolve(&req.headers);
-        let Ok(origin) = origin else {
-            return bad_gateway();
-        };
-        return crate::treevite_codes::handle(app, req, default_head(origin.as_deref())).await;
+        return crate::treevite_codes::handle(
+            app,
+            req,
+            default_head(app.cors.applies(&req.headers)),
+        )
+        .await;
     }
 
     if crate::integrate_page::matches(req.path())
@@ -2017,7 +2016,7 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
         )
     {
         if crate::treevite_write::matches(req.path()) && app.treevite_write.is_some() {
-            return parameter_error(app, req, default_head(None));
+            return parameter_error(app, req, default_head(false));
         }
         return bad_gateway();
     }
@@ -2032,23 +2031,13 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
             return finish(req, res, Ending::End(msg.into_bytes()), false);
         }
     };
-    // writeDefaultHead, compress, addCorsHeader.
-    let origin = match if matches!(req.path(), crate::robots::PATH | crate::perf_stats::PATH)
+    // writeDefaultHead, compress, addCorsHeader (mounted on /api/v3/* only).
+    let cors = !(matches!(req.path(), crate::robots::PATH | crate::perf_stats::PATH)
         || crate::conversation_pages::matches(req.path())
         || crate::integrate_page::matches(req.path())
-        || crate::admin_page::matches(req.path())
-    {
-        Ok(None)
-    } else {
-        app.cors.resolve(&req.headers)
-    } {
-        Ok(origin) => origin,
-        Err(refusal) => {
-            let err = format!("unauthorized domain: {}", refusal.origin);
-            return final_handler(app, req, default_head(None), Some(&err), true);
-        }
-    };
-    let res = default_head(origin.as_deref());
+        || crate::admin_page::matches(req.path()))
+        && app.cors.applies(&req.headers);
+    let res = default_head(cors);
     // middleware_check_if_options: `res.send(204)`.
     if req.method.eq_ignore_ascii_case("options") {
         let mut res = res;
@@ -2256,7 +2245,7 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
                 format!("{e:#}")
             );
             // failJson(res, 500, err) with an Error object: it prints as {}.
-            let res = default_head(origin.as_deref());
+            let res = default_head(cors);
             fail_json(req, res, 500, Js::Obj(Obj::new()))
         }
     }
@@ -5059,6 +5048,87 @@ mod tests {
             .map(|(_, v)| v.as_str())
     }
 
+    const UNLISTED_ORIGIN: &str = "https://news.example.org";
+
+    /// The CORS headers `addCorsHeader` writes when a request names an origin:
+    /// one constant set, the same for every origin. No credentials header and
+    /// no `Vary`, because the API reads no cookie and the value never depends
+    /// on the request.
+    fn assert_cookie_free_cors(out: &Outgoing) {
+        assert_eq!(header(out, "Access-Control-Allow-Origin"), Some("*"));
+        assert_eq!(
+            header(out, "Access-Control-Allow-Headers"),
+            Some("Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With")
+        );
+        assert_eq!(
+            header(out, "Access-Control-Allow-Methods"),
+            Some("GET, PUT, POST, DELETE, OPTIONS")
+        );
+        assert_eq!(header(out, "Access-Control-Allow-Credentials"), None);
+    }
+
+    fn assert_no_cors(out: &Outgoing) {
+        for name in [
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials",
+            "Access-Control-Allow-Headers",
+            "Access-Control-Allow-Methods",
+        ] {
+            assert_eq!(header(out, name), None, "{name}");
+        }
+    }
+
+    /// There is no origin list: a preflight from any site to a route Rust
+    /// serves is answered 204 by `middleware_check_if_options` with the CORS
+    /// headers, the bytes Node writes; a preflight that names no origin gets
+    /// none, as before.
+    #[tokio::test]
+    async fn a_preflight_from_any_origin_is_answered_204_with_the_cookie_free_cors_headers() {
+        let req = request(
+            "OPTIONS",
+            &[
+                ("host", "h"),
+                ("origin", UNLISTED_ORIGIN),
+                ("access-control-request-method", "POST"),
+                (
+                    "access-control-request-headers",
+                    "authorization, content-type",
+                ),
+            ],
+        );
+        let out = handle(app(true), req).await;
+        assert_eq!(out.status, 204);
+        assert_cookie_free_cors(&out);
+        assert_eq!(header(&out, "Vary"), None);
+        let bytes = crate::http::write_response(&out, false, false, "D").unwrap();
+        assert_eq!(
+            String::from_utf8(bytes).unwrap(),
+            "HTTP/1.1 204 No Content\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With\r\nAccess-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS\r\nETag: W/\"a-oQDOV50e1MN2H/N8GYi+8w\"\r\nDate: D\r\n\r\n"
+        );
+        let out = handle(app(true), request("OPTIONS", &[("host", "h")])).await;
+        assert_eq!(out.status, 204);
+        assert_no_cors(&out);
+    }
+
+    /// A GET from another site's page reaches its route: pca2 with no
+    /// conversation_id answers its own parameter refusal (400) before any
+    /// database read, carrying the CORS headers. A Referer alone names the
+    /// origin too; a request with neither header gets no CORS headers.
+    #[tokio::test]
+    async fn a_get_from_any_origin_reaches_its_route() {
+        for named in [
+            ("origin", UNLISTED_ORIGIN),
+            ("referer", "https://news.example.org/story/42?x=1#comments"),
+        ] {
+            let out = handle(app(true), request("GET", &[("host", "h"), named])).await;
+            assert_eq!(out.status, 400, "{named:?}");
+            assert_cookie_free_cors(&out);
+        }
+        let out = handle(app(true), request("GET", &[("host", "h")])).await;
+        assert_eq!(out.status, 400);
+        assert_no_cors(&out);
+    }
+
     /// With its database unreachable the route answers 502 (nginx then asks
     /// Node), never the 400 or 500 a lookup failure would otherwise produce.
     #[tokio::test]
@@ -5171,7 +5241,7 @@ mod tests {
     #[test]
     fn compression_hook_adds_vary_and_respects_threshold() {
         let req = request("GET", &[("accept-encoding", "gzip")]);
-        let mut res = default_head(None);
+        let mut res = default_head(false);
         res.set("Content-Length", "5");
         let out = finish(&req, res, Ending::End(b"{\"a\"}".to_vec()), true);
         assert!(
@@ -5180,7 +5250,7 @@ mod tests {
                 .any(|(k, v)| k == "Vary" && v == "Accept-Encoding")
         );
         assert!(matches!(out.body, Body::Fixed(_)));
-        let mut res = default_head(None);
+        let mut res = default_head(false);
         let big = vec![b'a'; 2000];
         res.set("Content-Length", "2000");
         let out = finish(&req, res, Ending::End(big), true);

@@ -138,8 +138,10 @@ compose stacks, whose Postgres has no TLS.
 It reads the Node server's env file, so these match Node: `MATH_ENV`
 (required; there is no default, as in Node), `READ_ONLY_DATABASE_URL` and
 `DATABASE_URL`, `DD_ENV` (the log's `env`), `DEV_MODE`, `NODE_ENV`,
-`DOMAIN_OVERRIDE`, `USE_NETWORK_HOST`, `TESTING`, `API_DEV_HOSTNAME`,
-`API_PROD_HOSTNAME`, `DOMAIN_WHITELIST_ITEM_01..08`, `CACHE_MATH_RESULTS`.
+`DOMAIN_OVERRIDE` (when set, every `/api/v3` answer carries the CORS headers),
+`USE_NETWORK_HOST`, `CACHE_MATH_RESULTS`. Like Node, it answers a request from
+any origin: the CORS headers are `Access-Control-Allow-Origin: *` with the
+allowed headers and methods, and no credentials header (`cors.rs`).
 It refuses to start if `POLIS_REACHABLE_ERROR_HANDLER` is on, because it only
 implements Node's default error pages.
 
@@ -225,6 +227,9 @@ cargo clippy --locked -p polis-api --all-targets -- -D warnings
 cargo test --locked -p polis-api
 POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:25462/scratch \
   cargo test --locked -p polis-api --features db-tests   # a throwaway Postgres
+# `make check-polis-api` runs these database tests a second time on the shape
+# of an installation whose database predates the migrations
+# (tests/older_database_shape.sql; see docs/local-checks.md).
 cd ..
 queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
 # Byte-for-byte replay (needs Docker and the local characterization images;
@@ -1564,9 +1569,12 @@ handler as a live request:
 One `shadow_observation` line is printed per copy, with `listener: "shadow"`:
 the request id, the outcome (`would_serve`, `would_hand_back`, `would_fail`,
 `shed`, `not_observed`), the would-be status and its reason, durations, the
-conversation and statement ids, the would-be next statement and its counts,
+conversation id, whether a next statement would be served and its counts,
 the membership class and the readback class. It never carries the vote value,
-a participant id, comment text, a token or a header value. Every other line
+a participant id, a statement id (neither the one voted on nor the next one:
+beside the conversation id and the time, one picks out a row of the
+conversation's public votes), comment text, a token or a header value. The
+readback and the membership class use the statement in process. Every other line
 the shadow prints is marked as the shadow's too (`service:
 "polis-api-shadow"` and `listener: "shadow"`, or an event name starting
 `shadow_`), so no query that counts the main process's vote lines counts them.

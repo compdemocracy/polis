@@ -29,13 +29,17 @@ an arm64 host (the package needs `pkg-config` and `libssl-dev`).
 |---|---|---|
 | `shadow_edge` | nginx, each shadowed vote (`file-server/nginx/rust-api/shadow-http.conf.template`) | `request_id`, `edge_status` (Node's status as nginx saw it), `edge_upstream_s` (Node's time) |
 | `shadow_mirror` | nginx, each copy | `mirror_status`, `mirror_upstream_status` (empty: not copied), `mirror_s` (how long the copy held the participant's connection) |
-| `vote_reply` | Node's vote handler (`server/src/routes/votes.ts`), only for a request carrying nginx's `X-Request-Id` | `node_status`, `node_next` (`statement`, `topical` or `none`), `node_next_tid`, `node_remaining`, `node_total`, `zid` |
+| `vote_reply` | Node's vote handler (`server/src/routes/votes.ts`), only for a request carrying nginx's `X-Request-Id` | `node_status`, `node_next` (`statement`, `topical` or `none`), `node_remaining`, `node_total`, `zid`. The line also names the statement Node served (`node_next_tid`); the tool never reads it |
 | `http_request` | Node's access line, which carries `request_id` for such a request (`server/src/server-middleware.ts`). Its `message` is written `"http_request http_request"` (winston appends the meta's `message`); the queries accept both spellings, and a test refuses a query that tests the single one | `http.status_code`: Node's answer when its middleware refused the vote before the handler; for every vote (with or without a request id), `http.route`, `http.status_code` and `duration_ms` for the stop rule's vote inputs |
-| `shadow_observation` | the shadow service (`queue-rs/polis-api/src/shadow.rs`) | `outcome`, `admitted`, `status`, `reason`, the durations, `follow_on`, `next_tid`, `remaining`, `total`, `prev`, `node_vote` |
+| `shadow_observation` | the shadow service (`queue-rs/polis-api/src/shadow.rs`) | `outcome`, `admitted`, `status`, `reason`, the durations, `follow_on`, `remaining`, `total`, `prev`, `node_vote` |
 
-None of the five carries a vote value. Every container on a web box writes into
-one log stream; each line above says whose it is (`listener: "shadow"`, or
-Node's `service: "server"`).
+None of the five carries a vote value. The shadow's line names no statement,
+neither the one voted on nor the one it would serve next: a statement number
+beside a conversation number and a time picks out one row of that
+conversation's public votes, and with it a participant. The shadow uses the
+numbers in process and prints classes (`node_vote`, `prev`, `follow_on`).
+Every container on a web box writes into one log stream; each line above says
+whose it is (`listener: "shadow"`, or Node's `service: "server"`).
 
 ## The queries, and what may leave AWS
 
@@ -52,15 +56,14 @@ Each is a filter, optional computed fields and one or two `stats` stages:
 A test fails if any query's final stage groups by anything outside an allowlist
 of class and status fields (`query.rs`, `GROUP_ALLOWLIST`), takes a maximum or
 percentile of anything but a duration, counts on a request id, participant,
-vote, address or text, or if a first stage groups by anything but the request
-id. Only the window's two bounds are filled in at run time, as integers.
+statement number, vote, address or text, or if a first stage groups by anything
+but the request id. A second test fails if any query could return a statement
+number in any form, and a third if a compiled query reads one at all. Only the
+window's two bounds are filled in at run time, as integers.
 
-**What leaves AWS in a default run: the aggregate rows of those queries
-(counts, shares, percentiles) and the CloudWatch datapoints below; nothing
-else.** With `--distributions` the tool also fetches, for the weights test,
-the number of paired draws per conversation number and statement number. Those
-rows stay in the tool's memory; only the combined statistic is printed. Nothing
-is written to disk.
+**What leaves AWS: the aggregate rows of those queries (counts, shares,
+percentiles) and the CloudWatch datapoints below; nothing else.** No row holds
+a conversation or statement number. Nothing is written to disk.
 
 The stop rule's metrics, read with `cloudwatch get-metric-statistics`: the
 database's `CPUUtilization` (5-minute averages), and the load balancer's
@@ -81,8 +84,7 @@ polis-shadow run --route votes \
   --from 2026-11-10T00:00:00Z --to 2026-11-17T00:00:00Z \
   --log-group <server log group> \
   --db-instance <database instance identifier> \
-  --load-balancer <app/name/id of the web load balancer> \
-  --distributions
+  --load-balancer <app/name/id of the web load balancer>
 ```
 
 The window is at most eight days. The join reads 60 seconds past each bound
@@ -150,12 +152,7 @@ criterion missed: examine before the flip).
    the shadow. The floors and the three-hour runs exist for the same reason:
    one slow hour or one bad day happens every week; what the shadow could
    cause (database contention, a held connection) persists while it runs.
-8. **Draw distributions** (`--distributions`): for each copy that both Node and
-   the shadow served with a statement, Node's draw and the shadow's draw for
-   the same request; a chi-square of homogeneity per conversation (statements
-   drawn fewer than ten times in all pooled), summed over conversations with at
-   least 200 paired draws and tested once.
-9. **The criteria and the verdict.**
+8. **The criteria and the verdict.**
 
 ## The criterion for the week
 
@@ -171,7 +168,6 @@ criterion missed: examine before the flip).
 | `remaining` and `total` | equal on at least 99.5 % where both served a statement |
 | Exhaustion and presence | agreement at least 99.9 % |
 | Membership | `hit` at least 98 % of `hit` and `miss` |
-| Weights | the combined test not rejected at 0.01 |
 | Writer latency | admission p99 at most 100 ms, total p99 at most 400 ms |
 | Follow-on and admission | `degraded` at most 1 % of admitted would-be 200s; no `admission_timeout` |
 | The stop rule | never fired |
@@ -182,12 +178,17 @@ else PASS. Every miss is examined before the flip.
 
 ## What it cannot compare
 
-- **The drawn statement itself.** Node and the shadow draw independently at
-  random, so an equal pick is luck; sets, counts and distributions are
-  compared instead.
+- **The drawn statement, and how the draws are weighted.** The shadow's line
+  names no statement, so neither the two picks nor their distributions are
+  compared (Node and the shadow draw independently at random, so an equal pick
+  would be luck in any case). What is compared: whether each served a
+  statement, the two counts, and membership. A difference in how the two
+  weight their draws (the comment priorities of the math result) is therefore
+  not detected here; the weighted draw itself is held, on fixed draws, by the
+  vote writer's own tests.
 - **Membership** detects only a candidate set that is too small, and about
   half of next votes land on the other web box (`prev: none`).
-- **Ticks.** Draws are paired by request, so both sides are usually on the
+- **Ticks.** Both sides pick for the same request, so they are usually on the
   same math generation; a generation change between Node's pick and the
   shadow's is not excluded, because the shadow's line carries no tick age.
 - **Topical picks.** Node's topic-agenda picks (`node_next: "topical"`) are

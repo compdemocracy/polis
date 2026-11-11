@@ -264,7 +264,7 @@ const App = (props) => {
           searchParamsCache ? `&noCache=${searchParamsCache}` : ``
         }`,
         {
-          credentials: "include",
+          credentials: "omit",
           method: "get",
           headers: {
             Accept: "application/json, text/plain, */*",

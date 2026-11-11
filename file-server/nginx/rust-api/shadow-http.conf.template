@@ -7,3 +7,17 @@
 # carries an address, a header value or a body.
 log_format polis_shadow_edge escape=json '{"message":"shadow_edge","listener":"shadow","service":"nginx-proxy","route":"$request_method $uri","request_id":"$request_id","edge_status":$status,"edge_upstream_status":"$upstream_status","edge_upstream_s":"$upstream_response_time","edge_request_s":$request_time,"time":"$time_iso8601"}';
 log_format polis_shadow_mirror escape=json '{"message":"shadow_mirror","listener":"shadow","service":"nginx-proxy","shadow":"$polis_shadow_name","request_id":"$request_id","mirror_status":$status,"mirror_upstream_status":"$upstream_status","mirror_s":$request_time,"time":"$time_iso8601"}';
+# A shadowed request's ordinary access line: the image's `main` format with
+# its two address fields written "-": the first ($remote_addr, the peer) and
+# the last (X-Forwarded-For; "-" is what `main` itself writes for a request
+# without that header). Both fields keep their place, so a reader of `main`
+# lines reads these too. A participant's address is in one of the two: in
+# X-Forwarded-For behind a load balancer (which appends it), in the peer
+# address where nginx faces participants directly. The shadow_edge line
+# written beside this one carries the request id that joins Node's and the
+# shadow's lines for the same request, so the access line of a shadowed
+# request records neither. Every shadowed route's location writes this format
+# (shadow-mirror.conf.template). The headers sent to Node and to the shadow
+# are not changed. nginx's error log is not: a line it writes when the copy
+# or Node fails names the peer as `client:` (it carries no request id).
+log_format polis_shadow_access '- - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" "-"';
