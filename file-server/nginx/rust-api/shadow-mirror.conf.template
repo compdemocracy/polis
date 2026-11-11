@@ -4,11 +4,13 @@
 # writes nothing. Node's answer never waits for the copy; the next request on
 # the same client connection waits for it at most the copy's four timeouts
 # below. Neither location has an error_page, a retry or a route to Node: a
-# failed copy ends where it fails.
+# failed copy ends where it fails. The request's ordinary access line is
+# written without the peer address and the X-Forwarded-For value
+# (polis_shadow_access).
 location @polis_shadow_${SHADOW_NAME} {
     mirror /_polis_shadow/${SHADOW_NAME};
     mirror_request_body on;
-    access_log /var/log/nginx/access.log main;
+    access_log /var/log/nginx/access.log polis_shadow_access;
     access_log /var/log/nginx/access.log polis_shadow_edge;
     include /etc/nginx/node-proxy.conf;
     proxy_set_header X-Request-Id $request_id;

@@ -4,7 +4,6 @@
 //! statement number, a participant or text.
 use crate::aws::{Row, Window};
 use crate::route::{ROW_LIMIT, Route};
-use crate::stats;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
@@ -99,8 +98,6 @@ pub struct Inputs<'a> {
     pub window: Window,
     pub results: &'a Results,
     pub metrics: &'a Metrics,
-    /// Whether the distribution queries were run.
-    pub distributions: bool,
 }
 
 fn num(row: &Row, key: &str) -> Option<f64> {
@@ -152,8 +149,6 @@ mod bar {
     pub const COUNTS: f64 = 99.5;
     pub const EXHAUSTION: f64 = 99.9;
     pub const MEMBERSHIP: f64 = 98.0;
-    pub const WEIGHTS_P: f64 = 0.01;
-    pub const WEIGHTS_MIN_DRAWS: u64 = 200;
     pub const ADMISSION_P99_MS: f64 = 100.0;
     pub const TOTAL_P99_MS: f64 = 400.0;
     pub const DEGRADED: f64 = 1.0;
@@ -679,28 +674,6 @@ pub fn build(inputs: &Inputs) -> Report {
     let _ = writeln!(out, "\n7. The stop rule");
     stop_rule(&mut out, &mut add, inputs.results, inputs.metrics, hold);
 
-    // ---- Weights.
-    let _ = writeln!(
-        out,
-        "\n8. Draw distributions (Node's and the shadow's draws for the same requests)"
-    );
-    if !inputs.distributions {
-        let _ = writeln!(out, "   not run (pass --distributions)");
-        add("weights", "not run".into(), Mark::NotEvaluated);
-    } else {
-        match (rows("draws_node"), rows("draws_rust")) {
-            (Ok(node), Ok(rust)) => weights(&mut out, &mut add, node, rust),
-            (Err(why), _) | (_, Err(why)) => {
-                let _ = writeln!(out, "   unavailable: {why}");
-                add(
-                    "weights",
-                    "unavailable (section 8)".into(),
-                    Mark::NotEvaluated,
-                );
-            }
-        }
-    }
-
     // ---- Criteria and verdict.
     let verdict = if criteria.iter().any(|c| c.mark == Mark::Stop) {
         Verdict::Stop
@@ -714,7 +687,7 @@ pub fn build(inputs: &Inputs) -> Report {
     } else {
         Verdict::Pass
     };
-    let _ = writeln!(out, "\n9. Criteria for the week");
+    let _ = writeln!(out, "\n8. Criteria for the week");
     for c in &criteria {
         let _ = writeln!(out, "   {:<26} {:<20} {}", c.name, c.mark.text(), c.value);
     }
@@ -732,9 +705,9 @@ pub fn build(inputs: &Inputs) -> Report {
 
 /// The comparison's limits, printed with every report.
 const LIMITS: &[&str] = &[
-    "The drawn statement itself: Node and the shadow draw independently at random, so the same pick is luck; sets, counts and distributions are compared instead.",
+    "The drawn statement, and how the draws are weighted: the shadow's line names no statement (a statement number beside a conversation number and a time picks out a participant's public vote), so neither the picks nor their distribution are compared. Whether a statement was served, the two counts and membership are.",
     "Membership detects only a candidate set that is too small; about half of next votes land on the other box (prev none).",
-    "Draws are paired by request; a math generation change between Node's pick and the shadow's is not excluded (the shadow line carries no tick age).",
+    "A math generation change between Node's pick and the shadow's is not excluded (the shadow line carries no tick age).",
     "Node's topical picks are excluded from every next-statement comparison.",
     "Latency and the degraded share leave out the append, which observe mode does not run (optimistic); the shadow's reads run beside Node's own pick (its database load is pessimistic).",
     "Not covered: append contention, 202 unknown, 406 duplicates, the star write, notification state, the no-more-comments row, hand-back replay, mixed routing and retries, drain on stop, what clients do with the writer's answers.",
@@ -1127,72 +1100,6 @@ fn stop_rule(
             Mark::NotEvaluated
         } else {
             Mark::Pass
-        },
-    );
-}
-
-fn weights(
-    out: &mut String,
-    add: &mut impl FnMut(&'static str, String, Mark),
-    node: &[Row],
-    rust: &[Row],
-) {
-    // In memory only: conversation and statement numbers are never printed.
-    let mut conversations: BTreeMap<String, stats::Cells> = BTreeMap::new();
-    for (rows, tid_key, side) in [(node, "nn", 0usize), (rust, "rn", 1usize)] {
-        for row in rows {
-            let pairs = count(row, "pairs");
-            if pairs == 0 {
-                continue;
-            }
-            let cell = conversations
-                .entry(text(row, "conv").to_owned())
-                .or_default()
-                .entry(text(row, tid_key).to_owned())
-                .or_default();
-            if side == 0 {
-                cell.0 += pairs;
-            } else {
-                cell.1 += pairs;
-            }
-        }
-    }
-    let unbalanced = conversations
-        .values()
-        .filter(|cells| {
-            cells.values().map(|c| c.0).sum::<u64>() != cells.values().map(|c| c.1).sum::<u64>()
-        })
-        .count();
-    if unbalanced > 0 {
-        let why =
-            format!("{unbalanced} conversations have unequal paired totals; the test is withheld");
-        let _ = writeln!(out, "   {why}");
-        add("weights", why, Mark::NotEvaluated);
-        return;
-    }
-    let result = stats::combined(conversations.values(), bar::WEIGHTS_MIN_DRAWS);
-    let _ = writeln!(
-        out,
-        "   conversations with at least {} paired draws: {} ({} draws); combined chi-square {:.1} on {} degrees of freedom, p = {:.4}",
-        bar::WEIGHTS_MIN_DRAWS,
-        result.conversations,
-        result.draws,
-        result.statistic,
-        result.df,
-        result.p
-    );
-    add(
-        "weights",
-        format!(
-            "p = {:.4} over {} conversations ({} draws)",
-            result.p, result.conversations, result.draws
-        ),
-        if result.conversations == 0 {
-            Mark::Short
-        } else if result.p >= bar::WEIGHTS_P {
-            Mark::Pass
-        } else {
-            Mark::Miss
         },
     );
 }

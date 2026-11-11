@@ -35,12 +35,10 @@ const LINE_KEYS: &[&str] = &[
     "total_ms",
     "readback_s",
     "zid",
-    "tid",
     "starred_present",
     "lang_present",
     "append",
     "follow_on",
-    "next_tid",
     "remaining",
     "total",
     "candidates",
@@ -182,6 +180,17 @@ async fn observation(id: &str) -> Value {
     .unwrap_or_else(|_| panic!("no observation line for {id}"))
 }
 
+/// No key of the line names a statement: not the one a copy votes on, not the
+/// one that would be served next.
+fn assert_names_no_statement(line: &Value) {
+    for key in line.as_object().unwrap().keys() {
+        assert!(
+            key != "tid" && !key.ends_with("_tid") && !key.contains("statement"),
+            "{key} names a statement: {line}"
+        );
+    }
+}
+
 fn assert_line_shape(line: &Value) {
     let mut keys: Vec<&str> = line
         .as_object()
@@ -193,6 +202,7 @@ fn assert_line_shape(line: &Value) {
     keys.sort_unstable();
     expected.sort_unstable();
     assert_eq!(keys, expected, "observation keys");
+    assert_names_no_statement(line);
     assert_eq!(line["message"], "shadow_observation");
     assert_eq!(line["listener"], "shadow");
     assert_eq!(line["service"], "polis-api-shadow");
@@ -875,7 +885,6 @@ async fn observation_line_carries_only_allowed_keys() {
     assert_eq!(lines[4]["starred_present"], true);
     assert_eq!(lines[4]["lang_present"], true);
     assert_eq!(lines[1]["starred_present"], false);
-    assert_eq!(lines[1]["tid"], 3);
     // A request id that is not 32 lowercase hex is recorded as null.
     let mut odd = copy(&body, None, "NOT-HEX");
     odd.headers = crate::http::Headers::from_raw([
@@ -932,15 +941,17 @@ async fn observation_line_carries_only_allowed_keys() {
 }
 
 /// A copy of a vote from each client gets past the Content-Type check (it
-/// carries no token, so the next reason is recorded), and its statement is
-/// read. A copy under a form no client sends stops at that check. Each copy
-/// has the Content-Length nginx sends, so the route's body parser runs too.
+/// carries no token, so the next reason is recorded), and its body is read
+/// (the line says it carries a star). A copy under a form no client sends
+/// stops at that check. Each copy has the Content-Length nginx sends, so the
+/// route's body parser runs too.
 #[tokio::test]
 async fn copies_from_each_client_pass_the_content_type_check() {
     let keys = signing();
     let app = shadow_app(closed, Some(observer_on(closed, &keys.public)));
     let lane = shadow::Lane::new(1000);
-    let body = vote_body("2fixture", 3, VoteChoice::Agree);
+    let mut body = vote_body("2fixture", 3, VoteChoice::Agree);
+    body["starred"] = json!(true);
     let length = body.to_string().len().to_string();
     for (content_type, reason) in [
         // The command-line client.
@@ -974,12 +985,97 @@ async fn copies_from_each_client_pass_the_content_type_check() {
         assert_line_shape(&line);
         assert_eq!(line["outcome"], "would_hand_back", "{line}");
         assert_eq!(line["reason"], reason, "{content_type:?}: {line}");
-        let tid = if reason == "no_token" {
-            json!(3)
-        } else {
-            Value::Null
-        };
-        assert_eq!(line["tid"], tid, "{content_type:?}: {line}");
+        assert_eq!(
+            line["starred_present"],
+            reason == "no_token",
+            "{content_type:?}: {line}"
+        );
+    }
+}
+
+/// The line never names a statement, whatever became of the copy: not the
+/// one it votes on, not the one that would be served next. A statement number
+/// beside the conversation number and the time picks out one row of a
+/// conversation's public votes, and with it a participant. What needs the
+/// number (the readback of Node's stored vote, the membership class) uses it
+/// in process and prints a class.
+#[tokio::test]
+async fn observation_line_names_no_statement() {
+    // A statement number no other field of these lines can hold.
+    const STATEMENT: i32 = 918_273;
+    assert!(
+        LINE_KEYS
+            .iter()
+            .all(|key| *key != "tid" && !key.ends_with("_tid")),
+        "the line's contract names a statement"
+    );
+    let keys = signing();
+    let member = token(&keys, "2fixture");
+    let app = shadow_app(closed, Some(observer_on(closed, &keys.public)));
+    let unconfigured = shadow_app(closed, None);
+    let body = vote_body("2fixture", STATEMENT, VoteChoice::Agree);
+    let mut starred = body.clone();
+    starred["starred"] = json!(true);
+    starred["lang"] = json!("fr");
+    // A lane of one copy a second: the copy after the first is shed.
+    let slow = shadow::Lane::new(1);
+    let lane = shadow::Lane::new(1000);
+    // Every copy is accepted before any line is awaited, so the slow lane's
+    // second copy arrives within its first second.
+    let mut accepted = vec![];
+    for (app, lane, body, token, outcome) in [
+        // Handed back before admission: no token.
+        (&app, &lane, &body, None, "would_hand_back"),
+        // A member's copy, read as far as admission (no database here).
+        (
+            &app,
+            &lane,
+            &starred,
+            Some(member.as_str()),
+            "would_hand_back",
+        ),
+        (
+            &unconfigured,
+            &lane,
+            &body,
+            Some(member.as_str()),
+            "not_observed",
+        ),
+        (&app, &slow, &body, None, "would_hand_back"),
+        (&app, &slow, &body, None, "shed"),
+    ] {
+        let id = request_id();
+        assert_eq!(
+            shadow::accept(app.clone(), lane.clone(), copy(body, token, &id))
+                .await
+                .status,
+            204
+        );
+        accepted.push((id, outcome));
+    }
+    for (id, outcome) in accepted {
+        let marker = format!("\"request_id\":\"{id}\"");
+        let printed = tokio::time::timeout(Duration::from_secs(60), async {
+            loop {
+                let found = shadow::recorded()
+                    .into_iter()
+                    .find(|line| line.contains(&marker) && line.contains("\"shadow_observation\""));
+                if let Some(line) = found {
+                    return line;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("no observation line for {id}"));
+        let line: Value = serde_json::from_str(&printed).unwrap();
+        assert_eq!(line["outcome"], outcome, "{printed}");
+        assert_names_no_statement(&line);
+        assert!(
+            !printed.contains(&STATEMENT.to_string()),
+            "the statement voted on is on the line: {printed}"
+        );
+        assert_eq!(printed_keys(&printed), LINE_KEYS, "{printed}");
     }
 }
 
@@ -1141,8 +1237,6 @@ mod database_tests {
             });
             assert_line_shape(&line);
             assert!(line["reason"].is_null(), "{column_type}: {line}");
-            let next = line["next_tid"].as_i64().unwrap();
-            assert!([4, 6, 7, 9, 10, 11, 12, 13].contains(&next), "{line}");
             seen.push(json!([
                 line["outcome"],
                 line["admitted"],
@@ -1229,8 +1323,6 @@ mod database_tests {
                         // Eligible: 0..13 less moderated 3, muted 5, inactive 8;
                         // less the prior votes 0 and 1 and the voted 2.
                         assert_eq!(line["candidates"], 8);
-                        let next = line["next_tid"].as_i64().unwrap();
-                        assert!([4, 6, 7, 9, 10, 11, 12, 13].contains(&next), "{line}");
                         // get_visible_comments counts the muted statement too.
                         assert_eq!(line["remaining"], 9);
                         assert_eq!(line["total"], 12);
@@ -1244,7 +1336,7 @@ mod database_tests {
                         assert_eq!(line["admitted"], 1);
                         assert_eq!(line["reason"], "closed");
                         assert_eq!(line["zid"], 2);
-                        assert!(line["next_tid"].is_null());
+                        assert!(line["follow_on"].is_null());
                         assert_eq!(line["node_vote"], "absent");
                     }
                     _ => {
@@ -1279,7 +1371,6 @@ mod database_tests {
             let line = observation(&id).await;
             assert_eq!(line["outcome"], "would_serve");
             assert_eq!(line["follow_on"], "absent");
-            assert!(line["next_tid"].is_null());
             assert_eq!(line["candidates"], 0);
             // The member's last selection here offered 13: a hit.
             assert_eq!(line["prev"], "hit");

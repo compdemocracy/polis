@@ -403,7 +403,6 @@ export async function getNextComment(
 
   logger.info("polis_info_getNextComment", {
     zid,
-    pid,
     withoutTids,
     lang,
     shouldUseTopical,

@@ -93,12 +93,28 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   20 ms send, 30 ms read, 30 ms resolve) when it is slow or silent. The body
   is read before Node is contacted (`mirror_request_body`); votes are small.
 - **What it logs.** Two JSON lines per shadowed vote, both with
-  `listener: "shadow"` and nginx's `request_id`, beside the usual access line:
+  `listener: "shadow"` and nginx's `request_id`, beside the access line:
   `shadow_edge` (Node's status and time as nginx saw them, the participant's
   total time) and `shadow_mirror` (the copy's status and time). A copy skipped
   by the body bound logs `mirror_status` 204 with an empty
   `mirror_upstream_status`. Neither line carries an address, a header value or
   a body.
+- **The access line of a shadowed vote records no address.** It is written in
+  `polis_shadow_access`: the image's `main` format with its two address
+  fields written `-`, the first (`$remote_addr`, the peer) and the last
+  (`X-Forwarded-For`; `"-"` is what `main` writes for a request without that
+  header). Both fields keep their place. A participant's address is in one of
+  the two: in `X-Forwarded-For` behind a load balancer, in the peer address
+  where nginx faces participants directly. `shadow_edge`, written beside the
+  access line, carries the request id that joins Node's and the shadow's
+  lines; with an address on the access line, one vote's lines would tie an
+  address to them. Every other request, the other methods on the same path
+  included, keeps `main`. Node and the shadow receive `X-Forwarded-For`
+  exactly as before. Anything that counts votes or voters from an address on
+  nginx's access lines reads `-` for a shadowed vote. Not changed: the
+  request line, the `Referer` and the user agent on that line; and nginx's
+  error log, where a line written when the copy or Node fails names the peer
+  as `client:` (it carries no request id).
 - **With `votesRead`.** The vote read route's own location answers the path,
   with the POST diversion inserted first (POST goes to the shadow's named
   location; every other request keeps the read route's handling).

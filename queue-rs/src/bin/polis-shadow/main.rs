@@ -8,7 +8,6 @@ mod aws;
 mod query;
 mod report;
 mod route;
-mod stats;
 mod time;
 
 #[cfg(test)]
@@ -27,12 +26,12 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 const USAGE: &str = "usage:
-  polis-shadow queries [--route votes] [--distributions]
+  polis-shadow queries [--route votes]
   polis-shadow run --route votes --from <UTC time> --to <UTC time> --log-group <name>
                    --db-instance <id> --load-balancer <app/name/id>
-                   [--distributions] [--aws <program>] [--timeout-s <seconds>]
+                   [--aws <program>] [--timeout-s <seconds>]
   polis-shadow report --route votes --results <directory>
-                   [--from <UTC time> --to <UTC time>] [--distributions]
+                   [--from <UTC time> --to <UTC time>]
 Exit: 0 pass, 1 stop, 2 too little evidence (or not evaluated), 3 error,
       4 examine (a criterion missed; no stop).";
 
@@ -49,7 +48,6 @@ pub struct RunArgs {
     pub log_group: String,
     pub db_instance: String,
     pub load_balancer: String,
-    pub distributions: bool,
     pub aws: String,
     pub timeout_s: u64,
 }
@@ -58,14 +56,12 @@ pub struct RunArgs {
 pub enum Command {
     Queries {
         route: &'static str,
-        distributions: bool,
     },
     Run(RunArgs),
     Report {
         route: &'static str,
         results: PathBuf,
         window: (i64, i64),
-        distributions: bool,
     },
 }
 
@@ -88,7 +84,6 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
     let mut args = args.into_iter();
     let command = args.next().context(USAGE)?;
     let mut options: BTreeMap<String, Option<String>> = BTreeMap::new();
-    let flags = ["--distributions"];
     let valued = [
         "--route",
         "--from",
@@ -101,9 +96,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
         "--results",
     ];
     while let Some(arg) = args.next() {
-        let value = if flags.contains(&arg.as_str()) {
-            None
-        } else if valued.contains(&arg.as_str()) {
+        let value = if valued.contains(&arg.as_str()) {
             Some(
                 args.next()
                     .with_context(|| format!("{arg} needs a value"))?,
@@ -117,7 +110,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
         );
     }
     let allowed: &[&str] = match command.as_str() {
-        "queries" => &["--route", "--distributions"],
+        "queries" => &["--route"],
         "run" => &[
             "--route",
             "--from",
@@ -125,17 +118,15 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
             "--log-group",
             "--db-instance",
             "--load-balancer",
-            "--distributions",
             "--aws",
             "--timeout-s",
         ],
-        "report" => &["--route", "--results", "--from", "--to", "--distributions"],
+        "report" => &["--route", "--results", "--from", "--to"],
         _ => bail!("unknown command {command}\n{USAGE}"),
     };
     if let Some(extra) = options.keys().find(|k| !allowed.contains(&k.as_str())) {
         bail!("{command} does not take {extra}");
     }
-    let distributions = options.remove("--distributions").is_some();
     let mut take = |name: &str| options.remove(name).flatten();
     let route_key = take("--route").unwrap_or_else(|| route::VOTES.key.to_owned());
     let route = route::find(&route_key)
@@ -158,10 +149,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
             }
         };
     match command.as_str() {
-        "queries" => Ok(Command::Queries {
-            route,
-            distributions,
-        }),
+        "queries" => Ok(Command::Queries { route }),
         "run" => {
             let window = window(&mut take, true)?;
             let mut need = |name: &str| -> Result<String> {
@@ -184,7 +172,6 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
                 log_group,
                 db_instance,
                 load_balancer,
-                distributions,
                 aws,
                 timeout_s,
             }))
@@ -196,18 +183,14 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Command> {
                 route,
                 results,
                 window,
-                distributions,
             })
         }
     }
 }
 
 /// The queries a run issues for a route, each checked against the allowlist.
-pub fn compiled(route: Route, distributions: bool) -> Result<Vec<query::Query>> {
-    let mut queries = route.queries();
-    if distributions {
-        queries.extend(route.distribution_queries());
-    }
+pub fn compiled(route: Route) -> Result<Vec<query::Query>> {
+    let queries = route.queries();
     for q in &queries {
         if let Some(why) = query::refusal(q) {
             bail!("compiled query refused by the allowlist: {why}");
@@ -231,7 +214,7 @@ pub fn run(
     let mut results = report::Results::new();
     let mut scanned = 0.0;
     let mut issues = vec![];
-    for q in compiled(route, args.distributions)? {
+    for q in compiled(route)? {
         let previous = q.previous_week.then(|| {
             (
                 format!("{}_previous", q.name),
@@ -277,7 +260,6 @@ pub fn run(
         window,
         results: &results,
         metrics: &metrics,
-        distributions: args.distributions,
     }))
 }
 
@@ -288,11 +270,10 @@ pub fn report_from(
     route: Route,
     dir: &std::path::Path,
     window: (i64, i64),
-    distributions: bool,
 ) -> Result<report::Report> {
     let mut results = report::Results::new();
     let mut names = vec![];
-    for q in compiled(route, distributions)? {
+    for q in compiled(route)? {
         names.push(q.name.to_owned());
         if q.previous_week {
             names.push(format!("{}_previous", q.name));
@@ -328,7 +309,6 @@ pub fn report_from(
         window,
         results: &results,
         metrics: &metrics,
-        distributions,
     }))
 }
 
@@ -336,12 +316,9 @@ fn real_main() -> Result<i32> {
     let command = parse_args(std::env::args().skip(1))?;
     let mut stdout = std::io::stdout();
     match command {
-        Command::Queries {
-            route,
-            distributions,
-        } => {
+        Command::Queries { route } => {
             let route = route::find(route).context("unknown route")?;
-            for q in compiled(route, distributions)? {
+            for q in compiled(route)? {
                 writeln!(stdout, "-- {}: {}", q.name, q.about)?;
                 if q.previous_week {
                     writeln!(
@@ -372,10 +349,9 @@ fn real_main() -> Result<i32> {
             route,
             results,
             window,
-            distributions,
         } => {
             let route = route::find(route).context("unknown route")?;
-            let report = report_from(route, &results, window, distributions)?;
+            let report = report_from(route, &results, window)?;
             write!(stdout, "{}", report.text)?;
             Ok(report.verdict.exit_code())
         }
