@@ -228,6 +228,26 @@ def series(shadow_states):
     for index in range(12):
         assert post(f'comment {index + 1} of a run of twelve', f'One of twelve in a run, number {index + 1}.', token,
                     pace=0)[0] == 200
+    # A comment and a vote posted with a query string. Node's two routes read
+    # their parameters from the body alone: with the conversation in the body
+    # too, Node answers as if the query string were not there; with it only
+    # in the query string, Node refuses the request (400).
+    shadow_states('a query string')
+    query = f'?conversation_id={CONVERSATION}'
+    queried = post('a comment with a query string', 'Posted with a query string.', token,
+                   path=COMMENTS_PATH + query)
+    assert queried[0] == 200, queried
+    queried = post('a comment whose conversation is only in the query string', None, token,
+                   path=COMMENTS_PATH + query,
+                   body=json.dumps({'txt': 'The conversation is only in the query string.', 'pid': 'mypid',
+                                    'agid': 1, 'vote': 0}))
+    assert queried[0] == 400, queried
+    queried = post('a vote with a query string', None, token, path='/api/v3/votes' + query,
+                   body=json.dumps({'conversation_id': CONVERSATION, 'tid': 2, 'vote': 0, 'agid': 1}))
+    assert queried[0] == 200, queried
+    queried = post('a vote whose conversation is only in the query string', None, token,
+                   path='/api/v3/votes' + query, body=json.dumps({'tid': 3, 'vote': 0, 'agid': 1}))
+    assert queried[0] == 400, queried
     read = request('GET', f'{COMMENTS_PATH}?conversation_id={CONVERSATION}')
     transcript.append(['the comment list', read[0], [h for h in read[1] if h[0] != 'etag'], '<compared with Node directly>'])
     return transcript, token, read
@@ -244,7 +264,7 @@ def comparable(transcript):
     draws at random."""
     out = []
     for label, status, headers, payload in transcript:
-        if label == 'a vote':
+        if label.startswith('a vote'):
             out.append([label, status])
         elif 'without a token' in label:
             out.append([label, status, TOKEN.sub('<token>', payload),
@@ -292,6 +312,8 @@ def main():
         elif label == 'observing again':
             shadow('observing')
             time.sleep(3)  # an empty bucket for the run of twelve
+        elif label == 'a query string':
+            time.sleep(3)  # the run of twelve has drained from the bucket
 
     shadowed, token, read = series(states)
     assert comparable(shadowed) == comparable(control), 'a reply differs with the shadows selected'
@@ -302,16 +324,16 @@ def main():
           f'{with_shadows[-1]:.1f} ms)', flush=True)
     print(f'ok replies: all {len(shadowed)} replies are the same status, headers and bytes with both shadows '
           f'selected as with nothing selected, while the shadow service was started without the comment '
-          f'switch, started with it, paused, stopped and started again (the first reply\'s token and the two '
-          f'votes\' next comment apart)', flush=True)
+          f'switch, started with it, paused, stopped and started again (the first reply\'s token and the '
+          f'next comment a vote\'s reply draws apart)', flush=True)
 
     # GET on the comment path: nginx's answer is Node's own bytes.
     direct = from_server('fetch("http://127.0.0.1:5000' + f'{COMMENTS_PATH}?conversation_id={CONVERSATION}' +
                          '").then(r=>r.text()).then(t=>process.stdout.write(t))')
     assert direct.returncode == 0 and read[0] == 200 and read[2] == direct.stdout, 'the comment list differs'
-    assert len(json.loads(read[2])) == 19, len(json.loads(read[2]))
+    assert len(json.loads(read[2])) == 20, len(json.loads(read[2]))
     print('ok reads: GET on the comment path through nginx is byte for byte what Node answers directly '
-          '(19 comments)', flush=True)
+          '(20 comments)', flush=True)
 
     # Without the switch: exactly the vote shadow's service.
     plain = seen['plain health']
@@ -341,7 +363,7 @@ def main():
     time.sleep(13)
     mirrors = [m for m in logged('nginx-proxy', '{"message":"shadow_mirror"') if m['shadow'] == 'commentsShadow']
     edges = [e for e in logged('nginx-proxy', '{"message":"shadow_edge"') if e['route'] == f'POST {COMMENTS_PATH}']
-    assert len(edges) == len(mirrors) == 23, (len(edges), len(mirrors))
+    assert len(edges) == len(mirrors) == 25, (len(edges), len(mirrors))
     by_id = {m['request_id']: m for m in mirrors}
     statuses = [by_id[e['request_id']]['mirror_status'] for e in edges]
     assert statuses[0] == 404, statuses
@@ -350,13 +372,13 @@ def main():
     # resolves (502), or nginx still holds its address for a few seconds and
     # the connection times out (504).
     assert statuses[8:10] == [504, 504] and statuses[10] in (502, 504), statuses
-    run = statuses[11:]
+    run = statuses[11:23]
     passed = run.count(204)
     assert set(run) <= {204, 429} and 5 <= passed <= 8 and run[:5] == [204] * 5, run
     assert [e['edge_status'] for e in edges] == [entry[1] for entry in shadowed
-                                                  if entry[0] not in ('a vote', 'the comment list')]
+                                                  if not entry[0].startswith(('a vote', 'the comment list'))]
     # Node received nginx's id on a shadowed request: its reply line for each
-    # of the two votes carries the id nginx logged. (This stack runs Node in
+    # vote its handler answered carries the id nginx logged. (This stack runs Node in
     # development mode, in which Node writes no access line, and Node has no
     # reply line for a comment, so a comment's id is not on a Node line here.)
     vote_ids = {e['request_id'] for e in logged('nginx-proxy', '{"message":"shadow_edge"')
@@ -364,7 +386,11 @@ def main():
     node_log = compose('logs', '--no-log-prefix', '--no-color', 'server').stdout
     replied = set(re.findall(r'"request_id":"([0-9a-f]{32})"', '\n'.join(
         line for line in node_log.splitlines() if 'vote_reply' in line)))
-    assert len(vote_ids) == 2 and vote_ids == replied, (vote_ids, replied)
+    # (The vote Node refused for its missing conversation never reached the
+    # handler that writes that line.)
+    refused_votes = {e['request_id'] for e in logged('nginx-proxy', '{"message":"shadow_edge"')
+                     if e['route'] == 'POST /api/v3/votes' and e['edge_status'] == 400}
+    assert len(vote_ids) == 4 and len(refused_votes) == 1 and vote_ids - refused_votes == replied, (vote_ids, replied)
     # The observer printed one line for each copy it was sent while observing.
     first = {o['request_id']: o for o in seen['observations'] if o['shadow'] == 'commentsShadow'}
     ids = [e['request_id'] for e in edges]
@@ -379,15 +405,35 @@ def main():
     assert first[ids[6]]['outcome'] == 'would_serve' and first[ids[7]]['outcome'] == 'would_hand_back', outcomes
     later = {o['request_id']: o for o in logged('polis-api-shadow', '{"message":"shadow_observation"')
              if o['shadow'] == 'commentsShadow'}
-    assert set(later) == {i for i, status in zip(ids[11:], run) if status == 204}, (len(later), passed)
+    # The copies of the two comments posted with a query string carried it,
+    # as the request a write route would be handed carries it, so the
+    # observer says what the handler does with such a request: it hands it
+    # back because of the query string, whatever Node answered. And the two
+    # votes' copies, the same.
+    assert statuses[23:] == [204, 204], statuses
+    assert [e['edge_status'] for e in edges[23:]] == [200, 400], edges[23:]
+    for request_id in ids[23:]:
+        queried = later.pop(request_id)
+        assert (queried['outcome'], queried['reason']) == ('would_hand_back', 'shape_query'), queried
+    queried_votes = [o for o in logged('polis-api-shadow', '{"message":"shadow_observation"')
+                     if o['shadow'] == 'votesShadow' and o['reason'] == 'shape_query']
+    assert len(queried_votes) == 2 and all(o['outcome'] == 'would_hand_back' for o in queried_votes), queried_votes
+    queried_ids = {o['request_id'] for o in queried_votes}
+    assert queried_ids <= vote_ids and len(queried_ids & refused_votes) == 1, (queried_ids, vote_ids, refused_votes)
+    print('ok query strings: a comment and a vote posted with a query string and the conversation in the body '
+          'were answered 200 by Node, and one of each with the conversation only in the query string 400 (Node '
+          'reads these routes\' parameters from the body alone); each of the four copies reached the shadow '
+          'service with the query string and was observed as would_hand_back for the reason shape_query',
+          flush=True)
+    assert set(later) == {i for i, status in zip(ids[11:23], run) if status == 204}, (len(later), passed)
     assert all(o['outcome'] == 'would_serve' and o['node_comment'] == 'own' for o in later.values()), later
     final = health()['postComments']
-    assert final['shed'] == 0 and final['observed'] == passed, final
-    print(f'ok copies: of 23 comments, the copy sent before the switch was answered 404; 7 were observed '
+    assert final['shed'] == 0 and final['observed'] == passed + 2, final
+    print(f'ok copies: of the first 23 comments, the copy sent before the switch was answered 404; 7 were observed '
           f'(outcomes {outcomes}); 2 timed out against the paused service (504) and 1 failed against the '
           f'stopped one ({statuses[10]}); of the run of twelve {passed} were sent and observed (would_serve, Node\'s own '
           f'row read back) and {12 - passed} ended with 429 in nginx; the observer shed none; Node\'s reply line '
-          f'for each of the two votes carries the id nginx logged', flush=True)
+          f'for each of the {len(replied)} votes it answered carries the id nginx logged', flush=True)
 
     # Connections the shadow service held with both observers at work.
     connections = dict(row.split('|') for row in seen['connections'].splitlines())

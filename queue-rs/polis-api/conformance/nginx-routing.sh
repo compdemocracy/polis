@@ -1432,7 +1432,7 @@ diversion=$(block '= \/api\/v3\/votes')
 # connection can wait for it: each is asserted exactly, and no other is set.
 for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/nginx/access.log polis_shadow_mirror;' \
     '    if ($request_method != POST) {' '    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {' \
-    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/votes;' \
+    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/votes$is_args$args;' \
     '    proxy_set_header X-Request-Id $request_id;' '    proxy_set_header X-Polis-Shadow votesShadow;' \
     '    proxy_next_upstream off;' '    resolver_timeout 30ms;' '    proxy_connect_timeout 20ms;' \
     '    proxy_send_timeout 20ms;' '    proxy_read_timeout 30ms;'; do
@@ -1476,6 +1476,10 @@ for part in "$mirror" "$named"; do
 done
 # The shadow host appears in one directive, as a literal; no setting reaches it.
 [[ $(grep -v '^[[:space:]]*#' <<<"$shadow_conf" | grep -c 'polis-api-shadow') == 1 ]] || fail "shadow: the copy target is not one literal"
+# The copy's path is the literal path and the request's own query string;
+# nothing else of the request reaches the copy's request line.
+[[ $(grep -c 'proxy_pass ' <<<"$mirror") == 1 ]] || fail "shadow: the copy location has another proxy_pass"
+! grep 'proxy_pass ' <<<"$mirror" | grep -q 'request_uri\|\$uri' || fail "shadow: the copy's path is taken from the request"
 vote_post
 expect_upstream server GET /api/v3/votes
 expect_upstream server HEAD /api/v3/votes
@@ -1592,7 +1596,7 @@ for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/ng
     '    set $polis_shadow_name commentsShadow;' '    limit_req zone=polis_shadow_commentsShadow burst=4 nodelay;' \
     '    limit_req_status 429;' '    limit_req_log_level info;' \
     '    if ($request_method != POST) {' '    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {' \
-    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/comments;' \
+    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/comments$is_args$args;' \
     '    proxy_set_header X-Request-Id $request_id;' '    proxy_set_header X-Polis-Shadow commentsShadow;' \
     '    proxy_next_upstream off;' '    resolver_timeout 30ms;' '    proxy_connect_timeout 20ms;' \
     '    proxy_send_timeout 20ms;' '    proxy_read_timeout 30ms;'; do

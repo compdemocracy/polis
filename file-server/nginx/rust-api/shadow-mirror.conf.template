@@ -33,9 +33,12 @@ location = /_polis_shadow/${SHADOW_NAME} {
     }
     # A literal target. The variable only makes nginx resolve the name per
     # request, so nginx starts while the shadow container is absent; no
-    # setting reaches it.
+    # setting reaches it. The copy carries the request's query string, byte
+    # for byte as it was received ($args is the raw text): it is the request
+    # a write route would be handed, and the shadow service says what the
+    # handler does with a request that has one.
     set $polis_shadow_target polis-api-shadow:5101;
-    proxy_pass http://$polis_shadow_target${SHADOW_PATH};
+    proxy_pass http://$polis_shadow_target${SHADOW_PATH}$is_args$args;
     proxy_pass_request_headers on;
     proxy_pass_request_body on;
     proxy_set_header X-Forwarded-Proto $scheme;

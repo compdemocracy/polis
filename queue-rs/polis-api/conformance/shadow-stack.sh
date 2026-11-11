@@ -19,6 +19,9 @@
 #   - with the switch /health has postComments in observe mode, and the
 #     predicate accepts it with commentsShadow and refuses it without;
 #   - each copy nginx sends is observed under the request id Node logged;
+#   - a comment and a vote posted with a query string are copied with it, and
+#     observed as handed back for that reason (shape_query), whether Node
+#     answered 200 (the conversation also in the body) or 400 (only there);
 #   - how many database connections the shadow service holds with both
 #     observers at work.
 #

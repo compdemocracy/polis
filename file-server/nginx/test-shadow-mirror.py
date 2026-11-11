@@ -432,6 +432,51 @@ def check_post(prefix, port, mode, base, route, extra_headers=(), client_id=None
     return request_id, mirrors[0]
 
 
+# Query strings a copied request may carry, each sent to Node and to the
+# shadow byte for byte: parameters of the routes, and one with escapes, a
+# plus, a repeated key, an empty value and a bare key.
+QUERIES = ('?conversation_id=2fixture&is_seed=true',
+           '?conversation_id=2fixture&xid=a%20b%2Fc+d&x=%C3%A9&x=&y')
+
+
+def check_query(prefix, port, mode, route):
+    """A copied request with a query string: Node receives it as sent, and so
+    does the shadow, on the same path: the copy is the request a write route
+    would be handed, query string included. A bare `?` is an empty query
+    string: Node receives it as sent and the copy's path has none."""
+    what, path, name = route['what'], route['path'], route['name']
+    for query in QUERIES + ('?',):
+        if name == 'commentsShadow':
+            time.sleep(1 / COMMENT_RATE)  # inside the copies' rate
+        case = uuid.uuid4().hex
+        body = route['body'](case)
+        status, _, reply = raw(port, 'POST', path + query, case_headers(case, route), body)
+        digest = hashlib.sha256(body).hexdigest()
+        assert status == 200 and reply.decode() == f'node POST {path + query} {digest}\n', (mode, query, status, reply)
+        seen = wait_for(lambda: find(records(prefix + '-node'), case), f'{mode}: {what} with a query string at Node')
+        time.sleep(0.2)
+        (seen,) = find(records(prefix + '-node'), case)
+        assert seen['path'] == path + query, (mode, seen['path'])
+        (request_id,) = header(seen, 'x-request-id')
+        assert HEX32.fullmatch(request_id), request_id
+        if mode in RECORDING:
+            copies = wait_for(lambda: find(records(prefix + '-shadow'), case), f'{mode}: copy with a query string')
+            time.sleep(0.2)
+            (copy,) = find(records(prefix + '-shadow'), case)
+            assert copy['path'] == path + ('' if query == '?' else query), (mode, query, copy['path'])
+            assert copy['method'] == 'POST' and copy['sha256'] == digest, copy
+            assert header(copy, 'x-request-id') == [request_id] and header(copy, 'x-polis-shadow') == [name], copy
+        # The two JSON lines never carry the query string: the edge line
+        # names the path alone.
+        lines = wait_for(lambda: [l for l in shadow_lines(prefix) if l['request_id'] == request_id
+                                  and l['message'] == 'shadow_mirror'], f'{mode}: copy line of a query string')
+        (edge,) = [l for l in shadow_lines(prefix) if l['request_id'] == request_id and l['message'] == 'shadow_edge']
+        assert edge['route'] == f'POST {path}' and lines[0]['mirror_status'] == MIRROR_STATUS[mode], (edge, lines)
+        for line in proxy_lines(prefix):
+            if request_id in line:
+                assert 'conversation_id' not in line and 'xid=' not in line, f'{mode}: a shadow line holds a query string: {line}'
+
+
 def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     route = ROUTES[shadow]
     what, path, name = route['what'], route['path'], route['name']
@@ -447,6 +492,10 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     # A client-sent request id is replaced, on both sides.
     check_post(prefix, port, mode, base, route, ['X-Request-Id: client-chosen-id'], client_id='client-chosen-id')
     print(f'ok {mode}: a client-sent X-Request-Id is replaced by nginx\'s own', flush=True)
+    check_query(prefix, port, mode, route)
+    print(f'ok {mode}: a {what} posted with a query string reaches Node with it' +
+          (', and its copy reaches the shadow on the same path with the same query string, byte for byte'
+           if mode in RECORDING else '') + '; neither JSON line carries it', flush=True)
     print(f'ok {mode}: the access line of a shadowed {what} is `main` with the peer address and '
           f'X-Forwarded-For written "-"; no line naming the {what} holds the address it came from or one it '
           f'carried; Node receives the header as sent', flush=True)

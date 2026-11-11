@@ -4,7 +4,8 @@
 # (file-server/nginx/shadow-stubs.py): answer, refuse, absent from DNS, close
 # at once, silent, 40 ms, 5 s. In every mode the participant gets Node's exact
 # status and bytes; Node gets each vote once, with the same headers as without
-# the shadow except X-Request-Id; the shadow gets the same body and id; a
+# the shadow except X-Request-Id; the shadow gets the same body and id, and
+# the same query string, byte for byte; a
 # client-sent id is replaced; other methods, bodies outside 1 to 9999 bytes,
 # chunked bodies, bodies of undeclared length and other paths are not copied
 # and never enter the shadow's locations: each reaches Node exactly as with

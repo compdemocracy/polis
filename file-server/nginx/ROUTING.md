@@ -81,7 +81,15 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   1 to 9999, the requests the live vote write location would send to
   polis-api. GET, HEAD, PUT and other methods, an empty or larger body, a
   chunked body, a trailing slash and other spellings of the path go to Node
-  with no copy. The copy's path carries no query string.
+  with no copy. The copy's path is the literal path and the request's query
+  string, byte for byte as nginx received it, because that is the request a
+  write route is handed. Node's `POST /api/v3/votes` reads its parameters
+  from the body alone and ignores a query string. The vote handler does not
+  take a request that has one, so the shadow reports such a copy as handed
+  back for that reason (`shape_query`); a copy without the query string
+  would be observed as a request the handler is never given. Neither JSON
+  line carries the query string; the access line carries the request line,
+  as `main` does.
 - **Only what is copied passes through the mirror.** One map
   (`$polis_shadow_copyable`, `rust-api/shadow-http.conf.template`) says
   which requests those are, and the path's location hands a request to the
@@ -163,11 +171,13 @@ the comment shadow; what follows is what differs or is worth saying again.
   fields: a text is at most 997 UTF-16 units, at most 5,982 bytes however
   JSON escapes it. The seed upload and the translation read, which have paths
   of their own under the comment path, are not touched. As for votes, the
-  copy's path carries no query string. Node reads a POST's query-string
-  parameters as it reads the body's, and they take precedence there; the
-  copy does not have them, so a comment whose `conversation_id` or `is_seed`
-  travelled in the query string is observed without it. The clients in this
-  repository send a comment's parameters in the body.
+  copy carries the request's query string. Node's `POST /api/v3/comments`
+  reads its parameters from the body alone: a query string changes nothing
+  in its answer, and a comment whose `conversation_id` is only there is
+  refused with 400. The comment handler does not take a request that has a
+  query string, so such a copy is observed as handed back for that reason
+  (`shape_query`). The clients in this repository send a comment's
+  parameters in the body and no query string.
 - **The copies have a rate.** At most 2 a second on one box, and 4 more at
   once (`limit_req`, one zone, `rust-api/shadow-rate.conf.template`). A copy
   over the rate ends in the copy's own location with 429 before any
