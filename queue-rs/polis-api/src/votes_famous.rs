@@ -1294,6 +1294,23 @@ mod tests {
     }
 
     #[test]
+    fn the_pools_and_the_deadline_are_the_ones_the_note_states() {
+        // Two connections for the data, one for identity; a request waits
+        // 15 ms for either. The deadline is under the 250 ms the nginx
+        // location waits and over the longest single statement.
+        let data = pool_limits();
+        assert_eq!(data.size, 2);
+        assert_eq!(data.acquire_timeout, Duration::from_millis(15));
+        assert_eq!(data.statement_timeout, Duration::from_millis(100));
+        let identity = auth_pool_limits();
+        assert_eq!(identity.size, 1);
+        assert_eq!(identity.acquire_timeout, Duration::from_millis(15));
+        assert_eq!(identity.statement_timeout, Duration::from_millis(50));
+        assert_eq!(DEADLINE, Duration::from_millis(150));
+        assert!(DEADLINE > data.statement_timeout && DEADLINE > identity.statement_timeout);
+    }
+
+    #[test]
     fn every_reason_has_its_own_name() {
         let names: BTreeSet<&str> = Handback::ALL.iter().map(|r| r.as_str()).collect();
         assert_eq!(names.len(), Handback::ALL.len());

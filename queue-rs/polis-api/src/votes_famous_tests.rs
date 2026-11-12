@@ -84,6 +84,17 @@ impl Fixture {
         self.history_row(zid, pid, tid, stored(choice)).await;
     }
 
+    /// Many rows of history at once: one choice, stored through the
+    /// convention, for each row (`zid`, `pid`, `tid`) the query names.
+    async fn cast_many(&self, rows: &str, choice: VoteChoice) {
+        let value = stored(choice).expect("a choice has a stored value");
+        self.sql(&format!(
+            "INSERT INTO votes(zid,pid,tid,vote)
+             SELECT r.zid, r.pid, r.tid, {value}::smallint FROM ({rows}) r"
+        ))
+        .await;
+    }
+
     /// Deliberately invalid storage, which no convention can express: no
     /// value at all, or a number that is no choice. Never a valid choice;
     /// those go through `cast`.
@@ -333,9 +344,12 @@ async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
              INSERT INTO conversations VALUES(1,false,900);
              INSERT INTO participants(zid,uid,pid) VALUES(1,200001,0),(1,3,1),(1,2,2),(1,200004,3),(1,4,4);
              INSERT INTO comments VALUES(1,0,200001),(1,1,3),(1,2,200001),(1,3,3),(1,4,200001),
-                (1,5,3),(1,6,200001);",
+                (1,5,3),(1,6,200001);
+             INSERT INTO xids VALUES(900,2,'no-picture-2',NULL,'No picture','two@example.invalid');",
         )
         .await;
+    // Participant 2 holds an external id under the conversation's account
+    // with no picture: that does not feature them, in any reply below.
     for (tid, choice) in [Agree, Pass, Disagree, Agree, Pass, Disagree, Agree]
         .into_iter()
         .enumerate()
@@ -383,6 +397,12 @@ async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
     let own = stack.ask(1, Some(2), 51, 1).await.unwrap();
     assert!(own.starts_with(r#"{"2":{"priority":1000,"#), "{own}");
     assert!(!own.contains(r#""1":"#), "{own}");
+    // The limit is part of the rows' key. Another limit at the same tick is
+    // read for the requester who asks it, and the first limit keeps the rows
+    // of its own first requester.
+    let wider = stack.ask(1, Some(3), 51, 2).await.unwrap();
+    assert!(wider.starts_with(r#"{"1":{"priority":1000,"#), "{wider}");
+    assert_eq!(stack.ask(1, Some(3), 51, 1).await.unwrap(), own);
     // A moderator's pin comes before a featured author; a hidden participant
     // with an external id is not featured for it.
     fixture
@@ -507,6 +527,92 @@ async fn conversations_and_bounds_this_process_does_not_read_go_back_named() {
     assert_eq!(ask(8, Some(3)).await, Err(Handback::MathUnreadable));
     assert_eq!(ask(9, Some(3)).await, Err(Handback::MathIncoherent));
     assert_eq!(ask(10, Some(3)).await, Err(Handback::MathShape));
+    stack.close().await;
+    fixture.drop_schema().await;
+}
+
+/// The bounds on what one request reads that the test above does not reach:
+/// rows of history, featured authors, and the size of the reply. Node has none
+/// of them, so each is a named hand-back and never a shorter reply.
+#[tokio::test]
+async fn each_bound_on_what_one_request_reads_goes_back_named() {
+    let fixture = Fixture::new("featured_reads").await;
+    // Conversation 1: one participant with one row of history more than is
+    // read. Conversation 2: forty featured participants, each placed, each
+    // with a choice on the greatest comment number that is read.
+    // Conversation 3: one featured author more than is read.
+    fixture
+        .sql(&format!(
+            "INSERT INTO conversations VALUES(1,false,900),(2,false,900),(3,false,901);
+             INSERT INTO participants(zid,uid,pid) VALUES(1,3,1),(3,3,1);
+             INSERT INTO participants(zid,uid,pid) SELECT 2,1000+g,g FROM generate_series(0,39) g;
+             INSERT INTO xids SELECT 900,1000+g,'reply-'||g,'https://example.invalid/'||g||'.png',
+                'Name',NULL FROM generate_series(0,39) g;
+             INSERT INTO comments SELECT 3,g,5000+g FROM generate_series(0,{AUTHORS}) g;
+             INSERT INTO xids SELECT 902,5000+g,'author-'||g,NULL,NULL,NULL
+                FROM generate_series(0,{AUTHORS}) g;"
+        ))
+        .await;
+    fixture
+        .cast_many(
+            &format!(
+                "SELECT 1 AS zid, 1 AS pid, g % 7 AS tid FROM generate_series(0,{HISTORY_ROWS}) g"
+            ),
+            Agree,
+        )
+        .await;
+    fixture
+        .cast_many(
+            &format!(
+                "SELECT 2 AS zid, g AS pid, {GREATEST_COMMENT} AS tid FROM generate_series(0,39) g"
+            ),
+            Pass,
+        )
+        .await;
+    fixture.cast(3, 1, 0, Agree).await;
+    let everyone: Vec<String> = (0..40).map(|pid| pid.to_string()).collect();
+    fixture
+        .math(
+            2,
+            3,
+            &format!("{{{BASE}}}"),
+            &format!(r#"{{"bidToPid":[[{}]]}}"#, everyone.join(",")),
+        )
+        .await;
+    let featured: Vec<String> = (0..=AUTHORS)
+        .map(|tid| format!(r#"{{"tid":{tid}}}"#))
+        .collect();
+    fixture
+        .math(
+            3,
+            3,
+            &format!(
+                r#"{{"consensus":{{"agree":[{}]}},{BASE}}}"#,
+                featured.join(",")
+            ),
+            r#"{"bidToPid":[[1]]}"#,
+        )
+        .await;
+    let stack = Stack::new(&fixture);
+    let ask = |zid, uid, limit| stack.ask(zid, uid, contract::LATEST_TICK, limit);
+    // One row of history more than is read.
+    assert_eq!(
+        ask(1, Some(3), contract::DEFAULT_LIMIT).await,
+        Err(Handback::Oversize)
+    );
+    // Thirty-one participants' letters fit in a reply; thirty-two do not.
+    let fits = ask(2, None, 31).await.unwrap();
+    assert!(
+        fits.len() > 31 * GREATEST_COMMENT as usize && fits.len() <= REPLY_BYTES,
+        "{}",
+        fits.len()
+    );
+    assert_eq!(ask(2, None, 32).await, Err(Handback::Oversize));
+    // One featured author more than is read.
+    assert_eq!(
+        ask(3, Some(3), contract::DEFAULT_LIMIT).await,
+        Err(Handback::Oversize)
+    );
     stack.close().await;
     fixture.drop_schema().await;
 }

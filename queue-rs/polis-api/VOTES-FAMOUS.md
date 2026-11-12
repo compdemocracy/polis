@@ -131,6 +131,23 @@ Every hand-back is the pre-response 502 with its reason in
 
 Node's failures (`polis_err_famous_proj_get`, 500) are never produced here.
 
+Two limits of this form, stated plainly:
+
+- **A math document over 64 KiB costs a statement on every request.** The
+  shared math read measures the stored document in the database and refuses
+  one over the bound; the refusal is not kept, so each request for such a
+  conversation runs that statement again before it goes back to Node (about
+  2 ms for a 0.3 MB document and 7 to 18 ms for a 6 MB one on the development
+  box, by column type). The conversations with the largest documents are the
+  ones this route costs Node the most for. Reading only the parts this route
+  uses (`consensus`, `repness`, the base cluster ids and the mapping), and
+  keeping a refusal for the three seconds a read is kept, are not in this
+  change; the route should not be selected or observed before they are.
+- **Only the exact path is this route's.** Another spelling of the path (a
+  trailing slash, an encoded character, a dot segment) is not matched here:
+  it gets the plain hand-back 502 without a reason and is not counted in
+  `votesFamousHandbacks`. The nginx location is exact as well.
+
 ## Checks
 
 `conformance/votes-famous-run.sh` starts the sealed characterization stack,
