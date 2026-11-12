@@ -2036,6 +2036,25 @@ fn nothing_the_process_prints_holds_a_query_string_a_token_or_a_cookie() {
     }
 }
 
+/// Outside an observation, which is every live request, a hand-back with a
+/// reason is `route::bad_gateway()` in every field: the status, the headers,
+/// the body and whether the connection stays open.
+#[test]
+fn a_live_hand_back_is_the_bad_gateway_answer_in_every_field() {
+    assert!(!observing());
+    let (answer, bare) = (handback("cookie"), route::bad_gateway());
+    assert_eq!(answer.status, 502);
+    assert_eq!(answer.status, bare.status);
+    assert_eq!(answer.headers, bare.headers);
+    assert_eq!(answer.close, bare.close);
+    let (crate::http::Body::Fixed(answer), crate::http::Body::Fixed(bare)) =
+        (answer.body, bare.body)
+    else {
+        panic!("a fixed body expected")
+    };
+    assert_eq!(answer, bare);
+}
+
 #[cfg(feature = "db-tests")]
 #[path = "shadow_reads_database_tests.rs"]
 mod database;
