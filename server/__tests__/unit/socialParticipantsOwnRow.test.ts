@@ -240,6 +240,40 @@ describe("the own row and the limit", () => {
     ]);
   });
 
+  test("a featured participant with two external ids is one person when the places are counted", async () => {
+    // The statement limits people, not rows: three people fill four rows
+    // when one of them holds two external ids under the conversation's
+    // account.
+    queryP_metered_readOnly.mockImplementation(async (name, sql, params) => {
+      statements.push({ name, sql, params });
+      if (name === "getSocialParticipants") {
+        return [
+          featuredRow(999, 4, 40),
+          featuredRow(100, 2, 50),
+          { ...featuredRow(100, 2, 50), xid: "id-2-other" },
+          featuredRow(100, 3, 30),
+        ];
+      }
+      return [ownRow(VOTERS[params[1] as number])];
+    });
+    // Four places, three people featured: the requester takes the fourth
+    // and nobody gives up theirs.
+    expect(summary(await getSocialParticipants(zid, 70, 4, 0, 5, []))).toEqual([
+      [2, 100],
+      [2, 100],
+      [3, 100],
+      [4, 999],
+      [7, 1000],
+    ]);
+    // Three places: the last of the ranking (account 50, both its rows)
+    // gives up its place.
+    expect(summary(await getSocialParticipants(zid, 70, 3, 0, 5, []))).toEqual([
+      [3, 100],
+      [4, 999],
+      [7, 1000],
+    ]);
+  });
+
   test("a limit of one is the requester alone, and a limit of zero is nobody", async () => {
     expect(summary(await getSocialParticipants(zid, 70, 1, 0, 5, []))).toEqual([
       [7, 1000],
@@ -379,5 +413,10 @@ describe("the two statements", () => {
     expect(own.params).toEqual([zid, 70]);
     expect(own.sql).toContain("where zid = ($1) and uid = ($2) and EXISTS");
     expect(own.sql).toContain("1000 as priority");
+    // External ids only under the conversation's account, and only with a
+    // picture, as in the featured statement.
+    expect(own.sql).toContain(
+      "from xids where uid = ($2) and owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null"
+    );
   });
 });
