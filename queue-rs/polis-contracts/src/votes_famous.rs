@@ -2,7 +2,8 @@
 //! as the legacy participation client draws them on its picture.
 //!
 //! Node: registration and parameters `server/app.ts` (`hybridAuthOptional`,
-//! `need("conversation_id")`, `want("math_tick", getInt, -1)`,
+//! `need("conversation_id")`, `want("math_tick", getInt, …)` with minus
+//! one as its default (`LATEST_TICK` below),
 //! `want("ptptoiLimit", getIntInRange(0, 99))`); the handler is
 //! `handle_GET_votes_famous` (`server/src/routes/votes.ts`), which answers
 //! with `doFamousQuery` (`server/src/server-helpers.ts`): the rows of
