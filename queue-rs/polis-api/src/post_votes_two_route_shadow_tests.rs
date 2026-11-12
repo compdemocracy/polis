@@ -905,3 +905,6 @@ mod database_tests {
         assert_eq!(digest(&db.config), before, "an observation changed a row");
     }
 }
+
+#[path = "post_votes_shadow_pinned_tests.rs"]
+mod pinned;

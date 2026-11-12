@@ -165,6 +165,12 @@ impl PoolEvidence {
 pub(crate) static WRITER_POOLS_BUILT: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
 
+/// Pools of either kind built by this process, for the tests that pin what a
+/// startup builds.
+#[cfg(test)]
+pub(crate) static POOLS_BUILT: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
 pub struct Pool {
     connector: Connector,
     idle: Mutex<Vec<(Client, Instant, Instant)>>,
@@ -232,6 +238,8 @@ impl Pool {
     }
 
     fn configured(connector: Connector, limits: Limits, writable: bool) -> Arc<Self> {
+        #[cfg(test)]
+        POOLS_BUILT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Arc::new(Self {
             connector,
             idle: Mutex::new(Vec::new()),
