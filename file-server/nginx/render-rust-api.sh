@@ -16,7 +16,10 @@ export API_SERVER_PORT=${API_SERVER_PORT:-5000}
 # POST diversion is inserted first in votesRead's location; otherwise the
 # shadow renders that path's location itself. Without a shadow nothing
 # rendered changes. A shadow is refused together with the route that writes
-# what it observes (votesShadow with postVotes).
+# what it observes (votesShadow with postVotes). Only a POST a shadow is sent a
+# copy of (a declared body of 1 to 9999 bytes, not chunked) is diverted to
+# the shadow's mirroring location; every other request to the path, any other
+# POST included, is proxied exactly as with no shadow selected.
 # commentsShadow does the same for POST /api/v3/comments, whose read route is
 # comments, and its copies have a rate of their own: at most
 # COMMENTS_SHADOW_RATE a second on this box and COMMENTS_SHADOW_BURST more at
@@ -425,10 +428,10 @@ elif [ -n "$rust_api_locations$rust_api_shadows" ]; then
   if [ -n "$rust_api_shadows" ]; then
     cat /etc/nginx/rust-api-templates/shadow-http.conf.template >>${1}/upstreams.conf
   fi
-  # A read route's own location, with its shadow's POST diversion first:
-  # name, path, template.
+  # A read route's own location, with its shadow's diversion first (a POST
+  # the shadow is sent a copy of, and no other request): name, path, template.
   shadow_diverted() {
-    awk -v post="    error_page 420 = @polis_shadow_$1;\n    if (\$request_method = POST) {\n        return 420;\n    }" \
+    awk -v post="    error_page 420 = @polis_shadow_$1;\n    if (\$polis_shadow_copyable = 1) {\n        return 420;\n    }" \
       -v open="location = $2 {" '{ print } $0 == open { print post }' "$3"
   }
   for route in $rust_api_locations; do

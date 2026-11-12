@@ -9,6 +9,7 @@ shadow-stubs.py.
   test-shadow-mirror.py compare CONTROL SHADOW              the load criteria
   test-shadow-mirror.py read PREFIX BASE                    GET and HEAD on the comment path
   test-shadow-mirror.py rate PREFIX                         the comment copies' rate
+  test-shadow-mirror.py keepalive PREFIX STATE              the rate on one keepalive connection
   test-shadow-mirror.py bodies PREFIX OUT STATE             comment bodies of every size
   test-shadow-mirror.py same-bodies CONTROL SHADOW          the two `bodies` runs answered alike
   test-shadow-mirror.py measure PREFIX NETWORK IMAGE OUT    what the mirror costs a comment
@@ -65,14 +66,18 @@ LOG_FORMAT = re.compile(r"log_format\s+(\S+)\s+(?:escape=\S+\s+)?((?:'[^']*'\s*)
 COMMENT_RATE = 2
 COMMENT_BURST = 4
 # When nginx reads a whole request body before proxying (as the mirror makes
-# it), the body is held in memory when what is left of it, after the bytes
-# that arrived in the buffer with the request's headers (1 kB), is under a
+# it for a request it copies, and as proxying makes it for a chunked body),
+# the body is held in memory when what is left of it, after the bytes that
+# arrived in the buffer with the request's headers (1 kB), is under a
 # quarter more than its two-page buffer; a longer one is written to a
 # temporary file first. BODY_IN_MEMORY is the last size certainly in memory,
-# BODY_TO_FILE the first certainly not.
+# BODY_TO_FILE the first certainly not. The largest body that is copied,
+# COPIED_BODY, is in memory.
 BODY_BUFFER = 8192
 BODY_IN_MEMORY = BODY_BUFFER + BODY_BUFFER // 4 - 1
 BODY_TO_FILE = BODY_BUFFER + BODY_BUFFER // 4 + 1024
+COPIED_BODY = 9999
+assert COPIED_BODY <= BODY_IN_MEMORY
 # The largest body nginx (client_max_body_size 50M) and Node's parser (50mb)
 # accept.
 LARGEST_BODY = 50 * 1024 * 1024
@@ -102,16 +107,20 @@ def header(record, name):
     return values
 
 
-def raw(port, method, path, headers=(), body=b'', chunked=False, parts=1, pause=0.0, host='127.0.0.1'):
+def raw(port, method, path, headers=(), body=b'', chunked=False, parts=1, pause=0.0, host='127.0.0.1',
+        length=None):
     """One request on its own connection, with exactly these headers. With
     `parts` above 1 the body is sent in that many pieces, `pause` seconds
-    apart."""
+    apart. `length` is the Content-Length as written, when it is not the
+    body's length in plain digits; an empty one sends no such header."""
     lines = [f'{method} {path} HTTP/1.1', 'Host: localhost', 'Connection: close', *headers]
     if chunked:
         lines.append('Transfer-Encoding: chunked')
         payload = f'{len(body):x}\r\n'.encode() + body + b'\r\n0\r\n\r\n'
     else:
-        if body or method in ('POST', 'PUT'):
+        if length is not None:
+            lines += [f'Content-Length: {length}'] if length else []
+        elif body or method in ('POST', 'PUT'):
             lines.append(f'Content-Length: {len(body)}')
         payload = body
     with socket.create_connection((host, port), timeout=60) as client:
@@ -246,6 +255,66 @@ def check_formats(prefix):
             assert variable not in text, f'{name} reads {variable}'
 
 
+def uncopied_cases(route):
+    """Requests on and beside a shadowed path that the shadow is never sent a
+    copy of. With the shadow selected each must reach Node exactly as with
+    nothing selected: never through the location that reads the whole body
+    first. label: (method, path, body, keywords of `raw`, extra headers)."""
+    path = route['path']
+    cases = {
+        'GET': ('GET', path, b'', {}, []),
+        'HEAD': ('HEAD', path, b'', {}, []),
+        'PUT': ('PUT', path, b'{}', {}, []),
+        'DELETE': ('DELETE', path, b'', {}, []),
+        'OPTIONS': ('OPTIONS', path, b'', {}, []),
+        'a POST with an empty body': ('POST', path, b'', {}, []),
+        'a POST with no Content-Length': ('POST', path, b'', {'length': ''}, []),
+        'a POST whose Content-Length has a leading zero': ('POST', path, b'{"vote":0}', {'length': '010'}, []),
+        'a POST of 10000 bytes': ('POST', path, b'x' * 10000, {}, []),
+        'a POST of 20000 bytes': ('POST', path, b'x' * 20000, {}, []),
+        'a POST of 20000 bytes with a client-sent request id': ('POST', path, b'y' * 20000, {},
+                                                              ['X-Request-Id: client-chosen-id']),
+        'a POST of 20000 bytes sent in two halves 0.6 s apart': ('POST', path, b'z' * 20000,
+                                                               {'parts': 2, 'pause': 0.6}, []),
+        'a chunked POST': ('POST', path, b'{"vote":0}', {'chunked': True}, []),
+        'a chunked POST of 20000 bytes': ('POST', path, b'c' * 20000, {'chunked': True}, []),
+        'a POST with a trailing slash': ('POST', path + '/', b'{}', {}, []),
+        'a POST with a mixed-case path': ('POST', route['other_case'], b'{}', {}, []),
+    }
+    if route['name'] == 'commentsShadow':
+        # The other routes under the comment path keep their own locations.
+        cases['the seed upload'] = ('POST', '/api/v3/comments-bulk', b'{}', {}, [])
+        cases['a translation read'] = ('GET', '/api/v3/comments/translations', b'', {}, [])
+    return cases
+
+
+# The uncopied POST whose body arrives in two halves: how long Node must have
+# held the request's headers before it had the whole body, when nginx streams
+# the body to it (the halves are 0.6 s apart).
+STREAMED = 'a POST of 20000 bytes sent in two halves 0.6 s apart'
+STREAMED_SECONDS = 0.4
+
+
+def send_uncopied(prefix, port, route):
+    """Sends every uncopied case once. Returns, by label, what the client
+    got, what Node received and the access line nginx wrote, and the test
+    case ids sent."""
+    seen_by, ids = {}, {}
+    for label, (method, target, body, options, extra) in uncopied_cases(route).items():
+        case = uuid.uuid4().hex
+        status, headers, reply = raw(port, method, target, case_headers(case, route) + extra, body, **options)
+        ids[label] = case
+        (seen,) = wait_for(lambda: find(records(prefix + '-node'), case), f'{label} at Node')
+        fields = access_fields(prefix, case)
+        seen_by[label] = {'status': status, 'reply_headers': reply_headers(headers), 'reply': reply.decode(),
+                          'node_headers': normalized(seen['headers']),
+                          'node_request_id': header(seen, 'x-request-id'),
+                          'node_body': [seen['length'], seen['sha256']],
+                          'node_waited_for_body': seen['at'] - seen['head'],
+                          'access': comparable(fields, case), 'access_addresses': [fields[0], fields[8]]}
+    return seen_by, ids
+
+
 def baseline(prefix, out, shadow='votesShadow'):
     route = ROUTES[shadow]
     what, path = route['what'], route['path']
@@ -266,6 +335,10 @@ def baseline(prefix, out, shadow='votesShadow'):
     base = {'headers': normalized(seen['headers']), 'response_headers': sorted(
         k for k, _ in headers if k not in ('date',)), 'reply_headers': reply_headers(headers),
         'body': body.decode(), 'access': comparable(fields, case), 'peer': fields[0]}
+    # The requests no shadow is sent a copy of, with nothing selected: what
+    # each must still be, to the byte, with a shadow selected.
+    base['uncopied'], _ = send_uncopied(prefix, port, route)
+    assert base['uncopied'][STREAMED]['node_waited_for_body'] >= STREAMED_SECONDS, base['uncopied'][STREAMED]
     if shadow == 'commentsShadow':
         # The read route on the same path, with nothing selected: what every
         # client polls. Its reply, what Node received and its access line.
@@ -360,6 +433,51 @@ def check_post(prefix, port, mode, base, route, extra_headers=(), client_id=None
     return request_id, mirrors[0]
 
 
+# Query strings a copied request may carry, each sent to Node and to the
+# shadow byte for byte: parameters of the routes, and one with escapes, a
+# plus, a repeated key, an empty value and a bare key.
+QUERIES = ('?conversation_id=2fixture&is_seed=true',
+           '?conversation_id=2fixture&xid=a%20b%2Fc+d&x=%C3%A9&x=&y')
+
+
+def check_query(prefix, port, mode, route):
+    """A copied request with a query string: Node receives it as sent, and so
+    does the shadow, on the same path: the copy is the request a write route
+    would be handed, query string included. A bare `?` is an empty query
+    string: Node receives it as sent and the copy's path has none."""
+    what, path, name = route['what'], route['path'], route['name']
+    for query in QUERIES + ('?',):
+        if name == 'commentsShadow':
+            time.sleep(1 / COMMENT_RATE)  # inside the copies' rate
+        case = uuid.uuid4().hex
+        body = route['body'](case)
+        status, _, reply = raw(port, 'POST', path + query, case_headers(case, route), body)
+        digest = hashlib.sha256(body).hexdigest()
+        assert status == 200 and reply.decode() == f'node POST {path + query} {digest}\n', (mode, query, status, reply)
+        seen = wait_for(lambda: find(records(prefix + '-node'), case), f'{mode}: {what} with a query string at Node')
+        time.sleep(0.2)
+        (seen,) = find(records(prefix + '-node'), case)
+        assert seen['path'] == path + query, (mode, seen['path'])
+        (request_id,) = header(seen, 'x-request-id')
+        assert HEX32.fullmatch(request_id), request_id
+        if mode in RECORDING:
+            copies = wait_for(lambda: find(records(prefix + '-shadow'), case), f'{mode}: copy with a query string')
+            time.sleep(0.2)
+            (copy,) = find(records(prefix + '-shadow'), case)
+            assert copy['path'] == path + ('' if query == '?' else query), (mode, query, copy['path'])
+            assert copy['method'] == 'POST' and copy['sha256'] == digest, copy
+            assert header(copy, 'x-request-id') == [request_id] and header(copy, 'x-polis-shadow') == [name], copy
+        # The two JSON lines never carry the query string: the edge line
+        # names the path alone.
+        lines = wait_for(lambda: [l for l in shadow_lines(prefix) if l['request_id'] == request_id
+                                  and l['message'] == 'shadow_mirror'], f'{mode}: copy line of a query string')
+        (edge,) = [l for l in shadow_lines(prefix) if l['request_id'] == request_id and l['message'] == 'shadow_edge']
+        assert edge['route'] == f'POST {path}' and lines[0]['mirror_status'] == MIRROR_STATUS[mode], (edge, lines)
+        for line in proxy_lines(prefix):
+            if request_id in line:
+                assert 'conversation_id' not in line and 'xid=' not in line, f'{mode}: a shadow line holds a query string: {line}'
+
+
 def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     route = ROUTES[shadow]
     what, path, name = route['what'], route['path'], route['name']
@@ -375,60 +493,53 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     # A client-sent request id is replaced, on both sides.
     check_post(prefix, port, mode, base, route, ['X-Request-Id: client-chosen-id'], client_id='client-chosen-id')
     print(f'ok {mode}: a client-sent X-Request-Id is replaced by nginx\'s own', flush=True)
+    check_query(prefix, port, mode, route)
+    print(f'ok {mode}: a {what} posted with a query string reaches Node with it' +
+          (', and its copy reaches the shadow on the same path with the same query string, byte for byte'
+           if mode in RECORDING else '') + '; neither JSON line carries it', flush=True)
     print(f'ok {mode}: the access line of a shadowed {what} is `main` with the peer address and '
           f'X-Forwarded-For written "-"; no line naming the {what} holds the address it came from or one it '
           f'carried; Node receives the header as sent', flush=True)
-    # What is never copied: other methods, bodies outside 1..9999 bytes or of
-    # unknown length, and paths other than the exact one.
-    cases = {
-        'GET': ('GET', path, b'', False),
-        'HEAD': ('HEAD', path, b'', False),
-        'PUT': ('PUT', path, b'{}', False),
-        'empty body': ('POST', path, b'', False),
-        '10000 bytes': ('POST', path, b'x' * 10000, False),
-        '20000 bytes': ('POST', path, b'x' * 20000, False),
-        'chunked': ('POST', path, b'{"vote":0}', True),
-        'trailing slash': ('POST', path + '/', b'{}', False),
-        'mixed case': ('POST', route['other_case'], b'{}', False),
-    }
-    if shadow == 'commentsShadow':
-        # The other routes under the comment path keep their own locations.
-        cases['the seed upload'] = ('POST', '/api/v3/comments-bulk', b'{}', False)
-        cases['a translation read'] = ('GET', '/api/v3/comments/translations', b'', False)
-    skipped_by_bound = {'empty body', '10000 bytes', '20000 bytes', 'chunked'}
-    sent = {}
-    for label, (method, target, body, chunked) in cases.items():
-        case = uuid.uuid4().hex
-        status, _, reply = raw(port, method, target, case_headers(case, route), body, chunked=chunked)
-        assert status == 200, (mode, label, status, reply)
-        sent[label] = case
+    # What is never copied: other methods, a POST whose body is empty, of
+    # undeclared length, chunked or over 9999 bytes, and paths other than the
+    # exact one. None of them enters the shadow's locations: each reaches
+    # Node once, exactly as with nothing selected (the same request headers
+    # in the same order, a request id only if the client sent one, the body
+    # streamed and not read whole first), gets the same reply to the byte,
+    # and is logged in `main` with its addresses; no shadow line is written
+    # and nothing is copied.
+    lines_before = len(shadow_lines(prefix))
+    copies_before = len(records(prefix + '-shadow'))
+    seen_by, sent = send_uncopied(prefix, port, route)
     time.sleep(0.5)
     node = records(prefix + '-node')
     copied = records(prefix + '-shadow')
-    lines = shadow_lines(prefix)
+    assert sorted(seen_by) == sorted(base['uncopied']), (sorted(seen_by), sorted(base['uncopied']))
     for label, case in sent.items():
-        (seen,) = find(node, case)
+        got, want = seen_by[label], base['uncopied'][label]
+        assert len(find(node, case)) == 1, f'{mode}: Node received {label} {len(find(node, case))} times'
         assert not find(copied, case), f'{mode}: {label} was copied'
-        ids = header(seen, 'x-request-id')
-        if label in skipped_by_bound:
-            # The POST reached the shadowed location: its copy stopped at the
-            # body bound, without contacting the shadow.
-            (request_id,) = ids
-            mirrors = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
-            assert len(mirrors) == 1 and mirrors[0]['mirror_status'] == 204, (label, mirrors)
-            # escape=json logs an unset upstream status as an empty string.
-            assert mirrors[0]['mirror_upstream_status'] == '', (label, mirrors)
-            # It is still a request of the shadowed location: no address.
-            fields = access_fields(prefix, case)
-            assert (fields[0], fields[8]) == ('-', '-'), (mode, label, fields)
-        else:
-            assert ids == [], f'{mode}: {label} went through the shadow path'
-            # Any other location's access line is `main`, as before: the
-            # known client address first, the forwarded addresses last.
-            fields = access_fields(prefix, case)
-            assert (fields[0], fields[8]) == (base['peer'], FORWARDED_FOR), (mode, label, fields)
-    print(f'ok {mode}: GET, HEAD, PUT, empty, 10000 and 20000 byte and chunked bodies, a trailing slash '
-          f'and a mixed-case path reach Node once and are not copied', flush=True)
+        for key in ('status', 'reply_headers', 'reply', 'node_headers', 'node_request_id', 'node_body', 'access'):
+            assert got[key] == want[key], (mode, label, key, got[key], want[key])
+        assert got['node_request_id'] in ([], ['client-chosen-id']), (
+            f'{mode}: {label} went through the shadow path: {got["node_request_id"]}')
+        # The access line is `main`, as before: the known client address
+        # first, the forwarded addresses last.
+        assert got['access_addresses'] == [base['peer'], FORWARDED_FOR], (mode, label, got['access_addresses'])
+    # The body that arrives in two halves is streamed: Node has the request's
+    # headers while the second half is still on its way.
+    assert seen_by[STREAMED]['node_waited_for_body'] >= STREAMED_SECONDS, (
+        f'{mode}: nginx read the whole body of an uncopied POST before contacting Node: Node waited '
+        f'{seen_by[STREAMED]["node_waited_for_body"]:.3f} s for the body')
+    assert len(shadow_lines(prefix)) == lines_before, f'{mode}: an uncopied request wrote a shadow line'
+    assert len(records(prefix + '-shadow')) == copies_before, f'{mode}: an uncopied request was copied'
+    print(f'ok {mode}: {len(sent)} requests that are never copied (GET, HEAD, PUT, DELETE, OPTIONS; a POST with '
+          f'an empty body, with no Content-Length, with a leading zero in it, of 10000 and 20000 bytes, chunked, '
+          f'with a trailing slash, with a mixed-case path) reach Node once, exactly as with nothing selected: '
+          f'the same headers at Node, the same reply bytes, the `main` access line, no request id but a '
+          f'client\'s own, no shadow line and no copy; a 20000-byte body sent in two halves is streamed (Node '
+          f'had its headers {seen_by[STREAMED]["node_waited_for_body"]:.2f} s before its last byte, '
+          f'{base["uncopied"][STREAMED]["node_waited_for_body"]:.2f} s with nothing selected)', flush=True)
     # The copy's location is internal.
     before = len(records(prefix + '-node'))
     for method in ('GET', 'POST'):
@@ -438,17 +549,19 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     print(f'ok {mode}: a direct request to the copy location is answered 404', flush=True)
     # Everything nginx wrote in this mode, access log and error log alike:
     # a line that holds a forwarded address is the `main` line of a request
-    # that is not a POST to the shadowed path.
+    # that was not copied: not a POST to the shadowed path, or one of the
+    # uncopied POSTs sent above.
     shadowed = f'POST {path} HTTP/1.1'
+    uncopied_agents = {f'shadow-test/{case}' for case in sent.values()}
     held = [line for line in proxy_lines(prefix) if any(address in line for address in ADDRESSES)]
     assert held, f'{mode}: no other request logged its forwarded address'
     for line in held:
         fields = ACCESS_LINE.fullmatch(line)
-        assert fields and fields.group(4) != shadowed, (
+        assert fields and (fields.group(4) != shadowed or fields.group(8) in uncopied_agents), (
             f'{mode}: a forwarded address beside a shadowed {what}: {line}')
     # The address the requests came from: on the `main` line of a request
-    # that is not a POST to the shadowed path, or on a line of nginx's error
-    # log (`client:`), which names no request id. Never on any other line.
+    # that was not copied, or on a line of nginx's error log (`client:`),
+    # which names no request id. Never on any other line.
     ids = {m['request_id'] for m in shadow_lines(prefix)}
     assert ids, f'{mode}: no shadow line'
     peer = [line for line in proxy_lines(prefix) if base['peer'] in line]
@@ -456,7 +569,7 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     for line in peer:
         fields = ACCESS_LINE.fullmatch(line)
         if fields:
-            assert fields.group(4) != shadowed, (
+            assert fields.group(4) != shadowed or fields.group(8) in uncopied_agents, (
                 f'{mode}: the peer address beside a shadowed {what}: {line}')
             continue
         assert ERROR_LINE.match(line), f'{mode}: the peer address on a line of another kind: {line}'
@@ -464,7 +577,7 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
         errors += 1
     assert len(peer) - errors >= len(held), (mode, len(peer), errors, len(held))
     print(f'ok {mode}: of {len(proxy_lines(prefix))} lines nginx wrote, the {len(held)} that hold a forwarded '
-          f'address are all `main` lines of requests that are not a POST to the path; the address the '
+          f'address are all `main` lines of requests that were not copied; the address the '
           f'requests came from is on {len(peer) - errors} such `main` lines and on {errors} error-log lines, '
           f'which name no request id', flush=True)
     # Informational: how long the next request on the same connection waits.
@@ -688,6 +801,143 @@ def rate(prefix):
           f'after the bucket drained a comment was copied again', flush=True)
 
 
+# One keepalive connection: how many comments it posts back to back, and the
+# bounds on what a request waits for the copy of the request before it, in
+# milliseconds. nginx's mirror keeps a request open until its copies have
+# ended, so the next request on the same client connection waits for a copy
+# that was sent: at most the copy's timeouts (20 ms to connect, 20 ms to send,
+# 30 ms to read) when the shadow is silent. A copy over the rate ends at once,
+# before any connection, and holds nothing. KEEPALIVE_QUICK is the most the
+# median request may take where no copy can hold it (measured on a work box,
+# three runs: 0.8 to 1.2 ms after a refused copy, 2.5 ms the slowest of 102);
+# KEEPALIVE_HELD is the least the median request after a copy sent to a
+# silent shadow may take (measured: 30 to 32 ms, 43 ms the slowest of 15). How
+# long such a request may take at most is not a number of milliseconds: on a
+# busy machine a copy lives longer than its timeouts add up to (measured with
+# 14 cores at a load of 9 to 15: requests of 44 to 124 ms after six sent
+# copies, and a median of 25 ms after copies an answering shadow was slow
+# to answer). It is the time nginx itself logged for that copy (mirror_s)
+# and KEEPALIVE_QUICK more: the next request waits for the copy and for
+# nothing else.
+KEEPALIVE_COMMENTS = 40
+KEEPALIVE_QUICK = 10.0
+KEEPALIVE_HELD = 15.0
+
+
+def keepalive(prefix, state):
+    """The comment copies' rate on ONE keepalive client connection, as a load
+    balancer reuses a connection: KEEPALIVE_COMMENTS comments back to back.
+    `state` is `unselected` (nothing selected: the control), `answering` or
+    `silent` (both shadows selected, the shadow in that mode). Every comment
+    is answered by Node with its exact bytes, on the same connection, and
+    received by Node once. With the shadows selected, as many copies as the
+    rate allows are sent and every other ends with 429 in the copy's own
+    location, with no upstream. A request that follows a refused copy is not
+    held by it; with a silent shadow, a request that follows a sent copy
+    waits for that copy's timeout, and no other request waits."""
+    route = ROUTES['commentsShadow']
+    port = proxy_port(prefix)
+    selected = state != 'unselected'
+    time.sleep(COMMENT_BURST / COMMENT_RATE + 1)  # an empty bucket to start from
+    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=15)
+    connection.connect()
+    socket_used = connection.sock
+    sent = []
+    started = time.perf_counter()
+    for _ in range(KEEPALIVE_COMMENTS):
+        case = uuid.uuid4().hex
+        body = route['body'](case)
+        began = time.perf_counter()
+        connection.request('POST', route['path'], body=body,
+                           headers={'Content-Type': route['content_type'], 'X-Test-Case': case})
+        response = connection.getresponse()
+        reply = response.read()
+        took = (time.perf_counter() - began) * 1000
+        # The same connection throughout: nginx neither closed it nor asked to.
+        assert connection.sock is socket_used and not response.will_close, 'the connection was not reused'
+        assert response.status == 200 and reply.decode() == (
+            f'node POST {route["path"]} {hashlib.sha256(body).hexdigest()}\n'), (state, response.status, reply)
+        sent.append((case, took))
+    elapsed = time.perf_counter() - started
+    connection.close()
+    time.sleep(1.0)
+    node, copied, lines = records(prefix + '-node'), records(prefix + '-shadow'), shadow_lines(prefix)
+    times = [took for _, took in sent]
+    outcomes, lived = [], []
+    for case, _ in sent:
+        seen = find(node, case)
+        assert len(seen) == 1, f'{state}: Node received a comment {len(seen)} times'
+        if not selected:
+            assert not header(seen[0], 'x-request-id'), seen[0]['headers']
+            continue
+        (request_id,) = header(seen[0], 'x-request-id')
+        mirrors = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
+        edges = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_edge']
+        assert len(mirrors) == 1 and len(edges) == 1 and edges[0]['edge_status'] == 200, (state, mirrors, edges)
+        lived.append(mirrors[0]['mirror_s'] * 1000)
+        if mirrors[0]['mirror_status'] == 429:
+            # Refused by the rate in the copy's own location: no upstream
+            # contacted, no time spent, nothing at the shadow.
+            assert mirrors[0]['mirror_upstream_status'] == '' and mirrors[0]['mirror_s'] < 0.02, mirrors
+            assert mirrors[0]['shadow'] == 'commentsShadow' and not find(copied, case), mirrors
+            outcomes.append('refused')
+        else:
+            # Sent: the silent shadow never answers (504 at the copy's read
+            # timeout); the answering one answers 204 unless this box is too
+            # busy for the copy's 30 ms.
+            assert mirrors[0]['mirror_upstream_status'] != '', mirrors
+            assert state != 'silent' or mirrors[0]['mirror_status'] == MIRROR_STATUS['silent'], mirrors
+            outcomes.append('sent')
+    said = (f'{KEEPALIVE_COMMENTS} comments back to back on one keepalive connection in {elapsed * 1000:.0f} ms, '
+            f'every one answered by Node with its exact bytes on that connection and received by Node once; '
+            f'a request took a median of {statistics.median(times):.2f} ms, at most {max(times):.2f} ms')
+    if not selected:
+        assert statistics.median(times) <= KEEPALIVE_QUICK, times
+        print(f'ok keepalive (nothing selected): {said}', flush=True)
+        return
+    passed, refused = outcomes.count('sent'), outcomes.count('refused')
+    most = COMMENT_BURST + 1 + int(COMMENT_RATE * elapsed) + 1
+    assert COMMENT_BURST + 1 <= passed <= most and refused == KEEPALIVE_COMMENTS - passed >= 1, (passed, most, refused)
+    limited = [line for line in proxy_lines(prefix) if 'limiting requests' in line or 'limit_req' in line]
+    assert not limited, limited
+    # What each request waited, by the outcome of the copy of the request
+    # before it on the connection.
+    after = {'sent': [], 'refused': []}
+    beyond = []
+    for outcome, copy_lived, took in zip(outcomes, lived, times[1:]):
+        after[outcome].append(took)
+        if outcome == 'sent':
+            # How much longer the request took than the copy before it lived.
+            beyond.append(took - copy_lived)
+    assert after['sent'] and after['refused'], outcomes
+    quick = statistics.median(after['refused'])
+    assert quick <= KEEPALIVE_QUICK, (
+        f'{state}: a request after a refused copy took a median of {quick:.2f} ms: {after["refused"]}')
+    held = statistics.median(after['sent'])
+    waited = sum(1 for took in times if took >= KEEPALIVE_HELD)
+    # A request after a sent copy waits for that copy, as long as nginx says
+    # the copy lived, and for nothing else.
+    over = statistics.median(beyond)
+    assert over <= KEEPALIVE_QUICK, (
+        f'{state}: a request after a sent copy took a median of {over:.2f} ms longer than the copy lived: '
+        f'{after["sent"]} against {[copy_lived for outcome, copy_lived in zip(outcomes, lived) if outcome == "sent"]}')
+    if state == 'silent':
+        # The copy sent to a silent shadow ends at its read timeout, and the
+        # next request on the connection waits for it; of the requests that
+        # follow a refused copy, few take that long (none on a quiet machine).
+        assert KEEPALIVE_HELD <= held, (
+            f'silent: a request after a sent copy took a median of {held:.2f} ms: {after["sent"]}')
+        slow = sum(1 for took in after['refused'] if took >= KEEPALIVE_HELD)
+        assert slow <= len(after['refused']) // 4, (slow, after['refused'])
+    print(f'ok keepalive (both shadows, the shadow {state}): {said}; {passed} copies were sent (at least '
+          f'{COMMENT_BURST + 1}, at most {most}) and {refused} ended with 429 in the copy\'s location, with no '
+          f'upstream and no error-log line; the request after a refused copy took a median of {quick:.2f} ms '
+          f'(at most {max(after["refused"]):.2f} ms, n={len(after["refused"])}; bound {KEEPALIVE_QUICK:.0f} ms) '
+          f'and the request after a sent copy a median of {held:.2f} ms (at most {max(after["sent"]):.2f} ms, '
+          f'n={len(after["sent"])}), {over:.2f} ms longer than the copy before it lived by nginx\'s own line; '
+          f'{waited} of the {KEEPALIVE_COMMENTS} requests took {KEEPALIVE_HELD:.0f} ms or more', flush=True)
+
+
 # Comment bodies of every size class: a short comment, the longest text Node
 # accepts as JSON writes it, each side of nginx's in-memory buffer, each side
 # of the copy's bound, and the largest body nginx and Node's parser accept.
@@ -701,23 +951,33 @@ def bodies(prefix, out, state):
     `answering` (the shadow selected and answering: which bodies were copied
     is checked too) or the name of a mode in which the shadow service fails.
     The same bytes are sent in every run, so `same-bodies` can compare the
-    replies byte for byte."""
+    replies byte for byte. With the shadow selected, a body of 1 to 9999
+    declared bytes goes through the mirroring location (Node receives a
+    request id) and any other is proxied as with nothing selected: no
+    request id, no shadow line, streamed, and nothing written to a temporary
+    file because of the mirror."""
     route = ROUTES['commentsShadow']
     selected, answering = state != 'unselected', state == 'answering'
     port = proxy_port(prefix)
     results = {}
-    plan = [(f'{size} bytes', size, 1, 0.0) for size in BODY_SIZES]
-    plan += [('6100 bytes in two parts 0.5 s apart', 6100, 2, 0.5),
-             ('9000 bytes in three parts 0.3 s apart', 9000, 3, 0.3),
-             ('100000 bytes in four parts 0.2 s apart', 100000, 4, 0.2)]
-    for label, size, parts, pause in plan:
+    # label, size, parts, pause between parts, chunked
+    plan = [(f'{size} bytes', size, 1, 0.0, False) for size in BODY_SIZES]
+    plan += [('6100 bytes in two parts 0.5 s apart', 6100, 2, 0.5, False),
+             ('9000 bytes in three parts 0.3 s apart', 9000, 3, 0.3, False),
+             ('100000 bytes in four parts 0.2 s apart', 100000, 4, 0.2, False),
+             ('6100 bytes chunked', 6100, 1, 0.0, True),
+             ('100000 bytes chunked', 100000, 1, 0.0, True)]
+    lines_before = len(shadow_lines(prefix))
+    handed_over = 0
+    for label, size, parts, pause, chunked in plan:
         if selected:
             time.sleep(1 / COMMENT_RATE)  # inside the copies' rate
+        copyable = size <= COPIED_BODY and not chunked
         case = uuid.uuid4().hex
         body = sized_comment(size)
         started = time.perf_counter()
         status, headers, reply = raw(port, 'POST', route['path'], case_headers(case, route), body,
-                                     parts=parts, pause=pause)
+                                     parts=parts, pause=pause, chunked=chunked)
         seconds = time.perf_counter() - started
         digest = hashlib.sha256(body).hexdigest()
         assert status == 200 and reply.decode() == f'node POST {route["path"]} {digest}\n', (label, status, reply[:200])
@@ -725,24 +985,30 @@ def bodies(prefix, out, state):
         assert len(seen) == 1 and seen[0]['length'] == size and seen[0]['sha256'] == digest, (label, seen)
         results[label] = {'status': status, 'reply_headers': reply_headers(headers),
                           'reply': reply.decode(), 'seconds': seconds,
-                          'node_headers': normalized(seen[0]['headers'])}
-        if selected:
+                          'node_headers': normalized(seen[0]['headers']),
+                          'node_waited_for_body': seen[0]['at'] - seen[0]['head']}
+        if selected and copyable:
+            handed_over += 1
             (request_id,) = header(seen[0], 'x-request-id')
             assert HEX32.fullmatch(request_id), request_id
+        else:
+            # Not handed to the shadow's location: Node receives no request id.
+            assert not header(seen[0], 'x-request-id'), (label, seen[0]['headers'])
+        if not chunked and parts > 1 and not (selected and copyable):
+            # A body of declared length that arrives in parts is streamed to
+            # Node unless it is being copied: Node has the headers first.
+            assert seen[0]['at'] - seen[0]['head'] >= pause * 0.6, (label, seen[0]['at'] - seen[0]['head'])
         if answering:
             time.sleep(0.3)
             copies = find(records(prefix + '-shadow'), case)
-            mirrors = [l for l in shadow_lines(prefix)
-                       if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
-            assert len(mirrors) == 1, (label, mirrors)
-            if size <= 9999:
+            if copyable:
+                mirrors = [l for l in shadow_lines(prefix)
+                           if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
+                assert len(mirrors) == 1, (label, mirrors)
                 assert len(copies) == 1 and copies[0]['sha256'] == digest and copies[0]['length'] == size, (label, copies)
                 assert mirrors[0]['mirror_status'] == 204 and mirrors[0]['mirror_upstream_status'] == '204', (label, mirrors)
             else:
                 assert not copies, f'{label} was copied'
-                assert mirrors[0]['mirror_status'] == 204 and mirrors[0]['mirror_upstream_status'] == '', (label, mirrors)
-        if not selected:
-            assert not header(seen[0], 'x-request-id'), (label, seen[0]['headers'])
     # One byte over the largest body: nginx's own 413 either way, on the
     # request's headers alone, and Node is not called.
     before = len(records(prefix + '-node'))
@@ -758,24 +1024,35 @@ def bodies(prefix, out, state):
     assert len(records(prefix + '-node')) == before, 'a body over the limit reached Node'
     results['one byte over the largest body'] = {'status': status, 'reply_headers': reply_headers(headers),
                                                  'reply': reply.decode()}
+    # Two shadow lines (edge and copy) for each body handed to the shadow's
+    # location, and none for any other.
+    time.sleep(0.5)
+    written = len(shadow_lines(prefix)) - lines_before
+    assert written == 2 * handed_over, (state, written, handed_over)
     with open(out, 'w') as file:
         json.dump(results, file)
     temporary = [line for line in proxy_lines(prefix) if 'buffered to a temporary file' in line]
-    # Without the shadow nginx streams every body to Node. With it, the body
-    # is read first: in memory up to BODY_IN_MEMORY bytes, which covers every
-    # body that is copied, and through a temporary file from BODY_TO_FILE.
-    assert all(size <= BODY_IN_MEMORY or size >= BODY_TO_FILE for _, size, _, _ in plan)
-    expected = sum(1 for _, size, _, _ in plan if size >= BODY_TO_FILE) if selected else 0
+    # nginx streams a body of declared length to Node, with the shadow or
+    # without; the bodies the mirror reads whole first are at most
+    # COPIED_BODY bytes, which it holds in memory. So the mirror writes no
+    # temporary file. A chunked body is read whole by nginx before it is
+    # proxied whatever is selected (Node is reached over HTTP/1.0, which has
+    # no chunked bodies), through a temporary file from BODY_TO_FILE: the
+    # same number of files with nothing selected as with the shadow.
+    assert all(size <= BODY_IN_MEMORY or size >= BODY_TO_FILE for _, size, _, _, _ in plan)
+    expected = sum(1 for _, size, _, _, chunked in plan if chunked and size >= BODY_TO_FILE)
     assert len(temporary) == expected, (state, len(temporary), expected)
     said = {'unselected': 'nothing selected', 'answering': 'both shadows selected, the shadow answering'}.get(
         state, f'both shadows selected, the shadow in mode {state}')
     print(f'ok comment bodies ({said}): {len(plan)} bodies from '
-          f'{BODY_SIZES[0]} bytes to {LARGEST_BODY} bytes, three of them sent in parts, each answered 200 with '
-          f'Node\'s exact bytes and received by Node once with the same length and digest'
-          + ('; bodies of 1 to 9999 bytes copied once with the same bytes, larger ones not copied'
-             if answering else '') +
+          f'{BODY_SIZES[0]} bytes to {LARGEST_BODY} bytes, three of them sent in parts and two chunked, each '
+          f'answered 200 with Node\'s exact bytes and received by Node once with the same length and digest'
+          + (f'; the {handed_over} bodies of 1 to {COPIED_BODY} declared bytes went through the shadow\'s '
+             f'location and every other reached Node with no request id and no shadow line' if selected else '')
+          + ('; each of those was copied once with the same bytes, and no other was copied' if answering else '') +
           f'; one byte over the largest is nginx\'s 413 and never reaches Node; nginx wrote '
-          f'{len(temporary)} bodies to a temporary file', flush=True)
+          f'{len(temporary)} body to a temporary file, the chunked one of 100000 bytes, as it does with '
+          f'nothing selected', flush=True)
 
 
 def same_bodies(control_file, shadow_file):
@@ -788,13 +1065,19 @@ def same_bodies(control_file, shadow_file):
         for key in ('status', 'reply_headers', 'reply', 'node_headers'):
             assert control[label].get(key) == shadow[label].get(key), (label, key, control[label].get(key),
                                                                        shadow[label].get(key))
+    # The large body that arrives in parts is streamed to Node in both runs.
+    slow = '100000 bytes in four parts 0.2 s apart'
+    for run in (control, shadow):
+        assert run[slow]['node_waited_for_body'] >= 0.3, (slow, run[slow]['node_waited_for_body'])
     print(f'ok comment bodies, with and without the shadow: for each of {len(control)} bodies the client got '
           f'the same status, the same reply headers and the same reply bytes, and Node received the same '
           f'headers but for the request id', flush=True)
     for label in control:
         if 'seconds' in control[label]:
             print(f'info {label}: {control[label]["seconds"] * 1000:.1f} ms with nothing selected, '
-                  f'{shadow[label]["seconds"] * 1000:.1f} ms with the shadow', flush=True)
+                  f'{shadow[label]["seconds"] * 1000:.1f} ms with the shadow; Node had the headers '
+                  f'{control[label]["node_waited_for_body"] * 1000:.1f} ms and '
+                  f'{shadow[label]["node_waited_for_body"] * 1000:.1f} ms before the last byte', flush=True)
 
 
 # The client half of `measure`, run inside a container on the test network so
@@ -842,8 +1125,9 @@ def measure(prefix, network, image, out):
     are one."""
     # size, count, parts, pause between parts, gap between requests
     plan = [(180, 100, 1, 0.0, 0.51), (3100, 100, 1, 0.0, 0.51), (6100, 100, 1, 0.0, 0.51),
-            (9000, 100, 1, 0.0, 0.51), (9999, 100, 1, 0.0, 0.51), (100000, 50, 1, 0.0, 0.1),
-            (LARGEST_BODY, 12, 1, 0.0, 0.5), (6100, 30, 2, 0.5, 0.51)]
+            (9000, 100, 1, 0.0, 0.51), (9999, 100, 1, 0.0, 0.51), (10000, 100, 1, 0.0, 0.1),
+            (100000, 50, 1, 0.0, 0.1), (LARGEST_BODY, 12, 1, 0.0, 0.5), (6100, 30, 2, 0.5, 0.51),
+            (100000, 30, 4, 0.2, 0.1), (LARGEST_BODY, 6, 4, 0.5, 0.5)]
     script = MEASURE_CLIENT.replace('PROXY', prefix + '-proxy')
     results = json.loads(subprocess.check_output(
         ['docker', 'run', '--rm', '--network', network, image, 'python3', '-c', script, json.dumps(plan)],
@@ -888,5 +1172,5 @@ def measured(control_file, shadow_file):
 if __name__ == '__main__':
     command, *args = sys.argv[1:]
     {'baseline': baseline, 'behaviour': behaviour, 'load': load, 'compare': compare, 'read': read,
-     'rate': rate, 'bodies': bodies, 'same-bodies': same_bodies, 'measure': measure,
+     'rate': rate, 'keepalive': keepalive, 'bodies': bodies, 'same-bodies': same_bodies, 'measure': measure,
      'measured': measured}[command](*args)
