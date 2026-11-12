@@ -3,7 +3,7 @@
 //! duration or a test statistic: never a request id, a conversation or
 //! statement number, a participant or text.
 use crate::aws::{Row, Window};
-use crate::route::{ROW_LIMIT, Route};
+use crate::route::{Kind, ROW_LIMIT, Route};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
@@ -32,7 +32,7 @@ impl Verdict {
             Verdict::Examine => 4,
         }
     }
-    fn text(self) -> &'static str {
+    pub(crate) fn text(self) -> &'static str {
         match self {
             Verdict::Pass => "PASS",
             Verdict::Stop => "STOP",
@@ -60,7 +60,7 @@ pub enum Mark {
 }
 
 impl Mark {
-    fn text(self) -> &'static str {
+    pub(crate) fn text(self) -> &'static str {
         match self {
             Mark::Pass => "pass",
             Mark::Miss => "MISS",
@@ -100,46 +100,60 @@ pub struct Inputs<'a> {
     pub metrics: &'a Metrics,
 }
 
-fn num(row: &Row, key: &str) -> Option<f64> {
+pub(crate) fn num(row: &Row, key: &str) -> Option<f64> {
     row.get(key).and_then(|v| v.trim().parse::<f64>().ok())
 }
-fn count(row: &Row, key: &str) -> u64 {
+pub(crate) fn count(row: &Row, key: &str) -> u64 {
     num(row, key)
         .map(|v| v.max(0.0).round() as u64)
         .unwrap_or(0)
 }
-fn text<'r>(row: &'r Row, key: &str) -> &'r str {
+pub(crate) fn text<'r>(row: &'r Row, key: &str) -> &'r str {
     row.get(key).map(String::as_str).unwrap_or("")
 }
-fn sum(rows: &[Row], key: &str, keep: impl Fn(&Row) -> bool) -> u64 {
+pub(crate) fn sum(rows: &[Row], key: &str, keep: impl Fn(&Row) -> bool) -> u64 {
     rows.iter().filter(|r| keep(r)).map(|r| count(r, key)).sum()
 }
-fn share(part: u64, whole: u64) -> Option<f64> {
+pub(crate) fn share(part: u64, whole: u64) -> Option<f64> {
     (whole > 0).then(|| part as f64 * 100.0 / whole as f64)
 }
-fn pct(value: Option<f64>) -> String {
+pub(crate) fn pct(value: Option<f64>) -> String {
     match value {
         Some(v) => format!("{v:.2} %"),
         None => "n/a".into(),
     }
 }
-fn ms(value: Option<f64>) -> String {
+pub(crate) fn ms(value: Option<f64>) -> String {
     match value {
         Some(v) => format!("{v:.1} ms"),
         None => "n/a".into(),
     }
 }
-/// A status, or the empty group Logs Insights reports when there is none.
-fn status(row: &Row, key: &str) -> String {
+/// A status, or the empty group Logs Insights reports when there is none. A
+/// number that is not an HTTP status is not printed as one.
+pub(crate) fn status(row: &Row, key: &str) -> String {
     match num(row, key) {
-        Some(v) => format!("{}", v.round() as i64),
+        Some(v) if (100.0..=599.0).contains(&v) => format!("{}", v.round() as i64),
+        Some(_) => "other".into(),
         None => "none".into(),
+    }
+}
+/// A reason as the shadow writes one: lower-case letters and underscores.
+/// Anything else in that field is not printed.
+pub(crate) fn class_word(word: &str) -> &str {
+    if !word.is_empty()
+        && word.len() <= 40
+        && word.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+    {
+        word
+    } else {
+        "(not a reason word)"
     }
 }
 const WOULD: [&str; 3] = ["would_serve", "would_hand_back", "would_fail"];
 
 /// The design's numbers for the week.
-mod bar {
+pub(crate) mod bar {
     pub const MIRROR_P99_MS: f64 = 5.0;
     pub const MIRROR_MAX_MS: f64 = 60.0;
     pub const COVERAGE: f64 = 99.5;
@@ -166,69 +180,64 @@ mod bar {
     pub const VOTE_5XX_RATIO: f64 = 3.0;
     /// Percentage points (the shares are in percent).
     pub const VOTE_5XX_POINTS: f64 = 0.5;
+    /// The share of a window's datapoints a metric must have been read for
+    /// before the stop rule says anything from it, in percent. CloudWatch
+    /// answers a wrong resource name, and a span older than it keeps a
+    /// period for, with no datapoints and no error.
+    pub const METRIC_READ: u64 = 95;
 }
 
-pub fn build(inputs: &Inputs) -> Report {
-    let mut out = String::new();
-    let mut criteria: Vec<Criterion> = vec![];
-    let mut add = |name: &'static str, value: String, mark: Mark| {
-        criteria.push(Criterion { name, value, mark })
-    };
-    let rows = |name: &str| -> Result<&[Row], String> {
-        match inputs.results.get(name) {
-            Some(Ok(rows)) if rows.len() >= ROW_LIMIT => Err(format!(
-                "{name}: {ROW_LIMIT} rows, the most Logs Insights returns; the result may be cut off"
-            )),
-            Some(Ok(rows)) => Ok(rows.as_slice()),
-            Some(Err(why)) => Err(format!("{name}: {why}")),
-            None => Err(format!("{name}: not run")),
-        }
-    };
-    let r = inputs.route;
-    let _ = writeln!(out, "polis-shadow: {} ({})", r.route, r.shadow);
-    let _ = writeln!(
-        out,
-        "window: {} to {} (UTC, end excluded)",
-        crate::time::format(inputs.window.from_s),
-        crate::time::format(inputs.window.to_s)
-    );
+/// Whether `have` datapoints are too few to speak for a window that should
+/// hold `expected` of them (0 when the window is not known, as for saved
+/// results reported without one: then only "none at all" can be told).
+fn too_few(have: usize, expected: i64) -> bool {
+    have == 0 || (expected > 0 && (have as u64) * 100 < expected as u64 * bar::METRIC_READ)
+}
 
-    // ---- Lines.
-    let _ = writeln!(out, "\n1. Lines in the window");
-    let mut edge_lines = None;
-    match rows("lines") {
-        Ok(lines) => {
-            for (message, label) in [
-                ("shadow_edge", "nginx, each shadowed vote (shadow_edge)"),
-                ("shadow_mirror", "nginx, each copy (shadow_mirror)"),
-                (r.node_line, "Node, each handler reply"),
-                ("http_request", "Node, access lines with a request id"),
-                (
-                    "shadow_observation",
-                    "the shadow, each copy (shadow_observation)",
-                ),
-            ] {
-                // Node's access line is written "http_request http_request".
-                let n = sum(lines, "lines", |row| {
-                    let m = text(row, "message");
-                    m == message
-                        || (message == "http_request" && crate::query::ACCESS_LINE.contains(&m))
-                });
-                if message == "shadow_edge" {
-                    edge_lines = Some(n);
-                }
-                let _ = writeln!(out, "   {label:<48} {n}");
-            }
-        }
-        Err(why) => {
-            let _ = writeln!(out, "   unavailable: {why}");
-        }
+/// The verdict a report's criteria give: a stop first, then too little
+/// evidence (a count short of its minimum, or a criterion not evaluated),
+/// then a miss to examine, else a pass.
+pub(crate) fn verdict_of(criteria: &[Criterion]) -> Verdict {
+    if criteria.iter().any(|c| c.mark == Mark::Stop) {
+        Verdict::Stop
+    } else if criteria
+        .iter()
+        .any(|c| matches!(c.mark, Mark::Short | Mark::NotEvaluated))
+    {
+        Verdict::TooLittle
+    } else if criteria.iter().any(|c| c.mark == Mark::Miss) {
+        Verdict::Examine
+    } else {
+        Verdict::Pass
     }
+}
 
-    // ---- The copy.
+/// A query's rows for a report section, or why the section has none: not
+/// run, refused, or returned as many rows as Logs Insights returns at most,
+/// in which case the result may be cut off and nothing is reported from it.
+pub(crate) fn section_rows<'a>(results: &'a Results, name: &str) -> Result<&'a [Row], String> {
+    match results.get(name) {
+        Some(Ok(rows)) if rows.len() >= ROW_LIMIT => Err(format!(
+            "{name}: {ROW_LIMIT} rows, the most Logs Insights returns; the result may be cut off"
+        )),
+        Some(Ok(rows)) => Ok(rows.as_slice()),
+        Some(Err(why)) => Err(format!("{name}: {why}")),
+        None => Err(format!("{name}: not run")),
+    }
+}
+
+/// Section 2, the same for every route: what became of each copy, and how
+/// long the copy held the participant's connection. Returns the hold's
+/// largest hourly p99 and its largest value, in milliseconds.
+pub(crate) fn copy_section(
+    out: &mut String,
+    add: &mut impl FnMut(&'static str, String, Mark),
+    mirror: Result<&[Row], String>,
+    hours: Result<&[Row], String>,
+) -> Option<(f64, f64)> {
     let _ = writeln!(out, "\n2. The copy (nginx)");
     let mut hold: Option<(f64, f64)> = None;
-    match rows("mirror") {
+    match mirror {
         Ok(mirror) => {
             let copied_row = |row: &Row| {
                 text(row, "mirror_upstream_status")
@@ -287,7 +296,7 @@ pub fn build(inputs: &Inputs) -> Report {
             add("copied share", why, Mark::NotEvaluated);
         }
     }
-    match rows("mirror_hours") {
+    match hours {
         Ok(hours) if !hours.is_empty() => {
             let worst_p99 = hours
                 .iter()
@@ -332,12 +341,17 @@ pub fn build(inputs: &Inputs) -> Report {
         None => add("the copy's cost", "no copies".into(), Mark::NotEvaluated),
     }
 
-    // ---- Node as nginx saw it.
+    hold
+}
+
+/// Section 3, the same for every route: Node's status and time as nginx saw
+/// them.
+pub(crate) fn edge_section(out: &mut String, noun: &str, edge: Result<&[Row], String>) {
     let _ = writeln!(
         out,
-        "\n3. Node's answers to shadowed votes, as nginx saw them"
+        "\n3. Node's answers to shadowed {noun}, as nginx saw them"
     );
-    match rows("edge") {
+    match edge {
         Ok(edge) => {
             let mut by: Vec<(String, u64)> = edge
                 .iter()
@@ -361,6 +375,68 @@ pub fn build(inputs: &Inputs) -> Report {
             let _ = writeln!(out, "   unavailable: {why}");
         }
     }
+}
+
+pub fn build(inputs: &Inputs) -> Report {
+    match inputs.route.kind {
+        Kind::Votes { node_line } => build_votes(inputs, node_line),
+        Kind::Comments => crate::report_comments::build(inputs),
+    }
+}
+
+fn build_votes(inputs: &Inputs, node_line: &'static str) -> Report {
+    let mut out = String::new();
+    let mut criteria: Vec<Criterion> = vec![];
+    let mut add = |name: &'static str, value: String, mark: Mark| {
+        criteria.push(Criterion { name, value, mark })
+    };
+    let rows = |name: &str| section_rows(inputs.results, name);
+    let r = inputs.route;
+    let _ = writeln!(out, "polis-shadow: {} ({})", r.route, r.shadow);
+    let _ = writeln!(
+        out,
+        "window: {} to {} (UTC, end excluded)",
+        crate::time::format(inputs.window.from_s),
+        crate::time::format(inputs.window.to_s)
+    );
+
+    // ---- Lines.
+    let _ = writeln!(out, "\n1. Lines in the window");
+    let mut edge_lines = None;
+    match rows("lines") {
+        Ok(lines) => {
+            for (message, label) in [
+                ("shadow_edge", "nginx, each shadowed vote (shadow_edge)"),
+                ("shadow_mirror", "nginx, each copy (shadow_mirror)"),
+                (node_line, "Node, each handler reply"),
+                ("http_request", "Node, access lines with a request id"),
+                (
+                    "shadow_observation",
+                    "the shadow, each copy (shadow_observation)",
+                ),
+            ] {
+                // Node's access line is written "http_request http_request".
+                let n = sum(lines, "lines", |row| {
+                    let m = text(row, "message");
+                    m == message
+                        || (message == "http_request" && crate::query::ACCESS_LINE.contains(&m))
+                });
+                if message == "shadow_edge" {
+                    edge_lines = Some(n);
+                }
+                let _ = writeln!(out, "   {label:<48} {n}");
+            }
+        }
+        Err(why) => {
+            let _ = writeln!(out, "   unavailable: {why}");
+        }
+    }
+
+    // ---- The copy.
+    let hold = copy_section(&mut out, &mut add, rows("mirror"), rows("mirror_hours"));
+
+    // ---- Node as nginx saw it.
+    edge_section(&mut out, "votes", rows("edge"));
 
     // ---- The shadow's observations.
     let _ = writeln!(out, "\n4. The shadow's observations");
@@ -414,7 +490,7 @@ pub fn build(inputs: &Inputs) -> Report {
                 let reason = if reason.is_empty() {
                     "(none given)"
                 } else {
-                    reason
+                    class_word(reason)
                 };
                 let _ = writeln!(out, "     {reason:<26} {n}");
             }
@@ -423,7 +499,7 @@ pub fn build(inputs: &Inputs) -> Report {
                 *shed.entry(text(row, "reason").to_owned()).or_default() += count(row, "n");
             }
             for (reason, n) in shed {
-                let _ = writeln!(out, "   shed ({reason}): {n}");
+                let _ = writeln!(out, "   shed ({}): {n}", class_word(&reason));
             }
             let mut statuses: BTreeMap<String, u64> = BTreeMap::new();
             for row in obs
@@ -604,7 +680,7 @@ pub fn build(inputs: &Inputs) -> Report {
     // ---- Joined with Node.
     let _ = writeln!(out, "\n5. Joined with Node by request id");
     match rows("join") {
-        Ok(join) => join_section(&mut out, &mut add, join, edge_lines, r),
+        Ok(join) => join_section(&mut out, &mut add, join, edge_lines, node_line),
         Err(why) => {
             let _ = writeln!(out, "   unavailable: {why}");
             for name in [
@@ -672,21 +748,23 @@ pub fn build(inputs: &Inputs) -> Report {
 
     // ---- The stop rule.
     let _ = writeln!(out, "\n7. The stop rule");
-    stop_rule(&mut out, &mut add, inputs.results, inputs.metrics, hold);
+    stop_rule(
+        &mut out,
+        &mut add,
+        inputs.results,
+        inputs.metrics,
+        hold,
+        &StopWords {
+            by: crate::query::Key::Hour,
+            what: "vote",
+            route: r.route,
+            lines: "node_votes",
+        },
+        crate::route::stop_span(inputs.window),
+    );
 
     // ---- Criteria and verdict.
-    let verdict = if criteria.iter().any(|c| c.mark == Mark::Stop) {
-        Verdict::Stop
-    } else if criteria
-        .iter()
-        .any(|c| matches!(c.mark, Mark::Short | Mark::NotEvaluated))
-    {
-        Verdict::TooLittle
-    } else if criteria.iter().any(|c| c.mark == Mark::Miss) {
-        Verdict::Examine
-    } else {
-        Verdict::Pass
-    };
+    let verdict = verdict_of(&criteria);
     let _ = writeln!(out, "\n8. Criteria for the week");
     for c in &criteria {
         let _ = writeln!(out, "   {:<26} {:<20} {}", c.name, c.mark.text(), c.value);
@@ -720,7 +798,7 @@ fn join_section(
     add: &mut impl FnMut(&'static str, String, Mark),
     join: &[Row],
     edge_lines: Option<u64>,
-    route: Route,
+    node_line: &'static str,
 ) {
     let all = |key: &str| sum(join, key, |_| true);
     let votes = all("votes");
@@ -782,7 +860,7 @@ fn join_section(
         out,
         "   Node: {} replies from the handler ({}), {} refused before it (access line only); Node's status differs from nginx's on {} replies and {} access lines",
         all("node_replied"),
-        route.node_line,
+        node_line,
         all("node_refused_early"),
         all("node_edge_mismatch"),
         all("http_edge_mismatch")
@@ -898,13 +976,13 @@ fn join_section(
     );
 }
 
-/// The longest run of consecutive breached hours.
-fn longest_run(hours: &[(i64, bool)]) -> u32 {
+/// The longest run of consecutive breached spans, `step` seconds apart.
+fn longest_run(hours: &[(i64, bool)], step: i64) -> u32 {
     let (mut best, mut run, mut last) = (0, 0, None);
     for &(t, breach) in hours {
         run = match (breach, last) {
             (false, _) => 0,
-            (true, Some(prev)) if t - prev == 3600 && run > 0 => run + 1,
+            (true, Some(prev)) if t - prev == step && run > 0 => run + 1,
             (true, _) => 1,
         };
         last = Some(t);
@@ -913,15 +991,42 @@ fn longest_run(hours: &[(i64, bool)]) -> u32 {
     best
 }
 
-fn stop_rule(
+/// What the stop rule's two request rules are called for a route.
+pub(crate) struct StopWords {
+    /// The span Node's latency is compared over: an hour, or for a route
+    /// too quiet for an hour to hold 20 requests, a day.
+    pub by: crate::query::Key,
+    /// "vote" or "comment".
+    pub what: &'static str,
+    /// The route, as nginx writes it.
+    pub route: &'static str,
+    /// The name of the query of Node's access lines for the route by hour.
+    pub lines: &'static str,
+}
+
+pub(crate) fn stop_rule(
     out: &mut String,
     add: &mut impl FnMut(&'static str, String, Mark),
     results: &Results,
     metrics: &Metrics,
     hold: Option<(f64, f64)>,
+    words: &StopWords,
+    window: Window,
 ) {
+    let StopWords {
+        by,
+        what,
+        route,
+        lines,
+    } = *words;
+    let (step, unit, column) = match by {
+        crate::query::Key::Day => (86_400, "day", "day"),
+        _ => (3600, "hour", "hour"),
+    };
     let mut fired: Vec<String> = vec![];
     let mut missing: Vec<String> = vec![];
+    // Read, with too few datapoints for the window to say the rule held.
+    let mut thin: Vec<String> = vec![];
     let series = |name: &str| -> Option<&[(i64, f64)]> {
         match metrics.get(name) {
             Some(Ok(points)) => Some(points.as_slice()),
@@ -929,7 +1034,24 @@ fn stop_rule(
         }
     };
     // 1. Database CPU, two consecutive 5-minute averages above 60 %.
+    let span_s = window.to_s - window.from_s;
     match series("db_cpu") {
+        // No datapoint, or too few for the window, is a metric not read:
+        // never "no", which would pass a rule nothing was read for.
+        Some(cpu)
+            if too_few(cpu.len(), span_s / 300)
+                && !cpu.windows(2).any(|w| {
+                    w[1].0 - w[0].0 == 300 && w[0].1 > bar::DB_CPU && w[1].1 > bar::DB_CPU
+                }) =>
+        {
+            let _ = writeln!(
+                out,
+                "   1. database CPU: {} of the window's {} five-minute averages were read; the rule is not evaluated",
+                cpu.len(),
+                span_s / 300
+            );
+            thin.push("database CPU".into());
+        }
         Some(cpu) => {
             let peak = cpu.iter().map(|p| p.1).fold(0.0, f64::max);
             let pair = cpu
@@ -985,16 +1107,26 @@ fn stop_rule(
                         .map(|(_, w)| (*t, *v > w * bar::LB_RATIO && v - w > bar::LB_FLOOR_S))
                 })
                 .collect();
-            let run = longest_run(&hours);
-            let _ = writeln!(
-                out,
-                "   3. load balancer p99, all routes: {} of {} hours more than 20 % and 100 ms above the same hour a week earlier, longest run {run}; stops at {} in a row",
-                hours.iter().filter(|h| h.1).count(),
-                hours.len(),
-                bar::SUSTAINED_HOURS
-            );
-            if run >= bar::SUSTAINED_HOURS {
-                fired.push("load balancer p99, sustained".into());
+            let run = longest_run(&hours, 3600);
+            if too_few(hours.len(), span_s / 3600) && run < bar::SUSTAINED_HOURS {
+                let _ = writeln!(
+                    out,
+                    "   3. load balancer p99, all routes: {} of the window's {} hours have a p99 in both weeks; the rule is not evaluated",
+                    hours.len(),
+                    span_s / 3600
+                );
+                thin.push("load balancer p99".into());
+            } else {
+                let _ = writeln!(
+                    out,
+                    "   3. load balancer p99, all routes: {} of {} hours more than 20 % and 100 ms above the same hour a week earlier, longest run {run}; stops at {} in a row",
+                    hours.iter().filter(|h| h.1).count(),
+                    hours.len(),
+                    bar::SUSTAINED_HOURS
+                );
+                if run >= bar::SUSTAINED_HOURS {
+                    fired.push("load balancer p99, sustained".into());
+                }
             }
         }
         _ => missing.push("load balancer p99".into()),
@@ -1010,14 +1142,38 @@ fn stop_rule(
         let mut out: Vec<_> = rows
             .iter()
             .filter_map(|row| {
-                let t = crate::time::parse(text(row, "hour")).ok()?;
+                let t = crate::time::parse(text(row, column)).ok()?;
                 Some((t, count(row, "n"), count(row, "e5"), num(row, "p99_ms")))
             })
             .collect();
         out.sort_by_key(|h| h.0);
         Some(out)
     };
-    match (hourly("node_votes"), hourly("node_votes_previous")) {
+    // A query that returned no line of Node's at all, in the window or in
+    // the week before it, read nothing: rules 4 and 5 are then not read,
+    // never "within it" on no data.
+    let any = |hours: &Option<Vec<Hour>>| {
+        hours
+            .as_ref()
+            .is_some_and(|hours| hours.iter().any(|hour| hour.1 > 0))
+    };
+    match (hourly(lines), hourly(&format!("{lines}_previous"))) {
+        (now, before) if !any(&now) || !any(&before) => {
+            if now.is_some() && before.is_some() {
+                let _ = writeln!(
+                    out,
+                    "   4 and 5. {what} errors and {what} p99: Node's access lines for {route} were found in {}; the rules are not evaluated",
+                    match (any(&now), any(&before)) {
+                        (true, false) => "the window and not in the week before it",
+                        (false, true) => "the week before the window and not in it",
+                        _ => "neither the window nor the week before it",
+                    }
+                );
+                thin.push(format!("Node's {what} lines"));
+            } else {
+                missing.push(format!("Node's {what} lines"));
+            }
+        }
         (Some(now), Some(before)) => {
             // 4. Vote errors over the window: at least 10 Node 5xx on votes,
             // a share more than three times the earlier week's and more than
@@ -1031,7 +1187,7 @@ fn stop_rule(
                 && rate - rate0 > bar::VOTE_5XX_POINTS;
             let _ = writeln!(
                 out,
-                "   4. vote errors (Node's 5xx on POST /api/v3/votes): {e5} of {n} ({}) against {e50} of {n0} ({}) a week earlier: {}",
+                "   4. {what} errors (Node's 5xx on {route}): {e5} of {n} ({}) against {e50} of {n0} ({}) a week earlier: {}",
                 pct(Some(rate)),
                 pct(Some(rate0)),
                 if errors {
@@ -1041,7 +1197,7 @@ fn stop_rule(
                 }
             );
             if errors {
-                fired.push("vote errors".into());
+                fired.push(format!("{what} errors"));
             }
             // 5. Vote latency, sustained: three hours in a row, each with at
             // least 20 votes in both weeks, whose p99 is more than 20 % and
@@ -1057,19 +1213,30 @@ fn stop_rule(
                     ))
                 })
                 .collect();
-            let run = longest_run(&hours);
-            let _ = writeln!(
-                out,
-                "   5. vote p99 (Node's duration_ms): {} of {} comparable hours more than 20 % and 50 ms above a week earlier, longest run {run}; stops at {} in a row",
-                hours.iter().filter(|h| h.1).count(),
-                hours.len(),
-                bar::SUSTAINED_HOURS
-            );
+            let run = longest_run(&hours, step);
+            if hours.is_empty() {
+                // Not one span holds enough requests in both weeks: the rule
+                // compared nothing, and "0 of 0" is not a rule that held.
+                let _ = writeln!(
+                    out,
+                    "   5. {what} p99 (Node's duration_ms): no {unit} holds {} requests in both weeks; the rule is not evaluated",
+                    bar::VOTE_MIN_PER_HOUR
+                );
+                thin.push(format!("{what} p99"));
+            } else {
+                let _ = writeln!(
+                    out,
+                    "   5. {what} p99 (Node's duration_ms): {} of {} comparable {unit}s more than 20 % and 50 ms above a week earlier, longest run {run}; stops at {} in a row",
+                    hours.iter().filter(|h| h.1).count(),
+                    hours.len(),
+                    bar::SUSTAINED_HOURS
+                );
+            }
             if run >= bar::SUSTAINED_HOURS {
-                fired.push("vote p99, sustained".into());
+                fired.push(format!("{what} p99, sustained"));
             }
         }
-        _ => missing.push("Node's vote lines".into()),
+        _ => missing.push(format!("Node's {what} lines")),
     }
     // Target 5xx over all routes: context only. They are non-zero on nearly
     // every day and swing by two orders of magnitude (15 to 1,999 a day),
@@ -1085,6 +1252,7 @@ fn stop_rule(
     for name in &missing {
         let _ = writeln!(out, "   {name}: no metric read");
     }
+    missing.extend(thin);
     add(
         "stop rule",
         if fired.is_empty() && missing.is_empty() {

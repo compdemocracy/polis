@@ -1,7 +1,19 @@
 //! The shadowed routes and the queries compiled for each. A route entry names
-//! what its lines are called; the queries are built from those names, so a
-//! second shadowed route is a second entry, not new query text.
+//! what its lines are called and which comparison it gets; every filter is
+//! built from those names, so each route's queries name their own path and
+//! their own shadow, and no query of one route can read a line of another.
 use crate::query::*;
+
+/// What Node writes for a route, which decides the comparison.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// Node's handler writes a line for each reply it gave (`node_line`),
+    /// beside its access line.
+    Votes { node_line: &'static str },
+    /// Node writes no line of its own for the route: its access line is its
+    /// whole side (`route_comments.rs`).
+    Comments,
+}
 
 /// One shadowed route.
 #[derive(Clone, Copy, Debug)]
@@ -14,10 +26,9 @@ pub struct Route {
     pub route: &'static str,
     /// The HTTP method, as Node's `http_request` line has it.
     pub method: &'static str,
-    /// The `message` of Node's per-reply line.
-    pub node_line: &'static str,
     /// The Express route path on Node's access line (`http.route`).
     pub path: &'static str,
+    pub kind: Kind,
 }
 
 pub const VOTES: Route = Route {
@@ -25,11 +36,22 @@ pub const VOTES: Route = Route {
     shadow: "votesShadow",
     route: "POST /api/v3/votes",
     method: "POST",
-    node_line: "vote_reply",
     path: "/api/v3/votes",
+    kind: Kind::Votes {
+        node_line: "vote_reply",
+    },
 };
 
-pub const ROUTES: &[Route] = &[VOTES];
+pub const COMMENTS: Route = Route {
+    key: "comments",
+    shadow: "commentsShadow",
+    route: "POST /api/v3/comments",
+    method: "POST",
+    path: "/api/v3/comments",
+    kind: Kind::Comments,
+};
+
+pub const ROUTES: &[Route] = &[VOTES, COMMENTS];
 
 pub fn find(key: &str) -> Option<Route> {
     ROUTES.iter().copied().find(|route| route.key == key)
@@ -38,44 +60,84 @@ pub fn find(key: &str) -> Option<Route> {
 /// The most rows Logs Insights returns for one query.
 pub const ROW_LIMIT: usize = 10_000;
 
+/// The most requests one join query is given (`slices.rs`). A join's first
+/// stage has one row for each request id in its time range: these requests,
+/// those of the 60 s it reads on each side, and ids that have no nginx line.
+/// 4,000 leaves 6,000 of the 10,000 for the two margins, which is 50 requests
+/// a second there; the busiest half hour on record had under four a second.
+pub const SLICE_MAX_REQUESTS: u64 = 4_000;
+
+/// The width of the bins the request counts are taken in, in seconds
+/// (`Key::FiveMinutes`). A slice is a run of whole bins.
+pub const BIN_S: i64 = 300;
+
+/// The stop rule is read over at most this much of the end of a window: the
+/// vote route's whole window, and the last eight days of a longer comments
+/// window. The rule is about what the copy is doing to production while it
+/// runs. Over months it would report any slow three hours there ever were,
+/// and five-minute database CPU is not kept that long.
+pub const STOP_SPAN_S: i64 = 8 * 86_400;
+
+/// The part of a window the stop rule is read over.
+pub fn stop_span(window: crate::aws::Window) -> crate::aws::Window {
+    crate::aws::Window {
+        from_s: window.from_s.max(window.to_s - STOP_SPAN_S),
+        to_s: window.to_s,
+    }
+}
+
+/// The most of a window the request counts are asked for at once: thirty
+/// days, which is 8,640 five-minute bins, under the 10,000 rows returned.
+pub const BINS_CHUNK_S: i64 = 30 * 86_400;
+
+/// How far a join reads beyond its time range on each side, in seconds: a
+/// request's lines are written up to the shadow's second read-back (10 s)
+/// apart.
+pub const JOIN_PAD_S: i64 = 60;
+
 /// The shadow's `outcome` values for an observed copy.
 const WOULD: [&str; 3] = ["would_serve", "would_hand_back", "would_fail"];
 
-fn shadow_line(message: &'static str) -> E {
+pub(crate) fn shadow_line(message: &'static str) -> E {
     and(vec![is("listener", "shadow"), is("message", message)])
 }
 
 impl Route {
     /// nginx's line for each shadowed request (Node's status as nginx saw it).
-    fn edge(&self) -> E {
+    pub(crate) fn edge(&self) -> E {
         and(vec![shadow_line("shadow_edge"), is("route", self.route)])
     }
     /// nginx's line for each copy sent to the shadow.
-    fn mirror(&self) -> E {
+    pub(crate) fn mirror(&self) -> E {
         and(vec![
             shadow_line("shadow_mirror"),
             is("shadow", self.shadow),
         ])
     }
     /// Node's line for each reply its handler gave.
-    fn node(&self) -> E {
-        and(vec![shadow_line(self.node_line), is("route", self.route)])
+    fn node(&self, node_line: &'static str) -> E {
+        and(vec![shadow_line(node_line), is("route", self.route)])
     }
     /// The shadow's line for each copy.
-    fn observation(&self) -> E {
+    pub(crate) fn observation(&self) -> E {
         and(vec![
             shadow_line("shadow_observation"),
             is("shadow", self.shadow),
         ])
     }
-    /// Node's access line for a request that carries nginx's request id
-    /// (middleware refusals included).
-    fn http(&self) -> E {
+    /// Node's access line for this route's requests that carry nginx's
+    /// request id (a refusal by the route's own middleware included). The
+    /// path is named: nginx puts its request id on every route it copies, so
+    /// without it another copied route's requests would be read as this
+    /// route's. A request Node refuses before its router has matched a route
+    /// has an access line with no `http.route`, and is not read.
+    pub(crate) fn http(&self) -> E {
         and(vec![
             E::In("message", ACCESS_LINE.to_vec()),
             is("service", "server"),
             E::Present("request_id"),
             is("http.method", self.method),
+            is("http.route", self.path),
         ])
     }
 
@@ -83,20 +145,24 @@ impl Route {
     /// the shadow's line carries none, and Node's (`node_next_tid`) is never
     /// read.
     pub fn queries(&self) -> Vec<Query> {
-        vec![
-            self.lines(),
-            self.mirror_query(),
-            self.mirror_hours(),
-            self.edge_query(),
-            self.observations(),
-            self.conversations(),
-            self.latency(),
-            self.join(),
-            self.node_votes(),
-        ]
+        match self.kind {
+            Kind::Votes { node_line } => vec![
+                self.lines(node_line),
+                self.mirror_query(),
+                self.mirror_hours(),
+                self.edge_query(),
+                self.edge_bins(),
+                self.observations(),
+                self.conversations(),
+                self.latency(),
+                self.join(node_line),
+                self.node_requests("node_votes", Key::Hour),
+            ],
+            Kind::Comments => self.comment_queries(),
+        }
     }
 
-    fn one(name: &'static str, about: &'static str, filter: E, stats: Stats) -> Query {
+    pub(crate) fn one(name: &'static str, about: &'static str, filter: E, stats: Stats) -> Query {
         Query {
             name,
             about,
@@ -105,17 +171,20 @@ impl Route {
             stages: vec![stats],
             pad_s: 0,
             previous_week: false,
+            recent: false,
+            chunk_s: 0,
+            sliced: false,
         }
     }
 
-    fn lines(&self) -> Query {
+    fn lines(&self, node_line: &'static str) -> Query {
         Self::one(
             "lines",
             "Lines of each kind: coverage at a glance.",
             or(vec![
                 self.edge(),
                 self.mirror(),
-                self.node(),
+                self.node(node_line),
                 self.observation(),
                 self.http(),
             ]),
@@ -126,7 +195,7 @@ impl Route {
         )
     }
 
-    fn mirror_query(&self) -> Query {
+    pub(crate) fn mirror_query(&self) -> Query {
         Self::one(
             "mirror",
             "The copy's cost and what became of each copy (an empty upstream status: not copied).",
@@ -146,7 +215,7 @@ impl Route {
         )
     }
 
-    fn mirror_hours(&self) -> Query {
+    pub(crate) fn mirror_hours(&self) -> Query {
         Self::one(
             "mirror_hours",
             "The copy's hold by hour (stop rule 2).",
@@ -162,10 +231,38 @@ impl Route {
         )
     }
 
-    fn edge_query(&self) -> Query {
+    /// How many requests nginx logged in each five minutes: what a run plans
+    /// the join's slices from, and what each slice's total is checked
+    /// against. It counts a line by the same test of its time as the join
+    /// does (from the window's start, up to and not at its end), so the two
+    /// agree to the line. A window of more than thirty days has more bins
+    /// than Logs Insights returns rows, so it is read thirty days at a time.
+    pub(crate) fn edge_bins(&self) -> Query {
+        Query {
+            fields: vec![("t", E::TimestampMs)],
+            chunk_s: BINS_CHUNK_S,
+            ..Self::one(
+                "edge_bins",
+                "Shadowed requests in each five minutes (the join is run in slices of these).",
+                self.edge(),
+                Stats {
+                    aggs: vec![(
+                        "n",
+                        Agg::Sum(and(vec![
+                            ge(f("t"), E::Param(Param::FromMs)),
+                            lt(f("t"), E::Param(Param::ToMs)),
+                        ])),
+                    )],
+                    by: vec![Key::FiveMinutes],
+                },
+            )
+        }
+    }
+
+    pub(crate) fn edge_query(&self) -> Query {
         Self::one(
             "edge",
-            "Node's status and time for shadowed votes, as nginx saw them.",
+            "Node's status and time for shadowed requests, as nginx saw them.",
             self.edge(),
             Stats {
                 aggs: vec![
@@ -244,7 +341,7 @@ impl Route {
     /// row of counts and values; it never leaves AWS. The second stage counts
     /// requests in each class, grouped only by Node's status as nginx saw it
     /// and the shadow's would-be status.
-    fn join(&self) -> Query {
+    fn join(&self, node_line: &'static str) -> Query {
         let message = |m: &'static str| is("message", m);
         let first = Stats {
             aggs: vec![
@@ -279,7 +376,7 @@ impl Route {
                         num_is("mirror_status", 204),
                     ])),
                 ),
-                ("n_reply", Agg::Sum(message(self.node_line))),
+                ("n_reply", Agg::Sum(message(node_line))),
                 ("n_http", Agg::Sum(E::In("message", ACCESS_LINE.to_vec()))),
                 ("n_obs", Agg::Sum(message("shadow_observation"))),
                 ("n_would", Agg::Sum(E::In("outcome", WOULD.to_vec()))),
@@ -306,10 +403,21 @@ impl Route {
                 ("nt", Agg::Max("node_total")),
                 ("rr", Agg::Max("remaining")),
                 ("rt", Agg::Max("total")),
+                // The id's earliest line. An id that is not a shadowed vote
+                // of the window (a repeated one, one with no nginx line) is
+                // counted where this falls, so that the slices of a window
+                // each count it once or not at all.
+                ("t0", Agg::Min("t")),
             ],
             by: vec![Key::Field("request_id")],
         };
         let one = |name: &'static str| num_is(name, 1);
+        let begins_here = || {
+            vec![
+                ge(f("t0"), E::Param(Param::FromMs)),
+                lt(f("t0"), E::Param(Param::ToMs)),
+            ]
+        };
         // A shadowed vote: exactly one nginx line, inside the window.
         let vote = || vec![one("n_edge"), one("n_edge_in")];
         let with = |mut base: Vec<E>, more: Vec<E>| {
@@ -331,15 +439,21 @@ impl Route {
                 ("votes", Agg::Sum(and(vote()))),
                 (
                     "repeated",
-                    Agg::Sum(or(vec![
-                        gt(f("n_edge"), n(1)),
-                        gt(f("n_mirror"), n(1)),
-                        gt(f("n_reply"), n(1)),
-                        gt(f("n_http"), n(1)),
-                        gt(f("n_obs"), n(1)),
-                    ])),
+                    Agg::Sum(with(
+                        begins_here(),
+                        vec![or(vec![
+                            gt(f("n_edge"), n(1)),
+                            gt(f("n_mirror"), n(1)),
+                            gt(f("n_reply"), n(1)),
+                            gt(f("n_http"), n(1)),
+                            gt(f("n_obs"), n(1)),
+                        ])],
+                    )),
                 ),
-                ("without_edge", Agg::Sum(num_is("n_edge", 0))),
+                (
+                    "without_edge",
+                    Agg::Sum(with(begins_here(), vec![num_is("n_edge", 0)])),
+                ),
                 (
                     "no_mirror",
                     Agg::Sum(with(vote(), vec![num_is("n_mirror", 0)])),
@@ -497,25 +611,28 @@ impl Route {
                 or(vec![
                     self.edge(),
                     self.mirror(),
-                    self.node(),
+                    self.node(node_line),
                     self.observation(),
                     self.http(),
                 ]),
             ]),
             fields: vec![("t", E::TimestampMs)],
             stages: vec![first, second],
-            pad_s: 60,
+            pad_s: JOIN_PAD_S,
             previous_week: false,
+            recent: false,
+            chunk_s: 0,
+            sliced: true,
         }
     }
 
-    /// Node's access lines for every vote, not only shadowed ones, by hour:
-    /// the stop rule's vote latency and vote errors. `run` issues it for the
-    /// window and for the same window a week earlier.
-    fn node_votes(&self) -> Query {
+    /// Node's access lines for every request of the route, not only shadowed
+    /// ones, by hour: the stop rule's latency and errors. `run` issues it for
+    /// the window and for the same window a week earlier.
+    pub(crate) fn node_requests(&self, name: &'static str, by: Key) -> Query {
         Query {
-            name: "node_votes",
-            about: "Node's answers to every vote by hour, the window and a week earlier (the stop rule's vote latency and errors).",
+            name,
+            about: "Node's answers to every request of the route by hour, the window and a week earlier (the stop rule's latency and errors).",
             filter: and(vec![
                 E::In("message", ACCESS_LINE.to_vec()),
                 is("service", "server"),
@@ -529,10 +646,13 @@ impl Route {
                     ("e5", Agg::Sum(ge(f("http.status_code"), n(500)))),
                     ("p99_ms", Agg::Pct("duration_ms", 99)),
                 ],
-                by: vec![Key::Hour],
+                by: vec![by],
             }],
             pad_s: 0,
             previous_week: true,
+            recent: true,
+            chunk_s: 0,
+            sliced: false,
         }
     }
 }
