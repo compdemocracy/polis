@@ -8,11 +8,13 @@
 //! a token or a connection of the vote route's, and nothing of the vote
 //! route's is taken here.
 //!
-//! One `shadow_observation` line is printed for each copy. It names no
-//! conversation, comment, participant or user, and carries no text, no part
-//! or hash of text, no vote value, token, address or header value: the
-//! request id is its only join key. Every value on it is a number, a
-//! boolean or a word from a closed set. What needs a row's number or the
+//! One `shadow_observation` line is printed for each copy. It names the
+//! conversation by its number (`zid`) once the copy is admitted, as the vote
+//! route's line does, and nothing else: no comment, participant or user, no
+//! text, no part or hash of text, no vote value, token, address or header
+//! value. The request id joins it to Node's and nginx's lines for the same
+//! request. Every value on it is a number, a boolean or a word from a closed
+//! set. What needs a comment's, a participant's or a user's number or the
 //! text uses it in process (`post_comments_observe.rs`) and the line carries
 //! the class it found.
 //!
@@ -62,6 +64,8 @@ pub(crate) struct Record {
     pub(crate) anchor: Option<i64>,
     pub(crate) reason: Option<&'static str>,
     pub(crate) admitted: bool,
+    /// The conversation, for an admitted copy.
+    pub(crate) zid: Option<i32>,
     pub(crate) strict: Option<bool>,
     pub(crate) admission: Option<Duration>,
     pub(crate) text_row: Option<TextRow>,
@@ -181,6 +185,7 @@ struct Line<'a> {
     admission: Option<Duration>,
     total: Option<Duration>,
     readback_s: Option<f64>,
+    zid: Option<i32>,
     strict: Option<bool>,
     facts: (bool, bool),
     body_class: &'static str,
@@ -207,6 +212,7 @@ impl<'a> Line<'a> {
             admission: None,
             total: None,
             readback_s: None,
+            zid: None,
             strict: None,
             facts,
             body_class: body_class(req.body.len()),
@@ -254,6 +260,7 @@ impl<'a> Line<'a> {
         line.set("admission_ms", ms(self.admission));
         line.set("total_ms", ms(self.total));
         line.set("readback_s", num(self.readback_s));
+        line.set("zid", num(self.zid));
         line.set("strict", flag(self.strict));
         line.set("vote_present", Js::Bool(vote_present));
         line.set("seed_present", Js::Bool(seed_present));
@@ -467,6 +474,7 @@ async fn observe(
         admission: taken.admission,
         total: Some(total),
         readback_s,
+        zid: taken.zid,
         strict: taken.strict,
         facts,
         body_class,

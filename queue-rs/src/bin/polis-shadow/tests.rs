@@ -743,7 +743,7 @@ pub(crate) fn passing_fixture() -> Fixture {
 
 #[test]
 fn every_compiled_query_passes_the_allowlist() {
-    for (r, count) in [(VOTES, 10), (COMMENTS, 11)] {
+    for (r, count) in [(VOTES, 10), (COMMENTS, 12)] {
         let queries = r.queries();
         assert_eq!(queries.len(), count);
         let mut names: Vec<&str> = queries.iter().map(|q| q.name).collect();

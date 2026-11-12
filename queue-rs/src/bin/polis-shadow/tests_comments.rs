@@ -64,7 +64,7 @@ fn observer_set(key: &str) -> Vec<String> {
 }
 
 /// The shadow's `shadow_observation` keys for a comment, in its order.
-const COMMENT_KEYS: [&str; 32] = [
+const COMMENT_KEYS: [&str; 33] = [
     "message",
     "listener",
     "service",
@@ -80,6 +80,7 @@ const COMMENT_KEYS: [&str; 32] = [
     "admission_ms",
     "total_ms",
     "readback_s",
+    "zid",
     "strict",
     "vote_present",
     "seed_present",
@@ -100,7 +101,7 @@ const COMMENT_KEYS: [&str; 32] = [
 ];
 
 /// The fixture line, the tool's word lists and the observer cannot drift
-/// apart: the 32 keys and every closed set are read from the observer's own
+/// apart: the 33 keys and every closed set are read from the observer's own
 /// tests and compared, and the observer's document names each of them.
 #[test]
 fn the_comment_line_is_the_observers_key_for_key_and_word_for_word() {
@@ -183,6 +184,10 @@ fn the_comment_line_is_the_observers_key_for_key_and_word_for_word() {
 // ---------------------------------------------------------------- producers
 
 const COMMENT_ROUTE: &str = "POST /api/v3/comments";
+/// The conversations a fixture's admitted copies are in: this many, numbered
+/// from the first. No report prints one of these numbers.
+const FIRST_ZID: i64 = 81_001;
+const CONVERSATIONS: u64 = 40;
 const COMMENT_PATH: &str = "/api/v3/comments";
 
 /// What is planted in fixture lines and must never be printed.
@@ -261,6 +266,8 @@ struct Obs {
     reason: Option<&'static str>,
     queue_ms: f64,
     readback_s: Option<f64>,
+    /// The conversation's number: on an admitted copy's line only.
+    zid: Option<i64>,
     strict: Option<bool>,
     vote_present: bool,
     text_row: Option<&'static str>,
@@ -283,6 +290,7 @@ impl Obs {
             reason: None,
             queue_ms: 0.4,
             readback_s: Some(2.0),
+            zid: Some(FIRST_ZID),
             strict: Some(false),
             vote_present: true,
             text_row: Some("none"),
@@ -323,6 +331,7 @@ impl Obs {
             status: Some(502),
             reason: Some(reason),
             readback_s: None,
+            zid: None,
             strict: None,
             text_row: None,
             ..Obs::serve().unread("not_checked")
@@ -373,6 +382,13 @@ fn observation_line(id: &str, at: i64, o: &Obs) -> (i64, String) {
         ("admission_ms", json!(4.0)),
         ("total_ms", json!(6.0)),
         ("readback_s", o.readback_s.map_or(Value::Null, |s| json!(s))),
+        // The observer prints the number only for a copy it admitted.
+        (
+            "zid",
+            o.zid
+                .filter(|_| o.admitted)
+                .map_or(Value::Null, |z| json!(z)),
+        ),
         ("strict", o.strict.map_or(Value::Null, |s| json!(s))),
         ("vote_present", json!(o.vote_present)),
         ("seed_present", json!(false)),
@@ -440,6 +456,9 @@ fn assert_comment_line(printed: &str) {
     one_of("node_lang", &words::NODE_LANG, true);
     one_of("node_vote", &words::NODE_VOTE, false);
     assert!(line["admitted"] == 0 || line["admitted"] == 1);
+    // The conversation's number: on an admitted copy's line, and on no other.
+    assert_eq!(line["zid"].is_i64(), line["admitted"] == 1, "{printed}");
+    assert!(line["zid"].is_i64() || line["zid"].is_null(), "{printed}");
     assert!(line["status"].is_null() || line["status"].is_u64());
     assert!(line["strict"].is_null() || line["strict"].is_boolean());
     assert!(line["vote_present"].is_boolean() && line["seed_present"].is_boolean());
@@ -722,6 +741,11 @@ fn comment(fx: &mut Fixture, case: C) -> String {
                 ..Obs::strict()
             },
         ),
+    };
+    // Admitted copies are spread over the fixture's conversations in turn.
+    let o = Obs {
+        zid: o.zid.map(|_| FIRST_ZID + (n % CONVERSATIONS) as i64),
+        ..o
     };
     lines.push(edge_of(COMMENT_ROUTE, &id, t, edge));
     lines.push(mirror_of("commentsShadow", &id, t, 204, "204"));
@@ -2535,6 +2559,8 @@ fn the_comment_queries_read_only_the_fields_they_need() {
         "admission_ms",
         "total_ms",
         "readback_s",
+        // The conversation's number: counted, never returned.
+        "zid",
         "strict",
         "vote_present",
         "seed_present",
@@ -2596,8 +2622,26 @@ fn the_comment_queries_read_only_the_fields_they_need() {
         read.difference(&needed).collect::<Vec<_>>(),
         needed.difference(&read).collect::<Vec<_>>()
     );
+    // The conversation's number is read by one query, and only to count:
+    // how many admitted lines carry one, and how many distinct ones. It is
+    // never a filter's value, a group key, a maximum or a minimum, so no
+    // conversation's number is in any row a query returns.
+    for q in COMMENTS.queries() {
+        let text = q.text(Bounds::Placeholders);
+        if q.name == "conversations" {
+            assert_eq!(text.matches("zid").count(), 2, "{text}");
+            assert!(
+                text.contains(
+                    "sum(ispresent(zid)) as named, count_distinct(zid) as conversations\n"
+                ),
+                "{text}"
+            );
+            assert!(q.stages.iter().all(|stage| stage.by.is_empty()), "{text}");
+        } else {
+            assert!(!text.contains("zid"), "{}: {text}", q.name);
+        }
+    }
     for never in [
-        "zid",
         "tid",
         "pid",
         "uid",
@@ -2666,7 +2710,7 @@ fn the_comment_report_on_the_passing_fixture() {
     }
     for limit in [
         "no line carries a comment number",
-        "nothing is counted by conversation",
+        "No class is counted by conversation",
         "it reads only as no row beside Node's 200",
         "Email and notifications",
     ] {
@@ -2676,6 +2720,170 @@ fn the_comment_report_on_the_passing_fixture() {
         report
             .text
             .contains("4. comment errors (Node's 5xx on POST /api/v3/comments): 2 of 1002 (0.20 %) against 2 of 1002 (0.20 %) a week earlier: within it")
+    );
+}
+
+/// A fixture's lines with each observation of an admitted comment copy
+/// rewritten, or left alone when `change` answers no.
+fn rewritten(fx: &Fixture, mut change: impl FnMut(usize, &mut Value) -> bool) -> (Fixture, usize) {
+    let mut out = Fixture {
+        lines: fx.lines.clone(),
+        next: fx.next,
+        at: fx.at,
+    };
+    let (mut admitted, mut changed) = (0, 0);
+    for (_, json) in &mut out.lines {
+        let mut line: Value = serde_json::from_str(json).unwrap();
+        if line["message"] != "shadow_observation" || line["admitted"] != 1 {
+            continue;
+        }
+        admitted += 1;
+        if change(admitted, &mut line) {
+            *json = line.to_string();
+            changed += 1;
+        }
+    }
+    (out, changed)
+}
+
+/// How many conversations the admitted copies are in is counted and reported
+/// with no threshold, and no conversation's number is printed.
+#[test]
+fn admitted_copies_are_counted_by_the_conversations_they_span() {
+    let fx = passing_comments();
+    let (_, admitted) = rewritten(&fx, |_, _| true);
+    let report = run(&comments(&fx));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    assert!(
+        report.text.contains(&format!(
+            "\n   admitted copies span {CONVERSATIONS} conversations\n"
+        )),
+        "{}",
+        report.text
+    );
+    let value = |report: &report::Report| {
+        report
+            .criteria
+            .iter()
+            .find(|c| c.name == "conversations")
+            .map(|c| c.value.clone())
+    };
+    assert_eq!(report.mark("conversations"), Some(Mark::Info));
+    assert_eq!(
+        value(&report),
+        Some(format!(
+            "{admitted} admitted copies across {CONVERSATIONS} conversations"
+        ))
+    );
+    for zid in FIRST_ZID..FIRST_ZID + CONVERSATIONS as i64 {
+        assert!(!report.text.contains(&zid.to_string()), "{zid}");
+    }
+    // Every admitted copy in one conversation: said, and no threshold.
+    let (one, _) = rewritten(&fx, |_, line| {
+        line["zid"] = json!(FIRST_ZID);
+        true
+    });
+    let report = run(&comments(&one));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    assert!(
+        report
+            .text
+            .contains("\n   admitted copies span 1 conversations\n"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("conversations"), Some(Mark::Info));
+    assert!(!report.text.contains(&FIRST_ZID.to_string()));
+    // No admitted copy: nothing to say of conversations.
+    let mut none = comments_fixture();
+    for _ in 0..5 {
+        comment(&mut none, C::HandBack("no_token", 200));
+    }
+    let report = run(&comments(&none));
+    assert!(
+        report
+            .text
+            .contains("\n   admitted copies span 0 conversations\n"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("conversations"), Some(Mark::NotEvaluated));
+}
+
+/// A window that reaches back before the observer printed the conversation's
+/// number holds admitted lines of both shapes: with the number and, written
+/// earlier, without the key at all. The count of conversations is of the
+/// lines that carry one, the report says how many carry none, and every
+/// other line of the report is the one the new shape alone gives.
+#[test]
+fn a_window_holding_lines_without_the_conversation_number_says_so() {
+    let fx = passing_comments();
+    let new = run(&comments(&fx));
+    assert_eq!(new.verdict, Verdict::Pass, "{}", new.text);
+    // Every other admitted line is in the shape written before.
+    let (mixed, old) = rewritten(&fx, |nth, line| {
+        if nth % 2 == 0 {
+            return false;
+        }
+        let keys = line.as_object_mut().unwrap();
+        keys.remove("zid");
+        assert_eq!(keys.len(), COMMENT_KEYS.len() - 1);
+        true
+    });
+    let (_, admitted) = rewritten(&fx, |_, _| true);
+    assert!(old > 300 && admitted - old > 300, "{old} of {admitted}");
+    // The conversations the lines that still carry a number are in.
+    let mut named = BTreeSet::new();
+    rewritten(&mixed, |_, line| {
+        if let Some(zid) = line["zid"].as_i64() {
+            named.insert(zid);
+        }
+        false
+    });
+    assert!(named.len() > 1 && named.len() <= CONVERSATIONS as usize);
+    let report = run(&comments(&mixed));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    assert!(
+        report.text.contains(&format!(
+            "\n   admitted copies span {} conversations; {old} of the {admitted} admitted name none (their lines carry no conversation number) and are in none of that count\n",
+            named.len()
+        )),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("conversations"), Some(Mark::Info));
+    assert!(
+        report.text.contains(&format!(
+            "{} admitted copies across {} conversations; {old} more admitted name none",
+            admitted - old,
+            named.len()
+        )),
+        "{}",
+        report.text
+    );
+    let apart = |text: &str| -> Vec<String> {
+        text.lines()
+            .filter(|line| {
+                !line.contains("admitted copies span")
+                    && !line.trim_start().starts_with("conversations ")
+            })
+            .map(str::to_owned)
+            .collect()
+    };
+    assert_eq!(apart(&report.text), apart(&new.text));
+    // A window wholly before the change: every admitted line names none.
+    let (before, _) = rewritten(&fx, |_, line| {
+        line.as_object_mut().unwrap().remove("zid");
+        true
+    });
+    let report = run(&comments(&before));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    assert!(
+        report.text.contains(&format!(
+            "\n   admitted copies span 0 conversations; {admitted} of the {admitted} admitted name none"
+        )),
+        "{}",
+        report.text
     );
 }
 

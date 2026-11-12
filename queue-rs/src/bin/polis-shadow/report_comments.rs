@@ -450,6 +450,57 @@ pub fn build(inputs: &Inputs) -> Report {
             }
         }
     }
+    // How many conversations the admitted copies are in: a count, never a
+    // conversation's number. With no admitted copy Logs Insights returns no
+    // row at all: zero of each. A line written before the observer printed
+    // the number names no conversation, and is said to.
+    match rows("conversations") {
+        Ok(spread) => {
+            let (admitted, named, conversations) = spread.first().map_or((0, 0, 0), |row| {
+                (
+                    count(row, "n"),
+                    count(row, "named"),
+                    count(row, "conversations"),
+                )
+            });
+            let unnamed = admitted.saturating_sub(named);
+            let _ = writeln!(
+                out,
+                "   admitted copies span {conversations} conversations{}",
+                if unnamed > 0 {
+                    format!(
+                        "; {unnamed} of the {admitted} admitted name none (their lines carry no conversation number) and are in none of that count"
+                    )
+                } else {
+                    String::new()
+                }
+            );
+            add(
+                "conversations",
+                format!(
+                    "{named} admitted copies across {conversations} conversations{}",
+                    if unnamed > 0 {
+                        format!("; {unnamed} more admitted name none")
+                    } else {
+                        String::new()
+                    }
+                ),
+                if admitted > 0 {
+                    Mark::Info
+                } else {
+                    Mark::NotEvaluated
+                },
+            );
+        }
+        Err(why) => {
+            let _ = writeln!(out, "   conversations unavailable: {why}");
+            add(
+                "conversations",
+                "unavailable (section 4)".into(),
+                Mark::NotEvaluated,
+            );
+        }
+    }
     match rows("facts") {
         Ok(facts) => {
             strange += by_word(facts, "body_class", &BODY_CLASS).2;
@@ -748,7 +799,7 @@ pub fn build(inputs: &Inputs) -> Report {
 /// The comparison's limits, printed with every report.
 const LIMITS: &[&str] = &[
     "Which comment: no line carries a comment number, so Node's stored comment is found by its text and never by its number, and a would-be duplicate cannot be shown to be the same comment Node refused.",
-    "Which conversations: no line carries a conversation number, so nothing is counted by conversation. A report over many comments in one busy conversation reads the same as one spread over many.",
+    "Which conversations: an admitted copy's line names its conversation by number, and the one thing read from it is how many conversations the admitted copies span. No class is counted by conversation: a disagreement is not placed in one, and a copy handed back before it is admitted names none. No minimum is set on the number of conversations: it is reported for a reader to weigh.",
     "A comment Node stored under a text other than the one the handler parsed: it is looked for by the parsed text and not found, so it reads only as no row beside Node's 200, and how the two texts differ is not shown.",
     "Email and notifications: the moderators' email for a comment awaiting moderation, the notification task and the author's last-interaction time are not read or compared.",
     "What Node did besides answer: Node writes no line of its own for a comment, so whether Node created the participant, and what Node took the conversation's moderation to be, are not paired with the shadow's reading.",
