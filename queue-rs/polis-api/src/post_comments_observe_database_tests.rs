@@ -12,6 +12,9 @@ use std::collections::BTreeSet;
 
 /// The fixed time the test databases' `now_as_millis()` answers.
 const NOW: i64 = 1_700_000_000_000;
+/// The participant number the jQuery participation client puts in every
+/// request body: "not known".
+const NO_PID: i32 = -1;
 
 fn plain(config: &postgres::Config) -> Connector {
     Connector::Plain(Box::new(config.clone()))
@@ -97,7 +100,7 @@ fn member() -> Value {
 }
 
 fn agree() -> Value {
-    json!({"vote": crate::votes::WIRE_AGREE, "pid": -1, "agid": 1})
+    json!({"vote": crate::votes::WIRE_AGREE, "pid": NO_PID, "agid": 1})
 }
 
 /// The author votes again on their own comment, through the handler's own
@@ -509,6 +512,120 @@ fn subject(text: &str, vote: Option<VoteChoice>) -> Subject {
     }
 }
 
+/// A read-back in which the test changes the database between the two looks,
+/// placed there by order and never by time.
+///
+/// The read-back pool has one connection and a first-come queue for it, so
+/// the connection is the baton. The test holds it; the first look asks for it
+/// and waits; a second holder asks for it behind that look; the test lets go.
+/// The first look runs, and when it has ended the connection passes to the
+/// second holder, which was asked for before the second look can ask (a
+/// read-back asks for its second look only after its first has ended). The
+/// change is made while the second holder has the connection, and the second
+/// look runs only after the change is committed and the holder lets go.
+///
+/// The observer here differs from the stage's in one bound: a look may wait
+/// for the connection as long as the test holds it. The read-back's two
+/// waits, its statement bound and everything it reads are the stage's.
+struct BetweenLooks {
+    observer: Observer,
+}
+
+impl BetweenLooks {
+    fn new(stage: &Stage) -> Self {
+        let mut observer = Observer::new(
+            participant::Verifier::new(&stage.keys.public, "fixture", "fixture").unwrap(),
+            db::Pool::new(plain(&stage.db.config), read_limits()),
+            db::Pool::new(
+                plain(&stage.db.config),
+                db::Limits {
+                    acquire_timeout: Duration::from_secs(60),
+                    ..readback_limits()
+                },
+            ),
+            vec![],
+            1000,
+        );
+        observer.timing = stage.observer().timing;
+        Self { observer }
+    }
+
+    /// Asks for the read-back connection and holds it, once granted, until
+    /// the returned sender is dropped. The receiver answers when it is held.
+    fn hold(
+        &self,
+    ) -> (
+        std::sync::mpsc::Sender<()>,
+        tokio::sync::oneshot::Receiver<()>,
+    ) {
+        let (granted, when_granted) = tokio::sync::oneshot::channel();
+        let (release, held) = std::sync::mpsc::channel::<()>();
+        let pool = self.observer.readback.clone();
+        tokio::spawn(async move {
+            let _ = pool
+                .with(move |_| {
+                    let _ = granted.send(());
+                    let _ = held.recv_timeout(Duration::from_secs(60));
+                    Ok(())
+                })
+                .await;
+        });
+        (release, when_granted)
+    }
+
+    /// Waits until `count` requests in all have had to wait for the
+    /// read-back connection.
+    async fn waiting(&self, count: usize) {
+        tokio::time::timeout(Duration::from_secs(60), async {
+            while self.observer.readback.evidence.snapshot()[1] < count {
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("a request waits for the read-back connection");
+    }
+
+    /// One read-back of `text`, with `change` (one SQL script) committed
+    /// after its first look has ended and before its second begins.
+    fn read(
+        &self,
+        stage: &Stage,
+        text: &str,
+        vote: Option<VoteChoice>,
+        change: &'static str,
+    ) -> (Stored, Option<f64>) {
+        let subject = subject(text, vote);
+        let mut client = stage.db.config.connect(NoTls).unwrap();
+        let observer = &self.observer;
+        stage.rt.block_on(async {
+            let anchor = observer.anchor().await.unwrap();
+            assert_eq!(anchor, NOW);
+            let (first, first_held) = self.hold();
+            first_held.await.unwrap();
+            let waited = observer.readback.evidence.snapshot()[1];
+            let (read, ()) = tokio::join!(
+                observer.read_back(&subject, anchor, tokio::time::Instant::now()),
+                async {
+                    // The first look waits for the connection, and the second
+                    // holder waits behind it.
+                    self.waiting(waited + 1).await;
+                    let (second, second_held) = self.hold();
+                    self.waiting(waited + 2).await;
+                    drop(first);
+                    // The first look has ended: the connection is the second
+                    // holder's, and the second look cannot run.
+                    second_held.await.unwrap();
+                    tokio::task::spawn_blocking(move || client.batch_execute(change).unwrap())
+                        .await
+                        .unwrap();
+                    drop(second);
+                }
+            );
+            read
+        })
+    }
+}
+
 /// The read-back itself: a row that is not there at either wait, a row that
 /// arrives between them, each class of the stored row and of the author's
 /// vote, a row that is another participant's, and a read that fails.
@@ -534,17 +651,14 @@ fn the_read_back_classifies_what_node_stored() {
     assert!(stored.text.is_none() && stored.author.is_none() && stored.row.is_none());
     assert_eq!(delay, Some(0.15));
     // A row that appears only after the first look is found by the second.
-    let mut late_client = stage.db.config.connect(NoTls).unwrap();
-    let late = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(90));
-        late_client
-            .batch_execute(
-                "INSERT INTO comments(zid, pid, uid, txt) VALUES (1, 2, 3, 'Generated late comment')",
-            )
-            .unwrap();
-    });
-    let (stored, delay) = read("Generated late comment", None);
-    late.join().unwrap();
+    // The row is stored between the two looks by order, not by time.
+    let between_looks = BetweenLooks::new(&stage);
+    let (stored, delay) = between_looks.read(
+        &stage,
+        "Generated late comment",
+        None,
+        "INSERT INTO comments(zid, pid, uid, txt) VALUES (1, 2, 3, 'Generated late comment')",
+    );
     assert_eq!(stored.comment.as_str(), "own");
     assert_eq!(stored.text, Some(Compared::Same));
     assert_eq!(stored.author, Some(true));
@@ -620,15 +734,13 @@ fn the_read_back_classifies_what_node_stored() {
     }
     // A second look the database refuses keeps what the first look found and
     // says the vote could not be read: never that Node stored none.
-    let mut refusing_client = stage.db.config.connect(NoTls).unwrap();
-    let refusing = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(90));
-        refusing_client
-            .batch_execute("ALTER TABLE comments RENAME COLUMN anon TO renamed")
-            .unwrap();
-    });
-    let (stored, delay) = read("Generated existing 0", Some(VoteChoice::Agree));
-    refusing.join().unwrap();
+    // The column the read-back names is renamed between the two looks.
+    let (stored, delay) = between_looks.read(
+        &stage,
+        "Generated existing 0",
+        Some(VoteChoice::Agree),
+        "ALTER TABLE comments RENAME COLUMN anon TO renamed",
+    );
     assert_eq!(stored.comment.as_str(), "own");
     assert_eq!(stored.text, Some(Compared::Same));
     assert_eq!(stored.vote.as_str(), "unavailable");
