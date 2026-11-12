@@ -266,6 +266,9 @@ REFERERS = [
     (f'https://embedder.example/a%20page/%E2%9C%93;v=1/x,y|z?user={NAME}', 'https://embedder.example/a%20page/%E2%9C%93;v=1/x,y|z'),
     ('android-app://com.example.reader/', 'android-app://com.example.reader/'),
     (f'HTTPS://POL.IS/2fixture?xid={XID}', 'HTTPS://POL.IS/2fixture'),
+    # A single quote, which browsers leave unencoded in a path, is kept; the
+    # field is written between double quotes, which a path never holds.
+    (f"https://embedder.example/town's-hall/2fixture?xid={XID}", "https://embedder.example/town's-hall/2fixture"),
     # A very long one: a long query string is dropped whole, and a long path
     # is kept whole, as a request's own long path is.
     ('https://pol.is/2fixture?' + f'xid={XID}&' * 100 + 'q=' + 'q' * 3000, 'https://pol.is/2fixture'),
@@ -283,6 +286,7 @@ REFERERS = [
     (f'https://{XID}@pol.is/2fixture', 'unparsed'),
     (f'https://pol.is/a {XID}', 'unparsed'),
     (f'https://pol.is/a"{XID}', 'unparsed'),
+    (f'https://pol.is/a`{XID}', 'unparsed'),
     (f'https://pol.is/a\\{XID}', 'unparsed'),
     (f'https://pol.is/<{XID}>', 'unparsed'),
     (f'https://pol.is/{{{XID}}}', 'unparsed'),

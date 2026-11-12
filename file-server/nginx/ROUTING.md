@@ -81,8 +81,9 @@ field, with two fields cut down:
 - **The Referer has no query string and no fragment.** Scheme, host, port
   and path, up to the first `?` or `#`. No Referer is `-`. A Referer that is
   not an `http`, `https` or `android-app` address, or that holds a user name,
-  a password, a space, a quote, a backslash or a control character, is
-  written `unparsed`, never as it arrived.
+  a password, a space, a double quote, a backslash, a control character or a
+  byte outside ASCII, is written `unparsed`, never as it arrived. A single
+  quote in the path is kept, as browsers send it unencoded.
 
 Why: this line carries the address a request came from (the peer, and the
 `X-Forwarded-For` chain a load balancer adds to). A query string and a
