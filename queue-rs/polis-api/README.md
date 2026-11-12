@@ -1537,7 +1537,9 @@ every value but `1` meant off.
 role refuses `observe`. The shadow role is its own process, run as its own
 Compose service with its own CPU and memory limits, and listens only on
 `POLIS_API_SHADOW_LISTEN`. It refuses `POLIS_API_POST_VOTES=1`, builds no other
-writer, and configures no read route whatever switches its env file carries. It
+writer, and configures no read route whatever switches its env file carries
+(the one exception is the word `observe` on a read handler's switch: see "Reads:
+the shadow role's read lanes" below). It
 serves `GET /health` and copies of votes: `POST /api/v3/votes` carrying
 `X-Polis-Shadow: votesShadow`, as nginx's mirror sends them. Nothing in this
 release sends it copies: no service runs with the shadow role and no route
@@ -1593,6 +1595,137 @@ the participant keys the process already loads at startup (`JWT_PUBLIC_KEY` or
 selected writer refuses to start. `POLIS_API_WRITER_PRIORITIES_CACHE_BYTES`
 bounds the writer's priorities cache (default 256 MiB) for a process with a
 smaller memory limit.
+
+## Reads: the shadow role's read lanes
+
+Three read handlers can be observed on copies of real requests, as the vote
+writer is: nothing is served from an observation, and Node answers every
+participant as before. A read handler's own switch gains one value for it,
+`observe`, which only the shadow role acts on:
+
+| Route | Switch | Selector name (`X-Polis-Shadow`) | Lane's rate (required with the switch) | Database (required with the switch) | `/health` key |
+|---|---|---|---|---|---|
+| `GET /api/v3/votes` | `POLIS_API_VOTES_READS=observe` | `votesReadShadow` | `POLIS_API_SHADOW_VOTES_READ_MAX_PER_SECOND` | `POLIS_API_VOTES_READ_DATABASE_URL` | `getVotes` |
+| `GET /api/v3/comments` | `POLIS_API_COMMENT_READS=observe` | `commentsReadShadow` | `POLIS_API_SHADOW_COMMENTS_READ_MAX_PER_SECOND` | `POLIS_API_COMMENTS_DATABASE_URL` | `getComments` |
+| `GET /api/v3/nextComment` | `POLIS_API_NEXT_COMMENT_READS=observe` | `nextCommentShadow` | `POLIS_API_SHADOW_NEXT_COMMENT_MAX_PER_SECOND` | `POLIS_API_NEXT_COMMENT_DATABASE_URL` | `getNextComment` |
+
+`POLIS_API_PARTICIPANT_READS=observe` makes the lanes verify participant
+tokens, as `1` does for the main role, with the key in
+`POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE` or the participant keys the process
+loads, and `POLIS_JWT_ISSUER` and `POLIS_JWT_AUDIENCE`. Without it a request
+that carries a participant token is recorded as `participant_reads_off`.
+`READ_ONLY_DATABASE_URL`, `ADMIN_UIDS`, `TOPICAL_COMMENT_RATIO` and
+`POLIS_API_READ_JWKS_FILE` (with `AUTH_ISSUER`, `AUTH_AUDIENCE` and
+`AUTH_NAMESPACE`) are read as the main role reads them for the same handler.
+
+Every other value of these four switches does in the shadow role what it did
+before, which is nothing: `1` is the main role's, and the shadow role ignores
+it. The main role reads only `1` and is unchanged: `observe` there is off.
+With none of the switches at `observe`, the shadow role builds no read lane and
+no read pool, answers a GET with 404 as before, and prints and reports what it
+did before; tests pin its lines, its `/health` and its pools byte for byte
+(`src/post_votes_shadow_pinned_tests.rs`). Nothing in this release sends the
+shadow a copy of a read: nginx, Compose and the deploy know none of the three
+selector names.
+
+A copy is a `GET` on the route's path that carries the route's selector name.
+It is answered `204 No Content` at once, before any database work. Then, in
+its route's own lane (at most 8 copies observed at once, and the lane's rate a
+second; a copy over either is recorded as `shed`), it runs through the same
+route prelude and handler as a live request, on the lane's own pools: the
+pools the main role builds for that handler, with the same limits, each a
+read-only session (two of one connection for the vote read, one of two and
+one of one for the comment list, one of two for the next comment). A lane
+takes no slot, token or connection of the vote lane, the comment lane or
+another read lane, and a test floods all three with every one of their
+connections held and finds the vote and comment observations unchanged
+(`src/post_votes_read_lanes_tests.rs`). The lanes share the process's CPU
+with whatever else the process observes, so a process that observes votes
+should not also be given the reads.
+
+Each of the three handlers records why it hands a request back to Node: one
+word of a closed set. A live request's answer is unchanged by this, byte for
+byte: the hand-back is the same 502, and the reason goes only to a copy's
+record. The reasons:
+
+- Any of the three: `unconfigured`, `shape_method`, `shape_body`, `cookie`,
+  `no_conversation_id`, `shape_conversation_id`, `unknown_conversation`,
+  `not_a_participant`, `pool_busy` (no connection came free within the pool's
+  acquire timeout), `database` (a connection or a statement failed), `deadline`.
+- The credential, where a handler resolves one (`GET /api/v3/votes`,
+  `GET /api/v3/comments`): `credential_shape`, `credential_scope` (a token for
+  another conversation), `credential_kind` (a token of a kind the read does
+  not admit: an external-id participant's), `participant_reads_off`,
+  `participant_token` (the token was refused, or its conversation or its
+  participant was not found), `oidc_off`, `oidc_token`.
+- `GET /api/v3/votes`: `shape_path`, `me_no_token`, `no_query`, `query_size`,
+  `query_repeated`, `query_key` (a key the read does not model), `xid` (the
+  query names an external id), `param_pid`, `param_tid`, `me_no_user`,
+  `me_membership`, `ambiguous_membership`, `many_rows` (the participant has
+  more than one row), `conversation_code` (a code that is not the
+  conversation's own), `schema`.
+- `GET /api/v3/comments`: `report_id`, `param_moderation`, `moderation_body`,
+  `identity_parameter`, `moderation_key`, `param_mod_in`,
+  `param_voting_patterns`, `param_mod_gt`, `moderation_mod_gt`,
+  `moderation_pid`, `param_pid`, `param_tids`, `param_mod`, `param_limit`,
+  `param_offset`, `negative_offset`.
+- `GET /api/v3/nextComment`: `lang` (the query carries the language and no
+  other key outside the three the read models), `pid_parameter` (a participant
+  number), `lang_and_pid`, `xid`, `query_key`, `param_without`,
+  `param_initial_tid`, `plain_off`, `token_refused`, `initial_voted`.
+- The route prelude, before a handler: `revoked`, `not_https`,
+  `body_unmodelled`, `parameter`. The lane: `rate_cap`, `lane_full`.
+
+One `shadow_observation` line is printed per copy, with the same keys in the
+same order for the three routes (a key a route has no value for is null):
+`message`, `listener`, `service`, `env`, `shadow` (the selector name), `route`,
+`request_id`, `outcome`, `status`, `reason`, `queue_ms`, `handler_ms`, `db_ms`,
+`total_ms`, `zid`, `rows`, `selected`, `remaining`, `total`, `weights_tick`.
+
+- `outcome` is `would_serve` (the live handler would answer 2xx or 304),
+  `would_hand_back` (502: Node would answer), `would_answer` (the prelude
+  would answer without the handler: a redirect to HTTPS, a refused body, a
+  revoked session), `would_fail` (another 5xx) or `shed`. `status` is the
+  would-be status, and `reason` is null only for `would_serve`.
+- `handler_ms` is the prelude and handler; `db_ms` is the part of it spent on
+  the lane's pools (waiting for a connection, opening one when the pool has
+  none idle, and the statements); `queue_ms` is from the copy's arrival to the
+  start of its observation, and `total_ms` from its arrival to its end.
+- `zid` is the conversation's number, once the handler has read it.
+- `rows` is `none`, `one` or `many` for the vote read and the comment list:
+  the class, never the number.
+- `selected`, `remaining`, `total` and `weights_tick` are the next comment's:
+  whether a comment was selected, the two counts of the answer, and the math
+  generation the weights of the draw came from.
+
+The line never carries the query string or any part of it, a participant,
+comment or user number, an external id, a token, a cookie, a vote, text, a
+digest or a length. A GET's query string holds a participant number and can
+hold an external id: it stays in process, and the listener's own access line
+records the path alone. A process that builds a read lane prints a panic's
+location and never its message. A test runs the shadow role's own startup and
+listener in a child process, sends it copies whose query strings, tokens and
+cookies hold values nothing else could, and reads everything the process
+printed on both streams (`src/shadow_reads_tests.rs`).
+
+The live vote read hands back a participant with more than one row, because
+neither of Node's queries promises an order. An observation of such a copy
+also reads every row and builds and serializes the answer Node gives, then
+drops it: the line keeps `outcome: "would_hand_back"`, `reason: "many_rows"`
+and `status: 502`, says `rows: "many"` when that answer was built, and its
+`handler_ms` and `db_ms` include that work. A live request never does this.
+
+`/health` on the shadow listener gains one key for each lane that is built,
+after the observers' keys and before `shadow`: `enabled` (always false),
+`mode`, `selector`, the counters `observed`, `wouldServe`, `wouldAnswer`,
+`wouldHandBack`, `wouldFail` and `shed`, `inFlight`, `capacity`,
+`maxPerSecond`, and the lane's `pools` by name. Every key that was there keeps
+its place and its meaning. `/health` asks no lane's pool: a lane has no
+connection apart from the ones its copies run on. Each lane's database is
+asked once at startup (the event `shadow_read_lane` prints the answer), and
+after that a lane reports its database unreachable, and `status` is
+`degraded`, when three copies in a row failed on a connection or a statement,
+until one is answered.
 
 ## Build version (opt-in)
 
