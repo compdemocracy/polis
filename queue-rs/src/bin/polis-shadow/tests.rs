@@ -76,7 +76,9 @@ pub(crate) enum Next {
 }
 
 /// Node's `vote_reply` as winston writes it (server/src/routes/votes.ts):
-/// level, message, the line's fields, service, timestamp.
+/// level, message, the line's fields, service, timestamp. The line names no
+/// statement: a scenario's `tid` says which statement Node served and is
+/// written nowhere.
 pub(crate) fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>) -> (i64, String) {
     let mut line = json!({
         "level": if status >= 500 { "error" } else if status >= 400 { "warn" } else { "info" },
@@ -87,18 +89,16 @@ pub(crate) fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>
     let o = line.as_object_mut().unwrap();
     match next {
         Some(Next::Statement {
-            tid,
+            tid: _,
             remaining,
             total,
         }) => {
             o.insert("node_next".into(), json!("statement"));
-            o.insert("node_next_tid".into(), json!(tid));
             o.insert("node_remaining".into(), json!(remaining));
             o.insert("node_total".into(), json!(total));
         }
-        Some(Next::Topical { tid }) => {
+        Some(Next::Topical { tid: _ }) => {
             o.insert("node_next".into(), json!("topical"));
-            o.insert("node_next_tid".into(), json!(tid));
         }
         Some(Next::None) => {
             o.insert("node_next".into(), json!("none"));
@@ -314,8 +314,8 @@ impl Fixture {
         }
     }
 
-    /// One vote of a case. Node's line names the statement it served next
-    /// (`node_next_tid`, as Node writes it); the shadow's names none.
+    /// One vote of a case. Neither Node's line nor the shadow's names a
+    /// statement.
     pub(crate) fn vote(&mut self, zid: i64, case: Case) -> String {
         let n = self.next;
         self.next += 1;
@@ -1491,10 +1491,11 @@ fn verdict_too_little_evidence() {
     assert_eq!(report.verdict, Verdict::TooLittle, "{}", report.text);
 }
 
-/// The week in which the shadow's line loses its statement numbers holds lines
-/// of both shapes: before the change the line names the statement voted on
-/// and the one the shadow would serve (`tid`, `next_tid`), after it names
-/// neither. No query reads either key, so the report over such a week is,
+/// A week in which a line loses its statement numbers holds lines of both
+/// shapes. The shadow's line named the statement voted on and the one it
+/// would serve (`tid`, `next_tid`) and now names neither; Node's reply line
+/// named the statement it served next (`node_next_tid`) and now names none.
+/// No query reads any of the three keys, so the report over such a week is,
 /// byte for byte, the report over the same week written in the new shape.
 #[test]
 fn a_week_holding_both_line_shapes_reports_as_the_new_shape() {
@@ -1502,9 +1503,22 @@ fn a_week_holding_both_line_shapes_reports_as_the_new_shape() {
     assert_eq!(new.verdict, Verdict::Pass, "{}", new.text);
     let mut mixed = passing_fixture();
     let (mut old, mut observations) = (0, 0);
+    let (mut old_replies, mut replies) = (0, 0);
     for (_, json) in &mut mixed.lines {
         let mut value: Value = serde_json::from_str(json).unwrap();
         let line = value.as_object_mut().unwrap();
+        if line["message"] == "vote_reply" && line.contains_key("node_next") {
+            assert!(!line.contains_key("node_next_tid"));
+            replies += 1;
+            // Every other reply that served a statement is in the shape
+            // Node wrote before: it names that statement.
+            if replies % 2 == 1 && line["node_next"] != "none" {
+                line.insert("node_next_tid".into(), json!(4));
+                *json = value.to_string();
+                old_replies += 1;
+            }
+            continue;
+        }
         if line["message"] != "shadow_observation" {
             continue;
         }
@@ -1527,6 +1541,10 @@ fn a_week_holding_both_line_shapes_reports_as_the_new_shape() {
     assert!(
         old > 3_000 && observations - old > 3_000,
         "{old} of {observations}"
+    );
+    assert!(
+        old_replies > 2_000 && replies - old_replies > 2_000,
+        "{old_replies} of {replies}"
     );
     let report = run(&FakeAws::new(&mixed));
     assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);

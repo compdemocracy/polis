@@ -418,7 +418,8 @@ pub const MEASURE_ALLOWLIST: &[&str] = &[
 /// Names that may never leave AWS in any form a query returns. The statement
 /// numbers are here because one beside a conversation number and a time picks
 /// out a row of that conversation's public votes: `tid` and `next_tid` are no
-/// longer on the shadow's line, and Node's `node_next_tid` is never read.
+/// longer on the shadow's line, nor `node_next_tid` on Node's, and none of
+/// the three is read from a line written while it was.
 pub const NEVER: &[&str] = &[
     "request_id",
     "pid",

@@ -230,10 +230,11 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
    * after the reply is handed to Express, at the level the request's
    * `http_request` line has, with no await and no database work; it never
    * throws. The request id, the conversation, Node's status and, on a 200,
-   * the next statement: `node_next` is "statement" (with its tid, `remaining`
-   * and `total`), "topical" (a topic-agenda pick: a tid and no counts) or
+   * whether a next statement was served: `node_next` is "statement" (with
+   * `remaining` and `total`), "topical" (a topic-agenda pick: no counts) or
    * "none" (nothing left to vote on). A value that does not exist is left
-   * out, never written as null. Never the vote, the participant or any text.
+   * out, never written as null. Never the vote, the participant, any text or
+   * the number of a statement: not the one voted on, and not the next one.
    * It is defined here because the routing recordings replay this handler on
    * its own.
    */
@@ -263,10 +264,8 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
           line.node_next = "none";
         } else if (next.remaining === undefined) {
           line.node_next = "topical";
-          line.node_next_tid = next.tid;
         } else {
           line.node_next = "statement";
-          line.node_next_tid = next.tid;
           line.node_remaining = next.remaining;
           line.node_total = next.total;
         }

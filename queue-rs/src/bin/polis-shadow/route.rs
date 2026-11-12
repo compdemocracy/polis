@@ -142,8 +142,8 @@ impl Route {
     }
 
     /// The queries `run` issues, in order. None reads a statement number:
-    /// the shadow's line carries none, and Node's (`node_next_tid`) is never
-    /// read.
+    /// neither the shadow's line nor Node's carries one, and the one Node's
+    /// older lines name (`node_next_tid`) is never read.
     pub fn queries(&self) -> Vec<Query> {
         match self.kind {
             Kind::Votes { node_line } => vec![
