@@ -413,6 +413,14 @@
       }
     ]
   },
+  "votesFamous": {
+    "path": "/api/v3/votes/famous",
+    "minimum_rust_successes": 1,
+    "expected_requests": 1,
+    "expected_node_handoffs": 0,
+    "commands": ["vote famous"],
+    "scope": "The participant's featured-participants read reaches Node with the selector off and is served by Rust with it and the handler switch on; both phases must give the same CLI JSON."
+  },
   "postVotes": {
     "path": "/api/v3/votes",
     "method": "POST",
