@@ -615,6 +615,14 @@ mod tests {
             Connector::Plain(Box::new(pg.clone())),
             crate::delphi_reports::pool_limits(),
         ));
+        app.votes_famous_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::votes_famous::pool_limits(),
+        ));
+        app.votes_famous_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::votes_famous::auth_pool_limits(),
+        ));
         let app = Arc::new(app);
         async fn park(
             pool: Arc<db::Pool>,
@@ -678,7 +686,7 @@ mod tests {
             isolated(&control_sample),
             "invalid isolation control: {control_sample:?}"
         );
-        // Each of the 18 pools this test saturates stays full through all loaded
+        // Each of the 20 pools this test saturates stays full through all loaded
         // reads. Counters and available permits witness occupancy directly;
         // a task handle alone could still be pending after releasing its slot.
         let slower = [
@@ -714,6 +722,14 @@ mod tests {
             (
                 "participant comments auth",
                 app.participant_comments_auth_db.as_ref().unwrap(),
+            ),
+            (
+                "featured participants",
+                app.votes_famous_db.as_ref().unwrap(),
+            ),
+            (
+                "featured participants identity",
+                app.votes_famous_auth_db.as_ref().unwrap(),
             ),
         ]
         .map(|(name, pool)| (name, pool, size(pool)));

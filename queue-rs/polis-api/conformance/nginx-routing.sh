@@ -1830,6 +1830,40 @@ sleep 6
 expect /api/v3/ptptois node "social fallback"
 echo "ok social participant: off/on/deduplicated, methods/body, fallback"
 
+# The featured-participants read has its own default-off selector. Unselected,
+# nothing of it is rendered beside the other vote routes; selected, its
+# location is its template and the other vote paths are not touched.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/votes/famous node "featured participants off"
+start votesRead,postVotes,ptptois
+expect /api/v3/votes/famous node "featured participants unselected beside the other vote routes"
+! included | grep -q 'votes/famous' || fail "featured participants: rendered without its selector"
+start votesFamous,votesFamous
+expect /api/v3/votes/famous rust "featured participants on"
+[[ $(included | grep -c 'location = /api/v3/votes/famous {') == 1 ]] || fail "featured participants duplicated"
+featured=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/votes\/famous {$/,/^}$/p' /etc/nginx/rust-api-templates/votesFamous.location.conf.template)
+[[ -n $featured && $(included | sed -n '/^location = \/api\/v3\/votes\/famous {$/,/^}$/p') == "$featured" ]] || fail "featured participants: rendered location differs from its template"
+expect_upstream polis-api HEAD /api/v3/votes/famous
+expect_upstream polis-api GET '/api/v3/votes/famous?conversation_id=2fixture&math_tick=5'
+expect_upstream server OPTIONS /api/v3/votes/famous
+expect_upstream server POST /api/v3/votes/famous $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/votes/famous $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "featured participants leave the vote list alone"
+expect /api/v3/votes/me node "featured participants leave the personal vote list alone"
+expect /api/v3/comments node "featured participants leave comments alone"
+expect /api/v3/nextComment node "featured participants leave the next comment alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+# nginx resolves the replaced container again within its resolver's validity.
+for _ in $(seq 40); do
+  [[ $(get /api/v3/votes/famous) == node ]] && break
+  sleep 0.5
+done
+expect /api/v3/votes/famous node "featured participants fallback"
+echo "ok featured participants: off, unselected beside the vote routes, on/deduplicated, its template to the byte, methods/body, fallback"
+
 # Participant-owned CSV have their own default-off selector.
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust

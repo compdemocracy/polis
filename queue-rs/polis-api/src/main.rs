@@ -109,6 +109,7 @@ mod robots;
 mod route;
 mod shadow;
 mod startup_routes;
+mod votes_famous;
 mod votes_read;
 #[allow(dead_code)]
 #[rustfmt::skip]
@@ -467,6 +468,15 @@ fn health_response(
         js::Js::Num(app.votes_read_fallback.load(Ordering::Relaxed) as f64),
     );
     body.set(
+        "votesFamousServed",
+        js::Js::Num(app.votes_famous_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "votesFamousFallback",
+        js::Js::Num(app.votes_famous_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set("votesFamousHandbacks", app.votes_famous.handbacks());
+    body.set(
         "metadataReadServed",
         js::Js::Num(app.metadata_read_served.load(Ordering::Relaxed) as f64),
     );
@@ -760,6 +770,7 @@ async fn dispatch_at_clock(
         | metadata_query::PATH
         | votes_read::PATH
         | votes_read::ME_PATH
+        | votes_famous::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if treevite_write::matches(path) => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
@@ -1450,6 +1461,27 @@ async fn startup() -> Result<Startup> {
         ));
         state.read_oidc = hybrid_read::Oidc::from_env()?;
     }
+    if std::env::var("POLIS_API_VOTES_FAMOUS_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        let dsn = std::env::var("POLIS_API_VOTES_FAMOUS_DATABASE_URL")
+            .context("POLIS_API_VOTES_FAMOUS_DATABASE_URL required")?;
+        let read_dsn = std::env::var("READ_ONLY_DATABASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| dsn.clone());
+        state.votes_famous_db = Some(db::Pool::new(
+            config::connector_for_dsn(&read_dsn, "polis-api-votes-famous/1")?,
+            votes_famous::pool_limits(),
+        ));
+        state.votes_famous_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-votes-famous-auth/1")?,
+            votes_famous::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+    }
     if std::env::var("POLIS_API_METADATA_READS").ok().as_deref() == Some("1") {
         let dsn = std::env::var("POLIS_API_METADATA_DATABASE_URL")
             .context("POLIS_API_METADATA_DATABASE_URL required")?;
@@ -2024,7 +2056,17 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 130);
+            assert_eq!(body.as_object().unwrap().len(), 133);
+            // The featured-participants route: its two counters, and every
+            // hand-back reason by name, at zero.
+            assert_eq!(body["votesFamousServed"], 0);
+            assert_eq!(body["votesFamousFallback"], 0);
+            assert_eq!(
+                body["votesFamousHandbacks"],
+                json!({"off":0,"request":0,"identity":0,"conversation":0,"math_unreadable":0,
+                    "math_incoherent":0,"math_shape":0,"ambiguous_rows":0,"oversize":0,
+                    "database":0,"deadline":0})
+            );
             // The comment handler is off unless its own switch is set.
             assert_eq!(body["postComments"]["enabled"], false);
             assert_eq!(body["postComments"]["mode"], "off");
