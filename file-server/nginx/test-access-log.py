@@ -79,13 +79,15 @@ def lines():
 
 def request(method, target, referer=None, body=b'', version='1.1', forwarded=True):
     """Sends one request and returns the fields of the one access line nginx
-    wrote for it, found by its User-Agent."""
+    wrote for it, found by its User-Agent. A tuple of Referers sends the
+    header once for each, in order."""
     case = uuid.uuid4().hex
     head = f'{method} {target} HTTP/{version}\r\nHost: localhost\r\nUser-Agent: access-log-test/{case}\r\n'
     if forwarded:
         head += f'X-Forwarded-For: {FORWARDED_FOR}\r\n'
     if referer is not None:
-        head += f'Referer: {referer}\r\n'
+        for one in referer if isinstance(referer, tuple) else (referer,):
+            head += f'Referer: {one}\r\n'
     if body:
         head += f'Content-Type: application/json\r\nContent-Length: {len(body)}\r\n'
     status = send(head + 'Connection: close\r\n\r\n', body)
@@ -291,6 +293,14 @@ REFERERS = [
     (f'https://pol.is/<{XID}>', 'unparsed'),
     (f'https://pol.is/{{{XID}}}', 'unparsed'),
     (f'https://pol.is/café/{XID}', 'unparsed'),
+    # A control character in the path: a tab, a byte below the space, DEL.
+    (f'https://pol.is/a\t{XID}', 'unparsed'),
+    (f'https://pol.is/a\x01{XID}', 'unparsed'),
+    (f'https://pol.is/a\x7f{XID}', 'unparsed'),
+    # The header sent twice: nginx reads the first, and the second is never
+    # written, whatever it holds.
+    (('https://pol.is/2fixture', f'https://pol.is/{XID}?xid={XID}'), 'https://pol.is/2fixture'),
+    ((f'https://pol.is/2fixture?xid={XID}', f'see {XID}'), 'https://pol.is/2fixture'),
     (f'https://pol.is:port/{XID}', 'unparsed'),
     (f'https://pol.is/2fixture https://pol.is/{XID}', 'unparsed'),
 ]
