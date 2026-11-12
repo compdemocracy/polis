@@ -15,11 +15,15 @@
 //! 3. an anonymous conversation answers `{}`;
 //! 4. `getSocialParticipants`: the requester, moderators' pins, those
 //!    authors and the conversation's external-id participants, by priority, up
-//!    to `ptptoiLimit`. Node keeps the rows 30 seconds under a key of the
-//!    conversation, the limit and the request's `math_tick`. The kept rows
-//!    are the first request's, as in Node; a following change to both makes
-//!    the requester's own row per request. [`State`] keeps the same rows
-//!    under the same key for the same time;
+//!    to `ptptoiLimit`. Node keeps the featured participants (the pins, the
+//!    authors and the external-id participants) 30 seconds under a key of the
+//!    conversation, the limit and the request's `math_tick`, the same for
+//!    every requester; [`State`] keeps the same rows under the same key for
+//!    the same time. The requester's own row is decided on every request and
+//!    is never kept: a requester who is one of the featured participants
+//!    gets that row as their own ([`featured_as_own`]); for any other
+//!    identified requester [`own_row`] reads it and [`with_own_row`] gives it
+//!    the first of the limit's places;
 //! 5. each of those participants' history of choices, as one letter a
 //!    comment. Node keeps a participant's letters under the `math_tick` of the
 //!    request that read them and reads them again only for a request with a
@@ -120,8 +124,8 @@ pub enum Handback {
     /// The consensus or the representative comments are not in the shape
     /// the math writes.
     MathShape,
-    /// A featured participant has more than one row: Node keeps whichever
-    /// comes last, and the query has no order.
+    /// A featured participant, or the requester, has more than one row: Node
+    /// keeps whichever comes last, and the query has no order.
     AmbiguousRows,
     /// More rows, text, history or reply than this process reads.
     Oversize,
@@ -168,6 +172,9 @@ impl Handback {
 pub(crate) struct Row {
     pub priority: i32,
     pub pid: i32,
+    /// The account the row is for. It ranks the kept rows; it is never part
+    /// of a reply.
+    pub uid: i32,
     pub social: Flat,
 }
 
@@ -474,7 +481,7 @@ impl Reader<'_> {
             return Ok("{}".into());
         }
         let key = (zid, query.limit, query.math_tick);
-        let rows = match self.state.kept_rows(key, (self.now_ms)()) {
+        let kept = match self.state.kept_rows(key, (self.now_ms)()) {
             Some(rows) => rows,
             None => {
                 // Node asks for the authors on every request and uses them
@@ -490,13 +497,31 @@ impl Reader<'_> {
                 let limit = i64::from(query.limit);
                 let rows = Arc::new(
                     self.pool
-                        .with(move |c| participant_rows(c, zid, uid, limit, &authors))
+                        .with(move |c| participant_rows(c, zid, limit, &authors))
                         .await
                         .map_err(|_| Handback::Database)??,
                 );
                 self.state.keep_rows(key, (self.now_ms)(), rows.clone());
                 rows
             }
+        };
+        // The requester's own row is decided on every request and is never
+        // kept. Nobody has one at a limit of zero. A requester who is one of
+        // the featured participants gets that row as their own; any other
+        // identified requester gets a row read for them alone.
+        let rows = match uid {
+            Some(uid) if query.limit > 0 => match featured_as_own(&kept, uid) {
+                Some(rows) => rows,
+                None => {
+                    let own = self
+                        .pool
+                        .with(move |c| own_row(c, zid, uid))
+                        .await
+                        .map_err(|_| Handback::Database)??;
+                    with_own_row(&kept, own, query.limit)
+                }
+            },
+            _ => kept.to_vec(),
         };
         // `pids.sort(...)`: the kept letters are looked up in this order.
         let mut pids: Vec<i32> = rows.iter().map(|r| r.pid).collect();
@@ -667,7 +692,10 @@ pub(crate) fn featured_authors(
     Ok(Ok(uids))
 }
 
-/// `getSocialParticipants`' statement, as Node builds it. Two additions bound
+/// The statement of `getSocialParticipants` for the featured participants,
+/// as Node builds it: moderators' pins, the featured authors and the
+/// external-id participants, ranked, the first `limit` of them, each with
+/// the account it is for. The requester is not in it. Two additions bound
 /// what is read without changing which rows it is: a row whose four text
 /// columns exceed `ROW_TEXT_BYTES` comes back without them and marked, and at
 /// most `ROWS + 1` rows are read.
@@ -684,20 +712,17 @@ fn participant_rows_sql(authors: &[i32]) -> String {
     let authors_union = if authors.is_empty() {
         ""
     } else {
-        "union select * from authors "
+        "select * from authors union "
     };
     format!(
         "with \
          p as (select uid, pid, mod from participants p0 where zid = ($1) and EXISTS (SELECT 1 FROM votes v WHERE v.zid=p0.zid AND v.pid=p0.pid)), \
          xids_subset as (select * from xids where owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null), \
-         xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($4)), \
-         self as (select CAST($2 as INTEGER) as uid, 1000 as priority), \
+         xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($3)), \
          {authors_cte}\
          pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority \
          from ( \
-         select * from self \
          {authors_union}\
-         union \
          select * from xid_ptpts \
          ) as prioritized_ptpts \
          inner join p on prioritized_ptpts.uid = p.uid \
@@ -709,7 +734,7 @@ fn participant_rows_sql(authors: &[i32]) -> String {
          select uid, 999 as priority from p where mod >= 2) as asdfasdjfioasjdfoi \
          group by asdfasdjfioasjdfoi.uid order by priority desc, asdfasdjfioasjdfoi.uid asc), \
          final_set as (select * from mod_pptpts \
-         limit ($3) \
+         limit ($2) \
          ), \
          read as (select \
          final_set.priority, \
@@ -718,8 +743,8 @@ fn participant_rows_sql(authors: &[i32]) -> String {
          xids_subset.x_name as x_name, \
          xids_subset.x_email as x_email, \
          p.pid, \
-         coalesce(octet_length(xids_subset.x_profile_image_url),0)+coalesce(octet_length(xids_subset.xid),0)\
-         +coalesce(octet_length(xids_subset.x_name),0)+coalesce(octet_length(xids_subset.x_email),0) <= {ROW_TEXT_BYTES} as fits \
+         {fits} as fits, \
+         final_set.uid \
          from final_set \
          left join xids_subset on final_set.uid = xids_subset.uid \
          left join p on final_set.uid = p.uid) \
@@ -728,22 +753,27 @@ fn participant_rows_sql(authors: &[i32]) -> String {
          case when fits then xid end, \
          case when fits then x_name end, \
          case when fits then x_email end, \
-         pid, fits from read limit {}",
-        ROWS + 1
+         pid, fits, uid from read limit {}",
+        ROWS + 1,
+        fits = fits_sql()
+    )
+}
+
+/// Whether a row's four text columns are within `ROW_TEXT_BYTES`.
+fn fits_sql() -> String {
+    format!(
+        "coalesce(octet_length(xids_subset.x_profile_image_url),0)+coalesce(octet_length(xids_subset.xid),0)\
+         +coalesce(octet_length(xids_subset.x_name),0)+coalesce(octet_length(xids_subset.x_email),0) <= {ROW_TEXT_BYTES}"
     )
 }
 
 pub(crate) fn participant_rows(
     c: &mut postgres::Client,
     zid: i32,
-    uid: Option<i32>,
     limit: i64,
     authors: &[i32],
 ) -> anyhow::Result<Result<Vec<Row>, Handback>> {
-    let found = c.query(
-        &participant_rows_sql(authors),
-        &[&zid, &uid, &limit, &SHOWN_FROM],
-    )?;
+    let found = c.query(&participant_rows_sql(authors), &[&zid, &limit, &SHOWN_FROM])?;
     if found.len() > ROWS {
         return Ok(Err(Handback::Oversize));
     }
@@ -752,9 +782,10 @@ pub(crate) fn participant_rows(
         if !row.try_get::<_, bool>(6)? {
             return Ok(Err(Handback::Oversize));
         }
-        let (Some(priority), Some(pid)) = (
+        let (Some(priority), Some(pid), Some(uid)) = (
             row.try_get::<_, Option<i32>>(0)?,
             row.try_get::<_, Option<i32>>(5)?,
+            row.try_get::<_, Option<i32>>(7)?,
         ) else {
             return Ok(Err(Handback::Database));
         };
@@ -769,6 +800,7 @@ pub(crate) fn participant_rows(
         rows.push(Row {
             priority,
             pid,
+            uid,
             social: Flat {
                 x_profile_image_url: row.try_get(1)?,
                 xid: row.try_get(2)?,
@@ -778,6 +810,121 @@ pub(crate) fn participant_rows(
         });
     }
     Ok(Ok(rows))
+}
+
+/// The statement for the row of a requester who is not one of the featured
+/// participants, as Node builds it: the columns of a featured participant's
+/// row for one account, when it is a participant of the conversation with at
+/// least one row of vote history. The same bound on the row's text, and at
+/// most two rows are read.
+fn own_row_sql() -> String {
+    format!(
+        "with \
+         p as (select uid, pid from participants p0 where zid = ($1) and uid = ($2) and EXISTS (SELECT 1 FROM votes v WHERE v.zid=p0.zid AND v.pid=p0.pid)), \
+         xids_subset as (select * from xids where uid = ($2) and owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null), \
+         read as (select \
+         xids_subset.x_profile_image_url as x_profile_image_url, \
+         xids_subset.xid as xid, \
+         xids_subset.x_name as x_name, \
+         xids_subset.x_email as x_email, \
+         p.pid, \
+         {fits} as fits \
+         from p \
+         left join xids_subset on p.uid = xids_subset.uid) \
+         select \
+         case when fits then x_profile_image_url end, \
+         case when fits then xid end, \
+         case when fits then x_name end, \
+         case when fits then x_email end, \
+         pid, fits from read limit 2",
+        fits = fits_sql()
+    )
+}
+
+/// The row of a requester who is not one of the featured participants, at
+/// the requester's priority, or None when the account is no participant of
+/// the conversation or has no row of vote history. It is read for the
+/// request that asks and is never kept.
+pub(crate) fn own_row(
+    c: &mut postgres::Client,
+    zid: i32,
+    uid: i32,
+) -> anyhow::Result<Result<Option<Row>, Handback>> {
+    let found = c.query(&own_row_sql(), &[&zid, &uid])?;
+    // Two external ids of one person under the conversation's account.
+    if found.len() > 1 {
+        return Ok(Err(Handback::AmbiguousRows));
+    }
+    let Some(row) = found.first() else {
+        return Ok(Ok(None));
+    };
+    if !row.try_get::<_, bool>(5)? {
+        return Ok(Err(Handback::Oversize));
+    }
+    let Some(pid) = row.try_get::<_, Option<i32>>(4)? else {
+        return Ok(Err(Handback::Database));
+    };
+    if pid < 0 {
+        return Ok(Err(Handback::Database));
+    }
+    Ok(Ok(Some(Row {
+        priority: contract::SELF_PRIORITY,
+        pid,
+        uid,
+        social: Flat {
+            x_profile_image_url: row.try_get(0)?,
+            xid: row.try_get(1)?,
+            x_name: row.try_get(2)?,
+            x_email: row.try_get(3)?,
+        },
+    })))
+}
+
+/// The rows of one reply to a requester who is one of the featured
+/// participants (a pin, a featured author, an external id): the kept rows,
+/// with the requester's at the requester's priority. None when the account
+/// is not among them. The kept rows themselves are not changed.
+pub(crate) fn featured_as_own(kept: &[Row], uid: i32) -> Option<Vec<Row>> {
+    if !kept.iter().any(|r| r.uid == uid) {
+        return None;
+    }
+    Some(
+        kept.iter()
+            .map(|r| Row {
+                priority: if r.uid == uid {
+                    contract::SELF_PRIORITY
+                } else {
+                    r.priority
+                },
+                ..r.clone()
+            })
+            .collect(),
+    )
+}
+
+/// The rows of one reply to a requester who is not one of the featured
+/// participants: their own row, when there is one, takes the first of the
+/// `limit` places. When the kept rows already fill the limit, the last of
+/// their ranking (the lowest priority, then the greatest account) gives up
+/// its place. The kept rows themselves are not changed.
+pub(crate) fn with_own_row(kept: &[Row], own: Option<Row>, limit: i32) -> Vec<Row> {
+    let Some(own) = own else {
+        return kept.to_vec();
+    };
+    let mut rows: Vec<Row> = kept.iter().filter(|r| r.pid != own.pid).cloned().collect();
+    // One row a person: a second row for anyone is never kept.
+    if rows.len() >= usize::try_from(limit).unwrap_or(0) {
+        let last = rows
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, r)| (r.priority, std::cmp::Reverse(r.uid)))
+            .map(|(at, _)| at);
+        if let Some(last) = last {
+            rows.remove(last);
+        }
+    }
+    rows.insert(0, own);
+    rows
 }
 
 /// One row of a participant's history: the comment and the stored choice.
@@ -906,10 +1053,12 @@ mod tests {
             x_email: Some("someone@example.invalid".into()),
         }
     }
+    /// A row whose account is its participant number plus 1000.
     fn row(priority: i32, pid: i32, social: Flat) -> Row {
         Row {
             priority,
             pid,
+            uid: 1000 + pid,
             social,
         }
     }
@@ -1106,17 +1255,121 @@ mod tests {
     }
 
     #[test]
-    fn kept_rows_answer_the_requests_that_follow_as_the_recorded_node_replies() {
-        // Node keeps the rows by conversation, limit and tick. The kept rows
-        // are the first request's; the recorded replies to the requests that
-        // follow within 30 seconds are the same bytes.
+    fn the_requesters_own_row_is_decided_for_each_request() {
+        // Nobody is featured in the recorded conversation: nothing is kept
+        // but an empty list, and each reply is its own requester's.
+        let kept: [Row; 0] = [];
         let letters: BTreeMap<i32, Arc<str>> = [(1, Arc::from("apdapda"))].into_iter().collect();
-        let members = [row(1000, 1, none())];
-        let reply = body(&members, &letters, &Read::Absent);
-        assert_eq!(reply, recorded("no-math/cold/member"));
-        assert_eq!(reply, recorded("no-math/warm/anonymous-after-member"));
-        assert_eq!(reply, recorded("no-math/warm/second-after-member"));
-        assert!(reply.contains(r#""isSelf":true"#));
+        let reply = |own: Option<Row>| {
+            body(
+                &with_own_row(&kept, own, contract::DEFAULT_LIMIT),
+                &letters,
+                &Read::Absent,
+            )
+        };
+        let member = reply(Some(row(contract::SELF_PRIORITY, 1, none())));
+        assert_eq!(member, recorded("no-math/cold/member"));
+        assert!(member.contains(r#""isSelf":true"#));
+        // The member asks after a requester without a credential, and gets
+        // their own row.
+        assert_eq!(member, recorded("no-math/warm/member-after-anonymous"));
+        // A requester without a credential, and a member without a vote, ask
+        // after the member: no row of their own, and nobody else's.
+        for id in [
+            "no-math/warm/anonymous-after-member",
+            "no-math/warm/second-after-member",
+        ] {
+            assert_eq!(reply(None), recorded(id), "{id}");
+            assert_eq!(recorded(id), "{}");
+        }
+    }
+
+    #[test]
+    fn the_own_row_takes_the_first_of_the_limits_places() {
+        let picture = |n: i32| external(&format!("https://example.invalid/{n}.png"), None);
+        // The kept ranking: a pin, a featured author, two external-id
+        // participants. Among equals the smaller account comes first, and
+        // the accounts here are not in the order of the participant numbers.
+        let kept = [
+            Row {
+                uid: 40,
+                ..row(999, 4, none())
+            },
+            Row {
+                uid: 10,
+                ..row(900, 0, none())
+            },
+            Row {
+                uid: 50,
+                ..row(100, 2, picture(2))
+            },
+            Row {
+                uid: 30,
+                ..row(100, 3, picture(3))
+            },
+        ];
+        let before = kept.clone();
+        let pids = |rows: &[Row]| -> Vec<(i32, i32)> {
+            let mut out: Vec<(i32, i32)> = rows.iter().map(|r| (r.pid, r.priority)).collect();
+            out.sort_unstable();
+            out
+        };
+        let own = |pid: i32, uid: i32| Row {
+            uid,
+            ..row(contract::SELF_PRIORITY, pid, none())
+        };
+        // No requester's row: the kept rows, nobody marked.
+        assert_eq!(with_own_row(&kept, None, 4), kept);
+        // Room for everyone: the requester and all four.
+        assert_eq!(
+            pids(&with_own_row(&kept, Some(own(7, 70)), 5)),
+            [(0, 900), (2, 100), (3, 100), (4, 999), (7, 1000)]
+        );
+        // The limit filled: the last of the ranking gives up its place, the
+        // lowest priority and of those the greatest account (participant 2).
+        assert_eq!(
+            pids(&with_own_row(&kept, Some(own(7, 70)), 4)),
+            [(0, 900), (3, 100), (4, 999), (7, 1000)]
+        );
+        // A requester who is one of the featured participants gets that row
+        // as their own: once, and nobody gives up a place.
+        let featured_too = featured_as_own(&kept, 10).unwrap();
+        assert_eq!(
+            pids(&featured_too),
+            [(0, 1000), (2, 100), (3, 100), (4, 999)]
+        );
+        let last_too = featured_as_own(&kept, 50).unwrap();
+        assert_eq!(pids(&last_too), [(0, 900), (2, 1000), (3, 100), (4, 999)]);
+        assert_eq!(last_too[2].social, kept[2].social);
+        // An account that is not among them has no row there.
+        assert_eq!(featured_as_own(&kept, 70), None);
+        assert_eq!(featured_as_own(&[], 10), None);
+        // A limit of one: the requester alone.
+        assert_eq!(
+            pids(&with_own_row(&kept[..1], Some(own(7, 70)), 1)),
+            [(7, 1000)]
+        );
+        assert_eq!(pids(&featured_as_own(&kept[..1], 40).unwrap()), [(4, 1000)]);
+        // Fewer kept than the limit: nobody gives up a place.
+        assert_eq!(
+            pids(&with_own_row(&kept[..2], Some(own(7, 70)), 4)),
+            [(0, 900), (4, 999), (7, 1000)]
+        );
+        // What is kept is never changed, and never holds a requester's row.
+        assert_eq!(kept, before);
+        assert!(kept.iter().all(|r| r.priority != contract::SELF_PRIORITY));
+        // In a reply only the requester's own row is marked.
+        let letters: BTreeMap<i32, Arc<str>> = [0, 2, 3, 4]
+            .into_iter()
+            .map(|pid| (pid, Arc::from("a")))
+            .collect();
+        let placed = complete(3, &[10], &[&[0, 2, 3, 4]]);
+        let theirs = body(&featured_too, &letters, &placed);
+        assert_eq!(theirs.matches(r#""isSelf":true"#).count(), 1);
+        assert!(theirs.starts_with(r#"{"0":{"priority":1000,"#), "{theirs}");
+        let nobodys = body(&with_own_row(&kept, None, 4), &letters, &placed);
+        assert!(!nobodys.contains("isSelf"), "{nobodys}");
+        assert!(nobodys.starts_with(r#"{"0":{"priority":900,"#), "{nobodys}");
     }
 
     fn main_with(consensus: &str, repness: &str) -> Read {
@@ -1202,7 +1455,7 @@ mod tests {
     fn kept_rows_last_thirty_seconds_and_no_longer() {
         let state = State::default();
         let key = (7, 30, 5);
-        let rows = Arc::new(vec![row(1000, 1, none())]);
+        let rows = Arc::new(vec![row(900, 1, none())]);
         state.keep_rows(key, 1_000.0, rows.clone());
         assert!(state.kept_rows(key, 1_000.0 + ROWS_KEPT_MS).is_some());
         assert!(state.kept_rows((7, 29, 5), 1_000.0).is_none());
@@ -1322,21 +1575,31 @@ mod tests {
     }
 
     #[test]
-    fn the_statement_is_nodes_with_and_without_featured_authors() {
+    fn the_statements_are_nodes_with_and_without_featured_authors() {
         let without = participant_rows_sql(&[]);
         assert!(!without.contains("authors"));
+        assert!(without.contains("from ( select * from xid_ptpts ) as prioritized_ptpts"));
         let with = participant_rows_sql(&[4, 200001]);
         assert!(with.contains(
             "authors as (select 4 as uid, 900 as priority union select 200001 as uid, 900 as priority), "
         ));
         assert!(with.contains(
-            "select * from self union select * from authors union select * from xid_ptpts"
+            "from ( select * from authors union select * from xid_ptpts ) as prioritized_ptpts"
         ));
         for sql in [without, with] {
-            assert!(sql.contains("where p.mod >= ($4)"));
-            assert!(sql.contains("limit ($3)"));
+            // The requester is not in the kept statement: three parameters,
+            // the conversation, the limit and the moderation floor.
+            assert!(!sql.contains("self") && !sql.contains("1000"));
+            assert!(!sql.contains("$4"));
+            assert!(sql.contains("where p.mod >= ($3)"));
+            assert!(sql.contains("limit ($2)"));
             assert!(sql.ends_with(&format!("limit {}", ROWS + 1)));
         }
+        // The requester's own row is one account's, read by itself.
+        let own = own_row_sql();
+        assert!(own.contains("where zid = ($1) and uid = ($2) and EXISTS (SELECT 1 FROM votes v"));
+        assert!(own.contains("from xids where uid = ($2) and owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null"));
+        assert!(own.ends_with("limit 2"));
     }
 }
 

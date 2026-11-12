@@ -1,6 +1,7 @@
 # Featured participants (`GET /api/v3/votes/famous`)
 
-Observable changes: none. Nothing is served by default.
+Nothing is served by this handler by default: it is switched off and
+unselected.
 
 The legacy participation client asks this route every few seconds for the
 participants it draws by name or picture on its opinion map: the requester,
@@ -50,14 +51,18 @@ numbers have not been tuned against production traffic.
    consensus, agree and disagree, and each group's representative comments)
    who hold an external id under any account.
 3. An anonymous conversation (`is_anon`) answers `{}`.
-4. `getSocialParticipants` (`server/src/participant.ts`): one statement that
-   ranks the requester (1000), moderators' pins (`mod >= 2`, 999), those
-   authors (900) and participants with an external id under the conversation's
-   account (`org_id`) and a picture (100), keeps the first `ptptoiLimit`
-   (30 unless given, at most 99), and returns each with the picture, id, name
-   and address of their external id. Only participants with at least one row
-   of vote history take part. The statement here is Node's, with two bounds
-   added (below).
+4. `getSocialParticipants` (`server/src/participant.ts`): the featured
+   participants and the requester's own row.
+   - The featured participants: one statement that ranks moderators' pins
+     (`mod >= 2`, 999), those authors (900) and participants with an external
+     id under the conversation's account (`org_id`) and a picture (100), keeps
+     the first `ptptoiLimit` (30 unless given, at most 99), and returns each
+     with the picture, id, name and address of their external id. Only
+     participants with at least one row of vote history take part. The
+     requester is not in this statement. It is Node's here, with two bounds
+     added (below).
+   - The requester's own row (1000), decided on every request: see "The
+     requester's own row" below.
 5. `pullXInfoIntoSubObjects`: a row with a picture, an id or an address gets
    `xInfo: {x_profile_image_url, x_name}` and loses the four columns; any other
    row keeps the four columns as read. A row of priority 1000 gets
@@ -80,12 +85,11 @@ This handler keeps the same two things by the same rules, so a request
 sequence gives the same bytes on both sides. They are per process: a Node
 process and a polis-api process never share them.
 
-- **The participant rows**, 30 seconds, at most 999 entries, under a key of
-  the conversation, the limit and the request's `math_tick`. The kept rows
-  are the first request's, as in Node; a following change to both servers
-  makes the requester's own row per request. The replay records the kept
-  rows on Node cold, warm and at the 30-second boundary, and the handler
-  answers the same.
+- **The featured participants' rows**, 30 seconds, at most 999 entries, under
+  a key of the conversation, the limit and the request's `math_tick`. They
+  are the same for every requester. No requester's own row is ever among
+  them. The replay records them on Node cold, warm and at the 30-second
+  boundary, and the handler answers the same.
 - **Each participant's letters**, at most 5000 entries, with the `math_tick`
   of the request that read them. They are read again only for a request whose
   `math_tick` is greater. A request without `math_tick` (it defaults to the
@@ -108,6 +112,30 @@ Where this handler differs on purpose:
   clones, reshapes, serializes and compresses the whole document on every
   request to this route.
 
+## The requester's own row
+
+It is decided on every request, on Node and here alike, and is never kept:
+
+- A limit of zero has no rows at all, the requester's included.
+- A requester who is one of the featured participants (a pin, a featured
+  author, an external id) gets that row as their own: priority 1000 and
+  `isSelf: true`, in their reply only. Nobody gives up a place. In every other
+  requester's reply the row keeps its own priority.
+- Any other identified requester costs one small statement: an account that
+  is a participant of the conversation with at least one row of vote history
+  gets a row of the same columns as a featured participant's (their external
+  id under the conversation's account, when they hold one with a picture),
+  at priority 1000. It takes the first of the limit's places; when the
+  featured participants already fill the limit, the last of their ranking
+  (the lowest priority, then the greatest account) gives up its place for
+  this reply.
+- Anyone else (no credential, an account that takes no part, a participant
+  without a vote) gets the featured participants and no row of their own.
+
+So within the 30 seconds of the kept rows each requester gets their own row
+and nobody else's, and a participant's first vote shows in their own row on
+their next request.
+
 ## What goes back to Node
 
 Every hand-back is the pre-response 502 with its reason in
@@ -122,7 +150,7 @@ Every hand-back is the pre-response 502 with its reason in
 | `math_unreadable` | The math generation could not be read whole: a main or mapping document over 64 KiB, a malformed one, or the database not answering that read. |
 | `math_incoherent` | The four math tables are not at one tick, or one is missing, at a committed tick. Node still reads the featured comments from the main document then; this process does not hold it. |
 | `math_shape` | `consensus` or `repness` is not in the shape the math writes (objects with an integer `tid`, groups keyed by a plain number). Node empties, reshapes or fails on those in ways not copied here. |
-| `ambiguous_rows` | A featured participant has more than one row, which happens when one person holds two external ids under the conversation's account. Node keeps whichever row the database returns last. |
+| `ambiguous_rows` | A featured participant, or the requester, has more than one row, which happens when one person holds two external ids under the conversation's account. Node keeps whichever row the database returns last. |
 | `oversize` | More than 200 participant rows, a row with more than 8192 bytes of external-id text, more than 4096 featured comments, more than 1000 featured authors, more than 100,000 rows of history, a comment number above 32,767, or a reply over 1 MiB. |
 | `database` | No free connection in time, a statement over its time, or a refused statement. |
 | `deadline` | The request's 150 ms. |
@@ -154,7 +182,10 @@ sends each request as the same bytes to the unchanged Node listener and to
 polis-api, in the same order: anonymous, member, signed-in and external-id
 requesters; an anonymous conversation; no math, complete math and the states
 in between; `ptptoiLimit`; a current, a stale and a newer `math_tick`; both
-caches cold and warm, at their boundaries; the error replies. Complete HTTP
+caches cold and warm, at their boundaries; the requester's own row for
+requesters who follow one another within the 30 seconds (featured, not
+featured, without a vote, without a credential, at a limit the featured
+participants fill, and after a first vote); the error replies. Complete HTTP
 bytes are compared with nothing removed; a difference in the `Date` second
 repeats the exchange on both sides. Every hand-back is checked against the
 reason the case names, and every request is also sent to a polis-api with the
