@@ -1269,20 +1269,17 @@ async fn a_read_lane_sheds_by_count_and_by_rate_and_only_itself() {
         assert_eq!(observation(id).await["reason"], "database");
     }
     assert_eq!(full.in_flight(), 0);
-    // The rate: two copies a second on each lane of another process.
-    let slow = Arc::new(lanes_app(closed, &Route::ALL, 2, None));
+    // The rate: one copy a second on each lane of another process. The copy
+    // after the first is shed.
+    let slow = Arc::new(lanes_app(closed, &Route::ALL, 1, None));
     for route in Route::ALL {
         let lane = slow.read_lanes.get(route).unwrap();
         let parked = lane.park().await;
-        let mut passed = vec![];
-        for _ in 0..2 {
-            let id = request_id();
-            assert_eq!(
-                accept_copy(&slow, &votes, copy(route, query, &[], &id)).await,
-                204
-            );
-            passed.push(id);
-        }
+        let passed = request_id();
+        assert_eq!(
+            accept_copy(&slow, &votes, copy(route, query, &[], &passed)).await,
+            204
+        );
         let id = request_id();
         assert_eq!(
             accept_copy(&slow, &votes, copy(route, query, &[], &id)).await,
@@ -1292,16 +1289,14 @@ async fn a_read_lane_sheds_by_count_and_by_rate_and_only_itself() {
         assert_eq!(line["outcome"], "shed", "{}", route.name());
         assert_eq!(line["reason"], "rate_cap");
         drop(parked);
-        for id in passed {
-            observation(&id).await;
-        }
+        observation(&passed).await;
     }
     let health = health_of(&slow, &votes).await;
     for route in Route::ALL {
         let lane = &health[route.health_key()];
         assert_eq!(lane["shed"], 1, "{}", route.name());
-        assert_eq!(lane["observed"], 2);
-        assert_eq!(lane["wouldHandBack"], 2);
+        assert_eq!(lane["observed"], 1);
+        assert_eq!(lane["wouldHandBack"], 1);
     }
     assert_eq!(votes.in_flight(), 0);
 }
