@@ -129,7 +129,7 @@ fn content_encoding_is_handed_back_under_every_admitted_content_type() {
 mod replay;
 
 #[cfg(feature = "db-tests")]
-mod database {
+pub(in crate::post_votes) mod database {
     use super::*;
     use postgres::NoTls;
     use std::sync::Barrier;
@@ -138,6 +138,13 @@ mod database {
     // fixtures take it exclusively before creating their database, keeping
     // other fixtures' migrations and database drops out of their measurements.
     static FIXTURE_LOCK: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
+    /// A shared hold of the fixture lock, for a fixture another module builds:
+    /// a timing fixture takes the lock exclusively, so it never runs beside
+    /// one.
+    pub(in crate::post_votes) fn shared_fixture_lock() -> Box<dyn std::any::Any> {
+        Box::new(FIXTURE_LOCK.read().unwrap_or_else(|e| e.into_inner()))
+    }
 
     /// A separately owned database uses the published table definitions and
     /// rule, rather than mocking the append or latest-state SQL.

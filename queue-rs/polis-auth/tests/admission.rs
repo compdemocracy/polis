@@ -10,6 +10,16 @@ use std::{
 };
 use support::*;
 
+/// Every request in this file that enters by participation is first decided
+/// by reads alone (`Snapshot::decide`) and then admitted, and the decision
+/// must be what `admit` then did. The tests that race another request, fail a
+/// write or depend on the user number a new user is given call
+/// `polis_auth::admission::admit` itself: those are what a decision by reads
+/// cannot know.
+fn admit(db: &mut postgres::Client, request: &Request<'_>) -> Result<Option<Admitted>, Error> {
+    decided_then_admitted(db, request)
+}
+
 fn refused(result: Result<Option<Admitted>, Error>, status: u16, code: &'static str) {
     assert_eq!(result, Err(Error::Refused(Refusal { status, code })));
 }
@@ -196,7 +206,11 @@ fn newly_allocated_xid_cannot_take_a_configured_administrator_uid() {
         uid: None,
     });
     r.admin_uids = &[Uid(4)];
-    refused(admit(&mut f.db, &r), 403, "polis_err_xid_owner_account");
+    refused(
+        polis_auth::admission::admit(&mut f.db, &r),
+        403,
+        "polis_err_xid_owner_account",
+    );
     f.assert_clean();
 }
 #[test]
@@ -354,7 +368,11 @@ fn failures_at_each_write_boundary_roll_back_all_rows_and_allocator() {
             r.identity = Identity::Anonymous;
             r.entry = invite();
         }
-        assert_eq!(admit(&mut f.db, &r), Err(Error::Unavailable), "{table}");
+        assert_eq!(
+            polis_auth::admission::admit(&mut f.db, &r),
+            Err(Error::Unavailable),
+            "{table}"
+        );
         f.assert_clean();
     }
 }
@@ -363,7 +381,7 @@ fn deferred_commit_failure_leaves_no_rows_and_is_not_blindly_retried() {
     let mut f = Fixture::new();
     f.db.batch_execute("CREATE FUNCTION fail_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'commit fault'; END $$; CREATE CONSTRAINT TRIGGER fail_commit AFTER INSERT ON participants DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fail_commit()").unwrap();
     assert_eq!(
-        admit(&mut f.db, &request(Identity::Anonymous)),
+        polis_auth::admission::admit(&mut f.db, &request(Identity::Anonymous)),
         Err(Error::CommitUnknown)
     );
     f.assert_clean();
@@ -376,7 +394,9 @@ fn concurrent_close_before_allocation_rolls_back_the_new_identity() {
     held.query_one("SELECT pg_advisory_xact_lock(873791983,1)", &[])
         .unwrap();
     let mut worker = f.connect();
-    let join = thread::spawn(move || admit(&mut worker, &request(Identity::Anonymous)));
+    let join = thread::spawn(move || {
+        polis_auth::admission::admit(&mut worker, &request(Identity::Anonymous))
+    });
     f.wait_for_locks(1);
     f.db.execute("UPDATE conversations SET is_active=false WHERE zid=1", &[])
         .unwrap();
@@ -472,7 +492,7 @@ fn concurrent_xid_and_account_joins_resolve_the_winner_without_orphans() {
                 let b = barrier.clone();
                 thread::spawn(move || {
                     b.wait();
-                    admit(
+                    polis_auth::admission::admit(
                         &mut db,
                         &request(if xid {
                             Identity::Xid {

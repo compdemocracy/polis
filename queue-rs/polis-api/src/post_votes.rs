@@ -27,6 +27,9 @@ mod writer_priorities;
 pub(crate) mod observe;
 pub(crate) use observe::Observer;
 
+#[path = "post_votes_identity.rs"]
+pub(crate) mod identity;
+
 pub const PATH: &str = contract::PATH;
 // The comment contract is compiled into this crate by path. It names these
 // four parsers by their path in the contracts crate, which here is this
@@ -142,6 +145,14 @@ pub(crate) fn configure(
     keys: Option<&polis_auth::keys::Keys>,
 ) -> Result<Configured> {
     let switch = switch()?;
+    // Identity is observed only beside the vote observer, in the shadow role.
+    // The main role never reads its switch.
+    let observe_identity = role == crate::shadow::Role::Shadow && identity::switch()?;
+    anyhow::ensure!(
+        !observe_identity || switch == Switch::Observe,
+        "{}=observe requires POLIS_API_POST_VOTES=observe",
+        identity::SWITCH
+    );
     match (role, switch) {
         (_, Switch::Off) => return Ok(Configured::Off),
         (crate::shadow::Role::Main, Switch::Observe) => anyhow::bail!(
@@ -189,7 +200,7 @@ pub(crate) fn configure(
     if switch == Switch::Observe {
         // Observe never calls db::Pool::writer: both pools are read-only
         // sessions, and there is no notification pool.
-        return Ok(Configured::Observe(Observer::new(
+        let mut observer = Observer::new(
             verifier,
             db::Pool::new(
                 config::connector_for_dsn(&dsn, "polis-api-vote-reads/1")?,
@@ -201,7 +212,16 @@ pub(crate) fn configure(
             ),
             admins,
             priorities,
-        )));
+        );
+        if observe_identity {
+            // A third read-only pool, of its own: an identity decision never
+            // takes an admission slot or the vote read-back's connection.
+            observer.identity = Some(Box::new(identity::IdentityObserver::new(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-vote-shadow-identity/1")?,
+                identity::limits(),
+            ))));
+        }
+        return Ok(Configured::Observe(observer));
     }
     Ok(Configured::Live(Writer {
         pool: db::Pool::writer(
