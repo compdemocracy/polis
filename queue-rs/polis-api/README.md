@@ -1235,12 +1235,22 @@ request shape the route does not model) reaches Node's 404.
 - **Byte stability.** The body is `wire::to_json` of the record.
   `conformance/delphi-run-fixtures/` holds the function's output and the
   route's bytes for a real local sequence (a full pipeline run, a
-  collective-statement save over its topics, a second full pipeline run);
-  a unit test rebuilds each record and compares the bytes. The db-tests
+  collective-statement save over its topics, a second full pipeline run),
+  read after all three finished; and, from a later recording of the same
+  sequence carried one step further and read after all four finished, for a
+  second collective-statement save after the second run
+  (`statement-after-second`). That save rewrites the statement family whole,
+  so its record names one job for a family that holds a statement over each
+  run's topics; `statement-after-second.rows.json` holds what the record
+  does not: the four job ids of that recording and the stored rows of the
+  statements and of the topic names published beside them.
+  A unit test rebuilds each record and compares the bytes. The db-tests
   check the rule, the refusals and pool isolation. Run
   `queue-rs/polis-api/conformance/delphi-run-run.sh result.json` for real
   runs through polis-jobs and every answer recorded and checked against the
-  function. `delphiRunServed` and `delphiRunFallback` count the outcomes.
+  function; with `DELPHI_RUN_FIXTURES=<directory>` it also writes each
+  job's files under the fixture names. `delphiRunServed` and
+  `delphiRunFallback` count the outcomes.
 
 ### Typed Delphi assignments (off by default)
 

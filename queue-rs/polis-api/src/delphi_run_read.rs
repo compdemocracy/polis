@@ -581,6 +581,15 @@ mod tests {
         ),
     ];
 
+    /// From a later recording of the same sequence carried one step
+    /// further: a second collective-statement save, after the second run,
+    /// read after all four jobs finished (pd_run_record's output, then the
+    /// route's bytes).
+    const STATEMENT_AFTER_SECOND: (&str, &str) = (
+        include_str!("../conformance/delphi-run-fixtures/statement-after-second.record.json"),
+        include_str!("../conformance/delphi-run-fixtures/statement-after-second.json"),
+    );
+
     fn raw(text: &str) -> Raw {
         serde_json::from_str(text).unwrap()
     }
@@ -601,6 +610,42 @@ mod tests {
             let decoded: DelphiRun = serde_json::from_str(golden).unwrap();
             assert_eq!(crate::wire::to_json(&decoded).unwrap(), bytes, "{name}");
         }
+    }
+
+    /// The second save rewrites the statement family whole. Its record is
+    /// byte stable, and names one job for a family of two statements: the
+    /// save itself, computed from the topic names published beside it.
+    #[test]
+    fn a_statement_saved_after_a_second_run_names_itself_for_the_whole_family() {
+        let (record_text, golden) = STATEMENT_AFTER_SECOND;
+        let run = record(raw(record_text), conversation()).unwrap();
+        let bytes = crate::wire::to_json(&run).unwrap();
+        assert_eq!(bytes, golden.trim_end());
+        let decoded: DelphiRun = serde_json::from_str(golden).unwrap();
+        assert_eq!(crate::wire::to_json(&decoded).unwrap(), bytes);
+        let v = value(golden);
+        let family = |name: &str| {
+            v["outputs"]["families"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["family"] == name)
+                .unwrap()
+                .clone()
+        };
+        let statements = family("Delphi_CollectiveStatement");
+        let names = family("Delphi_CommentClustersLLMTopicNames");
+        assert_eq!(statements["producer"]["job_id"], v["job_id"]);
+        assert_eq!(statements["batch"]["row_count"], 2);
+        assert_eq!(statements["state"], "succeeded");
+        assert_eq!(statements["publication"]["generation"], 4);
+        assert_ne!(names["producer"]["job_id"], v["job_id"]);
+        assert_eq!(names["publication"]["generation"], 3);
+        assert_eq!(statements["upstream"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            statements["upstream"][0]["job_id"],
+            names["producer"]["job_id"]
+        );
     }
 
     #[test]

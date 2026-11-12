@@ -11,7 +11,8 @@
 use crate::{client, collective_read, profiles, str_arg};
 use clap::ArgMatches;
 use polis_client::Client;
-use polis_contracts::delphi_job_result::{PublicJobId, TopicKey};
+use polis_contracts::delphi_job_result::TopicKey;
+use polis_contracts::delphi_provenance::ClusteringLabel;
 use polis_contracts::{envelope, Error, Result};
 use serde::Serialize;
 use serde_json::{json, value::RawValue, Map, Value};
@@ -66,10 +67,11 @@ pub fn to_fixed(x: f64, digits: usize) -> String {
     format!("{x:.digits$}")
 }
 
-/// The run's topic keys are `job#layer#cluster`; the job is the first part,
-/// read as the contract's own type (`TopicKey::producer`).
-fn job_of(topic_key: &str) -> Option<PublicJobId> {
-    TopicKey::new(topic_key).ok()?.producer()
+/// The run's topic keys are `job#layer#cluster`; the job printed is the
+/// first part, read as the contract's own type: the key's clustering label
+/// (`TopicKey::clustering_label`), which for a run on this store is its job.
+fn job_of(topic_key: &str) -> Option<ClusteringLabel> {
+    TopicKey::new(topic_key).ok()?.clustering_label()
 }
 
 /// A stored statement's id is `zid#topic_key#statement_job`.
@@ -554,7 +556,8 @@ mod tests {
     /// to six characters over an alphabet that holds the separator, a
     /// letter, a digit, a sign, a space and a two-byte character: every
     /// shape of key (none, one, two or more separators; empty parts; keys
-    /// of other formats), so the command prints what it printed before.
+    /// of other formats), as a text and as the JSON the command writes, so
+    /// the command prints what it printed before.
     #[test]
     fn the_typed_read_agrees_with_the_hand_split_on_every_short_key() {
         let alphabet = ['#', 'a', '0', '-', ' ', 'é'];
@@ -566,6 +569,13 @@ mod tests {
                 assert_eq!(
                     job_of(key).map(|j| j.to_string()).as_deref(),
                     job_by_hand(key),
+                    "{key:?}"
+                );
+                // What the command writes for it: the same JSON, a string
+                // or null.
+                assert_eq!(
+                    serde_json::to_string(&job_of(key)).unwrap(),
+                    serde_json::to_string(&job_by_hand(key)).unwrap(),
                     "{key:?}"
                 );
                 checked += 1;

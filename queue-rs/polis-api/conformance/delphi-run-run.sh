@@ -3,9 +3,13 @@
 # migration chain (with pd_run_record) to a fresh Postgres, seeds the public
 # biodiversity fixture through the vote convention module, runs two real
 # full pipelines through the queue worker (polis-jobs) with a synchronous
-# collective-statement save between them (the server's pd_result_mutate),
-# then records polis-api's raw answers for moderators and refusals and checks
-# each record against pd_run_record's own output. Public-fixture data only.
+# collective-statement save after each (the server's pd_result_mutate), then
+# records polis-api's raw answers for moderators and refusals and checks each
+# record against pd_run_record's own output. The second save rewrites the
+# statement family whole, so the bundle it publishes holds a statement over
+# each run's topics while its record names one job for the family: the
+# stored rows of that bundle are recorded beside the record. Public-fixture
+# data only.
 #
 #   COMPOSE_PROJECT_NAME=delphi-run-$(openssl rand -hex 3) \
 #   DELPHI_RUN_PG_PORT=25471 DELPHI_RUN_API_PORT=25472 \
@@ -21,7 +25,13 @@
 # downloads all-MiniLM-L6-v2 from the Hugging Face hub into DELPHI_RUN_HF_HOME
 # unless it is already cached there. DELPHI_RUN_SCRATCH (default: a new
 # temporary directory) must be a directory Docker can mount. The stack is
-# always removed on exit, volumes included.
+# always removed on exit, volumes included. DELPHI_RUN_FIXTURES, when set,
+# names a directory that receives each job's record, the route's bytes for
+# it and the last save's stored rows under the names of
+# conformance/delphi-run-fixtures. Every job id is new on each recording and
+# tests name the committed job ids of first and second: to refresh the
+# committed fixtures, copy the statement-after-second files only, or change
+# those ids with the files.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 python3 "$root/ci/host_ports.py" env DELPHI_RUN_PG_PORT DELPHI_RUN_API_PORT
@@ -78,16 +88,30 @@ wait_for() {
 "${compose[@]}" --profile worker up -d --no-deps worker
 first=$(admit real-run-1)
 wait_for "$first"
-# A collective statement save over the first run's topics, as the server makes it.
-topic=$(psql -U postgres -c "SELECT item->'topic_key'->>'S' FROM delphi_result_current_rows WHERE env='local' AND zid=1424 AND family='Delphi_CommentClustersLLMTopicNames' ORDER BY item_key::text LIMIT 1")
-statement=$(psql -U runrecord_worker -c "SELECT pd_result_mutate('local','delphi','server-delphi',gen_random_uuid(),'Delphi_CollectiveStatement','put',jsonb_build_object('zid_topic_jobid',jsonb_build_object('S','1424#$topic#'||gen_random_uuid()),'zid',jsonb_build_object('S','1424'),'topic_key',jsonb_build_object('S','$topic'),'statement_data',jsonb_build_object('S','{\"statement\":\"Written for the replay; no model.\"}'),'comments_data',jsonb_build_object('S','[]'),'model',jsonb_build_object('S','none')))->>'job_id'")
+# A collective statement save over a topic of the served topic names, as the
+# server makes it.
+save_statement() {
+  local topic
+  topic=$(psql -U postgres -c "SELECT item->'topic_key'->>'S' FROM delphi_result_current_rows WHERE env='local' AND zid=1424 AND family='Delphi_CommentClustersLLMTopicNames' ORDER BY item_key::text LIMIT 1")
+  psql -U runrecord_worker -c "SELECT pd_result_mutate('local','delphi','server-delphi',gen_random_uuid(),'Delphi_CollectiveStatement','put',jsonb_build_object('zid_topic_jobid',jsonb_build_object('S','1424#$topic#'||gen_random_uuid()),'zid',jsonb_build_object('S','1424'),'topic_key',jsonb_build_object('S','$topic'),'statement_data',jsonb_build_object('S','{\"statement\":\"Written for the replay; no model.\"}'),'comments_data',jsonb_build_object('S','[]'),'model',jsonb_build_object('S','none')))->>'job_id'"
+}
+statement=$(save_statement)
 second=$(admit real-run-2)
 wait_for "$second"
 "${compose[@]}" --profile worker stop worker >/dev/null
-for job in "$first" "$statement" "$second"; do
+# A second save, over the second run's topics: the first statement is copied
+# forward into the batch this job writes.
+after=$(save_statement)
+for job in "$first" "$statement" "$second" "$after"; do
   psql -U runrecord_worker -c "SELECT pd_run_record('local','$job')::text" >"$DELPHI_RUN_ARTIFACTS/record-$job.json"
 done
-printf '{"first":"%s","statement":"%s","second":"%s"}\n' "$first" "$statement" "$second" >"$DELPHI_RUN_ARTIFACTS/jobs.json"
+# The stored rows of the bundle the second save published, family by family
+# as a reader of that artifact gets them.
+artifact=$(psql -U postgres -c "SELECT artifact_id FROM delphi_artifacts WHERE env='local' AND job_id='$after' AND output_role='result'")
+for family in Delphi_CollectiveStatement Delphi_CommentClustersLLMTopicNames; do
+  psql -U runrecord_worker -c "SELECT pd_result_artifact_family('local','$artifact','$family')::text" >"$DELPHI_RUN_ARTIFACTS/rows-$family.json"
+done
+printf '{"first":"%s","statement":"%s","second":"%s","statement-after-second":"%s"}\n' "$first" "$statement" "$second" "$after" >"$DELPHI_RUN_ARTIFACTS/jobs.json"
 node "$here/delphi-run-replay.cjs" keys "$DELPHI_RUN_ARTIFACTS"
 "${compose[@]}" --profile api up -d --no-deps polis-api
 for _ in $(seq 60); do
@@ -96,4 +120,8 @@ for _ in $(seq 60); do
 done
 status=0
 DELPHI_RUN_API="127.0.0.1:$DELPHI_RUN_API_PORT" node "$here/delphi-run-replay.cjs" replay "$DELPHI_RUN_ARTIFACTS" >"$out" || status=$?
+if [[ $status -eq 0 && -n "${DELPHI_RUN_FIXTURES:-}" ]]; then
+  mkdir -p "$DELPHI_RUN_FIXTURES"
+  node "$here/delphi-run-replay.cjs" fixtures "$DELPHI_RUN_ARTIFACTS" "$DELPHI_RUN_FIXTURES"
+fi
 exit $status
