@@ -152,6 +152,11 @@ fn aggregate(agg: &Agg, rows: &[&Line], bounds: Bounds) -> V {
             .filter_map(|row| row.get(*field).and_then(number))
             .fold(None, |m: Option<f64>, v| Some(m.map_or(v, |m| m.max(v))))
             .map_or(V::Null, V::Num),
+        Agg::Min(field) => rows
+            .iter()
+            .filter_map(|row| row.get(*field).and_then(number))
+            .fold(None, |m: Option<f64>, v| Some(m.map_or(v, |m| m.min(v))))
+            .map_or(V::Null, V::Num),
         Agg::Pct(field, p) => {
             let mut values: Vec<f64> = rows
                 .iter()
@@ -204,10 +209,16 @@ fn stage(stats: &Stats, rows: &[Line], bounds: Bounds) -> Vec<Line> {
             .iter()
             .map(|k| match k {
                 Key::Field(name) => key_text(row.get(*name).unwrap_or(&V::Null)),
-                Key::Hour => row
-                    .get("@timestamp")
-                    .and_then(number)
-                    .map(|ms| crate::time::format((ms as i64).div_euclid(3_600_000) * 3600)),
+                Key::Hour | Key::FiveMinutes | Key::Day => {
+                    let width = match k {
+                        Key::Hour => 3600,
+                        Key::Day => 86_400,
+                        _ => 300,
+                    };
+                    row.get("@timestamp")
+                        .and_then(number)
+                        .map(|ms| crate::time::format((ms as i64).div_euclid(width * 1000) * width))
+                }
             })
             .collect();
         groups.entry(key).or_default().push(row);
@@ -222,7 +233,7 @@ fn stage(stats: &Stats, rows: &[Line], bounds: Bounds) -> Vec<Line> {
             for (k, value) in stats.by.iter().zip(key) {
                 let name = match k {
                     Key::Field(name) => (*name).to_owned(),
-                    Key::Hour => "hour".to_owned(),
+                    other => other.bin_name().unwrap_or_default().to_owned(),
                 };
                 out.insert(name, value.map(V::Str).unwrap_or(V::Null));
             }
@@ -236,6 +247,19 @@ fn stage(stats: &Stats, rows: &[Line], bounds: Bounds) -> Vec<Line> {
 
 /// Runs `q` over `lines` for a window, as `run` would issue it.
 pub fn run(q: &Query, lines: &[Line], from_s: i64, to_s: i64) -> Vec<Row> {
+    run_capped(q, lines, from_s, to_s, None)
+}
+
+/// `run`, in an account whose Logs Insights keeps at most `cap` rows of a
+/// first stage before the second reads them. Whether a real account does is
+/// not known; the tool is built so that it does not matter.
+pub fn run_capped(
+    q: &Query,
+    lines: &[Line],
+    from_s: i64,
+    to_s: i64,
+    cap: Option<usize>,
+) -> Vec<Row> {
     let bounds = Bounds::Window {
         from_ms: from_s * 1000,
         to_ms: to_s * 1000,
@@ -257,8 +281,13 @@ pub fn run(q: &Query, lines: &[Line], from_s: i64, to_s: i64) -> Vec<Row> {
             row.insert((*name).to_owned(), value);
         }
     }
-    for stats in &q.stages {
+    for (i, stats) in q.stages.iter().enumerate() {
         rows = stage(stats, &rows, bounds);
+        if let Some(cap) = cap
+            && i + 1 < q.stages.len()
+        {
+            rows.truncate(cap);
+        }
     }
     rows.into_iter()
         .take(ROW_LIMIT)
