@@ -64,21 +64,14 @@ fn mirror(id: &str, at: i64, status: u16, upstream: &str, seconds: f64) -> (i64,
 
 #[derive(Clone, Copy)]
 pub(crate) enum Next {
-    Statement {
-        tid: i64,
-        remaining: i64,
-        total: i64,
-    },
-    Topical {
-        tid: i64,
-    },
+    Statement { remaining: i64, total: i64 },
+    Topical,
     None,
 }
 
 /// Node's `vote_reply` as winston writes it (server/src/routes/votes.ts):
 /// level, message, the line's fields, service, timestamp. The line names no
-/// statement: a scenario's `tid` says which statement Node served and is
-/// written nowhere.
+/// statement: whether Node served one, and the two counts.
 pub(crate) fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>) -> (i64, String) {
     let mut line = json!({
         "level": if status >= 500 { "error" } else if status >= 400 { "warn" } else { "info" },
@@ -88,16 +81,12 @@ pub(crate) fn reply(id: &str, at: i64, zid: i64, status: u16, next: Option<Next>
     });
     let o = line.as_object_mut().unwrap();
     match next {
-        Some(Next::Statement {
-            tid: _,
-            remaining,
-            total,
-        }) => {
+        Some(Next::Statement { remaining, total }) => {
             o.insert("node_next".into(), json!("statement"));
             o.insert("node_remaining".into(), json!(remaining));
             o.insert("node_total".into(), json!(total));
         }
-        Some(Next::Topical { tid: _ }) => {
+        Some(Next::Topical) => {
             o.insert("node_next".into(), json!("topical"));
         }
         Some(Next::None) => {
@@ -322,9 +311,7 @@ impl Fixture {
         self.at += 7_000;
         let t = self.at;
         let id = id(n);
-        let node_tid = 4;
-        let statement = |tid| Next::Statement {
-            tid,
+        let statement = || Next::Statement {
             remaining: 12,
             total: 20,
         };
@@ -335,8 +322,8 @@ impl Fixture {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
                 let node_next = match case {
-                    Case::Topical => Next::Topical { tid: node_tid },
-                    _ => statement(node_tid),
+                    Case::Topical => Next::Topical,
+                    _ => statement(),
                 };
                 push(reply(&id, t, zid, 200, Some(node_next)));
                 push(access(&id, t, 200));
@@ -372,7 +359,7 @@ impl Fixture {
             Case::ClosedDisagree => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
                 let mut o = Obs::serve(zid, None);
                 o.status = Some(403);
@@ -384,7 +371,7 @@ impl Fixture {
             Case::HandBack(reason) => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
                 push(observation(&id, t + 1_000, &Obs::hand_back(reason)));
             }
@@ -397,13 +384,13 @@ impl Fixture {
             Case::NotCopied => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "", 0.0));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
             }
             Case::Shed => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
                 let mut o = Obs::hand_back("rate_cap");
                 o.outcome = "shed";
@@ -413,7 +400,7 @@ impl Fixture {
             Case::Cors => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
                 let mut o = Obs::hand_back("cors");
                 o.outcome = "would_fail";
@@ -423,7 +410,7 @@ impl Fixture {
             Case::ClientGone => {
                 push(edge(&id, t, 499, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(observation(
                     &id,
                     t + 2_500,
@@ -442,13 +429,13 @@ impl Fixture {
             Case::HostAbsent => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 502, "", 0.0));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
             }
             Case::NotReadBack => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 204, "204", 0.001));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
                 let mut o = Obs::serve(zid, Some((12, 20)));
                 o.node_vote = "not_checked";
@@ -457,7 +444,7 @@ impl Fixture {
             Case::Uncovered => {
                 push(edge(&id, t, 200, "0.012"));
                 push(mirror(&id, t, 504, "504", 0.030));
-                push(reply(&id, t, zid, 200, Some(statement(node_tid))));
+                push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
             }
         }
