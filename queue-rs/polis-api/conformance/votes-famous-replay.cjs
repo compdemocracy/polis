@@ -296,10 +296,10 @@ async function main() {
       const f = take();
       const org = await open(f);
       await run("no-math/cold/anonymous", f, "anonymous");
-      await run("no-math/warm/member-after-anonymous", f, "member", { note: "Node answers from the rows it cached for the anonymous requester" });
+      await run("no-math/warm/member-after-anonymous", f, "member", { note: "answered from the rows kept by the first request of this window" });
       cold();
       await run("no-math/cold/member", f, "member");
-      await run("no-math/warm/anonymous-after-member", f, "anonymous", { note: "Node answers from the rows it cached for the member, isSelf included" });
+      await run("no-math/warm/anonymous-after-member", f, "anonymous", { note: "answered from the rows kept by the first request of this window" });
       await run("no-math/warm/second-after-member", f, "second", { note: "as above, for another member" });
       cold();
       await run("no-math/cold/member-without-a-choice", f, "second");
@@ -314,7 +314,7 @@ async function main() {
       cold();
       await run("no-math/cold/member-with-external-id", f, "second", { tail: "&math_tick=1" });
       await run("no-math/warm/member-with-external-id/head", f, "second", { tail: "&math_tick=1", method: "HEAD" });
-      await run("no-math/warm/member-sees-the-external-id-member", f, "member", { tail: "&math_tick=1", note: "the rows cached for the first requester of this tick" });
+      await run("no-math/warm/member-sees-the-external-id-member", f, "member", { tail: "&math_tick=1", note: "the rows kept by the first request of this tick" });
       await run("no-math/limit-zero", f, "second", { tail: "&ptptoiLimit=0" });
     }
 
@@ -391,9 +391,9 @@ async function main() {
       const first = clock;
       await run("bounds/rows/first/member", f, "member", { tail: "&math_tick=3" });
       clock = first + 30000;
-      await run("bounds/rows/at-30000ms/second", f, "second", { tail: "&math_tick=3", note: "still the first requester's rows" });
+      await run("bounds/rows/at-30000ms/second", f, "second", { tail: "&math_tick=3", note: "still the kept rows" });
       clock = first + 30001;
-      await run("bounds/rows/at-30001ms/second", f, "second", { tail: "&math_tick=3", note: "read again for this requester" });
+      await run("bounds/rows/at-30001ms/second", f, "second", { tail: "&math_tick=3", note: "read again" });
       await run("bounds/rows/same-limit-spelled-out/member", f, "member", { tail: "&math_tick=3&ptptoiLimit=30", note: "the default limit, spelled out: the same cached rows" });
       await run("bounds/rows/other-limit/member", f, "member", { tail: "&math_tick=3&ptptoiLimit=29", note: "another limit: other rows" });
       await run("bounds/rows/other-tick/member", f, "member", { tail: "&math_tick=2", note: "another tick: other rows" });
@@ -498,7 +498,7 @@ async function main() {
       await run("math/tick/newer", f, "member", { tail: "&math_tick=9", note: "a newer tick than the cached one: read again" });
       await run("math/tick/warm/latest", f, "member", { tail: `&math_tick=${LATEST}` });
       await run("math/tick/warm/absent", f, "member");
-      await run("math/tick/warm/absent/second", f, "second", { note: "the rows cached for the first requester of this tick" });
+      await run("math/tick/warm/absent/second", f, "second", { note: "the rows kept by the first request of this tick" });
       await run("math/tick/large", f, "member", { tail: "&math_tick=9007199254740991" });
       await cast(f, 1, 11, "pass");
       await run("math/tick/after-large", f, "member", { tail: "&math_tick=12", note: "cached at the large tick: the new choice is missing" });

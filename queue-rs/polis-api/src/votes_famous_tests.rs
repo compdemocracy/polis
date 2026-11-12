@@ -282,7 +282,7 @@ async fn histories_and_both_caches_answer_as_the_recorded_node_replies() {
         stack.reply(1, Some(3), latest).await,
         recorded("history/cold/member")
     );
-    // The rows Node kept for the member answer the anonymous requester.
+    // A request that follows within 30 seconds is answered from the kept rows.
     assert_eq!(
         stack.reply(1, None, latest).await,
         recorded("history/warm/anonymous")
@@ -398,8 +398,8 @@ async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
     assert!(own.starts_with(r#"{"2":{"priority":1000,"#), "{own}");
     assert!(!own.contains(r#""1":"#), "{own}");
     // The limit is part of the rows' key. Another limit at the same tick is
-    // read for the requester who asks it, and the first limit keeps the rows
-    // of its own first requester.
+    // read anew, and the first limit keeps the rows of its own first
+    // request.
     let wider = stack.ask(1, Some(3), 51, 2).await.unwrap();
     assert!(wider.starts_with(r#"{"1":{"priority":1000,"#), "{wider}");
     assert_eq!(stack.ask(1, Some(3), 51, 1).await.unwrap(), own);

@@ -87,7 +87,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "Node answers from the rows it cached for the anonymous requester",
+    "note": "answered from the rows kept by the first request of this window",
     "body": "{}"
   },
   {
@@ -106,7 +106,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "Node answers from the rows it cached for the member, isSelf included",
+    "note": "answered from the rows kept by the first request of this window",
     "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\"}}"
   },
   {
@@ -180,7 +180,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049&math_tick=1",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "the rows cached for the first requester of this tick",
+    "note": "the rows kept by the first request of this tick",
     "body": "{\"2\":{\"priority\":1000,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/p2.png\",\"x_name\":\"Name & <b>2</b> \ud83d\ude42\"},\"isSelf\":true,\"votes\":\"uuud\"}}"
   },
   {
@@ -366,7 +366,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61052&math_tick=3",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "still the first requester's rows",
+    "note": "still the kept rows",
     "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10},\"4\":{\"priority\":100,\"pid\":4,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/b4.png\",\"x_name\":\"Four\"},\"votes\":\"upuuuuu\",\"bid\":12}}"
   },
   {
@@ -376,7 +376,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61052&math_tick=3",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "read again for this requester",
+    "note": "read again",
     "body": "{\"2\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":2,\"isSelf\":true,\"votes\":\"a\",\"bid\":11},\"4\":{\"priority\":100,\"pid\":4,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/b4.png\",\"x_name\":\"Four\"},\"votes\":\"upuuuuu\",\"bid\":12}}"
   },
   {
@@ -791,7 +791,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61054",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "the rows cached for the first requester of this tick",
+    "note": "the rows kept by the first request of this tick",
     "body": "{\"0\":{\"priority\":900,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":0,\"votes\":\"auduuuuuuu\",\"bid\":10},\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapdauua\",\"bid\":10},\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/a2.png\",\"x_name\":\"Name & <b>2</b> \ud83d\ude42\"},\"votes\":\"pauuupuuuu\",\"bid\":11},\"3\":{\"priority\":100,\"pid\":3,\"xInfo\":{\"x_profile_image_url\":\"\",\"x_name\":\"Empty picture\"},\"votes\":\"duuuuuuuuu\",\"bid\":12},\"9\":{\"priority\":999,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":9,\"votes\":\"uuuuuuauuu\",\"bid\":11},\"11\":{\"priority\":100,\"x_profile_image_url\":\"\",\"xid\":\"\",\"x_name\":\"Flat \\\"name\\\" \\\\ \u2028\",\"x_email\":null,\"pid\":11,\"votes\":\"uuuuuauuuu\",\"bid\":12},\"12\":{\"priority\":999,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":12,\"votes\":\"uuuuuupuuu\",\"bid\":13}}"
   },
   {

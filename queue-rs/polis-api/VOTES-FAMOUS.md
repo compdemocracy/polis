@@ -81,13 +81,11 @@ sequence gives the same bytes on both sides. They are per process: a Node
 process and a polis-api process never share them.
 
 - **The participant rows**, 30 seconds, at most 999 entries, under a key of
-  the conversation, the limit and the request's `math_tick`. The key does not
-  include the requester. Within 30 seconds every requester with the same key
-  is answered from the first requester's rows: that requester's row, with
-  `isSelf: true`, is in everyone's reply, and a later requester's own row is
-  there only if they are featured for another reason. The replay records
-  this on Node (`no-math/warm/anonymous-after-member` and others) and the
-  handler answers the same.
+  the conversation, the limit and the request's `math_tick`. The kept rows
+  are the first request's, as in Node; a following change to both servers
+  makes the requester's own row per request. The replay records the kept
+  rows on Node cold, warm and at the 30-second boundary, and the handler
+  answers the same.
 - **Each participant's letters**, at most 5000 entries, with the `math_tick`
   of the request that read them. They are read again only for a request whose
   `math_tick` is greater. A request without `math_tick` (it defaults to the
@@ -101,8 +99,8 @@ Where this handler differs on purpose:
 
 - Both caches also have a bound in bytes (16 MiB of participant rows, 32 MiB
   of letters). Node has none. An entry that leaves early is read again: the
-  letters can only be fresher, and the rows are then the asking requester's
-  own.
+  letters can only be fresher, and the rows are read as they are once their
+  30 seconds have passed.
 - The authors of featured comments are read only when the participant rows
   are; Node reads them on every request and uses them only then.
 - The conversation code is resolved on every request; Node keeps it.

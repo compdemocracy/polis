@@ -16,10 +16,10 @@
 //! 4. `getSocialParticipants`: the requester, moderators' pins, those
 //!    authors and the conversation's external-id participants, by priority, up
 //!    to `ptptoiLimit`. Node keeps the rows 30 seconds under a key of the
-//!    conversation, the limit and the request's `math_tick`, and NOT of the
-//!    requester: within that time every requester is answered from the first
-//!    requester's rows, `isSelf` included. [`State`] keeps the same rows under
-//!    the same key for the same time;
+//!    conversation, the limit and the request's `math_tick`. The kept rows
+//!    are the first request's, as in Node; a following change to both makes
+//!    the requester's own row per request. [`State`] keeps the same rows
+//!    under the same key for the same time;
 //! 5. each of those participants' history of choices, as one letter a
 //!    comment. Node keeps a participant's letters under the `math_tick` of the
 //!    request that read them and reads them again only for a request with a
@@ -56,7 +56,7 @@ const SHOWN_FROM: i32 = 0;
 const FIRST_COMMITTED_TICK: i64 = 0;
 /// `socialParticipantsCache`: 30 seconds, 999 entries. Node has no bound in
 /// bytes; this one only ever makes an entry leave earlier, which reads it
-/// again, for the requester who asks.
+/// again.
 const ROWS_KEPT_MS: f64 = 30_000.0;
 const ROWS_ENTRIES: usize = 999;
 const ROWS_BYTES: usize = 16 << 20;
@@ -1106,10 +1106,10 @@ mod tests {
     }
 
     #[test]
-    fn a_requester_answered_from_another_requesters_rows_gets_that_requesters_mark() {
-        // Node keeps the rows by conversation, limit and tick, not by
-        // requester. The recorded reply to an anonymous request that follows
-        // a member's within 30 seconds is the member's.
+    fn kept_rows_answer_the_requests_that_follow_as_the_recorded_node_replies() {
+        // Node keeps the rows by conversation, limit and tick. The kept rows
+        // are the first request's; the recorded replies to the requests that
+        // follow within 30 seconds are the same bytes.
         let letters: BTreeMap<i32, Arc<str>> = [(1, Arc::from("apdapda"))].into_iter().collect();
         let members = [row(1000, 1, none())];
         let reply = body(&members, &letters, &Read::Absent);
