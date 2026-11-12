@@ -14,7 +14,7 @@ route sends a comment to it.
 |---|---|---|
 | unset, empty, `0` | off | off |
 | `1` | the live handler | startup error |
-| `observe` | startup error | accepted; nothing is built for it yet |
+| `observe` | startup error | the observer (below): it reads, and writes nothing |
 | anything else | startup error | startup error |
 
 The live handler also requires `SHOULD_USE_TRANSLATION_API=false` (Node detects
@@ -22,8 +22,12 @@ a comment's language when that setting is on, and that stays Node's),
 `POLIS_API_POST_COMMENTS_DATABASE_URL` (the primary), `POLIS_JWT_ISSUER`,
 `POLIS_JWT_AUDIENCE`, and a participant public key: the file named by
 `POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE`, or else the participant keys the
-process loads at startup. With the switch off nothing is built: no pool, no
-verifier, no connection.
+process loads at startup. The observer requires the same, and
+`POLIS_API_SHADOW_COMMENTS_MAX_PER_SECOND` (1 to 10000). With the switch at
+`observe` and any of these missing or out of range, the shadow process does
+not start, and the vote observer in that process stops with it: the switch
+and what it requires have to arrive in one change. With the switch off
+nothing is built: no pool, no verifier, no connection.
 
 ## What is admitted
 
@@ -166,6 +170,79 @@ writer of comments takes; a vote never takes it. A test holds that lock so
 that all four insert connections are stuck, then casts votes in the same
 conversation through the vote writer: each is stored and answered without
 waiting for a connection.
+
+## Observe mode
+
+In the shadow role (`POLIS_API_ROLE=shadow`) with the switch at `observe`, the
+shadow listener serves a second mirrored route beside the vote route: a copy
+of `POST /api/v3/comments` carrying `X-Polis-Shadow: commentsShadow`. Node
+answers the participant; the copy is answered 204 at once and then observed.
+Nothing sends such copies yet: no nginx file names `commentsShadow`.
+
+The observer holds two read-only pools (admission: 2 connections; the
+read-back: 1; each 100 ms to get a connection and 100 ms a statement) and
+nothing that can write. It runs the live handler's own shape check, token
+verification, admin refusal and admission statement under the live deadline,
+and says what the live handler would do:
+
+| `outcome` | The live handler would |
+|---|---|
+| `would_serve` | dispatch the write (would-be status 200). The write itself is not modelled: the insert, the comment's number, the author's vote, the notification work, the reply deadline |
+| `would_answer` | answer without writing: 409 (`reason: duplicate`), 403 (`reason: closed`), or the answer the route's prelude gives a revoked session (`reason: revoked`) |
+| `would_hand_back` | hand the request to Node, for the `reason` in the table above (`strict_moderation` included) |
+| `would_fail` | answer a 5xx before the write; nothing in the handler does |
+| `unknown` | not known (`reason: no_anchor`, below) |
+| `shed`, `not_observed` | the copy was not observed: over the lane's rate (`rate_cap`) or its room (`lane_full`), or the process also holds a live handler |
+
+Node may have stored the comment before the copy's admission reads, so the
+row admission finds with the same text is classified (`text_row`): `none`;
+`own`, this participant's row created no earlier than five seconds before the
+copy's database-time anchor, which is Node's row for this very request and
+not a duplicate; `other`, any other row, a duplicate as it is for Node; and
+`unknown`, this participant's row when the anchor could not be read. An
+unknown copy has no would-be status and is never counted as agreeing or
+disagreeing with Node. The same person sending the same text twice within
+five seconds is `own` on the second copy while Node answers it 409.
+
+Two seconds after the copy arrived, and once more at ten seconds when the
+comment is not there yet (or it is and the vote the copy carried is not), the
+observer reads what Node stored, by the unique key on (zid, txt), holding no
+connection while it waits. `node_comment` is `own`, `other`, `absent`,
+`unknown` (no anchor: not looked for), `unavailable` (the read failed) or
+`not_checked`. For Node's own row it compares, in process: the text
+(`node_txt`: `same`, or `different` with a class `space`, `control`, `case`,
+`truncated` or `other` and the two lengths in UTF-16 units and bytes); the
+user (`node_author`); the columns against what the live insert stores
+(`node_row`: `as_expected`, or the first of `mod`, `active`, `is_seed`,
+`velocity`, `anon` that differs); the language (`node_lang`: `unset`, `set`);
+and the author's vote through the vote convention (`node_vote`: `same`,
+`different`, `ambiguous`, `absent`, `not_sent`, `unavailable`,
+`not_checked`). Because the row is found by its text, a comment Node stored
+under a text other than the one this handler parsed is not found: it reads
+`absent`, beside Node's 200.
+
+One `shadow_observation` line is printed per copy (`shadow:
+"commentsShadow"`). It carries no conversation, comment, participant or user
+number, no text or part or hash of text, no vote value, token, address or
+header value; nginx's request id is its only join key. Every value is a
+number, a boolean or a word from a closed set: the outcome, `admitted`, the
+would-be `status`, `reason`, `queue_ms`, `admission_ms`, `total_ms`,
+`readback_s`, `strict`, `vote_present`, `seed_present`, `body_class`,
+`write: "not_modelled"`, and the classes above. A copy's body is dropped when
+its admission ends; the parsed text alone is kept, in the type that cannot be
+printed, until the read-back ends. A process that builds the observer prints
+a panic's location and never its message, and prints once, at startup, the
+server's settings that decide whether a statement's parameters can reach its
+log (`shadow_post_comments_database_logging`): the text is a query parameter
+here, as it is in Node.
+
+The comment route has a lane of its own: at most 8 observations in admission,
+at most 64 waiting for their read-back, and its own rate
+(`POLIS_API_SHADOW_COMMENTS_MAX_PER_SECOND`). The vote route's lane, rate and
+pools are the vote route's alone. `/health` on the shadow listener gains a
+`postComments` key when the observer is built, with its counters, lane and
+pools; every other key is unchanged, and `status` then also needs the comment
+observer's read-back database to answer.
 
 ## Tests
 

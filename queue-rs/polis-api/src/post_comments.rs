@@ -206,24 +206,24 @@ fn mode(role: crate::shadow::Role, switch: Switch) -> Result<Switch> {
 pub(crate) enum Configured {
     Off,
     Live(Box<Writer>),
-    /// Accepted by the shadow role. Nothing is built for it yet: no pool, no
-    /// verifier, and no request is served or observed.
-    Observe,
+    /// Built only by the shadow role: admission and the read-back of what
+    /// Node stored, on read-only pools, and nothing that can write.
+    Observe(Box<Observer>),
 }
 
-/// The comment handler this process's role builds. The live handler verifies
-/// participant tokens with the key in POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE
-/// when that is set, and otherwise with the participant keys the process
-/// loaded at startup.
+/// The comment handler this process's role builds: the live handler in the
+/// main role, the observer in the shadow role. Both share every startup
+/// condition below, and both verify participant tokens with the key in
+/// POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE when that is set, and otherwise
+/// with the participant keys the process loaded at startup.
 pub(crate) fn configure(
     role: crate::shadow::Role,
     keys: Option<&polis_auth::keys::Keys>,
 ) -> Result<Configured> {
     let value = std::env::var("POLIS_API_POST_COMMENTS").ok();
-    match mode(role, parse_switch(value.as_deref())?)? {
-        Switch::Off => return Ok(Configured::Off),
-        Switch::Observe => return Ok(Configured::Observe),
-        Switch::Live => {}
+    let switch = mode(role, parse_switch(value.as_deref())?)?;
+    if switch == Switch::Off {
+        return Ok(Configured::Off);
     }
     // Node detects a comment's language when its translation setting is on.
     // That provider stays Node's: an absent setting does not mean off.
@@ -252,6 +252,9 @@ pub(crate) fn configure(
     .context("invalid participant verifier configuration")?;
     let admins: Vec<i32> =
         serde_json::from_str(&std::env::var("ADMIN_UIDS").unwrap_or_else(|_| "[]".into()))?;
+    if switch == Switch::Observe {
+        return observe::build(&dsn, verifier, admins);
+    }
     Ok(Configured::Live(Box::new(Writer::new(
         |name| config::connector_for_dsn(&dsn, name),
         verifier,
@@ -357,7 +360,7 @@ fn request_reasoned(req: &Request) -> Result<(String, Comment), &'static str> {
 /// Why the route prelude answers a comment without reaching `handle`. Pure:
 /// no database work.
 fn ineligible(app: &App, req: &Request) -> Option<&'static str> {
-    if app.post_comments.is_none() {
+    if app.post_comments.is_none() && app.post_comments_observe.is_none() {
         return Some("unconfigured");
     }
     if !app.production {
@@ -533,7 +536,6 @@ struct Refused {
     /// The conversation, when admission resolved it.
     #[allow(dead_code)]
     zid: Option<i32>,
-    #[allow(dead_code)]
     admission: Option<Duration>,
 }
 
@@ -547,9 +549,33 @@ impl Refused {
     }
 }
 
+/// A request admission accepted, before any decision is taken from it.
+struct Checked {
+    admitted: Admitted,
+    text: CommentText,
+    vote: Option<VoteChoice>,
+    admission: Duration,
+}
+
 /// Everything before the decision: the request's shape, the token, the admin
 /// refusal, and admission under its deadline.
 async fn prepare(writer: Admission<'_>, req: &Request) -> Result<Prepared, Refused> {
+    let Checked {
+        admitted,
+        text,
+        vote,
+        admission,
+    } = check(writer, req).await?;
+    Ok(Prepared {
+        decision: decide(&admitted, text, vote),
+        admission,
+    })
+}
+
+/// `prepare` up to the decision, for the live handler and for observe mode
+/// alike: the same shape check, token verification, admin refusal and
+/// admission statement, under the same deadline.
+async fn check(writer: Admission<'_>, req: &Request) -> Result<Checked, Refused> {
     let (cid, comment) = request_reasoned(req).map_err(Refused::before_admission)?;
     let Some(auth) = req.headers.get("authorization") else {
         return Err(Refused::before_admission("no_token"));
@@ -586,8 +612,10 @@ async fn prepare(writer: Admission<'_>, req: &Request) -> Result<Prepared, Refus
         Ok(Err(_)) => return Err(refused("admission_unavailable", None)),
         Err(_) => return Err(refused("admission_timeout", None)),
     };
-    Ok(Prepared {
-        decision: decide(&admitted, text, vote),
+    Ok(Checked {
+        admitted,
+        text,
+        vote,
         admission: admission_time,
     })
 }
@@ -943,6 +971,11 @@ async fn dispatch(
 }
 
 pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
+    // A process holds one mode. Observe is checked first, so a copy can never
+    // reach the live handler's dispatch.
+    if let Some(observer) = &app.post_comments_observe {
+        return observe::handle(observer, req, res).await;
+    }
     let Some(writer) = &app.post_comments else {
         return route::bad_gateway();
     };
@@ -1146,6 +1179,57 @@ pub(crate) fn mark_handback(out: &mut Outgoing) {
         out.headers.push((DISPATCH.into(), "not-started".into()));
     }
 }
+
+/// Why the route prelude answered a comment without reaching `handle`, in
+/// the prelude's own order (`route::serve`): the revocation snapshot, the
+/// handler's eligibility, the HTTPS rule and the body checks. Pure: no
+/// database work. Observe mode records it when the record has no reason.
+pub(crate) fn shape_reason(app: &App, req: &Request) -> Option<&'static str> {
+    if let Some(raw) = req.headers.get("authorization")
+        && crate::revocation::refusal(app, raw, (crate::clock::now_ms() / 1000.0) as u64).is_some()
+    {
+        return Some("revoked");
+    }
+    if let Some(reason) = ineligible(app, req) {
+        return Some(reason);
+    }
+    let has_body = req.headers.get("transfer-encoding").is_some()
+        || req
+            .headers
+            .get("content-length")
+            .is_some_and(|v| !js::string_to_number(v).is_nan());
+    if has_body
+        && !crate::params::body_is_modelled(
+            req.headers.get("content-type"),
+            req.headers.get("content-encoding"),
+        )
+    {
+        return Some("body_unmodelled");
+    }
+    if matches!(
+        crate::params::parse_body(req.headers.get("content-type"), has_body, &req.body),
+        crate::params::Body::Invalid
+    ) {
+        return Some("parameter");
+    }
+    None
+}
+
+/// What a copy says about itself without any database work and whatever its
+/// shape: whether its body carries a vote, and whether it carries the seed
+/// flag. Never the text, the vote's value, the token or the conversation
+/// code. The parsed body is dropped here.
+pub(crate) fn copy_facts(req: &Request) -> (bool, bool) {
+    let Ok(serde_json::Value::Object(body)) = serde_json::from_slice(&req.body) else {
+        return (false, false);
+    };
+    let present = |key: &str| body.get(key).is_some_and(|value| !value.is_null());
+    (present("vote"), present("is_seed"))
+}
+
+#[path = "post_comments_observe.rs"]
+pub(crate) mod observe;
+pub(crate) use observe::Observer;
 
 #[cfg(test)]
 #[path = "post_comments_tests.rs"]

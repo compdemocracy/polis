@@ -308,8 +308,9 @@ fn the_switch_has_three_values_and_each_role_refuses_the_others_mode() {
 }
 
 /// `configure` in a process of its own, for each role and switch value: what
-/// it builds, and that the shadow role's `observe` builds nothing and needs
-/// nothing (no database, no key, no translation setting).
+/// it builds, and that the shadow role's `observe` builds the observer, with
+/// no pool that can write, under the live handler's own startup conditions
+/// (`post_comments_observe_tests.rs` holds what the observer is).
 #[test]
 fn configure_builds_the_live_handler_only_in_the_main_role() {
     const CHILD: &str = "POLIS_COMMENT_CONFIGURE_TEST";
@@ -323,7 +324,7 @@ fn configure_builds_the_live_handler_only_in_the_main_role() {
         let built = match configure(role, None) {
             Ok(Configured::Off) => "off".to_owned(),
             Ok(Configured::Live(_)) => "live".to_owned(),
-            Ok(Configured::Observe) => "observe".to_owned(),
+            Ok(Configured::Observe(_)) => "observe".to_owned(),
             Err(error) => format!("error: {error}"),
         };
         println!(
@@ -362,7 +363,8 @@ fn configure_builds_the_live_handler_only_in_the_main_role() {
                 .env("POLIS_API_DB_TRANSPORT", "loopback")
                 .env("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE", &key)
                 .env("POLIS_JWT_ISSUER", "fixture")
-                .env("POLIS_JWT_AUDIENCE", "fixture");
+                .env("POLIS_JWT_AUDIENCE", "fixture")
+                .env("POLIS_API_SHADOW_COMMENTS_MAX_PER_SECOND", "2");
         }
         let output = child.output().unwrap();
         let text = String::from_utf8_lossy(&output.stdout).into_owned();
@@ -402,11 +404,17 @@ fn configure_builds_the_live_handler_only_in_the_main_role() {
             && built.ends_with(";writers=0"),
         "{built}"
     );
-    // Observe: the shadow role only, and nothing is built for it.
-    for complete in [false, true] {
-        assert_eq!(
-            run("shadow", Some("observe"), None, complete),
-            "configured=observe;writers=0"
+    // Observe: the shadow role only, with every prerequisite of the live
+    // handler stated, and no pool that can write.
+    assert_eq!(
+        run("shadow", Some("observe"), Some("false"), true),
+        "configured=observe;writers=0"
+    );
+    for (translation, complete) in [(None, true), (Some("true"), true), (Some("false"), false)] {
+        let built = run("shadow", Some("observe"), translation, complete);
+        assert!(
+            built.starts_with("configured=error: ") && built.ends_with(";writers=0"),
+            "{translation:?} {complete}: {built}"
         );
     }
     let built = run("main", Some("observe"), Some("false"), true);
