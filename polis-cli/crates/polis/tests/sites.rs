@@ -329,6 +329,10 @@ fn account_signins_are_separate_even_for_aliases_on_the_same_origin() {
                     Err(e) => panic!("{e}"),
                 }
             };
+            // On macOS and the BSDs an accepted socket inherits the listener's
+            // nonblocking mode. Read in blocking mode so the read timeout applies
+            // instead of racing the client's first write.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .unwrap();

@@ -135,6 +135,7 @@ impl App {
             nested: [pca],
             optional_nested: [
                 post_votes,
+                post_comments,
                 topic_selection_writer,
                 post_treevite_waves,
                 treevite_write,
@@ -146,6 +147,9 @@ impl App {
                 // observe mode. The shadow role's two read-only pools are
                 // Observer::startup_pools (post_votes_observe_tests.rs).
                 post_votes_observe,
+                // The same for the comment observer: its two read-only pools
+                // are its own Observer::startup_pools.
+                post_comments_observe,
                 math_env,
                 dev_mode,
                 use_network_host,

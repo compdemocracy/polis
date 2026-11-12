@@ -572,3 +572,6 @@ fn vote_language_startup_requires_provider_off() {
 
 #[path = "post_votes_observe_tests.rs"]
 mod observe_tests;
+
+#[path = "post_votes_two_route_shadow_tests.rs"]
+mod two_route_shadow;

@@ -28,6 +28,10 @@ pub(crate) mod observe;
 pub(crate) use observe::Observer;
 
 pub const PATH: &str = contract::PATH;
+// The comment contract is compiled into this crate by path. It names these
+// four parsers by their path in the contracts crate, which here is this
+// module's path.
+pub(crate) use contract::{InvalidField, boolean, integer, string};
 pub(crate) const MAX_BODY_BYTES: usize = 65536;
 const REJECTED_COMMENT_MOD: i32 = -1;
 const ADMISSION_DEADLINE: Duration = Duration::from_millis(250);

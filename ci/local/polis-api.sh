@@ -2,7 +2,7 @@
 . "$(dirname "$0")/runtime.sh"
 python3 "$CHECK_ROOT/ci/vendor_postgres.py"
 python3 -m unittest discover -s "$CHECK_ROOT/ci" -p test_vendor_postgres.py -v
-python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT SHADOW_STACK_PORT SHADOW_STACK_TLS_PORT
 GITHUB_SHA="${GITHUB_SHA:-$(git rev-parse --verify HEAD)}"
 export GITHUB_SHA
  : "${POLIS_API_TEST_DATABASE_URL:?provide an isolated PostgreSQL 17 database}"
@@ -14,8 +14,10 @@ export IMPORTANCE_PROJECT="${IMPORTANCE_PROJECT:-statement-importance-ci}"
 export IMPORTANCE_PG_PORT="${IMPORTANCE_PG_PORT:-25463}"
 export IMPORTANCE_API_PORT="${IMPORTANCE_API_PORT:-25464}"
 export IMPORTANCE_OFF_PORT="${IMPORTANCE_OFF_PORT:-25465}"
-python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT
+python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_API_TEST_DATABASE_URL POLIS_AUTH_TEST_DATABASE_URL IMPORTANCE_PG_PORT IMPORTANCE_API_PORT IMPORTANCE_OFF_PORT X54_NGINX_PORT X54_FILES_PORT SHADOW_STACK_PORT SHADOW_STACK_TLS_PORT
 check_project "$IMPORTANCE_PROJECT"
+export SHADOW_STACK_PROJECT="${SHADOW_STACK_PROJECT:-shadow-stack-ci}"
+check_project "$SHADOW_STACK_PROJECT"
 
 
 (
@@ -98,6 +100,15 @@ check_project "$IMPORTANCE_PROJECT"
   # The vote shadow's behaviour in every failure mode. Its load series
   # (--load) measures latency and runs on a quiet box.
   queue-rs/polis-api/conformance/nginx-shadow.sh
+)
+
+(
+  cd "$CHECK_ROOT/."
+  # The shadow service as docker-compose.yml defines it, with the override
+  # the web deploy writes, behind nginx and beside the Node image built above
+  # and a database built from the migrations: started without and with the
+  # comment observer's switch, paused and stopped, under real comments.
+  SHADOW_STACK_SERVER_IMAGE="$POLIS_VERSION_SERVER_IMAGE" queue-rs/polis-api/conformance/shadow-stack.sh
 )
 
 (

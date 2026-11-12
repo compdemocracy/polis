@@ -50,6 +50,7 @@ const SWITCHES: &[&str] = &[
     "POLIS_API_PERF_STATS_READS",
     "POLIS_API_POST_TREEVITE_WAVES",
     "POLIS_API_POST_VOTES",
+    "POLIS_API_POST_COMMENTS",
     "POLIS_API_PTPTOIS_READS",
     "POLIS_API_RECENT_ACTIVITY_READS",
     "POLIS_API_RECENT_STARTED_READS",
@@ -116,6 +117,7 @@ const DATABASES: &[&str] = &[
     "POLIS_API_PARTICIPATION_DATABASE_URL",
     "POLIS_API_POST_TREEVITE_WAVES_DATABASE_URL",
     "POLIS_API_POST_VOTES_DATABASE_URL",
+    "POLIS_API_POST_COMMENTS_DATABASE_URL",
     "POLIS_API_PTPTOIS_DATABASE_URL",
     "POLIS_API_RECENT_ACTIVITY_DATABASE_URL",
     "POLIS_API_RECENT_STARTED_DATABASE_URL",
@@ -291,6 +293,25 @@ async fn check_startup() {
             !Arc::ptr_eq(next, pool),
             "next statement shares the {name} pool"
         );
+    }
+    // The vote writer and the comment handler as this startup built them:
+    // three pools each, and no pool of one is a pool of the other.
+    let pools_of = |owner: &str| -> Vec<_> {
+        others
+            .iter()
+            .filter(|(name, _)| *name == owner)
+            .map(|(_, pool)| *pool)
+            .collect()
+    };
+    let (vote_pools, comment_pools) = (pools_of("post_votes"), pools_of("post_comments"));
+    assert_eq!((vote_pools.len(), comment_pools.len()), (3, 3));
+    for vote_pool in &vote_pools {
+        for comment_pool in &comment_pools {
+            assert!(
+                !Arc::ptr_eq(vote_pool, comment_pool),
+                "the vote writer and the comment handler share a pool"
+            );
+        }
     }
     let limits: Value = serde_json::from_str(&js::stringify(&next.health(true))).unwrap();
     assert_eq!(

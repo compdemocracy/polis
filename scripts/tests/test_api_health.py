@@ -328,11 +328,15 @@ class DeployHealthCheck(unittest.TestCase):
                     shadow=dict(listening=True, address='0.0.0.0:5101', inFlight=0, capacity=32,
                                 maxPerSecond=8, readbackWaiting=0, headRefused=0, bodyUnread=0))
 
-    def check_shadow(self, health, accepted, code=200, unreachable=False, url_seen=None):
+    def check_shadow(self, health, accepted, code=200, unreachable=False, url_seen=None, comments=None):
+        # comments: the hook's third argument, "1" when commentsShadow is
+        # selected and "0" when it is not; None leaves it out, as before the
+        # comment shadow existed.
         fake = ('global.fetch=async()=>{throw Error("unreachable")};' if unreachable else
                 'global.fetch=async url=>{if(url!=="http://polis-api-shadow:5101/health")throw Error(url);'
                 'return {status:' + str(code) + ',json:async()=>(' + json.dumps(health) + ')}};')
-        result = subprocess.run([shutil.which('node'), '-e', fake + self.shadow_script(), 'a'*40, '2.0.0'],
+        arguments = ['a'*40, '2.0.0'] + ([] if comments is None else [comments])
+        result = subprocess.run([shutil.which('node'), '-e', fake + self.shadow_script(), *arguments],
                                 capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0 if accepted else 1, result.stderr)
 
@@ -385,3 +389,138 @@ class DeployHealthCheck(unittest.TestCase):
             with self.subTest(case=name):
                 self.check_shadow(mutated(change), False)
 
+    # The comment shadow (commentsShadow): the same service's /health gains
+    # one key, postComments, exactly when the comment observer is built.
+    # Selected, it must be there in observe mode, never enabled, with its two
+    # read-only pools and no other, room for 8 observations and 64 waiting
+    # read-backs and a cap within 6 copies a second. Not selected, it must be
+    # absent. Everything required of the vote observer stays required.
+    def comments_section(self):
+        pool = dict(readOnly=True, reachable=True, limit=2, available=2, acquireTimeoutMs=100,
+                    statementTimeoutMs=100, maxLifetimeMs=300000)
+        return dict(enabled=False, mode='observe', observed=0, wouldServe=0, wouldAnswer=0,
+                    wouldHandBack=0, wouldFail=0, unknown=0, shed=0, notObserved=0,
+                    readbackOwn=0, readbackOther=0, readbackAbsent=0, textDifferent=0,
+                    voteSame=0, voteAmbiguous=0, voteDifferent=0, voteAbsent=0,
+                    inFlight=0, capacity=8, maxPerSecond=5, readbackWaiting=0, readbackCapacity=64,
+                    pools=dict(reads=dict(pool), readback=dict(pool, limit=1, available=1)))
+
+    def comments_health(self):
+        health = self.shadow_health()
+        # The observer reports it after postVotes; the key's place is not checked.
+        return dict(role=health['role'], status=health['status'], version=health['version'],
+                    commit=health['commit'], postVotes=health['postVotes'],
+                    postComments=self.comments_section(), shadow=health['shadow'])
+
+    def test_comment_observer_is_built_exactly_when_selected(self):
+        # Every pairing of what the route list says with what the service
+        # reports. The hook passes "1" or "0"; anything else is not selected.
+        for argument, selected in ((None, False), ('0', False), ('1', True), ('', False),
+                                   ('observe', False), ('true', False), ('01', False)):
+            for built in (False, True):
+                health = self.comments_health() if built else self.shadow_health()
+                with self.subTest(argument=argument, built=built):
+                    self.check_shadow(health, selected == built, comments=argument)
+
+    def test_comment_observer_health_accepts_observe_mode_only(self):
+        self.check_shadow(self.comments_health(), True, comments='1')
+        busy = self.comments_health()
+        busy['postComments'].update(observed=220, wouldServe=40, wouldAnswer=3, wouldHandBack=170,
+                                    shed=7, readbackOwn=38, voteSame=37, inFlight=8, readbackWaiting=64)
+        busy['postVotes'].update(observed=11000, wouldServe=10500)
+        self.check_shadow(busy, True, comments='1')
+        for rate in (1, 2, 6):
+            health = self.comments_health()
+            health['postComments']['maxPerSecond'] = rate
+            with self.subTest(rate=rate):
+                self.check_shadow(health, True, comments='1')
+        self.check_shadow(self.comments_health(), False, code=503, comments='1')
+        self.check_shadow(self.comments_health(), False, unreachable=True, comments='1')
+
+    def test_comment_observer_health_refusals(self):
+        def mutated(change):
+            health = self.comments_health()
+            change(health)
+            return health
+        comments = lambda h: h['postComments']
+        pools = lambda h: h['postComments']['pools']
+        cases = {
+            'absent': lambda h: h.pop('postComments'),
+            'null': lambda h: h.update(postComments=None),
+            'empty': lambda h: h.update(postComments={}),
+            'a word': lambda h: h.update(postComments='observe'),
+            'enabled': lambda h: comments(h).update(enabled=True),
+            'enabled missing': lambda h: comments(h).pop('enabled'),
+            'enabled string': lambda h: comments(h).update(enabled='false'),
+            'enabled null': lambda h: comments(h).update(enabled=None),
+            'mode live': lambda h: comments(h).update(mode='live'),
+            'mode off': lambda h: comments(h).update(mode='off'),
+            'mode missing': lambda h: comments(h).pop('mode'),
+            'pools missing': lambda h: comments(h).pop('pools'),
+            'no pools': lambda h: comments(h).update(pools={}),
+            'writer pool': lambda h: pools(h).update(writer=dict(readOnly=False)),
+            'notification pool': lambda h: pools(h).update(notifications=dict(readOnly=False)),
+            'a third read-only pool': lambda h: pools(h).update(other=dict(readOnly=True, reachable=True)),
+            'reads missing': lambda h: pools(h).pop('reads'),
+            'readback missing': lambda h: pools(h).pop('readback'),
+            'reads writable': lambda h: pools(h)['reads'].update(readOnly=False),
+            'readback writable': lambda h: pools(h)['readback'].update(readOnly=False),
+            'reads unreachable': lambda h: pools(h)['reads'].update(reachable=False),
+            'readback unreachable': lambda h: pools(h)['readback'].update(reachable=False),
+            'capacity 7': lambda h: comments(h).update(capacity=7),
+            'capacity 32': lambda h: comments(h).update(capacity=32),
+            'capacity string': lambda h: comments(h).update(capacity='8'),
+            'capacity missing': lambda h: comments(h).pop('capacity'),
+            'read-back room 63': lambda h: comments(h).update(readbackCapacity=63),
+            'read-back room 256': lambda h: comments(h).update(readbackCapacity=256),
+            'read-back room missing': lambda h: comments(h).pop('readbackCapacity'),
+            'rate zero': lambda h: comments(h).update(maxPerSecond=0),
+            'rate above 6': lambda h: comments(h).update(maxPerSecond=7),
+            'rate 25': lambda h: comments(h).update(maxPerSecond=25),
+            'rate string': lambda h: comments(h).update(maxPerSecond='5'),
+            'rate fraction': lambda h: comments(h).update(maxPerSecond=2.5),
+            'rate missing': lambda h: comments(h).pop('maxPerSecond'),
+            # What is required of the vote observer and the service stays required.
+            'status': lambda h: h.update(status='degraded'),
+            'role main': lambda h: h.update(role='main'),
+            'vote mode off': lambda h: h['postVotes'].update(mode='off'),
+            'vote enabled': lambda h: h['postVotes'].update(enabled=True),
+            'vote reads missing': lambda h: h['postVotes']['pools'].pop('reads'),
+            'vote writer pool': lambda h: h['postVotes']['pools'].update(writer=dict(readOnly=False)),
+            'not listening': lambda h: h['shadow'].update(listening=False),
+            'vote rate above 25': lambda h: h['shadow'].update(maxPerSecond=26),
+            'version': lambda h: h.update(version='2.0.1'),
+            'commit': lambda h: h.update(commit='b'*40),
+        }
+        for name, change in cases.items():
+            with self.subTest(case=name):
+                self.check_shadow(mutated(change), False, comments='1')
+
+    def test_comment_observer_is_refused_in_any_form_when_not_selected(self):
+        forms = {
+            'observe': self.comments_section(),
+            'off': dict(self.comments_section(), mode='off'),
+            'enabled': dict(self.comments_section(), enabled=True, mode='live'),
+            'empty': {},
+            'null': None,
+            'false': False,
+        }
+        for argument in (None, '0'):
+            for name, section in forms.items():
+                health = self.shadow_health()
+                health['postComments'] = section
+                with self.subTest(argument=argument, form=name):
+                    self.check_shadow(health, False, comments=argument)
+
+    def test_vote_only_shadow_validates_as_before_the_comment_shadow(self):
+        # The health body the vote shadow serves today, with the argument the
+        # hook now passes for a route list without commentsShadow: every
+        # verdict of the vote shadow's tests holds.
+        self.check_shadow(self.shadow_health(), True, comments='0')
+        self.check_shadow(self.shadow_health(), False, code=503, comments='0')
+        for change in (lambda h: h.update(status='degraded'), lambda h: h['postVotes'].update(mode='off'),
+                       lambda h: h['postVotes']['pools'].pop('readback'),
+                       lambda h: h['shadow'].update(maxPerSecond=26), lambda h: h.update(commit='b'*40)):
+            health = self.shadow_health()
+            change(health)
+            self.check_shadow(health, False, comments='0')

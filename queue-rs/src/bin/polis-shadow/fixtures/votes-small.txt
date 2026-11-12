@@ -1,0 +1,85 @@
+polis-shadow: POST /api/v3/votes (votesShadow)
+window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
+
+1. Lines in the window
+   nginx, each shadowed vote (shadow_edge)          40
+   nginx, each copy (shadow_mirror)                 40
+   Node, each handler reply                         40
+   Node, access lines with a request id             40
+   the shadow, each copy (shadow_observation)       40
+
+2. The copy (nginx)
+   copies logged                                    40
+   copied (an upstream status)                      40 (100.00 %)
+   not copied: outside the 1..9999-byte bound       0
+   not copied: the shadow's host absent             0
+   the shadow answered 204 / refused 502 / timed out 504: 40 / 0 / 0
+   the copy's hold: largest hourly p99 1.0 ms, largest 1.0 ms (1 hours)
+
+3. Node's answers to shadowed votes, as nginx saw them
+   status 200    40
+   Node's time on 200s: p50 12.0 ms, p99 12.0 ms, largest 12.0 ms
+
+4. The shadow's observations
+   would_serve          40
+   would_hand_back      0
+   would_fail           0
+   shed                 0
+   not_observed         0
+   admitted 40 of 40 observed (100.00 %)
+   hand-back reasons:
+   would-be statuses:
+     200    40
+   would_fail 0 (CORS refusals, not counted: 0); admitted would-be 5xx other than 502: 0
+   Node's stored vote, read back (admitted would-be 200s, 40): same 40, ambiguous 0, different 0, absent 0, unavailable 0, not checked 0
+   would-be 403 (closed) that Node stored: 0
+   next statement (admitted would-be 200s): selected 40, none left 0, degraded 0
+   membership: hit 40, miss 0, new 0, revote 0, none (first here, or the other box) 0
+   admitted observations span 1 conversations
+
+5. Joined with Node by request id
+   shadowed votes (one nginx line in the window) 40; ids with a line repeated 0; Node lines with no nginx line 0
+   copied 40, answered 204 40, the shadow's host absent 0, outside the body bound 0, no copy line 0; observed lines for copied votes 40 (100.00 % of copied and host-absent)
+   Node: 40 replies from the handler (vote_reply), 0 refused before it (access line only); Node's status differs from nginx's on 0 replies and 0 access lines
+   status on admitted would-serve copies: agree 40 of 40; Node 500 after storing the vote 0; disagree 0; not compared: the participant went away (499) 0, nginx answered 5xx without Node's handler 0
+   next statement where both answered 200: both a statement 40, both none left 0, only the shadow none 0, only Node none 0; Node topical picks excluded 0; the shadow degraded 0
+   remaining equal 40 of 40 (100.00 %); total equal 40 of 40 (100.00 %)
+
+6. The shadow's latency on admitted copies (append excluded)
+   queue p99 0.4 ms; admission p50 4.0 ms, p99 4.0 ms, largest 4.0 ms; selection p50 6.0 ms, p99 6.0 ms; total p50 20.0 ms, p99 20.0 ms, largest 20.0 ms; readback p99 2.0 s
+
+7. The stop rule
+   1. database CPU: largest 5-minute average 20.0 %; two consecutive above 60 %: no
+   2. the copy's hold: largest hourly p99 1.0 ms, largest 1.0 ms: within it
+   3. load balancer p99, all routes: 0 of 24 hours more than 20 % and 100 ms above the same hour a week earlier, longest run 0; stops at 3 in a row
+   4. vote errors (Node's 5xx on POST /api/v3/votes): 0 of 40 (0.00 %) against 0 of 40 (0.00 %) a week earlier: within it
+   5. vote p99 (Node's duration_ms): 0 of 1 comparable hours more than 20 % and 50 ms above a week earlier, longest run 0; stops at 3 in a row
+   target 5xx, all routes (context, not a stop): 3 in the window, 5 the same span a week earlier
+
+8. Criteria for the week
+   copied share               reported             100.00 %
+   the copy's cost            pass                 largest hourly p99 1.0 ms, largest 1.0 ms
+   admitted share             reported             100.00 % (40 of 40)
+   would-be failures          pass                 would_fail 0, admitted would-be 5xx 0 (CORS refusals 0, not counted)
+   node_vote                  pass                 different 0; same or ambiguous 100.00 % of 40 admitted would-be 200s (40 read back); would-be 403 stored by Node 0
+   membership                 pass                 hit 100.00 % of hit and miss (40 / 40)
+   follow-on and admission    pass                 degraded 0.00 % of admitted would-be 200s; admission_timeout 0
+   evidence volume            too little evidence  40 admitted across 1 conversations
+   coverage                   pass                 100.00 % of copied votes, a down shadow included (40 / 40)
+   status agreement           pass                 100.00 % (40 / 40); Node 500 after store 0; disagree 0; went away 0, nginx-only 5xx 0 (not compared)
+   exhaustion and presence    pass                 100.00 % of 40
+   remaining and total        pass                 remaining 100.00 %, total 100.00 % of 40
+   writer latency             pass                 admission p99 4.0 ms, total p99 20.0 ms
+   stop rule                  pass                 never fired
+
+What this cannot compare:
+   - The drawn statement, and how the draws are weighted: the shadow's line names no statement (a statement number beside a conversation number and a time picks out a participant's public vote), so neither the picks nor their distribution are compared. Whether a statement was served, the two counts and membership are.
+   - Membership detects only a candidate set that is too small; about half of next votes land on the other box (prev none).
+   - A math generation change between Node's pick and the shadow's is not excluded (the shadow line carries no tick age).
+   - Node's topical picks are excluded from every next-statement comparison.
+   - Latency and the degraded share leave out the append, which observe mode does not run (optimistic); the shadow's reads run beside Node's own pick (its database load is pessimistic).
+   - Not covered: append contention, 202 unknown, 406 duplicates, the star write, notification state, the no-more-comments row, hand-back replay, mixed routing and retries, drain on stop, what clients do with the writer's answers.
+   - Not copied: requests that miss the exact location (case, trailing slash), bodies outside 1 to 9999 bytes; a copy carries no query string.
+   - CORS refusals are reported on their own and are not counted as would-be failures.
+
+VERDICT: TOO LITTLE EVIDENCE

@@ -77,6 +77,15 @@ mod participant_comments;
 mod participants_read;
 mod participation_read;
 mod pca;
+mod post_comments;
+// The comment contract, compiled into this crate by path as the vote contract
+// is below. It targets edition 2021, where let chains are unavailable.
+#[allow(dead_code, clippy::collapsible_if)]
+#[rustfmt::skip]
+#[path = "../../polis-contracts/src/post_comments.rs"]
+mod post_comments_contract;
+mod post_comments_decision;
+mod post_comments_text;
 mod post_treevite_waves;
 mod post_votes;
 mod report_comments;
@@ -171,6 +180,7 @@ fn health_response(
                 && (key.ends_with("_READS")
                     || key.ends_with("_WRITES")
                     || key == "POLIS_API_OWNER_LIST"
+                    || key == "POLIS_API_POST_COMMENTS"
                     || key == "POLIS_API_POST_TREEVITE_WAVES"
                     || key == "POLIS_API_POST_VOTES"
                     || key == "POLIS_API_TREEVITE_WRITE"))
@@ -183,6 +193,7 @@ fn health_response(
     body.set("pcaCache", app.pca.health());
     body.set("identity", identity_observability::snapshot(counters));
     body.set("postVotes", post_votes::health(app));
+    body.set("postComments", post_comments::health(app));
     body.set("postTreeviteWaves", post_treevite_waves::health(app));
     body.set("treeviteWrite", treevite_write::health(app));
     body.set("treeviteRevocations", revocation::health(app));
@@ -820,6 +831,16 @@ async fn startup() -> Result<Startup> {
             post_votes::Configured::Live(writer) => Some(writer),
             post_votes::Configured::Observe(_) => {
                 anyhow::bail!("observe mode is built only by the shadow role")
+            }
+        };
+    // The comment handler: off unless its own switch is set. Observe is the
+    // shadow role's, and is refused here.
+    state.post_comments =
+        match post_comments::configure(shadow::Role::Main, state.participant_keys.as_ref())? {
+            post_comments::Configured::Off => None,
+            post_comments::Configured::Live(writer) => Some(*writer),
+            post_comments::Configured::Observe(_) => {
+                anyhow::bail!("observe mode is accepted only by the shadow role")
             }
         };
     state.post_treevite_waves = post_treevite_waves::Writer::from_env()?;
@@ -2003,7 +2024,11 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 129);
+            assert_eq!(body.as_object().unwrap().len(), 130);
+            // The comment handler is off unless its own switch is set.
+            assert_eq!(body["postComments"]["enabled"], false);
+            assert_eq!(body["postComments"]["mode"], "off");
+            assert_eq!(body["postComments"]["handBackReasons"], json!({}));
             assert_eq!(
                 body["pcaCache"],
                 json!({"entries":0,"bytes":0,"maxEntries":1,"maxBytes":crate::pca::DEFAULT_CACHE_BYTES,"evictionsEntries":0,"evictionsBytes":0,"oversized":0})

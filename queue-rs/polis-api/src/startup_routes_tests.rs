@@ -2,7 +2,7 @@
 //! These source checks recognize module-qualified PATH constants, ::matches
 //! predicates and literal outer paths. They do not infer method branches inside
 //! an existing path, differently named constants, or arbitrary predicate changes.
-//! Switch discovery follows the current _READS/_WRITES and four explicit names;
+//! Switch discovery follows the current _READS/_WRITES and five explicit names;
 //! new lookup syntax needs a corresponding scanner update. Treevite operation
 //! paths are checked separately against its current from_path match arms.
 use super::*;
@@ -274,6 +274,7 @@ fn catalog_switches_are_real_startup_reads() {
                         || name.ends_with("_WRITES")
                         || [
                             "POLIS_API_OWNER_LIST",
+                            "POLIS_API_POST_COMMENTS",
                             "POLIS_API_POST_VOTES",
                             "POLIS_API_POST_TREEVITE_WAVES",
                             "POLIS_API_TREEVITE_WRITE",

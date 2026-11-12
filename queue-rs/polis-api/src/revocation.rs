@@ -88,6 +88,8 @@ pub(crate) async fn configure(app: &mut App) -> Result<Option<tokio::task::JoinH
         && app.post_votes.is_none()
         && app.post_votes_observe.is_none()
         && app.topic_selection_writer.is_none()
+        && app.post_comments.is_none()
+        && app.post_comments_observe.is_none()
     {
         return Ok(None);
     }
@@ -114,6 +116,12 @@ pub(crate) async fn configure(app: &mut App) -> Result<Option<tokio::task::JoinH
     if let Some(writer) = &mut app.topic_selection_writer {
         writer.set_revocations(refresh.snapshot.clone());
     }
+    if let Some(writer) = &mut app.post_comments {
+        writer.set_revocations(refresh.snapshot.clone());
+    }
+    if let Some(observer) = &mut app.post_comments_observe {
+        observer.set_revocations(refresh.snapshot.clone());
+    }
     app.revocations = Some(refresh.clone());
     Ok(Some(tokio::spawn(refresh.run())))
 }
@@ -136,6 +144,16 @@ pub(crate) fn refusal(app: &App, raw: &str, now: u64) -> Option<polis_auth::Refu
             app.topic_selection_writer
                 .as_ref()
                 .and_then(|w| w.check_revocation(raw, now).err())
+        })
+        .or_else(|| {
+            app.post_comments
+                .as_ref()
+                .and_then(|w| w.check_revocation(raw, now).err())
+        })
+        .or_else(|| {
+            app.post_comments_observe
+                .as_ref()
+                .and_then(|o| o.check_revocation(raw, now).err())
         })
 }
 pub(crate) fn health(app: &App) -> crate::js::Js {

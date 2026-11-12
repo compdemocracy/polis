@@ -1,0 +1,15 @@
+
+# ${SHADOW_NAME}: how many copies of POST ${SHADOW_PATH} this box sends to
+# the shadow service: ${SHADOW_RATE} a second, and ${SHADOW_BURST} more at once. The zone is used in
+# the copy's location (/_polis_shadow/${SHADOW_NAME}) and nowhere else, so
+# it counts copies only: the request Node answers is never counted, delayed
+# or refused by it. A copy over the rate ends in that location with 429
+# before any connection is opened, and its shadow_mirror line says so
+# ("mirror_status":429 with an empty "mirror_upstream_status"); with nodelay
+# no copy waits. The key is the shadow's name, so the zone holds one state
+# for the whole box. limit_req_log_level info keeps a refusal out of the
+# error log, which is written from notice up and whose lines name the peer
+# address. The copy's body bound, written in its location as the vote
+# route's, holds every comment Node accepts without external-identity
+# fields: a text is at most 997 UTF-16 units, at most 5,982 bytes as JSON.
+limit_req_zone $polis_shadow_name zone=polis_shadow_${SHADOW_NAME}:1m rate=${SHADOW_RATE}r/s;

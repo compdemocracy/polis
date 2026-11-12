@@ -21,3 +21,19 @@ log_format polis_shadow_mirror escape=json '{"message":"shadow_mirror","listener
 # are not changed. nginx's error log is not: a line it writes when the copy
 # or Node fails names the peer as `client:` (it carries no request id).
 log_format polis_shadow_access '- - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" "-"';
+
+# Which requests a shadow is ever sent a copy of, and so which are handed to
+# its mirroring location, the one that reads the whole body before Node is
+# contacted: a POST whose body has a declared length, a Content-Length from 1
+# to 9999, and is not chunked. Every other request to a shadowed path, any
+# other POST included, never enters that location: it is proxied to Node
+# exactly as with no shadow selected, its body streamed, with the `main`
+# access line and no X-Request-Id. The rule is the one the copy's own location
+# applies, which is the vote write route's. The shadow service reads a body of
+# up to 65536 bytes, so every request handed over is one it can read; and
+# nginx holds a body of this size in memory (anything under a quarter more
+# than its two-page buffer), so the mirror writes no temporary file.
+map "$request_method:$http_content_length:$http_transfer_encoding" $polis_shadow_copyable {
+    default 0;
+    "~^POST:[1-9][0-9]{0,3}:$" 1;
+}

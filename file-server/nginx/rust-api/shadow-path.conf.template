@@ -1,10 +1,12 @@
-# ${SHADOW_NAME} with no read route selected on ${SHADOW_PATH}: POST is
-# answered by Node from @polis_shadow_${SHADOW_NAME}, which also copies it to
-# the shadow service; every other method goes to Node exactly as the API
-# location sends it. 420 is only an internal hand-over, never sent.
+# ${SHADOW_NAME} with no read route selected on ${SHADOW_PATH}: a POST the
+# shadow is sent a copy of ($polis_shadow_copyable: a declared body of 1 to
+# 9999 bytes, not chunked) is answered by Node from
+# @polis_shadow_${SHADOW_NAME}, which also copies it to the shadow service;
+# every other request, any other POST included, goes to Node exactly as the
+# API location sends it. 420 is only an internal hand-over, never sent.
 location = ${SHADOW_PATH} {
     error_page 420 = @polis_shadow_${SHADOW_NAME};
-    if ($request_method = POST) {
+    if ($polis_shadow_copyable = 1) {
         return 420;
     }
     include /etc/nginx/node-proxy.conf;

@@ -1,7 +1,9 @@
-# ${SHADOW_NAME}: POST ${SHADOW_PATH} is answered by Node exactly as without
-# this selection, with one added header, X-Request-Id. nginx's mirror sends a
-# copy to the shadow service (polis-api-shadow), which answers 204 at once and
-# writes nothing. Node's answer never waits for the copy; the next request on
+# ${SHADOW_NAME}: a POST ${SHADOW_PATH} with a declared body of 1 to 9999
+# bytes (no other request is handed to this location) is answered by Node
+# exactly as without this selection, with one added header, X-Request-Id.
+# nginx's mirror sends a copy to the shadow service (polis-api-shadow), which
+# answers 204 at once and writes nothing. The body is read whole first, in
+# memory. Node's answer never waits for the copy; the next request on
 # the same client connection waits for it at most the copy's four timeouts
 # below. Neither location has an error_page, a retry or a route to Node: a
 # failed copy ends where it fails. The request's ordinary access line is
@@ -31,9 +33,12 @@ location = /_polis_shadow/${SHADOW_NAME} {
     }
     # A literal target. The variable only makes nginx resolve the name per
     # request, so nginx starts while the shadow container is absent; no
-    # setting reaches it.
+    # setting reaches it. The copy carries the request's query string, byte
+    # for byte as it was received ($args is the raw text): it is the request
+    # a write route would be handed, and the shadow service says what the
+    # handler does with a request that has one.
     set $polis_shadow_target polis-api-shadow:5101;
-    proxy_pass http://$polis_shadow_target${SHADOW_PATH};
+    proxy_pass http://$polis_shadow_target${SHADOW_PATH}$is_args$args;
     proxy_pass_request_headers on;
     proxy_pass_request_body on;
     proxy_set_header X-Forwarded-Proto $scheme;

@@ -1851,6 +1851,9 @@ fn revocation_snapshot_adds_no_vote_request_statements() {
 #[path = "post_votes_connection_tests.rs"]
 mod connection_bounds;
 
+#[path = "post_votes_comment_isolation_tests.rs"]
+mod comment_isolation;
+
 // Exercise the real route, verifier, membership lookup and writer. Body hints
 // and cookies cannot select the actor; handbacks must precede dispatch.
 fn vote_admission_case(

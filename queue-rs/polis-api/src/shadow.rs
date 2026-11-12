@@ -1,15 +1,22 @@
 //! The shadow role: polis-api run as its own process (`POLIS_API_ROLE=shadow`)
-//! that receives nginx's copy of each vote Node answers, and writes nothing.
+//! that receives nginx's copy of each request Node answers on a mirrored
+//! route, and writes nothing.
 //!
-//! It listens only on `POLIS_API_SHADOW_LISTEN` and serves two things:
-//! `GET /health`, and copies (`POST /api/v3/votes` with `X-Polis-Shadow:
-//! votesShadow`). A copy is answered `204 No Content` at once, before any
-//! database work, whatever happens to it. Then, in a lane bounded by count and
-//! by rate, it runs through the same route prelude and vote handler as a live
-//! request, with the writer in observe mode (`post_votes_observe.rs`), and one
-//! `shadow_observation` line is printed for it. Only observe writers are
-//! built here: the live vote writer is refused at startup, no other writer is
-//! constructed, and no read route is configured whatever the env file says.
+//! It listens only on `POLIS_API_SHADOW_LISTEN` and serves `GET /health` and
+//! the copies of the routes in its table (`ROUTES`): `POST /api/v3/votes`
+//! with `X-Polis-Shadow: votesShadow`, and, when the comment observer is
+//! built, `POST /api/v3/comments` with `X-Polis-Shadow: commentsShadow`
+//! (`shadow_comments.rs`). A copy is answered `204 No Content` at once,
+//! before any database work, whatever happens to it. Then, in its own
+//! route's lane, bounded by count and by rate, it runs through the same
+//! route prelude and handler as a live request, with that handler in observe
+//! mode (`post_votes_observe.rs`, `post_comments_observe.rs`), and one
+//! `shadow_observation` line is printed for it. Each route has its own lane,
+//! its own bound on waiting read-backs, its own rate bucket and its own two
+//! read-only pools, so a burst on one route cannot delay or drop a copy of
+//! the other. Only observers are built here: a live writer is refused at
+//! startup, no other writer is constructed, and no read route is configured
+//! whatever the env file says.
 //!
 //! Every line this process prints says it is the shadow's (`listener:
 //! "shadow"`, or an event name starting `shadow_`), because every container on
@@ -30,6 +37,9 @@ use std::{
     },
     time::Duration,
 };
+
+#[path = "shadow_comments.rs"]
+pub(crate) mod comments;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Role {
@@ -58,8 +68,38 @@ pub(crate) fn event_prefix() -> &'static str {
     }
 }
 
-/// The one shadowed route so far, by its selector name.
+/// The vote route's selector name.
 pub(crate) const VOTES: &str = "votesShadow";
+
+/// A route nginx mirrors to this listener.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mirrored {
+    Votes,
+    Comments,
+}
+
+/// The mirrored routes: the selector name a copy carries in `X-Polis-Shadow`,
+/// and the path it was posted to. A request is a copy of a route when both
+/// are that route's.
+const ROUTES: [(Mirrored, &str, &str); 2] = [
+    (Mirrored::Votes, VOTES, post_votes::PATH),
+    (
+        Mirrored::Comments,
+        comments::NAME,
+        crate::post_comments::PATH,
+    ),
+];
+
+fn mirrored(req: &Request) -> Option<Mirrored> {
+    if req.method != "POST" {
+        return None;
+    }
+    let selector = req.headers.get("x-polis-shadow")?;
+    ROUTES
+        .iter()
+        .find(|(_, name, path)| selector == *name && req.path() == *path)
+        .map(|(route, _, _)| *route)
+}
 const VOTES_ROUTE: &str = "POST /api/v3/votes";
 /// Observations in admission or selection at once.
 const CAPACITY: usize = 32;
@@ -346,18 +386,26 @@ enum Decision {
     NotObserved,
 }
 
-/// Everything the shadow listener serves.
+/// Everything the shadow listener serves. `lane` is the vote route's; the
+/// comment route's lane is its observer's own.
 pub(crate) async fn accept(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
     if req.method == "GET" && req.path() == "/health" {
         return health(&app, &lane).await;
     }
-    if req.method != "POST"
-        || req.path() != post_votes::PATH
-        || req.headers.get("x-polis-shadow") != Some(VOTES)
-    {
+    match mirrored(&req) {
+        Some(Mirrored::Votes) => accept_vote(app, lane, req).await,
+        // Served only when its observer is built: without it a comment copy
+        // is, as before, not a copy of anything this listener serves.
+        Some(Mirrored::Comments) if app.post_comments_observe.is_some() => {
+            comments::accept(app, req).await
+        }
         // Not a copy of a shadowed route; nothing is recorded.
-        return not_found();
+        _ => not_found(),
     }
+}
+
+/// A copy of a vote.
+async fn accept_vote(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
     let received = tokio::time::Instant::now();
     // A copy is never dispatched to a live writer; none exists in this role,
     // and a process holding one is not observed at all.
@@ -519,15 +567,23 @@ async fn observe(
 /// participants, so it is always false here; `mode` says observe.
 pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
     let observer = app.post_votes_observe.as_ref();
-    let reachable = match observer {
+    let votes_reachable = match observer {
         Some(observer) => observer.ping().await,
         None => true,
     };
+    // The comment observer, when built, has a key of its own below, and its
+    // read-back database counts toward the status as the vote observer's does.
+    let comment_observer = app.post_comments_observe.as_ref();
+    let comments_reachable = match comment_observer {
+        Some(observer) => observer.ping().await,
+        None => true,
+    };
+    let all_reachable = votes_reachable && comments_reachable;
     let mut body = Obj::new();
     body.set("role", Js::Str("shadow".into()));
     body.set(
         "status",
-        Js::Str(if reachable { "ok" } else { "degraded" }.into()),
+        Js::Str(if all_reachable { "ok" } else { "degraded" }.into()),
     );
     body.set("version", Js::Str(env!("POLIS_VERSION").into()));
     body.set("commit", Js::Str(env!("GIT_HASH").into()));
@@ -555,10 +611,16 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
     votes.set(
         "pools",
         observer
-            .map(|observer| observer.pools_health(reachable))
+            .map(|observer| observer.pools_health(votes_reachable))
             .unwrap_or_else(|| Js::Obj(Obj::new())),
     );
     body.set("postVotes", Js::Obj(votes));
+    if let Some(observer) = comment_observer {
+        body.set(
+            "postComments",
+            comments::health(observer, comments_reachable),
+        );
+    }
     let address = lane
         .address
         .lock()
@@ -582,7 +644,7 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
     body.set("shadow", Js::Obj(shadow));
     let bytes = js::stringify(&Js::Obj(body)).into_bytes();
     Outgoing {
-        status: if reachable { 200 } else { 503 },
+        status: if all_reachable { 200 } else { 503 },
         headers: vec![
             ("Content-Type".into(), "application/json".into()),
             ("Cache-Control".into(), "no-cache".into()),
@@ -628,6 +690,17 @@ pub(crate) fn configure() -> Result<Shadow> {
             anyhow::bail!("the shadow role never builds the live vote writer")
         }
     }
+    // The comment observer: built only when the comment handler's own switch
+    // says observe. A value this role does not accept stops the process.
+    match crate::post_comments::configure(Role::Shadow, app.participant_keys.as_ref())? {
+        crate::post_comments::Configured::Observe(observer) => {
+            app.post_comments_observe = Some(*observer);
+        }
+        crate::post_comments::Configured::Off => {}
+        crate::post_comments::Configured::Live(_) => {
+            anyhow::bail!("the shadow role never builds the live comment writer")
+        }
+    }
     Ok(Shadow {
         app,
         lane: Lane::new(max_per_second),
@@ -658,23 +731,27 @@ pub(crate) async fn run() -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&listen)
         .await
         .with_context(|| format!("bind {listen}"))?;
-    event(
-        "shadow_listening",
-        &[
-            ("address", Js::Str(listener.local_addr()?.to_string())),
-            (
-                "mode",
-                Js::Str(
-                    if app.post_votes_observe.is_some() {
-                        "observe"
-                    } else {
-                        "off"
-                    }
-                    .into(),
-                ),
+    let mut listening = vec![
+        ("address", Js::Str(listener.local_addr()?.to_string())),
+        (
+            "mode",
+            Js::Str(
+                if app.post_votes_observe.is_some() {
+                    "observe"
+                } else {
+                    "off"
+                }
+                .into(),
             ),
-        ],
-    );
+        ),
+    ];
+    if let Some(observer) = app.post_comments_observe.as_ref() {
+        // A process that holds comments' text prints no panic message.
+        install_panic_hook();
+        listening.push(("post_comments", Js::Str("observe".into())));
+        comments::report_logging_settings(observer).await;
+    }
+    event("shadow_listening", &listening);
     let result = tokio::select! {
         r = serve(listener, Arc::new(app), lane) => r,
         _ = tokio::signal::ctrl_c() => Ok(()),
@@ -684,6 +761,19 @@ pub(crate) async fn run() -> Result<()> {
         let _ = task.await;
     }
     result
+}
+
+/// After this, a panic in this process prints where it happened and never
+/// what it said. A panic's message can quote what the panicking code held: a
+/// string cut off a character boundary prints the string. Installed by the
+/// shadow role when it builds the comment observer.
+pub(crate) fn install_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        let location = info
+            .location()
+            .map(|at| format!("{}:{}:{}", at.file(), at.line(), at.column()));
+        event("shadow_panic", &[("location", text(location.as_deref()))]);
+    }));
 }
 
 #[cfg(test)]
