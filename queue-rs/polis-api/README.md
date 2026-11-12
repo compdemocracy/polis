@@ -1657,7 +1657,9 @@ record. The reasons:
   another conversation), `credential_kind` (a token of a kind the read does
   not admit: an external-id participant's), `participant_reads_off`,
   `participant_token` (the token was refused, or its conversation or its
-  participant was not found), `oidc_off`, `oidc_token`.
+  participant was not found), `oidc_off`, `oidc_token`. A lookup of the
+  credential that the database did not answer is `pool_busy` or `database`,
+  as for any other read, and never one of these.
 - `GET /api/v3/votes`: `shape_path`, `me_no_token`, `no_query`, `query_size`,
   `query_repeated`, `query_key` (a key the read does not model), `xid` (the
   query names an external id), `param_pid`, `param_tid`, `me_no_user`,
@@ -1672,7 +1674,11 @@ record. The reasons:
 - `GET /api/v3/nextComment`: `lang` (the query carries the language and no
   other key outside the three the read models), `pid_parameter` (a participant
   number), `lang_and_pid`, `xid`, `query_key`, `param_without`,
-  `param_initial_tid`, `plain_off`, `token_refused`, `initial_voted`.
+  `param_initial_tid`, `plain_off`, `initial_voted`, and for a token the
+  verifier refused, its class: `credential_kind` (an external-id
+  participant's), `account_token` (a signed-in account's), `credential_scope`
+  (another conversation's), `credential_shape`, `token_refused` (a
+  participant's token refused by its signature or its expiry).
 - The route prelude, before a handler: `revoked`, `not_https`,
   `body_unmodelled`, `parameter`. The lane: `rate_cap`, `lane_full`.
 
@@ -1720,12 +1726,15 @@ after the observers' keys and before `shadow`: `enabled` (always false),
 `mode`, `selector`, the counters `observed`, `wouldServe`, `wouldAnswer`,
 `wouldHandBack`, `wouldFail` and `shed`, `inFlight`, `capacity`,
 `maxPerSecond`, and the lane's `pools` by name. Every key that was there keeps
-its place and its meaning. `/health` asks no lane's pool: a lane has no
-connection apart from the ones its copies run on. Each lane's database is
-asked once at startup (the event `shadow_read_lane` prints the answer), and
-after that a lane reports its database unreachable, and `status` is
-`degraded`, when three copies in a row failed on a connection or a statement,
-until one is answered.
+its place and its meaning. `/health` asks no pool of a lane that is
+answering: a lane has no connection apart from the ones its copies run on.
+Each lane's database is asked once at startup (the event `shadow_read_lane`
+prints the answer), and after that a lane reports its database unreachable,
+and `status` is `degraded`, when three copies in a row failed on a connection
+or a statement (a busy pool is not a failure), until a copy is answered.
+While a lane is unreachable, and only then, `/health` asks its pools again,
+so a lane whose database answers is reported reachable without waiting for a
+copy: a deploy's health check runs before any copy can arrive.
 
 ## Build version (opt-in)
 

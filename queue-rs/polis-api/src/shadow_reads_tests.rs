@@ -123,6 +123,7 @@ const REASONS: &[&str] = &[
     "param_initial_tid",
     "plain_off",
     "token_refused",
+    "account_token",
     "initial_voted",
 ];
 
@@ -713,6 +714,19 @@ async fn each_hand_back_has_its_reason_and_the_line_holds_nothing_of_the_request
                 "participant_token",
             ),
         ),
+        // A token that verifies, whose lookup the database does not answer:
+        // the database's reason, not a refused credential.
+        (
+            &verified,
+            (
+                Route::Votes,
+                with(&format!("pid={PID}")),
+                auth(&member),
+                "would_hand_back",
+                502,
+                "database",
+            ),
+        ),
         (
             &verified,
             (
@@ -950,6 +964,17 @@ async fn each_hand_back_has_its_reason_and_the_line_holds_nothing_of_the_request
             (
                 Route::Comments,
                 Some(base.clone()),
+                auth(&member),
+                "would_hand_back",
+                502,
+                "database",
+            ),
+        ),
+        (
+            &verified,
+            (
+                Route::Comments,
+                Some(base.clone()),
                 auth(&account),
                 "would_hand_back",
                 502,
@@ -1122,6 +1147,52 @@ async fn each_hand_back_has_its_reason_and_the_line_holds_nothing_of_the_request
                 "token_refused",
             ),
         ),
+        // A token the verifier cannot place is classed by its kind: the share
+        // of each is what the line is for.
+        (
+            &verified,
+            (
+                Route::NextComment,
+                Some(base.clone()),
+                auth(&external),
+                "would_hand_back",
+                502,
+                "credential_kind",
+            ),
+        ),
+        (
+            &verified,
+            (
+                Route::NextComment,
+                Some(base.clone()),
+                auth(&account),
+                "would_hand_back",
+                502,
+                "account_token",
+            ),
+        ),
+        (
+            &verified,
+            (
+                Route::NextComment,
+                Some(base.clone()),
+                auth(&elsewhere),
+                "would_hand_back",
+                502,
+                "credential_scope",
+            ),
+        ),
+        (
+            &verified,
+            (
+                Route::NextComment,
+                Some(base.clone()),
+                vec![("authorization", "Basic abc".to_owned())],
+                "would_hand_back",
+                502,
+                "credential_shape",
+            ),
+        ),
         (
             &verified,
             (
@@ -1177,7 +1248,7 @@ async fn each_hand_back_has_its_reason_and_the_line_holds_nothing_of_the_request
         assert!(REASONS.contains(reason));
         seen.insert(*reason);
     }
-    assert_eq!(seen.len(), 38, "the reasons these cases exercise");
+    assert_eq!(seen.len(), 39, "the reasons these cases exercise");
     // A request id that is not 32 lowercase hex is recorded as null.
     let odd = copy(
         Route::Votes,

@@ -355,6 +355,20 @@ fn read_until(
     }
     Ok(Read::Answer(Js::Obj(selected), facts))
 }
+/// Why the verifier refused a token, as a class and never anything of the
+/// token: a token of a kind this read does not admit (`credential_kind`: an
+/// external-id participant's; `account_token`: a signed-in account's),
+/// another conversation's (`credential_scope`), a header that is not a token
+/// this code can read (`credential_shape`), or a participant's token the
+/// verifier refused (`token_refused`: its signature, its expiry, a revoked
+/// session). Asked only after the verifier has refused; it admits nothing.
+fn refused_token(raw: &str, cid: &str) -> &'static str {
+    match crate::hybrid_read::handoff_class(Some(raw), true, false, Some(cid)) {
+        "participant_token" => "token_refused",
+        "oidc_off" => "account_token",
+        class => class,
+    }
+}
 pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let Some(pool) = &app.next_comment_db else {
         return reads::handback("unconfigured");
@@ -371,7 +385,7 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                 .as_ref()
                 .and_then(|v| v.verify(raw, &q.cid, (crate::clock::now_ms() / 1000.0) as u64))
             else {
-                return reads::handback("token_refused");
+                return reads::handback(refused_token(raw, &q.cid));
             };
             Some(identity)
         }

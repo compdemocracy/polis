@@ -596,9 +596,17 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
         Some(observer) => observer.ping().await,
         None => true,
     };
-    // A read lane's database counts too. It is not asked here: a lane has no
-    // connection apart from the ones its copies run on, so it reports what
-    // its startup probe and then its copies last found.
+    // A read lane's database counts too. A lane has no connection apart from
+    // the ones its copies run on, so a lane that is answering is not asked
+    // here: it reports what its startup probe and then its copies last found.
+    // A lane found unreachable is asked again here, and only then, so that it
+    // recovers without waiting for a copy: a deploy's health check runs
+    // before any copy can arrive.
+    for lane in app.read_lanes.built() {
+        if !lane.reachable() {
+            lane.probe().await;
+        }
+    }
     let reads_reachable = app.read_lanes.built().all(|lane| lane.reachable());
     let all_reachable = votes_reachable && comments_reachable && reads_reachable;
     let mut body = Obj::new();

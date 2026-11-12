@@ -135,12 +135,14 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         )
         .await
         .ok_or_else(|| {
-            crate::hybrid_read::handoff_class(
-                req.headers.get("authorization"),
-                app.participant_verifier.is_some(),
-                app.read_oidc.is_some(),
-                Some(&query.conversation_id),
-            )
+            reads::credential_reason(|| {
+                crate::hybrid_read::handoff_class(
+                    req.headers.get("authorization"),
+                    app.participant_verifier.is_some(),
+                    app.read_oidc.is_some(),
+                    Some(&query.conversation_id),
+                )
+            })
         })?;
         let verified = req.headers.get("authorization").and_then(|raw| {
             app.participant_verifier.as_deref()?.verify_unobserved(

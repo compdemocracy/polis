@@ -313,3 +313,103 @@ fn every_session_a_read_lane_holds_refuses_a_write() {
     drop(rt);
     drop(app);
 }
+
+/// Holds one connection of `pool` until the returned sender is used.
+async fn hold(
+    pool: &Arc<db::Pool>,
+) -> (
+    std::sync::mpsc::Sender<()>,
+    tokio::task::JoinHandle<anyhow::Result<()>>,
+) {
+    let (ready, wait) = tokio::sync::oneshot::channel();
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let pool = pool.clone();
+    let work = tokio::spawn(async move {
+        pool.with(move |_| {
+            let _ = ready.send(());
+            let _ = held.recv_timeout(Duration::from_secs(30));
+            Ok(())
+        })
+        .await
+    });
+    wait.await.unwrap();
+    (release, work)
+}
+
+/// A lane marked unreachable (a startup probe the database did not answer,
+/// or three failed copies in a row) is reachable again when a copy is
+/// answered, and when `/health` asks it again: a deploy's health check runs
+/// before any copy can arrive, so a lane must not wait for one. A copy that
+/// finds the lane's pool busy says `pool_busy`: that is not a failure of the
+/// database, however many there are in a row.
+#[test]
+fn an_unreachable_lane_recovers_and_a_busy_pool_is_not_a_failure() {
+    let fixture = Fixture::new("recovery");
+    let app = Arc::new(lanes_app(fixture.connector(), &Route::ALL, 1000, None));
+    let rt = runtime();
+    rt.block_on(async {
+        let votes = shadow::Lane::new(1000);
+        let lane = app.read_lanes.get(Route::NextComment).unwrap();
+        let query = format!("conversation_id={CODE}");
+        // As a failed startup probe leaves a lane.
+        lane.failures.store(UNREACHABLE, Ordering::Relaxed);
+        assert!(!lane.reachable());
+        // A copy the database answers clears the mark. A loaded machine can
+        // run a copy past its 75 ms deadline, so up to five are sent and one
+        // must be served.
+        let mut served = false;
+        for _ in 0..5 {
+            lane.failures.store(UNREACHABLE, Ordering::Relaxed);
+            let id = request_id();
+            let req = copy(Route::NextComment, Some(&query), &[], &id);
+            assert_eq!(accept_copy(&app, &votes, req).await, 204);
+            if observation(&id).await["outcome"] == "would_serve" {
+                assert!(
+                    lane.reachable(),
+                    "an answered copy left the lane unreachable"
+                );
+                served = true;
+                break;
+            }
+        }
+        assert!(served, "no copy was served");
+        // With no copy at all, /health asks the lane again.
+        lane.failures.store(UNREACHABLE, Ordering::Relaxed);
+        let health = health_of(&app, &votes).await;
+        assert_eq!(health["status"], "ok", "{health}");
+        assert_eq!(
+            health["getNextComment"]["pools"]["reads"]["reachable"], true,
+            "{health}"
+        );
+        assert!(lane.reachable());
+        // Every connection of the lane's pool held: its copies find it busy.
+        let (_, pool) = lane.pools().first().unwrap();
+        let mut held = vec![];
+        for _ in 0..crate::next_comment::pool_limits().size {
+            held.push(hold(pool).await);
+        }
+        for n in 0..=UNREACHABLE {
+            let id = request_id();
+            let req = copy(Route::NextComment, Some(&query), &[], &id);
+            assert_eq!(accept_copy(&app, &votes, req).await, 204);
+            let line = observation(&id).await;
+            assert_eq!(line["outcome"], "would_hand_back", "{line}");
+            assert_eq!(line["reason"], "pool_busy", "{line}");
+            assert!(line["db_ms"].is_number(), "{line}");
+            assert!(lane.reachable(), "after {n} busy copies");
+        }
+        // A busy pool does not clear the mark either: only an answer does.
+        lane.failures.store(UNREACHABLE - 1, Ordering::Relaxed);
+        let id = request_id();
+        let req = copy(Route::NextComment, Some(&query), &[], &id);
+        assert_eq!(accept_copy(&app, &votes, req).await, 204);
+        assert_eq!(observation(&id).await["reason"], "pool_busy");
+        assert_eq!(lane.failures.load(Ordering::Relaxed), UNREACHABLE - 1);
+        for (release, work) in held {
+            release.send(()).unwrap();
+            work.await.unwrap().unwrap();
+        }
+    });
+    drop(rt);
+    drop(app);
+}

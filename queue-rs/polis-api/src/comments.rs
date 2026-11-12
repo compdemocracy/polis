@@ -475,12 +475,14 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
     )
     .await
     else {
-        return reads::handback(crate::hybrid_read::handoff_class(
-            req.headers.get("authorization"),
-            app.participant_verifier.is_some(),
-            app.read_oidc.is_some(),
-            Some(&q.cid),
-        ));
+        return reads::handback(reads::credential_reason(|| {
+            crate::hybrid_read::handoff_class(
+                req.headers.get("authorization"),
+                app.participant_verifier.is_some(),
+                app.read_oidc.is_some(),
+                Some(&q.cid),
+            )
+        }));
     };
     let uid = if q.moderation { identity.uid() } else { None };
     let cid = q.cid.clone();

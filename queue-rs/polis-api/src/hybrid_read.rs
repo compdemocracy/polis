@@ -86,9 +86,11 @@ pub async fn resolve_scoped(
 /// need neither a key nor the database, in `resolve_scoped`'s own order, so it
 /// is asked only after `resolve_scoped` has answered None, and it changes
 /// nothing about what is admitted. `participant_token` and `oidc_token` each
-/// cover every refusal that needs the key or the database: a signature, an
-/// expiry, a conversation or a membership that is not there, a mapping that
-/// is not there, a database that did not answer.
+/// cover every refusal that needs the key or an answer from the database: a
+/// signature, an expiry, a conversation or a membership that is not there, a
+/// mapping that is not there. A lookup the database did not answer (a busy
+/// pool, a failed connection or statement) is not one of them: the copy's
+/// record holds that reason (`shadow::reads::credential_reason`).
 pub(crate) fn handoff_class(
     raw: Option<&str>,
     participant: bool,
@@ -161,7 +163,10 @@ async fn resolve_scoped_observed(
                 .map(|_| Identity::User(identity.uid())))
             })
             .await
-            .unwrap_or_else(|_| counters.handoff(Event::HandoffDatabase));
+            .unwrap_or_else(|error| {
+                crate::shadow::reads::credential_database(&error);
+                counters.handoff(Event::HandoffDatabase)
+            });
     }
     let Some(oidc) = oidc else {
         return counters.handoff(Event::HandoffVerifierUnavailable);
@@ -189,7 +194,10 @@ async fn resolve_scoped_observed(
         if rows.len()!=1 { return Ok(counters.handoff(Event::HandoffOidcMapping)); }
         let uid=rows[0].try_get::<_,i32>(0)?;
         Ok(if uid > 0 { Some(Identity::User(polis_auth::Uid(uid))) } else { counters.handoff(Event::HandoffOidcMapping) })
-    }).await.unwrap_or_else(|_| counters.handoff(Event::HandoffDatabase))
+    }).await.unwrap_or_else(|error| {
+        crate::shadow::reads::credential_database(&error);
+        counters.handoff(Event::HandoffDatabase)
+    })
 }
 
 #[cfg(all(test, feature = "db-tests"))]

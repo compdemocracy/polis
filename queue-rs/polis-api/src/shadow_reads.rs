@@ -179,6 +179,10 @@ pub(crate) struct Record {
     /// Whether a connection or a statement failed (not a busy pool), for the
     /// lane's `reachable`.
     pub(crate) database_failed: bool,
+    /// Why the identity lookup's own database operation failed, when it did:
+    /// a busy pool or a failed connection or statement is not a refused
+    /// credential.
+    pub(crate) credential_database: Option<&'static str>,
     pub(crate) selected: Option<bool>,
     pub(crate) remaining: Option<i64>,
     pub(crate) total: Option<i64>,
@@ -221,6 +225,24 @@ pub(crate) fn database_reason(error: &anyhow::Error) -> &'static str {
         record(|record| record.database_failed = true);
         "database"
     }
+}
+
+/// Records that the database operation of an identity lookup failed, and how
+/// (`hybrid_read::resolve_scoped` calls it where its lookup did not answer),
+/// so the copy's line gives that reason and the failure counts for the lane's
+/// `reachable`. Outside an observation it does nothing.
+pub(crate) fn credential_database(error: &anyhow::Error) {
+    let reason = database_reason(error);
+    record(|record| record.credential_database = Some(reason));
+}
+
+/// The reason for a credential `hybrid_read::resolve_scoped` handed back:
+/// the database's own reason when its lookup failed there (`pool_busy`,
+/// `database`), else the credential's class, which `class` gives.
+pub(crate) fn credential_reason(class: impl FnOnce() -> &'static str) -> &'static str {
+    record(|record| record.credential_database.take())
+        .flatten()
+        .unwrap_or_else(class)
 }
 
 /// Adds the time one operation on a pool took to the current copy's record:
