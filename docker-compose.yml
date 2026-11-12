@@ -509,6 +509,9 @@ services:
   # read-only database sessions. Its writer settings are here, for this
   # service only; the shared env file carries none of them. In the rust-api
   # profile, so the deploy's teardown removes it with polis-api.
+  # It is also the comment shadow's service (commentsShadow in
+  # RUST_API_ROUTES: nginx sends it a copy of each POST /api/v3/comments that
+  # Node answers), and the web deploy starts it when either name is selected.
   polis-api-shadow:
     profiles: [rust-api]
     image: polis/polis-api:local
@@ -525,6 +528,21 @@ services:
       # The writer's primary, interpolated from the box's own DATABASE_URL
       # (the deploy appends it to the project .env); never in the env secret.
       - POLIS_API_POST_VOTES_DATABASE_URL=${DATABASE_URL:-}
+      # The comment observer (docs/post-comments-rust-handler.md, "Observe
+      # mode"). Its switch is empty here, which is off, whatever the env file
+      # holds: nothing in this file or the env document turns it on. The web
+      # deploy sets it to observe, in the override file it writes, exactly
+      # when RUST_API_ROUTES names commentsShadow. What the observer requires
+      # is always set, so that the switch is the only thing that changes: its
+      # own cap on copies observed per second, and its primary, by the same
+      # interpolation as the vote observer's. The cap is above what nginx
+      # sends (2 copies a second and 4 more at once, file-server/nginx/
+      # render-rust-api.sh), so the observer sheds nothing nginx let through,
+      # and within the 6 a second its room for waiting read-backs holds (64,
+      # with the second look at 10 s).
+      - POLIS_API_POST_COMMENTS=
+      - POLIS_API_SHADOW_COMMENTS_MAX_PER_SECOND=5
+      - POLIS_API_POST_COMMENTS_DATABASE_URL=${DATABASE_URL:-}
       - TOPICAL_COMMENT_RATIO=0
       - SHOULD_USE_TRANSLATION_API=false
       # 128 MiB, so the priorities cache fits the memory limit below.

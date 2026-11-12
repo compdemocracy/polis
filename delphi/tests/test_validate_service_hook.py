@@ -38,7 +38,7 @@ case "$*" in *"config --format json"*) exit "$CONFIG_STATUS";; esac
 case "$1" in
  ps) [ "$MISSING" = 1 ] || case "${@: -1}" in polis-api) echo rust;; polis-api-shadow) echo shadow;; *) echo owned;; esac ;;
  exec) case "$*" in *polis-api:5100*) echo rust >> "$CALLS"; exit "$RUST_HTTP";;
-       *polis-api-shadow:5101*) echo shadow >> "$CALLS"; exit "$SHADOW_HTTP";;
+       *polis-api-shadow:5101*) echo shadow >> "$CALLS"; echo "${@: -1}" >> "$CALLS.comments"; exit "$SHADOW_HTTP";;
        *) echo http >> "$CALLS"; exit "$HTTP_STATUS";; esac ;;
  *) exit 90 ;; esac''',
         'jq':'''cat >/dev/null
@@ -130,3 +130,61 @@ def test_shadow_with_the_live_vote_writer_is_refused_before_polling(tmp_path, ro
     assert 'votesShadow and postVotes' in p.stderr
     assert not (tmp_path/'calls').exists()
 
+
+# The comment shadow (commentsShadow) runs in the same service. The shadow's
+# health is required when either shadow is selected, and its predicate is
+# told, as its last argument, whether the comment observer must be built
+# ("1") or must not be ("0").
+def comment_arguments(tmp_path):
+    path = tmp_path/'calls.comments'
+    return path.read_text().splitlines() if path.exists() else []
+
+
+@pytest.mark.parametrize("routes,probed,comments", [
+    ("", False, None), ("pca2", False, None), ("version", False, None), ("pca2,version", False, None),
+    ("pca2,comments", False, None), ("votesRead", False, None),
+    ("votesShadow", True, "0"), ("pca2,votesShadow", True, "0"), (" pca2 votesShadow ", True, "0"),
+    ("pca2,version,votesShadow", True, "0"), ("votesRead,votesShadow", True, "0"),
+    ("commentsShadow", True, "1"), ("pca2,commentsShadow", True, "1"), (" pca2 commentsShadow ", True, "1"),
+    ("pca2,comments,commentsShadow", True, "1"),
+    ("pca2,votesShadow,commentsShadow", True, "1"), ("commentsShadow,votesShadow", True, "1"),
+    ("pca2 votesShadow commentsShadow", True, "1"), ("pca2,commentsShadow,commentsShadow", True, "1"),
+    ("commentsShadow,postVotes", True, "1"), ("votesShadow,postComments", True, "0"),
+    ("commentsShadows", False, None), ("xcommentsShadow", False, None), ("commentsshadow", False, None),
+    ("CommentsShadow", False, None), ("pca2,commentShadow", False, None),
+])
+def test_the_shadow_is_probed_for_either_shadow_and_told_which(tmp_path, routes, probed, comments):
+    # A selected route also makes the main polis-api's health required, as before.
+    named = bool(routes.replace(',', ' ').split())
+    p = probe(tmp_path, routes=routes)
+    assert p.returncode == 0, p.stderr
+    expected = ['http'] + (['rust'] if named else []) + (['shadow'] if probed else [])
+    assert (tmp_path/'calls').read_text().splitlines() == expected * 3
+    assert p.stdout.count('polis-api-shadow health ok') == (3 if probed else 0)
+    assert comment_arguments(tmp_path) == ([comments] * 3 if probed else [])
+
+
+@pytest.mark.parametrize("routes", ["commentsShadow", "pca2,votesShadow,commentsShadow"])
+@pytest.mark.parametrize("kw", [dict(shadow_http=1), dict(shadow_state='running true none'),
+                                dict(shadow_state='exited false none')])
+def test_comment_shadow_failure_rejects_validation(tmp_path, routes, kw):
+    p = probe(tmp_path, routes=routes, **kw)
+    assert p.returncode != 0
+    assert 'polis-api-shadow health failed' in p.stderr
+    assert 'ValidateService failed' in p.stderr
+
+
+@pytest.mark.parametrize("routes", ["postComments,commentsShadow", "commentsShadow postComments",
+                                    "pca2,votesShadow, postComments ,commentsShadow"])
+def test_comment_shadow_with_a_live_comment_route_is_refused_before_polling(tmp_path, routes):
+    p = probe(tmp_path, routes=routes)
+    assert p.returncode != 0
+    assert 'commentsShadow and postComments' in p.stderr
+    assert not (tmp_path/'calls').exists()
+
+
+def test_both_refusals_name_the_vote_pair_first(tmp_path):
+    p = probe(tmp_path, routes='votesShadow,postVotes,commentsShadow,postComments')
+    assert p.returncode != 0
+    assert 'votesShadow and postVotes' in p.stderr
+    assert not (tmp_path/'calls').exists()
