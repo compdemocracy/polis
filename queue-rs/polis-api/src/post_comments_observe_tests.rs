@@ -28,8 +28,8 @@ const CID: &str = "2p027generated";
 const NO_PID: i32 = -1;
 
 /// The observation line's complete key set, in the order it is printed. One
-/// key names the conversation (`zid`, as on the vote route's line). No key
-/// names a comment, a participant or a user, and none holds text.
+/// key names the conversation (`zid`, where the other shadow's line has it).
+/// No key names a comment, a participant or a user, and none holds text.
 pub(crate) const LINE_KEYS: &[&str] = &[
     "message",
     "listener",
