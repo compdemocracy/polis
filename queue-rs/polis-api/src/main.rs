@@ -871,21 +871,11 @@ async fn startup() -> Result<Startup> {
             .unwrap_or_else(|| dsn.clone());
         state.comments_count_db = Some(db::Pool::new(
             config::connector_for_dsn(&read_dsn, "polis-api-comment-count/1")?,
-            db::Limits {
-                size: 1,
-                acquire_timeout: std::time::Duration::from_millis(100),
-                statement_timeout: std::time::Duration::from_millis(1000),
-                max_lifetime: std::time::Duration::from_secs(300),
-            },
+            comments::count_pool_limits(),
         ));
         state.comments_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-comments/1")?,
-            db::Limits {
-                size: 2,
-                acquire_timeout: std::time::Duration::from_millis(100),
-                statement_timeout: std::time::Duration::from_millis(1000),
-                max_lifetime: std::time::Duration::from_secs(300),
-            },
+            comments::pool_limits(),
         ));
     }
     if std::env::var("POLIS_API_NEXT_COMMENT_READS")

@@ -150,6 +150,12 @@ impl App {
                 // The same for the comment observer: its two read-only pools
                 // are its own Observer::startup_pools.
                 post_comments_observe,
+                // Never built in the main role. The shadow role's read lanes
+                // hold no pool of their own: each lane's pools are the ones
+                // classified above for its handler (votes_read_db and
+                // votes_read_auth_db, comments_db and comments_count_db,
+                // next_comment_db), which shadow_reads_tests.rs compares.
+                read_lanes,
                 math_env,
                 dev_mode,
                 use_network_host,

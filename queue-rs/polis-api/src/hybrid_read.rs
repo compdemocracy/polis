@@ -81,6 +81,41 @@ pub async fn resolve_scoped(
     resolve_scoped_observed(raw, participant, oidc, pool, conversation, &PROCESS).await
 }
 
+/// Why `resolve_scoped` handed a credential back, as one word of a closed
+/// set, for a line that observes a copy of a read. It repeats the checks that
+/// need neither a key nor the database, in `resolve_scoped`'s own order, so it
+/// is asked only after `resolve_scoped` has answered None, and it changes
+/// nothing about what is admitted. `participant_token` and `oidc_token` each
+/// cover every refusal that needs the key or the database: a signature, an
+/// expiry, a conversation or a membership that is not there, a mapping that
+/// is not there, a database that did not answer.
+pub(crate) fn handoff_class(
+    raw: Option<&str>,
+    participant: bool,
+    oidc: bool,
+    conversation: Option<&str>,
+) -> &'static str {
+    let Some(payload) = raw.and_then(credential_hints) else {
+        return "credential_shape";
+    };
+    match credential_handoff(&payload, conversation) {
+        Some(Event::HandoffConversationScope) => return "credential_scope",
+        Some(Event::HandoffUnsupportedKind) => return "credential_kind",
+        Some(_) => return "credential_shape",
+        None => {}
+    }
+    if payload.get("anonymous_participant").is_some()
+        || payload.get("standard_user_participant").is_some()
+    {
+        return if participant {
+            "participant_token"
+        } else {
+            "participant_reads_off"
+        };
+    }
+    if oidc { "oidc_token" } else { "oidc_off" }
+}
+
 async fn resolve_scoped_observed(
     raw: Option<&str>,
     participant: Option<&polis_auth::participant::Verifier>,

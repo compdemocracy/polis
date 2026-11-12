@@ -16,7 +16,9 @@
 //! read-only pools, so a burst on one route cannot delay or drop a copy of
 //! the other. Only observers are built here: a live writer is refused at
 //! startup, no other writer is constructed, and no read route is configured
-//! whatever the env file says.
+//! whatever the env file says, unless a read handler's switch says `observe`:
+//! then that handler's read lane is built (`shadow_reads.rs`), for copies of
+//! its GET, with its own bound, rate bucket and read-only pools.
 //!
 //! Every line this process prints says it is the shadow's (`listener:
 //! "shadow"`, or an event name starting `shadow_`), because every container on
@@ -40,6 +42,9 @@ use std::{
 
 #[path = "shadow_comments.rs"]
 pub(crate) mod comments;
+
+#[path = "shadow_reads.rs"]
+pub(crate) mod reads;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Role {
@@ -76,29 +81,37 @@ pub(crate) const VOTES: &str = "votesShadow";
 enum Mirrored {
     Votes,
     Comments,
+    Read(reads::Route),
 }
 
 /// The mirrored routes: the selector name a copy carries in `X-Polis-Shadow`,
-/// and the path it was posted to. A request is a copy of a route when both
-/// are that route's.
-const ROUTES: [(Mirrored, &str, &str); 2] = [
-    (Mirrored::Votes, VOTES, post_votes::PATH),
+/// its method and its path. A request is a copy of a route when all three are
+/// that route's.
+const ROUTES: [(Mirrored, &str, &str, &str); 5] = [
+    (Mirrored::Votes, VOTES, "POST", post_votes::PATH),
     (
         Mirrored::Comments,
         comments::NAME,
+        "POST",
         crate::post_comments::PATH,
     ),
+    read_route(reads::Route::Votes),
+    read_route(reads::Route::Comments),
+    read_route(reads::Route::NextComment),
 ];
 
+const fn read_route(route: reads::Route) -> (Mirrored, &'static str, &'static str, &'static str) {
+    (Mirrored::Read(route), route.selector(), "GET", route.path())
+}
+
 fn mirrored(req: &Request) -> Option<Mirrored> {
-    if req.method != "POST" {
-        return None;
-    }
     let selector = req.headers.get("x-polis-shadow")?;
     ROUTES
         .iter()
-        .find(|(_, name, path)| selector == *name && req.path() == *path)
-        .map(|(route, _, _)| *route)
+        .find(|(_, name, method, path)| {
+            selector == *name && req.method == *method && req.path() == *path
+        })
+        .map(|(route, _, _, _)| *route)
 }
 const VOTES_ROUTE: &str = "POST /api/v3/votes";
 /// Observations in admission or selection at once.
@@ -399,6 +412,11 @@ pub(crate) async fn accept(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outg
         Some(Mirrored::Comments) if app.post_comments_observe.is_some() => {
             comments::accept(app, req).await
         }
+        // Served only when its lane is built: without it a copy of a read
+        // is, as before, not a copy of anything this listener serves.
+        Some(Mirrored::Read(route)) if app.read_lanes.get(route).is_some() => {
+            reads::accept(app, route, req).await
+        }
         // Not a copy of a shadowed route; nothing is recorded.
         _ => not_found(),
     }
@@ -578,7 +596,11 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
         Some(observer) => observer.ping().await,
         None => true,
     };
-    let all_reachable = votes_reachable && comments_reachable;
+    // A read lane's database counts too. It is not asked here: a lane has no
+    // connection apart from the ones its copies run on, so it reports what
+    // its startup probe and then its copies last found.
+    let reads_reachable = app.read_lanes.built().all(|lane| lane.reachable());
+    let all_reachable = votes_reachable && comments_reachable && reads_reachable;
     let mut body = Obj::new();
     body.set("role", Js::Str("shadow".into()));
     body.set(
@@ -620,6 +642,11 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
             "postComments",
             comments::health(observer, comments_reachable),
         );
+    }
+    for route in reads::Route::ALL {
+        if let Some(lane) = app.read_lanes.get(route) {
+            body.set(route.health_key(), reads::health(lane));
+        }
     }
     let address = lane
         .address
@@ -701,6 +728,9 @@ pub(crate) fn configure() -> Result<Shadow> {
             anyhow::bail!("the shadow role never builds the live comment writer")
         }
     }
+    // The read lanes: each built only when its handler's own switch says
+    // observe. Any other value builds nothing, as before.
+    reads::configure(&mut app)?;
     Ok(Shadow {
         app,
         lane: Lane::new(max_per_second),
@@ -751,6 +781,16 @@ pub(crate) async fn run() -> Result<()> {
         listening.push(("post_comments", Js::Str("observe".into())));
         comments::report_logging_settings(observer).await;
     }
+    if app.read_lanes.built().next().is_some() {
+        // A process that holds query strings prints no panic message.
+        install_panic_hook();
+        for lane_route in reads::Route::ALL {
+            if app.read_lanes.get(lane_route).is_some() {
+                listening.push((lane_route.event_key(), Js::Str(reads::OBSERVE.into())));
+            }
+        }
+        reads::report_startup(&app).await;
+    }
     event("shadow_listening", &listening);
     let result = tokio::select! {
         r = serve(listener, Arc::new(app), lane) => r,
@@ -766,7 +806,7 @@ pub(crate) async fn run() -> Result<()> {
 /// After this, a panic in this process prints where it happened and never
 /// what it said. A panic's message can quote what the panicking code held: a
 /// string cut off a character boundary prints the string. Installed by the
-/// shadow role when it builds the comment observer.
+/// shadow role when it builds the comment observer or a read lane.
 pub(crate) fn install_panic_hook() {
     std::panic::set_hook(Box::new(|info| {
         let location = info

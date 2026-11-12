@@ -60,6 +60,7 @@ impl Priorities {
     pub(crate) fn read(&self, c: &mut Client, zid: i32, env: &str) -> Result<Option<Arc<Js>>> {
         self.read_until(c, zid, env, Instant::now() + super::next_comment::DEADLINE)
     }
+    #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn read_until(
         &self,
         c: &mut Client,
@@ -67,16 +68,41 @@ impl Priorities {
         env: &str,
         deadline: Instant,
     ) -> Result<Option<Arc<Js>>> {
-        self.load((env.to_owned(), zid), deadline, |cached| {
-            refresh(c, zid, env, cached)
-        })
+        Ok(self
+            .read_with_tick_until(c, zid, env, deadline)?
+            .map(|(data, _)| data))
     }
+    /// `read_until`, with the math generation the priorities came from.
+    pub(crate) fn read_with_tick_until(
+        &self,
+        c: &mut Client,
+        zid: i32,
+        env: &str,
+        deadline: Instant,
+    ) -> Result<Option<(Arc<Js>, i64)>> {
+        Ok(self
+            .load_entry((env.to_owned(), zid), deadline, |cached| {
+                refresh(c, zid, env, cached)
+            })?
+            .map(|entry| (entry.data, entry.tick)))
+    }
+    #[cfg(test)]
     fn load(
         &self,
         key: Key,
         deadline: Instant,
         read: impl FnOnce(Option<Entry>) -> Result<Option<Entry>>,
     ) -> Result<Option<Arc<Js>>> {
+        Ok(self
+            .load_entry(key, deadline, read)?
+            .map(|entry| entry.data))
+    }
+    fn load_entry(
+        &self,
+        key: Key,
+        deadline: Instant,
+        read: impl FnOnce(Option<Entry>) -> Result<Option<Entry>>,
+    ) -> Result<Option<Entry>> {
         let (cached, flight, leader) = {
             let mut state = self
                 .state
@@ -86,7 +112,7 @@ impl Priorities {
             if let Some(entry) = &cached
                 && entry.until > now_ms()
             {
-                return Ok(Some(entry.data.clone()));
+                return Ok(Some(entry.clone()));
             }
             if let Some(flight) = state.flights.get(&key) {
                 (cached, flight.clone(), false)
@@ -112,7 +138,7 @@ impl Priorities {
                     .map(Clone::clone)
                     .map_err(|e| format!("{e:#}")),
             );
-            return result.map(|entry| entry.map(|entry| entry.data));
+            return result;
         }
         #[cfg(test)]
         self.joined
@@ -140,7 +166,7 @@ impl Priorities {
             bail!("priority flight deadline");
         }
         match outcome.as_ref() {
-            Some(Ok(Some(entry))) if entry.until > now_ms() => Ok(Some(entry.data.clone())),
+            Some(Ok(Some(entry))) if entry.until > now_ms() => Ok(Some(entry.clone())),
             Some(Ok(None)) => Ok(None),
             Some(Err(error)) => bail!("{error}"),
             _ => bail!("priority flight unavailable"),
