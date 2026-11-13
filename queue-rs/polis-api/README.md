@@ -1429,6 +1429,16 @@ The staged [vote read routes](VOTES-READ.md) cover latest/history responses unde
 `votesRead`, off by default. The route note names the identity quirks, bounded
 read pools, exact response subset and Node hand-back conditions.
 
+The staged [featured participants route](VOTES-FAMOUS.md)
+(`GET /api/v3/votes/famous`, the legacy participation client's poll for the
+participants it draws by name) is behind `POLIS_API_VOTES_FAMOUS_READS` and
+the nginx selector `votesFamous`, both off by default. It reads the math
+through the shared three-second generation cache, keeps Node's two process
+caches by Node's rules, runs on two read-only pools of its own, and names the
+reason of every request it hands back to Node. The route note lists what Node
+does step by step, what is copied, the fields of external-id participants the
+reply carries, and the replay.
+
 Conversation link pages (`/iip/:conversation_id`, `/iim/:conversation_id`) have independent default-off switches and read-only pools. See [LINK-PAGES.md](LINK-PAGES.md) for the contract, admission limits and replay.
 
 Current participant rows: [contract and admission](PARTICIPANTS-READ.md).
