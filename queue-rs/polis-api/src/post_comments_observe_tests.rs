@@ -48,6 +48,7 @@ pub(crate) const LINE_KEYS: &[&str] = &[
     "readback_s",
     "zid",
     "strict",
+    "after_insert",
     "vote_present",
     "seed_present",
     "body_class",
@@ -119,7 +120,11 @@ const REASONS: &[&str] = &[
     "xid_allowlist",
     "admission_unavailable",
     "admission_timeout",
-    // The decision.
+    // The decision. The first is the live handler's reason for a comment in
+    // a conversation with strict moderation; this observer never prints it
+    // (it observes that comment as a would-be write, and the line contract
+    // refuses it), and it stays in the set because lines printed before that
+    // carry it.
     "strict_moderation",
     "duplicate",
     "closed",
@@ -425,6 +430,29 @@ pub(crate) fn assert_line_shape(printed: &str) {
         line["strict"].is_null() || line["strict"].is_boolean(),
         "{printed}"
     );
+    one_of(
+        &line,
+        "after_insert",
+        &["notification_task", "moderator_email"],
+        true,
+    );
+    // What follows the insert is on exactly the lines of a comment Node
+    // stores, and is the moderators' email exactly where the conversation
+    // has strict moderation: a strict comment is a would-be write, never a
+    // hand-back.
+    assert_eq!(
+        line["after_insert"].is_null(),
+        line["outcome"] != "would_serve",
+        "after_insert: {printed}"
+    );
+    if line["outcome"] == "would_serve" {
+        assert_eq!(
+            line["after_insert"] == "moderator_email",
+            line["strict"] == true,
+            "after_insert: {printed}"
+        );
+    }
+    assert_ne!(line["reason"], "strict_moderation", "{printed}");
     for key in ["queue_ms", "admission_ms", "total_ms", "readback_s"] {
         assert!(
             line[key].is_null() || line[key].is_number(),

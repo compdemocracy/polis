@@ -13,6 +13,13 @@
 //! From what admission read it derives what the live handler at this commit
 //! would do with the request: dispatch the write, answer 409 or 403, or hand
 //! the request back, and for which reason. The write itself is not modelled.
+//! One decision is read otherwise than live reads it: a comment in a
+//! conversation with strict moderation, which live hands back because it
+//! sends no moderators' email, is observed as the write Node makes (the row
+//! is the same as in any conversation), and the line says what follows the
+//! insert (`after_insert`: the moderators' email there, the notification task
+//! elsewhere). It reaches this module as a `Modelled` row, which nothing can
+//! insert (`Decision::observed`).
 //!
 //! Node may have stored this very comment before the copy's admission reads.
 //! The unique key on (zid, txt) allows one row per text, so the row admission
@@ -38,7 +45,7 @@
     clippy::expect_used
 )]
 use super::*;
-use crate::post_comments_decision::{Outcome, UNMODERATED, VELOCITY};
+use crate::post_comments_decision::{Observed, Outcome, UNMODERATED, VELOCITY};
 use crate::post_comments_text::Compared;
 use crate::post_votes::observe::ReadbackTiming;
 use crate::shadow::comments::Lane;
@@ -571,20 +578,23 @@ pub(super) async fn handle(observer: &Observer, req: &Request, res: Res) -> Outg
         Outcome::Closed => Some("closed"),
         Outcome::Store(_) => None,
     };
-    match decision.live() {
-        Live::Answer(status, code) => {
+    match decision.observed() {
+        Observed::Answer(status, code) => {
             crate::shadow::comments::record(|record| record.reason = answered);
             route::fail_json(req, res, status, Js::Str(code.into()))
         }
-        Live::HandBack(reason) => {
-            crate::shadow::comments::record(|record| record.reason = Some(reason));
-            route::bad_gateway()
+        // Node stores the comment: the live handler dispatches the write
+        // here, or, in a conversation with strict moderation, hands it to
+        // Node, which stores the same row and then emails the moderators. The
+        // row is dropped: it is a `Modelled`, this mode has nothing to write
+        // it with, and the write (the insert, the comment's number, the
+        // author's vote, the notification work or email and the reply
+        // deadline) is not modelled. What Node stored is read back and
+        // compared all the same.
+        Observed::Stored { row: _, after } => {
+            crate::shadow::comments::record(|record| record.after_insert = Some(after));
+            no_answer()
         }
-        // The live handler dispatches the write here. The row is dropped:
-        // this mode has nothing to write it with, and the write (the insert,
-        // the comment's number, the author's vote, the notification work and
-        // the reply deadline) is not modelled.
-        Live::Write(_) => no_answer(),
     }
 }
 

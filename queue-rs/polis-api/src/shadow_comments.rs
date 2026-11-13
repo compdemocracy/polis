@@ -36,6 +36,7 @@ use crate::{
         self,
         observe::{AuthorVote, NodeComment, Observer, Stored, Subject, TextRow},
     },
+    post_comments_decision::AfterInsert,
     post_comments_text::{Compared, Length},
     route::{self, App},
 };
@@ -67,6 +68,10 @@ pub(crate) struct Record {
     /// The conversation, for an admitted copy.
     pub(crate) zid: Option<i32>,
     pub(crate) strict: Option<bool>,
+    /// What Node does after it stores the comment, for a copy whose comment
+    /// Node stores: the moderators' email in a conversation with strict
+    /// moderation, the notification task elsewhere.
+    pub(crate) after_insert: Option<AfterInsert>,
     pub(crate) admission: Option<Duration>,
     pub(crate) text_row: Option<TextRow>,
     /// The would-be answer cannot be told: a text match with no anchor.
@@ -187,6 +192,7 @@ struct Line<'a> {
     readback_s: Option<f64>,
     zid: Option<i32>,
     strict: Option<bool>,
+    after_insert: Option<AfterInsert>,
     facts: (bool, bool),
     body_class: &'static str,
     text_row: Option<TextRow>,
@@ -214,6 +220,7 @@ impl<'a> Line<'a> {
             readback_s: None,
             zid: None,
             strict: None,
+            after_insert: None,
             facts,
             body_class: body_class(req.body.len()),
             text_row: None,
@@ -262,6 +269,10 @@ impl<'a> Line<'a> {
         line.set("readback_s", num(self.readback_s));
         line.set("zid", num(self.zid));
         line.set("strict", flag(self.strict));
+        line.set(
+            "after_insert",
+            word(self.after_insert.map(AfterInsert::as_str)),
+        );
         line.set("vote_present", Js::Bool(vote_present));
         line.set("seed_present", Js::Bool(seed_present));
         line.set("body_class", Js::Str(self.body_class.into()));
@@ -402,7 +413,10 @@ async fn observe(
     } else {
         (
             match out.status {
-                // The live handler would dispatch the write.
+                // Node stores the comment: the live handler would dispatch
+                // the write, or, under strict moderation (`after_insert:
+                // moderator_email`), hand it to Node, which stores the same
+                // row and emails the moderators.
                 200 => "would_serve",
                 502 => "would_hand_back",
                 500..=599 => "would_fail",
@@ -476,6 +490,7 @@ async fn observe(
         readback_s,
         zid: taken.zid,
         strict: taken.strict,
+        after_insert: taken.after_insert,
         facts,
         body_class,
         text_row: taken.text_row,

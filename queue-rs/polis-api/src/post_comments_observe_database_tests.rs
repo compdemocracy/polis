@@ -229,13 +229,14 @@ fn observe_reaches_the_live_decision_for_every_request_and_changes_no_row() {
                 "other",
             ),
         ),
-        // Strict moderation: decided, and handed back by live.
+        // Strict moderation: Node stores the same row and emails the
+        // moderators. Live hands it back; observe compares it as a write.
         (
             ("4strict", 3, 0, new, agree()),
             (
-                "would_hand_back",
-                502,
-                Some("strict_moderation"),
+                "would_serve",
+                200,
+                None,
                 1,
                 Some(true),
                 Some("none"),
@@ -375,6 +376,13 @@ fn observe_reaches_the_live_decision_for_every_request_and_changes_no_row() {
             assert!(line["zid"].is_null(), "{line}");
         }
         assert_eq!(line["strict"], json!(strict), "{line}");
+        // What Node does after the insert, on the copies Node stores.
+        let after = match (outcome, strict) {
+            ("would_serve", Some(true)) => json!("moderator_email"),
+            ("would_serve", _) => json!("notification_task"),
+            _ => Value::Null,
+        };
+        assert_eq!(line["after_insert"], after, "{line}");
         assert_eq!(line["text_row"], json!(text_row), "{line}");
         assert_eq!(line["node_comment"], node_comment, "{line}");
         assert_eq!(line["vote_present"], carried_vote, "{line}");
@@ -392,7 +400,7 @@ fn observe_reaches_the_live_decision_for_every_request_and_changes_no_row() {
         }
         served += usize::from(outcome == "would_serve");
     }
-    assert_eq!(served, 2);
+    assert_eq!(served, 3);
     let no_token = stage.observe(None, &body(CID, new, agree()));
     assert_eq!(no_token["reason"], "no_token");
     // A listed admin is handed back before admission.
@@ -412,9 +420,9 @@ fn observe_reaches_the_live_decision_for_every_request_and_changes_no_row() {
     assert_eq!(health["status"], "ok");
     let comments = &health["postComments"];
     assert_eq!(comments["observed"], 16);
-    assert_eq!(comments["wouldServe"], 2);
+    assert_eq!(comments["wouldServe"], 3);
     assert_eq!(comments["wouldAnswer"], 4);
-    assert_eq!(comments["wouldHandBack"], 10);
+    assert_eq!(comments["wouldHandBack"], 9);
     assert_eq!(comments["wouldFail"], 0);
     assert_eq!(comments["unknown"], 0);
     assert_eq!(comments["readbackAbsent"], 4);
@@ -514,6 +522,95 @@ fn a_text_node_has_already_stored_is_its_own_row_and_is_read_back() {
     assert_eq!(comments["voteAmbiguous"], 1);
     assert_eq!(comments["voteAbsent"], 1);
     assert_eq!(comments["textDifferent"], 0);
+}
+
+/// A comment in a conversation with strict moderation is observed as the
+/// write Node makes, and what Node stored is compared with the row the
+/// handler models, as in any conversation. The line says the conversation is
+/// strict and that the moderators' email follows the insert. The live
+/// handler, on the same database, still hands that comment back and writes
+/// nothing.
+#[test]
+fn a_strict_conversations_comment_is_observed_and_compared_and_live_still_hands_it_back() {
+    let stage = stage("observe_strict");
+    let mut c = stage.db.connect();
+    // Node's row and its author's vote, stored the way Node stores them. A
+    // strict conversation's comment gets the row any other gets, so the live
+    // handler writes it while the conversation is not yet strict.
+    let text = "Generated strict comment stored by Node";
+    stage.node_stores(&member(), &body(CID, text, agree()));
+    c.batch_execute("UPDATE conversations SET strict_moderation = true WHERE zid = 1")
+        .unwrap();
+    let before = live::snapshot(&mut c);
+    let line = stage.observe(Some(&member()), &body(CID, text, agree()));
+    assert_eq!(line["outcome"], "would_serve", "{line}");
+    assert_eq!(line["status"], 200, "{line}");
+    assert!(line["reason"].is_null(), "{line}");
+    assert_eq!(line["admitted"], 1);
+    assert_eq!(line["zid"], 1);
+    assert_eq!(line["strict"], true);
+    assert_eq!(line["after_insert"], "moderator_email");
+    assert_eq!(line["text_row"], "own");
+    assert_eq!(line["node_comment"], "own");
+    assert_eq!(line["node_txt"], "same");
+    assert_eq!(line["node_author"], "same");
+    assert_eq!(line["node_row"], "as_expected");
+    assert_eq!(line["node_lang"], "unset");
+    assert_eq!(line["node_vote"], "same", "{line}");
+    assert_eq!(line["readback_s"], 0.05);
+    // A stored vote that is not the copy's choice is seen here as anywhere.
+    let disagree = json!({"vote": VoteChoice::Disagree.wire()});
+    let line = stage.observe(Some(&member()), &body(CID, text, disagree));
+    assert_eq!(line["outcome"], "would_serve", "{line}");
+    assert_eq!(line["node_comment"], "own");
+    assert_eq!(line["node_vote"], "different", "{line}");
+    // A comment Node has not stored: looked for twice, then absent.
+    let line = stage.observe(
+        Some(&member()),
+        &body(CID, "Generated strict comment not stored", agree()),
+    );
+    assert_eq!(line["outcome"], "would_serve", "{line}");
+    assert_eq!(line["after_insert"], "moderator_email");
+    assert_eq!(line["text_row"], "none");
+    assert_eq!(line["node_comment"], "absent");
+    assert_eq!(line["readback_s"], 0.15);
+    // Another participant's text in a strict conversation: a duplicate, as
+    // for Node, and nothing follows an insert that does not happen.
+    let line = stage.observe(Some(&claims(2, 1, CID)), &body(CID, text, agree()));
+    assert_eq!(line["outcome"], "would_answer", "{line}");
+    assert_eq!(line["status"], 409);
+    assert_eq!(line["reason"], "duplicate");
+    assert_eq!(line["strict"], true);
+    assert!(line["after_insert"].is_null(), "{line}");
+    assert_eq!(live::snapshot(&mut c), before, "observe changed a row");
+    // The live handler on the same database: the same kind of comment is
+    // handed back to Node, with nothing written.
+    let out = live::send(
+        &stage.rt,
+        &stage.node,
+        &member(),
+        &body(
+            CID,
+            "Generated strict comment for the live handler",
+            agree(),
+        ),
+    );
+    assert_eq!(out.status, 502, "{}", live::body_of(&out));
+    assert_eq!(
+        live::snapshot(&mut c),
+        before,
+        "live wrote a strict comment"
+    );
+    let health = stage.health();
+    let comments = &health["postComments"];
+    assert_eq!(comments["wouldServe"], 3);
+    assert_eq!(comments["wouldAnswer"], 1);
+    assert_eq!(comments["wouldHandBack"], 0);
+    assert_eq!(comments["readbackOwn"], 2);
+    assert_eq!(comments["readbackAbsent"], 1);
+    assert_eq!(comments["readbackOther"], 1);
+    assert_eq!(comments["voteSame"], 1);
+    assert_eq!(comments["voteDifferent"], 1);
 }
 
 fn subject(text: &str, vote: Option<VoteChoice>) -> Subject {
@@ -1756,7 +1853,7 @@ fn nothing_a_failing_or_panicking_observation_prints_contains_the_text() {
         "observed own: \"would_serve\" null \"own\" \"same\"",
         "observed other: \"would_answer\" \"duplicate\" \"other\" \"not_checked\"",
         "observed 3closed: \"would_answer\" \"closed\" \"absent\" \"not_checked\"",
-        "observed 4strict: \"would_hand_back\" \"strict_moderation\" \"absent\" \"not_checked\"",
+        "observed 4strict: \"would_serve\" null \"absent\" \"not_checked\"",
         "observed 5treevite: \"would_hand_back\" \"treevite\" \"not_checked\" \"not_checked\"",
         "observed moderator: \"would_hand_back\" \"moderator\"",
         "observed no token: \"would_hand_back\" \"no_token\"",
