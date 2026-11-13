@@ -286,6 +286,10 @@ pub struct App {
     pub treevite_codes: Option<crate::treevite_codes::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
+    /// The shadow role's read lanes (`shadow_reads.rs`): none in the main
+    /// role, and none in the shadow role unless a read handler's switch says
+    /// observe.
+    pub(crate) read_lanes: crate::shadow::reads::Lanes,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
     zids: Mutex<Lru<String, i32>>,
     pub served: AtomicU64,
@@ -542,6 +546,7 @@ impl App {
             treevite_codes: None,
             comments_db: None,
             comments_count_db: None,
+            read_lanes: crate::shadow::reads::Lanes::default(),
             math_env: cfg.math_env.clone(),
             dev_mode: cfg.dev_mode,
             use_network_host: cfg.use_network_host,

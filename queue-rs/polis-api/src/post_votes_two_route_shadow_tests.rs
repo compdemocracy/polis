@@ -472,11 +472,11 @@ mod database_tests {
     use super::*;
     use std::sync::atomic::AtomicBool;
 
-    fn connector(db: &Database) -> impl Fn() -> Connector + '_ {
+    pub(super) fn connector(db: &Database) -> impl Fn() -> Connector + '_ {
         || Connector::Plain(Box::new(db.config.clone()))
     }
 
-    fn runtime() -> tokio::runtime::Runtime {
+    pub(super) fn runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
@@ -487,7 +487,7 @@ mod database_tests {
     /// One conversation with fourteen comments and math priorities, and a
     /// participant (uid 1, pid 0) with two prior votes: what a vote copy and
     /// a comment copy of the same person both need.
-    fn fixture(label: &str) -> Database {
+    pub(super) fn fixture(label: &str) -> Database {
         let db = Database::new(label);
         let mut c = db.connect();
         c.batch_execute(
@@ -521,7 +521,7 @@ mod database_tests {
         db
     }
 
-    fn digest(config: &postgres::Config) -> Vec<String> {
+    pub(super) fn digest(config: &postgres::Config) -> Vec<String> {
         let mut c = config.connect(postgres::NoTls).unwrap();
         [
             "comments",
@@ -544,7 +544,10 @@ mod database_tests {
         .collect()
     }
 
-    async fn park(pool: &Arc<db::Pool>, size: usize) -> Vec<std::sync::mpsc::Sender<()>> {
+    pub(super) async fn park(
+        pool: &Arc<db::Pool>,
+        size: usize,
+    ) -> Vec<std::sync::mpsc::Sender<()>> {
         let (ready, mut receive) = tokio::sync::mpsc::unbounded_channel();
         let mut releases = vec![];
         for _ in 0..size {
@@ -572,25 +575,25 @@ mod database_tests {
     }
 
     /// Whether the copy's admission ended inside the live admission deadline.
-    fn timely(line: &Value) -> bool {
+    pub(super) fn timely(line: &Value) -> bool {
         line["admission_ms"]
             .as_f64()
             .is_some_and(|ms| ms <= ADMISSION_DEADLINE.as_secs_f64() * 1000.0)
     }
 
     /// How many waits, acquire timeouts and failed operations a pool has seen.
-    fn contention(pool: &db::Pool) -> [usize; 3] {
+    pub(super) fn contention(pool: &db::Pool) -> [usize; 3] {
         let seen = pool.evidence.snapshot();
         [seen[1], seen[2], seen[4]]
     }
 
-    fn counter(health: &Value, route: &str, key: &str) -> u64 {
+    pub(super) fn counter(health: &Value, route: &str, key: &str) -> u64 {
         health[route][key].as_u64().unwrap()
     }
 
     /// Copies of one route, as fast as the listener takes them, until told
     /// to stop. Returns how many were sent.
-    async fn flood(
+    pub(super) async fn flood(
         app: Arc<App>,
         lane: Arc<shadow::Lane>,
         make: impl Fn(usize, &str) -> Request + Send + 'static,
@@ -609,7 +612,7 @@ mod database_tests {
         sent
     }
 
-    const VOTES: [(i32, VoteChoice); 12] = [
+    pub(super) const VOTES: [(i32, VoteChoice); 12] = [
         (2, VoteChoice::Agree),
         (4, VoteChoice::Pass),
         (6, VoteChoice::Disagree),
@@ -905,3 +908,10 @@ mod database_tests {
         assert_eq!(digest(&db.config), before, "an observation changed a row");
     }
 }
+
+#[path = "post_votes_shadow_pinned_tests.rs"]
+mod pinned;
+
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_read_lanes_tests.rs"]
+mod read_lanes;
