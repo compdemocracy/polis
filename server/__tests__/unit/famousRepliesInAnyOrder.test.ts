@@ -99,6 +99,7 @@ jest.mock("../../src/routes/math", () => ({
 }));
 
 import { doFamousQuery } from "../../src/server-helpers";
+import { semanticToStorage } from "../../src/votes/convention";
 
 // The featured ranking, as the featured statement returns it (the account
 // last): a moderator's pin, and two participants with an external id and a
@@ -143,8 +144,8 @@ const LAST_TID = 5;
 // pass on the last statement.
 function votesOf(pid: number): Row[] {
   return [
-    { pid, tid: pid % LAST_TID, vote: -1 },
-    { pid, tid: LAST_TID, vote: 0 },
+    { pid, tid: pid % LAST_TID, vote: semanticToStorage("agree") },
+    { pid, tid: LAST_TID, vote: semanticToStorage("pass") },
   ];
 }
 

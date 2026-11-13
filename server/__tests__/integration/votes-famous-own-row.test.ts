@@ -42,10 +42,14 @@ describe("GET /api/v3/votes/famous: the requester's own row", () => {
 
   const LETTER: Record<Vote, string> = { agree: "a", disagree: "d", pass: "p" };
 
-  /** A participant who votes as told, and the letters the route gives them. */
+  /**
+   * A participant who votes as told, and the letters the route gives them.
+   * Their participant number is the one each vote's reply names; every voter
+   * here votes at least once.
+   */
   async function voter(votes: Array<[number, Vote]>): Promise<Voter> {
     const { agent } = await initializeParticipant(conversationId);
-    let pid = -1;
+    let pid: number | undefined;
     const letters = Array(Math.max(...votes.map(([tid]) => tid)) + 1).fill("u");
     for (const [tid, vote] of votes) {
       const res = await submitVote(agent, {
