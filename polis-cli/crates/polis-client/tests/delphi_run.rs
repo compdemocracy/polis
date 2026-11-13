@@ -1,9 +1,10 @@
 //! `Client::delphi_run`: one Delphi job's run record, read from the site and
 //! decoded into the contract's own type, against a fixture HTTP server. The
-//! 200 bodies are the recorded bytes of the route for a real local sequence
-//! (a full pipeline run, a collective-statement save, a second full run).
+//! 200 bodies are the recorded bytes of the route for real local sequences
+//! (a full pipeline run, a collective-statement save, a second full run;
+//! and, from a later recording, a second save after the second run).
 use polis_client::Client;
-use polis_contracts::delphi_job_result::TopicKey;
+use polis_contracts::delphi_provenance::WrittenBy;
 use polis_contracts::delphi_run::{JobId, ResultFamily, RunFamily};
 use std::{
     io::{Read, Write},
@@ -61,10 +62,10 @@ fn client(base: &str) -> Client {
 }
 
 #[test]
-fn a_topic_key_leads_to_the_typed_record_of_the_run_that_named_the_topic() {
-    // What a reader of results holds: a topic key of the second run.
-    let key = TopicKey::new(format!("{SECOND}#0#3")).unwrap();
-    let job = key.producer().and_then(|j| j.run_record_id()).unwrap();
+fn a_job_id_leads_to_the_typed_record_of_that_job() {
+    // What a reader asks with: a job id, here the second run's. (A topic
+    // key carries a clustering label, which is not looked up as a job.)
+    let job = JobId::new(SECOND).unwrap();
     let body = recorded("second");
     let (base, thread) = site(200, "application/json; charset=utf-8", body.clone());
     let run = client(&base).delphi_run(&job).unwrap().unwrap();
@@ -86,16 +87,20 @@ fn a_topic_key_leads_to_the_typed_record_of_the_run_that_named_the_topic() {
         Some("72ff7574-cb32-46f3-942a-eb512664ad49")
     );
     assert!(polis_contracts::wire::to_json(&run).unwrap() == body);
-    // The run named its own topics, and the record says so with typed ids.
-    let named_by = run
-        .outputs
-        .families
-        .get(ResultFamily::Run(RunFamily::CommentClustersLlmTopicNames))
-        .and_then(|f| f.state.computation())
-        .map(|c| c.producer.clone())
-        .unwrap();
+    // The run produced the topic names it published, and the record says
+    // so with typed ids.
+    let names = ResultFamily::Run(RunFamily::CommentClustersLlmTopicNames);
+    let Some(WrittenBy::Producer(named_by)) = run.written_by(names) else {
+        panic!("{:?}", run.written_by(names))
+    };
     assert_eq!(named_by.job_id, job);
     assert_eq!(named_by.run_id, run.run_id);
+    // The collective statements beside them name only their last writer.
+    let statements = ResultFamily::Run(RunFamily::CollectiveStatement);
+    assert!(matches!(
+        run.written_by(statements),
+        Some(WrittenBy::LastWriter(_))
+    ));
     // And which family beside them came from another run's topics.
     let mixed = run.inputs_from_other_runs();
     assert_eq!(mixed.len(), 1);
@@ -111,7 +116,7 @@ fn a_topic_key_leads_to_the_typed_record_of_the_run_that_named_the_topic() {
 
 #[test]
 fn every_recorded_run_record_decodes_to_the_bytes_the_site_sent() {
-    for name in ["first", "statement", "second"] {
+    for name in ["first", "statement", "second", "statement-after-second"] {
         let body = recorded(name);
         let id: serde_json::Value = serde_json::from_str(&body).unwrap();
         let job = JobId::new(id["job_id"].as_str().unwrap()).unwrap();

@@ -1,0 +1,422 @@
+{
+ "jobs": {
+  "first": "885245c8-14ca-4786-be04-50b9b5fb94fa",
+  "statement": "ab3870b2-69fa-4576-b395-03fd440f2403",
+  "second": "707ce352-0857-40af-9779-50ba16e0d206",
+  "statement-after-second": "6e9d83f9-fd93-4d37-8225-00c4c6a66268"
+ },
+ "families": {
+  "Delphi_CollectiveStatement": [
+   {
+    "zid": {
+     "S": "1424"
+    },
+    "model": {
+     "S": "none"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#0"
+    },
+    "comments_data": {
+     "S": "[]"
+    },
+    "statement_data": {
+     "S": "{\"statement\":\"Written for the replay; no model.\"}"
+    },
+    "zid_topic_jobid": {
+     "S": "1424#707ce352-0857-40af-9779-50ba16e0d206#0#0#cd65e2b5-d719-468f-a273-985deff29244"
+    }
+   },
+   {
+    "zid": {
+     "S": "1424"
+    },
+    "model": {
+     "S": "none"
+    },
+    "topic_key": {
+     "S": "885245c8-14ca-4786-be04-50b9b5fb94fa#0#0"
+    },
+    "comments_data": {
+     "S": "[]"
+    },
+    "statement_data": {
+     "S": "{\"statement\":\"Written for the replay; no model.\"}"
+    },
+    "zid_topic_jobid": {
+     "S": "1424#885245c8-14ca-4786-be04-50b9b5fb94fa#0#0#bc67b0d3-9d5a-41a7-bbe1-706744e5c9de"
+    }
+   }
+  ],
+  "Delphi_CommentClustersLLMTopicNames": [
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#0"
+    },
+    "cluster_id": {
+     "N": "0"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582081"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_0: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#1"
+    },
+    "cluster_id": {
+     "N": "1"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582101"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_1: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#10"
+    },
+    "cluster_id": {
+     "N": "10"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582119"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_10: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#2"
+    },
+    "cluster_id": {
+     "N": "2"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582105"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_2: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#3"
+    },
+    "cluster_id": {
+     "N": "3"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582107"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_3: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#4"
+    },
+    "cluster_id": {
+     "N": "4"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582109"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_4: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#5"
+    },
+    "cluster_id": {
+     "N": "5"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582111"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_5: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#6"
+    },
+    "cluster_id": {
+     "N": "6"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582113"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_6: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#7"
+    },
+    "cluster_id": {
+     "N": "7"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582115"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_7: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#8"
+    },
+    "cluster_id": {
+     "N": "8"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582116"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_8: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "0"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#0#9"
+    },
+    "cluster_id": {
+     "N": "9"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.582118"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "0_9: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "1"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#1#0"
+    },
+    "cluster_id": {
+     "N": "0"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.638166"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "1_0: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "1"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#1#1"
+    },
+    "cluster_id": {
+     "N": "1"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.638180"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "1_1: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "1"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#1#2"
+    },
+    "cluster_id": {
+     "N": "2"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.638184"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "1_2: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "1"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#1#3"
+    },
+    "cluster_id": {
+     "N": "3"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.638186"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "1_3: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   },
+   {
+    "layer_id": {
+     "N": "1"
+    },
+    "topic_key": {
+     "S": "707ce352-0857-40af-9779-50ba16e0d206#1#4"
+    },
+    "cluster_id": {
+     "N": "4"
+    },
+    "created_at": {
+     "S": "2026-11-12T04:57:53.638187"
+    },
+    "model_name": {
+     "S": "none"
+    },
+    "topic_name": {
+     "S": "1_4: {\"id\": \"polis_narrative_error_message\", \"title\": \"..."
+    },
+    "conversation_id": {
+     "S": "1424"
+    }
+   }
+  ]
+ }
+}
