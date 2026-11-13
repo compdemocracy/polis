@@ -224,6 +224,126 @@ fn require_open(tx: &mut Transaction<'_>, zid: Zid) -> Result<(), Failure> {
     Ok(())
 }
 
+/// What a conversation's row says about joining it.
+struct Rules {
+    owner: i32,
+    treevite: bool,
+    whitelist: bool,
+    xid_required: bool,
+}
+
+/// The conversation's row. A conversation that does not exist or is closed
+/// is refused here, before anything else is read or written.
+fn open_conversation(tx: &mut Transaction<'_>, zid: Zid) -> Result<Rules, Failure> {
+    let row = tx.query_opt("SELECT owner,is_active,treevite_enabled,use_xid_whitelist,xid_required FROM conversations WHERE zid=$1", &[&zid.0])?;
+    let Some(row) = row else {
+        return refuse(404, "polis_err_fetching_zid_for_conversation_id");
+    };
+    let owner: i32 = row.try_get(0)?;
+    if row.try_get::<_, Option<bool>>(1)? != Some(true) {
+        return refuse(403, "polis_err_conversation_is_closed");
+    }
+    let treevite = row.try_get::<_, Option<bool>>(2)?.unwrap_or(false);
+    let whitelist = row.try_get::<_, Option<bool>>(3)?.unwrap_or(false);
+    let xid_required: bool = row.try_get(4)?;
+    Ok(Rules {
+        owner,
+        treevite,
+        whitelist,
+        xid_required,
+    })
+}
+
+/// What the participation entry's reads found on the way to its decision.
+/// Kept in process: it holds a user number and a participant number.
+#[derive(Default)]
+struct Seen {
+    /// Whether an external id named by the request is bound under the
+    /// conversation's owner. None when no binding was looked up.
+    bound: Option<bool>,
+    uid: Option<Uid>,
+    existing: Option<i32>,
+}
+
+/// The participation entry's decision up to its first write.
+enum Before {
+    /// Nothing is created: the existing member, or nobody when the entry
+    /// does not create.
+    Found(Option<(Uid, i32)>),
+    /// The writes follow: a user when `uid` is None, a participant when
+    /// `existing` is None, then the final open check.
+    Write {
+        uid: Option<Uid>,
+        existing: Option<i32>,
+    },
+}
+
+/// Every read the participation entry makes before it writes, in order, with
+/// its refusals: the allow-list, the binding of an external id, the account
+/// check, the required external id, membership, and the Treevite refusal. It
+/// takes no lock and calls no function with a side effect, so it runs
+/// unchanged in a read-only transaction.
+fn participation(
+    tx: &mut Transaction<'_>,
+    zid: Zid,
+    rules: &Rules,
+    identity: &Identity<'_>,
+    create_if_missing: bool,
+    admin_uids: &[Uid],
+    seen: &mut Seen,
+) -> Result<Before, Failure> {
+    let (mut uid, xid) = identity.scoped(zid);
+    if let Some(xid) = xid {
+        if rules.whitelist
+            && tx
+                .query_opt(
+                    "SELECT 1 FROM xid_whitelist WHERE owner=$1 AND xid=$2",
+                    &[&rules.owner, &xid],
+                )?
+                .is_none()
+        {
+            return refuse(403, "polis_err_xid_not_allowed");
+        }
+        if uid.is_none() {
+            uid = tx
+                .query_opt(
+                    "SELECT uid FROM xids WHERE owner=$1 AND xid=$2",
+                    &[&rules.owner, &xid],
+                )?
+                .map(|row| row.try_get(0))
+                .transpose()?
+                .map(Uid);
+            seen.bound = Some(uid.is_some());
+        }
+        if let Some(uid) = uid {
+            require_participant_account(tx, uid, admin_uids)?;
+        }
+    }
+    seen.uid = uid;
+    let create = create_if_missing || xid.is_some();
+    if create && uid.is_none() && xid.is_none() && (rules.whitelist || rules.xid_required) {
+        return refuse(403, "polis_err_xid_required");
+    }
+    let existing = if let Some(uid) = uid {
+        tx.query_opt(
+            "SELECT pid FROM participants WHERE zid=$1 AND uid=$2",
+            &[&zid.0, &uid.0],
+        )?
+        .map(|row| row.try_get::<_, i32>(0))
+        .transpose()?
+    } else {
+        None
+    };
+    seen.existing = existing;
+    if !create {
+        return Ok(Before::Found(uid.zip(existing)));
+    }
+    if rules.treevite && existing.is_none() && uid != Some(Uid(rules.owner)) {
+        return refuse(401, "polis_err_treevite_auth_required");
+    }
+    Ok(Before::Write { uid, existing })
+}
+
 fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitted>, Failure> {
     let zid = request.zid;
     // Lock even a spent invite; a waiter sees the winner's committed status.
@@ -249,17 +369,13 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
     } else {
         None
     };
-    let row = tx.query_opt("SELECT owner,is_active,treevite_enabled,use_xid_whitelist,xid_required FROM conversations WHERE zid=$1", &[&zid.0])?;
-    let Some(row) = row else {
-        return refuse(404, "polis_err_fetching_zid_for_conversation_id");
-    };
-    let owner: i32 = row.try_get(0)?;
-    if row.try_get::<_, Option<bool>>(1)? != Some(true) {
-        return refuse(403, "polis_err_conversation_is_closed");
-    }
-    let treevite = row.try_get::<_, Option<bool>>(2)?.unwrap_or(false);
-    let whitelist = row.try_get::<_, Option<bool>>(3)?.unwrap_or(false);
-    let xid_required: bool = row.try_get(4)?;
+    let rules = open_conversation(tx, zid)?;
+    let Rules {
+        owner,
+        treevite,
+        whitelist,
+        xid_required,
+    } = rules;
 
     if let Entry::Login(proof) = &request.entry {
         let row = tx.query_opt("SELECT p.uid,l.pid,l.login_code_hash,l.revoked FROM treevite_login_codes l JOIN participants p ON p.zid=l.zid AND p.pid=l.pid WHERE l.zid=$1 AND l.login_code_lookup=$2 FOR UPDATE OF l", &[&zid.0, &proof.lookup])?;
@@ -286,89 +402,120 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
         }));
     }
 
-    let (mut uid, xid) = request.identity.scoped(zid);
-    if let Some(xid) = xid {
-        if whitelist
-            && tx
-                .query_opt(
-                    "SELECT 1 FROM xid_whitelist WHERE owner=$1 AND xid=$2",
-                    &[&owner, &xid],
-                )?
-                .is_none()
-        {
-            return refuse(403, "polis_err_xid_not_allowed");
-        }
-        if uid.is_none() {
-            uid = tx
-                .query_opt(
-                    "SELECT uid FROM xids WHERE owner=$1 AND xid=$2",
-                    &[&owner, &xid],
-                )?
-                .map(|row| row.try_get(0))
-                .transpose()?
-                .map(Uid);
-        }
-        if let Some(uid) = uid {
-            require_participant_account(tx, uid, request.admin_uids)?;
-        }
-    }
-    let create = match request.entry {
-        Entry::Participation { create_if_missing } => create_if_missing || xid.is_some(),
-        _ => true,
-    };
-    // A valid invite remains an alternative to a required XID, as in Node.
-    if create && uid.is_none() && xid.is_none() && invite.is_none() && (whitelist || xid_required) {
-        return refuse(403, "polis_err_xid_required");
-    }
-    let existing = if let Some(uid) = uid {
-        if invite.is_some() {
-            // Serialize this member's accepts even when no login row exists.
-            // Participation never takes this Treevite-only lock; in particular,
-            // comments' participant foreign-key checks must remain free to run.
-            tx.query_one("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:member-accept', $1::int, $2::int)::text,0))", &[&zid.0, &uid.0])?;
-        }
-        tx.query_opt(
-            "SELECT pid FROM participants WHERE zid=$1 AND uid=$2",
-            &[&zid.0, &uid.0],
-        )?
-        .map(|row| row.try_get::<_, i32>(0))
-        .transpose()?
-    } else {
-        None
-    };
-    if let Some((id, _)) = invite {
-        if let Some(uid) = uid {
-            require_anonymous(tx, uid, request.admin_uids)?;
-        }
-        if let Some(pid) = existing {
-            let present = tx
-                .query_opt(
-                    "SELECT 1 FROM treevite_login_codes WHERE zid=$1 AND pid=$2 FOR UPDATE",
-                    &[&zid.0, &pid],
-                )?
-                .is_some();
-            let live = present && tx.query_one("SELECT NOT revoked AND COALESCE(expires_at > clock_timestamp(),true) FROM treevite_login_codes WHERE zid=$1 AND pid=$2", &[&zid.0, &pid])?.try_get::<_, bool>(0)?;
-            if live {
-                tx.execute("UPDATE treevite_invites SET status=1,invite_used_by_pid=NULL,invite_used_at=now(),updated_at=now() WHERE id=$1", &[&id])?;
-                return Err(Failure::Burned(Refusal {
-                    status: 409,
-                    code: "polis_err_treevite_login_code_exists",
+    let (uid, xid, existing) = if let Entry::Participation { create_if_missing } = request.entry {
+        // The participation entry decides by these reads alone, up to its
+        // first write; `Snapshot::decide` runs the same function.
+        match participation(
+            tx,
+            zid,
+            &rules,
+            &request.identity,
+            create_if_missing,
+            request.admin_uids,
+            &mut Seen::default(),
+        )? {
+            Before::Found(found) => {
+                return Ok(found.map(|(uid, pid)| Admitted {
+                    uid,
+                    pid: Pid(pid as u32),
+                    new_user: false,
+                    new_participant: false,
+                    invite: None,
                 }));
             }
+            Before::Write { uid, existing } => (uid, request.identity.scoped(zid).1, existing),
         }
-    }
-    if !create {
-        return Ok(uid.zip(existing).map(|(uid, pid)| Admitted {
-            uid,
-            pid: Pid(pid as u32),
-            new_user: false,
-            new_participant: false,
-            invite: None,
-        }));
-    }
-    if treevite && invite.is_none() && existing.is_none() && uid != Some(Uid(owner)) {
-        return refuse(401, "polis_err_treevite_auth_required");
-    }
+    } else {
+        let (mut uid, xid) = request.identity.scoped(zid);
+        if let Some(xid) = xid {
+            if whitelist
+                && tx
+                    .query_opt(
+                        "SELECT 1 FROM xid_whitelist WHERE owner=$1 AND xid=$2",
+                        &[&owner, &xid],
+                    )?
+                    .is_none()
+            {
+                return refuse(403, "polis_err_xid_not_allowed");
+            }
+            if uid.is_none() {
+                uid = tx
+                    .query_opt(
+                        "SELECT uid FROM xids WHERE owner=$1 AND xid=$2",
+                        &[&owner, &xid],
+                    )?
+                    .map(|row| row.try_get(0))
+                    .transpose()?
+                    .map(Uid);
+            }
+            if let Some(uid) = uid {
+                require_participant_account(tx, uid, request.admin_uids)?;
+            }
+        }
+        let create = match request.entry {
+            Entry::Participation { create_if_missing } => create_if_missing || xid.is_some(),
+            _ => true,
+        };
+        // A valid invite remains an alternative to a required XID, as in Node.
+        if create
+            && uid.is_none()
+            && xid.is_none()
+            && invite.is_none()
+            && (whitelist || xid_required)
+        {
+            return refuse(403, "polis_err_xid_required");
+        }
+        let existing = if let Some(uid) = uid {
+            if invite.is_some() {
+                // Serialize this member's accepts even when no login row exists.
+                // Participation never takes this Treevite-only lock; in particular,
+                // comments' participant foreign-key checks must remain free to run.
+                tx.query_one("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array('treevite:member-accept', $1::int, $2::int)::text,0))", &[&zid.0, &uid.0])?;
+            }
+            tx.query_opt(
+                "SELECT pid FROM participants WHERE zid=$1 AND uid=$2",
+                &[&zid.0, &uid.0],
+            )?
+            .map(|row| row.try_get::<_, i32>(0))
+            .transpose()?
+        } else {
+            None
+        };
+        if let Some((id, _)) = invite {
+            if let Some(uid) = uid {
+                require_anonymous(tx, uid, request.admin_uids)?;
+            }
+            if let Some(pid) = existing {
+                let present = tx
+                    .query_opt(
+                        "SELECT 1 FROM treevite_login_codes WHERE zid=$1 AND pid=$2 FOR UPDATE",
+                        &[&zid.0, &pid],
+                    )?
+                    .is_some();
+                let live = present && tx.query_one("SELECT NOT revoked AND COALESCE(expires_at > clock_timestamp(),true) FROM treevite_login_codes WHERE zid=$1 AND pid=$2", &[&zid.0, &pid])?.try_get::<_, bool>(0)?;
+                if live {
+                    tx.execute("UPDATE treevite_invites SET status=1,invite_used_by_pid=NULL,invite_used_at=now(),updated_at=now() WHERE id=$1", &[&id])?;
+                    return Err(Failure::Burned(Refusal {
+                        status: 409,
+                        code: "polis_err_treevite_login_code_exists",
+                    }));
+                }
+            }
+        }
+        if !create {
+            return Ok(uid.zip(existing).map(|(uid, pid)| Admitted {
+                uid,
+                pid: Pid(pid as u32),
+                new_user: false,
+                new_participant: false,
+                invite: None,
+            }));
+        }
+        if treevite && invite.is_none() && existing.is_none() && uid != Some(Uid(owner)) {
+            return refuse(401, "polis_err_treevite_auth_required");
+        }
+        (uid, xid, existing)
+    };
     let new_user = uid.is_none();
     let uid = match uid {
         Some(uid) => uid,
@@ -434,6 +581,13 @@ fn run(tx: &mut Transaction<'_>, request: &Request<'_>) -> Result<Option<Admitte
         invite,
     }))
 }
+
+#[path = "admission_decide.rs"]
+mod decide;
+pub use decide::{
+    Bounds, Decision, MemberRow, Membership, Outcome, Participation, RulesSeen, Snapshot, XidSeen,
+    snapshot,
+};
 
 #[cfg(test)]
 mod tests {

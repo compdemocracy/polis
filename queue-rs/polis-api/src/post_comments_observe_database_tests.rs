@@ -1054,7 +1054,7 @@ const ALLOWED: &[&str] = &[
 /// Words that would make a statement more than a read. A read-only session
 /// refuses a write, but it allows an advisory lock and a notification, so
 /// "read-only" is proven here by what was sent.
-fn asks_for_more_than_a_read(sql: &str) -> Option<String> {
+pub(crate) fn asks_for_more_than_a_read(sql: &str) -> Option<String> {
     let lower = sql.to_lowercase();
     for part in ["advisory", "nextval", "setval", "notify"] {
         if lower.contains(part) {
