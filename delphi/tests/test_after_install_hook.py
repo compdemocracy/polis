@@ -936,6 +936,18 @@ def _without(*names):
     (dict(_RIGHT, JWT_PRIVATE_KEY_PATH="/run/secrets/not-printed"), "JWT_PRIVATE_KEY_PATH"),
     (dict(_RIGHT, JWT_PRIVATE_KEY=_KEY, JWT_PRIVATE_KEY_PATH="/run/secrets/not-printed"),
      "JWT_PRIVATE_KEY JWT_PRIVATE_KEY_PATH"),
+    # A read lane switched on in this service, beside the vote and comment
+    # observers whose CPU it would share, is named; one Compose leaves
+    # unresolved or does not print is off.
+    (dict(_RIGHT, POLIS_API_VOTES_READS="observe"), "POLIS_API_VOTES_READS"),
+    (dict(_RIGHT, POLIS_API_COMMENT_READS="observe"), "POLIS_API_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_NEXT_COMMENT_READS="observe"), "POLIS_API_NEXT_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_NEXT_COMMENT_READS="1"), "POLIS_API_NEXT_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_VOTES_READS="observe", POLIS_API_COMMENT_READS="observe",
+          POLIS_API_NEXT_COMMENT_READS="observe"),
+     "POLIS_API_VOTES_READS POLIS_API_COMMENT_READS POLIS_API_NEXT_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_VOTES_READS=None, POLIS_API_COMMENT_READS=None, POLIS_API_NEXT_COMMENT_READS=None), ""),
+    (_without("POLIS_API_VOTES_READS", "POLIS_API_COMMENT_READS", "POLIS_API_NEXT_COMMENT_READS"), ""),
     # The service's list replaced by the override's one entry, with the env
     # document's signing key then reaching the service.
     ({"POLIS_API_POST_COMMENTS": "observe", "JWT_PRIVATE_KEY": _KEY},
