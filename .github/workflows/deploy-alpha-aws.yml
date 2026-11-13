@@ -131,15 +131,16 @@ jobs:
             echo "Error: S3 returned no usable eTag for s3://$DEPLOY_BUCKET/$key; refusing to create a deployment that does not name its object" >&2
             exit 1
           fi
-          location="bucket=$DEPLOY_BUCKET,key=$key,bundleType=zip,eTag=$etag"
-          if [ -n "$version" ]; then
-            if ! grep -Eqx '[0-9A-Za-z._-]+' <<< "$version"; then
-              echo "Error: S3 returned an unexpected version id for s3://$DEPLOY_BUCKET/$key; refusing to create the deployment" >&2
-              exit 1
-            fi
-            location="$location,version=$version"
+          # Without a version, a re-run of this commit would replace the object
+          # the last successful revision names, and every launch deployment and
+          # rollback would then fail its eTag check. "null" is a suspended
+          # bucket's version id.
+          if ! grep -Eqx '[0-9A-Za-z._+/-]+' <<< "$version" || [ "$version" = null ]; then
+            echo "Error: S3 returned no usable version id for s3://$DEPLOY_BUCKET/$key (is the bucket versioned?); refusing to create the deployment" >&2
+            exit 1
           fi
-          echo "Bundle: s3://$DEPLOY_BUCKET/$key (eTag $etag, version ${version:-none})"
+          location="bucket=$DEPLOY_BUCKET,key=$key,bundleType=zip,eTag=$etag,version=$version"
+          echo "Bundle: s3://$DEPLOY_BUCKET/$key (eTag $etag, version $version)"
           echo "s3-location=$location" >> "$GITHUB_OUTPUT"
 
       # OVERWRITE: CodeDeploy tracks installed files per deployment group, so a
