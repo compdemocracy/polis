@@ -256,6 +256,10 @@ struct Line<'a> {
     weights_tick: Option<i64>,
     prev: Option<&'static str>,
     node_vote: Option<NodeVote>,
+    /// The identity keys, after every key above. None: identity is not
+    /// observed by this process, and the line is the vote observer's alone.
+    /// Some(None): observed, and this copy is not an identity copy.
+    identity: Option<Option<post_votes::identity::Observed>>,
 }
 
 fn ms(duration: Option<Duration>) -> Js {
@@ -311,13 +315,26 @@ impl Line<'_> {
                     .into(),
             ),
         );
-        print(js::stringify(&Js::Obj(line)));
+        let Some(observed) = &self.identity else {
+            return print(js::stringify(&Js::Obj(line)));
+        };
+        post_votes::identity::print_keys(&mut line, observed.as_ref());
+        print_with_identity(js::stringify(&Js::Obj(line)));
     }
 }
 
 fn print(line: String) {
     #[cfg(test)]
     tests::record_line(&line);
+    println!("{line}");
+}
+
+/// A vote copy's line with the identity keys on it. The tests of the vote
+/// observer's own line read every line `print` printed in their process;
+/// these are kept apart from them.
+fn print_with_identity(line: String) {
+    #[cfg(test)]
+    post_votes::identity::tests::record_line(&line);
     println!("{line}");
 }
 
@@ -447,6 +464,13 @@ async fn accept_vote(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
         Some("shadow"),
     );
     let facts = post_votes::copy_facts(&req);
+    // A copy that is not observed is no identity copy: where identity is
+    // observed its line carries the identity keys, each null.
+    let identity = app
+        .post_votes_observe
+        .as_ref()
+        .and_then(|observer| observer.identity.as_deref())
+        .map(|_| None);
     match decision {
         Decision::Observe(permit) => {
             tokio::spawn(observe(app, lane, req, received, permit));
@@ -458,6 +482,7 @@ async fn accept_vote(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
                 outcome: "shed",
                 reason: Some(reason),
                 facts,
+                identity,
                 ..Line::default()
             }
             .print(&app);
@@ -469,6 +494,7 @@ async fn accept_vote(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
                 outcome: "not_observed",
                 reason: Some("unconfigured"),
                 facts,
+                identity,
                 ..Line::default()
             }
             .print(&app);
@@ -514,6 +540,15 @@ async fn observe(
     if taken.reason.is_none() && out.status != 200 {
         taken.reason = post_votes::shape_reason(&app, &req);
     }
+    // Identity, for a copy the vote writer handed back for its identity: the
+    // decision by reads, on a pool and under a bound of its own. Everything
+    // above is the vote observer's and is not changed by it. The request,
+    // with its token and its body, is dropped as soon as the decision has
+    // what it needs.
+    let pending = observer.identity_decision(&req, taken.reason).await;
+    let copy_id = request_id(&req).map(str::to_owned);
+    let facts = post_votes::copy_facts(&req);
+    drop(req);
     let served = out.status == 200;
     let mut prev = None;
     let mut node_vote = NodeVote::NotChecked;
@@ -557,8 +592,17 @@ async fn observe(
         NodeVote::Unavailable | NodeVote::NotChecked => None,
     }
     .map(|counter| counter.fetch_add(1, Ordering::Relaxed));
+    // What Node left for an identity copy, after the same waits as the vote
+    // read-back and with no connection held while waiting.
+    let identity = match (observer.identity.as_deref(), pending) {
+        (None, _) => None,
+        (Some(_), None) => Some(None),
+        (Some(identity), Some(pending)) => {
+            Some(Some(identity.read_back(pending, anchor, received).await))
+        }
+    };
     Line {
-        request_id: request_id(&req),
+        request_id: copy_id.as_deref(),
         outcome,
         admitted: taken.admitted,
         status: Some(out.status),
@@ -569,7 +613,7 @@ async fn observe(
         total: Some(total),
         readback_s,
         zid: taken.zid,
-        facts: post_votes::copy_facts(&req),
+        facts,
         follow_on: taken.follow_on,
         remaining: taken.remaining,
         total_count: taken.total,
@@ -577,6 +621,7 @@ async fn observe(
         weights_tick: taken.weights_tick,
         prev,
         node_vote: Some(node_vote),
+        identity,
     }
     .print(&app);
 }
@@ -645,6 +690,14 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
             .unwrap_or_else(|| Js::Obj(Obj::new())),
     );
     body.set("postVotes", Js::Obj(votes));
+    // Identity observation has a key of its own, with its own pool: the vote
+    // observer's pools above stay exactly its two. Its database does not
+    // count toward the status, which is the vote and comment observers' and
+    // the read lanes'.
+    if let Some(identity) = observer.and_then(|observer| observer.identity.as_deref()) {
+        let reachable = identity.ping().await;
+        body.set("postVotesIdentity", identity.health(reachable));
+    }
     if let Some(observer) = comment_observer {
         body.set(
             "postComments",
@@ -788,6 +841,17 @@ pub(crate) async fn run() -> Result<()> {
         install_panic_hook();
         listening.push(("post_comments", Js::Str("observe".into())));
         comments::report_logging_settings(observer).await;
+    }
+    if let Some(identity) = app
+        .post_votes_observe
+        .as_ref()
+        .and_then(|observer| observer.identity.as_deref())
+    {
+        // A process that holds external ids prints no panic message, and
+        // reads the server's logging settings before it sends one.
+        install_panic_hook();
+        listening.push(("post_votes_identity", Js::Str("observe".into())));
+        identity.report_logging_settings().await;
     }
     if app.read_lanes.built().next().is_some() {
         // A process that holds query strings prints no panic message.

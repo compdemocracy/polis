@@ -24,6 +24,11 @@ impl Verified {
     pub fn uid(&self) -> Uid {
         self.uid
     }
+    /// The participant number the token carries. It is the token's claim, not
+    /// membership: only `resolve` says whether a row with this number exists.
+    pub fn pid(&self) -> Pid {
+        self.pid
+    }
 }
 /// Verified claims scoped to a request, before admission. No Debug implementation:
 /// identity values must not become diagnostic output. This is not membership
@@ -33,9 +38,15 @@ pub struct RequestIdentity {
     uid: Option<Uid>,
     pid: Option<Pid>,
     xid: Option<String>,
+    same_conversation: bool,
     pub kind: Kind,
 }
 impl RequestIdentity {
+    /// Whether the token was issued for the conversation code the request
+    /// names. A token for another code keeps or loses its identity by kind.
+    pub fn same_conversation(&self) -> bool {
+        self.same_conversation
+    }
     pub fn uid(&self) -> Option<Uid> {
         self.uid
     }
@@ -254,6 +265,7 @@ impl Verifier {
             uid: Some(Uid(c.uid)),
             pid: same_conversation.then_some(Pid(c.pid as u32)),
             xid: None,
+            same_conversation,
             kind,
         };
         match kind {

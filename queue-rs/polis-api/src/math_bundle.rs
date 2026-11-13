@@ -18,6 +18,13 @@ pub struct Main {
     pub base: Option<Base>,
     #[serde(rename = "group-clusters", default)]
     pub groups: Option<Vec<Group>>,
+    /// The comments most of every group chose alike, as stored. Read by the
+    /// featured-participants route, which checks the shape itself.
+    #[serde(default)]
+    pub consensus: Option<serde_json::Value>,
+    /// Each group's representative comments, as stored.
+    #[serde(default)]
+    pub repness: Option<serde_json::Value>,
 }
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Mapping {
@@ -196,6 +203,7 @@ mod tests {
                 groups: Some(vec![Group {
                     members: vec![1; 200],
                 }]),
+                ..Main::default()
             },
             mapping: Mapping {
                 rows: Some(vec![vec![0; 200]]),

@@ -413,6 +413,14 @@
       }
     ]
   },
+  "votesFamous": {
+    "path": "/api/v3/votes/famous",
+    "minimum_rust_successes": 0,
+    "expected_requests": 1,
+    "expected_node_handoffs": 1,
+    "commands": ["vote famous"],
+    "scope": "The participant's featured-participants read reaches Node with the selector off. With it and the handler switch on, the request reaches polis-api and hands back to Node: the fixture's math has math_main and math_bidtopid rows but no math_ptptstats or math_ticks row, which the handler reads as incoherent math. Both phases must give the same CLI JSON; no Rust answer is claimed. The route's own conformance replay counts its Rust-served cases."
+  },
   "postVotes": {
     "path": "/api/v3/votes",
     "method": "POST",

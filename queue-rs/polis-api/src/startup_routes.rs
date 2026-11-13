@@ -417,6 +417,13 @@ const ROUTES: &[Route] = &[
         "votes_read::ME_PATH"
     ),
     exact!(
+        votes_famous,
+        ["GET", "HEAD"],
+        crate::votes_famous::PATH,
+        ["POLIS_API_VOTES_FAMOUS_READS"],
+        "votes_famous::PATH"
+    ),
+    exact!(
         metadata_answers,
         ["GET", "HEAD"],
         crate::metadata_answers::PATH,

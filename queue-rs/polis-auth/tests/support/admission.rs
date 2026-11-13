@@ -1,7 +1,10 @@
 #![allow(dead_code)]
 use polis_auth::{
     Zid,
-    admission::{Entry, Identity, PreparedRecovery, Request},
+    admission::{
+        Admitted, Bounds, Entry, Error, Identity, Outcome, Participation, PreparedRecovery,
+        Request, admit, snapshot,
+    },
 };
 use postgres::{Client, NoTls};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -144,4 +147,55 @@ pub fn invite() -> Entry<'static> {
             fingerprint_key: b"generated-key",
         },
     }
+}
+
+/// `admit`, with the decision by reads alone taken first. For a request at
+/// the participation entry, `Snapshot::decide` on the state before the
+/// request must name what `admit` then does: the same outcome, the same
+/// refusal, and the same user and participant when they already exist. Any
+/// other entry is admitted as it is.
+pub fn decided_then_admitted(
+    db: &mut Client,
+    request: &Request<'_>,
+) -> Result<Option<Admitted>, Error> {
+    let decision = if let Entry::Participation { create_if_missing } = request.entry {
+        let mut reads = snapshot(db, &Bounds::OBSERVE).unwrap();
+        let decision = reads
+            .decide(&Participation {
+                zid: request.zid,
+                identity: &request.identity,
+                create_if_missing,
+                admin_uids: request.admin_uids,
+            })
+            .unwrap();
+        reads.end();
+        Some(decision)
+    } else {
+        None
+    };
+    let result = admit(db, request);
+    if let Some(decision) = decision {
+        let expected = match &result {
+            Ok(Some(admitted)) if admitted.new_user => Outcome::CreateUserAndParticipant,
+            Ok(Some(admitted)) if admitted.new_participant => Outcome::CreateParticipant,
+            Ok(Some(_)) => Outcome::Found,
+            Ok(None) => Outcome::Nobody,
+            Err(Error::Refused(refusal)) => Outcome::Refused(*refusal),
+            Err(other) => panic!("a decision by reads cannot be compared with {other:?}"),
+        };
+        assert_eq!(decision.outcome, expected, "decide and admit differ");
+        if let Ok(Some(admitted)) = &result {
+            if !admitted.new_user {
+                assert_eq!(decision.uid(), Some(admitted.uid), "the user decide found");
+            }
+            if !admitted.new_participant {
+                assert_eq!(
+                    decision.pid(),
+                    Some(admitted.pid),
+                    "the participant decide found"
+                );
+            }
+        }
+    }
+    result
 }

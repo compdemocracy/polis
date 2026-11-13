@@ -101,7 +101,11 @@ from Rust, then requires a Node handoff for each multi-row read. `postVotes`
 shares the `/api/v3/votes` path and names its one method, POST. Its writer is
 off in this fixture, so each vote POST reaches polis-api and hands back to Node
 with its marked 502: both selectors count those handoffs, and neither claims
-a Rust write.
+a Rust write. `votesFamous` counts the participant's `vote famous` read: Node
+answers it with the selector off; with the selector and its handler switch on it
+reaches polis-api and hands back to Node, because the fixture's math has no
+participant statistics or tick rows beside its main and mapping rows. The two
+phases' CLI JSON must be equal.
 The performance collector, metadata selection and Postgres report export selectors
 exercise the real CLI reads, with every export subtype downloaded and hashed
 through an anonymous CLI profile. The original signed-in format download retains
