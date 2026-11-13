@@ -10,7 +10,12 @@
 # the copy's four timeouts below. Neither location has an error_page, a retry
 # or a route to Node: a failed copy ends where it fails. The request's
 # ordinary access line is written without the peer address and the
-# X-Forwarded-For value (polis_shadow_access).
+# X-Forwarded-For value (polis_shadow_access). nginx's error log is not: a
+# copy that fails (the service absent, refusing, closing or slower than the
+# timeouts) writes one error line naming the peer as `client:`, with the
+# request line and the copy's upstream URL whole, query string included. An
+# error_log in the copy's own location does not reach it (a subrequest logs
+# through its main request's location).
 location @polis_shadow_${SHADOW_NAME} {
     mirror /_polis_shadow/${SHADOW_NAME};
     mirror_request_body off;

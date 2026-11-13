@@ -365,7 +365,13 @@ builds its own lane.
   `polis_shadow_access`, with no address; none of them carries the query
   string, and the Referer is written without its query string and fragment.
   The access line of every read that is copied has no address; every request
-  that is not copied keeps the ordinary line with its addresses.
+  that is not copied keeps the ordinary line with its addresses. nginx's error
+  log is not covered by this: when a copy fails (the read shadow service
+  absent, refusing, closing, or slower than the copy's timeouts) nginx writes
+  one line at `error` for it that names the peer as `client:` and gives the
+  request line and the copy's upstream URL whole, query string included (the
+  conversation, a participant number, an external id when the client sent
+  one). A copy that answers, or that ends over the rate, writes none.
 - **With other selections.** `votesShadow` or `postVotes` (on
   `/api/v3/votes`) and `commentsShadow` (on `/api/v3/comments`) render the
   path's location themselves; with a read shadow beside them that location
