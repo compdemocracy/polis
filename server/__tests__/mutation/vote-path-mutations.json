@@ -135,6 +135,8 @@
         "V/owner/participationInit-after-votes",
         "V/owner/vote/t4-agree",
         "V/owner/vote/t5-moderated-out-disagree",
+        "V/owner/votes-famous",
+        "V/owner/votes-famous-math-tick-0",
         "V/owner/votes-pid-0",
         "V/owner/votes-pid-0-tid-3",
         "V/post-comment/c2-owner-disagree",
@@ -182,8 +184,6 @@
         "V/A/votes-famous",
         "V/A/votes-me",
         "V/A/votes-mypid",
-        "V/B/votes-famous",
-        "V/C/votes-famous",
         "V/X/nextComment",
         "V/X/participationInit-after-votes",
         "V/X/vote/t0-disagree",
@@ -207,6 +207,7 @@
         "V/owner/participationInit-after-votes",
         "V/owner/vote/t5-moderated-out-disagree",
         "V/owner/votes-famous",
+        "V/owner/votes-famous-math-tick-0",
         "V/owner/votes-pid-0",
         "V/owner/votes-pid-1",
         "V/owner/votes-pid-2",
@@ -215,7 +216,6 @@
         "V/reportExport/participant-importance.csv",
         "V/reportExport/participant-votes.csv",
         "V/reportExport/votes.csv",
-        "V/unauthenticated/votes-famous",
         "V/unauthenticated/votes-pid-1"
       ]
     },
@@ -279,12 +279,15 @@
       "expectFailing": [
         "R/RA/participationInit",
         "R/RA/votes-famous",
+        "V/A/participationInit-after-votes",
         "V/A/votes-famous",
+        "V/B/participationInit-after-votes",
         "V/B/votes-famous",
-        "V/C/votes-famous",
+        "V/X/participationInit-after-votes",
         "V/X/votes-famous",
+        "V/owner/participationInit-after-votes",
         "V/owner/votes-famous",
-        "V/unauthenticated/votes-famous"
+        "V/owner/votes-famous-math-tick-0"
       ]
     },
     {
@@ -360,7 +363,6 @@
         "V/B/votes-famous",
         "V/B/votes-me",
         "V/B/votes-mypid",
-        "V/C/votes-famous",
         "V/X/participationInit-after-votes",
         "V/X/votes-famous",
         "V/X/votes-me",
@@ -375,6 +377,7 @@
         "V/comments/moderation-voting-patterns-mod-out",
         "V/owner/participationInit-after-votes",
         "V/owner/votes-famous",
+        "V/owner/votes-famous-math-tick-0",
         "V/owner/votes-pid-0",
         "V/owner/votes-pid-1",
         "V/owner/votes-pid-2",
@@ -383,7 +386,6 @@
         "V/reportExport/comments.csv",
         "V/reportExport/participant-votes.csv",
         "V/reportExport/votes.csv",
-        "V/unauthenticated/votes-famous",
         "V/unauthenticated/votes-pid-1"
       ]
     },

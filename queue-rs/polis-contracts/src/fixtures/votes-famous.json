@@ -87,8 +87,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "answered from the rows kept by the first request of this window",
-    "body": "{}"
+    "note": "the member's own row, within the 30 seconds of the rows the first request kept",
+    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\"}}"
   },
   {
     "id": "no-math/cold/member",
@@ -106,8 +106,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "answered from the rows kept by the first request of this window",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\"}}"
+    "note": "a requester without a credential has no row of their own",
+    "body": "{}"
   },
   {
     "id": "no-math/warm/second-after-member",
@@ -116,8 +116,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "as above, for another member",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\"}}"
+    "note": "as above, for a member without a vote",
+    "body": "{}"
   },
   {
     "id": "no-math/cold/member-without-a-choice",
@@ -180,8 +180,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61049&math_tick=1",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "the rows kept by the first request of this tick",
-    "body": "{\"2\":{\"priority\":1000,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/p2.png\",\"x_name\":\"Name & <b>2</b> \ud83d\ude42\"},\"isSelf\":true,\"votes\":\"uuud\"}}"
+    "note": "the member's own row, with the rows kept for this tick",
+    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\"}}"
   },
   {
     "id": "no-math/limit-zero",
@@ -312,7 +312,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61051",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"ppdapdauuuuuuuuuuuuuauuuuuuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/other.png\",\"x_name\":\"Other\"},\"votes\":\"uuuduuuuuuuuuuuuuuuuuuuuuuuuuup\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"\",\"x_name\":\"Address only\"},\"votes\":\"uuauuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"bid\":13}}"
+    "note": "the kept rows, and no row of the member's",
+    "body": "{\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/other.png\",\"x_name\":\"Other\"},\"votes\":\"uuuduuuuuuuuuuuuuuuuuuuuuuuuuup\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"\",\"x_name\":\"Address only\"},\"votes\":\"uuauuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"bid\":13}}"
   },
   {
     "id": "history/same-tick/cached-choices",
@@ -366,8 +367,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61052&math_tick=3",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "still the kept rows",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10},\"4\":{\"priority\":100,\"pid\":4,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/b4.png\",\"x_name\":\"Four\"},\"votes\":\"upuuuuu\",\"bid\":12}}"
+    "note": "still the kept rows, with this requester's own row",
+    "body": "{\"2\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":2,\"isSelf\":true,\"votes\":\"a\",\"bid\":11},\"4\":{\"priority\":100,\"pid\":4,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/b4.png\",\"x_name\":\"Four\"},\"votes\":\"upuuuuu\",\"bid\":12}}"
   },
   {
     "id": "bounds/rows/at-30001ms/second",
@@ -387,7 +388,7 @@
     "status": 200,
     "content_type": "application/json; charset=utf-8",
     "note": "the default limit, spelled out: the same cached rows",
-    "body": "{\"2\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":2,\"isSelf\":true,\"votes\":\"a\",\"bid\":11},\"4\":{\"priority\":100,\"pid\":4,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/b4.png\",\"x_name\":\"Four\"},\"votes\":\"upuuuuu\",\"bid\":12}}"
+    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10},\"4\":{\"priority\":100,\"pid\":4,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/b4.png\",\"x_name\":\"Four\"},\"votes\":\"upuuuuu\",\"bid\":12}}"
   },
   {
     "id": "bounds/rows/other-limit/member",
@@ -791,8 +792,8 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61054",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "note": "the rows kept by the first request of this tick",
-    "body": "{\"0\":{\"priority\":900,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":0,\"votes\":\"auduuuuuuu\",\"bid\":10},\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapdauua\",\"bid\":10},\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/a2.png\",\"x_name\":\"Name & <b>2</b> \ud83d\ude42\"},\"votes\":\"pauuupuuuu\",\"bid\":11},\"3\":{\"priority\":100,\"pid\":3,\"xInfo\":{\"x_profile_image_url\":\"\",\"x_name\":\"Empty picture\"},\"votes\":\"duuuuuuuuu\",\"bid\":12},\"9\":{\"priority\":999,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":9,\"votes\":\"uuuuuuauuu\",\"bid\":11},\"11\":{\"priority\":100,\"x_profile_image_url\":\"\",\"xid\":\"\",\"x_name\":\"Flat \\\"name\\\" \\\\ \u2028\",\"x_email\":null,\"pid\":11,\"votes\":\"uuuuuauuuu\",\"bid\":12},\"12\":{\"priority\":999,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":12,\"votes\":\"uuuuuupuuu\",\"bid\":13}}"
+    "note": "a featured participant asks: their kept row is their own row",
+    "body": "{\"0\":{\"priority\":900,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":0,\"votes\":\"auduuuuuuu\",\"bid\":10},\"2\":{\"priority\":1000,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/a2.png\",\"x_name\":\"Name & <b>2</b> \ud83d\ude42\"},\"isSelf\":true,\"votes\":\"pauuupuuuu\",\"bid\":11},\"3\":{\"priority\":100,\"pid\":3,\"xInfo\":{\"x_profile_image_url\":\"\",\"x_name\":\"Empty picture\"},\"votes\":\"duuuuuuuuu\",\"bid\":12},\"9\":{\"priority\":999,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":9,\"votes\":\"uuuuuuauuu\",\"bid\":11},\"11\":{\"priority\":100,\"x_profile_image_url\":\"\",\"xid\":\"\",\"x_name\":\"Flat \\\"name\\\" \\\\ \u2028\",\"x_email\":null,\"pid\":11,\"votes\":\"uuuuuauuuu\",\"bid\":12},\"12\":{\"priority\":999,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":12,\"votes\":\"uuuuuupuuu\",\"bid\":13}}"
   },
   {
     "id": "math/tick/large",
@@ -1135,7 +1136,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/cookie",
@@ -1144,7 +1145,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/body",
@@ -1153,7 +1154,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/method/POST",
@@ -1198,7 +1199,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056&unknown=1",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/parameter/repeated-conversation",
@@ -1342,7 +1343,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056&pid=0",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/parameter/uid",
@@ -1351,7 +1352,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056&uid=3",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/conversation/missing",
@@ -1396,7 +1397,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61056%20",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+    "body": "{}"
   },
   {
     "id": "handback/token-of-another-conversation",
@@ -1423,7 +1424,7 @@
     "target": "/api/v3/votes/famous?conversation_id=2p027r61033",
     "status": 200,
     "content_type": "application/json; charset=utf-8",
-    "body": "{}"
+    "body": "{\"0\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":0,\"isSelf\":true,\"votes\":\"apdapda\"}}"
   },
   {
     "id": "handback/token/expired",
@@ -1533,5 +1534,150 @@
     "status": 200,
     "content_type": "application/json; charset=utf-8",
     "body": "{\"1\":{\"priority\":1000,\"pid\":1,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own3.png\",\"x_name\":\"Own \u00e9 \u4e09\"},\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10}}"
+  },
+  {
+    "id": "own-row/member/first",
+    "requester": "member",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "the member's own row and the six featured participants",
+    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10},\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/anonymous/within",
+    "requester": "anonymous",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "the six featured participants, nobody marked",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/featured/within",
+    "requester": "second",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "a featured participant asks: their kept row is their own row",
+    "body": "{\"2\":{\"priority\":1000,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"isSelf\":true,\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/owner-without-a-vote/within",
+    "requester": "owner",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "a participant without a vote has no row of their own",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/outsider/within",
+    "requester": "outsider",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "an account that takes no part has no row of its own",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/member/again",
+    "requester": "member",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "the bytes of the member's first reply",
+    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10},\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/limit/anonymous/first",
+    "requester": "anonymous",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70&ptptoiLimit=3",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/limit/member/within",
+    "requester": "member",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70&ptptoiLimit=3",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "the member takes the first place; the last of the ranking gives up its own",
+    "body": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"apdapda\",\"bid\":10},\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/limit/featured/within",
+    "requester": "second",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70&ptptoiLimit=3",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "one of the three asks: nobody gives up a place",
+    "body": "{\"2\":{\"priority\":1000,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"isSelf\":true,\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/limit-one/anonymous/first",
+    "requester": "anonymous",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70&ptptoiLimit=1",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/limit-one/featured-beyond-the-limit",
+    "requester": "second",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70&ptptoiLimit=1",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "their own row, read for them, takes the one place",
+    "body": "{\"2\":{\"priority\":1000,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"isSelf\":true,\"votes\":\"auuuuuu\",\"bid\":10}}"
+  },
+  {
+    "id": "own-row/limit-one/anonymous/again",
+    "requester": "anonymous",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70&ptptoiLimit=1",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/before-a-first-vote/moderator",
+    "requester": "moderator",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/after-a-first-vote/moderator/within",
+    "requester": "moderator",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "note": "the voter's own row, within the 30 seconds of the kept rows",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"3\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":3,\"isSelf\":true,\"votes\":\"up\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
+  },
+  {
+    "id": "own-row/after-a-first-vote/anonymous/within",
+    "requester": "anonymous",
+    "method": "GET",
+    "target": "/api/v3/votes/famous?conversation_id=2p027r61059&math_tick=70",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": "{\"2\":{\"priority\":100,\"pid\":2,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/second.png\",\"x_name\":\"Second\"},\"votes\":\"auuuuuu\",\"bid\":10},\"5\":{\"priority\":100,\"pid\":5,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/0.png\",\"x_name\":\"Featured 0\"},\"votes\":\"auuuuuu\",\"bid\":11},\"6\":{\"priority\":100,\"pid\":6,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/1.png\",\"x_name\":\"Featured 1\"},\"votes\":\"uduuuuu\",\"bid\":11},\"7\":{\"priority\":100,\"pid\":7,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/2.png\",\"x_name\":\"Featured 2\"},\"votes\":\"uupuuuu\",\"bid\":11},\"8\":{\"priority\":100,\"pid\":8,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/3.png\",\"x_name\":\"Featured 3\"},\"votes\":\"uuuauuu\",\"bid\":11},\"9\":{\"priority\":999,\"pid\":9,\"xInfo\":{\"x_profile_image_url\":\"https://example.invalid/own-row/4.png\",\"x_name\":\"Featured 4\"},\"votes\":\"uuuuduu\",\"bid\":11}}"
   }
 ]

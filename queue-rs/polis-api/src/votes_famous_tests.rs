@@ -282,11 +282,11 @@ async fn histories_and_both_caches_answer_as_the_recorded_node_replies() {
         stack.reply(1, Some(3), latest).await,
         recorded("history/cold/member")
     );
-    // A request that follows within 30 seconds is answered from the kept rows.
-    assert_eq!(
-        stack.reply(1, None, latest).await,
-        recorded("history/warm/anonymous")
-    );
+    // A requester without a credential, within the 30 seconds: the kept
+    // rows, and no row of the member's.
+    let anonymous = stack.reply(1, None, latest).await;
+    assert_eq!(anonymous, recorded("history/warm/anonymous"));
+    assert!(!anonymous.contains("isSelf") && !anonymous.contains(r#""1":"#));
     // A new choice at a higher comment number, at the same tick: the rows
     // are read again, the kept letters are not.
     fixture.cast(1, 5, 40, Agree).await;
@@ -334,7 +334,8 @@ async fn histories_and_both_caches_answer_as_the_recorded_node_replies() {
 
 /// The recorded conversation of the driver's last group: a featured author
 /// with an external id, as an anonymous requester, as themselves and as
-/// another member see them; then a second external id for the same person.
+/// another member see them; the requester's own row for each request; then
+/// a second external id for the same person.
 #[tokio::test]
 async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
     let fixture = Fixture::new("featured_authors").await;
@@ -345,11 +346,13 @@ async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
              INSERT INTO participants(zid,uid,pid) VALUES(1,200001,0),(1,3,1),(1,2,2),(1,200004,3),(1,4,4);
              INSERT INTO comments VALUES(1,0,200001),(1,1,3),(1,2,200001),(1,3,3),(1,4,200001),
                 (1,5,3),(1,6,200001);
-             INSERT INTO xids VALUES(900,2,'no-picture-2',NULL,'No picture','two@example.invalid');",
+             INSERT INTO xids VALUES(900,2,'no-picture-2',NULL,'No picture','two@example.invalid'),
+                (777,200001,'elsewhere','https://example.invalid/elsewhere.png','Elsewhere',NULL);",
         )
         .await;
     // Participant 2 holds an external id under the conversation's account
-    // with no picture: that does not feature them, in any reply below.
+    // with no picture: that does not feature them, in any reply below. The
+    // owner holds one under another account: it is no part of their row here.
     for (tid, choice) in [Agree, Pass, Disagree, Agree, Pass, Disagree, Agree]
         .into_iter()
         .enumerate()
@@ -364,7 +367,9 @@ async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
             &format!(
                 r#"{{"consensus":{{"agree":[{{"tid":1}}]}},"repness":{{"0":[{{"tid":3}}]}},{BASE}}}"#
             ),
-            r#"{"bidToPid":[[1],[2],[],[]]}"#,
+            // Participants 3 and 0 are placed from the start; nothing
+            // features either of them in the recorded replies.
+            r#"{"bidToPid":[[1],[2],[3],[0]]}"#,
         )
         .await;
     let stack = Stack::new(&fixture);
@@ -397,38 +402,129 @@ async fn featured_authors_and_requesters_answer_as_the_recorded_node_replies() {
     let own = stack.ask(1, Some(2), 51, 1).await.unwrap();
     assert!(own.starts_with(r#"{"2":{"priority":1000,"#), "{own}");
     assert!(!own.contains(r#""1":"#), "{own}");
-    // The limit is part of the rows' key. Another limit at the same tick is
-    // read anew, and the first limit keeps the rows of its own first
-    // request.
+    // Within the 30 seconds of that key, each requester gets their own row
+    // and nobody else's. The featured author asks: their own row, at the
+    // requester's priority, and no row of the first requester's.
+    let second = stack.ask(1, Some(3), 51, 1).await.unwrap();
+    assert!(second.starts_with(r#"{"1":{"priority":1000,"#), "{second}");
+    assert!(second.contains(r#""isSelf":true"#), "{second}");
+    assert!(!second.contains(r#""2":"#), "{second}");
+    // A requester without a credential: the featured author's row as it is
+    // kept, at the author's priority, and nobody marked.
+    let nobody = stack.ask(1, None, 51, 1).await.unwrap();
+    assert!(nobody.starts_with(r#"{"1":{"priority":900,"#), "{nobody}");
+    assert!(!nobody.contains("isSelf"), "{nobody}");
+    assert!(!nobody.contains(r#""2":"#), "{nobody}");
+    // A signed-in account that takes no part in the conversation, and a
+    // participant without a vote: the same.
+    assert_eq!(stack.ask(1, Some(987_654), 51, 1).await.unwrap(), nobody);
+    assert_eq!(stack.ask(1, Some(200_004), 51, 1).await.unwrap(), nobody);
+    // The first requester again: the bytes of their first reply.
+    assert_eq!(stack.ask(1, Some(2), 51, 1).await.unwrap(), own);
+    // With room for two, a requester who is not featured comes with the
+    // featured author; the author alone is still their own row only.
+    let both = stack.ask(1, Some(2), 51, 2).await.unwrap();
+    assert!(both.starts_with(r#"{"1":{"priority":900,"#), "{both}");
+    assert!(both.contains(r#""2":{"priority":1000,"#), "{both}");
+    assert_eq!(both.matches("isSelf").count(), 1, "{both}");
     let wider = stack.ask(1, Some(3), 51, 2).await.unwrap();
-    assert!(wider.starts_with(r#"{"1":{"priority":1000,"#), "{wider}");
-    assert_eq!(stack.ask(1, Some(3), 51, 1).await.unwrap(), own);
+    assert_eq!(wider, second);
+    // The kept rows are the same for every requester for their 30 seconds:
+    // a participant who becomes featured meanwhile appears to nobody until
+    // they are read again, whoever asks; each requester's own row is read
+    // at once.
+    stack.reply(1, Some(2), 60).await;
+    fixture
+        .sql("INSERT INTO xids VALUES(900,200004,'later-3','https://example.invalid/later.png','Later',NULL)")
+        .await;
+    fixture.cast(1, 3, 0, Agree).await;
+    fixture.cast(1, 0, 0, Agree).await;
+    for uid in [Some(3), Some(200_001), None] {
+        let within = stack.reply(1, uid, 60).await;
+        assert!(!within.contains(r#""3":"#), "{uid:?} {within}");
+    }
+    // The tick is part of the rows' key: another tick is read anew, and the
+    // first keeps its rows.
+    let another = stack.reply(1, None, 61).await;
+    assert!(another.contains(r#""3":{"priority":100,"#), "{another}");
+    let first = stack.reply(1, None, 60).await;
+    assert!(!first.contains(r#""3":"#), "{first}");
+    // The owner had no vote when the rows were kept and has one now: their
+    // own row is there, and it is in nobody else's reply.
+    let owner = stack.reply(1, Some(200_001), 60).await;
+    assert!(
+        owner.starts_with(
+            r#"{"0":{"priority":1000,"x_profile_image_url":null,"xid":null,"x_name":null,"x_email":null,"pid":0,"isSelf":true,"votes":"a","bid":13},"1":{"priority":900,"#
+        ),
+        "{owner}"
+    );
+    for uid in [Some(3), Some(2), None] {
+        let other = stack.reply(1, uid, 60).await;
+        assert!(!other.contains(r#""0":"#), "{uid:?} {other}");
+    }
+    stack.later(COLD);
+    let after = stack.reply(1, Some(3), 60).await;
+    assert!(after.contains(r#""3":{"priority":100,"#), "{after}");
     // A moderator's pin comes before a featured author; a hidden participant
-    // with an external id is not featured for it.
+    // with an external id is not featured for it, and a participant a
+    // moderator has accepted without pinning (the owner here) is no pin.
     fixture
         .sql(&format!(
             "UPDATE participants SET mod=2 WHERE zid=1 AND uid=2;
+             UPDATE participants SET mod=1 WHERE zid=1 AND uid=200001;
              INSERT INTO xids VALUES(900,4,'hidden-4','https://example.invalid/4.png','Hidden',NULL);
              UPDATE participants SET mod={HIDDEN} WHERE zid=1 AND uid=4;"
         ))
         .await;
     fixture.cast(1, 4, 0, Pass).await;
-    let pinned: Response = serde_json::from_str(&stack.ask(1, None, 52, 1).await.unwrap()).unwrap();
-    assert_eq!(
-        pinned
+    let ranked = |reply: String| -> Vec<(i32, i32)> {
+        serde_json::from_str::<Response>(&reply)
+            .unwrap()
             .0
             .iter()
             .map(|p| (p.pid, p.priority))
-            .collect::<Vec<_>>(),
-        [(2, 999)]
-    );
-    let all: Response = serde_json::from_str(&stack.ask(1, None, 53, 99).await.unwrap()).unwrap();
+            .collect()
+    };
+    assert_eq!(ranked(stack.ask(1, None, 52, 1).await.unwrap()), [(2, 999)]);
+    // The limit is part of the rows' key: a wider limit at the same tick is
+    // read anew, and the narrower one keeps its rows.
     assert_eq!(
-        all.0
-            .iter()
-            .map(|p| (p.pid, p.priority))
-            .collect::<Vec<_>>(),
+        ranked(stack.ask(1, None, 52, 99).await.unwrap()),
+        [(1, 900), (2, 999), (3, 100)]
+    );
+    assert_eq!(ranked(stack.ask(1, None, 52, 1).await.unwrap()), [(2, 999)]);
+    // The requester takes the first place; the pin keeps the second and the
+    // featured author gives up theirs. The pin, asking, is their own row.
+    assert_eq!(
+        ranked(stack.ask(1, Some(200_001), 52, 2).await.unwrap()),
+        [(0, 1000), (2, 999)]
+    );
+    assert_eq!(
+        ranked(stack.ask(1, Some(2), 52, 2).await.unwrap()),
+        [(1, 900), (2, 1000)]
+    );
+    assert_eq!(
+        ranked(stack.ask(1, None, 52, 2).await.unwrap()),
         [(1, 900), (2, 999)]
+    );
+    // A hidden participant is not featured for their external id, and is
+    // still shown their own row. With a second external id under the
+    // conversation's account their own row is two rows: Node keeps whichever
+    // comes last, so that request is Node's, and only that one.
+    assert_eq!(
+        ranked(stack.ask(1, Some(4), 52, 99).await.unwrap()),
+        [(1, 900), (2, 999), (3, 100), (4, 1000)]
+    );
+    fixture
+        .sql("INSERT INTO xids VALUES(900,4,'hidden-4-again','https://example.invalid/4b.png','Again',NULL)")
+        .await;
+    assert_eq!(
+        stack.ask(1, Some(4), 52, 99).await,
+        Err(Handback::AmbiguousRows)
+    );
+    assert_eq!(
+        ranked(stack.ask(1, None, 52, 99).await.unwrap()),
+        [(1, 900), (2, 999), (3, 100)]
     );
     // Two external ids of one person under the conversation's account: Node
     // keeps whichever row comes last, so the request is Node's.
@@ -523,6 +619,17 @@ async fn conversations_and_bounds_this_process_does_not_read_go_back_named() {
         .sql("UPDATE conversations SET org_id=901 WHERE zid=4")
         .await;
     stack.later(COLD);
+    assert_eq!(ask(4, Some(2)).await, Err(Handback::Oversize));
+    assert_eq!(ask(4, None).await, Err(Handback::Oversize));
+    // The same bound holds for the requester's own row alone: hidden, the
+    // participant is in nobody's kept rows, and their own request is Node's.
+    fixture
+        .sql(&format!(
+            "UPDATE participants SET mod={HIDDEN} WHERE zid=4 AND uid=2"
+        ))
+        .await;
+    stack.later(COLD);
+    assert_eq!(ask(4, None).await.unwrap(), "{}");
     assert_eq!(ask(4, Some(2)).await, Err(Handback::Oversize));
     assert_eq!(ask(8, Some(3)).await, Err(Handback::MathUnreadable));
     assert_eq!(ask(9, Some(3)).await, Err(Handback::MathIncoherent));

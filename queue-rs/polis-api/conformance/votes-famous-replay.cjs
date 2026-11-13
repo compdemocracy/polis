@@ -296,11 +296,11 @@ async function main() {
       const f = take();
       const org = await open(f);
       await run("no-math/cold/anonymous", f, "anonymous");
-      await run("no-math/warm/member-after-anonymous", f, "member", { note: "answered from the rows kept by the first request of this window" });
+      await run("no-math/warm/member-after-anonymous", f, "member", { note: "the member's own row, within the 30 seconds of the rows the first request kept" });
       cold();
       await run("no-math/cold/member", f, "member");
-      await run("no-math/warm/anonymous-after-member", f, "anonymous", { note: "answered from the rows kept by the first request of this window" });
-      await run("no-math/warm/second-after-member", f, "second", { note: "as above, for another member" });
+      await run("no-math/warm/anonymous-after-member", f, "anonymous", { note: "a requester without a credential has no row of their own" });
+      await run("no-math/warm/second-after-member", f, "second", { note: "as above, for a member without a vote" });
       cold();
       await run("no-math/cold/member-without-a-choice", f, "second");
       cold();
@@ -314,7 +314,7 @@ async function main() {
       cold();
       await run("no-math/cold/member-with-external-id", f, "second", { tail: "&math_tick=1" });
       await run("no-math/warm/member-with-external-id/head", f, "second", { tail: "&math_tick=1", method: "HEAD" });
-      await run("no-math/warm/member-sees-the-external-id-member", f, "member", { tail: "&math_tick=1", note: "the rows kept by the first request of this tick" });
+      await run("no-math/warm/member-sees-the-external-id-member", f, "member", { tail: "&math_tick=1", note: "the member's own row, with the rows kept for this tick" });
       await run("no-math/limit-zero", f, "second", { tail: "&ptptoiLimit=0" });
     }
 
@@ -365,7 +365,7 @@ async function main() {
       await cast(f, other.pid, 30, "pass");
       await math(f, 7, { main: mainDoc({ consensus: {}, repness: [] }), mapping: { bidToPid: [[1], [other.pid], [late.pid], [mail.pid]] } });
       await run("history/cold/member", f, "member");
-      await run("history/warm/anonymous", f, "anonymous");
+      await run("history/warm/anonymous", f, "anonymous", { note: "the kept rows, and no row of the member's" });
       // A new choice at a higher tid, at the same tick: both servers answer
       // from the choices they cached, after the participant rows are read again.
       await cast(f, other.pid, 40, "agree");
@@ -391,7 +391,7 @@ async function main() {
       const first = clock;
       await run("bounds/rows/first/member", f, "member", { tail: "&math_tick=3" });
       clock = first + 30000;
-      await run("bounds/rows/at-30000ms/second", f, "second", { tail: "&math_tick=3", note: "still the kept rows" });
+      await run("bounds/rows/at-30000ms/second", f, "second", { tail: "&math_tick=3", note: "still the kept rows, with this requester's own row" });
       clock = first + 30001;
       await run("bounds/rows/at-30001ms/second", f, "second", { tail: "&math_tick=3", note: "read again" });
       await run("bounds/rows/same-limit-spelled-out/member", f, "member", { tail: "&math_tick=3&ptptoiLimit=30", note: "the default limit, spelled out: the same cached rows" });
@@ -498,7 +498,7 @@ async function main() {
       await run("math/tick/newer", f, "member", { tail: "&math_tick=9", note: "a newer tick than the cached one: read again" });
       await run("math/tick/warm/latest", f, "member", { tail: `&math_tick=${LATEST}` });
       await run("math/tick/warm/absent", f, "member");
-      await run("math/tick/warm/absent/second", f, "second", { note: "the rows kept by the first request of this tick" });
+      await run("math/tick/warm/absent/second", f, "second", { note: "a featured participant asks: their kept row is their own row" });
       await run("math/tick/large", f, "member", { tail: "&math_tick=9007199254740991" });
       await cast(f, 1, 11, "pass");
       await run("math/tick/after-large", f, "member", { tail: "&math_tick=12", note: "cached at the large tick: the new choice is missing" });
@@ -654,6 +654,50 @@ async function main() {
       await external(org, 3, "own-3-again", "https://example.invalid/again.png", "Again");
       cold();
       await run("handback/two-external-id-rows", f, "member", { reason: "ambiguous_rows" });
+    }
+
+    // ---- J. The requester's own row, decided for each request -------------
+    {
+      const f = take();
+      const org = await open(f);
+      // Six featured participants: five generated ones with an external id,
+      // the last of them also a moderator's pin, and uid 2. Nothing features
+      // uid 3 (the member) or the owner here: no comment is featured.
+      const g = [];
+      for (let i = 0; i < 5; i++) {
+        const p = await join(f);
+        g.push(p);
+        await cast(f, p.pid, i, ["agree", "disagree", "pass"][i % 3]);
+        await external(org, p.uid, `own-row-${i}`, `https://example.invalid/own-row/${i}.png`, `Featured ${i}`);
+      }
+      await moderate(f, g[4].uid, 2);
+      await cast(f, 2, 0, "agree");
+      await external(org, 2, "own-row-second", "https://example.invalid/own-row/second.png", "Second");
+      await math(f, 8, { main: mainDoc({ consensus: { agree: [], disagree: [] }, repness: {} }), mapping: { bidToPid: [[0, 1, 2, 3, 4], g.map((p) => p.pid), [], []] } });
+      cold();
+      const at = "&math_tick=70";
+      await run("own-row/member/first", f, "member", { tail: at, note: "the member's own row and the six featured participants" });
+      await run("own-row/anonymous/within", f, "anonymous", { tail: at, note: "the six featured participants, nobody marked" });
+      await run("own-row/featured/within", f, "second", { tail: at, note: "a featured participant asks: their kept row is their own row" });
+      await run("own-row/owner-without-a-vote/within", f, "owner", { tail: at, note: "a participant without a vote has no row of their own" });
+      await run("own-row/outsider/within", f, "outsider", { tail: at, note: "an account that takes no part has no row of its own" });
+      await run("own-row/member/again", f, "member", { tail: at, note: "the bytes of the member's first reply" });
+      // Three places, and three featured participants kept for them.
+      const three = `${at}&ptptoiLimit=3`;
+      await run("own-row/limit/anonymous/first", f, "anonymous", { tail: three });
+      await run("own-row/limit/member/within", f, "member", { tail: three, note: "the member takes the first place; the last of the ranking gives up its own" });
+      await run("own-row/limit/featured/within", f, "second", { tail: three, note: "one of the three asks: nobody gives up a place" });
+      // One place, kept for the pin: a featured participant beyond the limit.
+      const one = `${at}&ptptoiLimit=1`;
+      await run("own-row/limit-one/anonymous/first", f, "anonymous", { tail: one });
+      await run("own-row/limit-one/featured-beyond-the-limit", f, "second", { tail: one, note: "their own row, read for them, takes the one place" });
+      await run("own-row/limit-one/anonymous/again", f, "anonymous", { tail: one });
+      // A first vote shows in the voter's own row at once, within the 30
+      // seconds of the kept rows, and in nobody else's reply.
+      await run("own-row/before-a-first-vote/moderator", f, "moderator", { tail: at });
+      await cast(f, 3, 1, "pass");
+      await run("own-row/after-a-first-vote/moderator/within", f, "moderator", { tail: at, note: "the voter's own row, within the 30 seconds of the kept rows" });
+      await run("own-row/after-a-first-vote/anonymous/within", f, "anonymous", { tail: at });
     }
 
     if (new Set(cases.map((c) => c.id)).size !== cases.length) throw Error("case names must be unique");

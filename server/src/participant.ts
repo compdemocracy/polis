@@ -8,7 +8,16 @@ import Config from "./config";
 import logger from "./utils/logger";
 import LruCache from "lru-cache";
 
-const socialParticipantsCache = new LruCache({
+// One row of the featured-participants statement, with the account it is
+// for. The account is used to rank and to match the requester; it is never
+// part of a reply.
+type FeaturedParticipantRow = { uid: number; row: any };
+
+// The featured participants of a conversation (moderators' pins, authors of
+// featured comments, participants with an external id), kept 30 seconds for a
+// conversation, a limit and a math tick. The requester's own row is not among
+// them: it is read on every request and is never kept.
+const socialParticipantsCache = new LruCache<string, FeaturedParticipantRow[]>({
   maxAge: 1000 * 30, // 30 seconds
   max: 999,
 });
@@ -394,6 +403,20 @@ function addParticipantAndMetadata(
   });
 }
 
+/**
+ * The participants a conversation's opinion map shows by name or picture, for
+ * one requester: the requester's own row first (priority 1000), then the
+ * featured participants in their ranking, `limit` people in all.
+ *
+ * The featured participants are kept 30 seconds and are the same for every
+ * requester. The requester's own row is decided on every request and is never
+ * kept. A requester who is one of the featured participants (a pin, a
+ * featured author, an external id) gets that row as their own. Any other
+ * requester who is a participant with at least one vote gets a row read for
+ * them alone; when the featured participants already fill the limit, the last
+ * of their ranking (priority, then account) gives up its place. Anyone else
+ * gets the featured participants and no row of their own.
+ */
 function getSocialParticipants(
   zid: number,
   uid?: number,
@@ -402,10 +425,80 @@ function getSocialParticipants(
   math_tick?: any,
   authorUids?: any[]
 ) {
+  return getFeaturedParticipants(zid, limit, mod, math_tick, authorUids).then(
+    function (featured: FeaturedParticipantRow[]) {
+      const rows = featured.map((f) => f.row);
+      // Nobody has a row of their own at a limit of zero.
+      if (_.isUndefined(uid) || uid === null || !(limit > 0)) {
+        return rows;
+      }
+      if (featured.some((f) => f.uid === uid)) {
+        // The kept row is left as it is; the requester's copy starts without
+        // the votes and the cluster an earlier reply may have put on it.
+        return featured.map((f) =>
+          f.uid === uid
+            ? { ..._.omit(f.row, "votes", "bid"), priority: 1000 }
+            : f.row
+        );
+      }
+      return getOwnParticipantRows(zid, uid).then(function (own: any[]) {
+        if (own.length === 0) {
+          return rows;
+        }
+        const ownPids = own.map((row) => row.pid);
+        let others = featured.filter((f) => !ownPids.includes(f.row.pid));
+        if (_.uniq(others.map((f) => f.uid)).length >= limit) {
+          const last = others.reduce((a, b) =>
+            b.row.priority < a.row.priority ||
+            (b.row.priority === a.row.priority && b.uid > a.uid)
+              ? b
+              : a
+          );
+          others = others.filter((f) => f.uid !== last.uid);
+        }
+        return own.concat(others.map((f) => f.row));
+      });
+    }
+  );
+}
+
+// The row of a requester who is not one of the featured participants: the
+// columns of a featured participant's row, at priority 1000. One row for a
+// participant of the conversation with at least one vote (one for each
+// external id with a picture, when there are several); none for anyone else.
+function getOwnParticipantRows(zid: number, uid: number): Promise<any[]> {
+  const q =
+    "with " +
+    "p as (select uid, pid from participants p0 where zid = ($1) and uid = ($2) and EXISTS (SELECT 1 FROM votes v WHERE v.zid=p0.zid AND v.pid=p0.pid)), " +
+    "xids_subset as (select * from xids where uid = ($2) and owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null) " +
+    "select " +
+    "1000 as priority, " +
+    "xids_subset.x_profile_image_url as x_profile_image_url, " +
+    "xids_subset.xid as xid, " +
+    "xids_subset.x_name as x_name, " +
+    "xids_subset.x_email as x_email, " +
+    "p.pid " +
+    "from p " +
+    "left join xids_subset on p.uid = xids_subset.uid " +
+    ";";
+  return pg.queryP_metered_readOnly("getOwnParticipantRows", q, [
+    zid,
+    uid,
+  ]) as Promise<any[]>;
+}
+
+function getFeaturedParticipants(
+  zid: number,
+  limit?: any,
+  mod?: number,
+  math_tick?: any,
+  authorUids?: any[]
+): Promise<FeaturedParticipantRow[]> {
   // NOTE ignoring authorUids as part of cacheKey for now, just because.
   const cacheKey = [zid, limit, mod, math_tick].join("_");
-  if (socialParticipantsCache.get(cacheKey)) {
-    return socialParticipantsCache.get(cacheKey);
+  const kept = socialParticipantsCache.get(cacheKey);
+  if (kept) {
+    return Promise.resolve(kept);
   }
 
   const authorsQueryParts = (authorUids || []).map(function (authorUid?: any) {
@@ -421,14 +514,11 @@ function getSocialParticipants(
     "with " +
     "p as (select uid, pid, mod from participants p0 where zid = ($1) and EXISTS (SELECT 1 FROM votes v WHERE v.zid=p0.zid AND v.pid=p0.pid)), " +
     "xids_subset as (select * from xids where owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null), " +
-    "xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($4)), " +
-    "self as (select CAST($2 as INTEGER) as uid, 1000 as priority), " +
+    "xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($3)), " +
     (authorsQuery ? "authors as " + authorsQuery + ", " : "") +
     "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
     "from ( " +
-    "select * from self " +
-    (authorsQuery ? "union " + "select * from authors " : "") +
-    "union " +
+    (authorsQuery ? "select * from authors " + "union " : "") +
     "select * from xid_ptpts " +
     ") as prioritized_ptpts " +
     "inner join p on prioritized_ptpts.uid = p.uid " +
@@ -443,7 +533,7 @@ function getSocialParticipants(
     // without blocked
     "final_set as (select * from mod_pptpts " +
     // "where uid not in (select uid from p where mod < 0) "+ // remove from twitter set intead.
-    "limit ($3) " +
+    "limit ($2) " +
     ") " + // in invisible_uids
     "select " +
     "final_set.priority, " +
@@ -451,18 +541,26 @@ function getSocialParticipants(
     "xids_subset.xid as xid, " +
     "xids_subset.x_name as x_name, " +
     "xids_subset.x_email as x_email, " +
-    // "final_set.uid " +
-    "p.pid " +
+    "p.pid, " +
+    // The account, last: read below and removed from the row.
+    "final_set.uid " +
     "from final_set " +
     "left join xids_subset on final_set.uid = xids_subset.uid " +
     "left join p on final_set.uid = p.uid " +
     ";";
 
   return pg
-    .queryP_metered_readOnly("getSocialParticipants", q, [zid, uid, limit, mod])
+    .queryP_metered_readOnly("getSocialParticipants", q, [zid, limit, mod])
     .then(function (response: any) {
-      socialParticipantsCache.set(cacheKey, response);
-      return response;
+      const featured: FeaturedParticipantRow[] = response.map(function (
+        row: any
+      ) {
+        const uid = row.uid;
+        delete row.uid;
+        return { uid, row };
+      });
+      socialParticipantsCache.set(cacheKey, featured);
+      return featured;
     });
 }
 
