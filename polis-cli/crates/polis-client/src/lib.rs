@@ -1,4 +1,5 @@
 //! Bounded same-origin HTTP; only explicit unknown vote receipts retry once.
+use polis_contracts::delphi_run::{DelphiRun, JobId};
 use polis_contracts::{Error, Result};
 use reqwest::{blocking::Client as Http, Method};
 use serde_json::{json, Value};
@@ -347,6 +348,32 @@ impl Client {
             ));
         }
         Ok(bytes)
+    }
+    /// One Delphi job's run record (`delphi-run/1`), decoded into the
+    /// contract's own type: the job and run ids, and for each family of the
+    /// bundle the job published, the run that produced it. `None` when the
+    /// site answers 404: it has no such job, or it does not serve run
+    /// records. A 200 that the contract refuses, or that is the record of
+    /// another job, is an error; nothing is guessed from it.
+    pub fn delphi_run(&self, job: &JobId) -> Result<Option<DelphiRun>> {
+        let query = [("job_id".to_owned(), job.as_str().to_owned())];
+        let (status, content_type, bytes) =
+            match self.exchange("GET", "/api/v3/delphi/run", &query, None, false, false) {
+                Ok(reply) => reply,
+                Err(e) if e.upstream["status"] == 404 => return Ok(None),
+                Err(e) => return Err(e),
+            };
+        let refused = || protocol(false, "Site returned a run record this client refuses.");
+        if status != 200
+            || !(content_type.contains("application/json") || content_type.contains("+json"))
+        {
+            return Err(refused());
+        }
+        let run: DelphiRun = serde_json::from_slice(&bytes).map_err(|_| refused())?;
+        if run.job_id != *job {
+            return Err(refused());
+        }
+        Ok(Some(run))
     }
     /// Only the fixed public report export route is eligible for text downloads.
     pub fn report_export(&self, report: &str, kind: &str) -> Result<Vec<u8>> {

@@ -110,7 +110,7 @@ fn test_databases_have_the_shape_this_run_names() {
 }
 
 /// Every migration file, in order.
-fn migrations() -> Vec<(String, String)> {
+pub(crate) fn migrations() -> Vec<(String, String)> {
     let directory = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../server/postgres/migrations"
@@ -137,7 +137,12 @@ fn migrations() -> Vec<(String, String)> {
 /// One migration file. An index built CONCURRENTLY cannot share a
 /// transaction with another statement, so a file of those (one statement to
 /// a line, as the migration runner requires) is sent a statement at a time.
-fn apply(c: &mut Client, sql: &str) -> Result<(), postgres::Error> {
+pub(crate) fn apply(c: &mut Client, sql: &str) -> Result<(), postgres::Error> {
+    // Some migrations create roles, which belong to the whole server: two
+    // tests applying the migrations to their own databases at once would
+    // both find a role missing and both create it. One file at a time.
+    static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let statements: Vec<&str> = sql
         .lines()
         .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with("--"))

@@ -1604,6 +1604,115 @@ selected writer refuses to start. `POLIS_API_WRITER_PRIORITIES_CACHE_BYTES`
 bounds the writer's priorities cache (default 256 MiB) for a process with a
 smaller memory limit.
 
+### Identity, observed on a copy of a vote (opt-in)
+
+`POLIS_API_POST_VOTES_IDENTITY=observe` adds identity observation to the vote
+observer. Unset, empty or `0` is off, and the line, `/health` and the pools
+above are exactly as described; any other value stops the shadow role at
+startup, as does `observe` without `POLIS_API_POST_VOTES=observe`. The main
+role never reads it. Nothing sets it in this release.
+
+The vote writer hands a request back to Node when it cannot place who sent it:
+no token (a person's first vote), a token its verifier refuses (issued for
+another conversation, bound to an external id, or an account's provider token),
+a body that names an external id (`xid`), or a verified token the membership
+read finds no member for. Node creates the user and the participant for the
+first vote; Rust's staged admission (`polis_auth::admission`) is switched off.
+For a copy handed back for one of those reasons, identity observation decides
+what that admission would decide, and reads what Node left:
+
+- **The decision, by reads alone.** `polis_auth::admission::Snapshot::decide`
+  runs the reads `admit` runs for the participation entry and stops where
+  `admit` would write: create a user and a participant, create a participant
+  for a user that exists, find the existing member, or refuse (a closed
+  conversation, before anyone is created; an external id required and absent;
+  an external id not on the allow-list; an account that may not take part by
+  external id; a Treevite conversation). It is what `admit` would decide at one
+  instant with nobody else joining: it cannot know the user number a new user
+  would get, the final open check `admit` makes after its writes, a concurrent
+  first request for the same identity, or a write that fails. A token that does
+  not verify with the participant key (an account's provider token among them)
+  is not decided.
+- **One read-only transaction, bounded by the server.** Every read of a
+  decision, and of each look of the read-back, runs in one `REPEATABLE READ
+  READ ONLY` transaction with `statement_timeout` and `lock_timeout` of 100 ms,
+  `idle_in_transaction_session_timeout` of 1 s and `transaction_timeout` of
+  2 s, on a third read-only pool (`identity`, one connection) that admission
+  and the vote read-back never use. At most 64 identity copies decide or wait
+  at once; a copy beyond that is not decided and says so.
+- **Why the membership read refused**, for a verified token: whether the
+  conversation uses Treevite, and whether the holder's participant row matches
+  the token, is absent or carries another number. `reason` stays
+  `not_a_participant`.
+- **What Node left**, at the same 2 s and 10 s as the vote read-back: found by
+  the request's own identity where it has one (a token's user, the user an
+  external id is bound to), and otherwise among the conversation's eight newest
+  participants by number, taking those created inside the window that have a
+  vote on the copy's statement. `created`, `found`; and `none`, `ambiguous`,
+  `unavailable`, `no_anchor` and `not_checked`, which are unknown: never
+  agreement and never disagreement. A row found by number is an inference:
+  the new participant may be somebody else, and Node may have created nobody
+  for this request (it failed and was sent again; it was refused beside
+  another new voter). Such a match is never `agree`: it is `agree_by_number`
+  when the one match stored the copy's own vote and `unknown` otherwise, and
+  it has a counter of its own in `/health`. Only an agreement found by the
+  request's own identity is agreement.
+- **An external id** is read out of the body into a type that cannot be
+  formatted, sent to the database only as a bound parameter, and dropped when
+  the read-back ends. In the same transaction as each statement that binds
+  one, and just before it, the process reads every setting of the server that
+  can cause a statement, its parameters, its plan or its parse tree to be
+  written to the server's log: `log_statement`, `log_min_duration_statement`,
+  `log_min_duration_sample`, `log_transaction_sample_rate`,
+  `log_parameter_max_length`, `log_parameter_max_length_on_error`,
+  `log_min_messages`, `debug_print_parse`, `debug_print_rewritten`,
+  `debug_print_plan`, and the three lists of preloaded libraries
+  (`shared_preload_libraries`, `session_preload_libraries`,
+  `local_preload_libraries`, for `auto_explain` and `pgaudit`). Where any of
+  them could write the external id there, or cannot be read, that statement
+  is not sent: the copy reads `unavailable`. A setting turned on while the
+  process runs is therefore seen by the next statement. A database user that
+  may not read `shared_preload_libraries` and `session_preload_libraries` (an
+  ordinary role sees neither in `pg_settings`; a member of
+  `pg_read_all_settings` sees both) reads them as missing, so for such a user
+  no external id is sent at all. The settings are also
+  read once at startup for the event
+  `shadow_post_votes_identity_database_logging`, which names the setting, and
+  `/health` reports the last reading and when it was taken.
+
+The copy's `shadow_observation` line keeps every key it has, in order and with
+the same meaning (a copy with an external id is still `would_hand_back` with
+reason `shape_keys`), and gains these after them; each is a number, a boolean,
+null or a word from a closed set, and null on a copy that is not an identity
+copy:
+
+| Key | Values |
+| --- | --- |
+| `id_basis` | `one_instant_reads` |
+| `id_entry` | `none`, `xid`, `anonymous_token`, `xid_token`, `standard_user_token`, `foreign_token`, `refused_token` |
+| `id_token_scope` | `this`, `other`: the conversation code the token was issued for |
+| `id_decision` | `create_user_and_participant`, `create_participant`, `found`, `refuse`, `cannot_decide`, `unavailable`, `shed` |
+| `id_refusal` | `closed`, `xid_required`, `xid_not_allowed`, `xid_account`, `treevite`, `unknown_conversation`, `xid_invalid`, `other` |
+| `id_why` | `token_unverified`, `xid_lookup_disabled`, `logging_settings_unread`, `reads_failed`, `waiting_full` |
+| `id_zid` | the conversation the decision resolved |
+| `id_xid_required`, `id_xid_allowlist`, `id_treevite` | the conversation's rules, as booleans |
+| `id_xid` | `none`, `bound`, `unbound`, `not_looked_up` |
+| `id_member` | whether the decision saw a participant row for the identity |
+| `id_member_treevite`, `id_member_row` | for `not_a_participant`: a boolean, and `matches`, `absent`, `differs`, `unknown` |
+| `id_fields` | whether the copy's vote fields parse |
+| `id_decision_ms`, `id_readback_s` | durations |
+| `id_node` | `created`, `found`, `none`, `ambiguous`, `unavailable`, `no_anchor`, `not_checked` |
+| `id_node_xid` | `bound_here`, `bound_elsewhere`, `bound_no_number`, `unbound` |
+| `id_node_vote` | `same`, `ambiguous`, `different`, `absent`, `unavailable`, `not_checked` |
+| `id_timing` | `before_node`, `after_node`: whether the decision's snapshot already held the row Node created |
+| `id_compare` | `agree`, `agree_by_number`, `expected_difference`, `differs`, `unknown`: was a participant created |
+
+No key carries a participant number, a user number, an external id, a token, a
+name, an address, a vote value or any text. `/health` gains `postVotesIdentity`
+(its counters, how many copies wait, the last reading of whether external ids
+may be looked up and when it was taken, and its one pool); `postVotes.pools` stays `reads` and `readback`, and the status
+does not depend on the identity pool.
+
 ## Build version (opt-in)
 
 `POLIS_API_VERSION_READS=1` and nginx's `RUST_API_ROUTES=version` select

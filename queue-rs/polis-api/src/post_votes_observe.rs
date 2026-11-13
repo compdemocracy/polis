@@ -56,6 +56,10 @@ pub(crate) struct Observer {
     pub(super) follow_on: Arc<FollowOnLane>,
     pub(super) memo: Mutex<Memo>,
     pub(crate) timing: ReadbackTiming,
+    /// Identity observation, when its switch is on. It holds its own pool
+    /// and its own bound on waiting copies; nothing above is shared with it
+    /// but the verifier and the configured administrators, which it reads.
+    pub(crate) identity: Option<Box<super::identity::IdentityObserver>>,
 }
 
 impl Observer {
@@ -75,7 +79,21 @@ impl Observer {
             follow_on: Arc::new(FollowOnLane::default()),
             memo: Mutex::new(Memo::default()),
             timing: ReadbackTiming::default(),
+            identity: None,
         }
+    }
+
+    /// The identity decision for a copy the vote observer has finished with.
+    /// None: identity is not observed, or this is not an identity copy.
+    pub(crate) async fn identity_decision(
+        &self,
+        req: &Request,
+        reason: Option<&'static str>,
+    ) -> Option<super::identity::Pending> {
+        self.identity
+            .as_deref()?
+            .decide(&self.verifier, &self.admins, req, reason)
+            .await
     }
 
     /// Every pool observe mode builds: the two read-only pools, and no writer
@@ -91,6 +109,8 @@ impl Observer {
             follow_on: _,
             memo: _,
             timing: _,
+            // Its pool is listed by `IdentityObserver::startup_pools`.
+            identity: _,
         } = self;
         [("reads", reads), ("readback", readback)]
     }

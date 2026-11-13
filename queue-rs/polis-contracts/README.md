@@ -264,6 +264,38 @@ and encodes back to its own bytes.
 unchanged `delphi_job_result` types; the `delphi-run/1` companion supplies
 per-family producer provenance. The two route switches remain off by default.
 
+## Reading the run a result came from (`delphi_provenance`)
+
+No wire format is defined here. This module reads, as types, the run
+identity a client of Delphi results already holds:
+
+- **A topic key** is `<job>#<layer>#<cluster>`. The job is the run that named
+  the topic, which is not always the job a result was asked for: a later run
+  that kept an earlier run's topics still carries the earlier job in every
+  key. `TopicKey::producer()` gives that job (the text before the first `#`,
+  the rule `polis delphi show` applied by hand; other readers of topic keys
+  apply other rules today and are not changed). `TopicKey::parts()` gives
+  job, layer and cluster only when the key is exactly those three parts, each
+  number in the one spelling the pipeline writes; a key in any other shape
+  gets none.
+- **A public job id** is a uuid or the frozen alias of a legacy import. Only a
+  uuid can have a run record to ask for: `PublicJobId::run_record_id()`. A
+  uuid is not a promise of one: the job inside a topic key imported from the
+  earlier store is the id that store gave the run, which has no record.
+- **A run record** lists, for each family of the bundle a job published, the
+  run that produced it and the run each upstream family came from.
+  `DelphiRun::inputs_from_other_runs()` lists the families computed from
+  another run than the one published beside them: a collective statement
+  written over one run's topics and served with the next run's topic names.
+  It compares whole families. Collective statements and narrative reports
+  are rewritten whole by each write and name their last writer, so a row
+  inside one that an earlier write made over an earlier run's topics is not
+  listed: an empty answer is not proof that every row belongs together.
+
+`tests/delphi_provenance.rs` checks these against the golden results and
+against the recorded run records of a real local sequence (a full pipeline
+run, a collective-statement save over its topics, a second full pipeline run).
+
 ## Current participant identity wire entries
 
 `auth_envelope`, `participant_token`, and `participation_init` describe the

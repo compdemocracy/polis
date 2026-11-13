@@ -95,6 +95,28 @@ an untrusted login code. Signing and child-wave issuance are separate work
 after commit, never callbacks inside the transaction. OIDC first-use
 provisioning and retired cookie/single-use-invite paths are outside this module.
 
+`admission::snapshot` begins one read-only transaction at one snapshot
+(`REPEATABLE READ READ ONLY`) with bounds the server enforces: a statement
+timeout, a lock timeout, an idle-in-transaction timeout and, on PostgreSQL 17
+and later, a transaction timeout. `Snapshot::decide` answers, for a request at
+the participation entry, what `admit` would do: find the member, create a
+participant, create a user and a participant, or refuse. It runs the same
+function `admit` runs for that entry's reads (the allow-list, the binding of an
+external id, the account check, the required external id, membership, the
+Treevite refusal) and stops where `admit` would write. It inserts nothing,
+locks no row, takes no advisory lock and draws from no sequence. The invite and
+login entries are not decided this way: they lock rows before they decide.
+It is what `admit` would decide at one instant with nobody else joining: it
+cannot know the user number a new user would get (which `admit` checks against
+the configured administrators after the insert), the final open check `admit`
+makes after its writes, a concurrent first request for the same account or
+external id, a lock wait, or a write that fails. `Snapshot::membership` says,
+for a verified token, whether the conversation uses Treevite and whether the
+holder's participant row matches the token, is absent or carries another
+number; `participant::resolve` is unchanged. Every participation request of the
+admission tests, and every recorded case, is decided by reads first and then
+admitted, and the two must agree (`tests/support/admission.rs`).
+
 This function is not a complete credential endpoint. A commit error is
 `CommitUnknown`, not permission to retry. A lost response, failed post-commit
 signing or child issuance still needs a client-bound recovery/delivery protocol
