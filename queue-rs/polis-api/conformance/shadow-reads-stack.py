@@ -246,14 +246,14 @@ def reads_service(state, lanes=tuple(READS)):
 
 
 def token_and_data():
-    """A participant, through Node's own routes: two comments and a pass on
-    the first, so the lists have rows and the participant has a vote."""
+    """A participant, through Node's own routes: one comment, with its
+    author's pass, so the lists have a row and the participant a vote. One
+    comment, so that an anonymous next comment has one candidate and Node
+    draws the same one for the request through nginx and for the same request
+    sent to it directly (the draw's random value apart)."""
     status, _, payload = stack.request('POST', '/api/v3/comments', stack.comment_body('The first read.'))
     assert status == 200, (status, payload)
-    token = json.loads(payload)['auth']['token']
-    time.sleep(0.6)
-    assert stack.request('POST', '/api/v3/comments', stack.comment_body('The second read.'), token)[0] == 200
-    return token
+    return json.loads(payload)['auth']['token']
 
 
 def main():
