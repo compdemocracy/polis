@@ -125,7 +125,17 @@ pub const REASONS: [&str; 42] = [
     "closed",
     "no_anchor",
 ];
+/// What the line says Node does after it stores the comment (`after_insert`,
+/// on a `would_serve` line only): the notification task, or, in a
+/// conversation with strict moderation, the moderators' email.
+pub const AFTER_INSERT: [&str; 2] = ["notification_task", "moderator_email"];
+/// A comment in a conversation with strict moderation, observed as the write
+/// Node makes: `would_serve` with this word. The live handler hands such a
+/// comment back to Node; the shadow compares it as any other.
+pub const MODERATOR_EMAIL: &str = "moderator_email";
 /// The reason of the one hand-back whose comment is modelled and read back.
+/// Lines printed by an observer before strict comments were compared as
+/// writes carry it; a line printed since carries `MODERATOR_EMAIL` instead.
 pub const STRICT: &str = "strict_moderation";
 
 impl Route {
@@ -166,7 +176,7 @@ impl Route {
     fn comment_observations(&self) -> Query {
         Self::one(
             "observations",
-            "The shadow's outcomes, would-be statuses and reasons, and whether the conversation has strict moderation.",
+            "The shadow's outcomes, would-be statuses and reasons, whether the conversation has strict moderation, and what Node does after it stores the comment.",
             self.observation(),
             Stats {
                 aggs: vec![("n", Agg::Count)],
@@ -176,6 +186,7 @@ impl Route {
                     Key::Field("status"),
                     Key::Field("reason"),
                     Key::Field("strict"),
+                    Key::Field("after_insert"),
                 ],
             },
         )
@@ -311,6 +322,16 @@ impl Route {
                 ("http_st", Agg::Max("http.status_code")),
                 ("rust_st", Agg::Max("status")),
                 ("o_serve", class("outcome", "would_serve")),
+                // Of those, the comments in conversations with strict
+                // moderation: Node stores them and emails the moderators,
+                // and the live handler hands them back.
+                (
+                    "o_strict",
+                    Agg::Sum(and(vec![
+                        is("outcome", "would_serve"),
+                        is("after_insert", MODERATOR_EMAIL),
+                    ])),
+                ),
                 ("o_answer", class("outcome", "would_answer")),
                 ("o_hand", class("outcome", "would_hand_back")),
                 ("o_fail", class("outcome", "would_fail")),
@@ -525,6 +546,12 @@ impl Route {
                 ("serve_diff", paired(&["o_serve", "b_diff"])),
                 ("serve_own", paired(&["o_serve", "b_own"])),
                 ("serve_any_own", paired(&["o_serve", "own_any"])),
+                // The same five, for the strict ones among them.
+                ("strict", paired(&["o_strict"])),
+                ("strict_clean", paired(&["o_strict", "b_clean"])),
+                ("strict_diff", paired(&["o_strict", "b_diff"])),
+                ("strict_own", paired(&["o_strict", "b_own"])),
+                ("strict_any_own", paired(&["o_strict", "own_any"])),
                 ("answer", paired(&["o_answer"])),
                 ("answer_late", paired(&["o_answer", "late"])),
                 ("answer_tr_own", paired(&["o_answer", "tr_own"])),
