@@ -30,6 +30,7 @@ $POLIS_CHECKOUT_DIR, else an ancestor of this file.
 """
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -78,7 +79,9 @@ FAKES = {
     # The comment observer's switch is answered as Compose would compose it:
     # from the override file the hook wrote in its working directory, unless
     # a test says what the composed configuration holds.
-    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
+    # The read-back of the shadow service's own settings prints the names of
+    # the ones that are wrong: none, unless a test says which.
+    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -191,10 +194,12 @@ def _manifest(revision=REVISION, changes=None):
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls",
-            shadow_start_failure=False, shadow_comments_switch=None, **kw):
+            shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None, **kw):
     root, env = _box(tmp_path, service_type, **kw)
     if shadow_comments_switch is not None:
         env["FAKE_SHADOW_COMMENTS_SWITCH"] = shadow_comments_switch
+    if shadow_settings_wrong is not None:
+        env["FAKE_SHADOW_SETTINGS_WRONG"] = shadow_settings_wrong
     env["FAKE_MIGRATION_FAILURE"] = migration_failure
     env["FAKE_PULL_FAILURE_REF"] = pull_failure_ref
     env["FAKE_RUST_API_ROUTES"] = rust_api_routes
@@ -778,3 +783,159 @@ def test_the_shadow_service_carries_the_comment_observers_settings_with_its_swit
     # Nothing else in the file names the comment handler's switch: the main
     # polis-api takes it from the env document, as it takes the vote switch.
     assert compose.count("POLIS_API_POST_COMMENTS=") == 1
+
+
+# The read-back also covers what makes the service the shadow service at all:
+# the settings docker-compose.yml gives it and the hook's override never
+# names. A composition that lost them (the service's environment list
+# replaced by the override's one entry, say) would pass the switch's check
+# and start the main role. The hook reads them from the same composed
+# configuration, before anything is replaced, and jq prints only the names of
+# the settings that are wrong.
+SHADOW_SETTINGS = {"POLIS_API_ROLE": "shadow", "POLIS_API_SHADOW_LISTEN": "0.0.0.0:5101",
+                   "POLIS_API_POST_VOTES": "observe", "JWT_PRIVATE_KEY": "", "JWT_PRIVATE_KEY_PATH": ""}
+SHADOW_ROUTES = ["votesShadow", "pca2,votesShadow", "pca2,commentsShadow", "pca2,votesShadow,commentsShadow"]
+
+
+def _settings_program():
+    """The jq program the hook runs on the composed configuration."""
+    (line,) = [line for line in HOOK_PATH.read_text().splitlines() if line.lstrip().startswith("SHADOW_SETTINGS_WRONG=$(")]
+    assert line.count("'") == 2, "the read-back's jq program is not one single-quoted argument"
+    command, program, closing = line.split("'")
+    assert command.strip() == ("SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml "
+                               "-f docker-compose.images.yml --profile rust-api config --format json | jq -r")
+    assert closing == ")"
+    return program
+
+
+def _settings_call():
+    return "-r " + _settings_program()
+
+
+@pytest.mark.parametrize("routes", SHADOW_ROUTES)
+@pytest.mark.parametrize("wrong", [*SHADOW_SETTINGS, " ".join(SHADOW_SETTINGS),
+                                   "POLIS_API_ROLE POLIS_API_SHADOW_LISTEN POLIS_API_POST_VOTES"])
+def test_a_composed_shadow_service_without_its_own_settings_is_refused_before_replacement(tmp_path, routes, wrong):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, shadow_settings_wrong=wrong)
+    assert proc.returncode != 0
+    assert f"composed settings are not the shadow service's ({wrong}); refusing service replacement" in proc.stderr
+    # Nothing was torn down or started, and the box's record of what it runs
+    # is untouched.
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+    assert not (tmp_path / "root/opt/polis/deployed-images.txt").exists()
+    # The comment switch's own check had passed: this is the case it cannot see.
+    assert "comment observer switch does not follow" not in proc.stderr
+
+
+@pytest.mark.parametrize("routes", SHADOW_ROUTES)
+def test_the_shadow_services_own_settings_are_read_back_before_anything_is_replaced(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _calls(log, "jq").count(_settings_call()) == 1
+    # From the composed configuration, override included (one such call for
+    # the switch and one for these), after the switch's check and before the
+    # teardown.
+    assert _calls(log, "docker-compose").count(SHADOW_CONFIG) == 2
+    read = log.index(f"jq {_settings_call()}")
+    assert read < log.index(f"docker-compose {COMPOSE_FILES}--profile rust-api down")
+    assert log.index(f"jq {SHADOW_COMMENTS_SWITCH}") < read
+    assert SHADOW_UP in _compose(log)
+
+
+@pytest.mark.parametrize("routes", ["pca2,votesShadow", "pca2,votesShadow,commentsShadow"])
+def test_a_wrong_comment_switch_is_still_refused_first(tmp_path, routes):
+    # Both wrong: the switch's verdict is the one given, as before.
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, shadow_comments_switch="1",
+                        shadow_settings_wrong="POLIS_API_ROLE")
+    assert proc.returncode != 0
+    assert "comment observer switch does not follow RUST_API_ROUTES" in proc.stderr
+    assert "composed settings are not the shadow service's" not in proc.stderr
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+@pytest.mark.parametrize("routes", ["", " , ", "pca2", "pca2,version", "comments", "votesRead", "postComments",
+                                    "commentsShadows", "votesshadow"])
+def test_no_shadow_selected_reads_back_no_shadow_setting(tmp_path, routes):
+    # Even a composition that would be refused is not read when no shadow
+    # starts: the deploy is what it was.
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, shadow_settings_wrong="POLIS_API_ROLE")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _settings_call() not in _calls(log, "jq")
+    assert SHADOW_UP not in _compose(log)
+
+
+@pytest.mark.parametrize("service_type,worker_class", [("delphi", None), ("math", None),
+                                                       ("delphi-large", "large"), ("delphi-worker", "delphi")])
+def test_other_roles_never_read_back_the_shadow_services_settings(tmp_path, service_type, worker_class):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
+                        rust_api_routes="pca2,votesShadow,commentsShadow", shadow_settings_wrong="POLIS_API_ROLE")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _settings_call() not in _calls(log, "jq")
+
+
+def test_the_read_back_names_settings_and_never_prints_a_value():
+    # The program is exactly one comparison for each setting, each printing
+    # the setting's name when it is not the value docker-compose.yml gives the
+    # service: no part of it prints what a setting holds.
+    comparisons = ", ".join(f'(if ($e.{name} // "") == "{value}" then empty else "{name}" end)'
+                            for name, value in SHADOW_SETTINGS.items())
+    assert _settings_program() == f'.services["polis-api-shadow"].environment as $e | [{comparisons}] | join(" ")'
+    # And those values are the literals of the service in docker-compose.yml.
+    compose = _find(Path("docker-compose.yml")).read_text()
+    block = compose.split("\n  polis-api-shadow:\n", 1)[1].split("\n\n", 1)[0]
+    lines = [line.strip() for line in block.splitlines()]
+    for name, value in SHADOW_SETTINGS.items():
+        assert [line for line in lines if line.startswith(f"- {name}=")] == [f"- {name}={value}"], name
+
+
+# The program itself, run by the real jq on the shapes Compose prints for a
+# service's environment (an object of names to strings; a setting given as
+# `NAME=` is "", one Compose leaves unresolved is null, one it does not print
+# is absent). The tests above give jq's answer; this one is jq's. A machine
+# without jq skips it (the stack test runs the same program on what the real
+# Compose composes).
+_RIGHT = dict(SHADOW_SETTINGS, POLIS_API_POST_COMMENTS="", POLIS_API_DB_TRANSPORT="tls",
+              DATABASE_URL="postgres://u:not-printed@db/polis", JWT_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----")
+_KEY = "-----BEGIN PRIVATE KEY-----not-printed"
+
+
+def _without(*names):
+    return {name: value for name, value in _RIGHT.items() if name not in names}
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq program with the real jq")
+@pytest.mark.parametrize("environment,named", [
+    (_RIGHT, ""),
+    (dict(_RIGHT, JWT_PRIVATE_KEY=None, JWT_PRIVATE_KEY_PATH=None), ""),
+    (_without("JWT_PRIVATE_KEY", "JWT_PRIVATE_KEY_PATH"), ""),
+    (dict(_RIGHT, POLIS_API_POST_COMMENTS="observe"), ""),
+    (dict(_RIGHT, POLIS_API_ROLE="main"), "POLIS_API_ROLE"),
+    (dict(_RIGHT, POLIS_API_ROLE=""), "POLIS_API_ROLE"),
+    (dict(_RIGHT, POLIS_API_ROLE=None), "POLIS_API_ROLE"),
+    (_without("POLIS_API_ROLE"), "POLIS_API_ROLE"),
+    (dict(_RIGHT, POLIS_API_SHADOW_LISTEN="0.0.0.0:5100"), "POLIS_API_SHADOW_LISTEN"),
+    (_without("POLIS_API_SHADOW_LISTEN"), "POLIS_API_SHADOW_LISTEN"),
+    (dict(_RIGHT, POLIS_API_POST_VOTES="1"), "POLIS_API_POST_VOTES"),
+    (dict(_RIGHT, POLIS_API_POST_VOTES=""), "POLIS_API_POST_VOTES"),
+    (_without("POLIS_API_POST_VOTES"), "POLIS_API_POST_VOTES"),
+    (dict(_RIGHT, JWT_PRIVATE_KEY=_KEY), "JWT_PRIVATE_KEY"),
+    (dict(_RIGHT, JWT_PRIVATE_KEY_PATH="/run/secrets/not-printed"), "JWT_PRIVATE_KEY_PATH"),
+    (dict(_RIGHT, JWT_PRIVATE_KEY=_KEY, JWT_PRIVATE_KEY_PATH="/run/secrets/not-printed"),
+     "JWT_PRIVATE_KEY JWT_PRIVATE_KEY_PATH"),
+    # The service's list replaced by the override's one entry, with the env
+    # document's signing key then reaching the service.
+    ({"POLIS_API_POST_COMMENTS": "observe", "JWT_PRIVATE_KEY": _KEY},
+     "POLIS_API_ROLE POLIS_API_SHADOW_LISTEN POLIS_API_POST_VOTES JWT_PRIVATE_KEY"),
+    ({}, "POLIS_API_ROLE POLIS_API_SHADOW_LISTEN POLIS_API_POST_VOTES"),
+    (None, "POLIS_API_ROLE POLIS_API_SHADOW_LISTEN POLIS_API_POST_VOTES"),
+])
+def test_the_real_jq_names_exactly_the_wrong_settings_and_prints_no_value(environment, named):
+    composed = {"services": {"polis-api": {"environment": {"POLIS_API_ROLE": "main"}},
+                             "polis-api-shadow": {"environment": environment}}}
+    if environment is None:
+        del composed["services"]["polis-api-shadow"]
+    proc = subprocess.run(["jq", "-r", _settings_program()], input=json.dumps(composed),
+                          text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == named + "\n"
+    assert "not-printed" not in proc.stdout + proc.stderr

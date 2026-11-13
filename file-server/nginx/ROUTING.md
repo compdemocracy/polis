@@ -81,7 +81,26 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   1 to 9999, the requests the live vote write location would send to
   polis-api. GET, HEAD, PUT and other methods, an empty or larger body, a
   chunked body, a trailing slash and other spellings of the path go to Node
-  with no copy. The copy's path carries no query string.
+  with no copy. The copy's path is the literal path and the request's query
+  string, byte for byte as nginx received it, because that is the request a
+  write route is handed. Node's `POST /api/v3/votes` reads its parameters
+  from the body alone and ignores a query string. The vote handler does not
+  take a request that has one, so the shadow reports such a copy as handed
+  back for that reason (`shape_query`); a copy without the query string
+  would be observed as a request the handler is never given. Neither JSON
+  line carries the query string; the access line carries the request line,
+  as `main` does.
+- **Only what is copied passes through the mirror.** One map
+  (`$polis_shadow_copyable`, `rust-api/shadow-http.conf.template`) says
+  which requests those are, and the path's location hands a request to the
+  shadow's mirroring location on that map alone. Every other request to the
+  path, a POST with an empty, undeclared, chunked or larger body included,
+  is proxied to Node exactly as with nothing selected: its body streamed
+  (never read whole first because of the mirror), no `X-Request-Id` added,
+  the `main` access line, no `shadow_edge` or `shadow_mirror` line. The
+  bound is 9999 bytes because that is what the copy's location sends; the
+  shadow service reads up to 65536, and nginx holds a body of up to 9999
+  bytes in memory, so the mirror writes no temporary file.
 - **Where it goes.** The target is a literal in
   `rust-api/shadow-mirror.conf.template`; no setting reaches it. The copy's
   location is `internal` (a direct request gets 404) and has no `error_page`,
@@ -91,14 +110,14 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   the copy ends: about a millisecond when the shadow answers or is down,
   refused, absent or closing, and at most the copy's timeouts (20 ms connect,
   20 ms send, 30 ms read, 30 ms resolve) when it is slow or silent. The body
-  is read before Node is contacted (`mirror_request_body`); votes are small.
+  of a copied vote is read before Node is contacted (`mirror_request_body`),
+  in memory; it is at most 9999 bytes.
 - **What it logs.** Two JSON lines per shadowed vote, both with
   `listener: "shadow"` and nginx's `request_id`, beside the access line:
   `shadow_edge` (Node's status and time as nginx saw them, the participant's
-  total time) and `shadow_mirror` (the copy's status and time). A copy skipped
-  by the body bound logs `mirror_status` 204 with an empty
-  `mirror_upstream_status`. Neither line carries an address, a header value or
-  a body.
+  total time) and `shadow_mirror` (the copy's status and time). A POST that
+  is not copied writes neither line. Neither line carries an address, a
+  header value or a body.
 - **The access line of a shadowed vote records no address.** It is written in
   `polis_shadow_access`: the image's `main` format with its two address
   fields written `-`, the first (`$remote_addr`, the peer) and the last
@@ -108,16 +127,18 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   where nginx faces participants directly. `shadow_edge`, written beside the
   access line, carries the request id that joins Node's and the shadow's
   lines; with an address on the access line, one vote's lines would tie an
-  address to them. Every other request, the other methods on the same path
-  included, keeps `main`. Node and the shadow receive `X-Forwarded-For`
+  address to them. Every other request, the other methods and the POSTs that
+  are not copied on the same path included, keeps `main`: it has no shadow
+  line and no request id. Node and the shadow receive `X-Forwarded-For`
   exactly as before. Anything that counts votes or voters from an address on
   nginx's access lines reads `-` for a shadowed vote. Not changed: the
   request line, the `Referer` and the user agent on that line; and nginx's
   error log, where a line written when the copy or Node fails names the peer
   as `client:` (it carries no request id).
 - **With `votesRead`.** The vote read route's own location answers the path,
-  with the POST diversion inserted first (POST goes to the shadow's named
-  location; every other request keeps the read route's handling).
+  with the diversion inserted first (a POST that is copied goes to the
+  shadow's named location; every other request keeps the read route's
+  handling).
 - **Refused.** `votesShadow` with `postVotes` (the shadow observes the votes
   Node answers): the renderer refuses the selection and every route stays on
   Node, and the web deploy and its validation refuse it before anything
@@ -150,11 +171,13 @@ the comment shadow; what follows is what differs or is worth saying again.
   fields: a text is at most 997 UTF-16 units, at most 5,982 bytes however
   JSON escapes it. The seed upload and the translation read, which have paths
   of their own under the comment path, are not touched. As for votes, the
-  copy's path carries no query string. Node reads a POST's query-string
-  parameters as it reads the body's, and they take precedence there; the
-  copy does not have them, so a comment whose `conversation_id` or `is_seed`
-  travelled in the query string is observed without it. The clients in this
-  repository send a comment's parameters in the body.
+  copy carries the request's query string. Node's `POST /api/v3/comments`
+  reads its parameters from the body alone: a query string changes nothing
+  in its answer, and a comment whose `conversation_id` is only there is
+  refused with 400. The comment handler does not take a request that has a
+  query string, so such a copy is observed as handed back for that reason
+  (`shape_query`). The clients in this repository send a comment's
+  parameters in the body and no query string.
 - **The copies have a rate.** At most 2 a second on one box, and 4 more at
   once (`limit_req`, one zone, `rust-api/shadow-rate.conf.template`). A copy
   over the rate ends in the copy's own location with 429 before any
@@ -162,16 +185,26 @@ the comment shadow; what follows is what differs or is worth saying again.
   with an empty `mirror_upstream_status`, and nothing is written to the error
   log. The zone is used in the copy's location only. The request Node answers
   is never counted, delayed or refused: a run of comments faster than the
-  rate is answered by Node, every one. Vote copies have no nginx rate.
-- **What it does to every comment POST.** With `mirror_request_body`, nginx
-  reads the whole body before it contacts Node; without the shadow it starts
-  sending to Node as soon as it has the request's headers. For a comment that
-  arrives whole (every real one: a few hundred bytes to a few kilobytes) Node
-  has the request no later than before. A body that arrives slowly reaches
+  rate is answered by Node, every one. Vote copies have no nginx rate. On a
+  client connection that is reused (a load balancer's), nginx's mirror keeps
+  a request open until its copy has ended, so the next request on that
+  connection waits for a copy that was sent, for at most the copy's
+  timeouts; a copy over the rate ends before any connection is opened and
+  the next request does not wait for it at all.
+- **What it does to a comment POST.** Only a POST that is copied (a declared
+  body of 1 to 9999 bytes) passes through the mirror. With
+  `mirror_request_body`, nginx reads the whole body of such a request, in
+  memory, before it contacts Node; without the shadow it starts sending to
+  Node as soon as it has the request's headers. For a comment that arrives
+  whole (every real one: a few hundred bytes to a few kilobytes) Node has the
+  request no later than before. A copied body that arrives slowly reaches
   Node when its last byte has arrived, which is when Node could start work on
-  it either way. A body too long for nginx to hold in memory (from about 10
-  kilobytes; never a valid comment, and never copied) is written to a
-  temporary file by nginx and then sent to Node; Node's answer is the same.
+  it either way. Any other POST (a larger body; an empty, chunked or undeclared one) is
+  proxied as with nothing selected, streamed and never held for the mirror,
+  and is not observed. A comment Node accepts is larger than the bound only
+  when its text and its `xid` are both long and written as `\u` escapes (six
+  bytes for each of up to 997 and 999 UTF-16 units: about 12,150 bytes at
+  most); without an `xid` it is at most about 6,150 bytes.
 - **Reading comments is untouched.** GET and HEAD on the path, which every
   client polls, are answered and logged exactly as before: by Node through
   the path's location, or by polis-api when `comments` is selected too, in
@@ -193,7 +226,13 @@ the comment shadow; what follows is what differs or is worth saying again.
   document and not in `docker-compose.yml`, where it is empty: the deploy
   derives it from the route list and writes it into the Compose override it
   generates, `observe` exactly when `commentsShadow` is named, and checks the
-  composed value before it replaces anything. Validation then requires the
+  composed value before it replaces anything. With either shadow selected it
+  also reads back, from the same composed configuration and before anything
+  is replaced, the settings that make the service the shadow service: the
+  shadow role, its listener, the vote observer's switch and the two blank
+  signing-key settings. A composition that lost them is refused by name
+  (never by value) while the box's running containers are untouched.
+  Validation then requires the
   service's `/health` to match: with `commentsShadow`, `postComments` in
   observe mode, never enabled, its two read-only pools and no other, room for
   8 observations and 64 waiting read-backs, a cap of at most 6 a second;

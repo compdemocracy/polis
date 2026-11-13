@@ -230,7 +230,25 @@ fn describe(result: Result<Configured>) -> String {
                 })
                 .collect::<Vec<_>>()
                 .join(",");
-            format!("observe {pools}")
+            // Identity observation, when its switch is on, has a pool of its
+            // own; without it the answer is the two pools above.
+            let identity = observer
+                .identity
+                .as_deref()
+                .map(|identity| {
+                    identity
+                        .startup_pools()
+                        .iter()
+                        .map(|(name, pool)| {
+                            let health: Value =
+                                serde_json::from_str(&crate::js::stringify(&pool.health(false)))
+                                    .unwrap();
+                            format!(" {name}:{}", health["readOnly"])
+                        })
+                        .collect::<String>()
+                })
+                .unwrap_or_default();
+            format!("observe {pools}{identity}")
         }
         Err(error) => format!("err {error:#}"),
     }
@@ -406,6 +424,70 @@ fn observe_mode_builds_no_writer_pool() {
         Some(&file.path),
     );
     assert_eq!(run("writer-pools", &live), "live writer_pools_built=2");
+}
+
+/// The identity switch: unset, empty or 0 leaves observe mode exactly as it
+/// is, with its two pools; `observe` adds one read-only pool and no writer;
+/// another value stops the shadow role; it is refused without the vote
+/// observer; and the main role never reads it.
+#[test]
+fn the_identity_switch_adds_one_read_only_pool_in_the_shadow_role_only() {
+    let keys = signing();
+    let file = KeyFile::new("identity", &keys);
+    let shadow_env = |votes: &str, identity: Option<&str>| {
+        with(
+            with(
+                with(writer_env(votes), "POLIS_API_ROLE", Some("shadow")),
+                "POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE",
+                Some(&file.path),
+            ),
+            "POLIS_API_POST_VOTES_IDENTITY",
+            identity,
+        )
+    };
+    for off in [None, Some(""), Some("0")] {
+        assert_eq!(
+            run("writer-pools", &shadow_env("observe", off)),
+            "observe reads:true,readback:true writer_pools_built=0",
+            "{off:?}"
+        );
+    }
+    assert_eq!(
+        run("writer-pools", &shadow_env("observe", Some("observe"))),
+        "observe reads:true,readback:true identity:true writer_pools_built=0"
+    );
+    for value in ["1", "on", "true", "OBSERVE", "live"] {
+        let result = run("shadow", &shadow_env("observe", Some(value)));
+        assert!(
+            result.contains("POLIS_API_POST_VOTES_IDENTITY must be unset, 0 or observe"),
+            "{value}: {result}"
+        );
+    }
+    // Not without the vote observer.
+    let result = run("shadow", &shadow_env("0", Some("observe")));
+    assert!(
+        result.contains(
+            "POLIS_API_POST_VOTES_IDENTITY=observe requires POLIS_API_POST_VOTES=observe"
+        ),
+        "{result}"
+    );
+    // The main role does not read it, whatever it holds.
+    for value in ["observe", "anything"] {
+        let main = with(
+            with(
+                writer_env("1"),
+                "POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE",
+                Some(&file.path),
+            ),
+            "POLIS_API_POST_VOTES_IDENTITY",
+            Some(value),
+        );
+        assert_eq!(run("writer-pools", &main), "live writer_pools_built=2");
+        assert_eq!(
+            run("main", &with(main, "POLIS_API_POST_VOTES", Some("0"))),
+            "off"
+        );
+    }
 }
 
 /// Test 5. The switch's values, the two roles, the startup conditions shared

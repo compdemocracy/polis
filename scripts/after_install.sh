@@ -290,6 +290,20 @@ if [ "$SHADOW_SELECTED" = 1 ]; then
     echo "polis-api-shadow's comment observer switch does not follow RUST_API_ROUTES; refusing service replacement" >&2
     exit 1
   fi
+  # And what starts must be the shadow service: the settings docker-compose.yml
+  # gives it, which the override above never names, must have survived the
+  # composition. A Compose that replaced the service's environment list with
+  # the override's one entry would pass the check above, and the service
+  # would start as the main role, without the shadow's listener and with the
+  # env document's signing key. So the composed service must have the shadow
+  # role, the listener nginx sends its copies to, the vote observer's switch
+  # at observe, and both signing-key settings blank. jq prints the names of
+  # the settings that are not so, never a value. Never print config.
+  SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile rust-api config --format json | jq -r '.services["polis-api-shadow"].environment as $e | [(if ($e.POLIS_API_ROLE // "") == "shadow" then empty else "POLIS_API_ROLE" end), (if ($e.POLIS_API_SHADOW_LISTEN // "") == "0.0.0.0:5101" then empty else "POLIS_API_SHADOW_LISTEN" end), (if ($e.POLIS_API_POST_VOTES // "") == "observe" then empty else "POLIS_API_POST_VOTES" end), (if ($e.JWT_PRIVATE_KEY // "") == "" then empty else "JWT_PRIVATE_KEY" end), (if ($e.JWT_PRIVATE_KEY_PATH // "") == "" then empty else "JWT_PRIVATE_KEY_PATH" end)] | join(" ")')
+  if [ -n "$SHADOW_SETTINGS_WRONG" ]; then
+    echo "polis-api-shadow's composed settings are not the shadow service's ($SHADOW_SETTINGS_WRONG); refusing service replacement" >&2
+    exit 1
+  fi
 fi
 
 if [ -f "/etc/app-info/log_group_name.txt" ]; then

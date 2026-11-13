@@ -1432,7 +1432,7 @@ diversion=$(block '= \/api\/v3\/votes')
 # connection can wait for it: each is asserted exactly, and no other is set.
 for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/nginx/access.log polis_shadow_mirror;' \
     '    if ($request_method != POST) {' '    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {' \
-    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/votes;' \
+    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/votes$is_args$args;' \
     '    proxy_set_header X-Request-Id $request_id;' '    proxy_set_header X-Polis-Shadow votesShadow;' \
     '    proxy_next_upstream off;' '    resolver_timeout 30ms;' '    proxy_connect_timeout 20ms;' \
     '    proxy_send_timeout 20ms;' '    proxy_read_timeout 30ms;'; do
@@ -1447,10 +1447,27 @@ done
 # The shadowed location writes its access line without the peer address and
 # X-Forwarded-For, and never in the `main` format beside it.
 [[ $(grep -c 'access_log ' <<<"$named") == 2 ]] || fail "shadow: the named location writes other access lines"
-for line in '    error_page 420 = @polis_shadow_votesShadow;' '    if ($request_method = POST) {' \
+for line in '    error_page 420 = @polis_shadow_votesShadow;' '    if ($polis_shadow_copyable = 1) {' \
     '        return 420;' '    include /etc/nginx/node-proxy.conf;'; do
   grep -qxF -- "$line" <<<"$diversion" || fail "shadow: the vote location lacks '$line'"
 done
+# Only a request the shadow is sent a copy of is handed to the location that
+# reads the whole body: a POST with a declared body of 1 to 9999 bytes, not
+# chunked. One map says which, in the three lines asserted here; its bound is
+# the one the copy's own location applies; the path's location hands over on
+# that map and on nothing else; and no other location reads a body for the
+# mirror.
+copyable=$(sed -n '/^map .* \$polis_shadow_copyable {$/,/^}$/p' <<<"$shadow_conf")
+[[ $copyable == 'map "$request_method:$http_content_length:$http_transfer_encoding" $polis_shadow_copyable {
+    default 0;
+    "~^POST:[1-9][0-9]{0,3}:$" 1;
+}' ]] || fail "shadow: the map of copied requests is not the three lines expected: $copyable"
+[[ $(grep -c 'polis_shadow_copyable {$' <<<"$shadow_conf") == 1 ]] || fail "shadow: the map of copied requests is not rendered once"
+grep -qxF -- '    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {' <<<"$mirror" || fail "shadow: the copy location's bound is not the map's"
+[[ $(grep -c '^    if ' <<<"$diversion") == 1 ]] || fail "shadow: the vote location hands over on another condition"
+! grep -q 'request_method' <<<"$diversion" || fail "shadow: the vote location hands over by method alone"
+[[ $(grep -v '^[[:space:]]*#' <<<"$shadow_conf" | grep -c 'mirror_request_body\|mirror /') == 2 ]] || fail "shadow: a mirror directive outside the named location"
+[[ $(grep -v '^[[:space:]]*#' <<<"$shadow_conf" | grep -c '\$polis_shadow_copyable') == 2 ]] || fail "shadow: the map of copied requests is used outside the vote location"
 # Nothing on the copy's side can reach Node: no error_page, no named Node
 # location and no retry, in the copy's location or the one that starts it.
 for part in "$mirror" "$named"; do
@@ -1459,12 +1476,19 @@ for part in "$mirror" "$named"; do
 done
 # The shadow host appears in one directive, as a literal; no setting reaches it.
 [[ $(grep -v '^[[:space:]]*#' <<<"$shadow_conf" | grep -c 'polis-api-shadow') == 1 ]] || fail "shadow: the copy target is not one literal"
+# The copy's path is the literal path and the request's own query string;
+# nothing else of the request reaches the copy's request line.
+[[ $(grep -c 'proxy_pass ' <<<"$mirror") == 1 ]] || fail "shadow: the copy location has another proxy_pass"
+! grep 'proxy_pass ' <<<"$mirror" | grep -q 'request_uri\|\$uri' || fail "shadow: the copy's path is taken from the request"
 vote_post
 expect_upstream server GET /api/v3/votes
 expect_upstream server HEAD /api/v3/votes
 expect_upstream server PUT /api/v3/votes $'Content-Length: 2\r\n' '{}'
 expect_upstream server OPTIONS /api/v3/votes
 expect_upstream server POST /api/v3/votes/ $'Content-Length: 2\r\n' '{}'
+# A POST that is not copied is still Node's: no body, and a body over the bound.
+expect_upstream server POST /api/v3/votes $'Content-Length: 0\r\n'
+expect_upstream server POST /api/v3/votes $'Content-Type: application/json\r\nContent-Length: 10000\r\n' "$(printf '%010000d' 0)"
 python3 - "$p-proxy" "$p-node" <<'PYTHON'
 import http.client, subprocess, sys
 proxy, node = sys.argv[1:]
@@ -1479,7 +1503,7 @@ for method in ('GET', 'POST'):
     c.close()
 assert logs() == before, 'a direct request to the copy location reached Node'
 PYTHON
-echo "ok vote shadow alone: one vote location and one copy location; literal target, body bound and the four timeouts exactly; no route from the copy to Node; votes and the copy location's direct requests answered as before"
+echo "ok vote shadow alone: one vote location and one copy location; only a POST with a declared body of 1 to 9999 bytes is handed to the mirroring location (one map, with the copy location's own bound); literal target, body bound and the four timeouts exactly; no route from the copy to Node; votes and the copy location's direct requests answered as before"
 
 for routes in votesRead,votesShadow votesShadow,votesRead; do
   start "$routes"
@@ -1492,13 +1516,16 @@ for routes in votesRead,votesShadow votesShadow,votesRead; do
      $(grep -nxF '    if ($polis_api_plain = 0) {' <<<"$shared" | cut -d: -f1) ]] || fail "$routes: diversion after the read check"
   # Exactly the read route's location, with the diversion first.
   expected=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/votes {$/,/^}$/p' /etc/nginx/rust-api-templates/votesRead.location.conf.template \
-    | awk '{ print } NR == 1 { print "    error_page 420 = @polis_shadow_votesShadow;"; print "    if ($request_method = POST) {"; print "        return 420;"; print "    }" }')
+    | awk '{ print } NR == 1 { print "    error_page 420 = @polis_shadow_votesShadow;"; print "    if ($polis_shadow_copyable = 1) {"; print "        return 420;"; print "    }" }')
   [[ $shared == "$expected" ]] || fail "$routes: the shared vote location is not the read route's plus the diversion"
   vote_post
   expect_upstream polis-api GET /api/v3/votes
   expect_upstream polis-api HEAD /api/v3/votes
   expect_upstream polis-api GET /api/v3/votes/me
   expect_upstream server OPTIONS /api/v3/votes
+  # A POST that is not copied falls through to the read route's own checks.
+  expect_upstream server POST /api/v3/votes $'Content-Length: 0\r\n'
+  expect_upstream server POST /api/v3/votes $'Content-Type: application/json\r\nContent-Length: 10000\r\n' "$(printf '%010000d' 0)"
 done
 echo "ok vote shadow with the vote reads: one vote location, the POST diversion first, reads keep their directives"
 
@@ -1569,7 +1596,7 @@ for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/ng
     '    set $polis_shadow_name commentsShadow;' '    limit_req zone=polis_shadow_commentsShadow burst=4 nodelay;' \
     '    limit_req_status 429;' '    limit_req_log_level info;' \
     '    if ($request_method != POST) {' '    if ($http_content_length !~ "^[1-9][0-9]{0,3}$") {' \
-    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/comments;' \
+    '    set $polis_shadow_target polis-api-shadow:5101;' '    proxy_pass http://$polis_shadow_target/api/v3/comments$is_args$args;' \
     '    proxy_set_header X-Request-Id $request_id;' '    proxy_set_header X-Polis-Shadow commentsShadow;' \
     '    proxy_next_upstream off;' '    resolver_timeout 30ms;' '    proxy_connect_timeout 20ms;' \
     '    proxy_send_timeout 20ms;' '    proxy_read_timeout 30ms;'; do
@@ -1582,7 +1609,9 @@ for line in '    mirror /_polis_shadow/commentsShadow;' '    mirror_request_body
   grep -qxF -- "$line" <<<"$named" || fail "comment shadow: the named location lacks '$line'"
 done
 [[ $(grep -c 'access_log ' <<<"$named") == 2 ]] || fail "comment shadow: the named location writes other access lines"
-for line in '    error_page 420 = @polis_shadow_commentsShadow;' '    if ($request_method = POST) {' \
+# The map of copied requests is the vote shadow's, to the byte.
+[[ $(sed -n '/^map .* \$polis_shadow_copyable {$/,/^}$/p' <<<"$shadow_conf") == "$copyable" ]] || fail "comment shadow: the map of copied requests differs from the vote shadow's"
+for line in '    error_page 420 = @polis_shadow_commentsShadow;' '    if ($polis_shadow_copyable = 1) {' \
     '        return 420;' '    include /etc/nginx/node-proxy.conf;'; do
   grep -qxF -- "$line" <<<"$diversion" || fail "comment shadow: the comment location lacks '$line'"
 done
@@ -1607,6 +1636,8 @@ expect_upstream server HEAD /api/v3/comments
 expect_upstream server PUT /api/v3/comments $'Content-Length: 2\r\n' '{}'
 expect_upstream server OPTIONS /api/v3/comments
 expect_upstream server POST /api/v3/comments/ $'Content-Length: 2\r\n' '{}'
+expect_upstream server POST /api/v3/comments $'Content-Length: 0\r\n'
+expect_upstream server POST /api/v3/comments $'Content-Type: application/json\r\nContent-Length: 10000\r\n' "$(printf '%010000d' 0)"
 expect_upstream server POST /api/v3/comments-bulk $'Content-Length: 2\r\n' '{}'
 expect_upstream server GET /api/v3/comments/translations
 expect_upstream server GET /api/v3/nextComment
@@ -1637,7 +1668,7 @@ for routes in comments,commentsShadow commentsShadow,comments; do
   [[ $(grep -nxF '    error_page 420 = @polis_shadow_commentsShadow;' <<<"$shared" | cut -d: -f1) -lt \
      $(grep -nxF '    if ($polis_api_plain = 0) {' <<<"$shared" | cut -d: -f1) ]] || fail "$routes: diversion after the read check"
   expected=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/comments {$/,/^}$/p' /etc/nginx/rust-api-templates/comments.location.conf.template \
-    | awk '{ print } NR == 1 { print "    error_page 420 = @polis_shadow_commentsShadow;"; print "    if ($request_method = POST) {"; print "        return 420;"; print "    }" }')
+    | awk '{ print } NR == 1 { print "    error_page 420 = @polis_shadow_commentsShadow;"; print "    if ($polis_shadow_copyable = 1) {"; print "        return 420;"; print "    }" }')
   [[ $shared == "$expected" ]] || fail "$routes: the shared comment location is not the read route's plus the diversion"
   [[ $(block '= \/_polis_shadow\/commentsShadow') == "$mirror" ]] || fail "$routes: the copy location differs from the comment shadow's alone"
   [[ $(block '@polis_shadow_commentsShadow') == "$named" ]] || fail "$routes: the named location differs from the comment shadow's alone"
@@ -1671,6 +1702,8 @@ for routes in pca2,votesShadow,commentsShadow commentsShadow,votesShadow,pca2 'p
     [[ $(grep -c "^log_format $format " <<<"$shadow_conf") == 1 ]] || fail "$routes: log format $format not rendered once"
   done
   [[ $(grep -c '^limit_req_zone ' <<<"$shadow_conf") == 1 ]] || fail "$routes: not exactly one rate zone"
+  [[ $(grep -c 'polis_shadow_copyable {$' <<<"$shadow_conf") == 1 ]] || fail "$routes: the map of copied requests is not rendered once"
+  [[ $(sed -n '/^map .* \$polis_shadow_copyable {$/,/^}$/p' <<<"$shadow_conf") == "$copyable" ]] || fail "$routes: the map of copied requests differs from the vote shadow's"
   ! grep -q 'limit_' <<<"$(block '= \/_polis_shadow\/votesShadow')" || fail "$routes: the vote copy has a rate"
   [[ $(grep -v '^[[:space:]]*#' <<<"$shadow_conf" | grep -c 'polis-api-shadow') == 2 ]] || fail "$routes: not one literal target line for each shadow"
   expect '/api/v3/math/pca2?conversation_id=x' rust "$routes: pca2 beside both shadows"
@@ -1796,6 +1829,40 @@ stub "$p-rust" polis-api 5100 502 handoff
 sleep 6
 expect /api/v3/ptptois node "social fallback"
 echo "ok social participant: off/on/deduplicated, methods/body, fallback"
+
+# The featured-participants read has its own default-off selector. Unselected,
+# nothing of it is rendered beside the other vote routes; selected, its
+# location is its template and the other vote paths are not touched.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/votes/famous node "featured participants off"
+start votesRead,postVotes,ptptois
+expect /api/v3/votes/famous node "featured participants unselected beside the other vote routes"
+! included | grep -q 'votes/famous' || fail "featured participants: rendered without its selector"
+start votesFamous,votesFamous
+expect /api/v3/votes/famous rust "featured participants on"
+[[ $(included | grep -c 'location = /api/v3/votes/famous {') == 1 ]] || fail "featured participants duplicated"
+featured=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/votes\/famous {$/,/^}$/p' /etc/nginx/rust-api-templates/votesFamous.location.conf.template)
+[[ -n $featured && $(included | sed -n '/^location = \/api\/v3\/votes\/famous {$/,/^}$/p') == "$featured" ]] || fail "featured participants: rendered location differs from its template"
+expect_upstream polis-api HEAD /api/v3/votes/famous
+expect_upstream polis-api GET '/api/v3/votes/famous?conversation_id=2fixture&math_tick=5'
+expect_upstream server OPTIONS /api/v3/votes/famous
+expect_upstream server POST /api/v3/votes/famous $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/votes/famous $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "featured participants leave the vote list alone"
+expect /api/v3/votes/me node "featured participants leave the personal vote list alone"
+expect /api/v3/comments node "featured participants leave comments alone"
+expect /api/v3/nextComment node "featured participants leave the next comment alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+# nginx resolves the replaced container again within its resolver's validity.
+for _ in $(seq 40); do
+  [[ $(get /api/v3/votes/famous) == node ]] && break
+  sleep 0.5
+done
+expect /api/v3/votes/famous node "featured participants fallback"
+echo "ok featured participants: off, unselected beside the vote routes, on/deduplicated, its template to the byte, methods/body, fallback"
 
 # Participant-owned CSV have their own default-off selector.
 docker rm -f "$p-rust" >/dev/null

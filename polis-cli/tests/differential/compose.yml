@@ -57,6 +57,8 @@ services:
       STATIC_FILES_PARTICIPATION_PORT: "8081"
       POLIS_API_VOTES_READS: "1"
       POLIS_API_VOTES_READ_DATABASE_URL: postgres://postgres@postgres:5432/p027
+      POLIS_API_VOTES_FAMOUS_READS: "1"
+      POLIS_API_VOTES_FAMOUS_DATABASE_URL: postgres://postgres@postgres:5432/p027
       POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE: /artifacts/participant-public.pem
       POLIS_JWT_ISSUER: https://pol.is/
       POLIS_JWT_AUDIENCE: participants
