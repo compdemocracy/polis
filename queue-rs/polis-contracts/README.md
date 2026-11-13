@@ -264,6 +264,96 @@ and encodes back to its own bytes.
 unchanged `delphi_job_result` types; the `delphi-run/1` companion supplies
 per-family producer provenance. The two route switches remain off by default.
 
+## Reading the clustering and the run a result belongs to (`delphi_provenance`)
+
+No wire format is defined here. This module reads, as types, the identity a
+client of Delphi results already holds:
+
+- **A topic key** is `<label>#<layer>#<cluster>`. The first part is a
+  **clustering label**: the text the run that clustered the comments wrote
+  into every key of its topics. For a run on the Postgres result store it is
+  that run's job id, which is not always the job a result was asked for: a
+  later run that kept an earlier run's topics still carries the earlier label
+  in every key. A label is not a promise of a job. A key imported from the
+  earlier store carries the id that store gave the run, which has no run
+  record; the pipeline run by hand writes `pipeline_run_<uuid>`. So a label
+  is compared with other labels and never looked up as a run. One text in
+  that place is no one clustering's label: `unknown_job`, which every run
+  given no job id writes, so that two clusterings can carry it
+  (`ClusteringLabel::names_one_clustering()` is false for it alone). `TopicKey::clustering_label()` gives it (the
+  text before the first `#`, the rule `polis delphi show` applied by hand;
+  other readers of topic keys apply other rules today and are not changed).
+  `TopicKey::parts()` gives label, layer and cluster only when the key is
+  exactly those three parts, each number in the one spelling the pipeline
+  writes; a key in any other shape gets none.
+- **A key written without a label** is `layer<L>_<C>`, the form the
+  pipeline's models write when they are given no key.
+  `TopicKey::unlabelled()` gives its layer and cluster. It names a topic and
+  no clustering, and none is invented for it.
+- **A narrative section's name** is, for a topic section, the topic key with
+  each `#` written as `_`. `SectionKey::reading()` reads it from the right
+  (the cluster, then the layer, then everything before them as the label),
+  because the labels above hold underscores themselves. A global section
+  (`groups`, `group_informed_consensus`, `uncertainty`, bare or behind
+  `global_` or `<text>_global_`) names no topic. The form without a label is
+  read as such, and any other name as nothing. The name is a lossy copy of
+  the key (a provider batch rewrites other characters as `_` and cuts the
+  request id it rebuilds the name from at 64 characters). For the labels the
+  pipeline itself writes that changes no label: a job id is not altered, and
+  is not cut while the conversation id, the layer and the cluster have 25
+  digits or fewer together; a cut `pipeline_run_<uuid>` name reads as the
+  same label or as nothing. For a label of another shape the stored name can read as another
+  label, so what is read is the label of the name as stored.
+- **A public job id** is a uuid or the frozen alias of a legacy import. Only a
+  uuid can have a run record to ask for: `PublicJobId::run_record_id()`.
+- **A run record** lists, for each family of the bundle a job published, one
+  run, and the run each upstream family came from.
+
+**A producer, or only a last writer.** For most families the one run a record
+names produced every row: a full pipeline run replaces them whole.
+Collective statements, narrative reports and the server's report-narrative
+cache are rewritten whole by every write with every earlier row copied
+forward, so the run a record names for one of them is its last writer and
+the rows inside were written by many jobs, possibly over many clusterings.
+`ResultFamily::rows()` says which kind a family is, and
+`DelphiRun::written_by()` gives the record's run as `Producer` or
+`LastWriter`, so that a last writer is never taken for the producer of a
+row. `DelphiRun::inputs_from_other_runs()` compares whole families: for one
+of these three it compares what the last writer read, and an empty answer is
+not proof that every row belongs together.
+
+**The clustering of a row.** For those three families it is read from the
+row itself: a collective statement's `topic_key` (`TopicKey::clustering()`),
+a narrative report's `section` (`SectionKey::clustering()`); the
+report-narrative cache carries none and is left out. What is read is what
+the row says: a collective statement's `topic_key` is the key the caller of
+the save sent, stored as given. A `RowClustering` is a label, `NoLabel` (a
+topic named without one, or under `unknown_job`), `NoTopic` (a global
+section) or `Unread`. `PublishedLabels::of()` collects the labels the published topic
+names carry, which may be one, none or several, and
+`PublishedLabels::standing()` says where a row stands against them:
+
+| The row | The published topic names carry | Standing |
+|---|---|---|
+| has a label | that label and no other | `PublishedClustering` |
+| has a label | that label among several | `OneOfSeveralPublished` |
+| has a label | other labels, or none | `AnotherClustering` |
+| names a topic without a label, or under `unknown_job` | anything | `NoLabel` |
+| is a global section | anything | `NoTopic` |
+| is in no form read here | anything | `Unread` |
+
+Which of several published clusterings a page draws is not decided here; a
+row among several is never reported as over the published one.
+
+`tests/delphi_provenance.rs` checks these against the golden results and
+against recorded run records of real local sequences (a full pipeline run, a
+collective-statement save over its topics, a second full pipeline run; and a
+second save after the second run). For that last record the recorder also
+kept the stored rows of the bundle the save published. The record names one
+job for the collective statements and nothing in it names the first run; the
+two rows' own topic keys carry one label each, the first run's and the
+second's.
+
 ## Current participant identity wire entries
 
 `auth_envelope`, `participant_token`, and `participation_init` describe the

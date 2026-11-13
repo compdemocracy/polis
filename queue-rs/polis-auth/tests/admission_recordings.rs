@@ -256,7 +256,8 @@ fn recorded_node_admission_results_match_on_the_shared_cases() {
                 bcrypt_hash: "invalid",
             });
         }
-        let result = admit(&mut f.db, &r);
+        // Decided by reads alone first; the decision must be what admit does.
+        let result = support::decided_then_admitted(&mut f.db, &r);
         if let Err(Error::Refused(refusal)) = result {
             assert_eq!(evidence["raw"]["status"], refusal.status, "{name}");
             assert_eq!(

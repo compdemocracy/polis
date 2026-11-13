@@ -1424,6 +1424,8 @@ shadow_conf=$(included)
 [[ $(grep -c '^log_format polis_shadow_access ' <<<"$shadow_conf") == 1 ]] || fail "shadow: access log format missing"
 ! grep '^log_format ' <<<"$shadow_conf" | grep -q 'forwarded_for' || fail "shadow: a log format reads X-Forwarded-For"
 ! grep '^log_format ' <<<"$shadow_conf" | grep -q 'remote_addr' || fail "shadow: a log format reads the peer address"
+! grep '^log_format ' <<<"$shadow_conf" | grep -qE '\$request"|\$request_uri|\$args|\$query_string|\$http_referer' || fail "shadow: a log format reads a query string, a whole request line or a whole Referer"
+grep -q "^log_format polis_shadow_access .* \"\$request_method \$polis_log_path \$server_protocol\" .* \"\$polis_log_referer\" " <<<"$shadow_conf" || fail "shadow: the access format does not write the path alone and the Referer without its query string"
 grep -q "^log_format polis_shadow_access '- - \$remote_user \[\$time_local\] " <<<"$shadow_conf" || fail "shadow: the access format does not keep the peer field's place"
 mirror=$(block '= \/_polis_shadow\/votesShadow')
 named=$(block '@polis_shadow_votesShadow')
@@ -1445,7 +1447,7 @@ for line in '    mirror /_polis_shadow/votesShadow;' '    mirror_request_body on
   grep -qxF -- "$line" <<<"$named" || fail "shadow: the named location lacks '$line'"
 done
 # The shadowed location writes its access line without the peer address and
-# X-Forwarded-For, and never in the `main` format beside it.
+# X-Forwarded-For, and never in the ordinary format beside it.
 [[ $(grep -c 'access_log ' <<<"$named") == 2 ]] || fail "shadow: the named location writes other access lines"
 for line in '    error_page 420 = @polis_shadow_votesShadow;' '    if ($polis_shadow_copyable = 1) {' \
     '        return 420;' '    include /etc/nginx/node-proxy.conf;'; do
@@ -1830,6 +1832,40 @@ sleep 6
 expect /api/v3/ptptois node "social fallback"
 echo "ok social participant: off/on/deduplicated, methods/body, fallback"
 
+# The featured-participants read has its own default-off selector. Unselected,
+# nothing of it is rendered beside the other vote routes; selected, its
+# location is its template and the other vote paths are not touched.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/votes/famous node "featured participants off"
+start votesRead,postVotes,ptptois
+expect /api/v3/votes/famous node "featured participants unselected beside the other vote routes"
+! included | grep -q 'votes/famous' || fail "featured participants: rendered without its selector"
+start votesFamous,votesFamous
+expect /api/v3/votes/famous rust "featured participants on"
+[[ $(included | grep -c 'location = /api/v3/votes/famous {') == 1 ]] || fail "featured participants duplicated"
+featured=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/votes\/famous {$/,/^}$/p' /etc/nginx/rust-api-templates/votesFamous.location.conf.template)
+[[ -n $featured && $(included | sed -n '/^location = \/api\/v3\/votes\/famous {$/,/^}$/p') == "$featured" ]] || fail "featured participants: rendered location differs from its template"
+expect_upstream polis-api HEAD /api/v3/votes/famous
+expect_upstream polis-api GET '/api/v3/votes/famous?conversation_id=2fixture&math_tick=5'
+expect_upstream server OPTIONS /api/v3/votes/famous
+expect_upstream server POST /api/v3/votes/famous $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/votes/famous $'Content-Length: 2\r\n' '{}'
+expect /api/v3/votes node "featured participants leave the vote list alone"
+expect /api/v3/votes/me node "featured participants leave the personal vote list alone"
+expect /api/v3/comments node "featured participants leave comments alone"
+expect /api/v3/nextComment node "featured participants leave the next comment alone"
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 502 handoff
+# nginx resolves the replaced container again within its resolver's validity.
+for _ in $(seq 40); do
+  [[ $(get /api/v3/votes/famous) == node ]] && break
+  sleep 0.5
+done
+expect /api/v3/votes/famous node "featured participants fallback"
+echo "ok featured participants: off, unselected beside the vote routes, on/deduplicated, its template to the byte, methods/body, fallback"
+
 # Participant-owned CSV have their own default-off selector.
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
@@ -1954,3 +1990,15 @@ docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 502 fallback
 expect /api/v3/comments/report node "report list handback"
 echo "ok report list off/on/deduplicated, methods/body, handback"
+
+# The ordinary access line, with nothing selected and with read routes
+# selected: the path without its query string, the Referer without its query
+# string and fragment, both address fields as before
+# (file-server/nginx/test-access-log.py).
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+for routes in '' pca2,conversationPage,votesRead,comments,nextComment; do
+  start "$routes"
+  python3 "$root/file-server/nginx/test-access-log.py" "$p"
+done
+echo "ok access line: no query string and no Referer query string or fragment, with nothing selected and with read routes selected"

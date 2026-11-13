@@ -1,10 +1,12 @@
 /**
  * POST /api/v3/votes writes one `vote_reply` line when nginx also copied the
  * vote to the read-only shadow service (the request carries nginx's
- * X-Request-Id): Node's status and, on a 200, the next statement it served,
- * so a comparison can join the copy's would-be answer to Node's answer by the
- * request id. The line never carries the vote, the participant or any text;
- * it is written after the reply, adds no database call, and changes no reply.
+ * X-Request-Id): Node's status and, on a 200, whether it served a next
+ * statement and the two counts, so a comparison can join the copy's would-be
+ * answer to Node's answer by the request id. The line never carries the vote,
+ * the participant, any text or the number of a statement (the one voted on,
+ * or the next one); it is written after the reply, adds no database call, and
+ * changes no reply.
  * Without a well-formed request id there is no line at all.
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
@@ -77,6 +79,10 @@ const ZID = 7;
 const PID = 4242;
 const UID = 9191;
 const TXT = "a statement nobody may log";
+// The statement voted on, the next one served, and a topic-agenda pick.
+const TID = 6363;
+const NEXT_TID = 5151;
+const TOPICAL_TID = 5252;
 
 type Next = Record<string, unknown> | null;
 
@@ -121,7 +127,7 @@ async function vote(options: {
       zid: ZID,
       pid: PID,
       uid: UID,
-      tid: 3,
+      tid: TID,
       vote: options.vote ?? WIRE_AGREE,
       weight: 0,
       high_priority: false,
@@ -164,15 +170,22 @@ function expectNothingPrivate(meta: Record<string, unknown>) {
   for (const key of ["vote", "pid", "uid", "txt", "xid", "weight", "tid"]) {
     expect(meta).not.toHaveProperty(key);
   }
+  // No key names a statement, whatever it is called.
+  expect(Object.keys(meta).filter((key) => /tid/i.test(key))).toEqual([]);
   const text = JSON.stringify(meta);
   expect(text).not.toContain(String(PID));
   expect(text).not.toContain(String(UID));
   expect(text).not.toContain(TXT);
+  // Nor is a statement's number there under any key: not the one voted on,
+  // not the next one served, not a topic-agenda pick.
+  for (const tid of [TID, NEXT_TID, TOPICAL_TID]) {
+    expect(text).not.toContain(String(tid));
+  }
 }
 
 const header = { "x-request-id": REQUEST_ID };
 const statement = {
-  tid: 5,
+  tid: NEXT_TID,
   txt: TXT,
   created: "1690000000000",
   is_seed: false,
@@ -190,7 +203,7 @@ beforeEach(() => {
 });
 
 describe("vote_reply", () => {
-  test("a 200 with a next statement: its tid and counts, at info", async () => {
+  test("a 200 with a next statement: its counts and no tid, at info", async () => {
     await vote({ headers: header, next: { ...statement } });
     const { level, meta } = onlyLine();
     expect(level).toBe("info");
@@ -201,7 +214,6 @@ describe("vote_reply", () => {
       zid: ZID,
       node_status: 200,
       node_next: "statement",
-      node_next_tid: 5,
       node_remaining: 3,
       node_total: 10,
     });
@@ -213,7 +225,6 @@ describe("vote_reply", () => {
       "zid",
       "node_status",
       "node_next",
-      "node_next_tid",
       "node_remaining",
       "node_total",
     ]);
@@ -236,9 +247,12 @@ describe("vote_reply", () => {
     expectNothingPrivate(meta);
   });
 
-  test("a 200 with a topic-agenda pick: topical, its tid and no counts", async () => {
+  test("a 200 with a topic-agenda pick: topical, no tid and no counts", async () => {
     // getNextTopicalComment's shape: zid, tid, txt; no remaining or total.
-    await vote({ headers: header, next: { zid: ZID, tid: 9, txt: TXT } });
+    await vote({
+      headers: header,
+      next: { zid: ZID, tid: TOPICAL_TID, txt: TXT },
+    });
     const { meta } = onlyLine();
     expect(meta).toEqual({
       listener: "shadow",
@@ -247,7 +261,6 @@ describe("vote_reply", () => {
       zid: ZID,
       node_status: 200,
       node_next: "topical",
-      node_next_tid: 9,
     });
     expectNothingPrivate(meta);
   });
@@ -379,7 +392,11 @@ describe("vote_reply", () => {
         next: (getNextComment as jest.Mock).mock.calls,
       };
     };
-    for (const next of [{ ...statement }, null, { zid: ZID, tid: 9 }]) {
+    for (const next of [
+      { ...statement },
+      null,
+      { zid: ZID, tid: TOPICAL_TID },
+    ]) {
       const without = await observe({}, next);
       const withId = await observe(header, next);
       expect(replyLines()).toHaveLength(1);
@@ -427,7 +444,14 @@ describe("vote_reply", () => {
     (getNextComment as jest.Mock).mockResolvedValue({ ...statement } as never);
     const req = {
       headers: header,
-      p: { zid: ZID, pid: PID, uid: UID, tid: 3, vote: WIRE_AGREE, lang: "en" },
+      p: {
+        zid: ZID,
+        pid: PID,
+        uid: UID,
+        tid: TID,
+        vote: WIRE_AGREE,
+        lang: "en",
+      },
     };
     await expect(
       handle_POST_votes(req as any, { status: jest.fn() } as any)

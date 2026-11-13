@@ -360,6 +360,20 @@ fn observe_reaches_the_live_decision_for_every_request_and_changes_no_row() {
         assert_eq!(line["status"], status, "{line}");
         assert_eq!(line["reason"], json!(reason), "{line}");
         assert_eq!(line["admitted"], admitted, "{line}");
+        // The conversation's number: on an admitted copy's line, whatever
+        // the handler would do with it, and on no other. A copy handed back
+        // before it is admitted names no conversation, known or not.
+        if admitted == 1 {
+            let zid = match cid {
+                CID => 1,
+                "3closed" => 3,
+                "4strict" => 4,
+                other => panic!("no conversation number is expected for {other}"),
+            };
+            assert_eq!(line["zid"], zid, "{line}");
+        } else {
+            assert!(line["zid"].is_null(), "{line}");
+        }
         assert_eq!(line["strict"], json!(strict), "{line}");
         assert_eq!(line["text_row"], json!(text_row), "{line}");
         assert_eq!(line["node_comment"], node_comment, "{line}");
@@ -1054,7 +1068,7 @@ const ALLOWED: &[&str] = &[
 /// Words that would make a statement more than a read. A read-only session
 /// refuses a write, but it allows an advisory lock and a notification, so
 /// "read-only" is proven here by what was sent.
-fn asks_for_more_than_a_read(sql: &str) -> Option<String> {
+pub(crate) fn asks_for_more_than_a_read(sql: &str) -> Option<String> {
     let lower = sql.to_lowercase();
     for part in ["advisory", "nextval", "setval", "notify"] {
         if lower.contains(part) {

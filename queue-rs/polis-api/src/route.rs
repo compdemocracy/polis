@@ -90,6 +90,13 @@ pub struct App {
     pub votes_read_auth_db: Option<Arc<Pool>>,
     pub votes_read_served: AtomicU64,
     pub votes_read_fallback: AtomicU64,
+    pub votes_famous_db: Option<Arc<Pool>>,
+    pub votes_famous_auth_db: Option<Arc<Pool>>,
+    pub votes_famous_served: AtomicU64,
+    pub votes_famous_fallback: AtomicU64,
+    /// The featured-participants route's two process caches and its
+    /// hand-back counters.
+    pub votes_famous: crate::votes_famous::State,
     pub metadata_answers_db: Option<Arc<Pool>>,
     pub metadata_answers_auth_db: Option<Arc<Pool>>,
     pub metadata_answers_served: AtomicU64,
@@ -279,6 +286,10 @@ pub struct App {
     pub treevite_codes: Option<crate::treevite_codes::Writer>,
     pub comments_db: Option<Arc<Pool>>,
     pub comments_count_db: Option<Arc<Pool>>,
+    /// The shadow role's read lanes (`shadow_reads.rs`): none in the main
+    /// role, and none in the shadow role unless a read handler's switch says
+    /// observe.
+    pub(crate) read_lanes: crate::shadow::reads::Lanes,
     /// `conversationIdToZidCache` (conversation.ts), 1000 entries.
     zids: Mutex<Lru<String, i32>>,
     pub served: AtomicU64,
@@ -344,6 +355,11 @@ impl App {
             votes_read_auth_db: None,
             votes_read_served: AtomicU64::new(0),
             votes_read_fallback: AtomicU64::new(0),
+            votes_famous_db: None,
+            votes_famous_auth_db: None,
+            votes_famous_served: AtomicU64::new(0),
+            votes_famous_fallback: AtomicU64::new(0),
+            votes_famous: crate::votes_famous::State::default(),
             metadata_answers_db: None,
             metadata_answers_auth_db: None,
             metadata_answers_served: AtomicU64::new(0),
@@ -530,6 +546,7 @@ impl App {
             treevite_codes: None,
             comments_db: None,
             comments_count_db: None,
+            read_lanes: crate::shadow::reads::Lanes::default(),
             math_env: cfg.math_env.clone(),
             dev_mode: cfg.dev_mode,
             use_network_host: cfg.use_network_host,
@@ -1308,6 +1325,13 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.votes_read_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::votes_famous::PATH {
+        if out.status == 502 {
+            app.votes_famous_fallback.fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.votes_famous_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::metadata_read::PATH {
         if out.status == 502 {
             app.metadata_read_fallback.fetch_add(1, Ordering::Relaxed);
@@ -1907,6 +1931,11 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::votes_famous::PATH
+        && let Err(reason) = crate::votes_famous::parse(app, req)
+    {
+        return crate::votes_famous::handback(app, reason);
+    }
     if req.path() == crate::metadata_questions::PATH
         && crate::metadata_questions::parse(app, req).is_none()
     {
@@ -2222,6 +2251,9 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::votes_read::matches(req.path()) {
         return crate::votes_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::votes_famous::PATH {
+        return crate::votes_famous::handle(app, req, res).await;
     }
     if crate::conversation_pages::matches(req.path()) {
         return crate::conversation_pages::handle(app, req, res).await;
@@ -4400,6 +4432,154 @@ mod tests {
         Arc::get_mut(&mut secure).unwrap().metadata_answers_db = Some(pool);
         let redirect = handle(secure, probe()).await;
         assert_eq!(redirect.status, 302); // Ordinary HTTPS middleware, unlike testConnection.
+    }
+
+    #[tokio::test]
+    async fn votes_famous_is_off_then_admits_only_what_it_models_and_names_each_handback() {
+        let mut state = app(true);
+        let make = |method: &str, tail: &str, extra: &[(&str, &str)]| {
+            let mut headers = vec![("host", "localhost")];
+            headers.extend_from_slice(extra);
+            let mut req = request(method, &headers);
+            req.target = format!(
+                "{}?conversation_id=4fixture{tail}",
+                crate::votes_famous::PATH
+            );
+            req
+        };
+        let reason = |out: &Outgoing| {
+            out.headers
+                .iter()
+                .find(|(name, _)| name == "X-Polis-Handback")
+                .map(|(_, value)| value.clone())
+        };
+        // Off: the request goes back before anything is read.
+        assert!(state.votes_famous_db.is_none() && state.votes_famous_auth_db.is_none());
+        let off = handle(state.clone(), make("GET", "", &[])).await;
+        assert_eq!((off.status, reason(&off).as_deref()), (502, Some("off")));
+        let pool = state.db.clone(); // This test's pool points at a refused port.
+        Arc::get_mut(&mut state).unwrap().votes_famous_db = Some(pool.clone());
+        Arc::get_mut(&mut state).unwrap().votes_famous_auth_db = Some(pool);
+        let defaults = crate::votes_famous::parse(&state, &make("GET", "", &[])).unwrap();
+        assert_eq!(defaults.conversation_id, "4fixture");
+        assert_eq!(defaults.limit, 30);
+        let latest = defaults.math_tick;
+        assert!(latest < 0);
+        let given = crate::votes_famous::parse(
+            &state,
+            &make("HEAD", "&math_tick=9007199254740991&ptptoiLimit=99", &[]),
+        )
+        .unwrap();
+        assert_eq!((given.math_tick, given.limit), (9007199254740991, 99));
+        let lowest =
+            crate::votes_famous::parse(&state, &make("GET", "&math_tick=-9007199254740991", &[]))
+                .unwrap();
+        assert_eq!(lowest.math_tick, -9007199254740991);
+        let spelled = make("GET", &format!("&ptptoiLimit=0&math_tick={latest}"), &[]);
+        let spelled = crate::votes_famous::parse(&state, &spelled).unwrap();
+        assert_eq!((spelled.math_tick, spelled.limit), (latest, 0));
+        // A database that does not answer is a named hand-back, never a reply.
+        let unreachable = handle(state.clone(), make("GET", "", &[])).await;
+        assert_eq!(unreachable.status, 502);
+        // A refused connection is reported at once; a slow refusal would be
+        // cut by the request's own deadline. Both are named.
+        assert!(matches!(
+            reason(&unreachable).as_deref(),
+            Some("database" | "deadline")
+        ));
+        // A credential this process does not resolve is Node's to answer.
+        let credential = handle(
+            state.clone(),
+            make("GET", "", &[("authorization", "Bearer generated")]),
+        )
+        .await;
+        assert_eq!(
+            (credential.status, reason(&credential).as_deref()),
+            (502, Some("identity"))
+        );
+        let mut refused = 0;
+        for (method, tail, extra) in [
+            ("POST", "", vec![]),
+            ("PUT", "", vec![]),
+            ("OPTIONS", "", vec![]),
+            ("GET", "&unknown=x", vec![]),
+            ("GET", "&pid=0", vec![]),
+            ("GET", "&conversation_id=again", vec![]),
+            ("GET", "&math_tick=5&math_tick=6", vec![]),
+            ("GET", "&math_tick=", vec![]),
+            ("GET", "&math_tick=abc", vec![]),
+            ("GET", "&math_tick=01", vec![]),
+            ("GET", "&math_tick=%2B5", vec![]),
+            ("GET", "&math_tick=5.0", vec![]),
+            ("GET", "&math_tick=9007199254740993", vec![]),
+            ("GET", "&math_tick=-9007199254740993", vec![]),
+            ("GET", "&math_tick=-9223372036854775808", vec![]),
+            ("GET", "&math_tick=9223372036854775808", vec![]),
+            ("GET", "&math_tick=-0", vec![]),
+            ("GET", "&ptptoiLimit=100", vec![]),
+            ("GET", "&ptptoiLimit=05", vec![]),
+            ("GET", "&ptptoiLimit=many", vec![]),
+            ("GET", "&ptptoiLimit=", vec![]),
+            ("GET", "%20", vec![]),
+            ("GET", "", vec![("cookie", "x=y")]),
+            ("GET", "", vec![("content-length", "2")]),
+            ("GET", "", vec![("transfer-encoding", "chunked")]),
+        ] {
+            let req = make(method, tail, &extra);
+            assert_eq!(
+                crate::votes_famous::parse(&state, &req),
+                Err(crate::votes_famous::Handback::Request),
+                "{method} {tail} {extra:?}"
+            );
+            let out = handle(state.clone(), req).await;
+            assert_eq!(
+                (out.status, reason(&out).as_deref()),
+                (502, Some("request")),
+                "{method} {tail} {extra:?}"
+            );
+            refused += 1;
+        }
+        for target in [
+            crate::votes_famous::PATH.to_string(),
+            format!("{}?conversation_id=", crate::votes_famous::PATH),
+            format!("{}?conversation_id=4fix-ture", crate::votes_famous::PATH),
+            format!(
+                "{}?conversation_id={}",
+                crate::votes_famous::PATH,
+                "a".repeat(101)
+            ),
+        ] {
+            let mut req = make("GET", "", &[]);
+            req.target = target;
+            assert_eq!(
+                crate::votes_famous::parse(&state, &req),
+                Err(crate::votes_famous::Handback::Request)
+            );
+            let out = handle(state.clone(), req).await;
+            assert_eq!(reason(&out).as_deref(), Some("request"));
+            refused += 1;
+        }
+        assert_eq!(state.votes_famous_served.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            state.votes_famous_fallback.load(Ordering::Relaxed),
+            3 + refused
+        );
+        let counted = js::stringify(&state.votes_famous.handbacks());
+        let counted: serde_json::Value = serde_json::from_str(&counted).unwrap();
+        assert_eq!(counted["off"], 1);
+        assert_eq!(counted["request"], refused);
+        assert_eq!(counted["identity"], 1);
+        assert_eq!(
+            counted["database"].as_u64().unwrap() + counted["deadline"].as_u64().unwrap(),
+            1
+        );
+        assert_eq!(counted.as_object().unwrap().len(), 11);
+        // Without HTTPS the ordinary middleware answers, as for every route.
+        let mut secure = app(false);
+        let pool = secure.db.clone();
+        Arc::get_mut(&mut secure).unwrap().votes_famous_db = Some(pool.clone());
+        Arc::get_mut(&mut secure).unwrap().votes_famous_auth_db = Some(pool);
+        assert_eq!(handle(secure, make("GET", "", &[])).await.status, 302);
     }
 
     #[tokio::test]

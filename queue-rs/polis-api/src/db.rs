@@ -96,6 +96,18 @@ fn unavailable(e: impl std::fmt::Display) -> anyhow::Error {
     anyhow::Error::new(Unavailable(format!("{e:#}")))
 }
 
+/// What a pool says when no slot came free within its acquire timeout.
+const ACQUIRE_TIMEOUT: &str = "pool acquire timeout";
+
+/// True when `e` is a pool's refusal for want of a free slot within its
+/// acquire timeout, and not a failure of the connection or of a statement.
+pub(crate) fn is_acquire_timeout(e: &anyhow::Error) -> bool {
+    e.chain().any(|c| {
+        c.downcast_ref::<Unavailable>()
+            .is_some_and(|unavailable| unavailable.0 == ACQUIRE_TIMEOUT)
+    })
+}
+
 #[derive(Clone, Debug)]
 pub struct Limits {
     pub size: usize,
@@ -165,6 +177,12 @@ impl PoolEvidence {
 pub(crate) static WRITER_POOLS_BUILT: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
 
+/// Pools of either kind built by this process, for the tests that pin what a
+/// startup builds.
+#[cfg(test)]
+pub(crate) static POOLS_BUILT: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
 pub struct Pool {
     connector: Connector,
     idle: Mutex<Vec<(Client, Instant, Instant)>>,
@@ -232,6 +250,8 @@ impl Pool {
     }
 
     fn configured(connector: Connector, limits: Limits, writable: bool) -> Arc<Self> {
+        #[cfg(test)]
+        POOLS_BUILT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Arc::new(Self {
             connector,
             idle: Mutex::new(Vec::new()),
@@ -306,6 +326,18 @@ impl Pool {
         T: Send + 'static,
         F: FnOnce(&mut Client) -> Result<T> + Send + 'static,
     {
+        // For a copy of a read that the shadow is observing, how long this
+        // operation took, whether it ends or is dropped at a deadline. Every
+        // other request has no record, and nothing is measured for it.
+        struct Timed(Option<Instant>);
+        impl Drop for Timed {
+            fn drop(&mut self) {
+                if let Some(started) = self.0 {
+                    crate::shadow::reads::database_time(started.elapsed());
+                }
+            }
+        }
+        let _timed = Timed(crate::shadow::reads::observing().then(Instant::now));
         let acquire = self.permits.clone().acquire_owned();
         #[cfg(all(test, feature = "db-tests"))]
         let acquire = {
@@ -349,7 +381,7 @@ impl Pool {
                     self.evidence
                         .acquire_timeouts
                         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    unavailable("pool acquire timeout")
+                    unavailable(ACQUIRE_TIMEOUT)
                 })?
         }
         .map_err(unavailable)?;

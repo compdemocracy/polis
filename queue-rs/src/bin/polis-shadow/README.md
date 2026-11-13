@@ -45,7 +45,7 @@ an arm64 host (the package needs `pkg-config` and `libssl-dev`).
 |---|---|---|
 | `shadow_edge` | nginx, each shadowed vote (`file-server/nginx/rust-api/shadow-http.conf.template`) | `request_id`, `edge_status` (Node's status as nginx saw it), `edge_upstream_s` (Node's time) |
 | `shadow_mirror` | nginx, each copy | `mirror_status`, `mirror_upstream_status` (empty: not copied), `mirror_s` (how long the copy held the participant's connection) |
-| `vote_reply` | Node's vote handler (`server/src/routes/votes.ts`), only for a request carrying nginx's `X-Request-Id` | `node_status`, `node_next` (`statement`, `topical` or `none`), `node_remaining`, `node_total`, `zid`. The line also names the statement Node served (`node_next_tid`); the tool never reads it |
+| `vote_reply` | Node's vote handler (`server/src/routes/votes.ts`), only for a request carrying nginx's `X-Request-Id` | `node_status`, `node_next` (`statement`, `topical` or `none`), `node_remaining`, `node_total`, `zid`. The line names no statement. Lines written before that was so name the one Node served (`node_next_tid`); the tool never reads it |
 | `http_request` | Node's access line, which carries `request_id` for such a request (`server/src/server-middleware.ts`). Its `message` is written `"http_request http_request"` (winston appends the meta's `message`); the queries accept both spellings, and a test refuses a query that tests the single one. It is read only where `http.route` is the route's own path, so a request Node refused before its router matched a route (its line names none) is not read | `http.status_code`: Node's answer when the route's middleware refused the vote before the handler; for every vote (with or without a request id), `http.route`, `http.status_code` and `duration_ms` for the stop rule's vote inputs |
 | `shadow_observation` | the shadow service (`queue-rs/polis-api/src/shadow.rs`) | `outcome`, `admitted`, `status`, `reason`, the durations, `follow_on`, `remaining`, `total`, `prev`, `node_vote` |
 
@@ -327,14 +327,18 @@ rule read, and its verdict is then too little evidence.
 | `shadow_edge` | nginx, each shadowed comment | `request_id`, `edge_status`, `edge_upstream_s` |
 | `shadow_mirror` | nginx, each copy | `mirror_status`, `mirror_upstream_status`, `mirror_s` |
 | `http_request` | Node's access line for `POST /api/v3/comments` with a request id | `http.status_code`: Node's answer. Node writes no line of its own for a comment, so this is all of Node's side |
-| `shadow_observation` | the shadow (`docs/post-comments-rust-handler.md`, "Observe mode") | `outcome`, `admitted`, `status`, `reason`, `strict`, `vote_present`, `seed_present`, `body_class`, the durations, and the classes of what it read in the database: `text_row`, `node_comment`, `node_txt`, `node_txt_difference`, `node_author`, `node_row`, `node_lang`, `node_vote` |
+| `shadow_observation` | the shadow (`docs/post-comments-rust-handler.md`, "Observe mode") | `outcome`, `admitted`, `status`, `reason`, `strict`, `vote_present`, `seed_present`, `body_class`, the durations, the classes of what it read in the database: `text_row`, `node_comment`, `node_txt`, `node_txt_difference`, `node_author`, `node_row`, `node_lang`, `node_vote`; and `zid`, only to count how many conversations the admitted copies are in |
 
-The shadow's line carries no conversation, comment, participant or user
-number and no text; the request id is the only thing that joins it to Node's
-line. The tool reads none of the line's four text lengths, and its allowlist
-refuses any query that would. A test reads the line's 32 keys and every
-closed set of words from the observer's own tests and fails when the tool's
-lists, or the fixture lines its tests are built from, differ from them.
+The shadow's line carries no comment, participant or user number and no
+text; the request id is the only thing that joins it to Node's line. An
+admitted copy's line names its conversation by number (`zid`), as a vote's
+does. The tool counts how many admitted lines carry one and how many
+distinct ones there are; no query filters on, groups by or returns a
+conversation's number. The tool reads none of the line's four text lengths,
+and its allowlist refuses any query that would. A test reads the line's 33
+keys and every closed set of words from the observer's own tests and fails
+when the tool's lists, or the fixture lines its tests are built from, differ
+from them.
 
 ### What its report says
 
@@ -345,8 +349,10 @@ lists, or the fixture lines its tests are built from, differ from them.
    store the comment), `would_answer` (it would answer 409, 403, 401 or 400
    itself), `would_hand_back` (to Node, by reason), `would_fail`, `unknown`
    (no database-time anchor), `shed`, `not_observed`. The admitted share, how
-   many admitted copies are in conversations with strict moderation, and what
-   the copies carry (a vote, a seed flag, a size class).
+   many admitted copies are in conversations with strict moderation, how many
+   conversations the admitted copies span (and how many admitted lines name
+   none, in a window that reaches back before the line carried the number),
+   and what the copies carry (a vote, a seed flag, a size class).
 5. **What the shadow read in the database** for admitted copies: the row
    that already had the text at admission, and Node's stored comment read
    back two and ten seconds later, as classes.
@@ -471,9 +477,11 @@ to wait for, and their count is printed.
 - **Which comment.** No line carries a comment number. Node's stored comment
   is found by its text, never by its number, and a would-be duplicate cannot
   be shown to be the comment Node refused.
-- **Which conversations.** No line carries a conversation number, so nothing
-  is counted by conversation: many comments in one busy conversation read
-  the same as the same number spread over many.
+- **Which conversations.** An admitted copy's line names its conversation,
+  and the report says how many conversations the admitted copies span, as a
+  criterion that is reported with no threshold. No class is counted by
+  conversation: a disagreement is not placed in one, and a copy handed back
+  before it is admitted names none.
 - **A comment Node stored under a different text.** It is looked for by the
   text the handler parsed and not found. It reads only as `absent` beside
   Node's 200; how the two texts differ is not shown.

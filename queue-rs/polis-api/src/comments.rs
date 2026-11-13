@@ -6,6 +6,7 @@ use crate::{
     js::{Js, Obj},
     params,
     route::{self, App, Res},
+    shadow::reads,
 };
 use anyhow::Result;
 use postgres::Client;
@@ -13,6 +14,24 @@ use postgres::Client;
 use crate::votes;
 
 pub const PATH: &str = "/api/v3/comments";
+/// The pool the lists are read on.
+pub(crate) fn pool_limits() -> db::Limits {
+    db::Limits {
+        size: 2,
+        acquire_timeout: std::time::Duration::from_millis(100),
+        statement_timeout: std::time::Duration::from_millis(1000),
+        max_lifetime: std::time::Duration::from_secs(300),
+    }
+}
+/// The pool totals and moderator permissions are read on.
+pub(crate) fn count_pool_limits() -> db::Limits {
+    db::Limits {
+        size: 1,
+        acquire_timeout: std::time::Duration::from_millis(100),
+        statement_timeout: std::time::Duration::from_millis(1000),
+        max_lifetime: std::time::Duration::from_secs(300),
+    }
+}
 #[derive(Clone, Debug)]
 struct Query {
     cid: String,
@@ -47,28 +66,42 @@ fn integer(v: &Js) -> Option<i32> {
     }
 }
 impl Query {
+    #[cfg(test)]
     fn parse(req: &Request, body: &Js) -> Option<Self> {
+        Self::parse_reasoned(req, body).ok()
+    }
+
+    /// `parse`, with the reason a request is handed back: one word of a
+    /// closed set, never a key or a value of the request. The checks and
+    /// their results are the same; a copy's observation records the reason.
+    fn parse_reasoned(req: &Request, body: &Js) -> Result<Self, &'static str> {
         // Even a malformed credential belongs to Node's optional auth chain.
-        if req.headers.get("cookie").is_some() || req.headers.get("transfer-encoding").is_some() {
-            return None;
+        if req.headers.get("cookie").is_some() {
+            return Err("cookie");
+        }
+        if req.headers.get("transfer-encoding").is_some() {
+            return Err("shape_body");
         }
         let p = params::merged(body, &params::parse_query(req.query().unwrap_or_default()));
         let present = |k: &str| p.get(k).filter(|v| !matches!(v, Js::Null));
         if present("report_id").is_some() {
-            return None;
+            return Err("report_id");
         }
         let moderation = present("moderation")
             .map(boolean)
-            .transpose_option()?
+            .transpose_option()
+            .ok_or("param_moderation")?
             .unwrap_or(false);
         if let Some(length) = req.headers.get("content-length") {
             // The shared body parser already checked encoding and JSON syntax.
             // Admit bounded plain-list bodies; keep moderation framing unchanged.
-            if moderation
-                || length.parse::<usize>().ok()? != req.body.len()
+            if moderation {
+                return Err("moderation_body");
+            }
+            if length.parse::<usize>().map_err(|_| "shape_body")? != req.body.len()
                 || req.body.len() > 65536
             {
-                return None;
+                return Err("shape_body");
             }
         }
         if req.headers.get("authorization").is_some()
@@ -92,50 +125,66 @@ impl Query {
                 )
             })
         {
-            return None;
+            return Err(if moderation {
+                "moderation_key"
+            } else {
+                "identity_parameter"
+            });
         }
-        let mod_in = present("modIn").map(boolean).transpose_option()?;
+        let mod_in = present("modIn")
+            .map(boolean)
+            .transpose_option()
+            .ok_or("param_mod_in")?;
         let voting_patterns = present("include_voting_patterns")
             .map(boolean)
-            .transpose_option()?
+            .transpose_option()
+            .ok_or("param_voting_patterns")?
             .unwrap_or(false);
-        let mod_gt = present("mod_gt").map(integer).transpose_option()?;
+        let mod_gt = present("mod_gt")
+            .map(integer)
+            .transpose_option()
+            .ok_or("param_mod_gt")?;
         // This branch calls the external subscription provider on Node, even
         // when an explicit mod would eventually override its filter.
         if moderation && mod_gt.is_some_and(|n| n != 0 && n > -2) {
-            return None;
+            return Err("moderation_mod_gt");
         }
         if moderation && present("pid").is_some() {
-            return None;
+            return Err("moderation_pid");
         }
-        for name in ["mod_gt", "pid"] {
-            if let Some(v) = present(name) {
-                integer(v)?;
-            }
+        if let Some(v) = present("pid") {
+            integer(v).ok_or("param_pid")?;
         }
-        let Js::Str(cid) = present("conversation_id")? else {
-            return None;
+        let Some(Js::Str(cid)) = present("conversation_id") else {
+            return Err("no_conversation_id");
         };
         if cid.encode_utf16().count() > 100 {
-            return None;
+            return Err("shape_conversation_id");
         }
         let tids = match present("tids") {
             None => None,
             Some(Js::Str(s)) => Some(s.split(',').map(|s| to_i32(&Js::Str(s.into()))).collect()),
             Some(Js::Arr(a)) => Some(a.iter().map(to_i32).collect()),
-            _ => return None,
+            _ => return Err("param_tids"),
         };
-        let moderation_value = present("mod").map(integer).transpose_option()?;
-        let limit = present("limit").map(integer).transpose_option()?;
+        let moderation_value = present("mod")
+            .map(integer)
+            .transpose_option()
+            .ok_or("param_mod")?;
+        let limit = present("limit")
+            .map(integer)
+            .transpose_option()
+            .ok_or("param_limit")?;
         let offset = present("offset")
             .map(integer)
-            .transpose_option()?
+            .transpose_option()
+            .ok_or("param_offset")?
             .unwrap_or(0);
         // Negative offset with no pagination is a database-error path on Node.
         if limit.is_none() && offset < 0 {
-            return None;
+            return Err("negative_offset");
         }
-        Some(Self {
+        Ok(Self {
             moderation,
             mod_in,
             mod_gt,
@@ -400,19 +449,19 @@ pub(crate) fn project(r: &postgres::Row) -> Result<Js> {
     Ok(Js::Obj(o))
 }
 pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Outgoing {
-    let (Some(pool), Some(read_pool), Some(q)) = (
-        &app.comments_db,
-        &app.comments_count_db,
-        Query::parse(req, body),
-    ) else {
-        return route::bad_gateway();
+    let (Some(pool), Some(read_pool)) = (&app.comments_db, &app.comments_count_db) else {
+        return reads::handback("unconfigured");
+    };
+    let q = match Query::parse_reasoned(req, body) {
+        Ok(q) => q,
+        Err(reason) => return reads::handback(reason),
     };
     // Preserve the participant-read opt-in for authenticated plain lists.
     if !q.moderation
         && req.headers.get("authorization").is_some()
         && app.participant_verifier.is_none()
     {
-        return route::bad_gateway();
+        return reads::handback("participant_reads_off");
     }
     // GET comments does not run ensureParticipant on Node. An existing OIDC
     // subject mapping is enough; no membership creation, XID lookup, owner-site
@@ -426,14 +475,23 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
     )
     .await
     else {
-        return route::bad_gateway();
+        return reads::handback(reads::credential_reason(|| {
+            crate::hybrid_read::handoff_class(
+                req.headers.get("authorization"),
+                app.participant_verifier.is_some(),
+                app.read_oidc.is_some(),
+                Some(&q.cid),
+            )
+        }));
     };
     let uid = if q.moderation { identity.uid() } else { None };
     let cid = q.cid.clone();
-    let ctx = pool.with(move |c| context(c, &cid)).await;
-    let Ok(Some((zid, strict))) = ctx else {
-        return route::bad_gateway();
+    let (zid, strict) = match pool.with(move |c| context(c, &cid)).await {
+        Ok(Some(found)) => found,
+        Ok(None) => return reads::handback("unknown_conversation"),
+        Err(error) => return reads::handback(reads::database_reason(&error)),
     };
+    reads::record(|record| record.zid = Some(zid));
     let visible = if let Some(uid) = uid {
         let admins = app.legacy_admin_uids.clone();
         match read_pool
@@ -441,7 +499,7 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
             .await
         {
             Ok(permitted) => !permitted,
-            Err(_) => return route::bad_gateway(),
+            Err(error) => return reads::handback(reads::database_reason(&error)),
         }
     } else {
         true
@@ -459,13 +517,13 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
             .await
         {
             Ok(n) => Some(n),
-            Err(_) => return route::bad_gateway(),
+            Err(error) => return reads::handback(reads::database_reason(&error)),
         }
     } else {
         None
     };
     let copy = q.clone();
-    let Ok(values) = pool
+    let values = match pool
         .with(move |c| {
             if copy.moderation {
                 moderation_rows(c, &copy, zid, strict, visible)
@@ -474,9 +532,11 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
             }
         })
         .await
-    else {
-        return route::bad_gateway();
+    {
+        Ok(values) => values,
+        Err(error) => return reads::handback(reads::database_reason(&error)),
     };
+    reads::record(|record| record.rows = Some(reads::Rows::of(values.len())));
     let payload = if let Some(total) = total {
         let mut pagination = Obj::new();
         pagination.set("limit", Js::Num(q.limit as f64));

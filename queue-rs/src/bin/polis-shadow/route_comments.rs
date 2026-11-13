@@ -1,10 +1,12 @@
 //! The comment route's queries. Node writes no line of its own for a comment:
 //! its side is its access line (`http_request`: status, duration, request id)
-//! and nginx's two lines. The shadow's line carries no conversation, comment,
-//! participant or user number and no text; nginx's request id is the only
-//! thing that joins it to Node's. So every comparison with Node is made
-//! inside one query, request by request, and what leaves AWS is counts of
-//! requests in each class.
+//! and nginx's two lines. The shadow's line carries no comment, participant
+//! or user number and no text; nginx's request id is the only thing that
+//! joins it to Node's. So every comparison with Node is made inside one
+//! query, request by request, and what leaves AWS is counts of requests in
+//! each class. An admitted copy's line names its conversation by number
+//! (`zid`), as a vote's does; the one thing read from it is how many
+//! conversations the admitted copies are in, a count and never a number.
 use crate::query::*;
 use crate::route::{JOIN_PAD_S, Route};
 
@@ -135,6 +137,7 @@ impl Route {
             self.edge_query(),
             self.edge_bins(),
             self.comment_observations(),
+            self.comment_conversations(),
             self.comment_facts(),
             self.comment_readback(),
             self.comment_latency(),
@@ -174,6 +177,26 @@ impl Route {
                     Key::Field("reason"),
                     Key::Field("strict"),
                 ],
+            },
+        )
+    }
+
+    /// How many conversations the admitted copies are in. The number of a
+    /// conversation never leaves AWS: only how many distinct ones there are,
+    /// and how many admitted lines carry one at all (a line written before
+    /// the observer printed the number carries none).
+    fn comment_conversations(&self) -> Query {
+        Self::one(
+            "conversations",
+            "Admitted observations, how many name their conversation, and how many conversations those span (counts, never an id).",
+            and(vec![self.observation(), num_is("admitted", 1)]),
+            Stats {
+                aggs: vec![
+                    ("n", Agg::Count),
+                    ("named", Agg::Sum(E::Present("zid"))),
+                    ("conversations", Agg::CountDistinct("zid")),
+                ],
+                by: vec![],
             },
         )
     }

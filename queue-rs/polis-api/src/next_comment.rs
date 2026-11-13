@@ -9,6 +9,7 @@ use crate::{
     js::{Js, Obj},
     params,
     route::{self, App, Res},
+    shadow::reads,
 };
 use anyhow::{Result, bail};
 use postgres::Client;
@@ -35,13 +36,26 @@ struct Query {
     initial: Option<i32>,
 }
 impl Query {
+    #[cfg(test)]
     fn parse(req: &Request) -> Option<Self> {
-        if !matches!(req.method.as_str(), "GET" | "HEAD")
-            || ["cookie", "content-length", "transfer-encoding"]
-                .iter()
-                .any(|h| req.headers.get(h).is_some())
+        Self::parse_reasoned(req).ok()
+    }
+
+    /// `parse`, with the reason a request is handed back: one word of a
+    /// closed set, never a key or a value of the request. The checks and
+    /// their results are the same; a copy's observation records the reason.
+    fn parse_reasoned(req: &Request) -> Result<Self, &'static str> {
+        if !matches!(req.method.as_str(), "GET" | "HEAD") {
+            return Err("shape_method");
+        }
+        if req.headers.get("cookie").is_some() {
+            return Err("cookie");
+        }
+        if ["content-length", "transfer-encoding"]
+            .iter()
+            .any(|h| req.headers.get(h).is_some())
         {
-            return None;
+            return Err("shape_body");
         }
         let p = params::parse_query(req.query().unwrap_or_default());
         // An allowlist also catches identity aliases added to Node later.
@@ -49,13 +63,13 @@ impl Query {
         if o.iter()
             .any(|(k, _)| !matches!(k.as_str(), "conversation_id" | "without" | "initial_tid"))
         {
-            return None;
+            return Err(unlisted_keys(o.iter().map(|(k, _)| k.as_str())));
         }
-        let Js::Str(cid) = o.get("conversation_id")? else {
-            return None;
+        let Some(Js::Str(cid)) = o.get("conversation_id") else {
+            return Err("no_conversation_id");
         };
         if cid.is_empty() || cid.encode_utf16().count() > 100 {
-            return None;
+            return Err("shape_conversation_id");
         }
         let without = match o.get("without") {
             None => vec![],
@@ -64,29 +78,65 @@ impl Query {
                 .map(|s| comments::to_i32(&Js::Str(s.into())))
                 .collect(),
             Some(Js::Arr(a)) => a.iter().map(comments::to_i32).collect(),
-            _ => return None,
+            _ => return Err("param_without"),
         };
         let initial = match o.get("initial_tid") {
             None => None,
             Some(v) => {
-                let n = route::get_int(v)?;
+                let n = route::get_int(v).ok_or("param_initial_tid")?;
                 if !(0.0..=i32::MAX as f64).contains(&n) {
-                    return None;
+                    return Err("param_initial_tid");
                 }
                 Some(n as i32)
             }
         };
-        Some(Self {
+        Ok(Self {
             cid: cid.trim_matches(' ').into(),
             without,
             initial,
         })
     }
 }
+/// The reason for a query that carries a key outside the allowlist, as the
+/// class of the keys it carries and never a key: a key no client of this
+/// repository sends, an external id, the language (the participation clients
+/// send it), a participant number, or the last two together.
+fn unlisted_keys<'a>(keys: impl Iterator<Item = &'a str>) -> &'static str {
+    let (mut lang, mut pid, mut xid, mut other) = (false, false, false, false);
+    for key in keys {
+        match key {
+            "conversation_id" | "without" | "initial_tid" => {}
+            "lang" => lang = true,
+            "pid" | "not_voted_by_pid" => pid = true,
+            "xid" => xid = true,
+            _ => other = true,
+        }
+    }
+    match (other, xid, lang, pid) {
+        (true, ..) => "query_key",
+        (_, true, ..) => "xid",
+        (_, _, true, true) => "lang_and_pid",
+        (_, _, true, false) => "lang",
+        _ => "pid_parameter",
+    }
+}
 pub(crate) fn eligible(app: &App, req: &Request) -> bool {
-    (req.headers.get("authorization").is_none() || app.participant_verifier.is_some())
-        && app.next_comment_db.is_some()
-        && Query::parse(req).is_some_and(|q| q.initial.is_some() || app.next_comment_plain)
+    ineligible(app, req).is_none()
+}
+/// Why the route prelude hands a request back before the handler: `eligible`
+/// with its reason. The checks and their results are the same.
+pub(crate) fn ineligible(app: &App, req: &Request) -> Option<&'static str> {
+    if req.headers.get("authorization").is_some() && app.participant_verifier.is_none() {
+        return Some("participant_reads_off");
+    }
+    if app.next_comment_db.is_none() {
+        return Some("unconfigured");
+    }
+    match Query::parse_reasoned(req) {
+        Err(reason) => Some(reason),
+        Ok(q) if !(q.initial.is_some() || app.next_comment_plain) => Some("plain_off"),
+        Ok(_) => None,
+    }
 }
 pub(crate) fn draw(req: &Request) -> f64 {
     // This header is ignored by production builds. The test feature mirrors
@@ -138,15 +188,36 @@ fn read(
     cache: &Priorities,
     identity: Option<polis_auth::participant::Verified>,
 ) -> Result<Option<Js>> {
-    read_until(
-        c,
-        q,
-        math_env,
-        unit,
-        cache,
-        identity,
-        Instant::now() + DEADLINE,
+    Ok(
+        match read_until(
+            c,
+            q,
+            math_env,
+            unit,
+            cache,
+            identity,
+            Instant::now() + DEADLINE,
+        )? {
+            Read::Answer(payload, _) => Some(payload),
+            Read::Handback(..) => None,
+        },
     )
+}
+/// What a read gives: the answer, or the reason it is handed back with the
+/// conversation number when the read got that far.
+pub(crate) enum Read {
+    Answer(Js, Facts),
+    Handback(&'static str, Option<i32>),
+}
+/// What a copy's observation records of an answer. Never the comment.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Facts {
+    pub(crate) zid: i32,
+    pub(crate) selected: bool,
+    pub(crate) remaining: Option<i32>,
+    pub(crate) total: Option<i32>,
+    /// The math generation the weights of the draw came from.
+    pub(crate) weights_tick: Option<i64>,
 }
 #[allow(clippy::too_many_arguments)]
 fn read_until(
@@ -157,22 +228,22 @@ fn read_until(
     cache: &Priorities,
     identity: Option<polis_auth::participant::Verified>,
     deadline: Instant,
-) -> Result<Option<Js>> {
+) -> Result<Read> {
     let Some(zid) = db::zid_for_conversation_id(c, &q.cid)? else {
-        return Ok(None);
+        return Ok(Read::Handback("unknown_conversation", None));
     };
     let Some(conv) = c.query_opt(
         "select strict_moderation from conversations where zid=$1",
         &[&zid],
     )?
     else {
-        return Ok(None);
+        return Ok(Read::Handback("unknown_conversation", None));
     };
     let strict = conv.try_get::<_, Option<bool>>(0)?.unwrap_or(false);
     let pid = if let Some(identity) = identity {
         let Some(pid) = polis_auth::participant::resolve(c, polis_auth::Zid(zid), &identity)?
         else {
-            return Ok(None);
+            return Ok(Read::Handback("not_a_participant", Some(zid)));
         };
         Some(pid.0 as i32)
     } else {
@@ -188,7 +259,7 @@ fn read_until(
             )?
             .is_empty()
     {
-        return Ok(None);
+        return Ok(Read::Handback("initial_voted", Some(zid)));
     }
     let without = if q.initial.is_some() {
         vec![]
@@ -207,16 +278,26 @@ fn read_until(
         .collect::<Result<Vec<_>, _>>()?;
     // Node awaits its parallel math/count reads even when the candidate list
     // is empty. Preserve failure handoff instead of manufacturing an empty 200.
-    let data = if q.initial.is_none() {
-        cache.read_until(c, zid, math_env, deadline)?
+    let (data, weights_tick) = if q.initial.is_none() {
+        match cache.read_with_tick_until(c, zid, math_env, deadline)? {
+            Some((data, tick)) => (Some(data), Some(tick)),
+            None => (None, None),
+        }
     } else {
-        None
+        (None, None)
     };
     let counts = if q.initial.is_none() || !tids.is_empty() {
         let counts = c.query_one("WITH v AS (select * from votes_latest_unique where zid=$1 AND pid=$2), c AS (select * from get_visible_comments($1)), remaining AS (select count(*) AS n from c LEFT JOIN v ON c.tid=v.tid WHERE v.vote IS NULL), total AS (select count(*) AS n from c) SELECT remaining.n::integer,total.n::integer FROM remaining,total", &[&zid,&pid.or_else(|| q.initial.map(|_| ANONYMOUS_PARTICIPANT_ID))])?;
         Some((counts.try_get::<_, i32>(0)?, counts.try_get::<_, i32>(1)?))
     } else {
         None
+    };
+    let facts = Facts {
+        zid,
+        selected: !tids.is_empty(),
+        remaining: counts.map(|(remaining, _)| remaining),
+        total: counts.map(|(_, total)| total),
+        weights_tick,
     };
     let mut empty = Obj::new();
     if tids.is_empty() {
@@ -226,7 +307,7 @@ fn read_until(
         if q.initial.is_some() {
             empty.set("initialStatus", Js::Str("unavailable".into()));
         }
-        return Ok(Some(Js::Obj(empty)));
+        return Ok(Read::Answer(Js::Obj(empty), facts));
     }
     let (index, random) = if q.initial.is_some() {
         (0, None)
@@ -272,11 +353,29 @@ fn read_until(
     if q.initial.is_some() {
         selected.set("initialStatus", Js::Str("eligible".into()));
     }
-    Ok(Some(Js::Obj(selected)))
+    Ok(Read::Answer(Js::Obj(selected), facts))
+}
+/// Why the verifier refused a token, as a class and never anything of the
+/// token: a token of a kind this read does not admit (`credential_kind`: an
+/// external-id participant's; `account_token`: a signed-in account's),
+/// another conversation's (`credential_scope`), a header that is not a token
+/// this code can read (`credential_shape`), or a participant's token the
+/// verifier refused (`token_refused`: its signature, its expiry, a revoked
+/// session). Asked only after the verifier has refused; it admits nothing.
+fn refused_token(raw: &str, cid: &str) -> &'static str {
+    match crate::hybrid_read::handoff_class(Some(raw), true, false, Some(cid)) {
+        "participant_token" => "token_refused",
+        "oidc_off" => "account_token",
+        class => class,
+    }
 }
 pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
-    let (Some(pool), Some(q)) = (&app.next_comment_db, Query::parse(req)) else {
-        return route::bad_gateway();
+    let Some(pool) = &app.next_comment_db else {
+        return reads::handback("unconfigured");
+    };
+    let q = match Query::parse_reasoned(req) {
+        Ok(q) => q,
+        Err(reason) => return reads::handback(reason),
     };
     let identity = match req.headers.get("authorization") {
         None => None,
@@ -286,7 +385,7 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                 .as_ref()
                 .and_then(|v| v.verify(raw, &q.cid, (crate::clock::now_ms() / 1000.0) as u64))
             else {
-                return route::bad_gateway();
+                return reads::handback(refused_token(raw, &q.cid));
             };
             Some(identity)
         }
@@ -301,15 +400,28 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     )
     .await
     {
-        Ok(Ok(Some(payload))) => route::json(req, res, &payload),
+        Ok(Ok(Read::Answer(payload, facts))) => {
+            reads::record(|record| {
+                record.zid = Some(facts.zid);
+                record.selected = Some(facts.selected);
+                record.remaining = facts.remaining.map(i64::from);
+                record.total = facts.total.map(i64::from);
+                record.weights_tick = facts.weights_tick;
+            });
+            route::json(req, res, &payload)
+        }
+        Ok(Ok(Read::Handback(reason, zid))) => {
+            reads::record(|record| record.zid = zid);
+            reads::handback(reason)
+        }
+        Ok(Err(error)) => reads::handback(reads::database_reason(&error)),
         Err(_) => {
             #[cfg(all(test, feature = "db-tests"))]
             pool.evidence
                 .deadlines
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            route::bad_gateway()
+            reads::handback("deadline")
         }
-        _ => route::bad_gateway(),
     }
 }
 #[cfg(test)]
@@ -615,6 +727,14 @@ mod tests {
             Connector::Plain(Box::new(pg.clone())),
             crate::delphi_reports::pool_limits(),
         ));
+        app.votes_famous_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::votes_famous::pool_limits(),
+        ));
+        app.votes_famous_auth_db = Some(db::Pool::new(
+            Connector::Plain(Box::new(pg.clone())),
+            crate::votes_famous::auth_pool_limits(),
+        ));
         let app = Arc::new(app);
         async fn park(
             pool: Arc<db::Pool>,
@@ -678,7 +798,7 @@ mod tests {
             isolated(&control_sample),
             "invalid isolation control: {control_sample:?}"
         );
-        // Each of the 18 pools this test saturates stays full through all loaded
+        // Each of the 20 pools this test saturates stays full through all loaded
         // reads. Counters and available permits witness occupancy directly;
         // a task handle alone could still be pending after releasing its slot.
         let slower = [
@@ -714,6 +834,14 @@ mod tests {
             (
                 "participant comments auth",
                 app.participant_comments_auth_db.as_ref().unwrap(),
+            ),
+            (
+                "featured participants",
+                app.votes_famous_db.as_ref().unwrap(),
+            ),
+            (
+                "featured participants identity",
+                app.votes_famous_auth_db.as_ref().unwrap(),
             ),
         ]
         .map(|(name, pool)| (name, pool, size(pool)));

@@ -24,8 +24,9 @@
 //! After a wait it reads back what Node stored, by the same unique key, and
 //! compares it in process with what live would have stored: the text, the
 //! author, the row's columns, the language, and the author's vote through
-//! `StorageConvention` only. Classes leave this module; the text, the vote's
-//! value and every number that names a row stay in it.
+//! `StorageConvention` only. Classes leave this module, and the number of
+//! the conversation an admitted copy is in; the text, the vote's value and
+//! every number that names a comment, a participant or a user stay in it.
 //!
 //! The text is a `CommentText` from the moment it is parsed. Nothing here may
 //! slice a string, index into one, or unwrap a value that holds one: a panic
@@ -541,6 +542,7 @@ pub(super) async fn handle(observer: &Observer, req: &Request, res: Res) -> Outg
     let text_row = TextRow::classify(admitted.existing, admitted.pid, anchor);
     crate::shadow::comments::record(|record| {
         record.admitted = true;
+        record.zid = Some(admitted.zid);
         record.strict = Some(admitted.strict);
         record.admission = Some(admission);
         record.text_row = Some(text_row);

@@ -8,6 +8,12 @@
 //   node delphi-run-replay.cjs keys <artifacts>    write the OIDC signing key
 //                                                  and the JWKS polis-api reads
 //   node delphi-run-replay.cjs replay <artifacts>  (DELPHI_RUN_API=host:port)
+//   node delphi-run-replay.cjs fixtures <artifacts> <directory>
+//                                                  after a replay: write each
+//                                                  job's record and served
+//                                                  bytes, and the last save's
+//                                                  stored rows, under the
+//                                                  names of delphi-run-fixtures
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const net = require("node:net");
@@ -216,7 +222,27 @@ async function replay(dir) {
   if (failures) process.exit(1);
 }
 
-const [mode, dir] = process.argv.slice(2);
+// <name>.record.json is pd_run_record's output and <name>.json the route's
+// body with a final newline, for each job of the sequence.
+// statement-after-second.rows.json holds what that job's record cannot: the
+// sequence's job ids and, family by family, the stored rows of the bundle
+// the job published (the collective statements, and the topic names they
+// are published beside).
+function fixtures(dir, out) {
+  const jobs = JSON.parse(fs.readFileSync(path.join(dir, "jobs.json"), "utf8"));
+  for (const [name, job] of Object.entries(jobs)) {
+    fs.copyFileSync(path.join(dir, `record-${job}.json`), path.join(out, `${name}.record.json`));
+    fs.writeFileSync(path.join(out, `${name}.json`), Buffer.concat([fs.readFileSync(path.join(dir, `served-${job}.json`)), Buffer.from("\n")]));
+  }
+  const families = {};
+  for (const family of ["Delphi_CollectiveStatement", "Delphi_CommentClustersLLMTopicNames"]) {
+    families[family] = JSON.parse(fs.readFileSync(path.join(dir, `rows-${family}.json`), "utf8"));
+  }
+  fs.writeFileSync(path.join(out, "statement-after-second.rows.json"), JSON.stringify({ jobs, families }, null, 1) + "\n");
+}
+
+const [mode, dir, out] = process.argv.slice(2);
 if (mode === "keys") keys(dir);
 else if (mode === "replay") replay(dir).catch((e) => { console.error(e); process.exit(1); });
-else { console.error("usage: delphi-run-replay.cjs keys|replay <artifacts>"); process.exit(2); }
+else if (mode === "fixtures" && out) fixtures(dir, out);
+else { console.error("usage: delphi-run-replay.cjs keys|replay <artifacts> | fixtures <artifacts> <directory>"); process.exit(2); }
