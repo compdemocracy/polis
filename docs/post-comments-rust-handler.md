@@ -224,13 +224,16 @@ under a text other than the one this handler parsed is not found: it reads
 `absent`, beside Node's 200.
 
 One `shadow_observation` line is printed per copy (`shadow:
-"commentsShadow"`). It carries no conversation, comment, participant or user
+"commentsShadow"`). It names the conversation by its number (`zid`) once the
+copy is admitted, as the vote observer's line does; a copy handed back before
+it is admitted names none. It carries no comment, participant or user
 number, no text or part or hash of text, no vote value, token, address or
-header value; nginx's request id is its only join key. Every value is a
-number, a boolean or a word from a closed set: the outcome, `admitted`, the
-would-be `status`, `reason`, `queue_ms`, `admission_ms`, `total_ms`,
-`readback_s`, `strict`, `vote_present`, `seed_present`, `body_class`,
-`write: "not_modelled"`, and the classes above. A copy's body is dropped when
+header value; nginx's request id joins it to Node's and nginx's lines for the
+same request. Every other value is a number that names nothing, a boolean or
+a word from a closed set: the outcome, `admitted`, the would-be `status`,
+`reason`, `queue_ms`, `admission_ms`, `total_ms`, `readback_s`, `strict`,
+`vote_present`, `seed_present`, `body_class`, `write: "not_modelled"`, and
+the classes above. A copy's body is dropped when
 its admission ends; the parsed text alone is kept, in the type that cannot be
 printed, until the read-back ends. A process that builds the observer prints
 a panic's location and never its message, and prints once, at startup, the

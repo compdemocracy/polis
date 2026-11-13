@@ -10,13 +10,16 @@
 # chunked bodies, bodies of undeclared length and other paths are not copied
 # and never enter the shadow's locations: each reaches Node exactly as with
 # nothing selected (the same headers, no request id, its body streamed, the
-# same reply to the byte, the `main` access line, no shadow line); the copy's
+# same reply to the byte, the ordinary access line, no shadow line); the copy's
 # location answers direct requests 404; nginx writes one shadow_mirror and one shadow_edge
-# line per copy; and the ordinary access line of a shadowed vote is the
-# image's `main` line with the peer address and the X-Forwarded-For field
-# written "-", so no access line of the vote holds the address the request
-# came from or an address it carried, while Node receives that header exactly
-# as sent (file-server/nginx/test-shadow-mirror.py).
+# line per copy; and the access line of a shadowed vote is the ordinary one
+# (the image's `main` with the request line written without its query string
+# and the Referer without its query string and fragment) with the peer
+# address and the X-Forwarded-For field written "-", so no access line of the
+# vote holds the address the request came from, an address it carried, its
+# query string or what its Referer carried after the path, while Node and the
+# shadow receive those headers and the query string exactly as sent
+# (file-server/nginx/test-shadow-mirror.py).
 #
 # With --load it also runs the participation-path test: 16 keepalive
 # connections of votes, each vote followed by a request on the same

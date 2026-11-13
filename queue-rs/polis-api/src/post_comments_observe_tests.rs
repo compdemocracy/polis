@@ -5,8 +5,8 @@
 //!
 //! Where a test needs a comment and its author's vote stored the way Node
 //! stores them, the live handler stores them: its write is the sign-aware
-//! path. No vote value, text, participant, comment or conversation number is
-//! ever on a line.
+//! path. No vote value, text, participant number or comment number is ever
+//! on a line; the conversation's number is, for an admitted copy.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -27,9 +27,9 @@ const CID: &str = "2p027generated";
 /// request body: "not known".
 const NO_PID: i32 = -1;
 
-/// The observation line's complete key set, in the order it is printed. No
-/// key names a conversation, a comment, a participant or a user, and none
-/// holds text.
+/// The observation line's complete key set, in the order it is printed. One
+/// key names the conversation (`zid`, where the other shadow's line has it).
+/// No key names a comment, a participant or a user, and none holds text.
 pub(crate) const LINE_KEYS: &[&str] = &[
     "message",
     "listener",
@@ -46,6 +46,7 @@ pub(crate) const LINE_KEYS: &[&str] = &[
     "admission_ms",
     "total_ms",
     "readback_s",
+    "zid",
     "strict",
     "vote_present",
     "seed_present",
@@ -295,15 +296,16 @@ fn one_of(line: &Value, key: &str, words: &[&str], nullable: bool) {
 }
 
 /// The line's contract: exactly the allowed keys in their order; no key that
-/// names a conversation, a comment, a participant, a user or an external id;
-/// and every value a number, a boolean, null or a word from a closed set, so
-/// that no text, token or number of a row can be on it.
+/// names a comment, a participant, a user or an external id; the
+/// conversation's number under `zid` and nowhere else, there exactly when
+/// the copy was admitted; and every other value a number that names nothing,
+/// a boolean, null or a word from a closed set, so that no text, token or
+/// number of a comment, a participant or a user can be on it.
 pub(crate) fn assert_line_shape(printed: &str) {
     assert_eq!(printed_keys(printed), LINE_KEYS, "{printed}");
     let line: Value = serde_json::from_str(printed).unwrap();
     for key in line.as_object().unwrap().keys() {
         let named = [
-            "zid",
             "tid",
             "pid",
             "uid",
@@ -401,6 +403,14 @@ pub(crate) fn assert_line_shape(printed: &str) {
         false,
     );
     assert!(line["admitted"] == 0 || line["admitted"] == 1, "{printed}");
+    // The conversation's number: a whole number on an admitted copy's line,
+    // null on every other.
+    assert_eq!(
+        line["zid"].is_i64(),
+        line["admitted"] == 1,
+        "zid: {printed}"
+    );
+    assert!(line["zid"].is_i64() || line["zid"].is_null(), "{printed}");
     assert!(
         line["status"].is_null()
             || [200, 400, 401, 403, 409, 500, 502]

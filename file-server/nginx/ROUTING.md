@@ -68,6 +68,40 @@ paths ending in a slash now return 404 instead of Node's catch-all redirect.
 No database work, queueing, locks or admission checks are added to voting,
 comment submission or next-statement requests.
 
+## The access line
+
+nginx writes one access line for every request, in the format `polis_access`
+(`nginx-ssl.site.default.conf`). It is the image's `main` format, field for
+field, with two fields cut down:
+
+- **The request line has no query string.** The method, the path as the
+  client sent it up to the first `?`, and the protocol. A request line nginx
+  could not read (answered 400), or refused for its length (414), is written
+  `- - -`, never as it arrived.
+- **The Referer has no query string and no fragment.** Scheme, host, port
+  and path, up to the first `?` or `#`. No Referer is `-`. A Referer that is
+  not an `http`, `https` or `android-app` address, or that holds a user name,
+  a password, a space, a double quote, a backslash, a control character or a
+  byte outside ASCII, is written `unparsed`, never as it arrived. A single
+  quote in the path is kept, as browsers send it unencoded.
+
+Why: this line carries the address a request came from (the peer, and the
+`X-Forwarded-For` chain a load balancer adds to). A query string and a
+Referer can carry what an embedding site supplies about a person (`xid`,
+`x_name`, `x_profile_image_url`), the embedding page's address, and a
+participant number from an older client. Written together, one line tied
+them to an address.
+
+Kept: both address fields, the status, the bytes, the user agent, and the
+path of the Referer, so the conversation page a request was made from is
+still on the line. Lost with the query string: anything a reader took from
+it, a request's `lang` and `conversation_id` among them.
+
+Not changed: what Node, polis-api and the shadow service receive (the whole
+request, query string and Referer included), and nginx's error log, whose
+lines print the whole request line and Referer of a request that failed at
+an upstream.
+
 ## The vote shadow (`votesShadow`)
 
 `votesShadow` in `RUST_API_ROUTES` selects no Rust route. `POST
@@ -87,9 +121,9 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   from the body alone and ignores a query string. The vote handler does not
   take a request that has one, so the shadow reports such a copy as handed
   back for that reason (`shape_query`); a copy without the query string
-  would be observed as a request the handler is never given. Neither JSON
-  line carries the query string; the access line carries the request line,
-  as `main` does.
+  would be observed as a request the handler is never given. No line nginx
+  writes for the request carries the query string: neither JSON line, nor
+  the access line.
 - **Only what is copied passes through the mirror.** One map
   (`$polis_shadow_copyable`, `rust-api/shadow-http.conf.template`) says
   which requests those are, and the path's location hands a request to the
@@ -97,7 +131,7 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   path, a POST with an empty, undeclared, chunked or larger body included,
   is proxied to Node exactly as with nothing selected: its body streamed
   (never read whole first because of the mirror), no `X-Request-Id` added,
-  the `main` access line, no `shadow_edge` or `shadow_mirror` line. The
+  the ordinary access line, no `shadow_edge` or `shadow_mirror` line. The
   bound is 9999 bytes because that is what the copy's location sends; the
   shadow service reads up to 65536, and nginx holds a body of up to 9999
   bytes in memory, so the mirror writes no temporary file.
@@ -119,22 +153,24 @@ and observe mode"). The shadow answers each copy 204 and writes nothing.
   is not copied writes neither line. Neither line carries an address, a
   header value or a body.
 - **The access line of a shadowed vote records no address.** It is written in
-  `polis_shadow_access`: the image's `main` format with its two address
+  `polis_shadow_access`: the ordinary format (above) with its two address
   fields written `-`, the first (`$remote_addr`, the peer) and the last
-  (`X-Forwarded-For`; `"-"` is what `main` writes for a request without that
-  header). Both fields keep their place. A participant's address is in one of
+  (`X-Forwarded-For`; `"-"` is what the ordinary format writes for a request
+  without that header). Both fields keep their place. A participant's address is in one of
   the two: in `X-Forwarded-For` behind a load balancer, in the peer address
   where nginx faces participants directly. `shadow_edge`, written beside the
   access line, carries the request id that joins Node's and the shadow's
   lines; with an address on the access line, one vote's lines would tie an
   address to them. Every other request, the other methods and the POSTs that
-  are not copied on the same path included, keeps `main`: it has no shadow
-  line and no request id. Node and the shadow receive `X-Forwarded-For`
+  are not copied on the same path included, keeps the ordinary format with
+  its addresses: it has no shadow line and no request id. Node and the shadow receive `X-Forwarded-For`
   exactly as before. Anything that counts votes or voters from an address on
-  nginx's access lines reads `-` for a shadowed vote. Not changed: the
-  request line, the `Referer` and the user agent on that line; and nginx's
+  nginx's access lines reads `-` for a shadowed vote. As on every access
+  line, the request line is written without its query string and the
+  `Referer` without its query string and fragment. Not changed: nginx's
   error log, where a line written when the copy or Node fails names the peer
-  as `client:` (it carries no request id).
+  as `client:` and prints the whole request line and `Referer` (it carries
+  no request id).
 - **With `votesRead`.** The vote read route's own location answers the path,
   with the diversion inserted first (a POST that is copied goes to the
   shadow's named location; every other request keeps the read route's

@@ -47,10 +47,19 @@ RECORDING = {'answer', 'delay40', 'delay5s', 'silent', 'status404', 'status500'}
 # are documentation addresses.
 FORWARDED_FOR = '203.0.113.77, 198.51.100.9'
 ADDRESSES = ('203.0.113.77', '198.51.100.9')
-# The image's `main` access line: peer, user, time, request line, status,
-# bytes, Referer, User-Agent, X-Forwarded-For.
+# The ordinary access line (the image's `main`, with the request line written
+# without its query string and the Referer without its query string and
+# fragment): peer, user, time, request line, status, bytes, Referer,
+# User-Agent, X-Forwarded-For.
 ACCESS_LINE = re.compile(r'(\S+) - (\S+) \[([^\]]+)\] "([^"]*)" (\d{3}) (\d+) "([^"]*)" "([^"]*)" "([^"]*)"')
 FORWARDED_FOR_FIELD = '"$http_x_forwarded_for"'
+# What the ordinary format writes in place of `main`'s request line and
+# Referer (nginx-ssl.site.default.conf).
+REQUEST_FIELD = '"$request_method $polis_log_path $server_protocol"'
+REFERER_FIELD = '"$polis_log_referer"'
+# Variables that hold a query string, or a request line or a Referer whole.
+WHOLE_VARIABLES = ('$request"', '$request ', '$request_uri', '$args', '$query_string', '$is_args', '$arg_',
+                   '$http_referer')
 # The peer address: the participant's own where no load balancer is in front.
 PEER_FIELD = '$remote_addr'
 # A line of nginx's error log. It names the peer as `client:`.
@@ -239,20 +248,31 @@ def log_formats(prefix, path):
 
 
 def check_formats(prefix):
-    """The shadowed location's access format is the image's `main` with its
-    two address fields, the peer and X-Forwarded-For, each written as "-" in
-    its place; no shadow format reads the peer address or an address a client
-    or a proxy sent."""
+    """The ordinary access format is the image's `main` with its request
+    line and its Referer each replaced by the field that has no query string.
+    The shadowed location's access format is that format with its two address
+    fields, the peer and X-Forwarded-For, each written as "-" in its place.
+    No shadow format reads the peer address or an address a client or a proxy
+    sent, and no format reads a query string, or a request line or a Referer
+    whole."""
     main = log_formats(prefix, '/etc/nginx/nginx.conf')['main']
     assert main.count(FORWARDED_FOR_FIELD) == 1 and main.endswith(FORWARDED_FOR_FIELD), main
     assert main.count(PEER_FIELD) == 1 and main.startswith(PEER_FIELD + ' - '), main
+    assert main.count('"$request"') == 1 and main.count('"$http_referer"') == 1, main
+    site = log_formats(prefix, '/etc/nginx/conf.d/default.conf')
+    assert set(site) == {'polis_access'}, sorted(site)
+    ordinary = main.replace('"$request"', REQUEST_FIELD).replace('"$http_referer"', REFERER_FIELD)
+    assert site['polis_access'] == ordinary, (site['polis_access'], main)
     shadow = log_formats(prefix, '/etc/nginx/rust-api/upstreams.conf')
     assert set(shadow) == {'polis_shadow_edge', 'polis_shadow_mirror', 'polis_shadow_access'}, sorted(shadow)
-    expected = main.replace(FORWARDED_FOR_FIELD, '"-"').replace(PEER_FIELD, '-')
-    assert shadow['polis_shadow_access'] == expected, (shadow['polis_shadow_access'], main)
+    expected = ordinary.replace(FORWARDED_FOR_FIELD, '"-"').replace(PEER_FIELD, '-')
+    assert shadow['polis_shadow_access'] == expected, (shadow['polis_shadow_access'], ordinary)
     for name, text in shadow.items():
         for variable in ADDRESS_VARIABLES + (PEER_FIELD,):
             assert variable not in text, f'{name} reads {variable}'
+    for name, text in {**site, **shadow}.items():
+        for variable in WHOLE_VARIABLES:
+            assert variable not in text + ' ', f'{name} reads {variable.strip()}'
 
 
 def uncopied_cases(route):
@@ -325,7 +345,8 @@ def baseline(prefix, out, shadow='votesShadow'):
     (seen,) = wait_for(lambda: find(records(prefix + '-node'), case), f'baseline {what} at Node')
     assert not header(seen, 'x-request-id'), 'nothing selected: Node got a request id'
     assert header(seen, 'x-forwarded-for') == [FORWARDED_FOR], seen['headers']
-    # With nothing selected the access line is `main`, addresses included:
+    # With nothing selected the access line is the ordinary one, addresses
+    # included:
     # what the shadowed location's line is compared with. Its first field is
     # the address this test's requests reach nginx from, with no load
     # balancer between: the known client address of every later request.
@@ -416,7 +437,7 @@ def check_post(prefix, port, mode, base, route, extra_headers=(), client_id=None
         assert mirrors[0]['mirror_upstream_status'] == '', mirrors
     else:
         assert mirrors[0]['mirror_upstream_status'] not in ('', '-'), mirrors
-    # The ordinary access line of a shadowed request is `main` with the peer
+    # The access line of a shadowed request is the ordinary one with the peer
     # address and the X-Forwarded-For field each written "-": every other
     # field as without the shadow, and neither the address the request came
     # from nor an address it carried.
@@ -438,26 +459,36 @@ def check_post(prefix, port, mode, base, route, extra_headers=(), client_id=None
 # plus, a repeated key, an empty value and a bare key.
 QUERIES = ('?conversation_id=2fixture&is_seed=true',
            '?conversation_id=2fixture&xid=a%20b%2Fc+d&x=%C3%A9&x=&y')
+# The page such a request is sent from, as an embed's frame is addressed: its
+# query string carries what the embedding site supplies about a person.
+EMBED_PAGE = 'https://pol.is/2fixture'
+EMBED_REFERER = EMBED_PAGE + '?xid=a%20b%2Fc+d&x_name=A%20Name&x_profile_image_url=https%3A%2F%2Fembedder.example%2Fa.png#top'
 
 
 def check_query(prefix, port, mode, route):
     """A copied request with a query string: Node receives it as sent, and so
     does the shadow, on the same path: the copy is the request a write route
     would be handed, query string included. A bare `?` is an empty query
-    string: Node receives it as sent and the copy's path has none."""
+    string: Node receives it as sent and the copy's path has none. The request
+    is sent from an embed's frame, whose address (the Referer) carries an
+    external id and a name: Node and the shadow receive the Referer as sent,
+    and no access line or shadow line of the request holds the query string,
+    the Referer's query string or its fragment."""
     what, path, name = route['what'], route['path'], route['name']
     for query in QUERIES + ('?',):
         if name == 'commentsShadow':
             time.sleep(1 / COMMENT_RATE)  # inside the copies' rate
         case = uuid.uuid4().hex
         body = route['body'](case)
-        status, _, reply = raw(port, 'POST', path + query, case_headers(case, route), body)
+        status, _, reply = raw(port, 'POST', path + query,
+                               case_headers(case, route) + [f'Referer: {EMBED_REFERER}'], body)
         digest = hashlib.sha256(body).hexdigest()
         assert status == 200 and reply.decode() == f'node POST {path + query} {digest}\n', (mode, query, status, reply)
         seen = wait_for(lambda: find(records(prefix + '-node'), case), f'{mode}: {what} with a query string at Node')
         time.sleep(0.2)
         (seen,) = find(records(prefix + '-node'), case)
         assert seen['path'] == path + query, (mode, seen['path'])
+        assert header(seen, 'referer') == [EMBED_REFERER], (mode, seen['headers'])
         (request_id,) = header(seen, 'x-request-id')
         assert HEX32.fullmatch(request_id), request_id
         if mode in RECORDING:
@@ -467,15 +498,25 @@ def check_query(prefix, port, mode, route):
             assert copy['path'] == path + ('' if query == '?' else query), (mode, query, copy['path'])
             assert copy['method'] == 'POST' and copy['sha256'] == digest, copy
             assert header(copy, 'x-request-id') == [request_id] and header(copy, 'x-polis-shadow') == [name], copy
+            assert header(copy, 'referer') == [EMBED_REFERER], (mode, copy['headers'])
         # The two JSON lines never carry the query string: the edge line
         # names the path alone.
         lines = wait_for(lambda: [l for l in shadow_lines(prefix) if l['request_id'] == request_id
                                   and l['message'] == 'shadow_mirror'], f'{mode}: copy line of a query string')
         (edge,) = [l for l in shadow_lines(prefix) if l['request_id'] == request_id and l['message'] == 'shadow_edge']
         assert edge['route'] == f'POST {path}' and lines[0]['mirror_status'] == MIRROR_STATUS[mode], (edge, lines)
-        for line in proxy_lines(prefix):
-            if request_id in line:
-                assert 'conversation_id' not in line and 'xid=' not in line, f'{mode}: a shadow line holds a query string: {line}'
+        # Nor does the access line: the path alone, and the Referer up to its
+        # path. (nginx's error log, written when a copy fails, prints a
+        # request line whole; it names neither the request id nor the case.)
+        fields = access_fields(prefix, case)
+        assert fields[3] == f'POST {path} HTTP/1.1', (mode, query, fields)
+        assert fields[6] == EMBED_PAGE, (mode, fields)
+        assert (fields[0], fields[8]) == ('-', '-'), (mode, fields)
+        named = [line for line in proxy_lines(prefix) if request_id in line or case in line]
+        assert len(named) == 3, (mode, named)
+        for line in named:
+            for part in ('?', 'conversation_id', 'xid', 'x_name', 'x_profile_image_url', 'A%20Name', '#top'):
+                assert part not in line, f'{mode}: a line of a shadowed {what} holds {part}: {line}'
 
 
 def behaviour(prefix, mode, base_file, shadow='votesShadow'):
@@ -496,8 +537,10 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     check_query(prefix, port, mode, route)
     print(f'ok {mode}: a {what} posted with a query string reaches Node with it' +
           (', and its copy reaches the shadow on the same path with the same query string, byte for byte'
-           if mode in RECORDING else '') + '; neither JSON line carries it', flush=True)
-    print(f'ok {mode}: the access line of a shadowed {what} is `main` with the peer address and '
+           if mode in RECORDING else '') + '; Node' + (' and the shadow receive' if mode in RECORDING else ' receives') +
+          ' its Referer as sent; neither JSON line carries the query string, and the access line has the path '
+          'alone and the Referer without its query string and fragment', flush=True)
+    print(f'ok {mode}: the access line of a shadowed {what} is the ordinary one with the peer address and '
           f'X-Forwarded-For written "-"; no line naming the {what} holds the address it came from or one it '
           f'carried; Node receives the header as sent', flush=True)
     # What is never copied: other methods, a POST whose body is empty, of
@@ -506,7 +549,8 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     # Node once, exactly as with nothing selected (the same request headers
     # in the same order, a request id only if the client sent one, the body
     # streamed and not read whole first), gets the same reply to the byte,
-    # and is logged in `main` with its addresses; no shadow line is written
+    # and is logged in the ordinary format with its addresses; no shadow line
+    # is written
     # and nothing is copied.
     lines_before = len(shadow_lines(prefix))
     copies_before = len(records(prefix + '-shadow'))
@@ -523,8 +567,8 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
             assert got[key] == want[key], (mode, label, key, got[key], want[key])
         assert got['node_request_id'] in ([], ['client-chosen-id']), (
             f'{mode}: {label} went through the shadow path: {got["node_request_id"]}')
-        # The access line is `main`, as before: the known client address
-        # first, the forwarded addresses last.
+        # The access line is the ordinary one, as with nothing selected: the
+        # known client address first, the forwarded addresses last.
         assert got['access_addresses'] == [base['peer'], FORWARDED_FOR], (mode, label, got['access_addresses'])
     # The body that arrives in two halves is streamed: Node has the request's
     # headers while the second half is still on its way.
@@ -536,7 +580,7 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     print(f'ok {mode}: {len(sent)} requests that are never copied (GET, HEAD, PUT, DELETE, OPTIONS; a POST with '
           f'an empty body, with no Content-Length, with a leading zero in it, of 10000 and 20000 bytes, chunked, '
           f'with a trailing slash, with a mixed-case path) reach Node once, exactly as with nothing selected: '
-          f'the same headers at Node, the same reply bytes, the `main` access line, no request id but a '
+          f'the same headers at Node, the same reply bytes, the ordinary access line, no request id but a '
           f'client\'s own, no shadow line and no copy; a 20000-byte body sent in two halves is streamed (Node '
           f'had its headers {seen_by[STREAMED]["node_waited_for_body"]:.2f} s before its last byte, '
           f'{base["uncopied"][STREAMED]["node_waited_for_body"]:.2f} s with nothing selected)', flush=True)
@@ -548,7 +592,7 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
     assert len(records(prefix + '-node')) == before, 'a direct request to the copy location reached Node'
     print(f'ok {mode}: a direct request to the copy location is answered 404', flush=True)
     # Everything nginx wrote in this mode, access log and error log alike:
-    # a line that holds a forwarded address is the `main` line of a request
+    # a line that holds a forwarded address is the ordinary line of a request
     # that was not copied: not a POST to the shadowed path, or one of the
     # uncopied POSTs sent above.
     shadowed = f'POST {path} HTTP/1.1'
@@ -559,7 +603,7 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
         fields = ACCESS_LINE.fullmatch(line)
         assert fields and (fields.group(4) != shadowed or fields.group(8) in uncopied_agents), (
             f'{mode}: a forwarded address beside a shadowed {what}: {line}')
-    # The address the requests came from: on the `main` line of a request
+    # The address the requests came from: on the ordinary line of a request
     # that was not copied, or on a line of nginx's error log (`client:`),
     # which names no request id. Never on any other line.
     ids = {m['request_id'] for m in shadow_lines(prefix)}
@@ -577,8 +621,8 @@ def behaviour(prefix, mode, base_file, shadow='votesShadow'):
         errors += 1
     assert len(peer) - errors >= len(held), (mode, len(peer), errors, len(held))
     print(f'ok {mode}: of {len(proxy_lines(prefix))} lines nginx wrote, the {len(held)} that hold a forwarded '
-          f'address are all `main` lines of requests that were not copied; the address the '
-          f'requests came from is on {len(peer) - errors} such `main` lines and on {errors} error-log lines, '
+          f'address are all ordinary lines of requests that were not copied; the address the '
+          f'requests came from is on {len(peer) - errors} such lines and on {errors} error-log lines, '
           f'which name no request id', flush=True)
     # Informational: how long the next request on the same connection waits.
     waits = hold(port, 30, route)
@@ -709,7 +753,8 @@ def read(prefix, base_file):
     assert len(records(prefix + '-shadow')) == copies_before, 'a read on the comment path was copied'
     print('ok comment reads: GET and HEAD on the comment path answer the same status, headers and bytes as '
           'with nothing selected; Node receives the same headers in the same order and no request id; the '
-          'access line is `main`; nothing is copied and no shadow line is written (5 of each)', flush=True)
+          'access line is the ordinary one, with the path alone; nothing is copied and no shadow line is '
+          'written (5 of each)', flush=True)
 
 
 def rate(prefix):
