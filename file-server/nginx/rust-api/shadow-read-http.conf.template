@@ -1,0 +1,14 @@
+
+# Rendered only when RUST_API_ROUTES names a read shadow (votesReadShadow,
+# commentsReadShadow, nextCommentShadow). Which requests a read shadow is ever
+# sent a copy of, and so which are handed to its mirroring location: a GET
+# with no Content-Length and no Transfer-Encoding, the request the read lanes
+# take without a body. HEAD, a GET that declares a body (of any length, 0
+# included), a chunked GET and every other method never enter that location:
+# each is proxied to Node exactly as with no read shadow selected, with the
+# ordinary access line and no X-Request-Id. The copy's own location applies
+# this map again.
+map "$request_method:$http_content_length:$http_transfer_encoding" $polis_shadow_read_copyable {
+    default 0;
+    "GET::" 1;
+}

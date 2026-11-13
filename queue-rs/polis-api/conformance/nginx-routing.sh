@@ -24,7 +24,7 @@ p=${X54_NGINX_PREFIX:-nginx-routing-$$-${RANDOM}}
 net="$p-net"
 image=${X54_NGINX_IMAGE:-$p:local}
 cleanup() {
-  docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" "$p-files" "$p-shadow" >/dev/null 2>&1 || true
+  docker rm -f "$p-proxy" "$p-node" "$p-rust" "$p-alpha" "$p-files" "$p-shadow" "$p-reads" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -1734,6 +1734,235 @@ start commentsShadow,postVotes
 [[ -n $(included) ]] || fail "commentsShadow beside the vote writer was refused"
 docker rm -f "$p-shadow" >/dev/null
 echo "ok both shadows together in three spellings: each exactly as alone, formats once, one rate zone, pca2 unaffected; with both read routes; refusals leave every route on Node"
+
+# The read shadows (votesReadShadow, commentsReadShadow, nextCommentShadow):
+# GET /api/v3/votes, GET /api/v3/comments and GET /api/v3/nextComment stay
+# Node's, and nginx's mirror sends a copy of a GET with no body to
+# polis-api-shadow-reads, at most 4 a second on this box for each. Here the
+# rendered text and the routing are checked, with a read shadow stand-in that
+# answers 204; nginx-shadow.sh checks what Node and the read shadow receive,
+# the rate and every failure mode.
+comment_mirror=$mirror comment_named=$named comment_diversion=$diversion
+stub "$p-shadow" polis-api-shadow 5101 204 shadow
+stub "$p-reads" polis-api-shadow-reads 5102 204 reads
+read_path() {
+  case "$1" in
+    votesReadShadow) echo /api/v3/votes ;;
+    commentsReadShadow) echo /api/v3/comments ;;
+    nextCommentShadow) echo /api/v3/nextComment ;;
+  esac
+}
+read_rate_lines() { printf '%s\n' '    # A copy over the rate of this shadow ends here with 429 (the zone is in upstreams.conf).' \
+  "    limit_req zone=polis_shadow_$1 nodelay;" '    limit_req_status 429;' '    limit_req_log_level info;'; }
+read_map='map "$request_method:$http_content_length:$http_transfer_encoding" $polis_shadow_read_copyable {
+    default 0;
+    "GET::" 1;
+}'
+# The GET diversion a location answering a read shadow's path carries first.
+read_diversion_lines() { printf '%s\n' "    error_page 421 = @polis_shadow_$1;" '    if ($polis_shadow_read_copyable = 1) {' \
+  '        return 421;' '    }'; }
+# What each read shadow renders alone (bash 3.2 has no associative arrays):
+# alone NAME KIND reads it back.
+alone() { local var="alone_$2_$1"; printf '%s' "${!var}"; }
+# A location with lines inserted directly after its first line.
+with_first() { first="$1" awk 'NR == 1 { print; print ENVIRON["first"]; next } { print }'; }
+for shadow in votesReadShadow commentsReadShadow nextCommentShadow; do
+  path=$(read_path "$shadow")
+  epath=${path//\//\\/}
+  start "$shadow,$shadow"
+  conf=$(included)
+  [[ $(grep -c "^location = $path {\$" <<<"$conf") == 1 ]] || fail "$shadow: its path not rendered once"
+  [[ $(grep -c "^location @polis_shadow_$shadow {\$" <<<"$conf") == 1 ]] || fail "$shadow: named location not rendered once"
+  [[ $(grep -c "^location = /_polis_shadow/$shadow {\$" <<<"$conf") == 1 ]] || fail "$shadow: copy location not rendered once"
+  # No other shadow, and nothing of the write shadows' copying, is rendered.
+  ! grep -v '^[[:space:]]*#' <<<"$conf" | grep -qE 'votesShadow|commentsShadow|polis-api-shadow:|mirror_request_body on|polis_shadow_copyable = ' \
+    || fail "$shadow alone: a write shadow's copying was rendered"
+  for other in votesReadShadow commentsReadShadow nextCommentShadow; do
+    [[ $other == "$shadow" ]] || ! grep -v '^[[:space:]]*#' <<<"$conf" | grep -q "$other" || fail "$shadow alone: $other was rendered"
+  done
+  # The three log formats are the vote shadow's, to the byte.
+  [[ $(grep '^log_format ' <<<"$conf") == "$(grep '^log_format ' <<<"$vote_conf")" ]] || fail "$shadow: a log format differs from the vote shadow's"
+  # One map says which requests are copied: a GET with no body, in the three
+  # lines asserted here, used in the path's location and the copy's location.
+  [[ $(sed -n '/^map .* \$polis_shadow_read_copyable {$/,/^}$/p' <<<"$conf") == "$read_map" ]] || fail "$shadow: the map of copied reads is not the lines expected"
+  [[ $(grep -v '^[[:space:]]*#' <<<"$conf" | grep -c '\$polis_shadow_read_copyable') == 3 ]] || fail "$shadow: the map of copied reads is used elsewhere"
+  mirror=$(block "= \\/_polis_shadow\\/$shadow")
+  named=$(block "@polis_shadow_$shadow")
+  diversion=$(block "= $epath")
+  # The path's location: the read diversion, then Node exactly as the API
+  # location sends it; nothing else.
+  [[ $diversion == "location = $path {
+$(read_diversion_lines "$shadow")
+    include /etc/nginx/node-proxy.conf;
+}" ]] || fail "$shadow: the path's location is not the diversion and Node: $diversion"
+  # The named location: the mirror without a body, the shadowed access line
+  # and edge line, Node, and the request id.
+  [[ $named == "location @polis_shadow_$shadow {
+    mirror /_polis_shadow/$shadow;
+    mirror_request_body off;
+    access_log /var/log/nginx/access.log polis_shadow_access;
+    access_log /var/log/nginx/access.log polis_shadow_edge;
+    include /etc/nginx/node-proxy.conf;
+    proxy_set_header X-Request-Id \$request_id;
+}" ]] || fail "$shadow: the named location is not the one expected: $named"
+  # The copy's location, line by line: internal, its own line, the rate, the
+  # map again, the literal target, the path and the request's query string,
+  # no body, the four timeouts and no other.
+  for line in '    internal;' '    log_subrequest on;' '    access_log /var/log/nginx/access.log polis_shadow_mirror;' \
+      "    set \$polis_shadow_name $shadow;" '    if ($polis_shadow_read_copyable = 0) {' '        return 204;' \
+      '    set $polis_shadow_target polis-api-shadow-reads:5102;' "    proxy_pass http://\$polis_shadow_target$path\$is_args\$args;" \
+      '    proxy_pass_request_headers on;' '    proxy_pass_request_body off;' \
+      '    proxy_set_header X-Forwarded-Proto $scheme;' '    proxy_set_header Host $host;' \
+      '    proxy_set_header X-Request-Id $request_id;' "    proxy_set_header X-Polis-Shadow $shadow;" \
+      '    proxy_next_upstream off;' '    resolver_timeout 30ms;' '    proxy_connect_timeout 20ms;' \
+      '    proxy_send_timeout 20ms;' '    proxy_read_timeout 30ms;'; do
+    grep -qxF -- "$line" <<<"$mirror" || fail "$shadow: the copy location lacks '$line'"
+  done
+  [[ $(grep -c '_timeout ' <<<"$mirror") == 4 ]] || fail "$shadow: the copy location sets other timeouts"
+  # The rate lines come directly after the line that names the shadow.
+  [[ $(grep -A4 -xF "    set \$polis_shadow_name $shadow;" <<<"$mirror" | tail -n 4) == "$(read_rate_lines "$shadow")" ]] \
+    || fail "$shadow: the rate lines are not directly after the shadow's name"
+  [[ $(grep -c '^limit_req_zone ' <<<"$conf") == 1 ]] || fail "$shadow: not exactly one rate zone"
+  grep -qxF -- "limit_req_zone \$polis_shadow_name zone=polis_shadow_$shadow:1m rate=4r/s;" <<<"$conf" || fail "$shadow: the rate zone is not 4 a second"
+  for part in "$named" "$diversion"; do
+    ! grep -q 'limit_' <<<"$part" || fail "$shadow: a limit on the request Node answers: $part"
+  done
+  # Nothing on the copy's side can reach Node.
+  for part in "$mirror" "$named"; do
+    ! grep -qE 'error_page|@polis_node_api|recursive_error_pages|server:|proxy_next_upstream (error|timeout|on)' <<<"$part" \
+      || fail "$shadow: a copy could reach Node: $part"
+  done
+  [[ $(grep -v '^[[:space:]]*#' <<<"$conf" | grep -c 'polis-api-shadow-reads') == 1 ]] || fail "$shadow: the copy target is not one literal"
+  ! grep 'proxy_pass ' <<<"$mirror" | grep -q 'request_uri\|\$uri' || fail "$shadow: the copy's path is taken from the request"
+  printf -v "alone_mirror_$shadow" '%s' "$mirror"
+  printf -v "alone_named_$shadow" '%s' "$named"
+  printf -v "alone_path_$shadow" '%s' "$diversion"
+  # Routing: every request on the path still reaches Node.
+  expect_upstream server GET "$path"
+  expect_upstream server GET "$path?conversation_id=2fixture&pid=1"
+  expect_upstream server HEAD "$path"
+  expect_upstream server POST "$path" $'Content-Type: application/json\r\nContent-Length: 2\r\n' '{}'
+  expect_upstream server PUT "$path" $'Content-Length: 2\r\n' '{}'
+  expect_upstream server OPTIONS "$path"
+  expect_upstream server GET "$path" $'Content-Length: 0\r\n'
+  expect_upstream server GET "$path" $'Content-Length: 2\r\n' '{}'
+  expect_upstream server GET "$path/"
+  python3 - "$p-proxy" "$p-node" "$shadow" <<'PYTHON'
+import http.client, subprocess, sys
+proxy, node, shadow = sys.argv[1:]
+def logs():
+    return subprocess.check_output(['docker', 'logs', node], stderr=subprocess.STDOUT)
+before = logs()
+host, port = subprocess.check_output(['docker', 'port', proxy, '80/tcp'], text=True).strip().rsplit(':', 1)
+for method in ('GET', 'POST'):
+    c = http.client.HTTPConnection(host, int(port), timeout=5)
+    c.request(method, '/_polis_shadow/' + shadow, body=b'{}' if method == 'POST' else None)
+    assert c.getresponse().status == 404, method
+    c.close()
+assert logs() == before, 'a direct request to the copy location reached Node'
+PYTHON
+done
+expect '/api/v3/math/pca2?conversation_id=x' node "read shadows leave pca2 on Node"
+echo "ok read shadows alone: each renders its path's location (the GET diversion, then Node), its named location (no body read) and its copy location (one map of bodyless GETs, used twice; literal target, the path and query string, no body, the rate of 4 a second and no more at once, the four timeouts exactly), the vote shadow's log formats to the byte, nothing of the write shadows; every method on the path reaches Node; the copy location answers direct requests 404"
+
+# Beside the write shadows and the vote writer: the location that already
+# answers the path carries the GET diversion first, and is otherwise exactly
+# what it is without the read shadow; the read shadow's own locations are
+# exactly what it renders alone.
+for routes in votesShadow,votesReadShadow votesReadShadow,votesShadow; do
+  start "$routes"
+  [[ $(included | grep -c '^location = /api/v3/votes {$') == 1 ]] || fail "$routes: vote path not rendered once"
+  [[ $(block '= \/api\/v3\/votes') == "$(with_first "$(read_diversion_lines votesReadShadow)" <<<"$vote_diversion")" ]] \
+    || fail "$routes: the vote location is not the vote shadow's with the GET diversion first"
+  [[ $(block '= \/_polis_shadow\/votesShadow') == "$vote_mirror" ]] || fail "$routes: the vote copy location changed"
+  [[ $(block '@polis_shadow_votesShadow') == "$vote_named" ]] || fail "$routes: the vote named location changed"
+  [[ $(block '= \/_polis_shadow\/votesReadShadow') == "$(alone votesReadShadow mirror)" ]] || fail "$routes: the read copy location changed"
+  [[ $(block '@polis_shadow_votesReadShadow') == "$(alone votesReadShadow named)" ]] || fail "$routes: the read named location changed"
+  vote_post
+  expect_upstream server GET /api/v3/votes
+  expect_upstream server HEAD /api/v3/votes
+done
+for routes in commentsShadow,commentsReadShadow commentsReadShadow,commentsShadow; do
+  start "$routes"
+  [[ $(included | grep -c '^location = /api/v3/comments {$') == 1 ]] || fail "$routes: comment path not rendered once"
+  [[ $(block '= \/api\/v3\/comments') == "$(with_first "$(read_diversion_lines commentsReadShadow)" <<<"$comment_diversion")" ]] \
+    || fail "$routes: the comment location is not the comment shadow's with the GET diversion first"
+  [[ $(block '= \/_polis_shadow\/commentsShadow') == "$comment_mirror" ]] || fail "$routes: the comment copy location changed"
+  [[ $(block '@polis_shadow_commentsShadow') == "$comment_named" ]] || fail "$routes: the comment named location changed"
+  [[ $(block '= \/_polis_shadow\/commentsReadShadow') == "$(alone commentsReadShadow mirror)" ]] || fail "$routes: the read copy location changed"
+  comment_post
+  expect_upstream server GET /api/v3/comments
+done
+start postVotes
+vote_writer=$(block '= \/api\/v3\/votes')
+vote_writer_all=$(included)
+for routes in postVotes,votesReadShadow votesReadShadow,postVotes; do
+  start "$routes"
+  [[ $(included | grep -c '^location = /api/v3/votes {$') == 1 ]] || fail "$routes: vote path not rendered once"
+  [[ $(block '= \/api\/v3\/votes') == "$(with_first "$(read_diversion_lines votesReadShadow)" <<<"$vote_writer")" ]] \
+    || fail "$routes: the vote writer's location is not its own with the GET diversion first"
+  for name in '@polis_api_vote_write' '@polis_api_vote_handback'; do
+    [[ $(block "$name") == "$(sed -n "/^location $name {\$/,/^}\$/p" <<<"$vote_writer_all")" ]] || fail "$routes: $name changed"
+  done
+  [[ $(block '= \/_polis_shadow\/votesReadShadow') == "$(alone votesReadShadow mirror)" ]] || fail "$routes: the read copy location changed"
+  expect_upstream polis-api POST /api/v3/votes $'Content-Type: application/json\r\nContent-Length: 2\r\n' '{}'
+  expect_upstream server GET /api/v3/votes
+  expect_upstream server HEAD /api/v3/votes
+done
+echo "ok read shadows beside the write shadows and the vote writer: the location already on the path carries the GET diversion first and is otherwise unchanged; every other location as alone; POSTs keep their routes, GETs reach Node"
+
+# Every shadow together, the selection a box would run: each location exactly
+# as alone, formats and maps once, one rate zone a shadow with a rate, one
+# literal target line for each copy.
+all=pca2,votesShadow,commentsShadow,votesReadShadow,commentsReadShadow,nextCommentShadow
+for routes in "$all" 'nextCommentShadow commentsReadShadow votesReadShadow commentsShadow votesShadow pca2'; do
+  start "$routes"
+  conf=$(included)
+  [[ $(block '= \/_polis_shadow\/votesShadow') == "$vote_mirror" && $(block '@polis_shadow_votesShadow') == "$vote_named" ]] \
+    || fail "$routes: the vote shadow's locations differ from alone"
+  [[ $(block '= \/_polis_shadow\/commentsShadow') == "$comment_mirror" && $(block '@polis_shadow_commentsShadow') == "$comment_named" ]] \
+    || fail "$routes: the comment shadow's locations differ from alone"
+  for shadow in votesReadShadow commentsReadShadow nextCommentShadow; do
+    [[ $(block "= \\/_polis_shadow\\/$shadow") == "$(alone "$shadow" mirror)" ]] || fail "$routes: $shadow's copy location differs from alone"
+    [[ $(block "@polis_shadow_$shadow") == "$(alone "$shadow" named)" ]] || fail "$routes: $shadow's named location differs from alone"
+  done
+  [[ $(block '= \/api\/v3\/nextComment') == "$(alone nextCommentShadow path)" ]] || fail "$routes: the next comment's location differs from alone"
+  for format in polis_shadow_edge polis_shadow_mirror polis_shadow_access; do
+    [[ $(grep -c "^log_format $format " <<<"$conf") == 1 ]] || fail "$routes: log format $format not rendered once"
+  done
+  [[ $(grep -c 'polis_shadow_copyable {$' <<<"$conf") == 1 && $(grep -c 'polis_shadow_read_copyable {$' <<<"$conf") == 1 ]] \
+    || fail "$routes: a map of copied requests is not rendered once"
+  [[ $(grep -c '^limit_req_zone ' <<<"$conf") == 4 ]] || fail "$routes: not one rate zone for each shadow with a rate"
+  [[ $(grep -v '^[[:space:]]*#' <<<"$conf" | grep -c 'polis-api-shadow:5101') == 2 ]] || fail "$routes: not one write target line for each write shadow"
+  [[ $(grep -v '^[[:space:]]*#' <<<"$conf" | grep -c 'polis-api-shadow-reads:5102') == 3 ]] || fail "$routes: not one read target line for each read shadow"
+  expect '/api/v3/math/pca2?conversation_id=x' rust "$routes: pca2 beside every shadow"
+  vote_post
+  comment_post
+  for path in /api/v3/votes /api/v3/comments /api/v3/nextComment; do
+    expect_upstream server GET "$path"
+  done
+done
+echo "ok every shadow together in two spellings: each location exactly as alone, formats and maps once, four rate zones, one literal target line for each copy, pca2 unaffected"
+
+# Refused: a read shadow beside the read route that has Rust answer the read.
+# Every route stays on Node.
+for routes in votesRead,votesReadShadow 'votesReadShadow votesRead' comments,commentsReadShadow \
+    'pca2,commentsReadShadow,comments' nextComment,nextCommentShadow 'pca2,nextCommentShadow , nextComment' \
+    votesReadShadow,commentsReadShadow,nextCommentShadow,nextComment; do
+  start "$routes"
+  logged 'cannot be selected together (a read shadow observes the reads Node answers)' "$routes: refusal not logged"
+  [[ -z $(included) ]] || fail "$routes: refused selection rendered"
+  expect /api/v3/math/pca2 node "$routes: refused selection leaves pca2 on Node"
+  expect_upstream server GET /api/v3/votes
+done
+# Every selection without a read shadow renders nothing of them.
+for routes in pca2,votesShadow,commentsShadow votesRead,comments,nextComment,votesShadow,commentsShadow postVotes,votesRead; do
+  start "$routes"
+  ! included | grep -v '^[[:space:]]*#' | grep -qE 'polis_shadow_read_copyable|polis-api-shadow-reads|error_page 421|ReadShadow|nextCommentShadow|mirror_request_body off' \
+    || fail "$routes: read shadow text rendered with no read shadow named"
+done
+docker rm -f "$p-shadow" "$p-reads" >/dev/null
+echo "ok read shadows refused beside their read routes, every route on Node; no selection without a read shadow renders any of it"
 
 # Independent metrics selector; disabled by default and unrelated to participation.
 docker rm -f "$p-rust" >/dev/null
