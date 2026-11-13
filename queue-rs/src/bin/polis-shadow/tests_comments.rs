@@ -584,6 +584,11 @@ enum C {
     StrictServe,
     /// The same, and Node's stored vote is not the copy's choice.
     StrictServeVoteDiffers,
+    /// Node 200 in a conversation with strict moderation, and a moderator
+    /// approved or rejected the comment before the read-back.
+    StrictServeModerated,
+    /// The same outside strict moderation.
+    ServeModerated,
 }
 
 /// One copied comment's lines. The ids come from the fixture's own counter,
@@ -790,6 +795,20 @@ fn comment(fx: &mut Fixture, case: C) -> String {
             Obs {
                 node_vote: "different",
                 ..Obs::strict_serve()
+            },
+        ),
+        C::StrictServeModerated => both(
+            200,
+            Obs {
+                node_row: Some("moderated"),
+                ..Obs::strict_serve()
+            },
+        ),
+        C::ServeModerated => both(
+            200,
+            Obs {
+                node_row: Some("moderated"),
+                ..Obs::serve()
             },
         ),
     };
@@ -1386,6 +1405,47 @@ fn strict_comments_are_counted_apart_and_judged_like_any_other() {
             .map(|c| (c.name, c.mark, c.value.clone()))
             .collect::<Vec<_>>()
     );
+}
+
+/// A comment a moderator approved or rejected between Node's insert and the
+/// read-back (`node_row: moderated`) says nothing about what the insert
+/// stored: never an agreement and never a disagreement, in a conversation
+/// with strict moderation or any other. Its mark stays as the passing
+/// fixture's, and it is counted as not known.
+#[test]
+fn a_comment_moderated_before_the_read_back_is_not_known_and_never_a_stop() {
+    let mut fx = passing_comments();
+    for case in [
+        C::StrictServe,
+        C::StrictServeModerated,
+        C::StrictServeModerated,
+        C::ServeModerated,
+    ] {
+        comment(&mut fx, case);
+    }
+    let report = run(&comments(&fx));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    for (name, mark) in [
+        ("would serve, strict", Mark::Info),
+        ("stored comment", Mark::Pass),
+        ("author's vote", Mark::Pass),
+        ("would serve", Mark::Pass),
+    ] {
+        assert_eq!(report.mark(name), Some(mark), "{name}\n{}", report.text);
+    }
+    for line in [
+        "agree 1, disagree 0, not known 2, Node 5xx 0; judged 1 of the 300 needed",
+        "would serve                pass                 agree 300, disagree 0, not known 5,",
+        // The passing fixture's 3 not known, and the 3 moderated.
+        "stored comment             pass                 as the handler would store it 601, otherwise 0, not known 6;",
+        "moderated 3",
+    ] {
+        assert!(
+            report.text.contains(line),
+            "missing: {line}\n{}",
+            report.text
+        );
+    }
 }
 
 /// The reviewer's rule (a): a would-be 409 for another's row beside Node's

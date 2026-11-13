@@ -55,16 +55,19 @@ pub const NOT_READ: [&str; 3] = ["unknown", "unavailable", "not_checked"];
 pub const NODE_TXT: [&str; 2] = ["same", "different"];
 pub const NODE_TXT_DIFFERENCE: [&str; 5] = ["space", "control", "case", "truncated", "other"];
 pub const NODE_AUTHOR: [&str; 2] = ["same", "different"];
-pub const NODE_ROW: [&str; 6] = [
+pub const NODE_ROW: [&str; 7] = [
     "as_expected",
     "mod",
     "active",
     "is_seed",
     "velocity",
     "anon",
+    "moderated",
 ];
 /// `node_row` values that name a column stored otherwise than the handler
-/// would store it.
+/// would store it. Not `moderated`: a moderator changed the row after Node's
+/// insert and before the read-back, so what the insert stored is not known;
+/// never an agreement and never a disagreement.
 pub const ROW_DIFFERS: [&str; 5] = ["mod", "active", "is_seed", "velocity", "anon"];
 pub const NODE_LANG: [&str; 2] = ["unset", "set"];
 pub const NODE_VOTE: [&str; 7] = [

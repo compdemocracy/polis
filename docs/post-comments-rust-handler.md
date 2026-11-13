@@ -224,7 +224,10 @@ connection while it waits. `node_comment` is `own`, `other`, `absent`,
 `truncated` or `other` and the two lengths in UTF-16 units and bytes); the
 user (`node_author`); the columns against what the live insert stores
 (`node_row`: `as_expected`, or the first of `mod`, `active`, `is_seed`,
-`velocity`, `anon` that differs); the language (`node_lang`: `unset`, `set`);
+`velocity`, `anon` that differs, or `moderated` when only `mod` or `active`
+differs and the row's `modified` is no longer its `created`: a moderator
+approved or rejected the comment after Node's insert and before the read, so
+the insert's own values are not known); the language (`node_lang`: `unset`, `set`);
 and the author's vote through the vote convention (`node_vote`: `same`,
 `different`, `ambiguous`, `absent`, `not_sent`, `unavailable`,
 `not_checked`). Because the row is found by its text, a comment Node stored

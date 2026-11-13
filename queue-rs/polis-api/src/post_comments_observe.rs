@@ -59,10 +59,15 @@ pub(crate) const OWN_WINDOW_MS: i64 = 5000;
 pub(crate) const ANCHOR: &str = "select now_as_millis()";
 
 /// What Node stored for this text in this conversation: one row at most, by
-/// the unique key on (zid, txt).
+/// the unique key on (zid, txt). The last column says whether the row was
+/// changed after its insert: the insert gives `created` and `modified` the
+/// same value (both default to `now_as_millis()`, the insert's transaction
+/// time), and both of Node's moderation writes (`PUT /api/v3/comments` and the
+/// topic moderation route) stamp `modified` with their own.
 pub(crate) const READBACK: &str =
     "select tid, pid, uid, txt, created, mod, active, is_seed, velocity, anon,
-     (lang is not null or lang_confidence is not null)
+     (lang is not null or lang_confidence is not null),
+     (modified is distinct from created)
      from comments where zid = $1 and txt = $2";
 
 /// The author's vote rows on that comment since the anchor: the statement
@@ -315,6 +320,7 @@ fn look(c: &mut Client, subject: &Subject, anchor: i64) -> Result<Option<Stored>
             row.try_get(7)?,
             row.try_get(8)?,
             row.try_get(9)?,
+            row.try_get::<_, Option<bool>>(11)?.unwrap_or(false),
         )),
         lang: Some(row.try_get::<_, Option<bool>>(10)?.unwrap_or(false)),
         vote,
@@ -449,15 +455,24 @@ impl AuthorVote {
 }
 
 /// The stored row's columns against the row the live insert stores for every
-/// request it admits. The first column that differs, by name.
+/// request it admits. The first column that differs, by name; or `moderated`
+/// when only the moderation columns differ and the row was changed after its
+/// insert (`changed_later`): a moderator approved or rejected the comment
+/// between Node's insert and this read, which says nothing about the insert.
 pub(crate) fn row_class(
     moderation: Option<i32>,
     active: Option<bool>,
     is_seed: Option<bool>,
     velocity: Option<f32>,
     anon: Option<bool>,
+    changed_later: bool,
 ) -> &'static str {
-    if moderation != Some(UNMODERATED) {
+    let moderated = moderation != Some(UNMODERATED) || active != Some(Row::ACTIVE);
+    let rest_as_inserted =
+        is_seed == Some(Row::IS_SEED) && velocity == Some(VELOCITY) && anon == Some(Row::ANON);
+    if moderated && changed_later && rest_as_inserted {
+        "moderated"
+    } else if moderation != Some(UNMODERATED) {
         "mod"
     } else if active != Some(Row::ACTIVE) {
         "active"
@@ -503,7 +518,8 @@ pub(crate) struct Stored {
     pub(crate) text: Option<Compared>,
     /// Whether the stored user is the user admission resolved.
     pub(crate) author: Option<bool>,
-    /// `as_expected`, or the first column live would have stored otherwise.
+    /// `as_expected`, the first column live would have stored otherwise, or
+    /// `moderated` (changed by a moderator after the insert).
     pub(crate) row: Option<&'static str>,
     /// Whether a language is stored.
     pub(crate) lang: Option<bool>,

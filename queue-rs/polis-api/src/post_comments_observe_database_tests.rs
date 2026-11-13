@@ -613,6 +613,76 @@ fn a_strict_conversations_comment_is_observed_and_compared_and_live_still_hands_
     assert_eq!(comments["voteDifferent"], 1);
 }
 
+/// A moderator who approves or rejects the comment between Node's insert and
+/// the read-back changes `mod` (and may change `active`) with Node's
+/// moderation statement, which stamps `modified`. The read-back says
+/// `moderated`: not the row the insert stored otherwise, so never a
+/// disagreement of the handler's. In a strict conversation, where the
+/// moderators are emailed about every comment, and in any other. A column
+/// the moderation statement does not write still names itself, and so does
+/// a change that leaves `modified` as the insert set it.
+#[test]
+fn a_comment_moderated_before_the_read_back_is_moderated_not_a_difference() {
+    let stage = stage("observe_moderated");
+    let mut c = stage.db.connect();
+    // Node's moderation statement (`PUT /api/v3/comments`), with `modified`
+    // kept later than the insert's even when both fall in one millisecond.
+    let moderate = |c: &mut Client, tid: i32, active: bool, moderation: i32| {
+        c.execute(
+            "UPDATE comments SET active = $1, mod = $2, is_meta = false,
+             modified = greatest(now_as_millis(), created + 1)
+             WHERE zid = 1 AND tid = $3",
+            &[&active, &moderation, &tid],
+        )
+        .unwrap();
+    };
+    let ordinary = "Generated comment rejected before the read-back";
+    let tid = stage.node_stores(&member(), &body(CID, ordinary, agree()));
+    moderate(&mut c, tid, true, -1);
+    let line = stage.observe(Some(&member()), &body(CID, ordinary, agree()));
+    assert_eq!(line["outcome"], "would_serve", "{line}");
+    assert_eq!(line["strict"], false, "{line}");
+    assert_eq!(line["node_comment"], "own", "{line}");
+    assert_eq!(line["node_row"], "moderated", "{line}");
+    assert_eq!(line["node_vote"], "same", "{line}");
+    let approved = "Generated strict comment approved before the read-back";
+    let rejected = "Generated strict comment rejected before the read-back";
+    let approved_tid = stage.node_stores(&member(), &body(CID, approved, agree()));
+    let rejected_tid = stage.node_stores(&member(), &body(CID, rejected, agree()));
+    c.batch_execute("UPDATE conversations SET strict_moderation = true WHERE zid = 1")
+        .unwrap();
+    moderate(&mut c, approved_tid, true, 1);
+    moderate(&mut c, rejected_tid, false, -1);
+    for text in [approved, rejected] {
+        let line = stage.observe(Some(&member()), &body(CID, text, agree()));
+        assert_eq!(line["outcome"], "would_serve", "{line}");
+        assert_eq!(line["after_insert"], "moderator_email", "{line}");
+        assert_eq!(line["node_comment"], "own", "{line}");
+        assert_eq!(line["node_row"], "moderated", "{line}");
+    }
+    // Moderated, and stored as a seed: the insert's own difference is named.
+    c.execute(
+        "UPDATE comments SET is_seed = true WHERE zid = 1 AND tid = $1",
+        &[&approved_tid],
+    )
+    .unwrap();
+    let line = stage.observe(Some(&member()), &body(CID, approved, agree()));
+    assert_eq!(line["node_row"], "mod", "{line}");
+    // `mod` changed with `modified` left as the insert set it: not a
+    // moderation Node makes, so the column is named as before.
+    let unstamped = "Generated comment changed without a stamp";
+    c.batch_execute("UPDATE conversations SET strict_moderation = false WHERE zid = 1")
+        .unwrap();
+    let tid = stage.node_stores(&member(), &body(CID, unstamped, agree()));
+    c.execute(
+        "UPDATE comments SET mod = 1 WHERE zid = 1 AND tid = $1",
+        &[&tid],
+    )
+    .unwrap();
+    let line = stage.observe(Some(&member()), &body(CID, unstamped, agree()));
+    assert_eq!(line["node_row"], "mod", "{line}");
+}
+
 fn subject(text: &str, vote: Option<VoteChoice>) -> Subject {
     Subject {
         zid: 1,
@@ -1155,7 +1225,7 @@ const ALLOWED: &[&str] = &[
     "select c.is_active, c.strict_moderation, c.xid_required, c.use_xid_whitelist, (select site_id from users where uid = $2) = (select site_id from users where uid = c.owner), m.tid, m.pid, m.created from conversations c left join comments m on m.zid = c.zid and m.txt = $3 where c.zid = $1",
     // The read-back of what Node stored: the comment by its text, then its
     // author's vote.
-    "select tid, pid, uid, txt, created, mod, active, is_seed, velocity, anon, (lang is not null or lang_confidence is not null) from comments where zid = $1 and txt = $2",
+    "select tid, pid, uid, txt, created, mod, active, is_seed, velocity, anon, (lang is not null or lang_confidence is not null), (modified is distinct from created) from comments where zid = $1 and txt = $2",
     "select vote from votes where zid=$1 and pid=$2 and tid=$3 and created >= $4::bigint - 5000 order by created",
     // /health, and the one read of the server's logging settings at startup.
     "select 1",
