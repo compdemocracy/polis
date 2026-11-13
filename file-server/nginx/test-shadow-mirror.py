@@ -14,11 +14,20 @@ shadow-stubs.py.
   test-shadow-mirror.py same-bodies CONTROL SHADOW          the two `bodies` runs answered alike
   test-shadow-mirror.py measure PREFIX NETWORK IMAGE OUT    what the mirror costs a comment
   test-shadow-mirror.py measured CONTROL SHADOW             the two `measure` runs side by side
+  test-shadow-mirror.py read-baseline PREFIX OUT            Node's view of the three reads, nothing selected
+  test-shadow-mirror.py read-behaviour PREFIX MODE BASE     one read shadow mode, the read shadows selected
+  test-shadow-mirror.py read-hold PREFIX MODE               a read's reply does not wait for its copy
+  test-shadow-mirror.py read-rate PREFIX                    the read copies' rate
+  test-shadow-mirror.py read-keepalive PREFIX STATE         the read rate on one keepalive connection
+  test-shadow-mirror.py read-unchanged PREFIX BASE          reads answered as with nothing selected
+  test-shadow-mirror.py read-beside PREFIX MODE RBASE VBASE CBASE  every shadow selected
+  test-shadow-mirror.py read-load PREFIX OUT                16 keepalive connections of next-comment reads
 
 SHADOW is votesShadow (the default) or commentsShadow. Containers:
 PREFIX-proxy (nginx, port 80 published on loopback), PREFIX-node (Node's
-stand-in) and PREFIX-shadow (the shadow's, absent in mode `absent`). Every
-vote is a pass with an unused body field, and so is the vote a comment
+stand-in), PREFIX-shadow (the shadow's, absent in mode `absent`) and, for
+the read shadows, PREFIX-reads (the read shadow's, absent in mode `absent`).
+Every vote is a pass with an unused body field, and so is the vote a comment
 carries; no stand-in reads a vote or a comment.
 """
 import hashlib
@@ -656,7 +665,9 @@ def hold(port, n, route=ROUTES['votesShadow']):
     return waits
 
 
-def load(prefix, out, connections=16, votes=100):
+def load(prefix, out, connections=16, votes=100, read=None):
+    """`read`, when given, is a read path: each connection GETs it instead of
+    posting a vote."""
     port = proxy_port(prefix)
     results = {'vote_ms': [], 'next_ms': [], 'failures': 0}
     lock = threading.Lock()
@@ -668,8 +679,11 @@ def load(prefix, out, connections=16, votes=100):
             try:
                 body = vote(uuid.uuid4().hex)
                 started = time.perf_counter()
-                connection.request('POST', '/api/v3/votes', body=body,
-                                   headers={'Content-Type': 'application/json'})
+                if read:
+                    connection.request('GET', read + '?conversation_id=2fixture')
+                else:
+                    connection.request('POST', '/api/v3/votes', body=body,
+                                       headers={'Content-Type': 'application/json'})
                 response = connection.getresponse()
                 response.read()
                 vote_ms.append((time.perf_counter() - started) * 1000)
@@ -702,6 +716,13 @@ def load(prefix, out, connections=16, votes=100):
     with open(out, 'w') as file:
         json.dump(summary, file)
     print(f'info load {out}: ' + json.dumps(summary), flush=True)
+
+
+def read_load(prefix, out):
+    """The participation-path test for a read: 16 keepalive connections of
+    GET /api/v3/nextComment, each followed by a request on the same
+    connection, as `load` does for votes."""
+    load(prefix, out, read=READS['nextCommentShadow'])
 
 
 def compare(control_file, shadow_file):
@@ -1214,8 +1235,453 @@ def measured(control_file, shadow_file):
                   flush=True)
 
 
+# The read shadows: a GET with no body on one of three paths is answered by
+# Node and copied to the read shadow service (PREFIX-reads), at most
+# READ_RATE copies a second for each path and READ_BURST more at once.
+READS = {'votesReadShadow': '/api/v3/votes', 'commentsReadShadow': '/api/v3/comments',
+         'nextCommentShadow': '/api/v3/nextComment'}
+READ_RATE = 4
+READ_BURST = 0
+# Copied reads on one path are sent this far apart, inside the rate.
+READ_SPACING = 1 / READ_RATE + 0.05
+# What a participant's poll carries: its conversation and participant, and a
+# key the read does not model, with escapes, a repeated key and a bare key.
+READ_QUERIES = ('?conversation_id=2fixture&pid=3', '?conversation_id=2fixture&lang=en&xid=a%20b%2Fc+d&x=&x=%C3%A9&y',
+                '', '?')
+
+
+def read_headers(case, cookie=True):
+    """A participation client's poll: a participant token, the session
+    cookie a browser sends when it has one, the embed's frame as its
+    Referer, and the load balancer's X-Forwarded-For chain."""
+    return (['Accept: application/json', 'Authorization: Bearer stand-in-token', f'X-Test-Case: {case}',
+             f'User-Agent: shadow-test/{case}', f'X-Forwarded-For: {FORWARDED_FOR}', f'Referer: {EMBED_REFERER}']
+            + (['Cookie: token2=stand-in-cookie'] if cookie else []))
+
+
+def uncopied_reads():
+    """Requests on and beside the three read paths that no read shadow is
+    sent a copy of. With the read shadows selected each must reach Node
+    exactly as with nothing selected. label: (method, path, body, keywords of
+    `raw`, extra headers)."""
+    cases = {}
+    for name, path in READS.items():
+        cases.update({
+            f'{name}: HEAD': ('HEAD', path + '?conversation_id=2fixture', b'', {}, []),
+            f'{name}: a GET with Content-Length 0': ('GET', path + '?conversation_id=2fixture', b'', {'length': '0'}, []),
+            f'{name}: a GET with a body': ('GET', path + '?conversation_id=2fixture', b'{}', {}, []),
+            f'{name}: a chunked GET': ('GET', path + '?conversation_id=2fixture', b'{}', {'chunked': True}, []),
+            f'{name}: POST': ('POST', path, b'{}', {}, []),
+            f'{name}: PUT': ('PUT', path, b'{}', {}, []),
+            f'{name}: OPTIONS': ('OPTIONS', path, b'', {}, []),
+            f'{name}: a trailing slash': ('GET', path + '/?conversation_id=2fixture', b'', {}, []),
+            f'{name}: a mixed-case path': ('GET', path.replace('/v3/', '/V3/') + '?conversation_id=2fixture', b'', {}, []),
+        })
+    for label, path in (('the personal vote list', '/api/v3/votes/me'), ('the featured participants', '/api/v3/votes/famous'),
+                        ('a translation read', '/api/v3/comments/translations'), ('participationInit', '/api/v3/participationInit')):
+        cases[label] = ('GET', path + '?conversation_id=2fixture', b'', {}, [])
+    return cases
+
+
+def send_uncopied_reads(prefix, port):
+    seen_by, ids = {}, {}
+    for label, (method, target, body, options, extra) in uncopied_reads().items():
+        case = uuid.uuid4().hex
+        status, headers, reply = raw(port, method, target, read_headers(case) + extra, body, **options)
+        ids[label] = case
+        (seen,) = wait_for(lambda: find(records(prefix + '-node'), case), f'{label} at Node')
+        fields = access_fields(prefix, case)
+        seen_by[label] = {'status': status, 'reply_headers': reply_headers(headers), 'reply': reply.decode(),
+                          'node_headers': normalized(seen['headers']), 'node_path': seen['path'],
+                          'node_request_id': header(seen, 'x-request-id'),
+                          'node_body': [seen['length'], seen['sha256']],
+                          'access': comparable(fields, case), 'access_addresses': [fields[0], fields[8]]}
+    return seen_by, ids
+
+
+def read_baseline(prefix, out):
+    port = proxy_port(prefix)
+    base = {'reads': {}}
+    for name, path in READS.items():
+        for query in READ_QUERIES:
+            case = uuid.uuid4().hex
+            status, headers, body = raw(port, 'GET', path + query, read_headers(case))
+            assert status == 200, status
+            (seen,) = wait_for(lambda: find(records(prefix + '-node'), case), f'baseline {name} at Node')
+            assert not header(seen, 'x-request-id'), 'nothing selected: Node got a request id'
+            fields = access_fields(prefix, case)
+            assert fields[8] == FORWARDED_FOR and fields[0] != '-', fields
+            base['peer'] = fields[0]
+            base['reads'][f'{name} {query}'] = {
+                'status': status, 'reply_headers': reply_headers(headers), 'body': body.decode(),
+                'headers': normalized(seen['headers']), 'path': seen['path'], 'access': comparable(fields, case)}
+    base['uncopied'], _ = send_uncopied_reads(prefix, port)
+    with open(out, 'w') as file:
+        json.dump(base, file)
+    print(f'ok read baseline: Node\'s view of {len(base["reads"])} reads and {len(base["uncopied"])} uncopied '
+          f'requests with nothing selected', flush=True)
+
+
+def check_read(prefix, port, mode, base, name, query, client_id=None):
+    """One copied read: the participant gets Node's answer to the byte; Node
+    receives it once with the same headers in the same order and one nginx
+    request id; the read shadow receives a copy of it, a GET on the same path
+    with the same query string and headers and no body, under the same id;
+    one edge line and one copy line; the shadowed access line."""
+    path = READS[name]
+    want = base['reads'][f'{name} {query}']
+    time.sleep(READ_SPACING)
+    case = uuid.uuid4().hex
+    extra = [] if client_id is None else [f'X-Request-Id: {client_id}']
+    started = time.perf_counter()
+    status, headers, body = raw(port, 'GET', path + query, read_headers(case) + extra)
+    took = (time.perf_counter() - started) * 1000
+    assert status == want['status'] == 200, (mode, name, status)
+    assert body.decode() == want['body'], (mode, name, query, body, want['body'])
+    assert reply_headers(headers) == want['reply_headers'], (mode, name, headers, want['reply_headers'])
+    seen = wait_for(lambda: find(records(prefix + '-node'), case), f'{mode}: {name} at Node')
+    time.sleep(0.2)
+    seen = find(records(prefix + '-node'), case)
+    assert len(seen) == 1, f'{mode}: Node received the read {len(seen)} times'
+    (seen,) = seen
+    assert seen['path'] == want['path'] == path + query, (mode, seen['path'], want['path'])
+    ids = header(seen, 'x-request-id')
+    assert len(ids) == 1 and HEX32.fullmatch(ids[0]) and ids[0] != client_id, (mode, ids)
+    assert normalized(seen['headers']) == want['headers'], (mode, seen['headers'], want['headers'])
+    assert header(seen, 'x-forwarded-for') == [FORWARDED_FOR] and header(seen, 'referer') == [EMBED_REFERER]
+    request_id = ids[0]
+    if mode in RECORDING:
+        copies = wait_for(lambda: find(records(prefix + '-reads'), case), f'{mode}: copy at the read shadow')
+        time.sleep(0.2)
+        copies = find(records(prefix + '-reads'), case)
+        assert len(copies) == 1, f'{mode}: the read shadow received {len(copies)} copies'
+        (copy,) = copies
+        assert copy['method'] == 'GET', copy
+        assert copy['path'] == path + ('' if query == '?' else query), (mode, query, copy['path'])
+        assert copy['length'] == 0 and not header(copy, 'content-length') and not header(copy, 'transfer-encoding'), copy
+        assert header(copy, 'x-request-id') == [request_id] and header(copy, 'x-polis-shadow') == [name], copy['headers']
+        for field in ('authorization', 'cookie', 'host', 'x-forwarded-proto', 'referer', 'accept', 'user-agent',
+                      'x-forwarded-for'):
+            assert header(copy, field) == header(seen, field), (field, copy['headers'], seen['headers'])
+    lines = wait_for(lambda: [l for l in shadow_lines(prefix) if l['request_id'] == request_id
+                              and l['message'] == 'shadow_mirror'], f'{mode}: copy line')
+    lines = [l for l in shadow_lines(prefix) if l['request_id'] == request_id]
+    edges = [l for l in lines if l['message'] == 'shadow_edge']
+    mirrors = [l for l in lines if l['message'] == 'shadow_mirror']
+    assert len(edges) == 1 and len(mirrors) == 1, (mode, lines)
+    assert set(edges[0]) == EDGE_KEYS and set(mirrors[0]) == MIRROR_KEYS, lines
+    assert edges[0]['edge_status'] == 200 and edges[0]['route'] == f'GET {path}', edges
+    assert mirrors[0]['shadow'] == name and mirrors[0]['mirror_status'] == MIRROR_STATUS[mode], (mode, mirrors)
+    if mode == 'absent':
+        assert mirrors[0]['mirror_upstream_status'] == '', mirrors
+    else:
+        assert mirrors[0]['mirror_upstream_status'] not in ('', '-'), mirrors
+    fields = access_fields(prefix, case)
+    assert (fields[0], fields[8]) == ('-', '-'), (mode, fields)
+    assert comparable(fields, case) == want['access'], (mode, fields, want['access'])
+    assert fields[3] == f'GET {path} HTTP/1.1' and fields[6] == EMBED_PAGE, (mode, fields)
+    # No line nginx wrote that names this request holds an address, or
+    # anything of the query string or of what the Referer carried after its
+    # path. Three lines name it: the access line, the edge line, the copy line.
+    named = [line for line in proxy_lines(prefix) if request_id in line or case in line]
+    assert len(named) == 3, (mode, named)
+    for line in named:
+        for part in ADDRESSES + (base['peer'], '?', 'conversation_id', 'pid=', 'xid', 'x_name', 'A%20Name',
+                                 '#top', 'stand-in-token', 'stand-in-cookie'):
+            assert part not in line, f'{mode}: a line of a shadowed read holds {part}: {line}'
+    return request_id, mirrors[0], took
+
+
+def read_behaviour(prefix, mode, base_file):
+    with open(base_file) as file:
+        base = json.load(file)
+    port = proxy_port(prefix)
+    check_formats(prefix)
+    for name in READS:
+        for query in READ_QUERIES:
+            check_read(prefix, port, mode, base, name, query)
+        check_read(prefix, port, mode, base, name, READ_QUERIES[0], client_id='client-chosen-id')
+    print(f'ok read {mode}: {len(READS) * (len(READ_QUERIES) + 1)} reads on the three paths, with a query string, '
+          f'with an empty one, with none and with a client-sent request id: each participant got Node\'s exact '
+          f'status, headers and bytes; Node got each once, with the same headers in the same order plus nginx\'s '
+          f'own request id (a client\'s is replaced); one edge line and one copy line each '
+          f'({MIRROR_STATUS[mode]})' + ('; the read shadow got each as a GET on the same path with the same query '
+          'string and headers, no body and no Content-Length, under the same id' if mode in RECORDING else '') +
+          '; the access line has no address and the path alone; no line naming the read holds an address, the '
+          'query string, the Referer\'s query string, the token or the cookie', flush=True)
+    read_unchanged(prefix, base_file, mode)
+    before = len(records(prefix + '-node'))
+    for name in READS:
+        for method in ('GET', 'POST'):
+            status, _, _ = raw(port, method, '/_polis_shadow/' + name, [], b'{}' if method == 'POST' else b'')
+            assert status == 404, (mode, name, method, status)
+    assert len(records(prefix + '-node')) == before, 'a direct request to a read copy location reached Node'
+    print(f'ok read {mode}: a direct request to each read copy location is answered 404 and reaches nothing',
+          flush=True)
+
+
+def read_unchanged(prefix, base_file, mode='answer'):
+    """Every request on and beside the three read paths that is not copied
+    reaches Node once, exactly as with nothing selected: the same headers at
+    Node, no request id, the same reply bytes, the ordinary access line with
+    its addresses, no shadow line and no copy."""
+    with open(base_file) as file:
+        base = json.load(file)
+    port = proxy_port(prefix)
+    lines_before = len(shadow_lines(prefix))
+    copies_before = len(records(prefix + '-reads'))
+    seen_by, sent = send_uncopied_reads(prefix, port)
+    time.sleep(0.5)
+    node, copied = records(prefix + '-node'), records(prefix + '-reads')
+    assert sorted(seen_by) == sorted(base['uncopied'])
+    for label, case in sent.items():
+        got, want = seen_by[label], base['uncopied'][label]
+        assert len(find(node, case)) == 1, f'{mode}: Node received {label} {len(find(node, case))} times'
+        assert not find(copied, case), f'{mode}: {label} was copied'
+        for key in ('status', 'reply_headers', 'reply', 'node_headers', 'node_path', 'node_request_id', 'node_body',
+                    'access'):
+            assert got[key] == want[key], (mode, label, key, got[key], want[key])
+        assert got['node_request_id'] == [], (mode, label, got['node_request_id'])
+        assert got['access_addresses'] == [base['peer'], FORWARDED_FOR], (mode, label, got['access_addresses'])
+    assert len(shadow_lines(prefix)) == lines_before, f'{mode}: an uncopied request wrote a shadow line'
+    assert len(records(prefix + '-reads')) == copies_before, f'{mode}: an uncopied request was copied'
+    print(f'ok read {mode}: {len(sent)} requests that are never copied (HEAD, a GET with Content-Length 0, with a '
+          f'body, chunked, POST, PUT, OPTIONS, a trailing slash and a mixed-case path on each read path; the '
+          f'personal vote list, the featured participants, a translation read, participationInit) reach Node once, '
+          f'exactly as with nothing selected: the same headers at Node, no request id, the same reply bytes, the '
+          f'ordinary access line with its addresses, no shadow line and no copy', flush=True)
+
+
+def read_hold(prefix, mode):
+    """A read's reply never waits for its copy. Each read on its own
+    connection: the client has Node's whole reply while the copy is still
+    alive (a silent or slow read shadow holds a copy until its 30 ms read
+    timeout), and before nginx ends the request. Measured on the client's
+    clock against the copy's lifetime on nginx's."""
+    port = proxy_port(prefix)
+    rows = []
+    for _ in range(4):
+        for name, path in READS.items():
+            time.sleep(READ_SPACING)
+            case = uuid.uuid4().hex
+            started = time.perf_counter()
+            with socket.create_connection(('127.0.0.1', port), timeout=15) as client:
+                client.sendall((f'GET {path}?conversation_id=2fixture HTTP/1.1\r\nHost: localhost\r\n'
+                                f'X-Test-Case: {case}\r\nUser-Agent: shadow-test/{case}\r\n\r\n').encode())
+                response = http.client.HTTPResponse(client, method='GET')
+                response.begin()
+                reply = response.read()
+                replied = (time.perf_counter() - started) * 1000
+            assert response.status == 200 and reply.startswith(b'node GET '), (response.status, reply)
+            (seen,) = wait_for(lambda: find(records(prefix + '-node'), case), 'the read at Node')
+            (request_id,) = header(seen, 'x-request-id')
+            (mirror,) = wait_for(lambda: [l for l in shadow_lines(prefix) if l['request_id'] == request_id
+                                          and l['message'] == 'shadow_mirror'], 'the copy line')
+            assert mirror['mirror_status'] == MIRROR_STATUS[mode], mirror
+            rows.append((name, replied, mirror['mirror_s'] * 1000))
+    replies = [replied for _, replied, _ in rows]
+    lived = [copy for _, _, copy in rows]
+    quick = statistics.median(replies)
+    assert quick <= KEEPALIVE_QUICK, f'{mode}: a read took a median of {quick:.2f} ms: {rows}'
+    if mode in ('silent', 'delay40', 'delay5s'):
+        # The copy lived its read timeout; the reply was had long before.
+        assert statistics.median(lived) >= KEEPALIVE_HELD, f'{mode}: the copies did not live: {rows}'
+        early = sum(1 for _, replied, copy in rows if replied < copy)
+        assert early >= len(rows) * 3 // 4, f'{mode}: the reply came after the copy ended too often: {rows}'
+    print(f'ok read hold ({mode}): {len(rows)} reads, each on its own connection: the client had Node\'s whole '
+          f'reply in a median of {quick:.2f} ms (at most {max(replies):.2f} ms; bound {KEEPALIVE_QUICK:.0f} ms) while '
+          f'the copies lived a median of {statistics.median(lived):.2f} ms by nginx\'s own line', flush=True)
+
+
+def read_rate(prefix):
+    """The read copies' rate, with every shadow selected and the shadows
+    answering: a run of reads faster than the rate is answered by Node, every
+    one, while each path's copies reach the read shadow at most READ_RATE a
+    second; the rest end in the copy's location with 429, no upstream and no
+    error-log line. Votes and comments posted in the same run are copied as
+    before: the read rate is the reads' alone."""
+    port = proxy_port(prefix)
+    time.sleep(1.5)
+    total = 90
+    sent = []
+    lock = threading.Lock()
+
+    def go(i):
+        case = uuid.uuid4().hex
+        if i % 9 == 0:
+            route = ROUTES['votesShadow']
+            body = route['body'](case)
+            status, _, reply = raw(port, 'POST', route['path'], case_headers(case, route), body)
+            expected = f'node POST {route["path"]} {hashlib.sha256(body).hexdigest()}\n'
+            name = 'votesShadow'
+        else:
+            name = list(READS)[i % 3]
+            path = READS[name] + '?conversation_id=2fixture'
+            status, _, reply = raw(port, 'GET', path, read_headers(case, cookie=False))
+            expected = f'node GET {path} {hashlib.sha256(b"").hexdigest()}\n'
+        with lock:
+            sent.append((name, case, status, reply.decode(), expected))
+
+    def run(first):
+        for i in range(first, total, 6):
+            go(i)
+
+    started = time.perf_counter()
+    threads = [threading.Thread(target=run, args=(first,)) for first in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    elapsed = time.perf_counter() - started
+    assert len(sent) == total
+    for name, case, status, reply, expected in sent:
+        assert status == 200 and reply == expected, (name, status, reply, expected)
+    time.sleep(1.0)
+    node, copied, lines = records(prefix + '-node'), records(prefix + '-reads'), shadow_lines(prefix)
+    votes_copied = records(prefix + '-shadow')
+    counts = {name: [0, 0] for name in list(READS) + ['votesShadow']}
+    for name, case, _, _, _ in sent:
+        seen = find(node, case)
+        assert len(seen) == 1, f'Node received a {name} request {len(seen)} times'
+        (request_id,) = header(seen[0], 'x-request-id')
+        (mirror,) = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
+        assert mirror['shadow'] == name, mirror
+        if mirror['mirror_status'] == 429:
+            assert name != 'votesShadow', f'a vote copy was dropped: {mirror}'
+            assert mirror['mirror_upstream_status'] == '' and mirror['mirror_s'] < 0.02, mirror
+            assert not find(copied, case), mirror
+            counts[name][1] += 1
+        else:
+            assert mirror['mirror_upstream_status'] != '', mirror
+            assert mirror['mirror_status'] != 204 or len(find(votes_copied if name == 'votesShadow' else copied, case)) == 1
+            counts[name][0] += 1
+    most = READ_BURST + 1 + int(READ_RATE * elapsed) + 1
+    for name in READS:
+        passed, dropped = counts[name]
+        assert 1 <= passed <= most and dropped >= 1, (name, counts, most, elapsed)
+    assert counts['votesShadow'][1] == 0 and counts['votesShadow'][0] >= 1, counts
+    limited = [line for line in proxy_lines(prefix) if 'limiting requests' in line or 'limit_req' in line]
+    assert not limited, limited
+    print(f'ok read rate: {total} requests in {elapsed:.2f} s ({sum(sum(c) for n, c in counts.items() if n in READS)} '
+          f'reads on the three paths, {sum(counts["votesShadow"])} votes), every one answered by Node with its exact '
+          f'bytes and received by Node once; copies reached the read shadow '
+          + ', '.join(f'{name} {counts[name][0]}' for name in READS)
+          + f' (at most {most} each) and the rest ended with 429 in the copy\'s location, with no upstream and no '
+          f'error-log line; every vote copy arrived', flush=True)
+
+
+def read_beside(prefix, mode, read_base, vote_base, comment_base):
+    """Every shadow selected, the write shadows' service answering and the
+    read shadow service in MODE: each read is copied to the read shadow
+    service alone and each vote and comment to the write shadows' service
+    alone, each answered by Node exactly as with nothing selected."""
+    with open(read_base) as file:
+        reads = json.load(file)
+    port = proxy_port(prefix)
+    check_formats(prefix)
+    for name in READS:
+        check_read(prefix, port, mode, reads, name, READ_QUERIES[0])
+    for shadow, base_file in (('votesShadow', vote_base), ('commentsShadow', comment_base)):
+        with open(base_file) as file:
+            base = json.load(file)
+        time.sleep(1 / COMMENT_RATE)
+        request_id, _ = check_post(prefix, port, 'answer', base, ROUTES[shadow])
+        assert not [c for c in records(prefix + '-reads') if header(c, 'x-request-id') == [request_id]], (
+            f'a {shadow} copy reached the read shadow service')
+    for copy in records(prefix + '-shadow'):
+        assert copy['method'] == 'POST', f'a read copy reached the write shadows\' service: {copy}'
+    for copy in records(prefix + '-reads'):
+        assert copy['method'] == 'GET' and copy['path'].split('?')[0] in READS.values(), copy
+    print(f'ok every shadow selected, the read shadow {mode}: each of the three reads went to the read shadow '
+          f'service and nowhere else, each vote and comment to the write shadows\' service and nowhere else, '
+          f'and Node answered every one exactly as with nothing selected', flush=True)
+
+
+READ_KEEPALIVE_READS = 30
+
+
+def read_keepalive(prefix, state):
+    """The read rate on ONE keepalive client connection, as a load balancer
+    reuses one: READ_KEEPALIVE_READS reads of one path back to back. `state`
+    is `unselected` (the control), `answering` or `silent` (the read shadows
+    selected, the read shadow in that mode). Every read is answered by Node
+    with its exact bytes on that connection. A request after a refused copy is
+    not held by it; after a copy sent to a silent read shadow it waits for
+    that copy, as long as nginx says the copy lived, and for nothing else."""
+    port = proxy_port(prefix)
+    selected = state != 'unselected'
+    path = READS['nextCommentShadow'] + '?conversation_id=2fixture'
+    time.sleep(1.0)
+    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=15)
+    connection.connect()
+    socket_used = connection.sock
+    sent = []
+    started = time.perf_counter()
+    for _ in range(READ_KEEPALIVE_READS):
+        case = uuid.uuid4().hex
+        began = time.perf_counter()
+        connection.request('GET', path, headers={'X-Test-Case': case})
+        response = connection.getresponse()
+        reply = response.read()
+        took = (time.perf_counter() - began) * 1000
+        assert connection.sock is socket_used and not response.will_close, 'the connection was not reused'
+        assert response.status == 200 and reply.decode() == f'node GET {path} {hashlib.sha256(b"").hexdigest()}\n'
+        sent.append((case, took))
+    elapsed = time.perf_counter() - started
+    connection.close()
+    time.sleep(1.0)
+    node, lines = records(prefix + '-node'), shadow_lines(prefix)
+    times = [took for _, took in sent]
+    said = (f'{READ_KEEPALIVE_READS} reads back to back on one keepalive connection in {elapsed * 1000:.0f} ms, each '
+            f'answered by Node with its exact bytes; a read took a median of {statistics.median(times):.2f} ms, at '
+            f'most {max(times):.2f} ms')
+    if not selected:
+        for case, _ in sent:
+            (seen,) = find(node, case)
+            assert not header(seen, 'x-request-id'), seen['headers']
+        assert statistics.median(times) <= KEEPALIVE_QUICK, times
+        print(f'ok read keepalive (nothing selected): {said}', flush=True)
+        return
+    outcomes, lived = [], []
+    for case, _ in sent:
+        (seen,) = find(node, case)
+        (request_id,) = header(seen, 'x-request-id')
+        (mirror,) = [l for l in lines if l['request_id'] == request_id and l['message'] == 'shadow_mirror']
+        lived.append(mirror['mirror_s'] * 1000)
+        if mirror['mirror_status'] == 429:
+            assert mirror['mirror_upstream_status'] == '' and mirror['mirror_s'] < 0.02, mirror
+            outcomes.append('refused')
+        else:
+            assert state != 'silent' or mirror['mirror_status'] == MIRROR_STATUS['silent'], mirror
+            outcomes.append('sent')
+    passed, refused = outcomes.count('sent'), outcomes.count('refused')
+    most = READ_BURST + 1 + int(READ_RATE * elapsed) + 1
+    assert 1 <= passed <= most and refused >= 1, (passed, refused, most)
+    after = {'sent': [], 'refused': []}
+    beyond = []
+    for outcome, copy_lived, took in zip(outcomes, lived, times[1:]):
+        after[outcome].append(took)
+        if outcome == 'sent':
+            beyond.append(took - copy_lived)
+    assert after['refused'], outcomes
+    quick = statistics.median(after['refused'])
+    assert quick <= KEEPALIVE_QUICK, f'{state}: a read after a refused copy took a median of {quick:.2f} ms'
+    if beyond:
+        over = statistics.median(beyond)
+        assert over <= KEEPALIVE_QUICK, f'{state}: a read after a sent copy took {over:.2f} ms longer than it lived'
+    if state == 'silent' and after['sent']:
+        assert statistics.median(after['sent']) >= KEEPALIVE_HELD, after['sent']
+    print(f'ok read keepalive (the read shadows selected, the read shadow {state}): {said}; {passed} copies were '
+          f'sent (at most {most}) and {refused} ended with 429 in the copy\'s location; the read after a refused copy '
+          f'took a median of {quick:.2f} ms (bound {KEEPALIVE_QUICK:.0f} ms)'
+          + (f', the read after a sent copy a median of {statistics.median(after["sent"]):.2f} ms' if after['sent'] else ''),
+          flush=True)
+
+
 if __name__ == '__main__':
     command, *args = sys.argv[1:]
     {'baseline': baseline, 'behaviour': behaviour, 'load': load, 'compare': compare, 'read': read,
      'rate': rate, 'keepalive': keepalive, 'bodies': bodies, 'same-bodies': same_bodies, 'measure': measure,
-     'measured': measured}[command](*args)
+     'measured': measured, 'read-baseline': read_baseline, 'read-behaviour': read_behaviour,
+     'read-hold': read_hold, 'read-rate': read_rate, 'read-keepalive': read_keepalive,
+     'read-unchanged': read_unchanged, 'read-beside': read_beside, 'read-load': read_load}[command](*args)

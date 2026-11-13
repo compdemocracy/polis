@@ -27,6 +27,14 @@
 #   - the deploy hook's read-backs of the composed shadow service, run with
 #     jq on what Compose composes: the override the hook writes is accepted,
 #     and a composition that replaced the service's environment list is not.
+# Then the read shadow service, polis-api-shadow-reads, the same way
+# (shadow-reads-stack.py): the hook's read-backs of it, including an env
+# document that sets every switch; a fixed series of reads through nginx with
+# nothing selected and with every shadow selected, the read shadow service
+# started without and with its lane switches, paused, stopped and started
+# again, each reply Node's own bytes; its /health against the deploy's
+# predicate; each copy observed once under nginx's request id; the
+# connections its lanes hold.
 #
 # Usage, from the repository root:
 #   queue-rs/polis-api/conformance/shadow-stack.sh
@@ -86,3 +94,5 @@ export SHADOW_STACK_WORK=$work SHADOW_STACK_API_IMAGE=$api_image SHADOW_STACK_SE
   SHADOW_STACK_POSTGRES_IMAGE=$postgres_image SHADOW_STACK_NGINX_IMAGE=$nginx_image \
   SHADOW_STACK_PORT=$port SHADOW_STACK_PROJECT=$project SHADOW_STACK_ROOT=$root
 python3 "$root/queue-rs/polis-api/conformance/shadow-stack.py"
+# The read shadow service, in the same project, on a new database.
+python3 "$root/queue-rs/polis-api/conformance/shadow-reads-stack.py"
