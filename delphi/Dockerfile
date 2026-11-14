@@ -12,9 +12,10 @@ RUN apt-get update \
 WORKDIR /src
 COPY --from=queue-rs . .
 RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
-    cargo build --release --locked --bin polis-jobs \
+    cargo build --release --locked --bin polis-jobs --bin polis-delphi-shadow \
  && cp target/release/polis-jobs /polis-jobs \
- && /polis-jobs --version
+ && cp target/release/polis-delphi-shadow /polis-delphi-shadow \
+ && /polis-jobs --version && /polis-delphi-shadow --version
 
 # ---- Stage 1: Builder ----
   FROM python:3.12-slim-trixie AS trust
@@ -144,6 +145,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # keeps the CMD below and never starts it. It exits 0 at once unless
 # POLIS_JOBS_ENABLED=1.
 COPY --from=polis-jobs /polis-jobs /usr/local/bin/polis-jobs
+# The Delphi shadow's scheduler (queue-rs/src/shadow). Nothing starts it but
+# the profile-gated delphi-shadow-scheduler service; it exits 0 at once unless
+# DELPHI_SHADOW_ENABLED=1.
+COPY --from=polis-jobs /polis-delphi-shadow /usr/local/bin/polis-delphi-shadow
 
 # Copy source code from builder stage (already built into the package)
 COPY --from=builder /app/polismath/ ./polismath/
