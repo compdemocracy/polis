@@ -48,7 +48,7 @@ class Clock:
 
 
 def _snapshot(last_ms, live_age=None):
-    counts = {k: 0 for k in capacity.COUNT_KEYS}
+    counts = {"rev": capacity.CAPACITY_REV, **{k: 0 for k in capacity.COUNT_KEYS}}
     counts.update({"routing": 1, "large_demand": 2, "refusals_total": 5, "routed_total": 17,
                    "oldest_unresolved_age_ms": 412000})
     return {
