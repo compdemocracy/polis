@@ -292,10 +292,11 @@ sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 # delphi-shadow-scheduler, both profile-gated). Started on the Delphi box only
 # when the environment document carries the line DELPHI_SHADOW_ENABLED=1
 # exactly; otherwise this file starts nothing of it and writes nothing about
-# it, and removes by name any container of it a previous deploy started (the
-# `down` before the Delphi box's `up` does not: with -f files named, Compose
-# v2.40.0 leaves a profile-gated service's containers running when `down`
-# does not name its profile). It runs the Delphi image pulled above.
+# it. A container of it a previous deploy started is removed on every Delphi
+# deploy, after `down`, by the Delphi role's removal of the services it does
+# not name in DELPHI_SERVICES (the `down` does not remove it: with -f files
+# named, Compose v2.40.0 leaves a profile-gated service's containers
+# running). It runs the Delphi image pulled above.
 DELPHI_SHADOW_SELECTED=0
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'DELPHI_SHADOW_ENABLED=1' .env 2>/dev/null; then
   DELPHI_SHADOW_SELECTED=1
@@ -405,8 +406,9 @@ fi
 # claims and the results it writes, must start it through the check that
 # refuses any other env (polis-delphi-shadow daemon), and must give the
 # scheduler that same env. jq prints the names of the settings that are not
-# so, never a value. Refused, the shadow is not started and any container of
-# it a previous deploy started is removed below; the deploy goes on, as it
+# so, never a value. Refused, the shadow is not started (the Delphi role has
+# already removed any container of it a previous deploy started, as on every
+# Delphi deploy); the deploy goes on, as it
 # does when the shadow's start fails. Never print config.
 if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   DELPHI_SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow config --format json | jq -r '.services as $s | ($s["delphi-shadow"].environment // {}) as $d | ($s["delphi-shadow-scheduler"].environment // {}) as $c | (($d.QUEUE_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) as $shadow | [(if $shadow then empty else "delphi-shadow.QUEUE_ENV" end), (if ($d.DELPHI_RESULT_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow.DELPHI_RESULT_ENV" end), (if ($s["delphi-shadow"].command // []) == ["polis-delphi-shadow", "daemon"] then empty else "delphi-shadow.command" end), (if $shadow and ($c.DELPHI_SHADOW_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_ENV" end), (if ($c.QUEUE_ENV // "") == ($c.DELPHI_SHADOW_ENV // "") then empty else "delphi-shadow-scheduler.QUEUE_ENV" end)] | join(" ")') \
@@ -598,27 +600,59 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # publication fence. Delphi's report role on every box is unaffected. An
   # ASG max of 1 for the Delphi small group is a later belt-and-braces CDK
   # change, not needed for correctness.
-  # Durable stop: remove `math-python` from this line and redeploy (the hook
-  # removes this Compose project's containers before starting the named ones).
+  # Durable stop: remove `math-python` from DELPHI_SERVICES below and redeploy
+  # (the hook removes this Compose project's containers before starting the
+  # named ones). ValidateService (scripts/validate_service.sh) requires
+  # exactly the services that line names, read from this file, so keep it one
+  # line of plain names. The tests that pin the Delphi box's services
+  # (delphi/tests/test_compose_math_env.py, test_after_install_hook.py) change
+  # with it.
   # Removing only the holder's container is a FAILOVER, not a stop: a waiting
   # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
   #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
   #      both Delphi ASGs (AsgDelphiSmall, AsgDelphiLarge) so no new box starts
   #      a poller; list every InService instance in both groups.
-  #   2. On every box, via SSM Run Command targeted at both groups, find the
-  #      math-python container; its log says `holding single-writer lock` on
-  #      the holder, `waiting for single-writer lock` on standbys.
+  #   2. On every box, via SSM, list the math-python containers by label
+  #      (docker ps -a --filter label=com.docker.compose.service=math-python).
+  #      The holder is the session holding the advisory lock
+  #      hashtext('polis-math-python:python') in pg_locks; its
+  #      application_name is math-python:python@<short container id>. Every
+  #      other math-python container is a standby. Run the SQL on a Delphi box
+  #      (inside its delphi container), never from outside the VPC.
   #   3. `sudo docker rm -f` the standbys' math-python containers first, then
   #      the holder's, so nothing is admitted during the stop.
-  #   4. Verify: no math-python container on any box (SSM across both groups);
-  #      zero rows from `SELECT application_name FROM pg_stat_activity WHERE
-  #      application_name LIKE 'math-python:%'`; max(math_tick) under
-  #      math_env='python' no longer advances.
-  #   5. Make it durable (remove `math-python` here and redeploy) before
-  #      resuming deploys or ASG launches.
+  #   4. Verify: no math-python container on any box; no holder of that lock
+  #      and no session with application_name LIKE 'math-python:python@%'
+  #      (not 'math-python:%', which also matches the large class's
+  #      math-python:python-large@ queue child); max(modified) from math_ticks
+  #      under math_env='python' unchanged between two readings.
+  #   5. Make it durable (remove `math-python` from DELPHI_SERVICES and
+  #      redeploy), check that deployment succeeded and was not rolled back
+  #      (a rollback runs the previous revision, which starts math-python),
+  #      repeat step 4, and only then resume deploys or ASG launches.
   poller_identity
+  DELPHI_SERVICES=(delphi math-python)
   "${COMPOSE[@]}" down
-  "${COMPOSE[@]}" up -d delphi math-python --no-build --force-recreate
+  # With the -f files named, Compose v2.40.0's `down` leaves the containers of
+  # a profile-gated service running (math-python is one), so a service taken
+  # off DELPHI_SERVICES would keep running on the previous image. Remove, by
+  # name, every service of this project that still has a container and is not
+  # in DELPHI_SERVICES; the services in it are left to `up` exactly as before.
+  # `ps -a --services` lists those containers; `rm -s -f` with no service
+  # named would remove every service's, so it runs only with a name.
+  DELPHI_LEFT_RUNNING=$("${COMPOSE[@]}" ps -a --services)
+  DELPHI_UNNAMED=()
+  for service in $DELPHI_LEFT_RUNNING; do
+    case " ${DELPHI_SERVICES[*]} " in
+      *" $service "*) ;;
+      *) DELPHI_UNNAMED+=("$service") ;;
+    esac
+  done
+  if [ "${#DELPHI_UNNAMED[@]}" -gt 0 ]; then
+    echo "Removing containers of services this box no longer runs: ${DELPHI_UNNAMED[*]}"
+    "${COMPOSE[@]}" rm -s -f "${DELPHI_UNNAMED[@]}"
+  fi
+  "${COMPOSE[@]}" up -d "${DELPHI_SERVICES[@]}" --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`
@@ -643,23 +677,18 @@ fi
 
 # The free-only Delphi shadow, on the Delphi box only (DELPHI_SHADOW_SELECTED
 # is 1 only there, and only for the exact switch line), after the Delphi
-# role's own `up` above, which stays the one line that starts delphi and
-# math-python. Optional work: its start failing never fails the deploy.
+# role's own `up` above, which stays the one line that starts the services
+# DELPHI_SERVICES names. The shadow's two services are never named there:
+# ValidateService requires exactly the named services, so naming them would
+# make a shadow that fails to start fail the deploy (and its rollback). The
+# Delphi role has already removed any container of them a previous deploy
+# started, as it removes every service it does not name. Optional work: its
+# start failing never fails the deploy.
 if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
   "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
     || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi
-# Switched off, on the Delphi box: a shadow a previous deploy started would
-# otherwise keep running, on that deploy's image, through this deploy and
-# every later one. Naming the services removes their containers whatever
-# their profile; with none there, nothing is done.
-case "$SERVICE_FROM_FILE:$DELPHI_SHADOW_SELECTED" in
-  delphi:0)
-    "${COMPOSE[@]}" rm -s -f delphi-shadow delphi-shadow-scheduler \
-      || echo "The Delphi shadow's containers could not be removed; remove them by hand" >&2
-    ;;
-esac
 
 # Free the disk the previous deployment's images held, now replaced. Only the
 # digests the previous manifest named, never forced: an image a container still

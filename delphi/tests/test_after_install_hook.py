@@ -71,7 +71,9 @@ FAKES = {
     "sudo": '#!/bin/bash\nexec "$@"\n',
     "yum": RECORD,
     "systemctl": RECORD,
-    "docker-compose": RECORD + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
+    # `ps -a --services` names the services that still have a container in
+    # this project (on the Delphi box, after `down`: the profile-gated ones).
+    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # Real jq consumes its input; the fake must too, or pipefail can report
     # SIGPIPE from the producer when this reader exits before it writes.
@@ -199,12 +201,17 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls",
             shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None,
             reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None,
-            env_extra=None, delphi_shadow_settings_wrong=None, **kw):
+            env_extra=None, delphi_shadow_settings_wrong=None,
+            compose_ps="math-python", compose_ps_failure=False, hook_rules=(), **kw):
     root, env = _box(tmp_path, service_type, **kw)
     if env_extra is not None:
         env["FAKE_ENV_EXTRA"] = env_extra
     if delphi_shadow_settings_wrong is not None:
         env["FAKE_DELPHI_SHADOW_SETTINGS_WRONG"] = delphi_shadow_settings_wrong
+    # What `ps -a --services` prints after `down`: by default the Delphi box's
+    # math-python, which `down` leaves running (Compose v2.40.0, -f named).
+    env["FAKE_COMPOSE_PS"] = compose_ps
+    env["FAKE_COMPOSE_PS_FAILURE"] = "1" if compose_ps_failure else "0"
     env["FAKE_READS_START_FAILURE"] = "1" if reads_start_failure else "0"
     if reads_switches_wrong is not None:
         env["FAKE_READS_SWITCHES_WRONG"] = reads_switches_wrong
@@ -233,7 +240,7 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
     rules = [("/usr/local/bin/docker-compose", "docker-compose", 2),
              ("/etc/app-info/", f"{root}/etc/app-info/", 2),
              ("/etc/systemd/system/", f"{root}/etc/systemd/system/", 0),
-             ("/opt/polis", f"{root}/opt/polis", 2)]
+             ("/opt/polis", f"{root}/opt/polis", 2), *hook_rules]
     return _run(tmp_path, HOOK_PATH, rules, root, env)
 
 
@@ -1286,25 +1293,36 @@ def test_other_roles_never_start_the_delphi_shadow(tmp_path, service_type):
 
 
 # The Delphi box's `down` (with -f files named) leaves a profile-gated
-# service's containers running, so switching the shadow off removes them by
-# name, after the engine's start; switched on, the start's --force-recreate
-# replaces them instead, and no other role touches them.
+# service's containers running, and the shadow's are: `ps -a --services`
+# lists them after `down`. The Delphi role removes by name every service it
+# does not name, the shadow's included, before the engine's `up`; switched
+# on, the shadow's own start then starts them again. No other role touches
+# them.
 DELPHI_SHADOW_RM = "rm -s -f delphi-shadow delphi-shadow-scheduler"
+SHADOW_LEFT_RUNNING = "math-python delphi-shadow delphi-shadow-scheduler"
 
 
 @pytest.mark.parametrize("extra", [None, "DELPHI_SHADOW_ENABLED=0", "# DELPHI_SHADOW_ENABLED=1"])
 def test_switching_the_delphi_shadow_off_removes_its_containers(tmp_path, extra):
-    proc, log = _deploy(tmp_path, "delphi", env_extra=extra)
+    proc, log = _deploy(tmp_path, "delphi", env_extra=extra, compose_ps=SHADOW_LEFT_RUNNING)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     compose = _compose(log)
     assert compose.count(DELPHI_SHADOW_RM) == 1
-    assert compose.index(UNCHANGED["delphi"][0]) < compose.index(DELPHI_SHADOW_RM)
+    assert compose.index("down") < compose.index(DELPHI_SHADOW_RM) < compose.index(UNCHANGED["delphi"][0])
+    assert DELPHI_SHADOW_UP not in compose
 
 
-@pytest.mark.parametrize("service_type,extra", [("delphi", "DELPHI_SHADOW_ENABLED=1"),
-                                                ("server", None), ("math", None)])
-def test_the_delphi_shadows_containers_are_removed_only_on_the_delphi_box_switched_off(tmp_path, service_type, extra):
-    proc, log = _deploy(tmp_path, service_type, env_extra=extra)
+def test_switched_on_the_delphi_shadow_left_running_is_removed_and_started_again(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1", compose_ps=SHADOW_LEFT_RUNNING)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert compose.count(DELPHI_SHADOW_RM) == 1
+    assert compose.index(DELPHI_SHADOW_RM) < compose.index(UNCHANGED["delphi"][0]) < compose.index(DELPHI_SHADOW_UP)
+
+
+@pytest.mark.parametrize("service_type", ["server", "math"])
+def test_other_roles_never_remove_the_delphi_shadows_containers(tmp_path, service_type):
+    proc, log = _deploy(tmp_path, service_type, compose_ps=SHADOW_LEFT_RUNNING)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert DELPHI_SHADOW_RM not in _compose(log)
 
@@ -1347,7 +1365,7 @@ def test_the_delphi_shadows_settings_are_read_back_before_it_starts(tmp_path):
 
 @pytest.mark.parametrize("wrong", [*DELPHI_SHADOW_NAMES, " ".join(DELPHI_SHADOW_NAMES), "unreadable"])
 def test_a_delphi_shadow_composed_without_a_shadow_env_is_not_started(tmp_path, wrong):
-    proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1",
+    proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1", compose_ps=SHADOW_LEFT_RUNNING,
                         delphi_shadow_settings_wrong="__fail__" if wrong == "unreadable" else wrong)
     # The Delphi box's deploy is not failed: its engine starts as before.
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -1357,7 +1375,7 @@ def test_a_delphi_shadow_composed_without_a_shadow_env_is_not_started(tmp_path, 
     assert DELPHI_SHADOW_UP not in compose
     # And a shadow a previous deploy started does not keep running.
     assert compose.count(DELPHI_SHADOW_RM) == 1
-    assert compose.index(UNCHANGED["delphi"][0]) < compose.index(DELPHI_SHADOW_RM)
+    assert compose.index(DELPHI_SHADOW_RM) < compose.index(UNCHANGED["delphi"][0])
 
 
 @pytest.mark.parametrize("service_type,extra", [("delphi", None), ("delphi", "DELPHI_SHADOW_ENABLED=0"),
@@ -1425,3 +1443,79 @@ def test_the_real_jq_names_exactly_the_delphi_shadows_wrong_settings(composed, n
     assert proc.stdout == named + "\n"
     assert "not-printed" not in proc.stdout + proc.stderr
     assert _SERVED not in proc.stdout + proc.stderr
+
+
+# The Delphi box's durable stop: a service taken off DELPHI_SERVICES stops at
+# the next deploy. With the -f files named, Compose v2.40.0's `down` leaves a
+# profile-gated service's container running (math-python is one), so the hook
+# removes by name each service that `ps -a --services` still lists and the
+# list does not name, after `down` and before `up`. The services the list
+# names see exactly the calls they saw before: `down`, then `up`.
+DELPHI_DOWN = "down"
+DELPHI_PS = "ps -a --services"
+DELPHI_UP = UNCHANGED["delphi"][0]
+DELPHI_STOP_MATH = [("DELPHI_SERVICES=(delphi math-python)", "DELPHI_SERVICES=(delphi)", 1)]
+
+
+def _compose_rm(compose):
+    return [c for c in compose if c.startswith("rm ")]
+
+
+@pytest.mark.parametrize("survivors", ["math-python", "", "delphi math-python"])
+def test_the_delphi_box_with_both_services_named_runs_what_it_ran_before(tmp_path, survivors):
+    proc, log = _deploy(tmp_path, "delphi", compose_ps=survivors)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    replacing = compose[compose.index(DELPHI_DOWN):]
+    assert replacing == [DELPHI_DOWN, DELPHI_PS, DELPHI_UP]
+    assert _compose_rm(compose) == []
+    assert "no longer runs" not in proc.stdout
+
+
+def test_taking_math_python_off_the_list_removes_its_container_before_up(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", hook_rules=DELPHI_STOP_MATH)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    replacing = compose[compose.index(DELPHI_DOWN):]
+    assert replacing == [DELPHI_DOWN, DELPHI_PS, "rm -s -f math-python",
+                         "up -d delphi --no-build --force-recreate"]
+    assert "services this box no longer runs: math-python" in proc.stdout
+
+
+def test_a_stopped_math_python_with_no_container_left_removes_nothing(tmp_path):
+    # The deploy after the stop: nothing of math-python is left, and `rm -s -f`
+    # is never run without a service name (it would remove every service's).
+    proc, log = _deploy(tmp_path, "delphi", compose_ps="", hook_rules=DELPHI_STOP_MATH)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert compose[compose.index(DELPHI_DOWN):] == [DELPHI_DOWN, DELPHI_PS,
+                                                    "up -d delphi --no-build --force-recreate"]
+    assert _compose_rm(compose) == []
+
+
+def test_every_unnamed_service_left_running_is_removed_and_no_named_one(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", compose_ps="math-python delphi-shadow ollama delphi")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert compose[compose.index(DELPHI_DOWN):] == [DELPHI_DOWN, DELPHI_PS,
+                                                    "rm -s -f delphi-shadow ollama", DELPHI_UP]
+
+
+def test_a_failed_listing_fails_the_deploy_before_anything_starts(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", compose_ps_failure=True)
+    assert proc.returncode != 0
+    compose = _compose(log)
+    assert DELPHI_PS in compose
+    assert not [c for c in compose if c.startswith(("up", "rm "))]
+
+
+@pytest.mark.parametrize("service_type,worker_class", [
+    ("server", None), ("math", None), ("delphi-large", "large"), ("delphi-worker", "delphi"),
+])
+def test_other_roles_never_list_or_remove_services_by_name(tmp_path, service_type, worker_class):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
+                        compose_ps="math-python delphi-shadow")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert DELPHI_PS not in compose
+    assert _compose_rm(compose) == []
