@@ -262,23 +262,42 @@ def _is_compose(token: str) -> bool:
     return token == '"${COMPOSE[@]}"' or token.endswith("docker-compose")
 
 
+# A role may name its services in a bash array (`DELPHI_SERVICES=(delphi
+# math-python)`) that its `up` line expands as "${DELPHI_SERVICES[@]}".
+_ARRAY_ASSIGNMENT = re.compile(r"^(?P<name>[A-Z_]+)=\((?P<items>[a-z0-9 -]*)\)$")
+_ARRAY_EXPANSION = re.compile(r'^"\$\{(?P<name>[A-Z_]+)\[@\]\}"$')
+
+
 def _role_up_lines() -> dict:
     """{role: [compose `up` command tokens, ...]} for each top-level role branch
-    of the deploy hook; comments are ignored."""
-    roles, current = {}, None
+    of the deploy hook, with the role's array expansions replaced by the
+    array's items; comments are ignored."""
+    roles, current, arrays = {}, None, {}
     for line in AFTER_INSTALL_PATH.read_text().splitlines():
         match = _ROLE_BRANCH.match(line)
         if match:
             current = match["role"]
-            roles[current] = []
+            roles[current], arrays = [], {}
             continue
         if line.startswith(("else", "fi")):
             current = None
             continue
+        assignment = _ARRAY_ASSIGNMENT.match(line.split("#", 1)[0].strip())
+        if current and assignment:
+            arrays[assignment["name"]] = assignment["items"].split()
+            continue
         code = line.split("#", 1)[0].split()
         command = code[1:] if code[:1] == ["sudo"] else code
         if current and command[:1] and _is_compose(command[0]) and "up" in command:
-            roles[current].append(code)
+            expanded = []
+            for token in code:
+                expansion = _ARRAY_EXPANSION.match(token)
+                if expansion and expansion["name"] != "COMPOSE":
+                    assert expansion["name"] in arrays, f"the {current} role expands {token} before assigning it"
+                    expanded += arrays[expansion["name"]]
+                else:
+                    expanded.append(token)
+            roles[current].append(expanded)
     return roles
 
 
@@ -300,7 +319,8 @@ def test_delphi_role_starts_delphi_and_the_shadow_poller():
     body = _role_bodies()["delphi"]
     assert not [l for l in body if l.startswith(_COMPOSE_CALLS) and " build" in l]
     down = next(i for i, l in enumerate(body) if l.startswith(_COMPOSE_CALLS) and l.split()[-1] == "down")
-    assert down < body.index(" ".join(line))
+    up = next(i for i, l in enumerate(body) if l.startswith(tuple(c + " up " for c in _COMPOSE_CALLS)))
+    assert down < up
 
 
 @requires_after_install
