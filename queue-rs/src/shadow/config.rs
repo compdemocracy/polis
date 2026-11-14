@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn a_served_env_is_refused() {
         for env in [
-            "import-dynamo-prod-3",
+            "import-example-1",
             "prod",
             "local",
             "shadow-",
@@ -342,7 +342,7 @@ mod tests {
             "shadow-twin-1"
         );
         assert!(
-            with(&[("QUEUE_ENV", Some("import-dynamo-prod-3"))]).is_err(),
+            with(&[("QUEUE_ENV", Some("import-example-1"))]).is_err(),
             "a daemon env that is not the shadow env is refused"
         );
         assert!(matches!(

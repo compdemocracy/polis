@@ -38,7 +38,7 @@ out=${1:?an output directory}
 : "${SHADOW_REHEARSAL_PG_PORT:?set an unused local port}"
 : "${SHADOW_REHEARSAL_IMAGE:?set the Delphi image under test}"
 ENV=shadow-delphi-1
-PUBLISHED_ENV=${SHADOW_REHEARSAL_PUBLISHED_ENV:-import-dynamo-prod-3}
+PUBLISHED_ENV=${SHADOW_REHEARSAL_PUBLISHED_ENV:-import-example-1}
 DEADLINE_S=${SHADOW_REHEARSAL_DEADLINE_SECONDS:-5400}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)

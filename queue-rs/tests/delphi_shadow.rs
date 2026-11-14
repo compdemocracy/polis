@@ -22,6 +22,8 @@ use uuid::Uuid;
 
 const ENV: &str = "shadow-delphi-1";
 const CODE: &str = "0123456789abcdef0123456789abcdef01234567";
+/// A moderator's rejection (comments.mod), as the next-comment read filters it.
+const REJECTED_COMMENT_MOD: i32 = -1;
 
 fn admin_url() -> String {
     std::env::var("POLIS_JOBS_TEST_DATABASE_URL")
@@ -375,7 +377,7 @@ fn participation(c: &mut Client, zid: i32, i: usize) -> Duration {
     time(
         c,
         &format!(
-            "SELECT tid FROM comments WHERE zid={zid} AND active=true AND velocity>0 AND mod != -1 \
+            "SELECT tid FROM comments WHERE zid={zid} AND active=true AND velocity>0 AND mod != {REJECTED_COMMENT_MOD} \
          AND tid NOT IN (SELECT tid FROM votes_latest_unique WHERE zid={zid} AND pid=0) ORDER BY created"
         ),
     );
