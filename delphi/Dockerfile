@@ -12,15 +12,32 @@ RUN apt-get update \
 WORKDIR /src
 COPY --from=queue-rs . .
 RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
-    cargo build --release --locked --bin polis-jobs \
+    cargo build --release --locked --bin polis-jobs --bin polis-delphi-shadow \
  && cp target/release/polis-jobs /polis-jobs \
- && /polis-jobs --version
+ && cp target/release/polis-delphi-shadow /polis-delphi-shadow \
+ && /polis-jobs --version && /polis-delphi-shadow --version
 
 # ---- Stage 1: Builder ----
   FROM python:3.12-slim-trixie AS trust
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
+
+# ---- The embedding model (all-MiniLM-L6-v2), fetched once, at build time ----
+# The files and the revision are pinned in embedding-model.lock.json; the fetch
+# refuses any file whose SHA-256 differs from the lock, so every image built
+# from this file carries the same bytes. The UMAP stage reads this directory
+# only when DELPHI_EMBED_MODEL_PATH names it (with DELPHI_EMBED_MODEL_LOCK set,
+# it checks the files again first); unset, it downloads the model by name from
+# the Hugging Face hub at run time, as before. About 92 MB.
+FROM trust AS embedding-model
+RUN pip install --no-cache-dir huggingface-hub==0.36.0
+COPY embedding-model.lock.json /opt/polis/embedding/all-MiniLM-L6-v2.lock.json
+COPY polismath/embedding_model.py /tmp/embedding_model.py
+RUN python /tmp/embedding_model.py fetch \
+      --lock /opt/polis/embedding/all-MiniLM-L6-v2.lock.json \
+      --dest /opt/polis/embedding/all-MiniLM-L6-v2 \
+ && rm /tmp/embedding_model.py
 
   FROM trust AS builder
 
@@ -115,6 +132,10 @@ RUN mkdir -p /etc/polis \
 
 WORKDIR /app
 
+# The embedding model's pinned files and their lock (read only when
+# DELPHI_EMBED_MODEL_PATH is set; see the embedding-model stage).
+COPY --from=embedding-model /opt/polis/embedding /opt/polis/embedding
+
 # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
@@ -124,6 +145,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # keeps the CMD below and never starts it. It exits 0 at once unless
 # POLIS_JOBS_ENABLED=1.
 COPY --from=polis-jobs /polis-jobs /usr/local/bin/polis-jobs
+# The Delphi shadow's scheduler (queue-rs/src/shadow). Nothing starts it but
+# the profile-gated delphi-shadow-scheduler service; it exits 0 at once unless
+# DELPHI_SHADOW_ENABLED=1.
+COPY --from=polis-jobs /polis-delphi-shadow /usr/local/bin/polis-delphi-shadow
 
 # Copy source code from builder stage (already built into the package)
 COPY --from=builder /app/polismath/ ./polismath/

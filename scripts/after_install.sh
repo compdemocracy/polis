@@ -288,11 +288,30 @@ fi
 sudo docker tag "$(image_ref migrate)" polis-migrate:deploy
 sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 
+# The free-only Delphi shadow (docker-compose.yml: delphi-shadow and
+# delphi-shadow-scheduler, both profile-gated). Started on the Delphi box only
+# when the environment document carries the line DELPHI_SHADOW_ENABLED=1
+# exactly; otherwise this file starts nothing of it and writes nothing about
+# it. A container of it a previous deploy started is removed on every Delphi
+# deploy, after `down`, by the Delphi role's removal of the services it does
+# not name in DELPHI_SERVICES (the `down` does not remove it: with -f files
+# named, Compose v2.40.0 leaves a profile-gated service's containers
+# running). It runs the Delphi image pulled above.
+DELPHI_SHADOW_SELECTED=0
+if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'DELPHI_SHADOW_ENABLED=1' .env 2>/dev/null; then
+  DELPHI_SHADOW_SELECTED=1
+fi
+
 # Compose runs the pulled digests: this override sets each service's image, and
 # every `up` below passes --no-build, so nothing is built on this box.
 if [ -n "$ROLE_IMAGES" ]; then
   { echo "services:"
     for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
+    if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+      for image in delphi-shadow delphi-shadow-scheduler; do
+        printf '  %s:\n    image: %s\n' "$image" "$(image_ref delphi)"
+      done
+    fi
     # The shadow service runs the polis-api image pulled above. Its comment
     # observer's switch is written here and nowhere else, from the route
     # list: observe when commentsShadow is named; otherwise this file says
@@ -377,6 +396,26 @@ if [ "$READS_SHADOW_SELECTED" = 1 ]; then
   if [ -n "$READS_SHADOW_SETTINGS_WRONG" ]; then
     echo "polis-api-shadow-reads's composed settings are not the read shadow service's ($READS_SHADOW_SETTINGS_WRONG); refusing service replacement" >&2
     exit 1
+  fi
+fi
+
+# The free-only Delphi shadow is about to start: what starts must be the
+# shadow, never a second production daemon. polis-jobs claims and publishes
+# under whatever env it is given, so the composed configuration (the
+# override included) must give the daemon one shadow- env for the jobs it
+# claims and the results it writes, must start it through the check that
+# refuses any other env (polis-delphi-shadow daemon), and must give the
+# scheduler that same env. jq prints the names of the settings that are not
+# so, never a value. Refused, the shadow is not started (the Delphi role has
+# already removed any container of it a previous deploy started, as on every
+# Delphi deploy); the deploy goes on, as it
+# does when the shadow's start fails. Never print config.
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+  DELPHI_SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow config --format json | jq -r '.services as $s | ($s["delphi-shadow"].environment // {}) as $d | ($s["delphi-shadow-scheduler"].environment // {}) as $c | (($d.QUEUE_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) as $shadow | [(if $shadow then empty else "delphi-shadow.QUEUE_ENV" end), (if ($d.DELPHI_RESULT_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow.DELPHI_RESULT_ENV" end), (if ($s["delphi-shadow"].command // []) == ["polis-delphi-shadow", "daemon"] then empty else "delphi-shadow.command" end), (if $shadow and ($c.DELPHI_SHADOW_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_ENV" end), (if ($c.QUEUE_ENV // "") == ($c.DELPHI_SHADOW_ENV // "") then empty else "delphi-shadow-scheduler.QUEUE_ENV" end)] | join(" ")') \
+    || DELPHI_SHADOW_SETTINGS_WRONG="unreadable"
+  if [ -n "$DELPHI_SHADOW_SETTINGS_WRONG" ]; then
+    echo "The Delphi shadow's composed settings are not a shadow's ($DELPHI_SHADOW_SETTINGS_WRONG); not starting it" >&2
+    DELPHI_SHADOW_SELECTED=0
   fi
 fi
 
@@ -634,6 +673,21 @@ elif [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"
   exit 1
+fi
+
+# The free-only Delphi shadow, on the Delphi box only (DELPHI_SHADOW_SELECTED
+# is 1 only there, and only for the exact switch line), after the Delphi
+# role's own `up` above, which stays the one line that starts the services
+# DELPHI_SERVICES names. The shadow's two services are never named there:
+# ValidateService requires exactly the named services, so naming them would
+# make a shadow that fails to start fail the deploy (and its rollback). The
+# Delphi role has already removed any container of them a previous deploy
+# started, as it removes every service it does not name. Optional work: its
+# start failing never fails the deploy.
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+  echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
+  "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
+    || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi
 
 # Free the disk the previous deployment's images held, now replaced. Only the

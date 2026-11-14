@@ -25,4 +25,7 @@ python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
   export POLIS_JOBS_TEST_DATABASE_URL
   export POLIS_JOBS_TEST_PYTHON="${POLIS_JOBS_TEST_PYTHON:-python3}"
   cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
+  # The Delphi shadow's scheduler: what it admits, and that its sessions never
+  # make a vote, a comment or the next comment wait.
+  cargo test --locked --features jobs-integration --test delphi_shadow -- --test-threads 2
 )

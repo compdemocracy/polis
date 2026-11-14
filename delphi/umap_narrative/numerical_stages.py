@@ -62,14 +62,39 @@ def _seed_evoc(seed):
 def project_and_cluster(document_vectors, seed=DEFAULT_SEED):
     """UMAP's 2-D map and EVōC's cluster layers, both from `seed`: the same
     vectors and seed give the same map and the same layers."""
-    import evoc
     from umap import UMAP
+
+    from polismath import step_log
 
     # Generate 2D projection with UMAP
     logger.info("Generating 2D projection with UMAP...")
-    document_map = UMAP(n_components=2, metric="cosine", random_state=seed).fit_transform(
-        document_vectors
-    )
+    with step_log.step("umap", n_comments=int(len(document_vectors))):
+        document_map = UMAP(n_components=2, metric="cosine", random_state=seed).fit_transform(
+            document_vectors
+        )
+    with step_log.step("evoc", n_comments=int(len(document_vectors))) as facts:
+        cluster_layers = _cluster(document_vectors, seed, facts)
+        facts["layers"] = len(cluster_layers)
+        facts["clusters"] = [int(len(np.unique(layer[layer >= 0]))) for layer in cluster_layers]
+        facts["numba_threading_layer"] = _threading_layer()
+    return document_map, cluster_layers
+
+
+def _threading_layer():
+    """Numba's threading layer once a parallel function has run, else None."""
+    try:
+        import numba
+
+        return numba.threading_layer()
+    except Exception:  # noqa: BLE001 - no parallel function has run yet
+        return None
+
+
+def _cluster(document_vectors, seed, facts):
+    """EVōC's layers (KMeans and agglomerative layers if EVōC fails), seeded."""
+    import evoc
+
+    facts["fallback"] = False
 
     # Cluster with EVōC. It is built and seeded before the try: an argument it
     # refuses, or a failure to seed it, raises instead of falling back to KMeans.
@@ -94,6 +119,7 @@ def project_and_cluster(document_vectors, seed=DEFAULT_SEED):
         from sklearn.cluster import KMeans
 
         logger.info("Falling back to KMeans clustering...")
+        facts["fallback"] = True
         kmeans = KMeans(n_clusters=5, random_state=seed)
         cluster_labels = kmeans.fit_predict(document_vectors)
 
@@ -110,7 +136,7 @@ def project_and_cluster(document_vectors, seed=DEFAULT_SEED):
     finally:
         restore()
 
-    return document_map, cluster_layers
+    return cluster_layers
 
 
 def characterize_comment_clusters(cluster_layer, comment_texts):
