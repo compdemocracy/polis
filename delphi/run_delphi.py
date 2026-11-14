@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 
+from polismath import step_log
 from polismath.utils.cli_flags import parse_bool_flag
 
 # Two switches, both off unless set to exactly "1"; off, a run is what it was.
@@ -162,7 +163,8 @@ def main():
         sys.exit(0)
 
     try:
-        run(args)
+        with step_log.step("run"):
+            run(args)
     finally:
         if switch_on(LOCAL_OUTPUT_CLEANUP):
             remove_local_outputs(args.zid, os.environ.get('DELPHI_APP_PATH', '/app'))
@@ -171,7 +173,10 @@ def main():
 def run(args):
     zid = args.zid
     rid = args.rid
-    job = _start_daemon_job(zid) if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip() else None
+    job = None
+    if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip():
+        with step_log.step("census"):
+            job = _start_daemon_job(zid)
     verbose_arg = "--verbose" if args.verbose else ""
     # --force and --validate are accepted for compatibility; no stage reads them.
 
@@ -249,13 +254,13 @@ def run(args):
     if verbose_arg:
         umap_command.append(verbose_arg)
 
-    pipeline_process = subprocess.run(umap_command)
-    pipeline_exit_code = pipeline_process.returncode
+    pipeline_exit_code = step_log.run_child("pipeline", umap_command)
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
 
     if pipeline_exit_code == 0 and switch_on(SKIP_DATAMAPPLOT):
         print(f"{YELLOW}Skipping the datamapplot visualizations ({SKIP_DATAMAPPLOT}=1): no page is written or uploaded.{NC}")
+        step_log.emit("datamapplot", status="skipped")
     elif pipeline_exit_code == 0:
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")
 
@@ -333,12 +338,12 @@ def run(args):
             if verbose_arg:
                 datamap_command.append(verbose_arg)
             
-            result = subprocess.run(datamap_command)
-            if result.returncode == 0:
+            returncode = step_log.run_child("datamapplot", datamap_command, layer=layer_id)
+            if returncode == 0:
                 print(f"{GREEN}Layer {layer_id} visualization completed{NC}")
             else:
-                print(f"{RED}Layer {layer_id} visualization failed with exit code {result.returncode}{NC}")
-                failed_stages.append((f"layer {layer_id} visualization", result.returncode))
+                print(f"{RED}Layer {layer_id} visualization failed with exit code {returncode}{NC}")
+                failed_stages.append((f"layer {layer_id} visualization", returncode))
 
         print(f"{GREEN}UMAP Narrative pipeline stage finished.{NC}")
     else:
@@ -348,7 +353,8 @@ def run(args):
         print(f"{GREEN}Pipeline completed successfully!{NC}")
         print(f"Results stored in DynamoDB for conversation {zid}")
         if job is not None:
-            _finish_daemon_job(job, zid, args.region)
+            with step_log.step("manifest"):
+                _finish_daemon_job(job, zid, args.region)
         sys.exit(0)
 
     summary = ", ".join(f"{name} (exit code {code})" for name, code in failed_stages)

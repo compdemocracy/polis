@@ -34,6 +34,7 @@ from umap_narrative.topic_naming import (
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from umap import UMAP
 from umap_narrative.numerical_stages import characterize_comment_clusters
+from polismath import step_log
 
 # Configure logging
 logging.basicConfig(
@@ -194,13 +195,17 @@ def process_comments(comments, conversation_id):
     # set). Unset: the model by name from the Hugging Face hub, as before.
     from polismath.embedding_model import load_check
 
-    model_arg = load_check()
-    if model_arg != model_name:
-        logger.info(f"Reading the embedding model from {model_arg} (no download)")
-        embedding_model = SentenceTransformer(model_arg, local_files_only=True)
-    else:
-        embedding_model = SentenceTransformer(model_name)
-    document_vectors = embedding_model.encode(comment_texts, show_progress_bar=True)
+    with step_log.step("embed_load") as facts:
+        model_arg = load_check()
+        facts["model_source"] = "image" if model_arg != model_name else "hub"
+        if model_arg != model_name:
+            logger.info(f"Reading the embedding model from {model_arg} (no download)")
+            embedding_model = SentenceTransformer(model_arg, local_files_only=True)
+        else:
+            embedding_model = SentenceTransformer(model_name)
+    with step_log.step("embed_encode", n_comments=len(comment_texts)) as facts:
+        document_vectors = embedding_model.encode(comment_texts, show_progress_bar=True)
+        facts["dims"] = int(document_vectors.shape[1]) if getattr(document_vectors, "ndim", 0) == 2 else None
 
     from umap_narrative.numerical_stages import project_and_cluster
     document_map, cluster_layers = project_and_cluster(document_vectors)
@@ -746,6 +751,14 @@ def create_visualizations(
     return index_file
 
 
+def _timed_layers(name, cluster_layers):
+    """Yield (index, layer) pairs, one step line per layer when the step log is on."""
+    for layer_idx, cluster_layer in enumerate(cluster_layers):
+        with step_log.step(name, layer=layer_idx,
+                           clusters=int(len(np.unique(cluster_layer[cluster_layer >= 0])))):
+            yield layer_idx, cluster_layer
+
+
 def process_layers_and_create_visualizations(
     conversation_id,
     conversation_name,
@@ -773,14 +786,15 @@ def process_layers_and_create_visualizations(
         job_id: Job ID for this run
     """
     # Process layers and store characteristics
-    layer_data = process_layers_and_store_characteristics(
-        conversation_id,
-        cluster_layers,
-        comment_texts,
-        output_dir=output_dir,
-        dynamo_storage=dynamo_storage,
-        job_id=job_id,  # Pass job_id
-    )
+    with step_log.step("keywords", layers=len(cluster_layers)):
+        layer_data = process_layers_and_store_characteristics(
+            conversation_id,
+            cluster_layers,
+            comment_texts,
+            output_dir=output_dir,
+            dynamo_storage=dynamo_storage,
+            job_id=job_id,  # Pass job_id
+        )
 
     # Create visualizations with basic numeric labels. With
     # DELPHI_SKIP_DATAMAPPLOT=1 (run_delphi.py) no page is written: the pages
@@ -788,16 +802,18 @@ def process_layers_and_create_visualizations(
     if os.environ.get("DELPHI_SKIP_DATAMAPPLOT", "").strip() == "1":
         logger.info("DELPHI_SKIP_DATAMAPPLOT=1: the layer pages are not written")
         index_file = None
+        step_log.emit("layer_pages", status="skipped")
     else:
-        index_file = create_visualizations(
-            conversation_id,
-            conversation_name,
-            document_map,
-            cluster_layers,
-            comment_texts,
-            output_dir,
-            layer_data=layer_data,
-        )
+        with step_log.step("layer_pages", layers=len(cluster_layers)):
+            index_file = create_visualizations(
+                conversation_id,
+                conversation_name,
+                document_map,
+                cluster_layers,
+                comment_texts,
+                output_dir,
+                layer_data=layer_data,
+            )
 
     # If topic naming is requested, generate LLM topic labels.
     if name_topics:
@@ -808,7 +824,7 @@ def process_layers_and_create_visualizations(
             f"model={topic_model}"
         )
 
-        for layer_idx, cluster_layer in enumerate(cluster_layers):
+        for layer_idx, cluster_layer in _timed_layers("topic_names", cluster_layers):
             characteristics = layer_data[layer_idx]["characteristics"]
 
             # Generate topic labels via the configured provider (Anthropic batch
@@ -1056,11 +1072,22 @@ def process_conversation(
     )
     os.makedirs(output_dir, exist_ok=True)
 
+    with step_log.step("total") as total:
+        ok = _process_conversation(zid, output_dir, export_dynamo, name_topics,
+                                   include_moderation, exclude_comment_selections, total)
+        total["ok"] = bool(ok)
+    return ok
+
+
+def _read_inputs(zid, include_moderation, exclude_comment_selections, facts):
+    """The comments a run clusters, after the moderation and report filters."""
     # Fetch data from PostgreSQL
     comments, metadata = fetch_conversation_data(zid)
     if not comments:
         logger.error("Failed to fetch conversation data.")
-        return False
+        facts["comments_read"] = 0
+        return None, None
+    facts["comments_read"] = len(comments)
 
     logger.info(f"moderation status: {include_moderation}")
 
@@ -1093,19 +1120,14 @@ def process_conversation(
             if postgres_client is not None:
                 postgres_client.shutdown()
 
-    # Generate a job_id for this pipeline run
-    # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
-    job_id = os.environ.get("DELPHI_JOB_ID", f"pipeline_run_{uuid.uuid4()}")
-    logger.info(f"Using job_id: {job_id} for this pipeline run.")
+    facts["comments_used"] = len(comments)
+    return comments, metadata
 
-    conversation_id = str(zid)
-    conversation_name = metadata.get("conversation_name", f"Conversation {zid}")
 
-    # Process comments
-    document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
-        process_comments(comments, conversation_id)
-    )
 
+def _store_base(export_dynamo, conversation_id, document_vectors, document_map, cluster_layers,
+                comment_texts, comment_ids, metadata):
+    """The run's first writes: metadata, embeddings, UMAP edges, assignments, topics."""
     # Initialize DynamoDB storage if requested
     dynamo_storage = None
     if export_dynamo:
@@ -1183,6 +1205,33 @@ def process_conversation(
         logger.info(
             f"Stored {result['success']} topics with {result['failure']} failures"
         )
+    return dynamo_storage
+
+
+def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_moderation,
+                          exclude_comment_selections, total):
+    with step_log.step("inputs") as facts:
+        comments, metadata = _read_inputs(zid, include_moderation, exclude_comment_selections, facts)
+    if not comments:
+        return False
+    total["n_comments"] = len(comments)
+
+    # Generate a job_id for this pipeline run
+    # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
+    job_id = os.environ.get("DELPHI_JOB_ID", f"pipeline_run_{uuid.uuid4()}")
+    logger.info(f"Using job_id: {job_id} for this pipeline run.")
+
+    conversation_id = str(zid)
+    conversation_name = metadata.get("conversation_name", f"Conversation {zid}")
+
+    # Process comments
+    document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
+        process_comments(comments, conversation_id)
+    )
+
+    with step_log.step("store_base", n_comments=len(comment_ids)):
+        dynamo_storage = _store_base(export_dynamo, conversation_id, document_vectors, document_map,
+                                     cluster_layers, comment_texts, comment_ids, metadata)
 
     # Process layers, store characteristics, and create visualizations
     process_layers_and_create_visualizations(
