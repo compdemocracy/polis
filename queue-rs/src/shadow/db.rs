@@ -12,8 +12,13 @@
 //! and so never waits on, or makes wait, the `conversations` updates votes and
 //! comments cause), job status, run records, and the shadow env's current
 //! result rows. `tests/delphi_shadow.rs` holds both sessions open against
-//! participation statements under a 50 ms lock timeout.
-use super::config::{ACTOR, Config, SCOPE};
+//! participation statements under a 50 ms lock timeout. After each run the
+//! read login also reads that run's bytes (`storage`), by index ranges on the
+//! run's own keys.
+use super::{
+    config::{ACTOR, Config, SCOPE},
+    storage::{self, Measured, Pending},
+};
 use crate::jobs::{
     inputs::contract::{self, Comment},
     transport::Connector,
@@ -127,6 +132,16 @@ impl<'a> Db<'a> {
     pub fn run_record(&self, job_id: &str) -> Result<Option<Value>> {
         let mut client = self.connect_queue()?;
         run_record(&mut client, &self.cfg.env, job_id)
+    }
+
+    /// One terminal job's bytes (`storage`): index ranges on its own keys only.
+    pub fn measure(&self, p: &Pending) -> Result<Measured> {
+        self.read(|tx| storage::measure(tx, &p.env, &p.job_id, p.zid))
+    }
+
+    /// Every shadow env's jobs, once per state file (`storage`).
+    pub fn shadow_jobs(&self) -> Result<Vec<Pending>> {
+        self.read(storage::shadow_jobs)
     }
 
     pub fn assignments(&self, zid: i32) -> Result<BTreeMap<i64, Vec<i64>>> {

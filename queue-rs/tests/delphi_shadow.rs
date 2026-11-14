@@ -626,3 +626,303 @@ fn a_twin_pending_across_a_deploy_is_dropped() {
         "no twin was admitted across the deploy"
     );
 }
+
+// ---- The storage budget -----------------------------------------------------
+
+/// The four tables a run's rows land in, with their TOAST tables and indexes.
+const STORED: [&str; 4] = [
+    "delphi_result_rows",
+    "delphi_result_families",
+    "delphi_comment_embeddings",
+    "polis_queue_logs",
+];
+
+fn stored_bytes(c: &mut Client) -> [i64; 4] {
+    STORED.map(|t| {
+        c.query_one(&format!("SELECT pg_total_relation_size('public.{t}')"), &[])
+            .unwrap()
+            .get::<_, i64>(0)
+    })
+}
+
+/// What one Delphi run leaves in the four tables, written directly by the
+/// superuser with triggers and foreign keys off (`session_replication_role`),
+/// at the shapes the pipeline writes: DynamoDB-typed rows of a few hundred
+/// bytes to about 1.5 KB, families as one large wire text each, one
+/// 384-float embedding per comment and the child's log lines. Two attempts
+/// (a retry), each its own batch. The job's row in `delphi_jobs` names its
+/// comments, as an admission's configuration does. Returns the job id.
+fn stored_run(c: &mut Client, env: &str, zid: i32, comments: i32, rows: i32) -> String {
+    let job = Uuid::new_v4();
+    let attempts = [Uuid::new_v4(), Uuid::new_v4()];
+    let mut tx = c.transaction().unwrap();
+    tx.batch_execute("SET LOCAL session_replication_role = replica")
+        .unwrap();
+    tx.execute(
+        "INSERT INTO delphi_jobs(job_id,env,zid,kind,origin,status,config_effective) \
+         VALUES($1,$2,$3,'full_pipeline','queued','succeeded', \
+                jsonb_build_object('shadow', jsonb_build_object('comments', $4::int)))",
+        &[&job, &env, &zid, &comments],
+    )
+    .unwrap();
+    for (epoch, attempt) in attempts.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO polis_queue_attempts(env,attempt_id,job_id,owner_id,lease_epoch,outcome) \
+             VALUES($1,$2,$3,$4,$5,'succeeded')",
+            &[&env, attempt, &job, &Uuid::new_v4(), &(epoch as i64 + 1)],
+        )
+        .unwrap();
+        tx.execute(
+            "INSERT INTO delphi_result_rows(env,batch_id,family,item_key,ordinal,item) \
+             SELECT $1::text, $2::uuid, 'Delphi_UMAPGraph', \
+                    jsonb_build_object('edge_id', jsonb_build_object('S', g::text || '-' || $2::uuid::text)), g, \
+                    jsonb_build_object('conversation_id', jsonb_build_object('S', $3::int::text), \
+                      'edge_id', jsonb_build_object('S', g::text), \
+                      'weight', jsonb_build_object('N', (g * 0.6180339887)::text), \
+                      'text', jsonb_build_object('S', repeat(md5(g::text), 1 + g % 40))) \
+             FROM generate_series(1, $4::int) g",
+            &[&env, attempt, &zid, &rows],
+        )
+        .unwrap();
+        tx.execute(
+            "INSERT INTO delphi_result_families(env,batch_id,family,codec_wire,content_sha,row_count) \
+             SELECT $1::text, $2::uuid, f, w, encode(sha256(convert_to(w,'UTF8')),'hex'), $3::int FROM ( \
+               SELECT f, string_agg('{\"comment_id\":{\"N\":\"' || g || '\"},\"layer0_cluster_id\":{\"N\":\"' \
+                 || (g % 17) || '\"},\"umap_x\":{\"N\":\"' || md5(f || g) || '\"}}', ',') AS w \
+               FROM unnest(ARRAY['Delphi_UMAPGraph','Delphi_CommentHierarchicalClusterAssignments', \
+                                 'Delphi_CommentClustersFeatures','Delphi_CommentClustersStructureKeywords']) f, \
+                    generate_series(1, $3::int) g GROUP BY f) s",
+            &[&env, attempt, &rows],
+        )
+        .unwrap();
+        tx.execute(
+            "INSERT INTO delphi_comment_embeddings(env,zid,model_id,tid,text_sha,embedding,batch_id) \
+             SELECT $1::text, $2::int, 1, t + $4::int * $5::int, sha256(convert_to('comment ' || t, 'UTF8')), \
+                    (SELECT array_agg((((i * 31 + t) % 997) / 997.0)::real) FROM generate_series(1, 384) i), $3::uuid \
+             FROM generate_series(0, $4::int - 1) t",
+            &[&env, &zid, attempt, &comments, &(epoch as i32)],
+        )
+        .unwrap();
+        tx.execute(
+            "INSERT INTO polis_queue_logs(env,attempt_id,seq,stream,line) \
+             SELECT $1::text, $2::uuid, g, 'stdout', 'delphi_step/1 ' || repeat(md5(g::text), 1 + g % 6) \
+             FROM generate_series(0, $3::int - 1) g",
+            &[&env, attempt, &(rows / 2)],
+        )
+        .unwrap();
+    }
+    tx.commit().unwrap();
+    job.to_string()
+}
+
+#[test]
+fn a_runs_bytes_are_what_the_tables_grew_by_read_by_index_ranges_alone() {
+    use polis_queue_adapter::shadow::storage;
+    let f = Fixture::new();
+    f.conversation(601, 25);
+    f.conversation(602, 25);
+    let mut c = f.superuser();
+    // Rows of other runs, of the shadow env and of a served env, first: a
+    // run's measure counts its own rows only.
+    let other = stored_run(&mut c, ENV, 602, 300, 2000);
+    stored_run(&mut c, "import-example-1", 601, 300, 2000);
+    // And a small run, whose share of each table is what a run's is in
+    // production: a sliver.
+    let small = stored_run(&mut c, ENV, 603, 40, 100);
+    let before = stored_bytes(&mut c);
+    let job = stored_run(&mut c, ENV, 601, 1000, 6000);
+    let after = stored_bytes(&mut c);
+    let by_table: Vec<i64> = after.iter().zip(before).map(|(a, b)| a - b).collect();
+    let grew: i64 = by_table.iter().sum();
+    let measured =
+        db::read_only(&mut c, 30_000, |tx| storage::measure(tx, ENV, &job, 601)).unwrap();
+    assert_eq!(measured.attempts, 2);
+    assert_eq!(measured.result_rows, 12_000);
+    assert_eq!(measured.families, 8);
+    assert_eq!(measured.embeddings, 2000);
+    assert_eq!(measured.log_lines, 6000);
+    // The indexes the measure charges are the ones the migrations create.
+    let mut indexes: Vec<(String, String)> = c
+        .query(
+            "SELECT tablename, indexname FROM pg_indexes WHERE schemaname = 'public' \
+             AND tablename = ANY($1) ORDER BY 1, 2",
+            &[&STORED.to_vec()],
+        )
+        .unwrap()
+        .iter()
+        .map(|r| (r.get(0), r.get(1)))
+        .collect();
+    let mut modelled: Vec<(String, String)> = storage::INDEXES
+        .iter()
+        .map(|(t, i)| ((*t).to_owned(), (*i).to_owned()))
+        .collect();
+    indexes.sort();
+    modelled.sort();
+    assert_eq!(indexes, modelled, "an index the measure does not charge");
+    let ratio = measured.stored() as f64 / grew as f64;
+    println!(
+        "storage measure: measured {} bytes, the four tables grew {grew} bytes ({STORED:?}: {by_table:?}), ratio {ratio:.3}; {measured:?}",
+        measured.stored()
+    );
+    assert!(
+        (0.9..=1.2).contains(&ratio),
+        "the measure must be within 10% under to 20% over the tables' growth: {ratio:.3}"
+    );
+    // The other shadow run measures as its own.
+    let o = db::read_only(&mut c, 30_000, |tx| storage::measure(tx, ENV, &other, 602)).unwrap();
+    assert_eq!((o.result_rows, o.embeddings), (4000, 600));
+    // A job with no attempt (refused, cancelled while queued) stored nothing.
+    let none = db::read_only(&mut c, 30_000, |tx| {
+        storage::measure(tx, ENV, &Uuid::new_v4().to_string(), 601)
+    })
+    .unwrap();
+    assert_eq!(none.stored(), 0);
+
+    // Many more runs, as production's tables hold: 400 batches of a few rows
+    // each, so one run is the sliver of each table it is there.
+    let mut tx = c.transaction().unwrap();
+    tx.batch_execute(
+        "SET LOCAL session_replication_role = replica; \
+         CREATE TEMP TABLE other_batches ON COMMIT DROP AS \
+           SELECT gen_random_uuid() AS b FROM generate_series(1, 400); \
+         INSERT INTO delphi_result_rows(env,batch_id,family,item_key,ordinal,item) \
+           SELECT 'shadow-delphi-1', b, 'Delphi_UMAPGraph', jsonb_build_object('k', g), g, \
+                  jsonb_build_object('v', repeat('x', 200)) \
+           FROM other_batches, generate_series(1, 40) g; \
+         INSERT INTO polis_queue_logs(env,attempt_id,seq,stream,line) \
+           SELECT 'shadow-delphi-1', b, g, 'stdout', repeat('y', 100) \
+           FROM other_batches, generate_series(0, 19) g; \
+         INSERT INTO delphi_result_families(env,batch_id,family,codec_wire,content_sha,row_count) \
+           SELECT 'shadow-delphi-1', b, 'Delphi_UMAPGraph', 'w', encode(sha256(convert_to('w','UTF8')),'hex'), 40 \
+           FROM other_batches",
+    )
+    .unwrap();
+    tx.commit().unwrap();
+    // Cheap: every read is an index range on the run's own keys. With the
+    // planner's statistics current, the small run's rows are read by index
+    // in the three tables that are large here (result rows, embeddings, log
+    // lines; families and attempts are a few pages, which the planner reads
+    // whole); and no read needs a scan: with scans priced out, every one,
+    // families' and attempts' too, is an index range.
+    c.batch_execute(
+        "ANALYZE delphi_result_rows, delphi_result_families, delphi_comment_embeddings, \
+         polis_queue_logs, polis_queue_attempts",
+    )
+    .unwrap();
+    fn plan_of(c: &mut impl postgres::GenericClient, job: &str, zid: i32) -> Vec<(String, String)> {
+        fn walk(node: &Value, out: &mut Vec<(String, String)>) {
+            if let (Some(kind), Some(rel)) = (
+                node.get("Node Type").and_then(Value::as_str),
+                node.get("Relation Name").and_then(Value::as_str),
+            ) {
+                out.push((kind.to_owned(), rel.to_owned()));
+            }
+            for child in node
+                .get("Plans")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                walk(child, out);
+            }
+        }
+        let plan: Value = c
+            .query_one(
+                &format!("EXPLAIN (FORMAT JSON) {}", storage::measure_sql()),
+                &[&ENV, &job, &zid],
+            )
+            .unwrap()
+            .get(0);
+        let mut seen = Vec::new();
+        walk(&plan[0]["Plan"], &mut seen);
+        seen
+    }
+    fn by_index(seen: &[(String, String)], table: &str) -> bool {
+        let of: Vec<_> = seen.iter().filter(|(_, rel)| rel == table).collect();
+        !of.is_empty()
+            && of
+                .iter()
+                .all(|(kind, _)| kind.contains("Index") || kind == "Bitmap Heap Scan")
+    }
+    let natural = plan_of(&mut c, &small, 603);
+    println!("storage measure plan: {natural:?}");
+    for table in [
+        "delphi_result_rows",
+        "delphi_comment_embeddings",
+        "polis_queue_logs",
+    ] {
+        assert!(by_index(&natural, table), "{table} is scanned: {natural:?}");
+    }
+    let mut tx = c.transaction().unwrap();
+    tx.batch_execute("SET LOCAL enable_seqscan = off").unwrap();
+    let priced = plan_of(&mut tx, &small, 603);
+    tx.rollback().unwrap();
+    for table in STORED.iter().chain(["polis_queue_attempts"].iter()) {
+        assert!(by_index(&priced, table), "{table} needs a scan: {priced:?}");
+    }
+}
+
+#[test]
+fn the_storage_budget_and_its_daily_cap_hold_admission_from_the_databases_own_bytes() {
+    use polis_queue_adapter::shadow::storage::MIB;
+    let f = Fixture::new();
+    f.conversation(701, 30);
+    f.conversation(702, 25);
+    // A shadow run already stored, about 20 MB, before this scheduler (a new
+    // state file: the first start, or a lost volume).
+    let mut c = f.superuser();
+    stored_run(&mut c, "shadow-twin-1", 702, 1000, 6000);
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "8"),
+        ("DELPHI_SHADOW_STORAGE_DAILY_MB", "8"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    // Listed from the database and measured: every shadow env counts.
+    assert!(s.state.storage.reconciled);
+    assert!(s.state.storage.pending.is_empty());
+    assert_eq!(s.state.storage.jobs, 1);
+    assert_eq!(s.state.storage.comment_runs, 1000);
+    let stored = s.state.storage.bytes;
+    assert!(stored > 8 * MIB, "{stored}");
+    assert_eq!(s.paused, Some(plan::Pause::StorageBudget));
+    assert!(
+        f.jobs().iter().all(|(env, ..)| env != ENV),
+        "nothing admitted past the budget"
+    );
+    // Its state file keeps the count: a restart does not list or measure again.
+    s.state.save(&cfg.state_path).unwrap();
+    let mut again = Scheduler::new(&cfg).unwrap();
+    again.cycle().unwrap();
+    assert_eq!(again.state.storage.bytes, stored);
+    assert_eq!(again.paused, Some(plan::Pause::StorageBudget));
+
+    // A larger budget, but today's cap is reached: still nothing.
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
+        ("DELPHI_SHADOW_STORAGE_DAILY_MB", "8"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    assert_eq!(s.paused, Some(plan::Pause::StorageDaily));
+    assert!(f.jobs().iter().all(|(env, ..)| env != ENV));
+
+    // Room for the next run's estimate (25 comments at the measured bytes a
+    // comment): admitted; then its own bytes are read once it is terminal,
+    // before anything more is admitted.
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
+        ("DELPHI_SHADOW_STORAGE_DAILY_MB", "1024"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    assert_eq!(s.paused, None);
+    let flight = s.state.in_flight.clone().unwrap();
+    assert_eq!(flight.zid, 702);
+    f.cancel(&flight.job_id);
+    s.cycle().unwrap();
+    assert_eq!(s.state.storage.pending.len(), 1, "terminal, to be measured");
+    s.cycle().unwrap();
+    assert!(s.state.storage.pending.is_empty());
+    assert_eq!(s.state.storage.jobs, 2);
+}

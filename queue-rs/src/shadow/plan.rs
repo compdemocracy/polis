@@ -4,6 +4,7 @@ use super::{
     config::Config,
     db::{Admission, Live, Signals},
     state::State,
+    storage::Ledger,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -16,6 +17,12 @@ pub enum Pause {
     DbLatency,
     MathLag,
     DailyCap,
+    /// Runs are terminal whose bytes are not yet read (`storage`).
+    StorageUnmeasured,
+    /// The shadow's bytes reached the budget, or the next run would pass it.
+    StorageBudget,
+    /// Today's bytes reached the daily cap, or the next run would pass it.
+    StorageDaily,
 }
 
 impl Pause {
@@ -26,6 +33,9 @@ impl Pause {
             Self::DbLatency => "db_latency",
             Self::MathLag => "math_lag",
             Self::DailyCap => "daily_cap",
+            Self::StorageUnmeasured => "storage_unmeasured",
+            Self::StorageBudget => "storage_budget",
+            Self::StorageDaily => "storage_daily",
         }
     }
 }
@@ -95,6 +105,29 @@ pub fn pause(
     }
     if state.day_runs >= cfg.daily_runs {
         return Some(Pause::DailyCap);
+    }
+    if !state.storage.pending.is_empty() {
+        return Some(Pause::StorageUnmeasured);
+    }
+    // The smallest run there can be: when even it does not fit, nothing is
+    // read to find out which would.
+    storage_room(cfg, &state.storage, cfg.min_comments)
+}
+
+/// Whether a run of `comments` comments may be admitted under the storage
+/// budget: not once the shadow's bytes have reached the budget or today's
+/// the daily cap, and not when the run's estimate would pass either.
+pub fn storage_room(cfg: &Config, ledger: &Ledger, comments: i64) -> Option<Pause> {
+    let next = ledger.estimate(comments);
+    if ledger.bytes >= cfg.storage_budget_bytes
+        || ledger.bytes.saturating_add(next) > cfg.storage_budget_bytes
+    {
+        return Some(Pause::StorageBudget);
+    }
+    if ledger.day_bytes >= cfg.storage_daily_bytes
+        || ledger.day_bytes.saturating_add(next) > cfg.storage_daily_bytes
+    {
+        return Some(Pause::StorageDaily);
     }
     None
 }
@@ -323,6 +356,51 @@ mod tests {
             pause(&c, &s, false, ok_disk(), Some(&fine), None),
             Some(Pause::DailyCap)
         );
+    }
+
+    #[test]
+    fn the_storage_budget_and_its_daily_cap_hold_admission() {
+        use crate::shadow::storage::{JOB_BYTES, MIB, Pending};
+        let mut c = cfg();
+        c.storage_budget_bytes = 10 * MIB;
+        c.storage_daily_bytes = 4 * MIB;
+        let mut s = State::new("shadow-delphi-1");
+        let fine = signals(5.0, 0);
+        let p = |s: &State| pause(&c, s, false, ok_disk(), Some(&fine), None);
+        assert_eq!(p(&s), None);
+        // Under both: a run fits when its estimate does.
+        s.storage.bytes = 3 * MIB;
+        s.storage.day_bytes = 3 * MIB;
+        assert_eq!(p(&s), None);
+        assert_eq!(storage_room(&c, &s.storage, 10), None);
+        // 200 comments at the default 8 KiB a comment would pass the day's cap.
+        assert_eq!(storage_room(&c, &s.storage, 200), Some(Pause::StorageDaily));
+        // The day's cap reached.
+        s.storage.day_bytes = 4 * MIB;
+        assert_eq!(p(&s), Some(Pause::StorageDaily));
+        // The budget reached, whatever the day.
+        s.storage.bytes = 10 * MIB;
+        s.storage.day_bytes = 0;
+        assert_eq!(p(&s), Some(Pause::StorageBudget));
+        // A run that would pass the budget is not admitted, a smaller one is.
+        s.storage.bytes = 10 * MIB - 100 * 8192 - JOB_BYTES;
+        assert_eq!(storage_room(&c, &s.storage, 100), None);
+        assert_eq!(
+            storage_room(&c, &s.storage, 101),
+            Some(Pause::StorageBudget)
+        );
+        // A terminal run not yet measured holds admission.
+        s.storage.bytes = 0;
+        s.storage.pending.push(Pending {
+            env: "shadow-delphi-1".into(),
+            job_id: "j".into(),
+            zid: 1,
+            comments: 25,
+        });
+        assert_eq!(p(&s), Some(Pause::StorageUnmeasured));
+        // The earlier reasons still come first.
+        s.day_runs = c.daily_runs;
+        assert_eq!(p(&s), Some(Pause::DailyCap));
     }
 
     #[test]

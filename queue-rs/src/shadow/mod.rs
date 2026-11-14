@@ -13,7 +13,9 @@
 //!
 //! The shadow's daemon is the ordinary `polis-jobs`, started through
 //! `polis-delphi-shadow daemon`, which refuses any env that is not a shadow
-//! env (`daemon`).
+//! env (`daemon`). Before each admission the scheduler also holds the bytes
+//! the shadow has added to the database under a budget and a daily cap
+//! (`storage`).
 //!
 //! What it touches, and what it never touches: see `db`.
 pub mod config;
@@ -22,4 +24,5 @@ pub mod db;
 pub mod plan;
 pub mod scheduler;
 pub mod state;
+pub mod storage;
 pub mod twin;

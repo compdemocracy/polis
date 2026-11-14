@@ -56,6 +56,13 @@ pub struct Config {
     pub disk_path: PathBuf,
     pub disk_free_min_mb: u64,
     pub disk_used_max_pct: f64,
+    /// Nothing is admitted once the shadow has added this many bytes to the
+    /// database in all (`DELPHI_SHADOW_STORAGE_BUDGET_MB`, 1 GiB by default),
+    /// or would with the next run (`storage`).
+    pub storage_budget_bytes: u64,
+    /// Nor once it has added this many in the current UTC day
+    /// (`DELPHI_SHADOW_STORAGE_DAILY_MB`, 100 MiB by default).
+    pub storage_daily_bytes: u64,
     /// While this file exists, nothing is admitted (the operator's pause).
     pub pause_file: PathBuf,
     pub state_path: PathBuf,
@@ -192,6 +199,13 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     if min_comments > max_comments {
         return err("DELPHI_SHADOW_MIN_COMMENTS must not exceed DELPHI_SHADOW_MAX_COMMENTS");
     }
+    let storage_budget_mb = number(&get, "DELPHI_SHADOW_STORAGE_BUDGET_MB", 1024, 1, 1 << 20)?;
+    let storage_daily_mb = number(&get, "DELPHI_SHADOW_STORAGE_DAILY_MB", 100, 1, 1 << 20)?;
+    if storage_daily_mb > storage_budget_mb {
+        return err(
+            "DELPHI_SHADOW_STORAGE_DAILY_MB must not exceed DELPHI_SHADOW_STORAGE_BUDGET_MB",
+        );
+    }
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
     Ok(Load::Ready(Box::new(Config {
         queue_dsn,
@@ -242,6 +256,8 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         disk_path: PathBuf::from(get("DELPHI_SHADOW_DISK_PATH").unwrap_or_else(|| "/".into())),
         disk_free_min_mb: number(&get, "DELPHI_SHADOW_DISK_FREE_MIN_MB", 10240, 0, 1 << 40)?,
         disk_used_max_pct: fraction(&get, "DELPHI_SHADOW_DISK_USED_MAX_PCT", 85.0, 1.0, 100.0)?,
+        storage_budget_bytes: storage_budget_mb * crate::shadow::storage::MIB,
+        storage_daily_bytes: storage_daily_mb * crate::shadow::storage::MIB,
         pause_file: get("DELPHI_SHADOW_PAUSE_FILE")
             .filter(|s| !s.is_empty())
             .map(PathBuf::from)
@@ -321,6 +337,8 @@ mod tests {
         assert_eq!(c.twin_every, 0, "twin runs are off unless asked");
         assert_eq!(c.duty_cycle, 0.5);
         assert_eq!(c.disk_free_min_mb, 10240);
+        assert_eq!(c.storage_budget_bytes, 1024 * 1024 * 1024, "1 GiB in all");
+        assert_eq!(c.storage_daily_bytes, 100 * 1024 * 1024, "100 MiB a day");
         assert_eq!(c.pause_file, PathBuf::from("/var/lib/delphi-shadow/pause"));
     }
 
@@ -371,5 +389,23 @@ mod tests {
             .is_err()
         );
         assert!(with(&[("DELPHI_SHADOW_MIN_COMMENTS", Some("4"))]).is_err());
+        assert!(with(&[("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("0"))]).is_err());
+        assert!(with(&[("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("-1"))]).is_err());
+        assert!(
+            with(&[
+                ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("50")),
+                ("DELPHI_SHADOW_STORAGE_DAILY_MB", Some("51"))
+            ])
+            .is_err(),
+            "a day may not hold more than the whole budget"
+        );
+        let c = ready(&[
+            ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("2048")),
+            ("DELPHI_SHADOW_STORAGE_DAILY_MB", Some("2048")),
+        ]);
+        assert_eq!(
+            (c.storage_budget_bytes, c.storage_daily_bytes),
+            (2048 << 20, 2048 << 20)
+        );
     }
 }

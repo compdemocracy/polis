@@ -89,6 +89,10 @@ pub struct State {
     /// The newest twin comparisons (`twin::Comparison` with both job ids).
     #[serde(default)]
     pub twin_results: Vec<serde_json::Value>,
+    /// The bytes the shadow has added to the database (`storage`). A state
+    /// file without it lists the shadow's jobs from the database again.
+    #[serde(default)]
+    pub storage: crate::shadow::storage::Ledger,
 }
 
 impl State {
@@ -104,6 +108,7 @@ impl State {
             first_runs_succeeded: 0,
             totals: Totals::default(),
             twin_results: Vec::new(),
+            storage: Default::default(),
         }
     }
 
@@ -139,6 +144,7 @@ impl State {
             self.day = day;
             self.day_runs = 0;
         }
+        self.storage.roll_day(now_ms);
     }
 }
 

@@ -542,6 +542,10 @@ services:
       - DELPHI_SHADOW_DISK_PATH=/
       - DELPHI_SHADOW_DISK_FREE_MIN_MB=${DELPHI_SHADOW_DISK_FREE_MIN_MB:-10240}
       - DELPHI_SHADOW_DISK_USED_MAX_PCT=${DELPHI_SHADOW_DISK_USED_MAX_PCT:-85}
+      # The bytes the shadow may add to the database (its rows cannot be
+      # deleted): in all, and per UTC day. Read per run, after it ends.
+      - DELPHI_SHADOW_STORAGE_BUDGET_MB=${DELPHI_SHADOW_STORAGE_BUDGET_MB:-1024}
+      - DELPHI_SHADOW_STORAGE_DAILY_MB=${DELPHI_SHADOW_STORAGE_DAILY_MB:-100}
       - DELPHI_SHADOW_STATE_PATH=/var/lib/delphi-shadow/scheduler/state.json
       - DELPHI_SHADOW_PAUSE_FILE=/var/lib/delphi-shadow/scheduler/pause
     volumes:
