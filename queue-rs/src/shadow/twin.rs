@@ -32,10 +32,17 @@ pub struct Comparison {
     pub layers_first: usize,
     pub layers_twin: usize,
     pub layers: Vec<Layer>,
-    /// Family → whether the two records' `content_sha256` are equal.
+    /// Family → whether the two records' `content_sha256` are equal. Families
+    /// that carry the run's own job id or time (the topic names' keys, the
+    /// UMAP configuration's dates) differ between any two runs; the cluster
+    /// assignments do not unless the clustering does.
     pub families: BTreeMap<String, bool>,
+    /// The same clustering: the same comments, the same layers, no comment
+    /// moved in any layer, and the assignments family's digest not different.
     pub identical: bool,
 }
+
+const ASSIGNMENTS: &str = "Delphi_CommentHierarchicalClusterAssignments";
 
 fn choose2(n: u64) -> f64 {
     (n as f64) * (n.saturating_sub(1) as f64) / 2.0
@@ -152,7 +159,7 @@ pub fn compare(
             }
         })
         .collect();
-    let identical = families.values().all(|same| *same)
+    let identical = families.get(ASSIGNMENTS) != Some(&false)
         && layers_first == layers_twin
         && first.len() == twin.len()
         && layers.iter().all(|l| l.moved == 0);
@@ -210,6 +217,11 @@ mod tests {
         let twin: BTreeMap<i64, Vec<i64>> = [(1, vec![0, 0]), (2, vec![1, 0]), (3, vec![1, 0])]
             .into_iter()
             .collect();
+        // A family that differs by construction (its rows carry the job id)
+        // does not make the same clustering a different one.
+        assert!(compare(&r1, &r2, &first, &first).identical);
+        let r3 = json!({"families":[{"family":ASSIGNMENTS,"content_sha256":"9"}]});
+        assert!(!compare(&r1, &r3, &first, &first).identical);
         let c = compare(&r1, &r2, &first, &twin);
         assert!(!c.identical);
         assert_eq!(c.families.get("A"), Some(&true));
