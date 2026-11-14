@@ -18,6 +18,7 @@ const ModerateCommentsSeed = ({ params }) => {
 
   const [csvText, setCsvText] = useState(undefined)
   const seedFormRef = useRef(null)
+  const mayContainMultipleStatements = /[\r\n]/.test(seedText) || seedText.length > 250
 
   const handleSubmitSeed = () => {
     const comment = {
@@ -104,6 +105,12 @@ const ModerateCommentsSeed = ({ params }) => {
               value={seedText}
               ref={seedFormRef}
             />
+            {mayContainMultipleStatements ? (
+              <Text role="status" sx={{ mt: 2 }}>
+                This field adds one statement at a time. If you are adding multiple statements,{' '}
+                <Link href="#seed-comments-csv-upload">upload a CSV of seed comments</Link> instead.
+              </Text>
+            ) : null}
           </Box>
           <Box>
             <Button onClick={handleSubmitSeed}>{getButtonText()}</Button>
@@ -114,6 +121,7 @@ const ModerateCommentsSeed = ({ params }) => {
       <Box sx={{ mt: 2, display: 'block' }}>
         <Heading
           as="h6"
+          id="seed-comments-csv-upload"
           sx={{
             fontSize: [1, null, 2],
             lineHeight: 'body',
