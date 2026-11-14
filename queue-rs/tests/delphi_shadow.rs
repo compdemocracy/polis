@@ -580,3 +580,47 @@ fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
     let next = s.state.in_flight.clone().unwrap();
     assert_eq!((next.zid, next.twin_of), (402, None));
 }
+
+#[test]
+fn a_twin_pending_across_a_deploy_is_dropped() {
+    use polis_queue_adapter::shadow::state::PendingTwin;
+    let f = Fixture::new();
+    f.conversation(501, 30);
+    let cfg = f.config(&[("DELPHI_SHADOW_TWIN_EVERY", "1")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = s.state.in_flight.clone().unwrap();
+    f.cancel(&first.job_id);
+    s.cycle().unwrap();
+    // As if the first run had succeeded; then a deploy: the scheduler starts
+    // again from its state file under the new source commit.
+    s.state.pending_twin = Some(PendingTwin {
+        zid: 501,
+        first_job_id: first.job_id.clone(),
+        digest: first.digest.clone(),
+        comments: first.comments,
+        assignments: [(0, vec![0])].into_iter().collect(),
+        twin_job_id: None,
+    });
+    s.rest_until_ms = 0;
+    s.state.save(&cfg.state_path).unwrap();
+    let deployed = f.config(&[
+        ("DELPHI_SHADOW_TWIN_EVERY", "1"),
+        (
+            "DELPHI_SHADOW_CODE_VERSION",
+            "fedcba9876543210fedcba9876543210fedcba98",
+        ),
+    ]);
+    let mut again = Scheduler::new(&deployed).unwrap();
+    again.cycle().unwrap();
+    assert!(
+        again.state.pending_twin.is_none(),
+        "a twin of another build is dropped"
+    );
+    assert!(
+        f.jobs()
+            .iter()
+            .all(|(_, _, _, config)| config["shadow"]["twin_of"].is_null()),
+        "no twin was admitted across the deploy"
+    );
+}

@@ -45,6 +45,15 @@ pub fn log(event: &str, mut fields: Value) {
     println!("{PREFIX} {fields}");
 }
 
+/// Whether a run record was admitted under this scheduler's code version (the
+/// deploy's source commit, which the daemon's image is built from).
+pub fn same_build(cfg: &Config, record: Option<&Value>) -> bool {
+    record
+        .and_then(|r| r.get("code_version"))
+        .and_then(Value::as_str)
+        == Some(cfg.code_version.as_str())
+}
+
 /// Sleep in short steps so a stop is noticed within a second.
 fn sleep(total: Duration) {
     let end = Instant::now() + total;
@@ -329,6 +338,17 @@ impl<'a> Scheduler<'a> {
             self.state.pending_twin = None;
             return Ok(false);
         }
+        // A deploy since the first run (a new image, a new scheduler) would
+        // make the pair measure two builds, not one build's repeatability.
+        let first = self.db.run_record(&pending.first_job_id)?;
+        if !same_build(self.cfg, first.as_ref()) {
+            log(
+                "twin_dropped",
+                json!({"first_job_id": pending.first_job_id, "reason": "code_version_changed"}),
+            );
+            self.state.pending_twin = None;
+            return Ok(false);
+        }
         let request = plan::admission(
             pending.zid,
             &set.digest,
@@ -391,6 +411,18 @@ impl<'a> Scheduler<'a> {
                 }
                 let first_record = self.db.run_record(first)?.unwrap_or(Value::Null);
                 let twin_record = record.cloned().unwrap_or(Value::Null);
+                // Both runs admitted by this scheduler's build: a deploy while
+                // the twin was queued or running would compare two builds.
+                if !same_build(self.cfg, Some(&first_record))
+                    || !same_build(self.cfg, Some(&twin_record))
+                {
+                    log(
+                        "twin_dropped",
+                        json!({"first_job_id": first, "twin_job_id": flight.job_id,
+                               "reason": "code_version_changed"}),
+                    );
+                    return Ok(());
+                }
                 let twin_rows = self.db.assignments(flight.zid)?;
                 let comparison = twin::compare(
                     &first_record,
