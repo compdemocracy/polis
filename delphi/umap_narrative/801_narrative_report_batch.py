@@ -1066,7 +1066,7 @@ class BatchReportGenerator(NarrativeSelection):
                         logger.error(f"Failed to connect to Delphi_JobQueue table: {str(e)}")
                         logger.error("Available tables:")
                         try:
-                            tables = list(dynamodb.tables.all())
+                            tables = list(self.dynamodb.tables.all())
                             for table in tables:
                                 logger.info(f"- {table.name}")
                         except Exception as e:
