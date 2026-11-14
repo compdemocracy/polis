@@ -68,6 +68,16 @@ pub struct Totals {
     /// conversations were below the comment floor, and above the cap.
     pub too_small: u64,
     pub too_large: u64,
+    /// And how many a run of which would pass a whole day's storage cap.
+    #[serde(default)]
+    pub too_costly: u64,
+    /// First runs admitted from the important-conversations list (of
+    /// `admitted`).
+    #[serde(default)]
+    pub important_admitted: u64,
+    /// And from the conversations with many participants.
+    #[serde(default)]
+    pub large_admitted: u64,
     pub twins_admitted: u64,
     pub twins_compared: u64,
     pub twins_identical: u64,

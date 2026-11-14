@@ -112,9 +112,10 @@ impl Fixture {
         }
     }
 
-    /// A conversation with `n` comments, its math row and one vote (a pass,
-    /// 0: the same value in every sign convention, as jobs_integration.rs
-    /// seeds its vote) so the math engine reads as caught up.
+    /// A conversation with `n` comments, its code (`c<zid>`), its math row
+    /// and one vote (a pass, 0: the same value in every sign convention, as
+    /// jobs_integration.rs seeds its vote) so the math engine reads as caught
+    /// up.
     fn conversation(&self, zid: i32, n: usize) {
         let mut c = self.superuser();
         let owner = zid * 1000;
@@ -126,6 +127,11 @@ impl Fixture {
         c.execute(
             "INSERT INTO conversations(zid,owner,topic,is_active) VALUES($1,$2,'generated',true)",
             &[&zid, &owner],
+        )
+        .unwrap();
+        c.execute(
+            "INSERT INTO zinvites(zid,zinvite) VALUES($1,$2)",
+            &[&zid, &format!("c{zid}")],
         )
         .unwrap();
         let pid: i32 = c
@@ -156,6 +162,23 @@ impl Fixture {
             "INSERT INTO math_main(zid,math_env,data,last_vote_timestamp,modified) \
              VALUES($1,'python','{}'::jsonb,0,now_as_millis())",
             &[&zid],
+        )
+        .unwrap();
+    }
+
+    /// A conversation with no comment created or moderated for a long time
+    /// (outside every live window) and `participants` participants.
+    fn quiet(&self, zid: i32, n: usize, participants: i32) {
+        self.conversation(zid, n);
+        let mut c = self.superuser();
+        c.execute(
+            "UPDATE comments SET modified = 1000 WHERE zid = $1",
+            &[&zid],
+        )
+        .unwrap();
+        c.execute(
+            "UPDATE conversations SET participant_count = $2 WHERE zid = $1",
+            &[&zid, &participants],
         )
         .unwrap();
     }
@@ -302,6 +325,79 @@ fn changed_sets_are_admitted_one_at_a_time_under_the_shadow_env_only() {
     assert_eq!(f.jobs().len(), 4);
 }
 
+/// Admit, record and cancel the next run; the zid admitted (None: nothing).
+fn next_admitted(f: &Fixture, s: &mut Scheduler<'_>) -> Option<i32> {
+    s.cycle().unwrap();
+    let flight = s.state.in_flight.clone()?;
+    f.cancel(&flight.job_id);
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_none());
+    Some(flight.zid)
+}
+
+#[test]
+fn the_important_list_then_large_conversations_then_live_ones_whatever_their_activity() {
+    let f = Fixture::new();
+    f.conversation(301, 30); // live, one participant
+    f.quiet(302, 25, 3); // important, listed second
+    f.quiet(303, 40, 3); // important, listed first
+    f.quiet(304, 35, 500); // large
+    f.quiet(305, 50, 250); // large, fewer participants
+    f.quiet(306, 22, 199); // neither: never run
+    f.quiet(307, 3, 900); // large but below the comment floor
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_IMPORTANT", "c303,c999unknown,c302,c303"),
+        ("DELPHI_SHADOW_LARGE_PARTICIPANTS", "200"),
+        ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    let mut order = Vec::new();
+    while let Some(zid) = next_admitted(&f, &mut s) {
+        order.push(zid);
+        assert!(order.len() <= 10, "{order:?}");
+    }
+    assert_eq!(order, [303, 302, 304, 305, 301]);
+    assert_eq!(f.jobs().len(), 5);
+    assert!(f.jobs().iter().all(|(env, ..)| env == ENV));
+    assert_eq!(s.state.totals.important_admitted, 2);
+    assert_eq!(s.state.totals.large_admitted, 2);
+    // Read once: the codes that exist in the list's order, the large ones
+    // most participants first (307 is listed, and too small to run).
+    let roster = s.roster.clone().unwrap();
+    let zids = |l: &[db::Live]| l.iter().map(|x| x.zid).collect::<Vec<_>>();
+    assert_eq!(zids(&roster.important), [303, 302]);
+    assert_eq!(zids(&roster.large), [307, 304, 305]);
+
+    // An important conversation that changes after the roster was read is
+    // seen at the next poll (through the live read) and goes first again.
+    f.superuser()
+        .execute(
+            "INSERT INTO comments(zid,pid,uid,txt,mod,active) VALUES(302,0,302000,'one more generated comment',0,true)",
+            &[],
+        )
+        .unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(302));
+    assert_eq!(next_admitted(&f, &mut s), None);
+
+    // The roster is not read again the same day: a conversation that grows
+    // past the threshold now waits for the next day's read.
+    f.superuser()
+        .execute(
+            "UPDATE conversations SET participant_count = 900 WHERE zid = 306",
+            &[],
+        )
+        .unwrap();
+    assert_eq!(next_admitted(&f, &mut s), None);
+    if let Some(r) = s.roster.as_mut() {
+        r.day -= 1;
+    }
+    assert_eq!(next_admitted(&f, &mut s), Some(306));
+    assert_eq!(
+        zids(&s.roster.as_ref().unwrap().large),
+        [306, 307, 304, 305]
+    );
+}
+
 #[test]
 fn every_pause_reason_holds_admission() {
     let f = Fixture::new();
@@ -394,7 +490,11 @@ fn participation(c: &mut Client, zid: i32, i: usize) -> Duration {
 fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait() {
     let f = Fixture::new();
     f.conversation(201, 30);
-    let cfg = f.config(&[]);
+    // Both roster sources on, so every cycle's reads include them.
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_IMPORTANT", "c201"),
+        ("DELPHI_SHADOW_LARGE_PARTICIPANTS", "1"),
+    ]);
     let mut part = f.superuser();
 
     // 1. The read session, held open across the participation statements: its
@@ -402,6 +502,8 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     let mut read = Client::connect(&cfg.read_dsn, NoTls).unwrap();
     let slow_read = db::read_only(&mut read, 30_000, |tx| {
         db::live(tx, 0)?;
+        assert_eq!(db::important(tx, &["c201".to_owned()])?.len(), 1);
+        assert_eq!(db::large(tx, 1)?.len(), 1);
         db::comment_set(tx, 201)?;
         db::math_lag(tx, "python")?;
         let mut slowest = Duration::ZERO;
@@ -458,7 +560,9 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     assert!(slowest < Duration::from_secs(1));
 
     // 3. Whole cycles, with the participation statements running beside them:
-    // never more than one connection per login, none left open after.
+    // never more than one connection per login, none left open after. Counted
+    // in this test's own database: the other tests' schedulers run beside it
+    // on the same server, each in its own.
     let stop = Arc::new(AtomicBool::new(false));
     let most = Arc::new(AtomicUsize::new(0));
     let sampler = {
@@ -468,7 +572,8 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
             while !stop.load(Ordering::SeqCst) {
                 let n: i64 = c
                     .query_one(
-                        "SELECT count(*) FROM pg_stat_activity WHERE application_name = ANY($1)",
+                        "SELECT count(*) FROM pg_stat_activity \
+                         WHERE application_name = ANY($1) AND datname = current_database()",
                         &[&vec![db::READ_APPLICATION, db::QUEUE_APPLICATION]],
                     )
                     .unwrap()
@@ -481,6 +586,9 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     let mut s = Scheduler::new(&cfg).unwrap();
     s.state.in_flight = None;
     for i in 10..30 {
+        // A new day's roster read in every cycle, beside the participation
+        // statements.
+        s.roster = None;
         s.cycle().unwrap();
         s.rest_until_ms = 0;
         if let Some(flight) = s.state.in_flight.clone() {
@@ -500,7 +608,8 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     let open: i64 = f
         .superuser()
         .query_one(
-            "SELECT count(*) FROM pg_stat_activity WHERE application_name = ANY($1)",
+            "SELECT count(*) FROM pg_stat_activity \
+                         WHERE application_name = ANY($1) AND datname = current_database()",
             &[&vec![db::READ_APPLICATION, db::QUEUE_APPLICATION]],
         )
         .unwrap()

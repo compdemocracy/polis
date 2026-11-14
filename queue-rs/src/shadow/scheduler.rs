@@ -5,12 +5,17 @@
 //! pause file, a disk below its floor, a slow database, a math engine that
 //! trails the votes, the daily cap, or the storage budget (the bytes the
 //! shadow has added to the database, in all and today, read once per run:
-//! `storage`); after each run it rests for the duty cycle. It writes one `delphi_shadow/1` line per event on standard output:
+//! `storage`); after each run it rests for the duty cycle. It picks from three
+//! sources in priority order: the important-conversations list
+//! (`DELPHI_SHADOW_IMPORTANT`, in its order), the conversations with at least
+//! `DELPHI_SHADOW_LARGE_PARTICIPANTS` participants (most first), both whatever
+//! their recent activity and read once a day (`Roster`), then the live
+//! conversations whose comment set changed. It writes one `delphi_shadow/1` line per event on standard output:
 //! job ids, counts, seconds, digests and closed words, never a comment or a
 //! conversation id (the run record has those).
 use super::{
     config::Config,
-    db::{Db, Signals},
+    db::{Db, Live, Signals},
     plan::{self, Look, Pause},
     state::{InFlight, PendingTwin, State, TWIN_RESULTS_KEPT},
     storage::{MEASURE_PER_CYCLE, Pending},
@@ -68,6 +73,20 @@ fn sleep(total: Duration) {
     }
 }
 
+/// The two sources read whatever their recent activity, read at the start and
+/// once each UTC day: the important conversations in the list's order, and
+/// the conversations with many participants, most first. Between reads each
+/// entry takes this cycle's live read when it has one (`plan::overlay`), so a
+/// change to one of them is seen at the next poll without reading the roster
+/// again.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Roster {
+    /// The UTC day (days since the epoch) it was read on.
+    pub day: i64,
+    pub important: Vec<Live>,
+    pub large: Vec<Live>,
+}
+
 /// What a waiting twin came to.
 enum TwinStep {
     Nothing,
@@ -81,6 +100,11 @@ pub struct Scheduler<'a> {
     pub state: State,
     pub paused: Option<Pause>,
     pub rest_until_ms: i64,
+    /// The important and large conversations, once read (`Roster`).
+    pub roster: Option<Roster>,
+    /// When a roster read last failed: the next is tried after
+    /// `roster_retry`, so a failing read is not repeated every poll.
+    pub roster_failed_at_ms: Option<i64>,
 }
 
 impl<'a> Scheduler<'a> {
@@ -92,6 +116,8 @@ impl<'a> Scheduler<'a> {
             state,
             paused: None,
             rest_until_ms: 0,
+            roster: None,
+            roster_failed_at_ms: None,
         })
     }
 
@@ -108,7 +134,10 @@ impl<'a> Scheduler<'a> {
             "started",
             json!({"env": self.cfg.env, "min_comments": self.cfg.min_comments,
                    "max_comments": self.cfg.max_comments, "daily_runs": self.cfg.daily_runs,
-                   "twin_every": self.cfg.twin_every, "duty_cycle": self.cfg.duty_cycle}),
+                   "twin_every": self.cfg.twin_every, "duty_cycle": self.cfg.duty_cycle,
+                   "important": self.cfg.important.len(),
+                   "storage_budget_bytes": self.cfg.storage_budget_bytes,
+                   "storage_daily_bytes": self.cfg.storage_daily_bytes}),
         );
         while !stopping() {
             let wait = match self.cycle() {
@@ -241,26 +270,81 @@ impl<'a> Scheduler<'a> {
         )
     }
 
+    /// Read the roster at the start and on a new UTC day. A read that fails
+    /// keeps the roster there is (none at the start: the live conversations
+    /// still run) and is tried again after `roster_retry`.
+    fn refresh_roster(&mut self, now: i64) {
+        let day = now.div_euclid(86_400_000);
+        if self.roster.as_ref().is_some_and(|r| r.day == day) {
+            return;
+        }
+        if let Some(at) = self.roster_failed_at_ms
+            && now - at < self.cfg.roster_retry.as_millis() as i64
+        {
+            return;
+        }
+        let read = self
+            .db
+            .roster(&self.cfg.important, self.cfg.large_participants)
+            .map(|(important, large)| Roster {
+                day,
+                important,
+                large,
+            });
+        match read {
+            Ok(roster) => {
+                // Counts only: never a code or a conversation id.
+                log(
+                    "roster",
+                    json!({"important": self.cfg.important.len(),
+                           "important_found": roster.important.len(),
+                           "large_participants": self.cfg.large_participants,
+                           "large": roster.large.len()}),
+                );
+                self.roster = Some(roster);
+                self.roster_failed_at_ms = None;
+            }
+            Err(e) => {
+                log("roster_unread", json!({"error": e.to_string()}));
+                self.roster_failed_at_ms = Some(now);
+            }
+        }
+    }
+
     /// Admit the next run, or say why not: `Some` when the storage budget
-    /// holds the next run back.
+    /// holds the next run back. The important conversations are tried first,
+    /// in the list's order, then the large ones, most participants first,
+    /// then the live ones, smallest first. The first candidate whose run does
+    /// not fit the budget holds admission: in the first two that keeps their
+    /// priority (nothing after it goes first); among the live ones, none
+    /// after it is smaller.
     fn pick_and_admit(&mut self, now: i64) -> Result<Option<Pause>> {
         match self.admit_twin(now)? {
             TwinStep::Admitted => return Ok(None),
             TwinStep::Held(reason) => return Ok(Some(reason)),
             TwinStep::Nothing => {}
         }
+        self.refresh_roster(now);
         let since = now - self.cfg.live_days as i64 * 86_400_000;
         let live = self.db.live(since)?;
-        let (mut small, mut large) = (0u64, 0u64);
-        for l in &live {
+        let roster = self.roster.clone().unwrap_or_default();
+        let important = plan::overlay(&roster.important, &live);
+        let large = plan::overlay(&roster.large, &live);
+        let (mut small, mut too_large, mut costly) = (0u64, 0u64, 0u64);
+        let mut counted = std::collections::BTreeSet::new();
+        for l in important.iter().chain(&large).chain(&live) {
+            if !counted.insert(l.zid) {
+                continue;
+            }
             match plan::look(self.cfg, &self.state, l, now) {
                 Look::TooSmall => small += 1,
-                Look::TooLarge => large += 1,
+                Look::TooLarge => too_large += 1,
+                Look::TooCostly => costly += 1,
                 _ => {}
             }
         }
-        let candidates = plan::order(self.cfg, &self.state, &live, now);
-        for candidate in candidates {
+        let candidates = plan::candidates(self.cfg, &self.state, &important, &large, &live, now);
+        for (candidate, source) in candidates {
             let set = self.db.comment_set(candidate.zid)?;
             let seen = self.state.conversations.entry(candidate.zid).or_default();
             let unchanged = seen.admitted_digest.as_deref() == Some(set.digest.as_str());
@@ -273,7 +357,7 @@ impl<'a> Scheduler<'a> {
                 self.state.totals.unchanged += 1;
                 log(
                     "unchanged",
-                    json!({"comments": set.comments,
+                    json!({"comments": set.comments, "selected": source.word(),
                     "size_class": plan::size_class(set.comments), "digest": set.digest}),
                 );
                 continue;
@@ -281,20 +365,22 @@ impl<'a> Scheduler<'a> {
             if set.comments < self.cfg.min_comments || set.comments > self.cfg.max_comments {
                 continue;
             }
-            // Candidates go smallest first: when this one does not fit, none
-            // after it does.
             if let Some(reason) = plan::storage_room(self.cfg, &self.state.storage, set.comments) {
                 return Ok(Some(reason));
             }
             let request = plan::admission(candidate.zid, &set.digest, set.comments, None);
-            self.admit(request, set.comments, None, now)?;
+            self.admit(request, set.comments, None, Some(source), now)?;
             return Ok(None);
         }
         self.state.totals.too_small = small;
-        self.state.totals.too_large = large;
+        self.state.totals.too_large = too_large;
+        self.state.totals.too_costly = costly;
+        // Counts only: never a code or a conversation id.
         log(
             "idle",
-            json!({"live": live.len(), "too_small": small, "too_large": large}),
+            json!({"live": live.len(), "important": self.cfg.important.len(),
+                   "important_found": important.len(), "large": large.len(),
+                   "too_small": small, "too_large": too_large, "too_costly": costly}),
         );
         Ok(None)
     }
@@ -304,6 +390,7 @@ impl<'a> Scheduler<'a> {
         request: super::db::Admission,
         comments: i64,
         twin_of: Option<String>,
+        source: Option<plan::Source>,
         now: i64,
     ) -> Result<()> {
         self.resume();
@@ -336,12 +423,18 @@ impl<'a> Scheduler<'a> {
             self.state.totals.twins_admitted += 1;
         } else {
             self.state.totals.admitted += 1;
+            match source {
+                Some(plan::Source::Important) => self.state.totals.important_admitted += 1,
+                Some(plan::Source::Large) => self.state.totals.large_admitted += 1,
+                _ => {}
+            }
         }
         self.state.day_runs += 1;
         log(
             "admitted",
             json!({"job_id": job_id, "outcome": outcome, "comments": comments,
-                   "size_class": plan::size_class(comments), "digest": digest, "twin_of": twin_of}),
+                   "size_class": plan::size_class(comments), "digest": digest, "twin_of": twin_of,
+                   "selected": source.map_or("twin", plan::Source::word)}),
         );
         self.state.in_flight = Some(InFlight {
             zid: request.zid,
@@ -456,6 +549,7 @@ impl<'a> Scheduler<'a> {
             request,
             set.comments,
             Some(pending.first_job_id.clone()),
+            None,
             now,
         )?;
         match self.state.in_flight.as_ref() {

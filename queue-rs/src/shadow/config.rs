@@ -15,6 +15,8 @@ pub const ENV_PREFIX: &str = "shadow-";
 pub const SCOPE: &str = "delphi";
 /// The admission's actor.
 pub const ACTOR: &str = "delphi-shadow";
+/// The most conversation codes `DELPHI_SHADOW_IMPORTANT` may list.
+pub const IMPORTANT_MAX: usize = 10_000;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -43,6 +45,21 @@ pub struct Config {
     /// Every Nth first run on a comment set is repeated once on the same set;
     /// 0 is off.
     pub twin_every: u32,
+    /// Conversation codes (`zinvites.zinvite`, the code in a conversation's
+    /// URL) read whatever their recent activity, before the live ones, highest
+    /// priority first (`DELPHI_SHADOW_IMPORTANT`, in the order it lists them;
+    /// empty by default). Each is still held to the comment bounds, the rerun
+    /// window, the pacing and the storage budget.
+    pub important: Vec<String>,
+    /// Every conversation with at least this many participants
+    /// (`conversations.participant_count`) is read too, after the important
+    /// ones and before the live ones, most participants first, whatever its
+    /// recent activity (`DELPHI_SHADOW_LARGE_PARTICIPANTS`, 200 by default; 0
+    /// turns this source off).
+    pub large_participants: i32,
+    /// How often the roster of those two sources is read again at most after
+    /// a read that failed.
+    pub roster_retry: Duration,
     /// The share of wall time spent running: after a run of length d the
     /// scheduler rests d·(1−duty)/duty before the next admission.
     pub duty_cycle: f64,
@@ -118,6 +135,40 @@ fn fraction<F: Fn(&str) -> Option<String>>(
         Ok(v) if v.is_finite() && v >= min && v <= max => Ok(v),
         _ => err(format!("{key} must be a number in {min}..={max}")),
     }
+}
+
+/// A conversation code as `zinvites.zinvite` holds it: 1 to 64 letters and
+/// digits (the server writes lowercase ones; an imported one may differ).
+pub fn valid_code(code: &str) -> bool {
+    (1..=64).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_alphanumeric())
+}
+
+/// `DELPHI_SHADOW_IMPORTANT`: codes separated by commas or white space, highest
+/// priority first. A repeated code keeps its first place. An entry that is not
+/// a code is refused by its position, never its text: the list is the
+/// operator's, and the log carries no conversation's name.
+pub fn important_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
+    let mut out: Vec<String> = Vec::new();
+    let entries = raw
+        .split(|c: char| c == ',' || c.is_whitespace())
+        .filter(|e| !e.is_empty());
+    for (i, entry) in entries.enumerate() {
+        if !valid_code(entry) {
+            return err(format!(
+                "DELPHI_SHADOW_IMPORTANT entry {} is not a conversation code (1-64 letters and digits)",
+                i + 1
+            ));
+        }
+        if !out.iter().any(|c| c == entry) {
+            out.push(entry.to_owned());
+        }
+    }
+    if out.len() > IMPORTANT_MAX {
+        return err(format!(
+            "DELPHI_SHADOW_IMPORTANT lists more than {IMPORTANT_MAX} conversations"
+        ));
+    }
+    Ok(out)
 }
 
 /// A shadow env: the prefix, then 1 to 57 characters of `[a-z0-9_-]`.
@@ -206,6 +257,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             "DELPHI_SHADOW_STORAGE_DAILY_MB must not exceed DELPHI_SHADOW_STORAGE_BUDGET_MB",
         );
     }
+    let important = important_codes(&get("DELPHI_SHADOW_IMPORTANT").unwrap_or_default())?;
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
     Ok(Load::Ready(Box::new(Config {
         queue_dsn,
@@ -238,6 +290,16 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             7 * 86400,
         )?),
         twin_every: number(&get, "DELPHI_SHADOW_TWIN_EVERY", 0, 0, 1_000_000)? as u32,
+        important,
+        large_participants: number(&get, "DELPHI_SHADOW_LARGE_PARTICIPANTS", 200, 0, 1 << 30)?
+            as i32,
+        roster_retry: Duration::from_secs(number(
+            &get,
+            "DELPHI_SHADOW_ROSTER_RETRY_SECONDS",
+            3600,
+            1,
+            86400,
+        )?),
         duty_cycle: fraction(&get, "DELPHI_SHADOW_DUTY_CYCLE", 0.5, 0.05, 1.0)?,
         probe_max: Duration::from_millis(number(
             &get,
@@ -343,7 +405,65 @@ mod tests {
             "3 GiB in all"
         );
         assert_eq!(c.storage_daily_bytes, 300 * 1024 * 1024, "300 MiB a day");
+        assert!(
+            c.important.is_empty(),
+            "no conversation is important unless listed"
+        );
+        assert_eq!(
+            c.large_participants, 200,
+            "every conversation of 200 participants or more"
+        );
+        assert_eq!(c.roster_retry, Duration::from_secs(3600));
+        assert_eq!(
+            ready(&[("DELPHI_SHADOW_LARGE_PARTICIPANTS", Some("0"))]).large_participants,
+            0
+        );
+        assert!(with(&[("DELPHI_SHADOW_LARGE_PARTICIPANTS", Some("-1"))]).is_err());
         assert_eq!(c.pause_file, PathBuf::from("/var/lib/delphi-shadow/pause"));
+    }
+
+    #[test]
+    fn the_important_list_keeps_its_order_and_refuses_what_is_not_a_code() {
+        let c = ready(&[(
+            "DELPHI_SHADOW_IMPORTANT",
+            Some(" 3abcd2efgh, 2xyz\n9Mixed7 ,,2xyz 3abcd2efgh\t4last "),
+        )]);
+        assert_eq!(c.important, ["3abcd2efgh", "2xyz", "9Mixed7", "4last"]);
+        assert!(
+            ready(&[("DELPHI_SHADOW_IMPORTANT", Some(" , "))])
+                .important
+                .is_empty()
+        );
+        for bad in [
+            "2abc,https://pol.is/2abc",
+            "2abc;3def",
+            "2ab-c",
+            &"a".repeat(65),
+        ] {
+            let e = with(&[("DELPHI_SHADOW_IMPORTANT", Some(bad))]).unwrap_err();
+            assert!(e.0.contains("DELPHI_SHADOW_IMPORTANT entry"), "{bad}: {e}");
+            assert!(
+                !e.0.contains("pol.is") && !e.0.contains("2ab"),
+                "never the entry's text: {e}"
+            );
+        }
+        assert!(
+            with(&[("DELPHI_SHADOW_IMPORTANT", Some("2abc,3def;"))])
+                .unwrap_err()
+                .0
+                .contains("entry 2")
+        );
+        let many: Vec<String> = (0..=IMPORTANT_MAX).map(|i| format!("c{i}")).collect();
+        assert!(with(&[("DELPHI_SHADOW_IMPORTANT", Some(&many.join(",")))]).is_err());
+        assert_eq!(
+            ready(&[(
+                "DELPHI_SHADOW_IMPORTANT",
+                Some(&many[..IMPORTANT_MAX].join(","))
+            )])
+            .important
+            .len(),
+            IMPORTANT_MAX
+        );
     }
 
     #[test]

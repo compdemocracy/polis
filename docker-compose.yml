@@ -536,6 +536,12 @@ services:
       - DELPHI_SHADOW_JOB_POLL_SECONDS=${DELPHI_SHADOW_JOB_POLL_SECONDS:-5}
       - DELPHI_SHADOW_JOB_DEADLINE_SECONDS=${DELPHI_SHADOW_JOB_DEADLINE_SECONDS:-14400}
       - DELPHI_SHADOW_TWIN_EVERY=${DELPHI_SHADOW_TWIN_EVERY:-0}
+      # What it runs, in priority order: the conversation codes listed here
+      # (commas, in priority order; empty by default, and set only in the
+      # environment document), then every conversation of at least this many
+      # participants, then the live ones. Each within the bounds and budget.
+      - DELPHI_SHADOW_IMPORTANT=${DELPHI_SHADOW_IMPORTANT:-}
+      - DELPHI_SHADOW_LARGE_PARTICIPANTS=${DELPHI_SHADOW_LARGE_PARTICIPANTS:-200}
       - DELPHI_SHADOW_DUTY_CYCLE=${DELPHI_SHADOW_DUTY_CYCLE:-0.5}
       - DELPHI_SHADOW_PROBE_MAX_MS=${DELPHI_SHADOW_PROBE_MAX_MS:-250}
       - DELPHI_SHADOW_MATH_LAG_MAX_SECONDS=${DELPHI_SHADOW_MATH_LAG_MAX_SECONDS:-180}
