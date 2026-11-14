@@ -3,8 +3,8 @@
 //! Shadow rows cannot be deleted (result rows, families and embeddings are
 //! immutable by trigger, and nothing prunes a shadow env yet), so the
 //! scheduler stops admitting when the shadow has added
-//! `DELPHI_SHADOW_STORAGE_BUDGET_MB` in all (1 GiB by default), or
-//! `DELPHI_SHADOW_STORAGE_DAILY_MB` in one UTC day (100 MiB by default).
+//! `DELPHI_SHADOW_STORAGE_BUDGET_MB` in all (3 GiB by default), or
+//! `DELPHI_SHADOW_STORAGE_DAILY_MB` in one UTC day (300 MiB by default).
 //!
 //! How the bytes are read, cheaply: never by scanning a table. Each run's
 //! bytes are read from the database once, after the run is terminal, by one

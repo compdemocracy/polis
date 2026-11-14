@@ -57,11 +57,11 @@ pub struct Config {
     pub disk_free_min_mb: u64,
     pub disk_used_max_pct: f64,
     /// Nothing is admitted once the shadow has added this many bytes to the
-    /// database in all (`DELPHI_SHADOW_STORAGE_BUDGET_MB`, 1 GiB by default),
+    /// database in all (`DELPHI_SHADOW_STORAGE_BUDGET_MB`, 3 GiB by default),
     /// or would with the next run (`storage`).
     pub storage_budget_bytes: u64,
     /// Nor once it has added this many in the current UTC day
-    /// (`DELPHI_SHADOW_STORAGE_DAILY_MB`, 100 MiB by default).
+    /// (`DELPHI_SHADOW_STORAGE_DAILY_MB`, 300 MiB by default).
     pub storage_daily_bytes: u64,
     /// While this file exists, nothing is admitted (the operator's pause).
     pub pause_file: PathBuf,
@@ -199,8 +199,8 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     if min_comments > max_comments {
         return err("DELPHI_SHADOW_MIN_COMMENTS must not exceed DELPHI_SHADOW_MAX_COMMENTS");
     }
-    let storage_budget_mb = number(&get, "DELPHI_SHADOW_STORAGE_BUDGET_MB", 1024, 1, 1 << 20)?;
-    let storage_daily_mb = number(&get, "DELPHI_SHADOW_STORAGE_DAILY_MB", 100, 1, 1 << 20)?;
+    let storage_budget_mb = number(&get, "DELPHI_SHADOW_STORAGE_BUDGET_MB", 3072, 1, 1 << 20)?;
+    let storage_daily_mb = number(&get, "DELPHI_SHADOW_STORAGE_DAILY_MB", 300, 1, 1 << 20)?;
     if storage_daily_mb > storage_budget_mb {
         return err(
             "DELPHI_SHADOW_STORAGE_DAILY_MB must not exceed DELPHI_SHADOW_STORAGE_BUDGET_MB",
@@ -337,8 +337,12 @@ mod tests {
         assert_eq!(c.twin_every, 0, "twin runs are off unless asked");
         assert_eq!(c.duty_cycle, 0.5);
         assert_eq!(c.disk_free_min_mb, 10240);
-        assert_eq!(c.storage_budget_bytes, 1024 * 1024 * 1024, "1 GiB in all");
-        assert_eq!(c.storage_daily_bytes, 100 * 1024 * 1024, "100 MiB a day");
+        assert_eq!(
+            c.storage_budget_bytes,
+            3 * 1024 * 1024 * 1024,
+            "3 GiB in all"
+        );
+        assert_eq!(c.storage_daily_bytes, 300 * 1024 * 1024, "300 MiB a day");
         assert_eq!(c.pause_file, PathBuf::from("/var/lib/delphi-shadow/pause"));
     }
 

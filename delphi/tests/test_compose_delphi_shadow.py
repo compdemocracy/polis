@@ -122,8 +122,8 @@ def test_the_scheduler_names_the_daemons_shadow_env():
     assert scheduler["DELPHI_SHADOW_ENV"].startswith("shadow-")
     assert scheduler["DELPHI_SHADOW_CODE_VERSION"] == PRODUCTION_LIKE["MATH_POLLER_SOURCE_COMMIT"]
     assert scheduler["DELPHI_SHADOW_TWIN_EVERY"] == "0", "twin runs are off unless asked"
-    # The storage budget: 1 GiB in all, 100 MiB a day, unless the document says.
-    assert (scheduler["DELPHI_SHADOW_STORAGE_BUDGET_MB"], scheduler["DELPHI_SHADOW_STORAGE_DAILY_MB"]) == ("1024", "100")
+    # The storage budget: 3 GiB in all, 300 MiB a day, unless the document says.
+    assert (scheduler["DELPHI_SHADOW_STORAGE_BUDGET_MB"], scheduler["DELPHI_SHADOW_STORAGE_DAILY_MB"]) == ("3072", "300")
     other = dict(PRODUCTION_LIKE, DELPHI_SHADOW_ENV="shadow-twin-1")
     assert _environment(services["delphi-shadow"], other)["QUEUE_ENV"] == "shadow-twin-1"
     assert _environment(services["delphi-shadow-scheduler"], other)["QUEUE_ENV"] == "shadow-twin-1"
