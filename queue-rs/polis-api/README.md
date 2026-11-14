@@ -1753,9 +1753,12 @@ it. The main role reads only `1` and is unchanged: `observe` there is off.
 With none of the switches at `observe`, the shadow role builds no read lane and
 no read pool, answers a GET with 404 as before, and prints and reports what it
 did before; tests pin its lines, its `/health` and its pools byte for byte
-(`src/post_votes_shadow_pinned_tests.rs`). Nothing in this release sends the
-shadow a copy of a read: nginx, Compose and the deploy know none of the three
-selector names.
+(`src/post_votes_shadow_pinned_tests.rs`). nginx sends a copy of a read only
+when `RUST_API_ROUTES` names its selector, and only to the read shadow
+service, `polis-api-shadow-reads` in `docker-compose.yml`, which the web
+deploy starts only then and whose lane switches it sets to `observe` exactly
+for the named selectors (`file-server/nginx/ROUTING.md`, "The read shadows").
+With no read selector named nothing is sent and the service does not run.
 
 A copy is a `GET` on the route's path that carries the route's selector name.
 It is answered `204 No Content` at once, before any database work. Then, in
@@ -1770,7 +1773,10 @@ another read lane, and a test floods all three with every one of their
 connections held and finds the vote and comment observations unchanged
 (`src/post_votes_read_lanes_tests.rs`). The lanes share the process's CPU
 with whatever else the process observes, so a process that observes votes
-should not also be given the reads.
+should not also be given the reads: Compose runs them in a service of their
+own with no observer (its vote, identity and comment switches are empty), the
+vote and comment shadow service has the three read switches empty, and the
+web deploy and its validation refuse either service composed otherwise.
 
 Each of the three handlers records why it hands a request back to Node: one
 word of a closed set. A live request's answer is unchanged by this, byte for

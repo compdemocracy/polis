@@ -71,7 +71,7 @@ FAKES = {
     "sudo": '#!/bin/bash\nexec "$@"\n',
     "yum": RECORD,
     "systemctl": RECORD,
-    "docker-compose": RECORD + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
+    "docker-compose": RECORD + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # Real jq consumes its input; the fake must too, or pipefail can report
     # SIGPIPE from the producer when this reader exits before it writes.
@@ -80,8 +80,9 @@ FAKES = {
     # from the override file the hook wrote in its working directory, unless
     # a test says what the composed configuration holds.
     # The read-back of the shadow service's own settings prints the names of
-    # the ones that are wrong: none, unless a test says which.
-    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
+    # the ones that are wrong: none, unless a test says which. So do the read
+    # shadow service's two read-backs: its lanes' switches and its settings.
+    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -194,8 +195,14 @@ def _manifest(revision=REVISION, changes=None):
 
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls",
-            shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None, **kw):
+            shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None,
+            reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None, **kw):
     root, env = _box(tmp_path, service_type, **kw)
+    env["FAKE_READS_START_FAILURE"] = "1" if reads_start_failure else "0"
+    if reads_switches_wrong is not None:
+        env["FAKE_READS_SWITCHES_WRONG"] = reads_switches_wrong
+    if reads_settings_wrong is not None:
+        env["FAKE_READS_SETTINGS_WRONG"] = reads_settings_wrong
     if shadow_comments_switch is not None:
         env["FAKE_SHADOW_COMMENTS_SWITCH"] = shadow_comments_switch
     if shadow_settings_wrong is not None:
@@ -780,9 +787,14 @@ def test_the_shadow_service_carries_the_comment_observers_settings_with_its_swit
     # The vote observer's settings are untouched.
     assert "- POLIS_API_POST_VOTES=observe" in lines
     assert "- POLIS_API_SHADOW_MAX_PER_SECOND=8" in lines
-    # Nothing else in the file names the comment handler's switch: the main
-    # polis-api takes it from the env document, as it takes the vote switch.
-    assert compose.count("POLIS_API_POST_COMMENTS=") == 1
+    # Nothing else in the file names the comment handler's switch but the read
+    # shadow service, where it is empty too: the main polis-api takes it from
+    # the env document, as it takes the vote switch.
+    main = compose.split("\n  polis-api:\n", 1)[1].split("\n\n", 1)[0]
+    assert "POLIS_API_POST_COMMENTS" not in main
+    reads = compose.split("\n  polis-api-shadow-reads:\n", 1)[1].split("\n\n", 1)[0]
+    assert [line.strip() for line in reads.splitlines() if "POLIS_API_POST_COMMENTS=" in line] == ["- POLIS_API_POST_COMMENTS="]
+    assert compose.count("POLIS_API_POST_COMMENTS=") == 2
 
 
 # The read-back also covers what makes the service the shadow service at all:
@@ -793,7 +805,9 @@ def test_the_shadow_service_carries_the_comment_observers_settings_with_its_swit
 # configuration, before anything is replaced, and jq prints only the names of
 # the settings that are wrong.
 SHADOW_SETTINGS = {"POLIS_API_ROLE": "shadow", "POLIS_API_SHADOW_LISTEN": "0.0.0.0:5101",
-                   "POLIS_API_POST_VOTES": "observe", "JWT_PRIVATE_KEY": "", "JWT_PRIVATE_KEY_PATH": ""}
+                   "POLIS_API_POST_VOTES": "observe", "JWT_PRIVATE_KEY": "", "JWT_PRIVATE_KEY_PATH": "",
+                   # The read lanes never run beside the vote and comment observers.
+                   "POLIS_API_VOTES_READS": "", "POLIS_API_COMMENT_READS": "", "POLIS_API_NEXT_COMMENT_READS": ""}
 SHADOW_ROUTES = ["votesShadow", "pca2,votesShadow", "pca2,commentsShadow", "pca2,votesShadow,commentsShadow"]
 
 
@@ -922,6 +936,18 @@ def _without(*names):
     (dict(_RIGHT, JWT_PRIVATE_KEY_PATH="/run/secrets/not-printed"), "JWT_PRIVATE_KEY_PATH"),
     (dict(_RIGHT, JWT_PRIVATE_KEY=_KEY, JWT_PRIVATE_KEY_PATH="/run/secrets/not-printed"),
      "JWT_PRIVATE_KEY JWT_PRIVATE_KEY_PATH"),
+    # A read lane switched on in this service, beside the vote and comment
+    # observers whose CPU it would share, is named; one Compose leaves
+    # unresolved or does not print is off.
+    (dict(_RIGHT, POLIS_API_VOTES_READS="observe"), "POLIS_API_VOTES_READS"),
+    (dict(_RIGHT, POLIS_API_COMMENT_READS="observe"), "POLIS_API_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_NEXT_COMMENT_READS="observe"), "POLIS_API_NEXT_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_NEXT_COMMENT_READS="1"), "POLIS_API_NEXT_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_VOTES_READS="observe", POLIS_API_COMMENT_READS="observe",
+          POLIS_API_NEXT_COMMENT_READS="observe"),
+     "POLIS_API_VOTES_READS POLIS_API_COMMENT_READS POLIS_API_NEXT_COMMENT_READS"),
+    (dict(_RIGHT, POLIS_API_VOTES_READS=None, POLIS_API_COMMENT_READS=None, POLIS_API_NEXT_COMMENT_READS=None), ""),
+    (_without("POLIS_API_VOTES_READS", "POLIS_API_COMMENT_READS", "POLIS_API_NEXT_COMMENT_READS"), ""),
     # The service's list replaced by the override's one entry, with the env
     # document's signing key then reaching the service.
     ({"POLIS_API_POST_COMMENTS": "observe", "JWT_PRIVATE_KEY": _KEY},
@@ -939,3 +965,283 @@ def test_the_real_jq_names_exactly_the_wrong_settings_and_prints_no_value(enviro
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout == named + "\n"
     assert "not-printed" not in proc.stdout + proc.stderr
+
+
+# The read shadow (RUST_API_ROUTES names votesReadShadow, commentsReadShadow
+# or nextCommentShadow): nginx copies each GET of that read Node answers to
+# polis-api-shadow-reads, a service of its own on the polis-api image the
+# hook already pulls, which starts when any read shadow is selected and only
+# then. Each lane's switch is derived here from the route list and written
+# into the Compose override: observe exactly for the named selectors. With no
+# read shadow named the override says nothing of the service.
+READS_UP = "up -d --no-deps --no-build --force-recreate polis-api-shadow-reads"
+READS_TRANSPORT = '-r .services["polis-api-shadow-reads"].environment.POLIS_API_DB_TRANSPORT // "tls"'
+READ_SWITCHES = {"votesReadShadow": "POLIS_API_VOTES_READS", "commentsReadShadow": "POLIS_API_COMMENT_READS",
+                 "nextCommentShadow": "POLIS_API_NEXT_COMMENT_READS"}
+READS_SETTINGS = {"POLIS_API_ROLE": "shadow", "POLIS_API_SHADOW_LISTEN": "0.0.0.0:5102", "POLIS_API_POST_VOTES": "",
+                  "POLIS_API_POST_VOTES_IDENTITY": "", "POLIS_API_POST_COMMENTS": "",
+                  "POLIS_API_PARTICIPANT_READS": "observe", "JWT_PRIVATE_KEY": "", "JWT_PRIVATE_KEY_PATH": ""}
+
+
+def _named_reads(routes):
+    words = routes.replace(",", " ").split()
+    return [name for name in READ_SWITCHES if name in words]
+
+
+def _program(name):
+    """The jq program of the hook's line `NAME=$(... | jq -r ... '<program>')`."""
+    (line,) = [line for line in HOOK_PATH.read_text().splitlines() if line.lstrip().startswith(f"{name}=$(")]
+    assert line.count("'") == 2, f"{name}: the jq program is not one single-quoted argument"
+    command, program, closing = line.split("'")
+    assert command.lstrip().startswith(f"{name}=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml "
+                                       "-f docker-compose.images.yml --profile rust-api config --format json | jq -r")
+    assert closing == ")"
+    return program
+
+
+def _reads_calls(log):
+    return [c for c in _calls(log, "jq") if "polis-api-shadow-reads" in c]
+
+
+@pytest.mark.parametrize("routes", [
+    "votesReadShadow", "commentsReadShadow", "nextCommentShadow", "pca2,votesReadShadow",
+    " pca2 , nextCommentShadow ", "votesReadShadow,votesReadShadow", "votesReadShadow commentsReadShadow nextCommentShadow",
+    "nextCommentShadow,commentsReadShadow,votesReadShadow,pca2", "postVotes,votesReadShadow",
+    "votesShadow,votesReadShadow", "pca2,votesShadow,commentsShadow,votesReadShadow,commentsReadShadow,nextCommentShadow",
+    "comments,votesReadShadow", "votesRead,nextCommentShadow", "nextComment,commentsReadShadow"])
+def test_the_read_shadow_starts_last_when_selected(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = _compose(log)
+    words = routes.replace(",", " ").split()
+    write = "votesShadow" in words or "commentsShadow" in words
+    assert [c for c in calls if c.startswith("up")] == UNCHANGED["server"] + [POLIS_API_UP] + (
+        [SHADOW_UP] if write else []) + [READS_UP]
+    assert calls.count(READS_UP) == 1
+    # The shared teardown removes the previous read shadow container too.
+    assert calls.index("--profile rust-api down") < calls.index(UNCHANGED["server"][0])
+    # It runs the polis-api digest; nothing else is pulled for it.
+    pulls = [c for c in _calls(log, "docker") if c.startswith("pull ")]
+    assert pulls == [f"pull {IMAGES[name]}" for name in ["migrate", *ROLE_IMAGES["server"]]]
+    # The override names the image and switches on exactly the named lanes.
+    override = _override(tmp_path)
+    lines = "".join(f"      - {READ_SWITCHES[name]}=observe\n" for name in _named_reads(routes))
+    assert override.endswith(f"  polis-api-shadow-reads:\n    image: {IMAGES['polis-api']}\n    environment:\n" + lines)
+    for name, switch in READ_SWITCHES.items():
+        assert override.count(switch) == (1 if name in words else 0), (name, override)
+    # The write shadows' part of the override is what it was.
+    head = override.split("  polis-api-shadow-reads:\n", 1)[0]
+    assert head.endswith(SHADOW_IMAGE_LINES + (SHADOW_OBSERVE_LINES if "commentsShadow" in words else ""))
+    # Its transport is checked before anything is pulled, and its two
+    # read-backs run before the teardown.
+    assert log.index(f"jq {READS_TRANSPORT}") < log.index(f"docker pull {IMAGES['migrate']}")
+    down = log.index(f"docker-compose {COMPOSE_FILES}--profile rust-api down")
+    for name in ("READS_SHADOW_SWITCHES_WRONG", "READS_SHADOW_SETTINGS_WRONG"):
+        call = [c for c in _reads_calls(log) if _program(name) in c]
+        assert len(call) == 1, name
+        assert log.index(f"jq {call[0]}") < down
+
+
+@pytest.mark.parametrize("routes", ["", " , ", "pca2", "votesShadow", "pca2,votesShadow,commentsShadow",
+                                    "votesRead,comments,nextComment", "votesreadshadow", "VotesReadShadow",
+                                    "readShadow", "nextCommentShadows", "xnextCommentShadow", "commentReadShadow",
+                                    "votesRead", "postVotes"])
+def test_no_read_shadow_selected_starts_no_read_shadow_and_writes_nothing_of_it(tmp_path, routes):
+    # Even a composition that would be refused is not read: the deploy is
+    # what it was before the read shadow existed.
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, reads_switches_wrong="POLIS_API_VOTES_READS",
+                        reads_settings_wrong="POLIS_API_ROLE")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert READS_UP not in _compose(log)
+    assert _reads_calls(log) == []
+    override = _override(tmp_path)
+    assert "polis-api-shadow-reads" not in override and "_READS=" not in override
+    words = routes.replace(",", " ").split()
+    expected = "services:\n" + "".join(f"  {name}:\n    image: {IMAGES[name]}\n" for name in ROLE_IMAGES["server"]) + \
+        SHADOW_IMAGE_LINES + (SHADOW_OBSERVE_LINES if "commentsShadow" in words else "")
+    assert override == expected
+
+
+@pytest.mark.parametrize("routes,message", [
+    ("votesRead,votesReadShadow", "votesReadShadow and votesRead"),
+    ("votesReadShadow votesRead", "votesReadShadow and votesRead"),
+    ("pca2,comments,commentsReadShadow", "commentsReadShadow and comments"),
+    ("nextCommentShadow , nextComment", "nextCommentShadow and nextComment"),
+    ("votesShadow,commentsShadow,nextComment,nextCommentShadow", "nextCommentShadow and nextComment"),
+])
+def test_a_read_shadow_and_its_read_route_are_refused_together(tmp_path, routes, message):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes)
+    assert proc.returncode != 0
+    assert f"{message} cannot be selected together" in proc.stderr
+    # Refused before any image, migration or service replacement.
+    assert not [c for c in _calls(log, "docker") if c.startswith(("pull", "run"))]
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+def test_the_write_refusals_still_apply_beside_the_read_shadows(tmp_path):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes="votesReadShadow,postVotes,votesShadow")
+    assert proc.returncode != 0
+    assert "votesShadow and postVotes" in proc.stderr
+    assert not [c for c in _calls(log, "docker") if c.startswith(("pull", "run"))]
+
+
+@pytest.mark.parametrize("routes", ["nextCommentShadow", "pca2,votesShadow,commentsShadow,votesReadShadow"])
+def test_a_read_shadow_start_failure_fails_the_deploy(tmp_path, routes):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, reads_start_failure=True)
+    assert proc.returncode != 0
+    assert "polis-api-shadow-reads start failed" in proc.stderr
+    assert _compose(log)[-1] == READS_UP
+    assert not (tmp_path / "root/opt/polis/deployed-images.txt").exists()
+
+
+@pytest.mark.parametrize("transport", ["docker-internal", "loopback", "local"])
+def test_the_read_shadow_refuses_unverified_transport_before_down(tmp_path, transport):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes="commentsReadShadow", transport=transport)
+    assert proc.returncode != 0
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+
+
+@pytest.mark.parametrize("routes", ["votesReadShadow", "pca2,votesShadow,commentsShadow,nextCommentShadow"])
+@pytest.mark.parametrize("wrong", ["POLIS_API_VOTES_READS", "POLIS_API_COMMENT_READS POLIS_API_NEXT_COMMENT_READS"])
+def test_composed_read_lane_switches_that_do_not_follow_the_route_list_are_refused(tmp_path, routes, wrong):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, reads_switches_wrong=wrong)
+    assert proc.returncode != 0
+    assert f"read lane switches do not follow RUST_API_ROUTES ({wrong}); refusing service replacement" in proc.stderr
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+    assert not (tmp_path / "root/opt/polis/deployed-images.txt").exists()
+
+
+@pytest.mark.parametrize("routes", ["nextCommentShadow", "pca2,votesShadow,votesReadShadow,commentsReadShadow"])
+@pytest.mark.parametrize("wrong", [*READS_SETTINGS, " ".join(READS_SETTINGS)])
+def test_a_composed_read_shadow_without_its_own_settings_is_refused_before_replacement(tmp_path, routes, wrong):
+    proc, log = _deploy(tmp_path, "server", rust_api_routes=routes, reads_settings_wrong=wrong)
+    assert proc.returncode != 0
+    assert f"composed settings are not the read shadow service's ({wrong}); refusing service replacement" in proc.stderr
+    assert not [c for c in _compose(log) if c.endswith("down") or c.startswith("up")]
+    assert not (tmp_path / "root/opt/polis/deployed-images.txt").exists()
+
+
+@pytest.mark.parametrize("service_type,worker_class", [("delphi", None), ("math", None),
+                                                       ("delphi-large", "large"), ("delphi-worker", "delphi")])
+def test_other_roles_never_start_or_read_back_the_read_shadow(tmp_path, service_type, worker_class):
+    proc, log = _deploy(tmp_path, service_type, worker_class=worker_class,
+                        rust_api_routes="votesReadShadow,commentsReadShadow,nextCommentShadow",
+                        reads_settings_wrong="POLIS_API_ROLE")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _reads_calls(log) == [] and READS_UP not in _compose(log)
+    assert "polis-api-shadow-reads" not in _override(tmp_path)
+
+
+def test_the_read_shadow_service_carries_its_own_settings_with_every_lane_off():
+    compose = _find(Path("docker-compose.yml")).read_text()
+    block = compose.split("\n  polis-api-shadow-reads:\n", 1)[1].split("\n\n", 1)[0]
+    lines = [line.strip() for line in block.splitlines()]
+    for line in ["profiles: [rust-api]", "image: polis/polis-api:local",
+                 "- POLIS_API_ROLE=shadow", "- POLIS_API_SHADOW_LISTEN=0.0.0.0:5102",
+                 "- POLIS_API_POST_VOTES=", "- POLIS_API_POST_VOTES_IDENTITY=", "- POLIS_API_POST_COMMENTS=",
+                 "- POLIS_API_VOTES_READS=", "- POLIS_API_COMMENT_READS=", "- POLIS_API_NEXT_COMMENT_READS=",
+                 "- POLIS_API_VOTES_READ_DATABASE_URL=${DATABASE_URL:-}",
+                 "- POLIS_API_COMMENTS_DATABASE_URL=${DATABASE_URL:-}",
+                 "- POLIS_API_NEXT_COMMENT_DATABASE_URL=${DATABASE_URL:-}",
+                 "- POLIS_API_PARTICIPANT_READS=observe", "- TOPICAL_COMMENT_RATIO=0",
+                 "- JWT_PRIVATE_KEY=", "- JWT_PRIVATE_KEY_PATH=",
+                 "- POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-tls}",
+                 "- POLIS_API_DB_CA_FILE=${POLIS_API_DB_CA_FILE:-/etc/polis/rds-global-bundle.pem}",
+                 "- POLIS_API_DB_HOST_ALLOWLIST=${POLIS_API_DB_HOST_ALLOWLIST:-}",
+                 "cpus: 0.25", "mem_limit: 384m", "read_only: true", "cap_drop: [ALL]"]:
+        assert line in lines, line
+    # Each lane's switch is empty, once: nothing in this file or the env
+    # document turns a lane on; the hook's override does, per selector.
+    for switch in READ_SWITCHES.values():
+        assert [line for line in lines if line.startswith(f"- {switch}=")] == [f"- {switch}="], switch
+    # Each lane's cap is above nginx's 4 copies a second, within the 10 the
+    # validation allows.
+    for setting in ("POLIS_API_SHADOW_VOTES_READ_MAX_PER_SECOND", "POLIS_API_SHADOW_COMMENTS_READ_MAX_PER_SECOND",
+                    "POLIS_API_SHADOW_NEXT_COMMENT_MAX_PER_SECOND"):
+        (rate,) = [line for line in lines if line.startswith(f"- {setting}=")]
+        assert 4 <= int(rate.split("=", 1)[1]) <= 10, rate
+    (rate,) = [line for line in lines if line.startswith("- POLIS_API_SHADOW_MAX_PER_SECOND=")]
+    assert 1 <= int(rate.split("=", 1)[1]) <= 25
+    assert not [line for line in lines if line.startswith("ports:")], "the read shadow publishes no port"
+    # And the write shadows' service never builds a read lane: its three
+    # switches are empty literals.
+    shadow = compose.split("\n  polis-api-shadow:\n", 1)[1].split("\n\n", 1)[0]
+    shadow_lines = [line.strip() for line in shadow.splitlines()]
+    for switch in READ_SWITCHES.values():
+        assert [line for line in shadow_lines if line.startswith(f"- {switch}=")] == [f"- {switch}="], switch
+
+
+def test_the_read_shadow_read_backs_name_settings_and_never_print_a_value():
+    comparisons = ", ".join(f'(if ($e.{name} // "") == "{value}" then empty else "{name}" end)'
+                            for name, value in READS_SETTINGS.items())
+    assert _program("READS_SHADOW_SETTINGS_WRONG") == (
+        f'.services["polis-api-shadow-reads"].environment as $e | [{comparisons}] | join(" ")')
+    compose = _find(Path("docker-compose.yml")).read_text()
+    block = compose.split("\n  polis-api-shadow-reads:\n", 1)[1].split("\n\n", 1)[0]
+    lines = [line.strip() for line in block.splitlines()]
+    for name, value in READS_SETTINGS.items():
+        assert [line for line in lines if line.startswith(f"- {name}=")] == [f"- {name}={value}"], name
+    (line,) = [line for line in HOOK_PATH.read_text().splitlines()
+               if line.lstrip().startswith("READS_SHADOW_SWITCHES_WRONG=$(")]
+    assert ('--arg votes "$VOTES_READ_SHADOW_SELECTED" --arg comments "$COMMENTS_READ_SHADOW_SELECTED" '
+            '--arg next "$NEXT_COMMENT_SHADOW_SELECTED"') in line
+
+
+_READS_RIGHT = dict(READS_SETTINGS, POLIS_API_VOTES_READS="", POLIS_API_COMMENT_READS="",
+                    POLIS_API_NEXT_COMMENT_READS="", DATABASE_URL="postgres://u:not-printed@db/polis")
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq programs with the real jq")
+@pytest.mark.parametrize("environment,named", [
+    (_READS_RIGHT, ""),
+    (dict(_READS_RIGHT, POLIS_API_POST_VOTES=None, POLIS_API_POST_COMMENTS=None), ""),
+    ({k: v for k, v in _READS_RIGHT.items() if k not in ("POLIS_API_POST_VOTES", "JWT_PRIVATE_KEY")}, ""),
+    (dict(_READS_RIGHT, POLIS_API_POST_VOTES="observe"), "POLIS_API_POST_VOTES"),
+    (dict(_READS_RIGHT, POLIS_API_POST_VOTES="1"), "POLIS_API_POST_VOTES"),
+    (dict(_READS_RIGHT, POLIS_API_POST_VOTES_IDENTITY="observe"), "POLIS_API_POST_VOTES_IDENTITY"),
+    (dict(_READS_RIGHT, POLIS_API_POST_COMMENTS="observe"), "POLIS_API_POST_COMMENTS"),
+    (dict(_READS_RIGHT, POLIS_API_PARTICIPANT_READS="1"), "POLIS_API_PARTICIPANT_READS"),
+    (dict(_READS_RIGHT, POLIS_API_SHADOW_LISTEN="0.0.0.0:5101"), "POLIS_API_SHADOW_LISTEN"),
+    (dict(_READS_RIGHT, POLIS_API_ROLE="main"), "POLIS_API_ROLE"),
+    (dict(_READS_RIGHT, JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----not-printed"), "JWT_PRIVATE_KEY"),
+    ({"POLIS_API_VOTES_READS": "observe"},
+     "POLIS_API_ROLE POLIS_API_SHADOW_LISTEN POLIS_API_PARTICIPANT_READS"),
+    (None, "POLIS_API_ROLE POLIS_API_SHADOW_LISTEN POLIS_API_PARTICIPANT_READS"),
+])
+def test_the_real_jq_names_exactly_the_read_shadows_wrong_settings(environment, named):
+    composed = {"services": {"polis-api-shadow": {"environment": {"POLIS_API_ROLE": "shadow"}},
+                             "polis-api-shadow-reads": {"environment": environment}}}
+    if environment is None:
+        del composed["services"]["polis-api-shadow-reads"]
+    proc = subprocess.run(["jq", "-r", _program("READS_SHADOW_SETTINGS_WRONG")], input=json.dumps(composed),
+                          text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == named + "\n"
+    assert "not-printed" not in proc.stdout + proc.stderr
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq programs with the real jq")
+@pytest.mark.parametrize("selected,composed,named", [
+    ("100", {"POLIS_API_VOTES_READS": "observe"}, ""),
+    ("100", {"POLIS_API_VOTES_READS": "observe", "POLIS_API_COMMENT_READS": "", "POLIS_API_NEXT_COMMENT_READS": None}, ""),
+    ("111", {"POLIS_API_VOTES_READS": "observe", "POLIS_API_COMMENT_READS": "observe",
+             "POLIS_API_NEXT_COMMENT_READS": "observe"}, ""),
+    ("001", {"POLIS_API_NEXT_COMMENT_READS": "observe"}, ""),
+    ("100", {}, "POLIS_API_VOTES_READS"),
+    ("100", {"POLIS_API_VOTES_READS": "1"}, "POLIS_API_VOTES_READS"),
+    ("100", {"POLIS_API_VOTES_READS": "Observe"}, "POLIS_API_VOTES_READS"),
+    ("100", {"POLIS_API_VOTES_READS": "observe", "POLIS_API_COMMENT_READS": "observe"}, "POLIS_API_COMMENT_READS"),
+    ("010", {"POLIS_API_VOTES_READS": "observe", "POLIS_API_NEXT_COMMENT_READS": "observe"},
+     "POLIS_API_VOTES_READS POLIS_API_COMMENT_READS POLIS_API_NEXT_COMMENT_READS"),
+    ("111", None, "POLIS_API_VOTES_READS POLIS_API_COMMENT_READS POLIS_API_NEXT_COMMENT_READS"),
+])
+def test_the_real_jq_names_exactly_the_read_lane_switches_that_do_not_follow(selected, composed, named):
+    document = {"services": {"polis-api-shadow-reads": {"environment": composed}}}
+    if composed is None:
+        del document["services"]["polis-api-shadow-reads"]
+    votes, comments, nxt = selected
+    proc = subprocess.run(["jq", "-r", "--arg", "votes", votes, "--arg", "comments", comments, "--arg", "next", nxt,
+                           _program("READS_SHADOW_SWITCHES_WRONG")], input=json.dumps(document),
+                          text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == named + "\n"

@@ -543,10 +543,84 @@ services:
       - POLIS_API_POST_COMMENTS=
       - POLIS_API_SHADOW_COMMENTS_MAX_PER_SECOND=5
       - POLIS_API_POST_COMMENTS_DATABASE_URL=${DATABASE_URL:-}
+      # The read lanes never run in this process (they share its CPU with the
+      # vote and comment observers): their switches are empty here, which is
+      # off, whatever the env file holds. They run in polis-api-shadow-reads.
+      - POLIS_API_VOTES_READS=
+      - POLIS_API_COMMENT_READS=
+      - POLIS_API_NEXT_COMMENT_READS=
       - TOPICAL_COMMENT_RATIO=0
       - SHOULD_USE_TRANSLATION_API=false
       # 128 MiB, so the priorities cache fits the memory limit below.
       - POLIS_API_WRITER_PRIORITIES_CACHE_BYTES=134217728
+      # The process mints nothing: it verifies with the public key alone.
+      - JWT_PRIVATE_KEY=
+      - JWT_PRIVATE_KEY_PATH=
+      # The same database transport as polis-api; it must verify TLS.
+      - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-}
+      - POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-tls}
+      - POLIS_API_DB_CA_FILE=${POLIS_API_DB_CA_FILE:-/etc/polis/rds-global-bundle.pem}
+      - POLIS_API_DB_HOST_ALLOWLIST=${POLIS_API_DB_HOST_ALLOWLIST:-}
+    cpus: 0.25
+    mem_limit: 384m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks:
+      - "polis-net"
+    restart: unless-stopped
+
+  # The read shadow (queue-rs/polis-api/README.md, "Reads: the shadow role's
+  # read lanes"): the polis-api image in its shadow role, observing copies of
+  # GET /api/v3/votes, GET /api/v3/comments and GET /api/v3/nextComment
+  # (votesReadShadow, commentsReadShadow, nextCommentShadow in
+  # RUST_API_ROUTES). nginx sends it a copy of a GET Node answers; it answers
+  # each copy 204 and writes nothing: read-only database sessions only. Its own
+  # container and CPU limit, so the read lanes never share CPU with the vote or
+  # comment observer: no observer is built here, and the read lanes are never
+  # built in polis-api-shadow. Each lane's switch is empty here, which is off,
+  # whatever the env file holds: the web deploy sets it to observe, in the
+  # override file it writes, exactly when RUST_API_ROUTES names that lane's
+  # selector, and starts this service only then. What a lane requires is
+  # always set, so that the switch is the only thing that changes. In the
+  # rust-api profile, so the deploy's teardown removes it with polis-api.
+  polis-api-shadow-reads:
+    profiles: [rust-api]
+    image: polis/polis-api:local
+    env_file:
+      - ${SERVER_ENV_FILE:-.env}
+    environment:
+      - POLIS_API_ROLE=shadow
+      - POLIS_API_SHADOW_LISTEN=0.0.0.0:5102
+      # The vote lane exists in every shadow process and needs its cap; no
+      # vote copy is ever sent here.
+      - POLIS_API_SHADOW_MAX_PER_SECOND=1
+      # No observer in this process, whatever the env file holds.
+      - POLIS_API_POST_VOTES=
+      - POLIS_API_POST_VOTES_IDENTITY=
+      - POLIS_API_POST_COMMENTS=
+      # The three lanes' switches: empty (off); see above.
+      - POLIS_API_VOTES_READS=
+      - POLIS_API_COMMENT_READS=
+      - POLIS_API_NEXT_COMMENT_READS=
+      # Each lane's cap on copies observed per second on this box, above what
+      # nginx sends (4 a second for each, file-server/nginx/render-rust-api.sh),
+      # so a lane sheds nothing nginx let through.
+      - POLIS_API_SHADOW_VOTES_READ_MAX_PER_SECOND=5
+      - POLIS_API_SHADOW_COMMENTS_READ_MAX_PER_SECOND=5
+      - POLIS_API_SHADOW_NEXT_COMMENT_MAX_PER_SECOND=5
+      # Each lane's primary, interpolated from the box's own DATABASE_URL (the
+      # deploy appends it to the project .env); never in the env secret. The
+      # env file's READ_ONLY_DATABASE_URL moves the pools the main role reads
+      # from the replica there too.
+      - POLIS_API_VOTES_READ_DATABASE_URL=${DATABASE_URL:-}
+      - POLIS_API_COMMENTS_DATABASE_URL=${DATABASE_URL:-}
+      - POLIS_API_NEXT_COMMENT_DATABASE_URL=${DATABASE_URL:-}
+      # Participant tokens are verified on the copies, as the main role
+      # verifies them on these reads, with the keys the process loads.
+      - POLIS_API_PARTICIPANT_READS=observe
+      # Ordinary next-comment selection, as the vote observer's.
+      - TOPICAL_COMMENT_RATIO=0
       # The process mints nothing: it verifies with the public key alone.
       - JWT_PRIVATE_KEY=
       - JWT_PRIVATE_KEY_PATH=

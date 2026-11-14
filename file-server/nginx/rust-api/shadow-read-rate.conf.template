@@ -1,0 +1,14 @@
+
+# ${SHADOW_NAME}: how many copies of GET ${SHADOW_PATH} this box sends to the
+# read shadow service: ${SHADOW_RATE} a second and none more at once (no
+# burst), so one copy in every quarter second at most. The zone is used in the copy's
+# location (/_polis_shadow/${SHADOW_NAME}) and nowhere else, so it counts
+# copies only: the request Node answers is never counted, delayed or refused
+# by it. A copy over the rate ends in that location with 429 before any
+# connection is opened, and its shadow_mirror line says so
+# ("mirror_status":429 with an empty "mirror_upstream_status"); with nodelay
+# no copy waits. The key is the shadow's name, so the zone holds one state
+# for the whole box. limit_req_log_level info keeps a refusal out of the
+# error log, which is written from notice up and whose lines name the peer
+# address.
+limit_req_zone $polis_shadow_name zone=polis_shadow_${SHADOW_NAME}:1m rate=${SHADOW_RATE}r/s;

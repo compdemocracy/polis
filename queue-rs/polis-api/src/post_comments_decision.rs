@@ -21,8 +21,12 @@
 //! `Writable`.
 //!
 //! The parts of a decision the live handler does not read (the modelled row,
-//! what follows the insert, the status) are read by this crate's tests, and
-//! are there for the mode that compares a decision with what Node stored.
+//! what follows the insert, the status) are read by this crate's tests and by
+//! the mode that compares a decision with what Node stored. That mode takes
+//! its decision through `Decision::observed`, never `Decision::live`: it
+//! compares a strict conversation's comment as it compares any other, and
+//! every row it is given is a `Modelled`, an ordinary conversation's too, so
+//! nothing it holds can be inserted.
 #![allow(dead_code)]
 use crate::post_comments_text::CommentText;
 use crate::votes::VoteChoice;
@@ -125,6 +129,24 @@ impl Store {
             Self::Strict(_) => AfterInsert::ModeratorEmail,
         }
     }
+
+    /// The row as a value to compare and never to write. A `Writable` can
+    /// become a `Modelled`; nothing turns a `Modelled` back.
+    fn into_modelled(self) -> Modelled {
+        match self {
+            Self::Ordinary(Writable(row)) => Modelled(row),
+            Self::Strict(modelled) => modelled,
+        }
+    }
+}
+
+impl AfterInsert {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::NotificationTask => "notification_task",
+            Self::ModeratorEmail => "moderator_email",
+        }
+    }
 }
 
 /// Node's answer to an admitted request.
@@ -180,6 +202,35 @@ impl Decision {
             Outcome::Store(Store::Ordinary(row)) => Live::Write(row),
         }
     }
+
+    /// What observe mode compares with what Node did. Node's answers without
+    /// a write are `live`'s; a comment Node stores is `Stored` whether or not
+    /// the conversation has strict moderation, with what Node does after the
+    /// insert. Its row is a `Modelled` in both cases, so observe mode never
+    /// holds a row the insert accepts. `live` is unchanged by this: there a
+    /// strict conversation's comment is still handed back.
+    pub(crate) fn observed(self) -> Observed {
+        match self.outcome {
+            Outcome::Duplicate(_) => Observed::Answer(409, "polis_err_post_comment_duplicate"),
+            Outcome::Closed => Observed::Answer(403, "polis_err_conversation_is_closed"),
+            Outcome::Store(store) => Observed::Stored {
+                after: store.after_insert(),
+                row: store.into_modelled(),
+            },
+        }
+    }
+}
+
+/// What observe mode does with a decision. There is no hand-back here: the
+/// one decision `live` hands back, a strict conversation's comment, is
+/// compared like any other.
+#[derive(Debug)]
+pub(crate) enum Observed {
+    /// Node answers this without writing.
+    Answer(u16, &'static str),
+    /// Node stores this row, then does `after`. The row is for comparison:
+    /// it cannot be inserted.
+    Stored { row: Modelled, after: AfterInsert },
 }
 
 /// Node's order: an existing text answers 409 before a closed conversation
@@ -304,5 +355,55 @@ mod tests {
             assert_eq!(strict.after_insert(), AfterInsert::ModeratorEmail);
             assert_eq!(ordinary.after_insert(), AfterInsert::NotificationTask);
         }
+    }
+
+    /// Observe mode's reading of every combination: the same answers as
+    /// live where Node writes nothing; and where Node stores the comment, the
+    /// same row, strict or not, with what follows the insert. Live's reading
+    /// of the same decisions is unchanged: a strict conversation is handed
+    /// back there.
+    #[test]
+    fn observe_compares_a_strict_conversation_and_live_still_hands_it_back() {
+        for active in [true, false] {
+            for strict in [true, false] {
+                for duplicate in [true, false] {
+                    let vote = Some(VoteChoice::Agree);
+                    let observed = decided(active, strict, duplicate, vote).observed();
+                    let live = decided(active, strict, duplicate, vote).live();
+                    match (duplicate, active, strict) {
+                        (true, _, _) | (false, false, _) => {
+                            let (Observed::Answer(a, b), Live::Answer(c, d)) = (&observed, &live)
+                            else {
+                                panic!("{observed:?} {live:?}");
+                            };
+                            assert_eq!((a, b), (c, d));
+                        }
+                        (false, true, _) => {
+                            let Observed::Stored { row, after } = &observed else {
+                                panic!("{observed:?}");
+                            };
+                            assert_eq!(
+                                *after,
+                                if strict {
+                                    AfterInsert::ModeratorEmail
+                                } else {
+                                    AfterInsert::NotificationTask
+                                }
+                            );
+                            let row = row.row();
+                            assert_eq!((row.zid, row.pid, row.uid, row.vote), (1, 2, 3, vote));
+                            assert_eq!(row.text.bytes(), "generated".len());
+                            if strict {
+                                assert!(matches!(live, Live::HandBack("strict_moderation")));
+                            } else {
+                                assert!(matches!(live, Live::Write(_)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(AfterInsert::NotificationTask.as_str(), "notification_task");
+        assert_eq!(AfterInsert::ModeratorEmail.as_str(), "moderator_email");
     }
 }

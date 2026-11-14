@@ -524,3 +524,138 @@ class DeployHealthCheck(unittest.TestCase):
             health = self.shadow_health()
             change(health)
             self.check_shadow(health, False, comments='0')
+
+
+class ReadShadowHealthCheck(unittest.TestCase):
+    """The read shadow (votesReadShadow, commentsReadShadow,
+    nextCommentShadow): its own service's /health, fetched from the server
+    container. The shadow role with no observer at all, listening, exactly
+    the lanes whose selectors are named (the hook's last three arguments),
+    each in observe mode and never enabled, with its route's selector, room
+    for 8 copies, a cap within 10 a second and exactly its route's
+    read-only, reachable pools; and the release's identity."""
+    LANES = {'getVotes': ('votesReadShadow', ('reads', 'auth')),
+             'getComments': ('commentsReadShadow', ('reads', 'count')),
+             'getNextComment': ('nextCommentShadow', ('reads',))}
+
+    def script(self):
+        source = (Path(__file__).resolve().parents[1] / 'validate_service.sh').read_text()
+        body = source.split('read_lanes_ready() {')[1]
+        return body.split("compose exec -T server node -e '")[1].split("\n    ' \"$(sed")[0]
+
+    def lane(self, key):
+        selector, pools = self.LANES[key]
+        pool = dict(readOnly=True, reachable=True, limit=1, available=1, acquireTimeoutMs=15,
+                    statementTimeoutMs=50, maxLifetimeMs=300000)
+        return dict(enabled=False, mode='observe', selector=selector, observed=0, wouldServe=0, wouldAnswer=0,
+                    wouldHandBack=0, wouldFail=0, shed=0, inFlight=0, capacity=8, maxPerSecond=5,
+                    pools={name: dict(pool) for name in pools})
+
+    def health(self, lanes=('getVotes', 'getComments', 'getNextComment')):
+        body = dict(role='shadow', status='ok', version='2.0.0', commit='a' * 40,
+                    postVotes=dict(enabled=False, mode='off', observed=0, wouldServe=0, wouldHandBack=0,
+                                   wouldFail=0, shed=0, notObserved=0, readbackSame=0, readbackAmbiguous=0,
+                                   readbackDifferent=0, readbackAbsent=0, pools={}))
+        for key in lanes:
+            body[key] = self.lane(key)
+        body['shadow'] = dict(listening=True, address='0.0.0.0:5102', inFlight=0, capacity=32, maxPerSecond=1,
+                              readbackWaiting=0, headRefused=0, bodyUnread=0)
+        return body
+
+    def check(self, health, accepted, named='111', code=200, unreachable=False):
+        fake = ('global.fetch=async()=>{throw Error("unreachable")};' if unreachable else
+                'global.fetch=async url=>{if(url!=="http://polis-api-shadow-reads:5102/health")throw Error(url);'
+                'return {status:' + str(code) + ',json:async()=>(' + json.dumps(health) + ')}};')
+        result = subprocess.run([shutil.which('node'), '-e', fake + self.script(), 'a' * 40, '2.0.0', *named],
+                                capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0 if accepted else 1, result.stderr)
+
+    def test_exactly_the_named_lanes_are_accepted(self):
+        from itertools import product
+        keys = list(self.LANES)
+        for named in product('01', repeat=3):
+            for built in product((False, True), repeat=3):
+                lanes = [key for key, on in zip(keys, built) if on]
+                accepted = [n == '1' for n in named] == list(built) and '1' in named
+                with self.subTest(named=named, built=built):
+                    self.check(self.health(lanes), accepted, named=''.join(named))
+
+    def test_a_busy_service_is_accepted(self):
+        health = self.health()
+        health['getVotes'].update(observed=900, wouldServe=500, wouldHandBack=380, shed=20, inFlight=8)
+        health['getNextComment'].update(maxPerSecond=10)
+        health['getComments'].update(maxPerSecond=1)
+        self.check(health, True)
+        self.check(self.health(), False, code=503)
+        self.check(self.health(), False, unreachable=True)
+
+    def test_refusals(self):
+        def mutated(change):
+            health = self.health()
+            change(health)
+            return health
+        cases = {
+            'status': lambda h: h.update(status='degraded'),
+            'role main': lambda h: h.update(role='main'),
+            'role missing': lambda h: h.pop('role'),
+            'the vote observer': lambda h: h['postVotes'].update(mode='observe'),
+            'the vote writer': lambda h: h['postVotes'].update(enabled=True, mode='live'),
+            'vote observer pools': lambda h: h['postVotes'].update(pools=dict(reads=dict(readOnly=True))),
+            'vote pools missing': lambda h: h['postVotes'].pop('pools'),
+            'postVotes missing': lambda h: h.pop('postVotes'),
+            'the comment observer': lambda h: h.update(postComments=dict(enabled=False, mode='observe')),
+            'the identity observer': lambda h: h.update(postVotesIdentity=dict(mode='observe')),
+            'not listening': lambda h: h['shadow'].update(listening=False),
+            'no lane': lambda h: h.pop('shadow'),
+            'vote lane rate zero': lambda h: h['shadow'].update(maxPerSecond=0),
+            'vote lane rate above 25': lambda h: h['shadow'].update(maxPerSecond=26),
+            'version': lambda h: h.update(version='2.0.1'),
+            'commit': lambda h: h.update(commit='b' * 40),
+            'commit empty': lambda h: h.update(commit=''),
+        }
+        for key in self.LANES:
+            lane = lambda h, key=key: h[key]
+            pools = lambda h, key=key: h[key]['pools']
+            cases.update({
+                f'{key} enabled': lambda h, lane=lane: lane(h).update(enabled=True),
+                f'{key} enabled string': lambda h, lane=lane: lane(h).update(enabled='false'),
+                f'{key} mode live': lambda h, lane=lane: lane(h).update(mode='live'),
+                f'{key} mode off': lambda h, lane=lane: lane(h).update(mode='off'),
+                f'{key} another selector': lambda h, lane=lane: lane(h).update(selector='votesShadow'),
+                f'{key} capacity 7': lambda h, lane=lane: lane(h).update(capacity=7),
+                f'{key} capacity missing': lambda h, lane=lane: lane(h).pop('capacity'),
+                f'{key} rate zero': lambda h, lane=lane: lane(h).update(maxPerSecond=0),
+                f'{key} rate above 10': lambda h, lane=lane: lane(h).update(maxPerSecond=11),
+                f'{key} rate string': lambda h, lane=lane: lane(h).update(maxPerSecond='5'),
+                f'{key} rate fraction': lambda h, lane=lane: lane(h).update(maxPerSecond=2.5),
+                f'{key} pools missing': lambda h, lane=lane: lane(h).pop('pools'),
+                f'{key} no pools': lambda h, lane=lane: lane(h).update(pools={}),
+                f'{key} a writer pool': lambda h, pools=pools: pools(h).update(writer=dict(readOnly=False, reachable=True)),
+                f'{key} another read-only pool': lambda h, pools=pools: pools(h).update(other=dict(readOnly=True, reachable=True)),
+                f'{key} reads missing': lambda h, pools=pools: pools(h).pop('reads'),
+                f'{key} reads writable': lambda h, pools=pools: pools(h)['reads'].update(readOnly=False),
+                f'{key} reads unreachable': lambda h, pools=pools: pools(h)['reads'].update(reachable=False),
+                f'{key} null': lambda h, key=key: h.update({key: None}),
+                f'{key} a word': lambda h, key=key: h.update({key: 'observe'}),
+            })
+        for name, change in cases.items():
+            with self.subTest(case=name):
+                self.check(mutated(change), False)
+
+
+class WriteShadowHasNoReadLanes(unittest.TestCase):
+    """The write shadows' service never holds a read lane: its /health with
+    a read lane's key is refused, whatever the route list says."""
+
+    def test_a_read_lane_in_the_write_shadows_service_is_refused(self):
+        case = DeployHealthCheck()
+        for key in ('getVotes', 'getComments', 'getNextComment'):
+            for comments in ('0', '1'):
+                health = case.comments_health() if comments == '1' else case.shadow_health()
+                health[key] = ReadShadowHealthCheck().lane(key)
+                with self.subTest(key=key, comments=comments):
+                    fake = ('global.fetch=async url=>{if(url!=="http://polis-api-shadow:5101/health")throw Error(url);'
+                            'return {status:200,json:async()=>(' + json.dumps(health) + ')}};')
+                    result = subprocess.run([shutil.which('node'), '-e', fake + case.shadow_script(),
+                                             'a' * 40, '2.0.0', comments], capture_output=True, timeout=10)
+                    self.assertEqual(result.returncode, 1, result.stderr)

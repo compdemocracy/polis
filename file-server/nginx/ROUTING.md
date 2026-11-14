@@ -312,3 +312,115 @@ after 40 ms or 5 s (`--load` adds 16 keepalive connections of votes with a
 silent shadow, against a control). `make check-nginx-upstreams` renders the
 shadow selection and requires its target to be a service the web deploy
 starts.
+
+## The read shadows (`votesReadShadow`, `commentsReadShadow`, `nextCommentShadow`)
+
+Each of the three selects no Rust route. `GET /api/v3/votes`, `GET
+/api/v3/comments` and `GET /api/v3/nextComment` are still answered by Node,
+exactly as without them, with one added request header, `X-Request-Id:
+$request_id`, and nginx's `mirror` sends a copy of the read to
+`polis-api-shadow-reads:5102`, the polis-api image in its shadow role with the
+read lanes of `queue-rs/polis-api/README.md` ("Reads: the shadow role's read
+lanes") and nothing else. It answers each copy 204 and writes nothing. The
+three are independent: each renders its own locations, has its own rate, and
+builds its own lane.
+
+- **What is copied.** A GET to the exact path with no `Content-Length` and no
+  `Transfer-Encoding`: the request the read lanes take without a body. One
+  map, `$polis_shadow_read_copyable` (`rust-api/shadow-read-http.conf.template`),
+  says which requests those are; the path's location hands a request to the
+  read shadow's mirroring location on that map alone, and the copy's own
+  location applies it again. HEAD, a GET that declares a body (any length, 0
+  included), a chunked GET, every other method, a trailing slash, other
+  spellings of the path and the neighbouring paths (`/api/v3/votes/me`,
+  `/api/v3/votes/famous`, `/api/v3/comments/translations`) go to Node exactly
+  as with nothing selected: no `X-Request-Id`, the ordinary access line, no
+  shadow line, no copy.
+- **What the copy is.** A GET on the literal path with the request's query
+  string byte for byte (for a read it is the whole request) and the request's
+  headers, `Authorization` and `Cookie` included, as the lanes need them to
+  say what the live handler would do; no body, none read. `X-Polis-Shadow`
+  names the selector. The target is a literal in
+  `rust-api/shadow-read-mirror.conf.template`; no setting reaches it. The copy's
+  location is `internal` and has no `error_page`, no retry and no route to
+  Node.
+- **The rate.** At most 4 copies a second of each read on one box, one a
+  quarter second, with no burst (`limit_req`, one zone a read shadow,
+  `rust-api/shadow-read-rate.conf.template`). A copy over the rate ends in the
+  copy's location with 429 before any connection is opened, with an empty
+  `mirror_upstream_status`, and nothing in the error log. The request Node
+  answers is never counted, delayed or refused. The lanes' own caps (5 a
+  second each in `docker-compose.yml`) are above it, so a lane sheds nothing
+  nginx let through, and at 4 a second of each the dearest observed read costs
+  the read shadow service about 13% of its 0.25 CPU, measured.
+- **What it costs a participant.** Nothing is read before Node is contacted
+  (`mirror_request_body off`), and Node's answer never waits for the copy. What
+  waits is the next request on the same client connection, until the copy
+  ends: about a millisecond when the read shadow answers or is down, refused,
+  absent or closing, and at most the copy's timeouts (20 ms connect, 20 ms
+  send, 30 ms read, 30 ms resolve) when it is slow or silent; a copy over the
+  rate ends at once and holds nothing.
+- **What it logs.** The vote shadow's two JSON lines, `shadow_edge` (route `GET
+  <path>`) and `shadow_mirror`, and the shadowed access line,
+  `polis_shadow_access`, with no address; none of them carries the query
+  string, and the Referer is written without its query string and fragment.
+  The access line of every read that is copied has no address; every request
+  that is not copied keeps the ordinary line with its addresses. nginx's error
+  log is not covered by this: when a copy fails (the read shadow service
+  absent, refusing, closing, or slower than the copy's timeouts) nginx writes
+  one line at `error` for it that names the peer as `client:` and gives the
+  request line and the copy's upstream URL whole, query string included (the
+  conversation, a participant number, an external id when the client sent
+  one). A copy that answers, or that ends over the rate, writes none.
+- **With other selections.** `votesShadow` or `postVotes` (on
+  `/api/v3/votes`) and `commentsShadow` (on `/api/v3/comments`) render the
+  path's location themselves; with a read shadow beside them that location
+  carries the GET diversion first and is otherwise exactly what it is without
+  it. Every shadow may be selected together.
+- **Refused.** A read shadow with the read route that has Rust answer the same
+  read: `votesReadShadow` with `votesRead`, `commentsReadShadow` with
+  `comments`, `nextCommentShadow` with `nextComment`. The renderer refuses the
+  selection and every route stays on Node, and the web deploy and its
+  validation refuse it before anything changes.
+- **The service.** The web deploy starts `polis-api-shadow-reads` only when a
+  read shadow is selected (it is in the `rust-api` profile, so every deploy's
+  teardown removes it). Its own container, with its own 0.25 CPU and 384 MiB:
+  the read lanes never run in the process that observes votes and comments,
+  whose CPU they would share. Its three lane switches are empty in
+  `docker-compose.yml`, so the env document cannot turn a lane on; the deploy
+  writes `observe` for the named selectors into the Compose override it
+  generates and, before it replaces anything, reads back from the composed
+  configuration that each switch follows the route list and that the service
+  is the read shadow service: the shadow role, its listener, no vote,
+  identity or comment observer, participant tokens verified, both signing-key
+  settings blank. It reads back too that `polis-api-shadow` has the three read
+  switches empty. A composition that is not so is refused by name (never by
+  value) while the box's running containers are untouched. Validation then
+  requires the read shadow's `/health`: the shadow role, no observer, exactly
+  the named lanes in observe mode, never enabled, room for 8 copies, a cap of
+  at most 10 a second, exactly their read-only reachable pools, listening, the
+  release's version and commit; and it refuses a `polis-api-shadow` whose
+  `/health` has a read lane. The read shadow holds at most seven read-only
+  connections to the database for its lanes (two for the vote read, three for
+  the comment list, two for the next comment), one general and one for
+  revocations.
+- **Order.** As for the comment shadow: deploy a release that knows the names
+  before putting one in `RUST_API_ROUTES`, and remove them before deploying an
+  older release.
+- **Rollback.** Remove the names from `RUST_API_ROUTES` and deploy. nginx
+  renders no read shadow location, the teardown removes the container, and
+  nothing was written.
+
+Checks: the read shadow sections of
+`queue-rs/polis-api/conformance/nginx-routing.sh` (each read shadow alone,
+beside the write shadows and the vote writer, every shadow together, the
+refusals, and no read shadow text for any other selection);
+`queue-rs/polis-api/conformance/nginx-shadow.sh`, which runs the three reads
+through every mode of the read shadow stand-in, the requests never copied,
+replies that do not wait for their copy, the rate, one keepalive connection,
+every shadow together and (`--load`) next-comment reads under keepalive load
+against a control; `queue-rs/polis-api/conformance/shadow-stack.sh`, which
+runs real reads through nginx to the real Node server with the real read
+shadow service; and `file-server/nginx/test-render-unchanged.py BASE`, which
+renders every selection an earlier revision knows with both renderers and
+requires the same bytes.

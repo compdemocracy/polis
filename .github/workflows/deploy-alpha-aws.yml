@@ -112,8 +112,36 @@ jobs:
           grep -qx "revision=$(cat scripts/deploy-revision.txt)" scripts/deploy-images.txt
           zip -r deployment-us.zip appspec.yml scripts/* docker-compose.yml
 
+      # Each deploy's bundle under its own key, named by its commit, and both
+      # deployments below name exactly the object this step wrote: its eTag,
+      # and its version in the versioned bucket (cdk/codedeploy.ts). The launch
+      # deployment for a box Auto Scaling starts, and CodeDeploy's automatic
+      # rollback, deploy the group's last successful revision as it was
+      # recorded, so they fetch that deploy's bundle, never a later upload. A
+      # revision whose object has since changed fails CodeDeploy's eTag check
+      # instead of installing another bundle.
       - name: Upload US deployment package to S3
-        run: aws s3 cp deployment-us.zip "s3://$DEPLOY_BUCKET/deployments/deployment.zip"
+        id: bundle
+        run: |
+          key="deployments/$(cat scripts/deploy-revision.txt).zip"
+          uploaded=$(aws s3api put-object --bucket "$DEPLOY_BUCKET" --key "$key" --body deployment-us.zip --output json)
+          etag=$(jq -r '.ETag // ""' <<< "$uploaded" | tr -d '"')
+          version=$(jq -r '.VersionId // ""' <<< "$uploaded")
+          if ! grep -Eqx '[0-9A-Za-z._-]+' <<< "$etag"; then
+            echo "Error: S3 returned no usable eTag for s3://$DEPLOY_BUCKET/$key; refusing to create a deployment that does not name its object" >&2
+            exit 1
+          fi
+          # Without a version, a re-run of this commit would replace the object
+          # the last successful revision names, and every launch deployment and
+          # rollback would then fail its eTag check. "null" is a suspended
+          # bucket's version id.
+          if ! grep -Eqx '[0-9A-Za-z._+/-]+' <<< "$version" || [ "$version" = null ]; then
+            echo "Error: S3 returned no usable version id for s3://$DEPLOY_BUCKET/$key (is the bucket versioned?); refusing to create the deployment" >&2
+            exit 1
+          fi
+          location="bucket=$DEPLOY_BUCKET,key=$key,bundleType=zip,eTag=$etag,version=$version"
+          echo "Bundle: s3://$DEPLOY_BUCKET/$key (eTag $etag, version $version)"
+          echo "s3-location=$location" >> "$GITHUB_OUTPUT"
 
       # OVERWRITE: CodeDeploy tracks installed files per deployment group, so a
       # box moved between groups would otherwise fail at Install on its own files.
@@ -122,11 +150,13 @@ jobs:
       # GetDeployment every 15 s and gives up after 120 polls (about 30 minutes),
       # which also fails the step. Workers start only after web has succeeded.
       - name: Create US CodeDeploy deployment (web)
+        env:
+          BUNDLE_S3_LOCATION: ${{ steps.bundle.outputs.s3-location }}
         run: |
           ID=$(aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisDeploymentGroup \
-            --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
+            --revision revisionType=S3,s3Location="{$BUNDLE_S3_LOCATION}" \
             --file-exists-behavior OVERWRITE \
             --region us-east-1 \
             --query deploymentId --output text)
@@ -134,11 +164,13 @@ jobs:
           aws deploy wait deployment-successful --deployment-id "$ID" --region us-east-1
 
       - name: Create US CodeDeploy deployment (workers)
+        env:
+          BUNDLE_S3_LOCATION: ${{ steps.bundle.outputs.s3-location }}
         run: |
           ID=$(aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisWorkersDeploymentGroup \
-            --revision revisionType=S3,s3Location="{bucket=$DEPLOY_BUCKET,key=deployments/deployment.zip,bundleType=zip}" \
+            --revision revisionType=S3,s3Location="{$BUNDLE_S3_LOCATION}" \
             --file-exists-behavior OVERWRITE \
             --region us-east-1 \
             --query deploymentId --output text)

@@ -27,8 +27,20 @@ export API_SERVER_PORT=${API_SERVER_PORT:-5000}
 # is never limited. Both shadows may be selected together. No route here
 # writes comments yet: the selector that does must be refused together with
 # commentsShadow, as postVotes is with votesShadow.
+# The read shadows (votesReadShadow, commentsReadShadow, nextCommentShadow)
+# do the same for GET /api/v3/votes, GET /api/v3/comments and GET
+# /api/v3/nextComment: Node answers every read, and a GET with no body (no
+# Content-Length, no Transfer-Encoding) is also copied to the read shadow
+# service (polis-api-shadow-reads), at most READ_SHADOW_RATE copies a second
+# on this box for each, with no burst. Each is refused
+# together with the read route that serves the path from Rust (votesRead,
+# comments, nextComment). With a write shadow on the same path, or postVotes,
+# the GET diversion is inserted first in that location; otherwise the read
+# shadow renders the path's location itself. With no read shadow named
+# nothing rendered changes.
 COMMENTS_SHADOW_RATE=2
 COMMENTS_SHADOW_BURST=4
+READ_SHADOW_RATE=4
 mkdir -p "$1"
 : >${1}/upstreams.conf
 : >${1}/locations.conf
@@ -36,6 +48,7 @@ RUST_API_MAP_ENTRIES=""
 RUST_API_VOTE_MAP_ENTRIES=""
 rust_api_locations=""
 rust_api_shadows=""
+rust_api_read_shadows=""
 rust_api_unknown=""
 export RUST_API_UPSTREAM=${RUST_API_UPSTREAM:-polis-api:5100}
 for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
@@ -156,6 +169,18 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
     commentsShadow)
       case " $rust_api_shadows " in *" commentsShadow "*) continue ;; esac
       rust_api_shadows="${rust_api_shadows} commentsShadow"
+      ;;
+    votesReadShadow)
+      case " $rust_api_read_shadows " in *" votesReadShadow "*) continue ;; esac
+      rust_api_read_shadows="${rust_api_read_shadows} votesReadShadow"
+      ;;
+    commentsReadShadow)
+      case " $rust_api_read_shadows " in *" commentsReadShadow "*) continue ;; esac
+      rust_api_read_shadows="${rust_api_read_shadows} commentsReadShadow"
+      ;;
+    nextCommentShadow)
+      case " $rust_api_read_shadows " in *" nextCommentShadow "*) continue ;; esac
+      rust_api_read_shadows="${rust_api_read_shadows} nextCommentShadow"
       ;;
     metadataRead)
       case " $rust_api_locations " in *" metadataRead "*) continue ;; esac
@@ -413,32 +438,68 @@ rust_api_conflict=""
 case "$rust_api_shadows:$rust_api_locations " in
   *" votesShadow"*:*" postVotes "*) rust_api_conflict="votesShadow and postVotes" ;;
 esac
+# A read shadow observes the reads Node answers, so it is refused together
+# with the read route that would have Rust answer them.
+rust_api_read_conflict=""
+for shadow in $rust_api_read_shadows; do
+  case "$shadow" in
+    votesReadShadow) shadow_read=votesRead ;;
+    commentsReadShadow) shadow_read=comments ;;
+    nextCommentShadow) shadow_read=nextComment ;;
+  esac
+  case " $rust_api_locations " in
+    *" $shadow_read "*) rust_api_read_conflict="${rust_api_read_conflict:+$rust_api_read_conflict, }$shadow and $shadow_read" ;;
+  esac
+done
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments reportComments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage locations bid myInvitesCsv participantsRead ptptois votesRead votesFamous postVotes votesShadow commentsShadow metadataRead metadataChoices recentStarted recentActivity treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments reportComments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage locations bid myInvitesCsv participantsRead ptptois votesRead votesFamous postVotes votesShadow commentsShadow votesReadShadow commentsReadShadow nextCommentShadow metadataRead metadataChoices recentStarted recentActivity treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
   exit 1
 elif [ -n "$rust_api_conflict" ]; then
   echo "ERROR RUST_API_ROUTES: ${rust_api_conflict} cannot be selected together (the shadow observes the votes Node answers). Selection rejected." >&2
   exit 1
-elif [ -n "$rust_api_locations$rust_api_shadows" ] &&
+elif [ -n "$rust_api_read_conflict" ]; then
+  echo "ERROR RUST_API_ROUTES: ${rust_api_read_conflict} cannot be selected together (a read shadow observes the reads Node answers). Selection rejected." >&2
+  exit 1
+elif [ -n "$rust_api_locations$rust_api_shadows$rust_api_read_shadows" ] &&
   ! echo "$RUST_API_UPSTREAM" | grep -Eqx '[A-Za-z0-9._-]+:[0-9]{1,5}'; then
   echo "ERROR RUST_API_UPSTREAM: '${RUST_API_UPSTREAM}' is not host:port. Selection rejected." >&2
   exit 1
-elif [ -n "$rust_api_locations$rust_api_shadows" ] &&
+elif [ -n "$rust_api_locations$rust_api_shadows$rust_api_read_shadows" ] &&
   ! echo "$RUST_API_RESOLVER" | grep -Eqx '[][A-Za-z0-9.:_-]+( [][A-Za-z0-9.:_=-]+)*'; then
   echo "ERROR RUST_API_RESOLVER: '${RUST_API_RESOLVER}' is not a list of resolver addresses. Selection rejected." >&2
   exit 1
-elif [ -n "$rust_api_locations$rust_api_shadows" ]; then
+elif [ -n "$rust_api_locations$rust_api_shadows$rust_api_read_shadows" ]; then
   export RUST_API_MAP_ENTRIES RUST_API_VOTE_MAP_ENTRIES
   envsubst '${RUST_API_RESOLVER} ${RUST_API_MAP_ENTRIES} ${RUST_API_VOTE_MAP_ENTRIES}' \
     </etc/nginx/rust-api-templates/upstreams.conf.template >${1}/upstreams.conf
-  if [ -n "$rust_api_shadows" ]; then
+  if [ -n "$rust_api_shadows$rust_api_read_shadows" ]; then
     cat /etc/nginx/rust-api-templates/shadow-http.conf.template >>${1}/upstreams.conf
+  fi
+  if [ -n "$rust_api_read_shadows" ]; then
+    cat /etc/nginx/rust-api-templates/shadow-read-http.conf.template >>${1}/upstreams.conf
   fi
   # A read route's own location, with its shadow's diversion first (a POST
   # the shadow is sent a copy of, and no other request): name, path, template.
   shadow_diverted() {
     awk -v post="    error_page 420 = @polis_shadow_$1;\n    if (\$polis_shadow_copyable = 1) {\n        return 420;\n    }" \
       -v open="location = $2 {" '{ print } $0 == open { print post }' "$3"
+  }
+  # The location that answers a path, from standard input, with the GET
+  # diversion of the read shadow on that path inserted first (a GET the read
+  # shadow is sent a copy of, and no other request); unchanged when no read
+  # shadow is named for the path. Argument: the path.
+  read_shadow_first() {
+    case "$1" in
+      /api/v3/votes) read_shadow=votesReadShadow ;;
+      /api/v3/comments) read_shadow=commentsReadShadow ;;
+      *) cat; return ;;
+    esac
+    case " $rust_api_read_shadows " in
+      *" $read_shadow "*)
+        awk -v get="    error_page 421 = @polis_shadow_$read_shadow;\n    if (\$polis_shadow_read_copyable = 1) {\n        return 421;\n    }" \
+          -v open="location = $1 {" '{ print } $0 == open { print get }' ;;
+      *) cat ;;
+    esac
   }
   for route in $rust_api_locations; do
     case "$route:$rust_api_locations :$rust_api_shadows " in
@@ -449,6 +510,9 @@ elif [ -n "$rust_api_locations$rust_api_shadows" ]; then
       comments:*:*" commentsShadow "*)
         shadow_diverted commentsShadow /api/v3/comments \
           /etc/nginx/rust-api-templates/comments.location.conf.template >>${1}/locations.conf ;;
+      postVotes:*)
+        read_shadow_first /api/v3/votes \
+          </etc/nginx/rust-api-templates/postVotes.location.conf.template >>${1}/locations.conf ;;
       *) cat /etc/nginx/rust-api-templates/${route}.location.conf.template >>${1}/locations.conf ;;
     esac
     if [ "$route" = votesRead ]; then
@@ -468,7 +532,8 @@ elif [ -n "$rust_api_locations$rust_api_shadows" ]; then
     case " $rust_api_locations " in
       *" $shadow_read "*) ;;
       *) envsubst '${SHADOW_NAME} ${SHADOW_PATH}' \
-           </etc/nginx/rust-api-templates/shadow-path.conf.template >>${1}/locations.conf ;;
+           </etc/nginx/rust-api-templates/shadow-path.conf.template |
+           read_shadow_first "$SHADOW_PATH" >>${1}/locations.conf ;;
     esac
     if [ -z "$SHADOW_RATE" ]; then
       envsubst '${SHADOW_NAME} ${SHADOW_PATH}' \
@@ -484,6 +549,30 @@ elif [ -n "$rust_api_locations$rust_api_shadows" ]; then
           -v at="    set \$polis_shadow_name ${SHADOW_NAME};" \
           '{ print } $0 == at { print limit }' >>${1}/locations.conf
     fi
+  done
+  for shadow in $rust_api_read_shadows; do
+    # The selections that already answer the path and carry its GET
+    # diversion (read_shadow_first above); without one the read shadow
+    # renders the path's location itself.
+    case "$shadow" in
+      votesReadShadow) SHADOW_PATH=/api/v3/votes shadow_hosts="postVotes votesShadow" ;;
+      commentsReadShadow) SHADOW_PATH=/api/v3/comments shadow_hosts="commentsShadow" ;;
+      nextCommentShadow) SHADOW_PATH=/api/v3/nextComment shadow_hosts="" ;;
+    esac
+    SHADOW_NAME=$shadow SHADOW_RATE=$READ_SHADOW_RATE
+    export SHADOW_NAME SHADOW_PATH SHADOW_RATE
+    hosted=0
+    for host in $shadow_hosts; do
+      case " $rust_api_locations $rust_api_shadows " in *" $host "*) hosted=1 ;; esac
+    done
+    if [ "$hosted" = 0 ]; then
+      envsubst '${SHADOW_NAME} ${SHADOW_PATH}' \
+        </etc/nginx/rust-api-templates/shadow-read-path.conf.template >>${1}/locations.conf
+    fi
+    envsubst '${SHADOW_NAME} ${SHADOW_PATH} ${SHADOW_RATE}' \
+      </etc/nginx/rust-api-templates/shadow-read-rate.conf.template >>${1}/upstreams.conf
+    envsubst '${SHADOW_NAME} ${SHADOW_PATH} ${SHADOW_RATE}' \
+      </etc/nginx/rust-api-templates/shadow-read-mirror.conf.template >>${1}/locations.conf
   done
   envsubst '${API_SERVER_PORT}' \
     </etc/nginx/rust-api-templates/node.location.conf.template >>${1}/locations.conf

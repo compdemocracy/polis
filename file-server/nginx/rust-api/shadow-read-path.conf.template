@@ -1,0 +1,12 @@
+# ${SHADOW_NAME} with no other selection answering ${SHADOW_PATH}: a GET the
+# read shadow is sent a copy of ($polis_shadow_read_copyable: no body) is
+# answered by Node from @polis_shadow_${SHADOW_NAME}, which also copies it to
+# the read shadow service; every other request goes to Node exactly as the
+# API location sends it. 421 is only an internal hand-over, never sent.
+location = ${SHADOW_PATH} {
+    error_page 421 = @polis_shadow_${SHADOW_NAME};
+    if ($polis_shadow_read_copyable = 1) {
+        return 421;
+    }
+    include /etc/nginx/node-proxy.conf;
+}
