@@ -11,7 +11,8 @@ use super::{
     config::Config,
     db::{Db, Signals},
     plan::{self, Look, Pause},
-    state::{InFlight, Seen, State},
+    state::{InFlight, PendingTwin, State, TWIN_RESULTS_KEPT},
+    twin,
 };
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -159,6 +160,9 @@ impl<'a> Scheduler<'a> {
     }
 
     fn pick_and_admit(&mut self, now: i64) -> Result<()> {
+        if self.admit_twin(now)? {
+            return Ok(());
+        }
         let since = now - self.cfg.live_days as i64 * 86_400_000;
         let live = self.db.live(since)?;
         let (mut small, mut large) = (0u64, 0u64);
@@ -306,19 +310,111 @@ impl<'a> Scheduler<'a> {
         )
     }
 
-    /// What follows a terminal run (the twin runs hook in here).
+    /// A twin waiting for admission goes before any new set. It is admitted
+    /// only on the same comment set as its first run; a set that changed in
+    /// between drops it (and the next first run on the new set may get one).
+    fn admit_twin(&mut self, now: i64) -> Result<bool> {
+        let Some(pending) = self.state.pending_twin.clone() else {
+            return Ok(false);
+        };
+        if pending.twin_job_id.is_some() {
+            return Ok(false);
+        }
+        let set = self.db.comment_set(pending.zid)?;
+        if set.digest != pending.digest {
+            log(
+                "twin_dropped",
+                json!({"first_job_id": pending.first_job_id, "reason": "comment_set_changed"}),
+            );
+            self.state.pending_twin = None;
+            return Ok(false);
+        }
+        let request = plan::admission(
+            pending.zid,
+            &set.digest,
+            set.comments,
+            Some(&pending.first_job_id),
+        );
+        self.admit(
+            request,
+            set.comments,
+            Some(pending.first_job_id.clone()),
+            now,
+        )?;
+        match self.state.in_flight.as_ref() {
+            Some(flight) if flight.twin_of.as_deref() == Some(pending.first_job_id.as_str()) => {
+                if let Some(p) = self.state.pending_twin.as_mut() {
+                    p.twin_job_id = Some(flight.job_id.clone());
+                }
+            }
+            _ => self.state.pending_twin = None,
+        }
+        Ok(true)
+    }
+
+    /// What follows a terminal run: a first run that succeeded may get a twin
+    /// (its clustering is kept to compare with); a twin that succeeded is
+    /// compared with its first run.
     fn after_run(
         &mut self,
-        _flight: &InFlight,
-        _outcome: &str,
-        _record: Option<&Value>,
+        flight: &InFlight,
+        outcome: &str,
+        record: Option<&Value>,
     ) -> Result<()> {
+        match &flight.twin_of {
+            None if outcome == "succeeded" => {
+                self.state.first_runs_succeeded += 1;
+                if plan::twin_due(self.cfg.twin_every, self.state.first_runs_succeeded) {
+                    let assignments = self.db.assignments(flight.zid)?;
+                    self.state.pending_twin = Some(PendingTwin {
+                        zid: flight.zid,
+                        first_job_id: flight.job_id.clone(),
+                        digest: flight.digest.clone(),
+                        comments: flight.comments,
+                        assignments,
+                        twin_job_id: None,
+                    });
+                }
+            }
+            None => {}
+            Some(first) => {
+                let pending = self.state.pending_twin.take();
+                let Some(pending) = pending.filter(|p| &p.first_job_id == first) else {
+                    return Ok(());
+                };
+                if outcome != "succeeded" {
+                    log(
+                        "twin_failed",
+                        json!({"first_job_id": first, "twin_job_id": flight.job_id, "state": outcome}),
+                    );
+                    return Ok(());
+                }
+                let first_record = self.db.run_record(first)?.unwrap_or(Value::Null);
+                let twin_record = record.cloned().unwrap_or(Value::Null);
+                let twin_rows = self.db.assignments(flight.zid)?;
+                let comparison = twin::compare(
+                    &first_record,
+                    &twin_record,
+                    &pending.assignments,
+                    &twin_rows,
+                );
+                self.state.totals.twins_compared += 1;
+                if comparison.identical {
+                    self.state.totals.twins_identical += 1;
+                }
+                let line = json!({"first_job_id": first, "twin_job_id": flight.job_id,
+                    "comments": flight.comments, "size_class": plan::size_class(flight.comments),
+                    "digest": flight.digest, "comparison": comparison});
+                log("twin", line.clone());
+                self.state.twin_results.push(line);
+                let excess = self
+                    .state
+                    .twin_results
+                    .len()
+                    .saturating_sub(TWIN_RESULTS_KEPT);
+                self.state.twin_results.drain(..excess);
+            }
+        }
         Ok(())
     }
-}
-
-/// For tests: whether a conversation's recorded state says it was admitted on
-/// this digest.
-pub fn admitted_on(seen: Option<&Seen>, digest: &str) -> bool {
-    seen.and_then(|s| s.admitted_digest.as_deref()) == Some(digest)
 }

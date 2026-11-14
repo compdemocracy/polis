@@ -47,7 +47,13 @@ pub struct PendingTwin {
     pub comments: i64,
     /// The first run's assignments: comment id → one cluster id per layer.
     pub assignments: BTreeMap<i64, Vec<i64>>,
+    /// The twin's job, once admitted.
+    #[serde(default)]
+    pub twin_job_id: Option<String>,
 }
+
+/// How many twin comparisons the state file keeps (the newest).
+pub const TWIN_RESULTS_KEPT: usize = 500;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Totals {
@@ -80,6 +86,9 @@ pub struct State {
     /// First runs that succeeded, for the twin sample.
     pub first_runs_succeeded: u64,
     pub totals: Totals,
+    /// The newest twin comparisons (`twin::Comparison` with both job ids).
+    #[serde(default)]
+    pub twin_results: Vec<serde_json::Value>,
 }
 
 impl State {
@@ -94,6 +103,7 @@ impl State {
             day_runs: 0,
             first_runs_succeeded: 0,
             totals: Totals::default(),
+            twin_results: Vec::new(),
         }
     }
 
@@ -161,6 +171,7 @@ mod tests {
             digest: "d".into(),
             comments: 30,
             assignments: [(1, vec![0, 1]), (2, vec![-1, 1])].into_iter().collect(),
+            twin_job_id: None,
         });
         s.save(&path)?;
         assert_eq!(State::load(&path, "shadow-delphi-1")?, s);

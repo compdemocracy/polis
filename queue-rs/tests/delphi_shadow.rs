@@ -505,3 +505,78 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
         .get(0);
     assert_eq!(open, 0, "no connection is kept between calls");
 }
+
+#[test]
+fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
+    use polis_queue_adapter::shadow::state::PendingTwin;
+    let f = Fixture::new();
+    f.conversation(401, 30);
+    f.conversation(402, 30);
+    let cfg = f.config(&[("DELPHI_SHADOW_TWIN_EVERY", "1")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = s.state.in_flight.clone().unwrap();
+    assert_eq!(first.zid, 401);
+    f.cancel(&first.job_id);
+    s.cycle().unwrap();
+    // As if the first run had succeeded and kept its clustering.
+    s.state.pending_twin = Some(PendingTwin {
+        zid: 401,
+        first_job_id: first.job_id.clone(),
+        digest: first.digest.clone(),
+        comments: first.comments,
+        assignments: [(0, vec![0])].into_iter().collect(),
+        twin_job_id: None,
+    });
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let twin = s.state.in_flight.clone().unwrap();
+    assert_eq!(twin.zid, 401, "the twin goes before any new set");
+    assert_eq!(twin.twin_of.as_deref(), Some(first.job_id.as_str()));
+    assert_eq!(twin.digest, first.digest);
+    let record: Value = f
+        .superuser()
+        .query_one(
+            "SELECT pd_run_record($1,$2::text::uuid)",
+            &[&ENV, &twin.job_id],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(
+        record["config_effective"]["shadow"]["twin_of"],
+        first.job_id.as_str()
+    );
+    assert_eq!(
+        record["config_effective"]["shadow"]["comment_set_sha256"],
+        first.digest.as_str()
+    );
+    assert_eq!(
+        s.state
+            .pending_twin
+            .as_ref()
+            .unwrap()
+            .twin_job_id
+            .as_deref(),
+        Some(twin.job_id.as_str())
+    );
+    // A twin whose set changed before its admission is dropped.
+    f.cancel(&twin.job_id);
+    s.cycle().unwrap();
+    assert!(
+        s.state.pending_twin.is_none(),
+        "a cancelled twin compares nothing"
+    );
+    s.state.pending_twin = Some(PendingTwin {
+        zid: 401,
+        first_job_id: first.job_id.clone(),
+        digest: "0".repeat(64),
+        comments: first.comments,
+        assignments: Default::default(),
+        twin_job_id: None,
+    });
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.pending_twin.is_none());
+    let next = s.state.in_flight.clone().unwrap();
+    assert_eq!((next.zid, next.twin_of), (402, None));
+}

@@ -7,7 +7,9 @@
 //! It is paced like the math backfill: it pauses while the database is slow,
 //! while the math engine trails the votes, below a disk floor, at a daily
 //! cap and on the operator's pause file, and rests after each run for its
-//! duty cycle. It is off unless `DELPHI_SHADOW_ENABLED=1`.
+//! duty cycle. With `DELPHI_SHADOW_TWIN_EVERY=N`, every Nth first run that
+//! succeeds is repeated once on the same comment set and the two clusterings
+//! are compared (`twin`). It is off unless `DELPHI_SHADOW_ENABLED=1`.
 //!
 //! What it touches, and what it never touches: see `db`.
 pub mod config;
@@ -15,3 +17,4 @@ pub mod db;
 pub mod plan;
 pub mod scheduler;
 pub mod state;
+pub mod twin;
