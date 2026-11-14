@@ -73,7 +73,10 @@ FAKES = {
     "systemctl": RECORD,
     # `ps -a --services` names the services that still have a container in
     # this project (on the Delphi box, after `down`: the profile-gated ones).
-    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n' + 'case "$*" in *"up -d delphi-shadow delphi-shadow-scheduler "*) [ "${FAKE_DELPHI_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n',
+    # The fake exits with its last line's status (a failed Rust start), so
+    # that line stays last.
+    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d delphi-shadow delphi-shadow-scheduler "*) [ "${FAKE_DELPHI_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n'
+                      + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # Real jq consumes its input; the fake must too, or pipefail can report
     # SIGPIPE from the producer when this reader exits before it writes.
