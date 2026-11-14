@@ -36,7 +36,7 @@ dependencies = [
     "torchvision==0.23.0",
     "torchaudio==2.8.0",
     # UMAP narrative dependencies
-    "umap-learn>=0.5.7",
+    "umap-learn>=0.5.7,<0.6",
     "sentence-transformers>=2.2.0",
     "hdbscan>=0.8.40",
     "numba>=0.61.2",
