@@ -276,7 +276,7 @@
           width: 22px;
           fill: #2ecc71;
           ">{{> iconFaCircleCheck}}</i>
-        {{s.agree}}
+        {{s.agree}} ({{voteShortcuts.agree}})
       </button>
       <button
         id="disagreeButton"
@@ -290,13 +290,13 @@
           width: 22px;
           fill: #e74c3c;
           ">{{> iconFaBan}}</i>
-        {{s.disagree}}
+        {{s.disagree}} ({{voteShortcuts.disagree}})
       </button>
       <button
         id="passButton"
         class="reactionButton"
         >
-        {{s.pass}}
+        {{s.pass}} ({{voteShortcuts.pass}})
       </button>
     </div>
 

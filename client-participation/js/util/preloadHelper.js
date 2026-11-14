@@ -33,7 +33,8 @@ var firstConvPromise = p.firstConv
       return dfd.promise();
     })();
 
-var firstUserPromise = p.firstUser
+// firstUser may legitimately be null for anonymous participants.
+var firstUserPromise = Object.prototype.hasOwnProperty.call(p, "firstUser")
   ? $.Deferred().resolve(p.firstUser)
   : (function () {
       var dfd = $.Deferred();
