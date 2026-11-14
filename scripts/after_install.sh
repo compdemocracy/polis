@@ -573,17 +573,24 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
   #      both Delphi ASGs (AsgDelphiSmall, AsgDelphiLarge) so no new box starts
   #      a poller; list every InService instance in both groups.
-  #   2. On every box, via SSM Run Command targeted at both groups, find the
-  #      math-python container; its log says `holding single-writer lock` on
-  #      the holder, `waiting for single-writer lock` on standbys.
+  #   2. On every box, via SSM, list the math-python containers by label
+  #      (docker ps -a --filter label=com.docker.compose.service=math-python).
+  #      The holder is the session holding the advisory lock
+  #      hashtext('polis-math-python:python') in pg_locks; its
+  #      application_name is math-python:python@<short container id>. Every
+  #      other math-python container is a standby. Run the SQL on a Delphi box
+  #      (inside its delphi container), never from outside the VPC.
   #   3. `sudo docker rm -f` the standbys' math-python containers first, then
   #      the holder's, so nothing is admitted during the stop.
-  #   4. Verify: no math-python container on any box (SSM across both groups);
-  #      zero rows from `SELECT application_name FROM pg_stat_activity WHERE
-  #      application_name LIKE 'math-python:%'`; max(math_tick) under
-  #      math_env='python' no longer advances.
+  #   4. Verify: no math-python container on any box; no holder of that lock
+  #      and no session with application_name LIKE 'math-python:python@%'
+  #      (not 'math-python:%', which also matches the large class's
+  #      math-python:python-large@ queue child); max(modified) from math_ticks
+  #      under math_env='python' unchanged between two readings.
   #   5. Make it durable (remove `math-python` from DELPHI_SERVICES and
-  #      redeploy) before resuming deploys or ASG launches.
+  #      redeploy), check that deployment succeeded and was not rolled back
+  #      (a rollback runs the previous revision, which starts math-python),
+  #      repeat step 4, and only then resume deploys or ASG launches.
   poller_identity
   DELPHI_SERVICES=(delphi math-python)
   "${COMPOSE[@]}" down
