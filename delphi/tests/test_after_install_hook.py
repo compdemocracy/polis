@@ -88,7 +88,7 @@ FAKES = {
     "aws": RECORD + (
         'case "$*" in\n'
         '  *ollama*) exit 255;;\n'
-        '  *polis-web-app-env-vars*) echo "PUBLIC_SERVICE_URL=https://example.invalid";;\n'
+        '  *polis-web-app-env-vars*) echo "PUBLIC_SERVICE_URL=https://example.invalid"; [ -z "${FAKE_ENV_EXTRA-}" ] || printf "%s\\n" "$FAKE_ENV_EXTRA";;\n'
         '  *"ssm get-parameter"*) echo value;;\n'
         '  *"sts get-caller-identity"*) echo 123456789012;;\n'
         '  *"ecr get-login-password"*) echo token;;\n'
@@ -196,8 +196,11 @@ def _manifest(revision=REVISION, changes=None):
 def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls",
             shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None,
-            reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None, **kw):
+            reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None,
+            env_extra=None, **kw):
     root, env = _box(tmp_path, service_type, **kw)
+    if env_extra is not None:
+        env["FAKE_ENV_EXTRA"] = env_extra
     env["FAKE_READS_START_FAILURE"] = "1" if reads_start_failure else "0"
     if reads_switches_wrong is not None:
         env["FAKE_READS_SWITCHES_WRONG"] = reads_switches_wrong
@@ -1245,3 +1248,34 @@ def test_the_real_jq_names_exactly_the_read_lane_switches_that_do_not_follow(sel
                           text=True, capture_output=True)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout == named + "\n"
+
+
+# --- The free-only Delphi shadow: started only by its switch, never fatal ----
+
+SHADOW_UP = "up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate"
+
+
+@pytest.mark.parametrize("extra", [None, "DELPHI_SHADOW_ENABLED=0", "DELPHI_SHADOW_ENABLED=true",
+                                   "DELPHI_SHADOW_ENABLED=1 ", "# DELPHI_SHADOW_ENABLED=1"])
+def test_the_delphi_shadow_is_not_started_without_its_switch(tmp_path, extra):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["delphi"]
+    assert "delphi-shadow" not in (tmp_path / "root/opt/polis/polis/docker-compose.images.yml").read_text()
+
+
+def test_the_delphi_shadow_starts_after_the_engine_when_switched_on(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    ups = [c for c in _compose(log) if c.startswith("up")]
+    assert ups == UNCHANGED["delphi"] + [SHADOW_UP]
+    images = (tmp_path / "root/opt/polis/polis/docker-compose.images.yml").read_text()
+    for service in ("delphi-shadow", "delphi-shadow-scheduler"):
+        assert f"  {service}:\n    image: {IMAGES['delphi']}\n" in images
+
+
+@pytest.mark.parametrize("service_type", ["server", "math"])
+def test_other_roles_never_start_the_delphi_shadow(tmp_path, service_type):
+    proc, log = _deploy(tmp_path, service_type, env_extra="DELPHI_SHADOW_ENABLED=1")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert SHADOW_UP not in _compose(log)

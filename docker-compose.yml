@@ -408,6 +408,151 @@ services:
     profiles:
       - math-python
 
+  # The free-only Delphi shadow: full-pipeline runs (embeddings, UMAP, EVoC,
+  # keywords) of live conversations under a result env no reader serves
+  # (DELPHI_SHADOW_ENV, default shadow-delphi-1; the scheduler refuses any env
+  # that does not start with shadow-). OFF: both services are profile-gated,
+  # the deploy hook starts them only when the environment document says
+  # DELPHI_SHADOW_ENABLED=1, and each process exits 0 at once unless that
+  # switch is 1.
+  #   delphi-shadow           a polis-jobs daemon claiming only that env, one
+  #                           job at a time, full pipeline only;
+  #   delphi-shadow-scheduler polis-delphi-shadow, which admits one run at a
+  #                           time, paced (queue-rs/src/shadow).
+  # Free by construction: neither service is given an LLM provider key (a key
+  # not listed here never reaches the container), topic naming falls back to
+  # keyword labels and records the model `none`. No visualization page is
+  # written (DELPHI_SKIP_DATAMAPPLOT=1), so nothing goes to S3, and no AWS key
+  # is listed. The embedding model is read from the image, offline
+  # (DELPHI_EMBED_MODEL_PATH, HF_HUB_OFFLINE). Disk: the run's scratch, the
+  # Hugging Face and Numba caches and the pipeline's local outputs are tmpfs
+  # (memory, inside the memory limit; nothing large is written to the box's
+  # root disk) and removed per run; only the daemon's journal and the
+  # scheduler's state file are on a volume. Limits: 2 CPUs and 6 GiB for the
+  # daemon (math-python's 48 GiB and delphi's 8 GiB make 62 of the box's 64),
+  # a quarter CPU for the scheduler.
+  delphi-shadow:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["polis-jobs"]
+    environment:
+      - POLIS_JOBS_ENABLED=${DELPHI_SHADOW_ENABLED:-0}
+      # The input bundle's read (one connection per run, closed after it).
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
+      - QUEUE_DATABASE_URL=${QUEUE_DATABASE_URL:-}
+      - QUEUE_ENV=${DELPHI_SHADOW_ENV:-shadow-delphi-1}
+      - DELPHI_RESULT_BACKEND=postgres
+      - DELPHI_RESULT_ENV=${DELPHI_SHADOW_ENV:-shadow-delphi-1}
+      - POLIS_JOBS_TRANSPORT=${POLIS_JOBS_TRANSPORT:-tls}
+      - POLIS_JOBS_CA_FILE=${POLIS_JOBS_CA_FILE:-}
+      - POLIS_JOBS_HOST_ALLOWLIST=${POLIS_JOBS_HOST_ALLOWLIST:-}
+      - POLIS_JOBS_WORKER_CLASS=delphi
+      - POLIS_JOBS_STAGES=delphi_full_pipeline
+      - POLIS_JOBS_CONCURRENCY=1
+      - POLIS_JOBS_INPUT_BUNDLE=1
+      - POLIS_JOBS_CHILD_TIMEOUT_SECONDS=${DELPHI_SHADOW_CHILD_TIMEOUT_SECONDS:-7200}
+      - POLIS_JOBS_JOURNAL_DIR=/var/lib/delphi-shadow/journal
+      - POLIS_JOBS_WORK_DIR=/tmp/delphi-shadow/work
+      - DELPHI_EMBEDDINGS_TABLE=1
+      - MATH_ENV=${MATH_ENV:-prod}
+      - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
+      - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Free only: no provider key is listed, so none is ever in this
+      # container; naming falls back to keyword labels under the model `none`.
+      - LLM_PROVIDER=anthropic
+      - ANTHROPIC_TOPIC_MODEL=none
+      - SENTENCE_TRANSFORMER_MODEL=all-MiniLM-L6-v2
+      - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/all-MiniLM-L6-v2
+      - DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/all-MiniLM-L6-v2.lock.json
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      - HF_HOME=/tmp/delphi-shadow/hf
+      - NUMBA_CACHE_DIR=/tmp/delphi-shadow/numba
+      - TMPDIR=/tmp
+      - DELPHI_SKIP_DATAMAPPLOT=1
+      - DELPHI_LOCAL_OUTPUT_CLEANUP=1
+      - DELPHI_STEP_LOG=1
+    volumes:
+      - delphi-shadow-state:/var/lib/delphi-shadow
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+      - /app/polis_data:size=512m
+      - /app/visualizations:size=64m
+    networks:
+      - "polis-net"
+    # The daemon's own stop drains the running job within
+    # POLIS_JOBS_SHUTDOWN_GRACE_SECONDS (30 s), then kills it.
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_SHADOW_CONTAINER_MEMORY:-6g}
+          cpus: ${DELPHI_SHADOW_CONTAINER_CPUS:-2}
+    restart: unless-stopped
+    profiles:
+      - delphi-shadow
+
+  delphi-shadow-scheduler:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["polis-delphi-shadow"]
+    environment:
+      - DELPHI_SHADOW_ENABLED=${DELPHI_SHADOW_ENABLED:-0}
+      - DELPHI_SHADOW_ENV=${DELPHI_SHADOW_ENV:-shadow-delphi-1}
+      - QUEUE_ENV=${DELPHI_SHADOW_ENV:-shadow-delphi-1}
+      - QUEUE_DATABASE_URL=${QUEUE_DATABASE_URL:-}
+      - DELPHI_SHADOW_READ_DATABASE_URL=${DATABASE_URL}
+      - POLIS_JOBS_TRANSPORT=${POLIS_JOBS_TRANSPORT:-tls}
+      - POLIS_JOBS_CA_FILE=${POLIS_JOBS_CA_FILE:-}
+      - POLIS_JOBS_HOST_ALLOWLIST=${POLIS_JOBS_HOST_ALLOWLIST:-}
+      # The source commit the deploy hook writes (the code version of every
+      # admission) and the label the math engine writes (its lag).
+      - DELPHI_SHADOW_CODE_VERSION=${MATH_POLLER_SOURCE_COMMIT:-}
+      - DELPHI_SHADOW_MATH_ENV=${MATH_PYTHON_ENV:-python}
+      - DELPHI_SHADOW_LIVE_DAYS=${DELPHI_SHADOW_LIVE_DAYS:-30}
+      - DELPHI_SHADOW_MIN_COMMENTS=${DELPHI_SHADOW_MIN_COMMENTS:-20}
+      - DELPHI_SHADOW_MAX_COMMENTS=${DELPHI_SHADOW_MAX_COMMENTS:-5000}
+      - DELPHI_SHADOW_DAILY_RUNS=${DELPHI_SHADOW_DAILY_RUNS:-200}
+      - DELPHI_SHADOW_RERUN_AFTER_SECONDS=${DELPHI_SHADOW_RERUN_AFTER_SECONDS:-86400}
+      - DELPHI_SHADOW_POLL_SECONDS=${DELPHI_SHADOW_POLL_SECONDS:-60}
+      - DELPHI_SHADOW_JOB_POLL_SECONDS=${DELPHI_SHADOW_JOB_POLL_SECONDS:-5}
+      - DELPHI_SHADOW_JOB_DEADLINE_SECONDS=${DELPHI_SHADOW_JOB_DEADLINE_SECONDS:-14400}
+      - DELPHI_SHADOW_TWIN_EVERY=${DELPHI_SHADOW_TWIN_EVERY:-0}
+      - DELPHI_SHADOW_DUTY_CYCLE=${DELPHI_SHADOW_DUTY_CYCLE:-0.5}
+      - DELPHI_SHADOW_PROBE_MAX_MS=${DELPHI_SHADOW_PROBE_MAX_MS:-250}
+      - DELPHI_SHADOW_MATH_LAG_MAX_SECONDS=${DELPHI_SHADOW_MATH_LAG_MAX_SECONDS:-180}
+      - DELPHI_SHADOW_DISK_PATH=/
+      - DELPHI_SHADOW_DISK_FREE_MIN_MB=${DELPHI_SHADOW_DISK_FREE_MIN_MB:-10240}
+      - DELPHI_SHADOW_DISK_USED_MAX_PCT=${DELPHI_SHADOW_DISK_USED_MAX_PCT:-85}
+      - DELPHI_SHADOW_STATE_PATH=/var/lib/delphi-shadow/scheduler/state.json
+      - DELPHI_SHADOW_PAUSE_FILE=/var/lib/delphi-shadow/scheduler/pause
+    volumes:
+      - delphi-shadow-state:/var/lib/delphi-shadow
+    networks:
+      - "polis-net"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: 0.25
+    restart: unless-stopped
+    profiles:
+      - delphi-shadow
+
   postgres:
     restart: always
     build:
@@ -800,6 +945,10 @@ volumes:
   delphi-queue-state:
 
   math-backfill-state:
+    labels:
+      polis_tag: ${TAG:-dev}
+  # The Delphi shadow's daemon journal and scheduler state (small files).
+  delphi-shadow-state:
     labels:
       polis_tag: ${TAG:-dev}
   postgres_data:

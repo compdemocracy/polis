@@ -288,11 +288,27 @@ fi
 sudo docker tag "$(image_ref migrate)" polis-migrate:deploy
 sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 
+# The free-only Delphi shadow (docker-compose.yml: delphi-shadow and
+# delphi-shadow-scheduler, both profile-gated). Started on the Delphi box only
+# when the environment document carries the line DELPHI_SHADOW_ENABLED=1
+# exactly; otherwise this file starts nothing of it and writes nothing about
+# it, and the `down` before the Delphi box's `up` removes any container of it
+# a previous deploy started. It runs the Delphi image pulled above.
+DELPHI_SHADOW_SELECTED=0
+if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'DELPHI_SHADOW_ENABLED=1' .env 2>/dev/null; then
+  DELPHI_SHADOW_SELECTED=1
+fi
+
 # Compose runs the pulled digests: this override sets each service's image, and
 # every `up` below passes --no-build, so nothing is built on this box.
 if [ -n "$ROLE_IMAGES" ]; then
   { echo "services:"
     for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
+    if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+      for image in delphi-shadow delphi-shadow-scheduler; do
+        printf '  %s:\n    image: %s\n' "$image" "$(image_ref delphi)"
+      done
+    fi
     # The shadow service runs the polis-api image pulled above. Its comment
     # observer's switch is written here and nowhere else, from the route
     # list: observe when commentsShadow is named; otherwise this file says
@@ -582,6 +598,13 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   poller_identity
   "${COMPOSE[@]}" down
   "${COMPOSE[@]}" up -d delphi math-python --no-build --force-recreate
+  # The shadow is optional work: its start failing never fails the deploy of
+  # the math engine and the report service above.
+  if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+    echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
+    "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
+      || echo "The Delphi shadow did not start; the deploy continues without it" >&2
+  fi
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`
