@@ -440,19 +440,19 @@ mod tests {
             "2ab-c",
             &"a".repeat(65),
         ] {
-            let e = with(&[("DELPHI_SHADOW_IMPORTANT", Some(bad))]).unwrap_err();
+            let Err(e) = with(&[("DELPHI_SHADOW_IMPORTANT", Some(bad))]) else {
+                panic!("{bad} was accepted");
+            };
             assert!(e.0.contains("DELPHI_SHADOW_IMPORTANT entry"), "{bad}: {e}");
             assert!(
                 !e.0.contains("pol.is") && !e.0.contains("2ab"),
                 "never the entry's text: {e}"
             );
         }
-        assert!(
-            with(&[("DELPHI_SHADOW_IMPORTANT", Some("2abc,3def;"))])
-                .unwrap_err()
-                .0
-                .contains("entry 2")
-        );
+        let Err(e) = with(&[("DELPHI_SHADOW_IMPORTANT", Some("2abc,3def;"))]) else {
+            panic!("a list with a bad second entry was accepted");
+        };
+        assert!(e.0.contains("entry 2"), "{e}");
         let many: Vec<String> = (0..=IMPORTANT_MAX).map(|i| format!("c{i}")).collect();
         assert!(with(&[("DELPHI_SHADOW_IMPORTANT", Some(&many.join(",")))]).is_err());
         assert_eq!(
