@@ -3,8 +3,8 @@ Unit tests for provider-agnostic topic naming.
 
 The provider factory is mocked with fake providers so no network or API key is
 needed. Covers: batch request construction (one custom_id per cluster), mapping
-results back to the right clusters, partial failures, the label cleanup, the
-ollama (non-batch) path, and conventional fallback.
+results back to the right clusters, partial failures, a failed provider, the
+label cleanup, the ollama (non-batch) path, and naming turned off.
 """
 
 import numpy as np
@@ -190,19 +190,35 @@ def test_batch_partial_failure_uses_fallback_label(monkeypatch):
     assert labels[2] == "0_2: Topic 2"   # missing -> fallback
 
 
-def test_batch_creation_failure_falls_back_to_conventional(monkeypatch):
+def test_batch_creation_failure_raises(monkeypatch):
     provider = FakeAnthropicProvider([], fail_create=True)
     monkeypatch.setattr(topic_naming, "get_model_provider", lambda *a, **k: provider)
 
+    # No keyword labels in place of the model's names: the caller would store
+    # them under the model's name.
+    with pytest.raises(RuntimeError, match="topic naming failed for layer 0"):
+        generate_cluster_topic_labels(
+            _characteristics([0]),
+            comment_texts=["a"],
+            layer=np.array([0]),
+            layer_idx=0,
+            name_topics=True,
+        )
+
+
+def test_a_layer_with_only_noise_names_nothing(monkeypatch):
+    provider = FakeAnthropicProvider([])
+    monkeypatch.setattr(topic_naming, "get_model_provider", lambda *a, **k: provider)
+
     labels = generate_cluster_topic_labels(
-        _characteristics([0]),
-        comment_texts=["a"],
-        layer=np.array([0]),
+        _characteristics([-1]),
+        comment_texts=["a", "b"],
+        layer=np.array([-1, -1]),
         layer_idx=0,
         name_topics=True,
     )
-    # Conventional fallback: keyword-based, no "0_0:" prefix.
-    assert "Keywords" in labels[0]
+    assert labels == {}
+    assert provider.created_requests is None
 
 
 # --- ollama path -----------------------------------------------------------
