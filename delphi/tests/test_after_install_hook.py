@@ -1252,7 +1252,7 @@ def test_the_real_jq_names_exactly_the_read_lane_switches_that_do_not_follow(sel
 
 # --- The free-only Delphi shadow: started only by its switch, never fatal ----
 
-SHADOW_UP = "up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate"
+DELPHI_SHADOW_UP = "up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate"
 
 
 @pytest.mark.parametrize("extra", [None, "DELPHI_SHADOW_ENABLED=0", "DELPHI_SHADOW_ENABLED=true",
@@ -1268,7 +1268,7 @@ def test_the_delphi_shadow_starts_after_the_engine_when_switched_on(tmp_path):
     proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     ups = [c for c in _compose(log) if c.startswith("up")]
-    assert ups == UNCHANGED["delphi"] + [SHADOW_UP]
+    assert ups == UNCHANGED["delphi"] + [DELPHI_SHADOW_UP]
     images = (tmp_path / "root/opt/polis/polis/docker-compose.images.yml").read_text()
     for service in ("delphi-shadow", "delphi-shadow-scheduler"):
         assert f"  {service}:\n    image: {IMAGES['delphi']}\n" in images
@@ -1278,4 +1278,4 @@ def test_the_delphi_shadow_starts_after_the_engine_when_switched_on(tmp_path):
 def test_other_roles_never_start_the_delphi_shadow(tmp_path, service_type):
     proc, log = _deploy(tmp_path, service_type, env_extra="DELPHI_SHADOW_ENABLED=1")
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert SHADOW_UP not in _compose(log)
+    assert DELPHI_SHADOW_UP not in _compose(log)

@@ -598,13 +598,6 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   poller_identity
   "${COMPOSE[@]}" down
   "${COMPOSE[@]}" up -d delphi math-python --no-build --force-recreate
-  # The shadow is optional work: its start failing never fails the deploy of
-  # the math engine and the report service above.
-  if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
-    echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
-    "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
-      || echo "The Delphi shadow did not start; the deploy continues without it" >&2
-  fi
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`
@@ -625,6 +618,16 @@ elif [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]"
   exit 1
+fi
+
+# The free-only Delphi shadow, on the Delphi box only (DELPHI_SHADOW_SELECTED
+# is 1 only there, and only for the exact switch line), after the Delphi
+# role's own `up` above, which stays the one line that starts delphi and
+# math-python. Optional work: its start failing never fails the deploy.
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+  echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
+  "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
+    || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi
 
 # Free the disk the previous deployment's images held, now replaced. Only the
