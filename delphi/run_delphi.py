@@ -1,10 +1,46 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 
 from polismath.utils.cli_flags import parse_bool_flag
+
+# Two switches, both off unless set to exactly "1"; off, a run is what it was.
+#
+# DELPHI_SKIP_DATAMAPPLOT=1: the run writes no visualization page. The
+# per-layer datamapplot step (700_datamapplot_for_layer.py, which uploads each
+# page, comment text included, to the S3 bucket) is not started, and the UMAP
+# stage writes none of its local layer pages either. Every result family is
+# still written; only the pages are left out.
+SKIP_DATAMAPPLOT = "DELPHI_SKIP_DATAMAPPLOT"
+# DELPHI_LOCAL_OUTPUT_CLEANUP=1: when the run ends, however it ends, the files
+# the stages wrote for this conversation under polis_data/<zid> and
+# visualizations/<zid> (below the app directory and the working directory) are
+# removed, so repeated runs leave nothing behind on the container's disk.
+LOCAL_OUTPUT_CLEANUP = "DELPHI_LOCAL_OUTPUT_CLEANUP"
+
+
+def switch_on(name):
+    """True exactly when the environment variable is the string "1"."""
+    return os.environ.get(name, "").strip() == "1"
+
+
+def local_output_dirs(zid, app_path):
+    """The directories a run writes for one conversation on the local disk."""
+    z = str(int(zid))  # a conversation id is an integer; nothing else names a path here
+    roots = []
+    for base in (app_path, os.getcwd()):
+        real = os.path.realpath(base)
+        if real not in roots:
+            roots.append(real)
+    return [os.path.join(root, sub, z) for root in roots for sub in ("polis_data", "visualizations")]
+
+
+def remove_local_outputs(zid, app_path):
+    for path in local_output_dirs(zid, app_path):
+        shutil.rmtree(path, ignore_errors=True)
 
 # Define colors for output
 GREEN = '\033[0;32m'
@@ -125,6 +161,14 @@ def main():
         show_usage()
         sys.exit(0)
 
+    try:
+        run(args)
+    finally:
+        if switch_on(LOCAL_OUTPUT_CLEANUP):
+            remove_local_outputs(args.zid, os.environ.get('DELPHI_APP_PATH', '/app'))
+
+
+def run(args):
     zid = args.zid
     rid = args.rid
     job = _start_daemon_job(zid) if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip() else None
@@ -210,7 +254,9 @@ def main():
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
 
-    if pipeline_exit_code == 0:
+    if pipeline_exit_code == 0 and switch_on(SKIP_DATAMAPPLOT):
+        print(f"{YELLOW}Skipping the datamapplot visualizations ({SKIP_DATAMAPPLOT}=1): no page is written or uploaded.{NC}")
+    elif pipeline_exit_code == 0:
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")
 
         # Create output directory

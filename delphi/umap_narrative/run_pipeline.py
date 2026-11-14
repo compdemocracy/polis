@@ -772,16 +772,22 @@ def process_layers_and_create_visualizations(
         job_id=job_id,  # Pass job_id
     )
 
-    # Create visualizations with basic numeric labels
-    index_file = create_visualizations(
-        conversation_id,
-        conversation_name,
-        document_map,
-        cluster_layers,
-        comment_texts,
-        output_dir,
-        layer_data=layer_data,
-    )
+    # Create visualizations with basic numeric labels. With
+    # DELPHI_SKIP_DATAMAPPLOT=1 (run_delphi.py) no page is written: the pages
+    # hold comment text and no reader uses them.
+    if os.environ.get("DELPHI_SKIP_DATAMAPPLOT", "").strip() == "1":
+        logger.info("DELPHI_SKIP_DATAMAPPLOT=1: the layer pages are not written")
+        index_file = None
+    else:
+        index_file = create_visualizations(
+            conversation_id,
+            conversation_name,
+            document_map,
+            cluster_layers,
+            comment_texts,
+            output_dir,
+            layer_data=layer_data,
+        )
 
     # If topic naming is requested, generate LLM topic labels.
     if name_topics:
