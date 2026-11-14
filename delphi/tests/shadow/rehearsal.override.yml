@@ -1,0 +1,48 @@
+# The Delphi shadow rehearsal (rehearsal.sh): the repository's own
+# delphi-shadow and delphi-shadow-scheduler services, as docker-compose.yml
+# defines them (environment, tmpfs, limits), on a throwaway Postgres whose
+# network namespace they share. The Postgres container starts on an ordinary
+# network (for the migrations and the public-fixture seed) and is then moved
+# to an internal network with no route out, before either shadow service
+# starts, so a run that tried to fetch anything from the internet would fail.
+services:
+  postgres-rehearsal:
+    image: ${SHADOW_REHEARSAL_POSTGRES_IMAGE:-postgres:17-alpine}
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_DB: shadow
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:${SHADOW_REHEARSAL_PG_PORT:?unique port required}:5432"
+    networks:
+      - rehearsal-open
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shadow"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    profiles: [rehearsal]
+  tools:
+    image: ${SHADOW_REHEARSAL_IMAGE:?the Delphi image under test}
+    network_mode: service:postgres-rehearsal
+    working_dir: /app
+    volumes:
+      - "${SHADOW_REHEARSAL_DELPHI:?the checkout's delphi/}/tests/shadow:/rehearsal:ro"
+      - "${SHADOW_REHEARSAL_DELPHI}/real_data:/app/real_data:ro"
+      - "${SHADOW_REHEARSAL_DELPHI}/tests/dynamo_removal:/app/tests/dynamo_removal:ro"
+    environment:
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/shadow
+    entrypoint: [python]
+    profiles: [rehearsal]
+  delphi-shadow:
+    image: ${SHADOW_REHEARSAL_IMAGE}
+    networks: !reset []
+    network_mode: service:postgres-rehearsal
+  delphi-shadow-scheduler:
+    image: ${SHADOW_REHEARSAL_IMAGE}
+    networks: !reset []
+    network_mode: service:postgres-rehearsal
+networks:
+  # The sealed network (internal, no route out) is created by rehearsal.sh.
+  rehearsal-open: {}
