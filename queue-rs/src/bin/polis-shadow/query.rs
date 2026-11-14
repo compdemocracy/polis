@@ -388,6 +388,7 @@ pub const GROUP_ALLOWLIST: &[&str] = &[
     // The comment observer's classes: each a boolean or a word from a closed
     // set (docs/post-comments-rust-handler.md, "Observe mode").
     "strict",
+    "after_insert",
     "vote_present",
     "seed_present",
     "body_class",

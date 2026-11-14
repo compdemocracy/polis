@@ -327,7 +327,7 @@ rule read, and its verdict is then too little evidence.
 | `shadow_edge` | nginx, each shadowed comment | `request_id`, `edge_status`, `edge_upstream_s` |
 | `shadow_mirror` | nginx, each copy | `mirror_status`, `mirror_upstream_status`, `mirror_s` |
 | `http_request` | Node's access line for `POST /api/v3/comments` with a request id | `http.status_code`: Node's answer. Node writes no line of its own for a comment, so this is all of Node's side |
-| `shadow_observation` | the shadow (`docs/post-comments-rust-handler.md`, "Observe mode") | `outcome`, `admitted`, `status`, `reason`, `strict`, `vote_present`, `seed_present`, `body_class`, the durations, the classes of what it read in the database: `text_row`, `node_comment`, `node_txt`, `node_txt_difference`, `node_author`, `node_row`, `node_lang`, `node_vote`; and `zid`, only to count how many conversations the admitted copies are in |
+| `shadow_observation` | the shadow (`docs/post-comments-rust-handler.md`, "Observe mode") | `outcome`, `admitted`, `status`, `reason`, `strict`, `after_insert`, `vote_present`, `seed_present`, `body_class`, the durations, the classes of what it read in the database: `text_row`, `node_comment`, `node_txt`, `node_txt_difference`, `node_author`, `node_row`, `node_lang`, `node_vote`; and `zid`, only to count how many conversations the admitted copies are in |
 
 The shadow's line carries no comment, participant or user number and no
 text; the request id is the only thing that joins it to Node's line. An
@@ -335,7 +335,7 @@ admitted copy's line names its conversation by number (`zid`), as a vote's
 does. The tool counts how many admitted lines carry one and how many
 distinct ones there are; no query filters on, groups by or returns a
 conversation's number. The tool reads none of the line's four text lengths,
-and its allowlist refuses any query that would. A test reads the line's 33
+and its allowlist refuses any query that would. A test reads the line's 34
 keys and every closed set of words from the observer's own tests and fails
 when the tool's lists, or the fixture lines its tests are built from, differ
 from them.
@@ -345,21 +345,31 @@ from them.
 1. **Lines in the window**, by kind.
 2. **The copy**, as for votes.
 3. **Node's answers to shadowed comments, as nginx saw them.**
-4. **The shadow's observations.** Outcomes: `would_serve` (the handler would
-   store the comment), `would_answer` (it would answer 409, 403, 401 or 400
+4. **The shadow's observations.** Outcomes: `would_serve` (Node stores the
+   comment: the handler would store it, or, in a conversation with strict
+   moderation, `after_insert: moderator_email`, hand it to Node, which stores
+   the same row and emails the moderators), `would_answer` (it would answer 409, 403, 401 or 400
    itself), `would_hand_back` (to Node, by reason), `would_fail`, `unknown`
    (no database-time anchor), `shed`, `not_observed`. The admitted share, how
    many admitted copies are in conversations with strict moderation, how many
    conversations the admitted copies span (and how many admitted lines name
    none, in a window that reaches back before the line carried the number),
-   and what the copies carry (a vote, a seed flag, a size class).
+   what follows the insert on the would-be 200s (the notification task, the
+   moderators' email, or not said, on a line printed before the shadow said
+   it), how many strict-moderation hand-backs an older shadow printed, and
+   what the copies carry (a vote, a seed flag, a size class).
 5. **What the shadow read in the database** for admitted copies: the row
    that already had the text at admission, and Node's stored comment read
    back two and ten seconds later, as classes.
 6. **Paired with Node by request id.** A request is paired when it has one
    nginx line inside the window, one Node access line and one observation.
    Printed with it: observations with no Node line, and Node lines with no
-   observation. Only paired requests are judged.
+   observation. Only paired requests are judged. The would-be 200s are
+   judged in two sets, counted apart: the ones outside strict moderation
+   (criterion "would serve": what the live handler would store) and the ones
+   in conversations with strict moderation (criterion "would serve, strict":
+   the live handler hands them back, so their count is no condition of the
+   verdict, and a disagreement among them is a stop all the same).
 7. **The shadow's latency** on admitted copies.
 8. **The stop rule**, as for votes, with Node's 5xx and p99 on
    `POST /api/v3/comments` in rules 4 and 5, and two differences. Rule 5
@@ -401,9 +411,9 @@ Node's status is the one on its access line. `N` is Node's status.
 | `node_vote: different` or `node_txt: different` on any line at all, paired or not | | **disagreement** |
 | `would_answer` 409, `text_row: other`, `queue_ms` above 2,000 | 200 | **not known**: an observation that starts late finds Node's own row older than the five seconds within which it is taken for this request's, and calls it someone else's. That can happen only when the observation starts more than five seconds after Node stored the row, so 2,000 ms errs toward not known: a would-be duplicate on a copy observed between two and five seconds late is filed here although it is a disagreement |
 | `text_row: own`, or `would_serve` with `node_comment: own` | 409 | **not known**: the same text sent twice by one person within five seconds. The shadow reads the first request's row as this request's own: at admission, or, when the second copy's admission ran before Node had stored the first (a double submit), at the read-back |
-| `node_comment` `unknown`, `unavailable` or `not_checked`; `node_vote` `ambiguous`, `unavailable` or `not_checked`; outcome `unknown` (no anchor); a Node line with no status | any | **not known** |
+| `node_comment` `unknown`, `unavailable` or `not_checked`; `node_row` `moderated` (a moderator approved or rejected the comment between Node's insert and the read-back); `node_vote` `ambiguous`, `unavailable` or `not_checked`; outcome `unknown` (no anchor); a Node line with no status | any | **not known** |
 | any | 5xx | **Node's failure**, its own class, with how many of those comments were stored all the same and how many without their author's vote |
-| `would_hand_back` | any | not judged: Node's answer is the answer. A strict-moderation hand-back's stored comment is still judged |
+| `would_hand_back` | any | not judged: Node's answer is the answer. A strict-moderation hand-back, on a line printed before strict comments were observed as writes, still has its stored comment judged |
 | an observation with no Node line, or a Node line with no observation | | counted, never judged. Where the handler would store the comment or answer it itself, the request has no Node line, and nginx saw Node answer another status (the participant staying, and no 5xx), the count is printed and the verdict is EXAMINE: Node's own status is not in hand, and the two cannot both be right |
 
 What is not known is never an agreement and never a disagreement, however
@@ -448,7 +458,8 @@ TOO LITTLE EVIDENCE, never PASS.
 | Class | Minimum | Why this number |
 |---|---|---|
 | Observed copies | 1,000 | the admitted share and the reasons: a share of 1,000 is known to about three percentage points |
-| Comments the handler would store, judged against Node | 300 | with none disagreeing, the disagreement rate is under 1 % with 95 % confidence (three divided by the count). About one comment in six is of this kind |
+| Comments the handler would store, judged against Node | 300 | with none disagreeing, the disagreement rate is under 1 % with 95 % confidence (three divided by the count). About one comment in six is of this kind. Comments under strict moderation are not among them |
+| Comments under strict moderation, judged against Node | 300, printed and not required | the count a live handler that also sends the moderators' email would want; the live handler at this commit hands them back, so the verdict does not wait for it |
 | Stored comments read back and judged (those, and the ones under strict moderation) | 600 | under 0.5 % by the same rule. About two comments in three are read back |
 | Authors' votes compared | 300 | under 1 %. A vote read with the wrong sign would differ on every line at once |
 | Would-be duplicates judged against Node | 20 | duplicates are rare, so this bounds nothing tightly (15 %); it says the lookup met real traffic |

@@ -13,6 +13,13 @@
 //! From what admission read it derives what the live handler at this commit
 //! would do with the request: dispatch the write, answer 409 or 403, or hand
 //! the request back, and for which reason. The write itself is not modelled.
+//! One decision is read otherwise than live reads it: a comment in a
+//! conversation with strict moderation, which live hands back because it
+//! sends no moderators' email, is observed as the write Node makes (the row
+//! is the same as in any conversation), and the line says what follows the
+//! insert (`after_insert`: the moderators' email there, the notification task
+//! elsewhere). It reaches this module as a `Modelled` row, which nothing can
+//! insert (`Decision::observed`).
 //!
 //! Node may have stored this very comment before the copy's admission reads.
 //! The unique key on (zid, txt) allows one row per text, so the row admission
@@ -38,7 +45,7 @@
     clippy::expect_used
 )]
 use super::*;
-use crate::post_comments_decision::{Outcome, UNMODERATED, VELOCITY};
+use crate::post_comments_decision::{Observed, Outcome, UNMODERATED, VELOCITY};
 use crate::post_comments_text::Compared;
 use crate::post_votes::observe::ReadbackTiming;
 use crate::shadow::comments::Lane;
@@ -52,10 +59,15 @@ pub(crate) const OWN_WINDOW_MS: i64 = 5000;
 pub(crate) const ANCHOR: &str = "select now_as_millis()";
 
 /// What Node stored for this text in this conversation: one row at most, by
-/// the unique key on (zid, txt).
+/// the unique key on (zid, txt). The last column says whether the row was
+/// changed after its insert: the insert gives `created` and `modified` the
+/// same value (both default to `now_as_millis()`, the insert's transaction
+/// time), and both of Node's moderation writes (`PUT /api/v3/comments` and the
+/// topic moderation route) stamp `modified` with their own.
 pub(crate) const READBACK: &str =
     "select tid, pid, uid, txt, created, mod, active, is_seed, velocity, anon,
-     (lang is not null or lang_confidence is not null)
+     (lang is not null or lang_confidence is not null),
+     (modified is distinct from created)
      from comments where zid = $1 and txt = $2";
 
 /// The author's vote rows on that comment since the anchor: the statement
@@ -308,6 +320,7 @@ fn look(c: &mut Client, subject: &Subject, anchor: i64) -> Result<Option<Stored>
             row.try_get(7)?,
             row.try_get(8)?,
             row.try_get(9)?,
+            row.try_get::<_, Option<bool>>(11)?.unwrap_or(false),
         )),
         lang: Some(row.try_get::<_, Option<bool>>(10)?.unwrap_or(false)),
         vote,
@@ -442,15 +455,24 @@ impl AuthorVote {
 }
 
 /// The stored row's columns against the row the live insert stores for every
-/// request it admits. The first column that differs, by name.
+/// request it admits. The first column that differs, by name; or `moderated`
+/// when only the moderation columns differ and the row was changed after its
+/// insert (`changed_later`): a moderator approved or rejected the comment
+/// between Node's insert and this read, which says nothing about the insert.
 pub(crate) fn row_class(
     moderation: Option<i32>,
     active: Option<bool>,
     is_seed: Option<bool>,
     velocity: Option<f32>,
     anon: Option<bool>,
+    changed_later: bool,
 ) -> &'static str {
-    if moderation != Some(UNMODERATED) {
+    let moderated = moderation != Some(UNMODERATED) || active != Some(Row::ACTIVE);
+    let rest_as_inserted =
+        is_seed == Some(Row::IS_SEED) && velocity == Some(VELOCITY) && anon == Some(Row::ANON);
+    if moderated && changed_later && rest_as_inserted {
+        "moderated"
+    } else if moderation != Some(UNMODERATED) {
         "mod"
     } else if active != Some(Row::ACTIVE) {
         "active"
@@ -496,7 +518,8 @@ pub(crate) struct Stored {
     pub(crate) text: Option<Compared>,
     /// Whether the stored user is the user admission resolved.
     pub(crate) author: Option<bool>,
-    /// `as_expected`, or the first column live would have stored otherwise.
+    /// `as_expected`, the first column live would have stored otherwise, or
+    /// `moderated` (changed by a moderator after the insert).
     pub(crate) row: Option<&'static str>,
     /// Whether a language is stored.
     pub(crate) lang: Option<bool>,
@@ -571,20 +594,23 @@ pub(super) async fn handle(observer: &Observer, req: &Request, res: Res) -> Outg
         Outcome::Closed => Some("closed"),
         Outcome::Store(_) => None,
     };
-    match decision.live() {
-        Live::Answer(status, code) => {
+    match decision.observed() {
+        Observed::Answer(status, code) => {
             crate::shadow::comments::record(|record| record.reason = answered);
             route::fail_json(req, res, status, Js::Str(code.into()))
         }
-        Live::HandBack(reason) => {
-            crate::shadow::comments::record(|record| record.reason = Some(reason));
-            route::bad_gateway()
+        // Node stores the comment: the live handler dispatches the write
+        // here, or, in a conversation with strict moderation, hands it to
+        // Node, which stores the same row and then emails the moderators. The
+        // row is dropped: it is a `Modelled`, this mode has nothing to write
+        // it with, and the write (the insert, the comment's number, the
+        // author's vote, the notification work or email and the reply
+        // deadline) is not modelled. What Node stored is read back and
+        // compared all the same.
+        Observed::Stored { row: _, after } => {
+            crate::shadow::comments::record(|record| record.after_insert = Some(after));
+            no_answer()
         }
-        // The live handler dispatches the write here. The row is dropped:
-        // this mode has nothing to write it with, and the write (the insert,
-        // the comment's number, the author's vote, the notification work and
-        // the reply deadline) is not modelled.
-        Live::Write(_) => no_answer(),
     }
 }
 

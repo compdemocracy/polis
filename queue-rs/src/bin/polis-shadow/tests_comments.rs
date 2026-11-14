@@ -64,7 +64,7 @@ fn observer_set(key: &str) -> Vec<String> {
 }
 
 /// The shadow's `shadow_observation` keys for a comment, in its order.
-const COMMENT_KEYS: [&str; 33] = [
+const COMMENT_KEYS: [&str; 34] = [
     "message",
     "listener",
     "service",
@@ -82,6 +82,7 @@ const COMMENT_KEYS: [&str; 33] = [
     "readback_s",
     "zid",
     "strict",
+    "after_insert",
     "vote_present",
     "seed_present",
     "body_class",
@@ -101,7 +102,7 @@ const COMMENT_KEYS: [&str; 33] = [
 ];
 
 /// The fixture line, the tool's word lists and the observer cannot drift
-/// apart: the 33 keys and every closed set are read from the observer's own
+/// apart: the 34 keys and every closed set are read from the observer's own
 /// tests and compared, and the observer's document names each of them.
 #[test]
 fn the_comment_line_is_the_observers_key_for_key_and_word_for_word() {
@@ -111,6 +112,7 @@ fn the_comment_line_is_the_observers_key_for_key_and_word_for_word() {
     assert_eq!(observer_list("REASONS"), strs(&words::REASONS));
     for (key, set) in [
         ("body_class", strs(&words::BODY_CLASS)),
+        ("after_insert", strs(&words::AFTER_INSERT)),
         ("text_row", strs(&words::TEXT_ROW)),
         ("node_comment", strs(&words::NODE_COMMENT)),
         ("node_txt", strs(&words::NODE_TXT)),
@@ -129,6 +131,7 @@ fn the_comment_line_is_the_observers_key_for_key_and_word_for_word() {
         (&words::ROW_DIFFERS[..], &words::NODE_ROW[..]),
         (&words::VOTE_NOT_COMPARED[..], &words::NODE_VOTE[..]),
         (&[words::STRICT][..], &words::REASONS[..]),
+        (&[words::MODERATOR_EMAIL][..], &words::AFTER_INSERT[..]),
     ] {
         for word in subset {
             assert!(set.contains(word), "{word}");
@@ -174,6 +177,7 @@ fn the_comment_line_is_the_observers_key_for_key_and_word_for_word() {
         .chain(&words::NODE_VOTE)
         .chain(&words::ROW_DIFFERS)
         .chain(&words::NODE_TXT_DIFFERENCE)
+        .chain(&words::AFTER_INSERT)
         .chain(&["strict_moderation", "duplicate", "closed", "no_anchor"])
     {
         assert!(named(word), "the document does not name {word}");
@@ -269,6 +273,8 @@ struct Obs {
     /// The conversation's number: on an admitted copy's line only.
     zid: Option<i64>,
     strict: Option<bool>,
+    /// What Node does after it stores the comment: on a would-be 200 only.
+    after_insert: Option<&'static str>,
     vote_present: bool,
     text_row: Option<&'static str>,
     node_comment: &'static str,
@@ -292,6 +298,7 @@ impl Obs {
             readback_s: Some(2.0),
             zid: Some(FIRST_ZID),
             strict: Some(false),
+            after_insert: Some("notification_task"),
             vote_present: true,
             text_row: Some("none"),
             node_comment: "own",
@@ -313,13 +320,25 @@ impl Obs {
         self.node_vote = "not_checked";
         self
     }
-    /// Handed back only because the conversation has strict moderation.
+    /// Handed back only because the conversation has strict moderation:
+    /// the line an observer printed before it compared these comments as
+    /// writes. It carried no `after_insert`; the fixture's is null.
     fn strict() -> Self {
         Obs {
             outcome: "would_hand_back",
             status: Some(502),
             reason: Some("strict_moderation"),
             strict: Some(true),
+            after_insert: None,
+            ..Obs::serve()
+        }
+    }
+    /// A comment in a conversation with strict moderation, as the observer
+    /// prints it now: the write Node makes, then the moderators' email.
+    fn strict_serve() -> Self {
+        Obs {
+            strict: Some(true),
+            after_insert: Some("moderator_email"),
             ..Obs::serve()
         }
     }
@@ -333,6 +352,7 @@ impl Obs {
             readback_s: None,
             zid: None,
             strict: None,
+            after_insert: None,
             text_row: None,
             ..Obs::serve().unread("not_checked")
         }
@@ -343,6 +363,7 @@ impl Obs {
             outcome: "would_answer",
             status: Some(status),
             reason: Some(reason),
+            after_insert: None,
             ..Obs::serve().unread("absent")
         }
     }
@@ -390,6 +411,7 @@ fn observation_line(id: &str, at: i64, o: &Obs) -> (i64, String) {
                 .map_or(Value::Null, |z| json!(z)),
         ),
         ("strict", o.strict.map_or(Value::Null, |s| json!(s))),
+        ("after_insert", word(o.after_insert)),
         ("vote_present", json!(o.vote_present)),
         ("seed_present", json!(false)),
         ("body_class", json!("le_1k")),
@@ -447,6 +469,7 @@ fn assert_comment_line(printed: &str) {
     one_of("outcome", &words::OUTCOMES, false);
     one_of("reason", &words::REASONS, true);
     one_of("body_class", &words::BODY_CLASS, false);
+    one_of("after_insert", &words::AFTER_INSERT, true);
     one_of("text_row", &words::TEXT_ROW, true);
     one_of("node_comment", &words::NODE_COMMENT, false);
     one_of("node_txt", &words::NODE_TXT, true);
@@ -461,6 +484,20 @@ fn assert_comment_line(printed: &str) {
     assert!(line["zid"].is_i64() || line["zid"].is_null(), "{printed}");
     assert!(line["status"].is_null() || line["status"].is_u64());
     assert!(line["strict"].is_null() || line["strict"].is_boolean());
+    // What follows the insert: on a would-be 200 and nowhere else, and the
+    // moderators' email exactly where the conversation is strict.
+    assert_eq!(
+        line["after_insert"].is_null(),
+        line["outcome"] != "would_serve",
+        "{printed}"
+    );
+    if line["outcome"] == "would_serve" {
+        assert_eq!(
+            line["after_insert"] == "moderator_email",
+            line["strict"] == true,
+            "{printed}"
+        );
+    }
     assert!(line["vote_present"].is_boolean() && line["seed_present"].is_boolean());
     for key in ["queue_ms", "admission_ms", "total_ms", "readback_s"] {
         assert!(line[key].is_null() || line[key].is_number(), "{key}");
@@ -542,6 +579,16 @@ enum C {
     ClientGone,
     /// A strict-moderation copy whose stored vote differs.
     StrictVoteDiffers,
+    /// Node 200 in a conversation with strict moderation, observed as the
+    /// write Node makes; Node's row is as expected.
+    StrictServe,
+    /// The same, and Node's stored vote is not the copy's choice.
+    StrictServeVoteDiffers,
+    /// Node 200 in a conversation with strict moderation, and a moderator
+    /// approved or rejected the comment before the read-back.
+    StrictServeModerated,
+    /// The same outside strict moderation.
+    ServeModerated,
 }
 
 /// One copied comment's lines. The ids come from the fixture's own counter,
@@ -665,6 +712,7 @@ fn comment(fx: &mut Fixture, case: C) -> String {
                 outcome: "unknown",
                 status: None,
                 reason: Some("no_anchor"),
+                after_insert: None,
                 text_row: Some("unknown"),
                 readback_s: None,
                 ..Obs::serve().unread("unknown")
@@ -739,6 +787,28 @@ fn comment(fx: &mut Fixture, case: C) -> String {
             Obs {
                 node_vote: "different",
                 ..Obs::strict()
+            },
+        ),
+        C::StrictServe => both(200, Obs::strict_serve()),
+        C::StrictServeVoteDiffers => both(
+            200,
+            Obs {
+                node_vote: "different",
+                ..Obs::strict_serve()
+            },
+        ),
+        C::StrictServeModerated => both(
+            200,
+            Obs {
+                node_row: Some("moderated"),
+                ..Obs::strict_serve()
+            },
+        ),
+        C::ServeModerated => both(
+            200,
+            Obs {
+                node_row: Some("moderated"),
+                ..Obs::serve()
             },
         ),
     };
@@ -1083,7 +1153,7 @@ fn the_comment_join_classes_every_outcome() {
     }
     let text = &report.text;
     for line in [
-        "would store the comment (would_serve) 20: agree 3 (Node 200 and its own row stored as the handler would store it); disagree 11 (Node 200 and stored otherwise 8, Node's status contradicts 3); not known 4 (the stored comment or its vote not read 3, the same text twice within five seconds 1, no status on Node's line 0); Node answered 5xx 2 (the comment stored all the same 1)",
+        "would store the comment (would_serve, outside strict moderation) 20: agree 3 (Node 200 and its own row stored as the handler would store it); disagree 11 (Node 200 and stored otherwise 8, Node's status contradicts 3); not known 4 (the stored comment or its vote not read 3, the same text twice within five seconds 1, no status on Node's line 0); Node answered 5xx 2 (the comment stored all the same 1)",
         "would answer without writing (would_answer) 5: agree 3 (duplicate 409 1, closed 403 1); Node's status contradicts 1; not known 1 (a would-be duplicate beside Node's 200 on a copy observed more than 2000 ms late 1, the same text twice within five seconds 0, no status on Node's line 0); Node answered 5xx 0",
         "     Node 200    shadow 409    1",
         "     Node 400    shadow 200    1",
@@ -1240,6 +1310,142 @@ fn a_count_below_its_minimum_is_too_little_evidence_and_never_a_pass() {
     // No lines at all: too little evidence, never a pass.
     let empty = run(&comments(&comments_fixture()));
     assert_eq!(empty.verdict, Verdict::TooLittle, "{}", empty.text);
+}
+
+/// A comment in a conversation with strict moderation, observed as the write
+/// Node makes (`would_serve`, `after_insert: moderator_email`), is counted on
+/// a line and a criterion of its own and never in "would serve", whose count
+/// is what the live handler at this commit would store. Its stored row is
+/// judged with every other stored row, and a definite difference in it is a
+/// stop. A line printed by a shadow from before (no `after_insert`) is read
+/// as it was.
+#[test]
+fn strict_comments_are_counted_apart_and_judged_like_any_other() {
+    let with = |extra: &[C]| {
+        let mut fx = passing_comments();
+        for case in extra {
+            comment(&mut fx, *case);
+        }
+        run(&comments(&fx))
+    };
+    let report = with(&[C::StrictServe; 5]);
+    let text = &report.text;
+    assert_eq!(report.verdict, Verdict::Pass, "{text}");
+    for line in [
+        // The passing fixture's own: unchanged by the strict comments.
+        "would serve                pass                 agree 300, disagree 0, not known 4, Node 5xx 2; judged 300 (minimum 300)",
+        "would store the comment (would_serve, outside strict moderation) 306: agree 300",
+        "would store the comment in a conversation with strict moderation (would_serve, after_insert moderator_email; the live handler hands these back, and the moderators' email is not compared) 5: agree 5 (Node 200 and its own row stored as the handler would store it); disagree 0",
+        "would serve, strict        reported             agree 5, disagree 0, not known 0, Node 5xx 0; judged 5 of the 300 needed; handed back by the live handler, no condition of the verdict",
+        // Read back with every other stored comment.
+        "stored comment             pass                 as the handler would store it 605, otherwise 0",
+        "would store, by what follows the insert (after_insert): notification_task 306, moderator_email 5, not said 0; strict-moderation hand-backs printed by an older shadow 300",
+    ] {
+        assert!(text.contains(line), "missing: {line}\n{text}");
+    }
+    // A strict comment Node stored otherwise than the handler would: a stop,
+    // on the strict line and on the stored comment, never on "would serve".
+    let report = with(&[C::StrictServe, C::StrictServeVoteDiffers]);
+    assert_eq!(report.verdict, Verdict::Stop, "{}", report.text);
+    for (name, mark) in [
+        ("would serve, strict", Mark::Stop),
+        ("stored comment", Mark::Stop),
+        ("author's vote", Mark::Stop),
+        ("would serve", Mark::Pass),
+    ] {
+        assert_eq!(report.mark(name), Some(mark), "{name}\n{}", report.text);
+    }
+    assert!(
+        report
+            .text
+            .contains("agree 1, disagree 1, not known 0, Node 5xx 0; judged 2 of the 300 needed"),
+        "{}",
+        report.text
+    );
+    // Without a strict comment of the new kind: the strict line says none,
+    // and nothing else of the report moves.
+    let report = with(&[]);
+    assert_eq!(report.mark("would serve, strict"), Some(Mark::Info));
+    assert!(
+        report
+            .text
+            .contains("agree 0, disagree 0, not known 0, Node 5xx 0; judged 0 of the 300 needed"),
+        "{}",
+        report.text
+    );
+    // Lines printed by a shadow from before `after_insert`: read as they
+    // were, the would-be 200s counted as not saying what follows.
+    let (older, changed) = rewritten(&passing_comments(), |_, line| {
+        line.as_object_mut()
+            .unwrap()
+            .remove("after_insert")
+            .is_some_and(|value| !value.is_null())
+    });
+    assert_eq!(changed, 306);
+    let report = run(&comments(&older));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    assert!(
+        report.text.contains(
+            "would store, by what follows the insert (after_insert): notification_task 0, moderator_email 0, not said 306"
+        ),
+        "{}",
+        report.text
+    );
+    assert_eq!(
+        report
+            .criteria
+            .iter()
+            .filter(|c| c.name != "would serve, strict")
+            .map(|c| (c.name, c.mark, c.value.clone()))
+            .collect::<Vec<_>>(),
+        run(&comments(&passing_comments()))
+            .criteria
+            .iter()
+            .filter(|c| c.name != "would serve, strict")
+            .map(|c| (c.name, c.mark, c.value.clone()))
+            .collect::<Vec<_>>()
+    );
+}
+
+/// A comment a moderator approved or rejected between Node's insert and the
+/// read-back (`node_row: moderated`) says nothing about what the insert
+/// stored: never an agreement and never a disagreement, in a conversation
+/// with strict moderation or any other. Its mark stays as the passing
+/// fixture's, and it is counted as not known.
+#[test]
+fn a_comment_moderated_before_the_read_back_is_not_known_and_never_a_stop() {
+    let mut fx = passing_comments();
+    for case in [
+        C::StrictServe,
+        C::StrictServeModerated,
+        C::StrictServeModerated,
+        C::ServeModerated,
+    ] {
+        comment(&mut fx, case);
+    }
+    let report = run(&comments(&fx));
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+    for (name, mark) in [
+        ("would serve, strict", Mark::Info),
+        ("stored comment", Mark::Pass),
+        ("author's vote", Mark::Pass),
+        ("would serve", Mark::Pass),
+    ] {
+        assert_eq!(report.mark(name), Some(mark), "{name}\n{}", report.text);
+    }
+    for line in [
+        "agree 1, disagree 0, not known 2, Node 5xx 0; judged 1 of the 300 needed",
+        "would serve                pass                 agree 300, disagree 0, not known 5,",
+        // The passing fixture's 3 not known, and the 3 moderated.
+        "stored comment             pass                 as the handler would store it 601, otherwise 0, not known 6;",
+        "moderated 3",
+    ] {
+        assert!(
+            report.text.contains(line),
+            "missing: {line}\n{}",
+            report.text
+        );
+    }
 }
 
 /// The reviewer's rule (a): a would-be 409 for another's row beside Node's
@@ -2562,6 +2768,7 @@ fn the_comment_queries_read_only_the_fields_they_need() {
         // The conversation's number: counted, never returned.
         "zid",
         "strict",
+        "after_insert",
         "vote_present",
         "seed_present",
         "body_class",

@@ -48,6 +48,7 @@ pub(crate) const LINE_KEYS: &[&str] = &[
     "readback_s",
     "zid",
     "strict",
+    "after_insert",
     "vote_present",
     "seed_present",
     "body_class",
@@ -119,7 +120,11 @@ const REASONS: &[&str] = &[
     "xid_allowlist",
     "admission_unavailable",
     "admission_timeout",
-    // The decision.
+    // The decision. The first is the live handler's reason for a comment in
+    // a conversation with strict moderation; this observer never prints it
+    // (it observes that comment as a would-be write, and the line contract
+    // refuses it), and it stays in the set because lines printed before that
+    // carry it.
     "strict_moderation",
     "duplicate",
     "closed",
@@ -384,6 +389,7 @@ pub(crate) fn assert_line_shape(printed: &str) {
             "is_seed",
             "velocity",
             "anon",
+            "moderated",
         ],
         true,
     );
@@ -425,6 +431,29 @@ pub(crate) fn assert_line_shape(printed: &str) {
         line["strict"].is_null() || line["strict"].is_boolean(),
         "{printed}"
     );
+    one_of(
+        &line,
+        "after_insert",
+        &["notification_task", "moderator_email"],
+        true,
+    );
+    // What follows the insert is on exactly the lines of a comment Node
+    // stores, and is the moderators' email exactly where the conversation
+    // has strict moderation: a strict comment is a would-be write, never a
+    // hand-back.
+    assert_eq!(
+        line["after_insert"].is_null(),
+        line["outcome"] != "would_serve",
+        "after_insert: {printed}"
+    );
+    if line["outcome"] == "would_serve" {
+        assert_eq!(
+            line["after_insert"] == "moderator_email",
+            line["strict"] == true,
+            "after_insert: {printed}"
+        );
+    }
+    assert_ne!(line["reason"], "strict_moderation", "{printed}");
     for key in ["queue_ms", "admission_ms", "total_ms", "readback_s"] {
         assert!(
             line[key].is_null() || line[key].is_number(),
@@ -542,7 +571,7 @@ fn the_authors_stored_vote_is_classified_through_the_convention() {
 fn a_stored_row_is_compared_with_the_row_live_would_store() {
     let expected = (Some(0), Some(true), Some(false), Some(1.0_f32), Some(false));
     let class = |(moderation, active, is_seed, velocity, anon)| {
-        row_class(moderation, active, is_seed, velocity, anon)
+        row_class(moderation, active, is_seed, velocity, anon, false)
     };
     assert_eq!(class(expected), "as_expected");
     for (row, column) in [
@@ -582,6 +611,47 @@ fn a_stored_row_is_compared_with_the_row_live_would_store() {
         ),
     ] {
         assert_eq!(class(row), column, "{row:?}");
+    }
+    // Changed after the insert: a moderator's approval or rejection, or a
+    // change of `active` alone, is `moderated`, never a column the insert
+    // stored otherwise. A row changed later that the insert did store
+    // otherwise still names that column, and a row not changed later is
+    // compared as above.
+    let later = |(moderation, active, is_seed, velocity, anon)| {
+        row_class(moderation, active, is_seed, velocity, anon, true)
+    };
+    assert_eq!(later(expected), "as_expected");
+    for (row, word) in [
+        (
+            (Some(1), expected.1, expected.2, expected.3, expected.4),
+            "moderated",
+        ),
+        (
+            (Some(-1), expected.1, expected.2, expected.3, expected.4),
+            "moderated",
+        ),
+        (
+            (Some(-1), Some(false), expected.2, expected.3, expected.4),
+            "moderated",
+        ),
+        (
+            (expected.0, Some(false), expected.2, expected.3, expected.4),
+            "moderated",
+        ),
+        (
+            (Some(1), expected.1, Some(true), expected.3, expected.4),
+            "mod",
+        ),
+        (
+            (expected.0, expected.1, expected.2, Some(0.0), expected.4),
+            "velocity",
+        ),
+        (
+            (Some(1), expected.1, expected.2, expected.3, Some(true)),
+            "mod",
+        ),
+    ] {
+        assert_eq!(later(row), word, "{row:?}");
     }
 }
 

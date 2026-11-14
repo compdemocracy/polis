@@ -34,6 +34,11 @@ pub mod need {
     /// disagreeing in 300 puts the rate under 1 %. About one comment in six
     /// is of this kind.
     pub const WOULD_SERVE: u64 = 300;
+    /// Comments in conversations with strict moderation, judged against
+    /// Node the same way: the count a live handler that also sends the
+    /// moderators' email would want. Not a condition of this report's
+    /// verdict, because the live handler hands these comments back.
+    pub const STRICT: u64 = 300;
     /// Stored comments read back (the ones the handler would store and the
     /// ones in conversations with strict moderation): none differing in 600
     /// puts the rate under 0.5 %. About two comments in three are read back.
@@ -127,18 +132,139 @@ fn against(have: u64, need: u64) -> String {
     }
 }
 
+/// What the comments Node stores (a would-be 200) came to beside Node's
+/// answer, for one set of them.
+#[derive(Default, Clone, Copy)]
+struct Serve {
+    n: u64,
+    agree: u64,
+    stored_otherwise: u64,
+    contradicted: u64,
+    not_read: u64,
+    repeat: u64,
+    node_failed: u64,
+    node_failed_stored: u64,
+    no_status: u64,
+}
+
+/// The join's names for a set of would-be 200s: all of them, and the ones
+/// in conversations with strict moderation.
+const SERVE_KEYS: [&str; 5] = [
+    "serve",
+    "serve_clean",
+    "serve_diff",
+    "serve_own",
+    "serve_any_own",
+];
+const STRICT_KEYS: [&str; 5] = [
+    "strict",
+    "strict_clean",
+    "strict_diff",
+    "strict_own",
+    "strict_any_own",
+];
+
+impl Serve {
+    /// One join row's would-be 200s of this set, beside Node's status.
+    /// Returns how many of them Node's status contradicts.
+    fn add(&mut self, row: &Row, node: &str, keys: [&str; 5]) -> u64 {
+        let n = |key: &str| count(row, key);
+        let [all, clean, diff, own, any_own] = keys;
+        let serve = n(all);
+        self.n += serve;
+        if serve == 0 {
+            return 0;
+        }
+        match node {
+            "200" => {
+                let (clean, diff) = (n(clean), n(diff));
+                self.agree += clean;
+                self.stored_otherwise += diff;
+                self.not_read += serve.saturating_sub(clean + diff);
+                0
+            }
+            // The same text twice from one person within five seconds: the
+            // shadow reads the first request's row as this request's own, at
+            // admission or (when the copy's admission ran before Node stored
+            // the first) at the read-back.
+            "409" => {
+                let repeat = n(any_own).min(serve);
+                self.repeat += repeat;
+                self.contradicted += serve - repeat;
+                serve - repeat
+            }
+            "none" | "other" => {
+                self.no_status += serve;
+                0
+            }
+            code if server_error(code) => {
+                self.node_failed += serve;
+                self.node_failed_stored += n(own).min(serve);
+                0
+            }
+            _ => {
+                self.contradicted += serve;
+                serve
+            }
+        }
+    }
+
+    /// These would-be 200s less a subset of them counted the same way.
+    fn without(self, subset: Self) -> Self {
+        Self {
+            n: self.n.saturating_sub(subset.n),
+            agree: self.agree.saturating_sub(subset.agree),
+            stored_otherwise: self
+                .stored_otherwise
+                .saturating_sub(subset.stored_otherwise),
+            contradicted: self.contradicted.saturating_sub(subset.contradicted),
+            not_read: self.not_read.saturating_sub(subset.not_read),
+            repeat: self.repeat.saturating_sub(subset.repeat),
+            node_failed: self.node_failed.saturating_sub(subset.node_failed),
+            node_failed_stored: self
+                .node_failed_stored
+                .saturating_sub(subset.node_failed_stored),
+            no_status: self.no_status.saturating_sub(subset.no_status),
+        }
+    }
+
+    fn judged(&self) -> u64 {
+        self.agree + self.stored_otherwise + self.contradicted
+    }
+
+    fn differ(&self) -> u64 {
+        self.stored_otherwise + self.contradicted
+    }
+
+    fn not_known(&self) -> u64 {
+        self.not_read + self.repeat + self.no_status
+    }
+
+    /// The counts as one sentence of the report.
+    fn sentence(&self) -> String {
+        format!(
+            "agree {} (Node 200 and its own row stored as the handler would store it); disagree {} (Node 200 and stored otherwise {}, Node's status contradicts {}); not known {} (the stored comment or its vote not read {}, the same text twice within five seconds {}, no status on Node's line {}); Node answered 5xx {} (the comment stored all the same {})",
+            self.agree,
+            self.differ(),
+            self.stored_otherwise,
+            self.contradicted,
+            self.not_known(),
+            self.not_read,
+            self.repeat,
+            self.no_status,
+            self.node_failed,
+            self.node_failed_stored
+        )
+    }
+}
+
 #[derive(Default)]
 struct Joined {
-    // Comments the handler would store.
-    serve: u64,
-    serve_agree: u64,
-    serve_stored_otherwise: u64,
-    serve_contradicted: u64,
-    serve_not_read: u64,
-    serve_repeat: u64,
-    serve_node_failed: u64,
-    serve_node_failed_stored: u64,
-    serve_no_status: u64,
+    // Comments the handler would store, outside strict moderation.
+    serve: Serve,
+    // Comments in conversations with strict moderation, which Node stores
+    // and the live handler hands back.
+    strict: Serve,
     // Requests the handler would answer itself.
     answer: u64,
     answer_agree: u64,
@@ -171,39 +297,10 @@ fn classify(join: &[Row]) -> Joined {
     for row in join {
         let (node, would) = (code(row, "http_st"), code(row, "rust_st"));
         let n = |key: &str| count(row, key);
-        let mut contradicted = 0;
-        // ---- The handler would store the comment (a would-be 200).
-        let serve = n("serve");
-        j.serve += serve;
-        if serve > 0 {
-            match node.as_str() {
-                "200" => {
-                    let (clean, diff) = (n("serve_clean"), n("serve_diff"));
-                    j.serve_agree += clean;
-                    j.serve_stored_otherwise += diff;
-                    j.serve_not_read += serve.saturating_sub(clean + diff);
-                }
-                // The same text twice from one person within five seconds:
-                // the shadow reads the first request's row as this request's
-                // own, at admission or (when the copy's admission ran before
-                // Node stored the first) at the read-back.
-                "409" => {
-                    let repeat = n("serve_any_own").min(serve);
-                    j.serve_repeat += repeat;
-                    contradicted += serve - repeat;
-                    j.serve_contradicted += serve - repeat;
-                }
-                "none" | "other" => j.serve_no_status += serve,
-                code if server_error(code) => {
-                    j.serve_node_failed += serve;
-                    j.serve_node_failed_stored += n("serve_own").min(serve);
-                }
-                _ => {
-                    contradicted += serve;
-                    j.serve_contradicted += serve;
-                }
-            }
-        }
+        // ---- Node stores the comment (a would-be 200): every one, and the
+        // ones in conversations with strict moderation, counted the same way.
+        let mut contradicted = j.serve.add(row, &node, SERVE_KEYS);
+        j.strict.add(row, &node, STRICT_KEYS);
         // ---- The handler would answer without writing.
         let answer = n("answer");
         j.answer += answer;
@@ -274,6 +371,9 @@ fn classify(join: &[Row]) -> Joined {
         }
     }
     j.pairs.sort();
+    // The would-be 200s outside strict moderation: what the live handler at
+    // this commit would store.
+    j.serve = j.serve.without(j.strict);
     j
 }
 
@@ -362,6 +462,24 @@ pub fn build(inputs: &Inputs) -> Report {
                 out,
                 "   admitted {admitted} of {observed} observed ({}); in conversations with strict moderation {strict} of the admitted",
                 pct(share(admitted, observed))
+            );
+            // What Node does after it stores the comment, on the would-be
+            // 200s; a line printed before the shadow said it carries none.
+            let serving: Vec<Row> = obs
+                .iter()
+                .filter(|row| text(row, "outcome") == "would_serve")
+                .cloned()
+                .collect();
+            let after = by_word(&serving, "after_insert", &AFTER_INSERT);
+            strange += by_word(obs, "after_insert", &AFTER_INSERT).2;
+            let older = sum(obs, "n", |row| {
+                text(row, "outcome") == "would_hand_back" && text(row, "reason") == STRICT
+            });
+            let _ = writeln!(
+                out,
+                "   would store, by what follows the insert (after_insert): {}, not said {}; strict-moderation hand-backs printed by an older shadow {older}",
+                words_line(&after),
+                after.1
             );
             add(
                 "observed copies",
@@ -618,6 +736,7 @@ pub fn build(inputs: &Inputs) -> Report {
         "coverage",
         "pairing",
         "would serve",
+        "would serve, strict",
         "would answer",
         "stored comment",
         "author's vote",
@@ -899,29 +1018,22 @@ fn paired_section(
     );
 
     // ---- Would serve.
-    let serve_judged = j.serve_agree + j.serve_stored_otherwise + j.serve_contradicted;
-    let serve_differ = j.serve_stored_otherwise + j.serve_contradicted;
-    let serve_not_known = j.serve_not_read + j.serve_repeat + j.serve_no_status;
+    let serve_judged = j.serve.judged();
+    let serve_differ = j.serve.differ();
+    let serve_not_known = j.serve.not_known();
     let _ = writeln!(
         out,
-        "   would store the comment (would_serve) {}: agree {} (Node 200 and its own row stored as the handler would store it); disagree {serve_differ} (Node 200 and stored otherwise {}, Node's status contradicts {}); not known {serve_not_known} (the stored comment or its vote not read {}, the same text twice within five seconds {}, no status on Node's line {}); Node answered 5xx {} (the comment stored all the same {})",
-        j.serve,
-        j.serve_agree,
-        j.serve_stored_otherwise,
-        j.serve_contradicted,
-        j.serve_not_read,
-        j.serve_repeat,
-        j.serve_no_status,
-        j.serve_node_failed,
-        j.serve_node_failed_stored
+        "   would store the comment (would_serve, outside strict moderation) {}: {}",
+        j.serve.n,
+        j.serve.sentence()
     );
     let serve_unknown = share(serve_not_known, serve_judged + serve_not_known);
     add(
         "would serve",
         format!(
             "agree {}, disagree {serve_differ}, not known {serve_not_known}, Node 5xx {}; judged {}; not known {} of judged and not known",
-            j.serve_agree,
-            j.serve_node_failed,
+            j.serve.agree,
+            j.serve.node_failed,
             against(serve_judged, need::WOULD_SERVE),
             pct(serve_unknown)
         ),
@@ -933,6 +1045,33 @@ fn paired_section(
             Mark::Miss
         } else {
             Mark::Pass
+        },
+    );
+
+    // ---- Strict moderation. Node stores these comments as it stores any
+    // other and then emails the moderators; the live handler hands them
+    // back, so their count is no condition of the verdict. A definite
+    // disagreement is a stop all the same: the row is the handler's model.
+    let strict_differ = j.strict.differ();
+    let strict_not_known = j.strict.not_known();
+    let _ = writeln!(
+        out,
+        "   would store the comment in a conversation with strict moderation (would_serve, after_insert moderator_email; the live handler hands these back, and the moderators' email is not compared) {}: {}",
+        j.strict.n,
+        j.strict.sentence()
+    );
+    add(
+        "would serve, strict",
+        format!(
+            "agree {}, disagree {strict_differ}, not known {strict_not_known}, Node 5xx {}; judged {}; handed back by the live handler, no condition of the verdict",
+            j.strict.agree,
+            j.strict.node_failed,
+            against(j.strict.judged(), need::STRICT)
+        ),
+        if strict_differ > 0 {
+            Mark::Stop
+        } else {
+            Mark::Info
         },
     );
 

@@ -150,6 +150,14 @@ reason `strict_moderation`. The decision's types do not let the live handler
 insert that row: the insert takes a value that is built only for a
 conversation that is not strict.
 
+Observe mode (below) reads the same decision otherwise: it compares a strict
+conversation's comment with what Node stored, as it does any other, and its
+line says the conversation is strict (`strict: true`) and that the
+moderators' email follows the insert (`after_insert: "moderator_email"`). It
+takes the decision as a row for comparison only, of a type the insert does
+not accept, so observing a strict comment gives the live handler no way to
+write one.
+
 ## The text is never printed
 
 The text is held in a type with no `Display`, a `Debug` that prints a byte
@@ -189,9 +197,9 @@ and says what the live handler would do:
 
 | `outcome` | The live handler would |
 |---|---|
-| `would_serve` | dispatch the write (would-be status 200). The write itself is not modelled: the insert, the comment's number, the author's vote, the notification work, the reply deadline |
+| `would_serve` | dispatch the write (would-be status 200); or, in a conversation with strict moderation (`strict: true`, `after_insert: "moderator_email"`), hand it to Node, which stores the same row and then emails the moderators. Either way Node stores the comment, and what it stored is read back and compared. The write itself is not modelled: the insert, the comment's number, the author's vote, the notification work or the email, the reply deadline |
 | `would_answer` | answer without writing: 409 (`reason: duplicate`), 403 (`reason: closed`), or the answer the route's prelude gives a revoked session (`reason: revoked`) |
-| `would_hand_back` | hand the request to Node, for the `reason` in the table above (`strict_moderation` included) |
+| `would_hand_back` | hand the request to Node, for the `reason` in the table above. Never `strict_moderation`: that comment is a `would_serve`. A line printed by an observer older than this has `would_hand_back` with `reason: strict_moderation` for it |
 | `would_fail` | answer a 5xx before the write; nothing in the handler does |
 | `unknown` | not known (`reason: no_anchor`, below) |
 | `shed`, `not_observed` | the copy was not observed: over the lane's rate (`rate_cap`) or its room (`lane_full`), or the process also holds a live handler |
@@ -216,7 +224,10 @@ connection while it waits. `node_comment` is `own`, `other`, `absent`,
 `truncated` or `other` and the two lengths in UTF-16 units and bytes); the
 user (`node_author`); the columns against what the live insert stores
 (`node_row`: `as_expected`, or the first of `mod`, `active`, `is_seed`,
-`velocity`, `anon` that differs); the language (`node_lang`: `unset`, `set`);
+`velocity`, `anon` that differs, or `moderated` when only `mod` or `active`
+differs and the row's `modified` is no longer its `created`: a moderator
+approved or rejected the comment after Node's insert and before the read, so
+the insert's own values are not known); the language (`node_lang`: `unset`, `set`);
 and the author's vote through the vote convention (`node_vote`: `same`,
 `different`, `ambiguous`, `absent`, `not_sent`, `unavailable`,
 `not_checked`). Because the row is found by its text, a comment Node stored
@@ -232,6 +243,8 @@ header value; nginx's request id joins it to Node's and nginx's lines for the
 same request. Every other value is a number that names nothing, a boolean or
 a word from a closed set: the outcome, `admitted`, the would-be `status`,
 `reason`, `queue_ms`, `admission_ms`, `total_ms`, `readback_s`, `strict`,
+`after_insert` (on a `would_serve` line only: `notification_task`, or
+`moderator_email` where the conversation has strict moderation),
 `vote_present`, `seed_present`, `body_class`, `write: "not_modelled"`, and
 the classes above. A copy's body is dropped when
 its admission ends; the parsed text alone is kept, in the type that cannot be
