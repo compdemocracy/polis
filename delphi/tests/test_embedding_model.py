@@ -131,8 +131,10 @@ def test_the_dockerfile_fetches_by_the_lock_and_sets_no_switch():
     assert "embedding-model.lock.json" in fetch and "embedding_model.py fetch" in fetch
     final = stages["final"]
     assert "COPY --from=embedding-model /opt/polis/embedding /opt/polis/embedding" in final
-    # Today's runs are unchanged: no image sets the switch for every service.
-    assert "DELPHI_EMBED_MODEL_PATH" not in final
+    # Today's runs are unchanged: no ENV instruction of the final stage (or of
+    # the test stage built on it) sets the switch for every service.
+    for stage in ("final", "test"):
+        assert not re.search(r"^\s*ENV\b[^\n]*DELPHI_EMBED_MODEL_(PATH|LOCK)", stages[stage], re.M), stage
     ignore = (DELPHI_ROOT / ".dockerignore").read_text().splitlines()
     assert "!embedding-model.lock.json" in ignore
     assert ignore.index("!embedding-model.lock.json") > ignore.index("*.json")
