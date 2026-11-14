@@ -1279,3 +1279,27 @@ def test_other_roles_never_start_the_delphi_shadow(tmp_path, service_type):
     proc, log = _deploy(tmp_path, service_type, env_extra="DELPHI_SHADOW_ENABLED=1")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert DELPHI_SHADOW_UP not in _compose(log)
+
+
+# The Delphi box's `down` (with -f files named) leaves a profile-gated
+# service's containers running, so switching the shadow off removes them by
+# name, after the engine's start; switched on, the start's --force-recreate
+# replaces them instead, and no other role touches them.
+DELPHI_SHADOW_RM = "rm -s -f delphi-shadow delphi-shadow-scheduler"
+
+
+@pytest.mark.parametrize("extra", [None, "DELPHI_SHADOW_ENABLED=0", "# DELPHI_SHADOW_ENABLED=1"])
+def test_switching_the_delphi_shadow_off_removes_its_containers(tmp_path, extra):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert compose.count(DELPHI_SHADOW_RM) == 1
+    assert compose.index(UNCHANGED["delphi"][0]) < compose.index(DELPHI_SHADOW_RM)
+
+
+@pytest.mark.parametrize("service_type,extra", [("delphi", "DELPHI_SHADOW_ENABLED=1"),
+                                                ("server", None), ("math", None)])
+def test_the_delphi_shadows_containers_are_removed_only_on_the_delphi_box_switched_off(tmp_path, service_type, extra):
+    proc, log = _deploy(tmp_path, service_type, env_extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert DELPHI_SHADOW_RM not in _compose(log)

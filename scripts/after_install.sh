@@ -292,8 +292,10 @@ sudo docker run --rm --network host --env-file .env polis-migrate:deploy deploy
 # delphi-shadow-scheduler, both profile-gated). Started on the Delphi box only
 # when the environment document carries the line DELPHI_SHADOW_ENABLED=1
 # exactly; otherwise this file starts nothing of it and writes nothing about
-# it, and the `down` before the Delphi box's `up` removes any container of it
-# a previous deploy started. It runs the Delphi image pulled above.
+# it, and removes by name any container of it a previous deploy started (the
+# `down` before the Delphi box's `up` does not: with -f files named, Compose
+# v2.40.0 leaves a profile-gated service's containers running when `down`
+# does not name its profile). It runs the Delphi image pulled above.
 DELPHI_SHADOW_SELECTED=0
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'DELPHI_SHADOW_ENABLED=1' .env 2>/dev/null; then
   DELPHI_SHADOW_SELECTED=1
@@ -629,6 +631,16 @@ if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
     || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi
+# Switched off, on the Delphi box: a shadow a previous deploy started would
+# otherwise keep running, on that deploy's image, through this deploy and
+# every later one. Naming the services removes their containers whatever
+# their profile; with none there, nothing is done.
+case "$SERVICE_FROM_FILE:$DELPHI_SHADOW_SELECTED" in
+  delphi:0)
+    "${COMPOSE[@]}" rm -s -f delphi-shadow delphi-shadow-scheduler \
+      || echo "The Delphi shadow's containers could not be removed; remove them by hand" >&2
+    ;;
+esac
 
 # Free the disk the previous deployment's images held, now replaced. Only the
 # digests the previous manifest named, never forced: an image a container still
