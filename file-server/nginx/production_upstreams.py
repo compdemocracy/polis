@@ -24,14 +24,18 @@ EXCEPTIONS = {}
 
 # Web services that run another web service's image: the hook pulls that image
 # once and its Compose override names the same digest for both. The shadow of
-# the vote writer runs the polis-api image with its own role and settings.
-SHARED_IMAGES = {'polis-api-shadow': 'polis-api'}
+# the vote writer, and the read shadow, run the polis-api image with their own
+# role and settings.
+SHARED_IMAGES = {'polis-api-shadow': 'polis-api', 'polis-api-shadow-reads': 'polis-api'}
 
 # A shadow selection is refused together with the route that writes what it
 # observes, so the checker renders the shadows in a selection of their own.
 # No route writes comments yet; the name reserved for it is refused with the
-# comment shadow by the deploy hook and its validation already.
-SHADOW_CONFLICTS = {'votesShadow': 'postVotes', 'commentsShadow': 'postComments'}
+# comment shadow by the deploy hook and its validation already. A read shadow
+# is refused together with the read route that has Rust answer that read.
+SHADOW_CONFLICTS = {'votesShadow': 'postVotes', 'commentsShadow': 'postComments',
+                    'votesReadShadow': 'votesRead', 'commentsReadShadow': 'comments',
+                    'nextCommentShadow': 'nextComment'}
 
 
 def require(condition, message):
@@ -413,7 +417,8 @@ def check(root):
     documents = {}
     for path in paths:
         if path in (folder / 'rust-api/upstreams.conf.template',
-                    folder / 'rust-api/shadow-mirror.conf.template'):
+                    folder / 'rust-api/shadow-mirror.conf.template',
+                    folder / 'rust-api/shadow-read-mirror.conf.template'):
             continue  # Their placeholders are checked after the real renderer.
         value = path.read_text()
         for key, default in defaults.items():

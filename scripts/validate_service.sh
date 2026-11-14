@@ -28,12 +28,29 @@ VOTES_SHADOW_SELECTED=0
 COMMENTS_SHADOW_SELECTED=0
 POST_VOTES_SELECTED=0
 POST_COMMENTS_SELECTED=0
+# The read shadows: votesReadShadow, commentsReadShadow and nextCommentShadow,
+# in a service of their own (polis-api-shadow-reads), which runs when any of
+# them is selected. Each is refused together with the read route that has
+# Rust answer that read.
+READS_SHADOW_SELECTED=0
+VOTES_READ_SHADOW_SELECTED=0
+COMMENTS_READ_SHADOW_SELECTED=0
+NEXT_COMMENT_SHADOW_SELECTED=0
+VOTES_READ_SELECTED=0
+COMMENT_READS_SELECTED=0
+NEXT_COMMENT_SELECTED=0
 for route in $(printf '%s' "$RUST_API_ROUTES" | tr ',' ' '); do
   case "$route" in
     votesShadow) VOTES_SHADOW_SELECTED=1; SHADOW_SELECTED=1 ;;
     commentsShadow) COMMENTS_SHADOW_SELECTED=1; SHADOW_SELECTED=1 ;;
+    votesReadShadow) VOTES_READ_SHADOW_SELECTED=1; READS_SHADOW_SELECTED=1 ;;
+    commentsReadShadow) COMMENTS_READ_SHADOW_SELECTED=1; READS_SHADOW_SELECTED=1 ;;
+    nextCommentShadow) NEXT_COMMENT_SHADOW_SELECTED=1; READS_SHADOW_SELECTED=1 ;;
     postVotes) POST_VOTES_SELECTED=1 ;;
     postComments) POST_COMMENTS_SELECTED=1 ;;
+    votesRead) VOTES_READ_SELECTED=1 ;;
+    comments) COMMENT_READS_SELECTED=1 ;;
+    nextComment) NEXT_COMMENT_SELECTED=1 ;;
   esac
 done
 if [ "$VOTES_SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
@@ -42,6 +59,18 @@ if [ "$VOTES_SHADOW_SELECTED" = 1 ] && [ "$POST_VOTES_SELECTED" = 1 ]; then
 fi
 if [ "$COMMENTS_SHADOW_SELECTED" = 1 ] && [ "$POST_COMMENTS_SELECTED" = 1 ]; then
   echo "commentsShadow and postComments cannot be selected together" >&2
+  exit 1
+fi
+if [ "$VOTES_READ_SHADOW_SELECTED" = 1 ] && [ "$VOTES_READ_SELECTED" = 1 ]; then
+  echo "votesReadShadow and votesRead cannot be selected together" >&2
+  exit 1
+fi
+if [ "$COMMENTS_READ_SHADOW_SELECTED" = 1 ] && [ "$COMMENT_READS_SELECTED" = 1 ]; then
+  echo "commentsReadShadow and comments cannot be selected together" >&2
+  exit 1
+fi
+if [ "$NEXT_COMMENT_SHADOW_SELECTED" = 1 ] && [ "$NEXT_COMMENT_SELECTED" = 1 ]; then
+  echo "nextCommentShadow and nextComment cannot be selected together" >&2
   exit 1
 fi
 containers_ready() {
@@ -140,7 +169,10 @@ shadow_ready() {
               c.capacity === 8 && c.readbackCapacity === 64 &&
               Number.isSafeInteger(c.maxPerSecond) && c.maxPerSecond >= 1 && c.maxPerSecond <= 6 :
             !Object.prototype.hasOwnProperty.call(h, "postComments");
-          if (r.status !== 200 || h.status !== "ok" || h.role !== "shadow" ||
+          // The read lanes never run in this process: they share its CPU.
+          const readLanes = ["getVotes", "getComments", "getNextComment"]
+            .some(key => Object.prototype.hasOwnProperty.call(h, key));
+          if (r.status !== 200 || h.status !== "ok" || h.role !== "shadow" || readLanes ||
               v?.enabled !== false || v.mode !== "observe" ||
               names !== "readback,reads" || !readOnly(pools.reads) || !readOnly(pools.readback) ||
               s?.listening !== true || !Number.isSafeInteger(s.maxPerSecond) ||
@@ -153,6 +185,53 @@ shadow_ready() {
       return 1
     fi
     echo "polis-api-shadow health ok"
+}
+# The read shadow's own /health, from the server container: the shadow role
+# with no observer at all (postVotes off with no pools, no identity or comment
+# observer: the read lanes share no process with them), listening, and
+# exactly the lanes whose selectors are named, each in observe mode and never
+# enabled, with its route's selector, room for 8 copies, a cap of at most 10
+# copies a second, and exactly its route's read-only, reachable pools (the
+# vote read: reads and auth; the comment list: reads and count; the next
+# comment: reads); and the release's identity. The hook's last three
+# arguments say, "1" or "0", whether votesReadShadow, commentsReadShadow and
+# nextCommentShadow are named.
+read_lanes_ready() {
+    if ! containers_ready polis-api-shadow-reads; then
+      echo "polis-api-shadow-reads health failed (container absent, stopped or restarting)" >&2
+      return 1
+    fi
+    if ! compose exec -T server node -e '
+      fetch("http://polis-api-shadow-reads:5102/health", {signal: AbortSignal.timeout(4000)})
+        .then(async r => {
+          const h = await r.json(), v = h.postVotes, s = h.shadow;
+          const has = key => Object.prototype.hasOwnProperty.call(h, key);
+          const readOnly = p => p?.readOnly === true && p.reachable === true;
+          const lanes = [["getVotes", "votesReadShadow", "auth,reads", process.argv[3]],
+                         ["getComments", "commentsReadShadow", "count,reads", process.argv[4]],
+                         ["getNextComment", "nextCommentShadow", "reads", process.argv[5]]];
+          const lanesReady = lanes.every(([key, selector, pools, named]) => {
+            if (named !== "1") return !has(key);
+            const l = h[key], p = l?.pools ?? {};
+            return l?.enabled === false && l.mode === "observe" && l.selector === selector &&
+              l.capacity === 8 && Number.isSafeInteger(l.maxPerSecond) &&
+              l.maxPerSecond >= 1 && l.maxPerSecond <= 10 &&
+              Object.keys(p).sort().join(",") === pools && Object.values(p).every(readOnly);
+          });
+          if (r.status !== 200 || h.status !== "ok" || h.role !== "shadow" ||
+              v?.enabled !== false || v.mode !== "off" || Object.keys(v.pools ?? {"!": 1}).length !== 0 ||
+              has("postComments") || has("postVotesIdentity") || !lanesReady ||
+              !lanes.some(([, , , named]) => named === "1") ||
+              s?.listening !== true || !Number.isSafeInteger(s.maxPerSecond) ||
+              s.maxPerSecond < 1 || s.maxPerSecond > 25 ||
+              h.version !== process.argv[2] || !h.commit || h.commit !== process.argv[1])
+            throw Error("Read shadow health check failed");
+        }).then(() => process.exit(0)).catch(() => process.exit(1));
+    ' "$(sed -n 's/^revision=//p' /opt/polis/deployed-images.txt)" "$(cat VERSION)" "$VOTES_READ_SHADOW_SELECTED" "$COMMENTS_READ_SHADOW_SELECTED" "$NEXT_COMMENT_SHADOW_SELECTED"; then
+      echo "polis-api-shadow-reads health failed (HTTP, role, observers, lanes, pools or identity check)" >&2
+      return 1
+    fi
+    echo "polis-api-shadow-reads health ok"
 }
 server_ready() {
   containers_ready server nginx-proxy client-participation-alpha || return 1
@@ -172,6 +251,9 @@ server_ready() {
   fi
   if [ "$SHADOW_SELECTED" = 1 ]; then
     shadow_ready || return 1
+  fi
+  if [ "$READS_SHADOW_SELECTED" = 1 ]; then
+    read_lanes_ready || return 1
   fi
 }
 ready() {

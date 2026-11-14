@@ -1,0 +1,60 @@
+# ${SHADOW_NAME}: a GET ${SHADOW_PATH} with no body (no Content-Length and no
+# Transfer-Encoding; no other request is handed to this location) is answered
+# by Node exactly as without this selection, with one added header,
+# X-Request-Id. nginx's mirror sends a copy, with the request's query string
+# and headers and no body, to the read shadow service
+# (polis-api-shadow-reads), which answers 204 at once and writes nothing; at
+# most ${SHADOW_RATE} copies a second on this box (the zone is in upstreams.conf).
+# Nothing is read before Node is contacted. Node's answer never waits for the
+# copy; the next request on the same client connection waits for it at most
+# the copy's four timeouts below. Neither location has an error_page, a retry
+# or a route to Node: a failed copy ends where it fails. The request's
+# ordinary access line is written without the peer address and the
+# X-Forwarded-For value (polis_shadow_access). nginx's error log is not: a
+# copy that fails (the service absent, refusing, closing or slower than the
+# timeouts) writes one error line naming the peer as `client:`, with the
+# request line and the copy's upstream URL whole, query string included. An
+# error_log in the copy's own location does not reach it (a subrequest logs
+# through its main request's location).
+location @polis_shadow_${SHADOW_NAME} {
+    mirror /_polis_shadow/${SHADOW_NAME};
+    mirror_request_body off;
+    access_log /var/log/nginx/access.log polis_shadow_access;
+    access_log /var/log/nginx/access.log polis_shadow_edge;
+    include /etc/nginx/node-proxy.conf;
+    proxy_set_header X-Request-Id $request_id;
+}
+
+location = /_polis_shadow/${SHADOW_NAME} {
+    internal;
+    log_subrequest on;
+    access_log /var/log/nginx/access.log polis_shadow_mirror;
+    set $polis_shadow_name ${SHADOW_NAME};
+    # A copy over the rate of this shadow ends here with 429 (the zone is in upstreams.conf).
+    limit_req zone=polis_shadow_${SHADOW_NAME} nodelay;
+    limit_req_status 429;
+    limit_req_log_level info;
+    # Exactly the requests the path's location hands over: a GET with no body.
+    # Anything else is not copied.
+    if ($polis_shadow_read_copyable = 0) {
+        return 204;
+    }
+    # A literal target. The variable only makes nginx resolve the name per
+    # request, so nginx starts while the read shadow container is absent; no
+    # setting reaches it. The copy carries the request's query string, byte
+    # for byte as it was received ($args is the raw text): for a GET it is the
+    # whole request. No body is sent, and none is read.
+    set $polis_shadow_target polis-api-shadow-reads:5102;
+    proxy_pass http://$polis_shadow_target${SHADOW_PATH}$is_args$args;
+    proxy_pass_request_headers on;
+    proxy_pass_request_body off;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_set_header X-Request-Id $request_id;
+    proxy_set_header X-Polis-Shadow ${SHADOW_NAME};
+    proxy_next_upstream off;
+    resolver_timeout 30ms;
+    proxy_connect_timeout 20ms;
+    proxy_send_timeout 20ms;
+    proxy_read_timeout 30ms;
+}

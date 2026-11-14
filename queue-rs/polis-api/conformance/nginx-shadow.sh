@@ -23,7 +23,8 @@
 #
 # With --load it also runs the participation-path test: 16 keepalive
 # connections of votes, each vote followed by a request on the same
-# connection, with a silent shadow against a control with nothing selected.
+# connection, with a silent shadow against a control with nothing selected;
+# and the same with GET /api/v3/nextComment and a silent read shadow.
 # The vote's p99 stays within 5 ms of the control's, the next request's p99 is
 # at most 60 ms, and no client request fails. It measures latency, so run it
 # on a quiet box.
@@ -45,6 +46,23 @@
 # to 9999 declared bytes passing through the shadow's location, and no body
 # written to a temporary file that is not written to one with nothing
 # selected.
+#
+# The read shadows (votesReadShadow, commentsReadShadow, nextCommentShadow)
+# are then run against a read shadow stand-in in the same nine modes: every
+# read on the three paths (with a query string, an empty one, none, a
+# client-sent request id) gets Node's exact status, headers and bytes; Node
+# gets it once, with the same headers in the same order plus nginx's own
+# request id; the read shadow gets a GET on the same path with the same query
+# string and headers and no body; the access line has no address; every other
+# request on and beside the three paths (HEAD, a GET with a body or with
+# Content-Length 0, chunked, other methods, other spellings, the neighbouring
+# routes) reaches Node exactly as with nothing selected and is never copied.
+# A read's reply does not wait for its copy (each read on its own connection,
+# the read shadow answering, silent and slow); the read copies' rate holds
+# under a run faster than it, beside vote copies; on one keepalive connection
+# a refused copy holds the next request for nothing and a sent copy for as
+# long as nginx says it lived; and with every shadow selected each copy goes
+# to its own service and nowhere else.
 #
 # With --measure it prints what the mirror costs a comment: the time until
 # Node has the request's first byte, until Node has the whole body, and the
@@ -73,7 +91,7 @@ image=${X54_NGINX_IMAGE:-$p:local}
 python_image=${NGINX_SHADOW_PYTHON_IMAGE:-python:3.11-slim}
 work=""
 cleanup() {
-  docker rm -f "$p-proxy" "$p-node" "$p-shadow" "$p-alpha" >/dev/null 2>&1 || true
+  docker rm -f "$p-proxy" "$p-node" "$p-shadow" "$p-reads" "$p-alpha" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
   [[ -z $work ]] || rm -rf "$work"
 }
@@ -101,6 +119,17 @@ shadow() { # mode: the shadow stand-in, or none (absent) or a container with no 
               "$python_image" sleep 3600 >/dev/null ;;
     *) docker run -d --name "$p-shadow" --network "$net" --network-alias polis-api-shadow \
          -v "$stubs:/stubs.py:ro" "$python_image" python3 -u /stubs.py shadow 5101 "$1" >/dev/null ;;
+  esac
+}
+
+reads() { # mode: the read shadow stand-in, as shadow() is the write shadows'
+  docker rm -f "$p-reads" >/dev/null 2>&1 || true
+  case "$1" in
+    absent) ;;
+    refuse) docker run -d --name "$p-reads" --network "$net" --network-alias polis-api-shadow-reads \
+              "$python_image" sleep 3600 >/dev/null ;;
+    *) docker run -d --name "$p-reads" --network "$net" --network-alias polis-api-shadow-reads \
+         -v "$stubs:/stubs.py:ro" "$python_image" python3 -u /stubs.py shadow 5102 "$1" >/dev/null ;;
   esac
 }
 
@@ -176,6 +205,42 @@ for mode in absent silent status404 status500; do
 done
 echo "ok comment bodies of every size are answered alike with nothing selected and with the shadow answering, absent, silent, answering 404 and answering 500"
 
+# The read shadows: the three reads in every mode of the read shadow service.
+READS=votesReadShadow,commentsReadShadow,nextCommentShadow
+start ""
+"${driver[@]}" read-baseline "$p" "$work/baseline-reads.json"
+for mode in answer refuse absent close silent delay40 delay5s status404 status500; do
+  reads "$mode"
+  start "$READS"
+  "${driver[@]}" read-behaviour "$p" "$mode" "$work/baseline-reads.json"
+done
+echo "ok read shadows' behaviour in every mode: answer, refuse, absent, close, silent, 40 ms, 5 s, 404, 500"
+for mode in answer silent delay5s; do
+  reads "$mode"
+  start "$READS"
+  "${driver[@]}" read-hold "$p" "$mode"
+done
+# Every shadow together: each copy to its own service; the read rate beside
+# vote copies; on one keepalive connection.
+shadow answer
+for mode in answer silent; do
+  reads "$mode"
+  start "votesShadow,commentsShadow,$READS"
+  "${driver[@]}" read-beside "$p" "$mode" "$work/baseline-reads.json" "$work/baseline.json" "$work/baseline-comments.json"
+done
+reads answer
+start "votesShadow,commentsShadow,$READS"
+"${driver[@]}" read-rate "$p"
+"${driver[@]}" read-keepalive "$p" answering
+reads silent
+start "$READS"
+"${driver[@]}" read-keepalive "$p" silent
+reads answer
+start ""
+"${driver[@]}" read-keepalive "$p" unselected
+"${driver[@]}" read-unchanged "$p" "$work/baseline-reads.json"
+echo "ok read shadows: replies never wait for a copy; the rate; every shadow together; one keepalive connection"
+
 if [[ $load == 1 ]]; then
   shadow silent
   start ""
@@ -183,6 +248,13 @@ if [[ $load == 1 ]]; then
   start votesShadow
   "${driver[@]}" load "$p" "$work/shadow.json"
   "${driver[@]}" compare "$work/control.json" "$work/shadow.json"
+  # The same for a read, with the read shadow silent: GET /api/v3/nextComment.
+  reads silent
+  start ""
+  "${driver[@]}" read-load "$p" "$work/read-control.json"
+  start nextCommentShadow
+  "${driver[@]}" read-load "$p" "$work/read-shadow.json"
+  "${driver[@]}" compare "$work/read-control.json" "$work/read-shadow.json"
 fi
 
 if [[ $measure == 1 ]]; then
