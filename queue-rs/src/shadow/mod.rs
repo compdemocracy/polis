@@ -11,8 +11,13 @@
 //! succeeds is repeated once on the same comment set and the two clusterings
 //! are compared (`twin`). It is off unless `DELPHI_SHADOW_ENABLED=1`.
 //!
+//! The shadow's daemon is the ordinary `polis-jobs`, started through
+//! `polis-delphi-shadow daemon`, which refuses any env that is not a shadow
+//! env (`daemon`).
+//!
 //! What it touches, and what it never touches: see `db`.
 pub mod config;
+pub mod daemon;
 pub mod db;
 pub mod plan;
 pub mod scheduler;

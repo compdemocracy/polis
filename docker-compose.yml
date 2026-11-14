@@ -440,7 +440,11 @@ services:
       target: final
     labels:
       polis_tag: ${TAG:-dev}
-    command: ["polis-jobs"]
+    # Not polis-jobs itself, which accepts any env: this refuses to start
+    # unless QUEUE_ENV and DELPHI_RESULT_ENV are the same shadow- env, then
+    # replaces itself with polis-jobs (the deploy hook reads the same two
+    # settings back before it starts the service).
+    command: ["polis-delphi-shadow", "daemon"]
     environment:
       - POLIS_JOBS_ENABLED=${DELPHI_SHADOW_ENABLED:-0}
       # The input bundle's read (one connection per run, closed after it).

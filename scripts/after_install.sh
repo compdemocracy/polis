@@ -398,6 +398,25 @@ if [ "$READS_SHADOW_SELECTED" = 1 ]; then
   fi
 fi
 
+# The free-only Delphi shadow is about to start: what starts must be the
+# shadow, never a second production daemon. polis-jobs claims and publishes
+# under whatever env it is given, so the composed configuration (the
+# override included) must give the daemon one shadow- env for the jobs it
+# claims and the results it writes, must start it through the check that
+# refuses any other env (polis-delphi-shadow daemon), and must give the
+# scheduler that same env. jq prints the names of the settings that are not
+# so, never a value. Refused, the shadow is not started and any container of
+# it a previous deploy started is removed below; the deploy goes on, as it
+# does when the shadow's start fails. Never print config.
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+  DELPHI_SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow config --format json | jq -r '.services as $s | ($s["delphi-shadow"].environment // {}) as $d | ($s["delphi-shadow-scheduler"].environment // {}) as $c | (($d.QUEUE_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) as $shadow | [(if $shadow then empty else "delphi-shadow.QUEUE_ENV" end), (if ($d.DELPHI_RESULT_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow.DELPHI_RESULT_ENV" end), (if ($s["delphi-shadow"].command // []) == ["polis-delphi-shadow", "daemon"] then empty else "delphi-shadow.command" end), (if $shadow and ($c.DELPHI_SHADOW_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_ENV" end), (if ($c.QUEUE_ENV // "") == ($c.DELPHI_SHADOW_ENV // "") then empty else "delphi-shadow-scheduler.QUEUE_ENV" end)] | join(" ")') \
+    || DELPHI_SHADOW_SETTINGS_WRONG="unreadable"
+  if [ -n "$DELPHI_SHADOW_SETTINGS_WRONG" ]; then
+    echo "The Delphi shadow's composed settings are not a shadow's ($DELPHI_SHADOW_SETTINGS_WRONG); not starting it" >&2
+    DELPHI_SHADOW_SELECTED=0
+  fi
+fi
+
 if [ -f "/etc/app-info/log_group_name.txt" ]; then
   LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
   export AWS_LOG_GROUP_NAME=$LOG_GROUP_NAME

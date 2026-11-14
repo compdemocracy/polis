@@ -10,10 +10,16 @@ test_compose_math_env.py. What this pins:
   * the daemon claims only the shadow env, the full pipeline, one job at a
     time, with the visualization pages skipped, the embedding model read from
     the image offline, and its scratch on tmpfs; its limits are 2 CPUs and 6 GiB;
-  * the scheduler and the daemon name the same env, and that env is a shadow env.
+  * the scheduler and the daemon name the same env, and that env is a shadow env;
+  * the deploy hook's read-back of the two services passes this file as it
+    is, and names the settings when one line of the environment document
+    gives the shadow a served env.
 """
 
+import json
 import re
+import shutil
+import subprocess
 
 import pytest
 import yaml
@@ -78,7 +84,8 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     services, _ = _services()
     service = services["delphi-shadow"]
     env = _environment(service, PRODUCTION_LIKE)
-    assert service["command"] == ["polis-jobs"]
+    # The env check in front of polis-jobs (polis-delphi-shadow daemon).
+    assert service["command"] == ["polis-delphi-shadow", "daemon"]
     assert env["POLIS_JOBS_ENABLED"] == "1"
     assert env["QUEUE_ENV"] == env["DELPHI_RESULT_ENV"] == "shadow-delphi-1"
     assert env["DELPHI_RESULT_BACKEND"] == "postgres"
@@ -127,3 +134,34 @@ def test_the_production_report_service_is_unchanged_by_the_shadow():
     for key in ("DELPHI_SKIP_DATAMAPPLOT", "DELPHI_EMBED_MODEL_PATH", "DELPHI_STEP_LOG",
                 "DELPHI_LOCAL_OUTPUT_CLEANUP", "HF_HUB_OFFLINE"):
         assert key not in delphi, key
+
+
+def _hook_program():
+    """The jq program of the deploy hook's Delphi shadow read-back."""
+    (line,) = [line for line in (CHECKOUT / "scripts/after_install.sh").read_text().splitlines()
+               if line.lstrip().startswith("DELPHI_SHADOW_SETTINGS_WRONG=$(")]
+    return line.split("'")[1]
+
+
+def _composed(env):
+    services, _ = _services()
+    return {"services": {name: {"environment": _environment(services[name], env),
+                                "command": services[name]["command"]} for name in SERVICES}}
+
+
+@requires_checkout
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq program with the real jq")
+@pytest.mark.parametrize("extra,named", [
+    ({}, ""),
+    ({"DELPHI_SHADOW_ENV": "shadow-twin-1"}, ""),
+    # One wrong line: the served env given to the shadow. The daemon would
+    # claim and publish under it; the hook refuses to start either service.
+    ({"DELPHI_SHADOW_ENV": "import-example-1"}, "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    ({"DELPHI_SHADOW_ENV": "prod"}, "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+])
+def test_the_deploy_hooks_read_back_passes_this_file_and_refuses_a_served_env(extra, named):
+    proc = subprocess.run(["jq", "-r", _hook_program()], input=json.dumps(_composed(dict(PRODUCTION_LIKE, **extra))),
+                          text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == named + "\n"
+    assert "import-example-1" not in proc.stdout

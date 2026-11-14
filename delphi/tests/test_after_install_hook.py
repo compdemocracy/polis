@@ -82,7 +82,9 @@ FAKES = {
     # The read-back of the shadow service's own settings prints the names of
     # the ones that are wrong: none, unless a test says which. So do the read
     # shadow service's two read-backs: its lanes' switches and its settings.
-    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
+    # The Delphi shadow's read-back prints the names of its wrong settings:
+    # none, unless a test says which (or __fail__: jq itself fails).
+    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *delphi-shadow-scheduler.DELPHI_SHADOW_ENV*) [ "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}" != __fail__ ] || exit 3; printf "%s\\n" "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}";; *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -197,10 +199,12 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             not_on_branch=False, images="default", previous=None, pull_failure_ref="", rust_api_routes="", polis_api_start="0", rust_start_failure=False, transport="tls",
             shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None,
             reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None,
-            env_extra=None, **kw):
+            env_extra=None, delphi_shadow_settings_wrong=None, **kw):
     root, env = _box(tmp_path, service_type, **kw)
     if env_extra is not None:
         env["FAKE_ENV_EXTRA"] = env_extra
+    if delphi_shadow_settings_wrong is not None:
+        env["FAKE_DELPHI_SHADOW_SETTINGS_WRONG"] = delphi_shadow_settings_wrong
     env["FAKE_READS_START_FAILURE"] = "1" if reads_start_failure else "0"
     if reads_switches_wrong is not None:
         env["FAKE_READS_SWITCHES_WRONG"] = reads_switches_wrong
@@ -1303,3 +1307,121 @@ def test_the_delphi_shadows_containers_are_removed_only_on_the_delphi_box_switch
     proc, log = _deploy(tmp_path, service_type, env_extra=extra)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert DELPHI_SHADOW_RM not in _compose(log)
+
+
+# Before the shadow starts, the hook reads back what the composed
+# configuration gives its two services: one shadow- env for the daemon's jobs
+# and results, the start through the check that refuses any other env, and
+# the same env for the scheduler. jq prints only the names of the settings
+# that are not so. Refused, the shadow is not started and its containers are
+# removed by name; the Delphi box's own deploy goes on, unchanged.
+DELPHI_SHADOW_CONFIG = COMPOSE_FILES + "--profile delphi-shadow config --format json"
+DELPHI_SHADOW_NAMES = ["delphi-shadow.QUEUE_ENV", "delphi-shadow.DELPHI_RESULT_ENV", "delphi-shadow.command",
+                       "delphi-shadow-scheduler.DELPHI_SHADOW_ENV", "delphi-shadow-scheduler.QUEUE_ENV"]
+
+
+def _delphi_shadow_program():
+    """The jq program of the hook's Delphi shadow read-back."""
+    (line,) = [line for line in HOOK_PATH.read_text().splitlines()
+               if line.lstrip().startswith("DELPHI_SHADOW_SETTINGS_WRONG=$(")]
+    assert line.count("'") == 2, "the read-back's jq program is not one single-quoted argument"
+    command, program, closing = line.split("'")
+    assert command.strip() == ("DELPHI_SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml "
+                               "-f docker-compose.images.yml --profile delphi-shadow config --format json | jq -r")
+    assert closing.strip() == ") \\"
+    return program
+
+
+def test_the_delphi_shadows_settings_are_read_back_before_it_starts(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _calls(log, "docker-compose").count(DELPHI_SHADOW_CONFIG) == 1
+    assert _calls(log, "jq").count("-r " + _delphi_shadow_program()) == 1
+    # From the composed configuration, the image override included, before
+    # the Delphi box replaces anything.
+    read = log.index(f"docker-compose {DELPHI_SHADOW_CONFIG}")
+    assert read < log.index(f"docker-compose {COMPOSE_FILES}down")
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["delphi"] + [DELPHI_SHADOW_UP]
+    assert DELPHI_SHADOW_RM not in _compose(log)
+
+
+@pytest.mark.parametrize("wrong", [*DELPHI_SHADOW_NAMES, " ".join(DELPHI_SHADOW_NAMES), "unreadable"])
+def test_a_delphi_shadow_composed_without_a_shadow_env_is_not_started(tmp_path, wrong):
+    proc, log = _deploy(tmp_path, "delphi", env_extra="DELPHI_SHADOW_ENABLED=1",
+                        delphi_shadow_settings_wrong="__fail__" if wrong == "unreadable" else wrong)
+    # The Delphi box's deploy is not failed: its engine starts as before.
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert f"The Delphi shadow's composed settings are not a shadow's ({wrong}); not starting it" in proc.stderr
+    compose = _compose(log)
+    assert [c for c in compose if c.startswith("up")] == UNCHANGED["delphi"]
+    assert DELPHI_SHADOW_UP not in compose
+    # And a shadow a previous deploy started does not keep running.
+    assert compose.count(DELPHI_SHADOW_RM) == 1
+    assert compose.index(UNCHANGED["delphi"][0]) < compose.index(DELPHI_SHADOW_RM)
+
+
+@pytest.mark.parametrize("service_type,extra", [("delphi", None), ("delphi", "DELPHI_SHADOW_ENABLED=0"),
+                                                ("server", "DELPHI_SHADOW_ENABLED=1"),
+                                                ("math", "DELPHI_SHADOW_ENABLED=1")])
+def test_no_delphi_shadow_selected_reads_back_no_delphi_shadow_setting(tmp_path, service_type, extra):
+    proc, log = _deploy(tmp_path, service_type, env_extra=extra, delphi_shadow_settings_wrong="__fail__")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert DELPHI_SHADOW_CONFIG not in _calls(log, "docker-compose")
+    assert "-r " + _delphi_shadow_program() not in _calls(log, "jq")
+
+
+_SHADOW_DAEMON = {"QUEUE_ENV": "shadow-delphi-1", "DELPHI_RESULT_ENV": "shadow-delphi-1",
+                  "DATABASE_URL": "postgres://u:not-printed@db/polis"}
+_SHADOW_SCHEDULER = {"DELPHI_SHADOW_ENV": "shadow-delphi-1", "QUEUE_ENV": "shadow-delphi-1",
+                     "DELPHI_SHADOW_READ_DATABASE_URL": "postgres://u:not-printed@db/polis"}
+_SHADOW_COMMAND = ["polis-delphi-shadow", "daemon"]
+
+
+def _composed(daemon=_SHADOW_DAEMON, scheduler=_SHADOW_SCHEDULER, command=_SHADOW_COMMAND):
+    services = {"delphi": {"environment": {"DELPHI_RESULT_ENV": "import-example-1"}, "command": None}}
+    if daemon is not None:
+        services["delphi-shadow"] = {"environment": daemon, "command": command}
+    if scheduler is not None:
+        services["delphi-shadow-scheduler"] = {"environment": scheduler, "command": ["polis-delphi-shadow"]}
+    return {"services": services}
+
+
+_SERVED = "import-example-1"
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq program with the real jq")
+@pytest.mark.parametrize("composed,named", [
+    (_composed(), ""),
+    (_composed(daemon=dict(_SHADOW_DAEMON, QUEUE_ENV="shadow-twin-1", DELPHI_RESULT_ENV="shadow-twin-1"),
+               scheduler=dict(_SHADOW_SCHEDULER, DELPHI_SHADOW_ENV="shadow-twin-1", QUEUE_ENV="shadow-twin-1")), ""),
+    # One wrong line in the environment document: the served env for both.
+    (_composed(daemon=dict(_SHADOW_DAEMON, QUEUE_ENV=_SERVED, DELPHI_RESULT_ENV=_SERVED),
+               scheduler=dict(_SHADOW_SCHEDULER, DELPHI_SHADOW_ENV=_SERVED, QUEUE_ENV=_SERVED)),
+     "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(daemon=dict(_SHADOW_DAEMON, DELPHI_RESULT_ENV=_SERVED)), "delphi-shadow.DELPHI_RESULT_ENV"),
+    (_composed(daemon=dict(_SHADOW_DAEMON, QUEUE_ENV=_SERVED)),
+     "delphi-shadow.QUEUE_ENV delphi-shadow.DELPHI_RESULT_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(daemon=dict(_SHADOW_DAEMON, QUEUE_ENV="shadow-", DELPHI_RESULT_ENV="shadow-")),
+     "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(daemon=dict(_SHADOW_DAEMON, QUEUE_ENV="Shadow-Delphi", DELPHI_RESULT_ENV="Shadow-Delphi")),
+     "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(daemon=dict(_SHADOW_DAEMON, QUEUE_ENV=None, DELPHI_RESULT_ENV=None)),
+     "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(command=["polis-jobs"]), "delphi-shadow.command"),
+    (_composed(command=None), "delphi-shadow.command"),
+    (_composed(scheduler=dict(_SHADOW_SCHEDULER, DELPHI_SHADOW_ENV="shadow-twin-1", QUEUE_ENV="shadow-twin-1")),
+     "delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(scheduler=dict(_SHADOW_SCHEDULER, QUEUE_ENV=_SERVED)), "delphi-shadow-scheduler.QUEUE_ENV"),
+    # The daemon's list replaced by an override's: no env at all.
+    (_composed(daemon={}), "delphi-shadow.QUEUE_ENV delphi-shadow-scheduler.DELPHI_SHADOW_ENV"),
+    (_composed(daemon=None, scheduler=None),
+     " ".join(n for n in DELPHI_SHADOW_NAMES
+              if n not in ("delphi-shadow.DELPHI_RESULT_ENV", "delphi-shadow-scheduler.QUEUE_ENV"))),
+])
+def test_the_real_jq_names_exactly_the_delphi_shadows_wrong_settings(composed, named):
+    proc = subprocess.run(["jq", "-r", _delphi_shadow_program()], input=json.dumps(composed),
+                          text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == named + "\n"
+    assert "not-printed" not in proc.stdout + proc.stderr
+    assert _SERVED not in proc.stdout + proc.stderr
