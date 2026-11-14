@@ -88,10 +88,12 @@ import { Construct } from 'constructs';
  * null counts, which a numeric metric filter does not turn into a value.
  *
  * A worker's user data (launchTemplates.ts) records the daemon's class, its
- * memory limit, its image and the NAME of the restricted queue login's secret
- * under /etc/app-info and starts the daemon with that class (systemd unit
- * polis-jobs.service); the class role may read that secret by name. The login
- * itself is provisioned by the owner; nothing here creates it.
+ * memory limit, its image, the NAME of the restricted queue login's secret,
+ * the TLS CA file and host allowlist, and the row's child settings (the
+ * large child's staged label) in the env document under /etc/app-info, and
+ * starts the daemon with that class (systemd unit polis-jobs.service); the
+ * class role may read that secret by name. The login itself is provisioned by
+ * the owner; nothing here creates it.
  *
  * Off unless synthesized with `-c enableLargeClass=true`: with the flag off
  * the template is byte-identical (test/workerClasses.test.ts).
@@ -113,6 +115,14 @@ export const DELPHI_CLASS = 'delphi';
 /** The service type each class writes to /etc/app-info/service_type.txt. */
 export const LARGE_SERVICE_TYPE = 'delphi-large';
 export const DELPHI_WORKER_SERVICE_TYPE = 'delphi-worker';
+
+/**
+ * The label the large class stages under: the large child's MATH_ENV. It must
+ * equal the small poller's MATH_CAPACITY_STAGED_LABEL, whose default is this
+ * string (delphi/polismath/poller/capacity.py DEFAULT_STAGED_LABEL; a test
+ * reads both). The child refuses a frame staged for any other label.
+ */
+export const STAGED_LABEL = 'python-large';
 
 /** Metric names on the math-large row (the P-073 names, kept). */
 export const LARGE_DEMAND_METRIC = 'LargeDemand';
@@ -179,6 +189,20 @@ export interface WorkerClassSpec {
   keys: WorkerClassKeys;
   /** Rows whose output the small poller promotes (DemandUnmet). */
   promotion?: { pendingKey: string; oldestUnresolvedKey: string };
+  /**
+   * The child's own settings, written into the box's env document after the
+   * shared app .env (so they win over it): the large child's staged label,
+   * and the small poller's routing/promotion settings turned off (the child
+   * refuses to run with them on). Absent: the child sees the shared .env only.
+   */
+  childEnv?: Record<string, string>;
+  /**
+   * The child checks the frame's source commit against
+   * MATH_POLLER_SOURCE_COMMIT (the deploy hook appends it to .env): the unit
+   * refuses to start the daemon without one, so no job is claimed only for
+   * its child to refuse it.
+   */
+  requiresSourceCommit?: boolean;
 }
 
 export interface WorkerClassesSettings {
@@ -187,6 +211,12 @@ export interface WorkerClassesSettings {
   queueLoginSecretName: string;
   /** The image the worker daemon runs from (the Delphi image the deploy builds on the box). */
   workerImage: string;
+  /**
+   * POLIS_JOBS_HOST_ALLOWLIST: the hosts the daemon's TLS connection may
+   * name. Context `queueHostAllowlist`; absent, the stack's RDS instance
+   * endpoint (the queue lives in the application database).
+   */
+  queueHostAllowlist?: string;
   outPeriods: number;
   inPeriods: number;
   unmetPeriods: number;
@@ -235,6 +265,13 @@ export const workerClassTable = (scope: Construct): WorkerClassSpec[] => {
         oldestQueuedAgeMs: 'oldest_queued_age_ms',
       },
       promotion: { pendingKey: 'pending_promotion', oldestUnresolvedKey: 'oldest_unresolved_age_ms' },
+      childEnv: {
+        MATH_ENV: STAGED_LABEL,
+        MATH_CAPACITY_ROUTING: '0',
+        MATH_CAPACITY_PROMOTE: '0',
+        MATH_CAPACITY_RESTAGE: '',
+      },
+      requiresSourceCommit: true,
     },
     {
       name: DELPHI_CLASS,
@@ -270,6 +307,7 @@ export const workerClassesSettings = (scope: Construct): WorkerClassesSettings =
     queueLoginSecretName: ctx('queueLoginSecretName', 'polis-queue-login'),
     workerImage: ctx('workerImage',
       `${cdk.Stack.of(scope).account}.dkr.ecr.${cdk.Stack.of(scope).region}.amazonaws.com/polis/delphi:latest`),
+    queueHostAllowlist: scope.node.tryGetContext('queueHostAllowlist') as string | undefined,
     outPeriods: positiveInt(scope, 'largeClassOutPeriods', 2),
     inPeriods: positiveInt(scope, 'largeClassInPeriods', 6),
     unmetPeriods: positiveInt(scope, 'largeClassUnmetPeriods', 6),
