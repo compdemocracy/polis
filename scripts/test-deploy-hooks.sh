@@ -22,6 +22,8 @@ inputs=(
   docker-compose.yml
   docker-compose.test.yml
   delphi/Dockerfile
+  delphi/.dockerignore
+  delphi/embedding-model.lock.json
 )
 tests=(
   test_after_install_hook.py

@@ -30,6 +30,8 @@ env/
 data/
 *.csv
 *.json
+# The embedding model's lock: the image's build fetches and checks the model by it.
+!embedding-model.lock.json
 *.npy
 *.pkl
 *.db

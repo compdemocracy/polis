@@ -189,7 +189,17 @@ def process_comments(comments, conversation_id):
     logger.info("Generating embeddings with SentenceTransformer...")
     model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
     logger.info(f"Using model: {model_name}")
-    embedding_model = SentenceTransformer(model_name)
+    # DELPHI_EMBED_MODEL_PATH set: the model's files carried in the image, read
+    # with no network (and checked against DELPHI_EMBED_MODEL_LOCK when that is
+    # set). Unset: the model by name from the Hugging Face hub, as before.
+    from polismath.embedding_model import load_check
+
+    model_arg = load_check()
+    if model_arg != model_name:
+        logger.info(f"Reading the embedding model from {model_arg} (no download)")
+        embedding_model = SentenceTransformer(model_arg, local_files_only=True)
+    else:
+        embedding_model = SentenceTransformer(model_name)
     document_vectors = embedding_model.encode(comment_texts, show_progress_bar=True)
 
     from umap_narrative.numerical_stages import project_and_cluster

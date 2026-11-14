@@ -22,6 +22,22 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 
+# ---- The embedding model (all-MiniLM-L6-v2), fetched once, at build time ----
+# The files and the revision are pinned in embedding-model.lock.json; the fetch
+# refuses any file whose SHA-256 differs from the lock, so every image built
+# from this file carries the same bytes. The UMAP stage reads this directory
+# only when DELPHI_EMBED_MODEL_PATH names it (with DELPHI_EMBED_MODEL_LOCK set,
+# it checks the files again first); unset, it downloads the model by name from
+# the Hugging Face hub at run time, as before. About 92 MB.
+FROM trust AS embedding-model
+RUN pip install --no-cache-dir huggingface-hub==0.36.0
+COPY embedding-model.lock.json /opt/polis/embedding/all-MiniLM-L6-v2.lock.json
+COPY polismath/embedding_model.py /tmp/embedding_model.py
+RUN python /tmp/embedding_model.py fetch \
+      --lock /opt/polis/embedding/all-MiniLM-L6-v2.lock.json \
+      --dest /opt/polis/embedding/all-MiniLM-L6-v2 \
+ && rm /tmp/embedding_model.py
+
   FROM trust AS builder
 
   # Define a build argument to signal if we should install CPU-specific torch
@@ -114,6 +130,10 @@ RUN mkdir -p /etc/polis \
  && echo '90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/polis/rds-ca.pem' | sha256sum -c -
 
 WORKDIR /app
+
+# The embedding model's pinned files and their lock (read only when
+# DELPHI_EMBED_MODEL_PATH is set; see the embedding-model stage).
+COPY --from=embedding-model /opt/polis/embedding /opt/polis/embedding
 
 # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
