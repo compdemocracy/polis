@@ -563,8 +563,11 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # change, not needed for correctness.
   # Durable stop: remove `math-python` from DELPHI_SERVICES below and redeploy
   # (the hook removes this Compose project's containers before starting the
-  # named ones). The tests that pin the Delphi box's services
-  # (delphi/tests/test_compose_math_env.py) change with it.
+  # named ones). ValidateService (scripts/validate_service.sh) requires
+  # exactly the services that line names, read from this file, so keep it one
+  # line of plain names. The tests that pin the Delphi box's services
+  # (delphi/tests/test_compose_math_env.py, test_after_install_hook.py) change
+  # with it.
   # Removing only the holder's container is a FAILOVER, not a stop: a waiting
   # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
   #   1. Pause anything that runs this hook: no deploy, and suspend Launch on

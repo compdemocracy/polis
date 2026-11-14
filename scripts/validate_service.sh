@@ -1,8 +1,21 @@
 #!/bin/bash
 set -euo pipefail
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd /opt/polis/polis
 role=$(cat /etc/app-info/service_type.txt)
 compose() { sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml "$@"; }
+# The Delphi box must run exactly the services that the deploy hook beside this
+# script names in its one DELPHI_SERVICES line, so a service taken off that
+# line (the math engine's durable stop) is not required here.
+DELPHI_SERVICES=""
+if [ "$role" = delphi ]; then
+  DELPHI_SERVICES_LINES=$(grep -c '^  DELPHI_SERVICES=' "$HOOK_DIR/after_install.sh" || true)
+  DELPHI_SERVICES=$(sed -n 's/^  DELPHI_SERVICES=(\([a-z0-9 -]*\))$/\1/p' "$HOOK_DIR/after_install.sh")
+  if [ "$DELPHI_SERVICES_LINES" != 1 ] || [ -z "${DELPHI_SERVICES// /}" ]; then
+    echo "The deploy hook must name the Delphi box's services in exactly one DELPHI_SERVICES=(...) line" >&2
+    exit 1
+  fi
+fi
 # Resolve once. An invalid start setting fails before polling; config is never logged.
 POLIS_API_HEALTH_REQUIRED=0
 POLIS_API_HEALTH_CHECK=0
@@ -259,7 +272,8 @@ server_ready() {
 ready() {
   case "$role" in
     server) server_ready ;;
-    delphi) containers_ready delphi math-python ;;
+    # Split on purpose: plain service names, checked above.
+    delphi) containers_ready $DELPHI_SERVICES ;;
     delphi-large|delphi-worker)
       sudo systemctl is-active --quiet polis-jobs.service &&
       [ "$(sudo docker inspect --format '{{.State.Status}} {{.State.Restarting}}' polis-jobs)" = 'running false' ] ;;
