@@ -31,6 +31,7 @@
 # Public fixtures only; nothing here reads or needs a credential.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+python3 "$root/ci/host_ports.py" env SHADOW_REHEARSAL_PG_PORT
 here="$root/delphi/tests/shadow"
 out=${1:?an output directory}
 : "${COMPOSE_PROJECT_NAME:?set a unique project}"
