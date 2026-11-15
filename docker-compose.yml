@@ -98,6 +98,8 @@ services:
       - OPS_MIN_VOTERS_FOR_TEXT=${OPS_MIN_VOTERS_FOR_TEXT:-}
       - SIMPLE_ANALYTICS_API_KEY=${SIMPLE_ANALYTICS_API_KEY:-}
       - SIMPLE_ANALYTICS_HOSTNAME=${SIMPLE_ANALYTICS_HOSTNAME:-}
+      # The narrative agent path (docs/configuration.md); off unless true.
+      - NARRATIVE_JOBS_ENABLED=${NARRATIVE_JOBS_ENABLED:-false}
       - OPS_DATA_SOURCE=${OPS_DATA_SOURCE:-}
       - OPS_COST_EXPLORER=${OPS_COST_EXPLORER:-}
     env_file:

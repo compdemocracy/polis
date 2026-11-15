@@ -36,6 +36,9 @@ export default {
   get delphiResultEnv(): string | undefined { return process.env.DELPHI_RESULT_ENV; },
   get delphiResultScope(): string | undefined { return process.env.DELPHI_RESULT_SCOPE; },
   get delphiWriterCodeSha(): string | undefined { return process.env.DELPHI_WRITER_CODE_SHA; },
+  // The narrative agent path (routes/delphi/narrativeJobs.ts): off unless
+  // NARRATIVE_JOBS_ENABLED is true; off, both routes answer 404.
+  get narrativeJobsEnabled(): boolean { return isTrue(process.env.NARRATIVE_JOBS_ENABLED); },
   domainOverride,
   isDevMode: devMode,
   reachableErrorHandler,

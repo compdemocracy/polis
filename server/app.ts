@@ -49,6 +49,10 @@ import {
   handle_GET_collective_results,
   handle_POST_collective_results,
 } from "./src/routes/delphi/collectiveExchange";
+import {
+  handle_GET_narrative_inputs,
+  handle_POST_narrative_results,
+} from "./src/routes/delphi/narrativeJobs";
 import { handle_GET_participation_topicPrioritize } from "./src/routes/participation/topicPrioritize";
 
 import {
@@ -851,6 +855,24 @@ export const appReady = helpersInitialized.then(
       "/api/v3/delphi/collective/results",
       moveToBody,
       handle_GET_collective_results
+    );
+
+    // The agent path for report narratives: the owner exports Delphi's own
+    // prompts for a report, an outside agent writes the narrative with the
+    // owner's own model, the owner imports it as one new narrative job. No
+    // model is called here and nothing is published. Off (404) unless
+    // NARRATIVE_JOBS_ENABLED is true.
+    app.get(
+      "/api/v3/delphi/narrative/inputs",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_GET_narrative_inputs
+    );
+    app.post(
+      "/api/v3/delphi/narrative/results",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_POST_narrative_results
     );
 
     // Add GET endpoint for Delphi reports

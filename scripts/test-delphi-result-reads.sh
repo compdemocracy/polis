@@ -9,7 +9,8 @@
 # release migrations with polis-migrate, runs the parity, snapshot and
 # concurrency suites and the participation-path guards that need a real
 # migrated database (server/__tests__/participation-pg), and removes both
-# containers.
+# containers. It also builds the polis CLI, which the narrative-jobs suite
+# runs end to end against the narrative routes.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=$PWD
@@ -32,6 +33,9 @@ docker run -d --name "$dynamo" -p "127.0.0.1:$RESULT_READS_DYNAMO_PORT:8000" \
 for _ in $(seq 60); do docker exec "$pg" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
 docker exec "$pg" psql -X -q -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE result_reads'
 (cd queue-rs && cargo build --locked -q -p polis-migrate)
+# The CLI binary the narrative-jobs suite runs end to end against the routes.
+(cd polis-cli && cargo build --locked -q -p polis)
+export POLIS_CLI_BIN="${POLIS_CLI_BIN:-$repo/polis-cli/target/debug/polis}"
 export DATABASE_URL="postgresql://postgres@127.0.0.1:$RESULT_READS_PG_PORT/result_reads?sslmode=disable"
 POLIS_MIGRATIONS_DIR="$repo/server/postgres/migrations" queue-rs/target/debug/polis-migrate apply
 POLIS_MIGRATIONS_DIR="$repo/server/postgres/migrations" queue-rs/target/debug/polis-migrate check
