@@ -3796,6 +3796,706 @@
       ]
     },
     {
+      "table": "delphi_narrative_jobs",
+      "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:59",
+      "columns": [
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:60"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:60"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:60"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "report_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:61"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "kind",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:62"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "channel",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:63"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "model",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:64"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "model_known",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:65"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "runner",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:66"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "prompt_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 10,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:67"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "prompt_sha256",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 11,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:68"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "pack_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 12,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:69"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "pack_sha256",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 13,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:69"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "export_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 14,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:70"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "input_digest",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 15,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:71"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "result_sha256",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 16,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:72"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "inputs",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 17,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:73"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "clustering",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 18,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:74"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "checks",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 19,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:75"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "section_count",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 20,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:76"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "submitted_by",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 21,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:78"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 22,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:79"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_account",
+          "definition": "CREATE INDEX delphi_narrative_jobs_account ON public.delphi_narrative_jobs USING btree (env, submitted_by, created_at)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_conversation",
+          "definition": "CREATE INDEX delphi_narrative_jobs_conversation ON public.delphi_narrative_jobs USING btree (env, zid, created_at)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_env_report_id_export_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_narrative_jobs_env_report_id_export_id_key ON public.delphi_narrative_jobs USING btree (env, report_id, export_id)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_narrative_jobs_pkey ON public.delphi_narrative_jobs USING btree (env, job_id)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_report",
+          "definition": "CREATE INDEX delphi_narrative_jobs_report ON public.delphi_narrative_jobs USING btree (env, report_id, kind, created_at)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_channel_check",
+          "definition": "CHECK ((channel = ANY (ARRAY['cli'::text, 'mcp'::text, 'browser'::text, 'pipeline'::text])))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_check",
+          "definition": "CHECK (((channel = 'pipeline'::text) = (model_known = 'run_by_polis'::text)))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_check1",
+          "definition": "CHECK (((channel = 'pipeline'::text) OR ((pack_id IS NOT NULL) AND (pack_sha256 IS NOT NULL) AND (submitted_by IS NOT NULL))))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_checks_check",
+          "definition": "CHECK ((jsonb_typeof(checks) = 'object'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_clustering_check",
+          "definition": "CHECK ((jsonb_typeof(clustering) = 'object'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_env_pack_id_fkey",
+          "definition": "FOREIGN KEY (env, pack_id) REFERENCES delphi_narrative_packs(env, pack_id)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_env_report_id_export_id_key",
+          "definition": "UNIQUE (env, report_id, export_id)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_env_zid_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, job_id) REFERENCES delphi_jobs(env, zid, job_id)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_export_id_check",
+          "definition": "CHECK ((export_id ~ '^[A-Za-z0-9_-]{1,64}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_input_digest_check",
+          "definition": "CHECK ((input_digest ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_inputs_check",
+          "definition": "CHECK ((jsonb_typeof(inputs) = 'object'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_kind_check",
+          "definition": "CHECK ((kind = ANY (ARRAY['narrative'::text, 'topic_name'::text])))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_model_check",
+          "definition": "CHECK ((model ~ '^[A-Za-z0-9][A-Za-z0-9._:/ -]{0,99}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_model_known_check",
+          "definition": "CHECK ((model_known = ANY (ARRAY['declared'::text, 'reported_by_provider'::text, 'run_by_polis'::text])))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_pack_sha256_check",
+          "definition": "CHECK (((pack_sha256 IS NULL) OR (pack_sha256 ~ '^[0-9a-f]{64}$'::text)))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_pkey",
+          "definition": "PRIMARY KEY (env, job_id)"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_prompt_sha256_check",
+          "definition": "CHECK (((prompt_sha256 IS NULL) OR (prompt_sha256 ~ '^[0-9a-f]{64}$'::text)))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_prompt_version_check",
+          "definition": "CHECK ((prompt_version ~ '^[a-z_]{1,32}/[0-9]{1,6}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_report_id_check",
+          "definition": "CHECK (((length(report_id) >= 1) AND (length(report_id) <= 100)))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_result_sha256_check",
+          "definition": "CHECK ((result_sha256 ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_runner_check",
+          "definition": "CHECK (((runner IS NULL) OR (runner ~ '^[A-Za-z0-9][A-Za-z0-9._:/ -]{0,99}$'::text)))"
+        },
+        {
+          "table": "delphi_narrative_jobs",
+          "name": "delphi_narrative_jobs_section_count_check",
+          "definition": "CHECK (((section_count >= 1) AND (section_count <= 99)))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_narrative_packs",
+      "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:41",
+      "columns": [
+        {
+          "table": "delphi_narrative_packs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:42"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "pack_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:43"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:44"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "report_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:45"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "prompt_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:46"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "pack_sha256",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:47"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "inputs",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:48"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "pack",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:49"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "byte_count",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:50"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "code_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 10,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:51"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 11,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:52"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_env_report_id_pack_sha256_key",
+          "definition": "CREATE UNIQUE INDEX delphi_narrative_packs_env_report_id_pack_sha256_key ON public.delphi_narrative_packs USING btree (env, report_id, pack_sha256)"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_narrative_packs_pkey ON public.delphi_narrative_packs USING btree (env, pack_id)"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_report",
+          "definition": "CREATE INDEX delphi_narrative_packs_report ON public.delphi_narrative_packs USING btree (env, report_id, created_at)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_byte_count_check",
+          "definition": "CHECK (((byte_count >= 1) AND (byte_count <= 33554432)))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_check",
+          "definition": "CHECK ((pack_sha256 = encode(sha256(convert_to((pack)::text, 'UTF8'::name)), 'hex'::text)))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_check1",
+          "definition": "CHECK ((byte_count = octet_length((pack)::text)))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_code_version_check",
+          "definition": "CHECK ((code_version ~ '^[0-9a-f]{40,64}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_env_check",
+          "definition": "CHECK ((env ~ '^[a-z0-9_-]{1,64}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_env_report_id_pack_sha256_key",
+          "definition": "UNIQUE (env, report_id, pack_sha256)"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_inputs_check",
+          "definition": "CHECK ((jsonb_typeof(inputs) = 'object'::text))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_pack_check",
+          "definition": "CHECK ((jsonb_typeof(pack) = 'object'::text))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_pkey",
+          "definition": "PRIMARY KEY (env, pack_id)"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_prompt_version_check",
+          "definition": "CHECK ((prompt_version ~ '^[a-z_]{1,32}/[0-9]{1,6}$'::text))"
+        },
+        {
+          "table": "delphi_narrative_packs",
+          "name": "delphi_narrative_packs_report_id_check",
+          "definition": "CHECK (((length(report_id) >= 1) AND (length(report_id) <= 100)))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_narrative_publications",
+      "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:90",
+      "columns": [
+        {
+          "table": "delphi_narrative_publications",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:91"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:91"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "scope",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:91"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:92"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:92"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "moved_by",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:93"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "moved_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 7,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:93"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_narrative_publications",
+          "name": "delphi_narrative_publications_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_narrative_publications_pkey ON public.delphi_narrative_publications USING btree (env, zid, scope, generation)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_narrative_publications",
+          "name": "delphi_narrative_publications_env_job_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id) REFERENCES delphi_narrative_jobs(env, job_id)"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "delphi_narrative_publications_generation_check",
+          "definition": "CHECK ((generation > 0))"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "delphi_narrative_publications_pkey",
+          "definition": "PRIMARY KEY (env, zid, scope, generation)"
+        },
+        {
+          "table": "delphi_narrative_publications",
+          "name": "delphi_narrative_publications_scope_check",
+          "definition": "CHECK ((scope ~ '^narrative:.+'::text))"
+        }
+      ]
+    },
+    {
       "table": "delphi_provider_requests",
       "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:280",
       "columns": [
@@ -12822,6 +13522,10 @@
     {
       "path": "server/postgres/migrations/000045_page_ids_width.sql",
       "sha256": "eab730473dda1fdd7b0e3b6fbbae5eb6201fbb579670ebcf43557aeb23f8c4a2"
+    },
+    {
+      "path": "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql",
+      "sha256": "c202dac54379bef527892ac2e7b8e74312707f2df4973c10de29061af7abc619"
     }
   ]
 }

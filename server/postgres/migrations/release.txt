@@ -35,3 +35,4 @@
 000043_add_conversation_activity_indexes.sql
 000044_pid_auto_transaction_lock.sql
 000045_page_ids_width.sql
+000046_create_delphi_narrative_jobs.sql

@@ -349,6 +349,58 @@ row! {
 }
 
 row! {
+    DelphiNarrativeJobsRow, "delphi_narrative_jobs", "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:59";
+    env: String => ("env", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:60"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:60"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:60"),
+    report_id: String => ("report_id", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:61"),
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:62"),
+    channel: String => ("channel", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:63"),
+    model: String => ("model", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:64"),
+    model_known: String => ("model_known", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:65"),
+    runner: Option<String> => ("runner", "text", true, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:66"),
+    prompt_version: String => ("prompt_version", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:67"),
+    prompt_sha256: Option<String> => ("prompt_sha256", "text", true, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:68"),
+    pack_id: Option<PgUuid> => ("pack_id", "uuid", true, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:69"),
+    pack_sha256: Option<String> => ("pack_sha256", "text", true, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:69"),
+    export_id: String => ("export_id", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:70"),
+    input_digest: String => ("input_digest", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:71"),
+    result_sha256: String => ("result_sha256", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:72"),
+    inputs: PgJson => ("inputs", "jsonb", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:73"),
+    clustering: PgJson => ("clustering", "jsonb", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:74"),
+    checks: PgJson => ("checks", "jsonb", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:75"),
+    section_count: i32 => ("section_count", "int4", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:76"),
+    submitted_by: Option<i32> => ("submitted_by", "int4", true, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:78"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:79"),
+}
+
+row! {
+    DelphiNarrativePacksRow, "delphi_narrative_packs", "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:41";
+    env: String => ("env", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:42"),
+    pack_id: PgUuid => ("pack_id", "uuid", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:43"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:44"),
+    report_id: String => ("report_id", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:45"),
+    prompt_version: String => ("prompt_version", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:46"),
+    pack_sha256: String => ("pack_sha256", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:47"),
+    inputs: PgJson => ("inputs", "jsonb", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:48"),
+    pack: PgJson => ("pack", "jsonb", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:49"),
+    byte_count: i32 => ("byte_count", "int4", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:50"),
+    code_version: String => ("code_version", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:51"),
+    created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:52"),
+}
+
+row! {
+    DelphiNarrativePublicationsRow, "delphi_narrative_publications", "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:90";
+    env: String => ("env", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:91"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:91"),
+    scope: String => ("scope", "text", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:91"),
+    generation: i64 => ("generation", "int8", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:92"),
+    job_id: PgUuid => ("job_id", "uuid", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:92"),
+    moved_by: i32 => ("moved_by", "int4", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:93"),
+    moved_at: PgTimestamp => ("moved_at", "timestamptz", false, "server/postgres/migrations/000046_create_delphi_narrative_jobs.sql:93"),
+}
+
+row! {
     DelphiProviderRequestsRow, "delphi_provider_requests", "server/postgres/migrations/000023_create_delphi_foundation.sql:280";
     request_id: PgUuid => ("request_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
     env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:281"),
@@ -1357,6 +1409,24 @@ pub const TABLES: &[Table] = &[
         columns: DelphiJobsRow::COLUMNS,
         roundtrip: roundtrip::<DelphiJobsRow>,
         decode: decode::<DelphiJobsRow>,
+    },
+    Table {
+        name: "delphi_narrative_jobs",
+        columns: DelphiNarrativeJobsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiNarrativeJobsRow>,
+        decode: decode::<DelphiNarrativeJobsRow>,
+    },
+    Table {
+        name: "delphi_narrative_packs",
+        columns: DelphiNarrativePacksRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiNarrativePacksRow>,
+        decode: decode::<DelphiNarrativePacksRow>,
+    },
+    Table {
+        name: "delphi_narrative_publications",
+        columns: DelphiNarrativePublicationsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiNarrativePublicationsRow>,
+        decode: decode::<DelphiNarrativePublicationsRow>,
     },
     Table {
         name: "delphi_provider_requests",
