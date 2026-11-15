@@ -4,19 +4,22 @@
 //! terminal. Before each admission the scheduler pauses for the operator's
 //! pause file, a disk below its floor, a slow database, a math engine that
 //! trails the votes, the daily cap, or the storage budget (the bytes the
-//! shadow has added to the database, in all and today, read once per run:
+//! shadow has added to the database, in all and, when a daily limit is set,
+//! today, read once per run:
 //! `storage`); after each run it rests for the duty cycle. It picks from three
 //! sources in priority order: the important-conversations list
 //! (`DELPHI_SHADOW_IMPORTANT`, in its order), the conversations with at least
 //! `DELPHI_SHADOW_LARGE_PARTICIPANTS` participants (most first), both whatever
 //! their recent activity and read once a day (`Roster`), then the live
-//! conversations whose comment set changed. It writes one `delphi_shadow/1` line per event on standard output:
+//! conversations whose comment set changed. The first two (and twins) spend
+//! the budget less the live reserve (`DELPHI_SHADOW_LIVE_RESERVE_MB`); the
+//! live ones may spend all of it. It writes one `delphi_shadow/1` line per event on standard output:
 //! job ids, counts, seconds, digests and closed words, never a comment or a
 //! conversation id (the run record has those).
 use super::{
-    config::Config,
+    config::{Config, Share},
     db::{Db, Live, Signals},
-    plan::{self, Look, Pause},
+    plan::{self, Look, Pause, Source},
     state::{InFlight, PendingTwin, State, TWIN_RESULTS_KEPT},
     storage::{MEASURE_PER_CYCLE, Pending},
     twin,
@@ -137,7 +140,8 @@ impl<'a> Scheduler<'a> {
                    "twin_every": self.cfg.twin_every, "duty_cycle": self.cfg.duty_cycle,
                    "important": self.cfg.important.len(),
                    "storage_budget_bytes": self.cfg.storage_budget_bytes,
-                   "storage_daily_bytes": self.cfg.storage_daily_bytes}),
+                   "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
+                   "storage_daily_bytes": self.cfg.storage_daily_log()}),
         );
         while !stopping() {
             let wait = match self.cycle() {
@@ -178,7 +182,8 @@ impl<'a> Scheduler<'a> {
                     json!({"reason": reason.word(), "storage_bytes": l.bytes,
                            "storage_day_bytes": l.day_bytes,
                            "storage_budget_bytes": self.cfg.storage_budget_bytes,
-                           "storage_daily_bytes": self.cfg.storage_daily_bytes,
+                           "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
+                           "storage_daily_bytes": self.cfg.storage_daily_log(),
                            "storage_unmeasured": l.pending.len()}),
                 );
             }
@@ -231,7 +236,8 @@ impl<'a> Scheduler<'a> {
                                "measured": m, "storage_bytes": l.bytes,
                                "storage_day_bytes": l.day_bytes,
                                "storage_budget_bytes": self.cfg.storage_budget_bytes,
-                               "storage_daily_bytes": self.cfg.storage_daily_bytes,
+                               "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
+                               "storage_daily_bytes": self.cfg.storage_daily_log(),
                                "bytes_per_comment": l.bytes_per_comment()}),
                     );
                 }
@@ -317,7 +323,9 @@ impl<'a> Scheduler<'a> {
     /// then the live ones, smallest first. The first candidate whose run does
     /// not fit the budget holds admission: in the first two that keeps their
     /// priority (nothing after it goes first); among the live ones, none
-    /// after it is smaller.
+    /// after it is smaller. The first two may spend the budget less the live
+    /// reserve: one that does not fit that alone holds the rest of the first
+    /// two, and the live ones are still tried, against the whole budget.
     fn pick_and_admit(&mut self, now: i64) -> Result<Option<Pause>> {
         match self.admit_twin(now)? {
             TwinStep::Admitted => return Ok(None),
@@ -332,11 +340,16 @@ impl<'a> Scheduler<'a> {
         let large = plan::overlay(&roster.large, &live);
         let (mut small, mut too_large, mut costly) = (0u64, 0u64, 0u64);
         let mut counted = std::collections::BTreeSet::new();
-        for l in important.iter().chain(&large).chain(&live) {
+        let sourced = important
+            .iter()
+            .map(|l| (l, Source::Important))
+            .chain(large.iter().map(|l| (l, Source::Large)))
+            .chain(live.iter().map(|l| (l, Source::Live)));
+        for (l, source) in sourced {
             if !counted.insert(l.zid) {
                 continue;
             }
-            match plan::look(self.cfg, &self.state, l, now) {
+            match plan::look(self.cfg, &self.state, l, now, source.share()) {
                 Look::TooSmall => small += 1,
                 Look::TooLarge => too_large += 1,
                 Look::TooCostly => costly += 1,
@@ -344,7 +357,24 @@ impl<'a> Scheduler<'a> {
             }
         }
         let candidates = plan::candidates(self.cfg, &self.state, &important, &large, &live, now);
+        // Set once a run of the first two would pass the budget less the
+        // live reserve: the rest of the first two wait, the live ones go on.
+        // When even the smallest run there can be would, none of their
+        // comment sets is read.
+        let mut reserve_held = plan::storage_room(
+            self.cfg,
+            &self.state.storage,
+            self.cfg.min_comments,
+            Share::Shared,
+        ) == Some(Pause::StorageReserve);
+        // A candidate of the first two was passed over for the reserve.
+        let mut reserve_waiting = false;
         for (candidate, source) in candidates {
+            let share = source.share();
+            if reserve_held && share == Share::Shared {
+                reserve_waiting = true;
+                continue;
+            }
             let set = self.db.comment_set(candidate.zid)?;
             let seen = self.state.conversations.entry(candidate.zid).or_default();
             let unchanged = seen.admitted_digest.as_deref() == Some(set.digest.as_str());
@@ -365,8 +395,13 @@ impl<'a> Scheduler<'a> {
             if set.comments < self.cfg.min_comments || set.comments > self.cfg.max_comments {
                 continue;
             }
-            if let Some(reason) = plan::storage_room(self.cfg, &self.state.storage, set.comments) {
-                return Ok(Some(reason));
+            match plan::storage_room(self.cfg, &self.state.storage, set.comments, share) {
+                Some(Pause::StorageReserve) => {
+                    (reserve_held, reserve_waiting) = (true, true);
+                    continue;
+                }
+                Some(reason) => return Ok(Some(reason)),
+                None => {}
             }
             let request = plan::admission(candidate.zid, &set.digest, set.comments, None);
             self.admit(request, set.comments, None, Some(source), now)?;
@@ -375,6 +410,10 @@ impl<'a> Scheduler<'a> {
         self.state.totals.too_small = small;
         self.state.totals.too_large = too_large;
         self.state.totals.too_costly = costly;
+        if reserve_waiting {
+            // Nothing live to run: the first two wait on the live reserve.
+            return Ok(Some(Pause::StorageReserve));
+        }
         // Counts only: never a code or a conversation id.
         log(
             "idle",
@@ -535,9 +574,14 @@ impl<'a> Scheduler<'a> {
             self.state.pending_twin = None;
             return Ok(TwinStep::Nothing);
         }
-        // The twin waits, kept, while the budget holds it back.
-        if let Some(reason) = plan::storage_room(self.cfg, &self.state.storage, set.comments) {
-            return Ok(TwinStep::Held(reason));
+        // The twin waits, kept, while the budget holds it back. A twin repeats
+        // a run to measure it, so it spends what the first two do, never the
+        // live reserve: held by the reserve alone, it waits while the live
+        // conversations go on.
+        match plan::storage_room(self.cfg, &self.state.storage, set.comments, Share::Shared) {
+            Some(Pause::StorageReserve) => return Ok(TwinStep::Nothing),
+            Some(reason) => return Ok(TwinStep::Held(reason)),
+            None => {}
         }
         let request = plan::admission(
             pending.zid,

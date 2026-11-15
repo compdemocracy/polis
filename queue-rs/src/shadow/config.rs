@@ -77,13 +77,59 @@ pub struct Config {
     /// database in all (`DELPHI_SHADOW_STORAGE_BUDGET_MB`, 3 GiB by default),
     /// or would with the next run (`storage`).
     pub storage_budget_bytes: u64,
-    /// Nor once it has added this many in the current UTC day
-    /// (`DELPHI_SHADOW_STORAGE_DAILY_MB`, 300 MiB by default).
-    pub storage_daily_bytes: u64,
+    /// Nor, when set, once it has added this many in the current UTC day
+    /// (`DELPHI_SHADOW_STORAGE_DAILY_MB`). `None`, the default (the setting
+    /// unset, empty or 0), is no daily limit: only the total holds.
+    pub storage_daily_bytes: Option<u64>,
+    /// Of the budget, this many bytes are kept for the live conversations
+    /// (`DELPHI_SHADOW_LIVE_RESERVE_MB`, 1 GiB by default; 0 keeps none): the
+    /// important list, the large conversations and twin runs stop once the
+    /// shadow's bytes would pass the budget less this; live runs may spend
+    /// the whole budget.
+    pub storage_live_reserve_bytes: u64,
     /// While this file exists, nothing is admitted (the operator's pause).
     pub pause_file: PathBuf,
     pub state_path: PathBuf,
     pub statement_timeout: Duration,
+}
+
+/// The part of the storage budget a run may spend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Share {
+    /// The whole budget: a live conversation's run.
+    Whole,
+    /// The budget less the live reserve: a run of the important list, of the
+    /// large conversations, or a twin.
+    Shared,
+}
+
+impl Config {
+    /// The bytes in all that runs of `share` may bring the shadow to.
+    pub fn storage_limit_bytes(&self, share: Share) -> u64 {
+        match share {
+            Share::Whole => self.storage_budget_bytes,
+            Share::Shared => self
+                .storage_budget_bytes
+                .saturating_sub(self.storage_live_reserve_bytes),
+        }
+    }
+
+    /// The most one run of `share` may add and still be admitted some day:
+    /// its limit in all, or the daily limit when there is one and it is
+    /// smaller.
+    pub fn storage_run_max_bytes(&self, share: Share) -> u64 {
+        let total = self.storage_limit_bytes(share);
+        self.storage_daily_bytes
+            .map_or(total, |daily| daily.min(total))
+    }
+
+    /// The daily limit as the log states it: its bytes, or "no daily limit".
+    pub fn storage_daily_log(&self) -> serde_json::Value {
+        match self.storage_daily_bytes {
+            Some(bytes) => bytes.into(),
+            None => "no daily limit".into(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -251,10 +297,18 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         return err("DELPHI_SHADOW_MIN_COMMENTS must not exceed DELPHI_SHADOW_MAX_COMMENTS");
     }
     let storage_budget_mb = number(&get, "DELPHI_SHADOW_STORAGE_BUDGET_MB", 3072, 1, 1 << 20)?;
-    let storage_daily_mb = number(&get, "DELPHI_SHADOW_STORAGE_DAILY_MB", 300, 1, 1 << 20)?;
-    if storage_daily_mb > storage_budget_mb {
+    // Unset, empty or 0: no daily limit.
+    let storage_daily_mb = number(&get, "DELPHI_SHADOW_STORAGE_DAILY_MB", 0, 0, 1 << 20)?;
+    let storage_daily_mb = (storage_daily_mb > 0).then_some(storage_daily_mb);
+    if storage_daily_mb.is_some_and(|mb| mb > storage_budget_mb) {
         return err(
             "DELPHI_SHADOW_STORAGE_DAILY_MB must not exceed DELPHI_SHADOW_STORAGE_BUDGET_MB",
+        );
+    }
+    let live_reserve_mb = number(&get, "DELPHI_SHADOW_LIVE_RESERVE_MB", 1024, 0, 1 << 20)?;
+    if live_reserve_mb > storage_budget_mb {
+        return err(
+            "DELPHI_SHADOW_LIVE_RESERVE_MB must not exceed DELPHI_SHADOW_STORAGE_BUDGET_MB",
         );
     }
     let important = important_codes(&get("DELPHI_SHADOW_IMPORTANT").unwrap_or_default())?;
@@ -319,7 +373,8 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         disk_free_min_mb: number(&get, "DELPHI_SHADOW_DISK_FREE_MIN_MB", 10240, 0, 1 << 40)?,
         disk_used_max_pct: fraction(&get, "DELPHI_SHADOW_DISK_USED_MAX_PCT", 85.0, 1.0, 100.0)?,
         storage_budget_bytes: storage_budget_mb * crate::shadow::storage::MIB,
-        storage_daily_bytes: storage_daily_mb * crate::shadow::storage::MIB,
+        storage_daily_bytes: storage_daily_mb.map(|mb| mb * crate::shadow::storage::MIB),
+        storage_live_reserve_bytes: live_reserve_mb * crate::shadow::storage::MIB,
         pause_file: get("DELPHI_SHADOW_PAUSE_FILE")
             .filter(|s| !s.is_empty())
             .map(PathBuf::from)
@@ -404,7 +459,14 @@ mod tests {
             3 * 1024 * 1024 * 1024,
             "3 GiB in all"
         );
-        assert_eq!(c.storage_daily_bytes, 300 * 1024 * 1024, "300 MiB a day");
+        assert_eq!(c.storage_daily_bytes, None, "no daily limit");
+        assert_eq!(
+            c.storage_live_reserve_bytes,
+            1024 << 20,
+            "1 GiB kept for live"
+        );
+        assert_eq!(c.storage_limit_bytes(Share::Whole), 3072 << 20);
+        assert_eq!(c.storage_limit_bytes(Share::Shared), 2048 << 20);
         assert!(
             c.important.is_empty(),
             "no conversation is important unless listed"
@@ -518,10 +580,38 @@ mod tests {
         assert!(
             with(&[
                 ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("50")),
+                ("DELPHI_SHADOW_LIVE_RESERVE_MB", Some("0")),
                 ("DELPHI_SHADOW_STORAGE_DAILY_MB", Some("51"))
             ])
             .is_err(),
             "a day may not hold more than the whole budget"
+        );
+        assert!(
+            with(&[
+                ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("50")),
+                ("DELPHI_SHADOW_LIVE_RESERVE_MB", Some("51"))
+            ])
+            .is_err(),
+            "the live reserve may not be more than the whole budget"
+        );
+        assert!(with(&[("DELPHI_SHADOW_LIVE_RESERVE_MB", Some("-1"))]).is_err());
+        let c = ready(&[
+            ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("50")),
+            ("DELPHI_SHADOW_LIVE_RESERVE_MB", Some("50")),
+        ]);
+        assert_eq!(
+            c.storage_limit_bytes(Share::Shared),
+            0,
+            "all of it for live"
+        );
+        let c = ready(&[
+            ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("50")),
+            ("DELPHI_SHADOW_LIVE_RESERVE_MB", Some("0")),
+        ]);
+        assert_eq!(
+            c.storage_limit_bytes(Share::Shared),
+            c.storage_limit_bytes(Share::Whole),
+            "none kept"
         );
         let c = ready(&[
             ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("2048")),
@@ -529,7 +619,32 @@ mod tests {
         ]);
         assert_eq!(
             (c.storage_budget_bytes, c.storage_daily_bytes),
-            (2048 << 20, 2048 << 20)
+            (2048 << 20, Some(2048 << 20))
         );
+        assert!(with(&[("DELPHI_SHADOW_STORAGE_DAILY_MB", Some("-1"))]).is_err());
+    }
+
+    #[test]
+    fn no_daily_limit_unless_one_is_set() {
+        // Unset, empty or 0: no daily limit, whatever the total; the log says so.
+        for v in [None, Some(""), Some("0"), Some(" 0 ")] {
+            let c = ready(&[
+                ("DELPHI_SHADOW_STORAGE_BUDGET_MB", Some("50")),
+                ("DELPHI_SHADOW_LIVE_RESERVE_MB", Some("20")),
+                ("DELPHI_SHADOW_STORAGE_DAILY_MB", v),
+            ]);
+            assert_eq!(c.storage_daily_bytes, None, "{v:?}");
+            assert_eq!(c.storage_daily_log(), "no daily limit");
+            // The total bounds one run: the whole of it for a live one, the
+            // total less the reserve for the others.
+            assert_eq!(c.storage_run_max_bytes(Share::Whole), 50 << 20);
+            assert_eq!(c.storage_run_max_bytes(Share::Shared), 30 << 20);
+        }
+        // Set: a limit, bounding one run, and the log states its bytes.
+        let c = ready(&[("DELPHI_SHADOW_STORAGE_DAILY_MB", Some("300"))]);
+        assert_eq!(c.storage_daily_bytes, Some(300 << 20));
+        assert_eq!(c.storage_daily_log(), serde_json::json!(300u64 << 20));
+        assert_eq!(c.storage_run_max_bytes(Share::Whole), 300 << 20);
+        assert_eq!(c.storage_run_max_bytes(Share::Shared), 300 << 20);
     }
 }

@@ -549,9 +549,14 @@ services:
       - DELPHI_SHADOW_DISK_FREE_MIN_MB=${DELPHI_SHADOW_DISK_FREE_MIN_MB:-10240}
       - DELPHI_SHADOW_DISK_USED_MAX_PCT=${DELPHI_SHADOW_DISK_USED_MAX_PCT:-85}
       # The bytes the shadow may add to the database (its rows cannot be
-      # deleted): in all, and per UTC day. Read per run, after it ends.
+      # deleted): in all, and per UTC day only when the daily setting is
+      # above 0 (0, the default, is no daily limit). Of the total, the live
+      # reserve is kept for the live conversations: the important list, the
+      # large conversations and twins stop at the total less it. Read per
+      # run, after it ends.
       - DELPHI_SHADOW_STORAGE_BUDGET_MB=${DELPHI_SHADOW_STORAGE_BUDGET_MB:-3072}
-      - DELPHI_SHADOW_STORAGE_DAILY_MB=${DELPHI_SHADOW_STORAGE_DAILY_MB:-300}
+      - DELPHI_SHADOW_STORAGE_DAILY_MB=${DELPHI_SHADOW_STORAGE_DAILY_MB:-0}
+      - DELPHI_SHADOW_LIVE_RESERVE_MB=${DELPHI_SHADOW_LIVE_RESERVE_MB:-1024}
       - DELPHI_SHADOW_STATE_PATH=/var/lib/delphi-shadow/scheduler/state.json
       - DELPHI_SHADOW_PAUSE_FILE=/var/lib/delphi-shadow/scheduler/pause
     volumes:

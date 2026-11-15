@@ -122,8 +122,17 @@ def test_the_scheduler_names_the_daemons_shadow_env():
     assert scheduler["DELPHI_SHADOW_ENV"].startswith("shadow-")
     assert scheduler["DELPHI_SHADOW_CODE_VERSION"] == PRODUCTION_LIKE["MATH_POLLER_SOURCE_COMMIT"]
     assert scheduler["DELPHI_SHADOW_TWIN_EVERY"] == "0", "twin runs are off unless asked"
-    # The storage budget: 3 GiB in all, 300 MiB a day, unless the document says.
-    assert (scheduler["DELPHI_SHADOW_STORAGE_BUDGET_MB"], scheduler["DELPHI_SHADOW_STORAGE_DAILY_MB"]) == ("3072", "300")
+    # The storage budget: 3 GiB in all, no daily limit (0) and 1 GiB of it
+    # kept for live conversations, unless the document says; a daily limit
+    # or a reserve the document sets is passed through.
+    assert (
+        scheduler["DELPHI_SHADOW_STORAGE_BUDGET_MB"],
+        scheduler["DELPHI_SHADOW_STORAGE_DAILY_MB"],
+        scheduler["DELPHI_SHADOW_LIVE_RESERVE_MB"],
+    ) == ("3072", "0", "1024")
+    set_env = dict(PRODUCTION_LIKE, DELPHI_SHADOW_STORAGE_DAILY_MB="300", DELPHI_SHADOW_LIVE_RESERVE_MB="512")
+    daily = _environment(services["delphi-shadow-scheduler"], set_env)
+    assert (daily["DELPHI_SHADOW_STORAGE_DAILY_MB"], daily["DELPHI_SHADOW_LIVE_RESERVE_MB"]) == ("300", "512")
     # No conversation is listed as important unless the document lists it;
     # every conversation of 200 participants or more is a source by default.
     assert scheduler["DELPHI_SHADOW_IMPORTANT"] == ""

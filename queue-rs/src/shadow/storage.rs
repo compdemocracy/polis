@@ -3,8 +3,12 @@
 //! Shadow rows cannot be deleted (result rows, families and embeddings are
 //! immutable by trigger, and nothing prunes a shadow env yet), so the
 //! scheduler stops admitting when the shadow has added
-//! `DELPHI_SHADOW_STORAGE_BUDGET_MB` in all (3 GiB by default), or
-//! `DELPHI_SHADOW_STORAGE_DAILY_MB` in one UTC day (300 MiB by default).
+//! `DELPHI_SHADOW_STORAGE_BUDGET_MB` in all (3 GiB by default), or, when
+//! `DELPHI_SHADOW_STORAGE_DAILY_MB` is set above 0, that many in one UTC day
+//! (by default there is no daily limit). Of the budget,
+//! `DELPHI_SHADOW_LIVE_RESERVE_MB` (1 GiB by default) is kept for the live
+//! conversations: the important list, the large conversations and twins stop
+//! at the budget less it, live runs at the whole budget.
 //!
 //! How the bytes are read, cheaply: never by scanning a table. Each run's
 //! bytes are read from the database once, after the run is terminal, by one

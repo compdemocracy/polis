@@ -972,7 +972,7 @@ fn a_runs_bytes_are_what_the_tables_grew_by_read_by_index_ranges_alone() {
 }
 
 #[test]
-fn the_storage_budget_and_its_daily_cap_hold_admission_from_the_databases_own_bytes() {
+fn the_storage_budget_and_a_set_daily_limit_hold_admission_from_the_databases_own_bytes() {
     use polis_queue_adapter::shadow::storage::MIB;
     let f = Fixture::new();
     f.conversation(701, 30);
@@ -983,6 +983,7 @@ fn the_storage_budget_and_its_daily_cap_hold_admission_from_the_databases_own_by
     stored_run(&mut c, "shadow-twin-1", 702, 1000, 6000);
     let cfg = f.config(&[
         ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "8"),
+        ("DELPHI_SHADOW_LIVE_RESERVE_MB", "0"),
         ("DELPHI_SHADOW_STORAGE_DAILY_MB", "8"),
     ]);
     let mut s = Scheduler::new(&cfg).unwrap();
@@ -1006,26 +1007,39 @@ fn the_storage_budget_and_its_daily_cap_hold_admission_from_the_databases_own_by
     assert_eq!(again.state.storage.bytes, stored);
     assert_eq!(again.paused, Some(plan::Pause::StorageBudget));
 
-    // A larger budget, but today's cap is reached: still nothing.
+    // A larger budget, but a daily limit is set and today's bytes reached it:
+    // still nothing.
     let cfg = f.config(&[
         ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
         ("DELPHI_SHADOW_STORAGE_DAILY_MB", "8"),
     ]);
     let mut s = Scheduler::new(&cfg).unwrap();
     s.cycle().unwrap();
+    assert!(s.state.storage.day_bytes > 8 * MIB);
     assert_eq!(s.paused, Some(plan::Pause::StorageDaily));
     assert!(f.jobs().iter().all(|(env, ..)| env != ENV));
 
-    // Room for the next run's estimate (25 comments at the measured bytes a
-    // comment): admitted; then its own bytes are read once it is terminal,
-    // before anything more is admitted.
-    let cfg = f.config(&[
+    // The same day's bytes with the daily limit left at its default, none
+    // (and with 0, which says the same): room for the next run's estimate in
+    // the total (25 comments at the measured bytes a comment), so admitted;
+    // then its own bytes are read once it is terminal, before anything more
+    // is admitted.
+    let zero = f.config(&[
         ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
-        ("DELPHI_SHADOW_STORAGE_DAILY_MB", "1024"),
+        ("DELPHI_SHADOW_STORAGE_DAILY_MB", "0"),
     ]);
+    let cfg = f.config(&[("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024")]);
+    assert_eq!(
+        (cfg.storage_daily_bytes, zero.storage_daily_bytes),
+        (None, None)
+    );
     let mut s = Scheduler::new(&cfg).unwrap();
+    assert!(
+        s.state.storage.day_bytes > 8 * MIB,
+        "today holds what a set limit refused"
+    );
     s.cycle().unwrap();
-    assert_eq!(s.paused, None);
+    assert_eq!(s.paused, None, "no daily limit by default");
     let flight = s.state.in_flight.clone().unwrap();
     assert_eq!(flight.zid, 702);
     f.cancel(&flight.job_id);
@@ -1034,4 +1048,83 @@ fn the_storage_budget_and_its_daily_cap_hold_admission_from_the_databases_own_by
     s.cycle().unwrap();
     assert!(s.state.storage.pending.is_empty());
     assert_eq!(s.state.storage.jobs, 2);
+}
+
+#[test]
+fn the_live_reserve_stops_the_important_and_large_ones_while_live_runs_go_on_to_the_total() {
+    use polis_queue_adapter::shadow::storage::MIB;
+    let f = Fixture::new();
+    f.quiet(801, 25, 3); // important
+    f.quiet(802, 30, 500); // large
+    f.conversation(803, 30); // live
+    f.conversation(804, 35); // live
+    // A shadow run already stored, about 20 MB (more than 8 MiB).
+    let mut c = f.superuser();
+    stored_run(&mut c, "shadow-twin-1", 804, 1000, 6000);
+    let sources = [
+        ("DELPHI_SHADOW_IMPORTANT", "c801"),
+        ("DELPHI_SHADOW_LARGE_PARTICIPANTS", "200"),
+    ];
+    // With the budget less the reserve (4 MiB) already passed, the important
+    // and the large conversations wait and the live ones run, smallest first,
+    // against the whole budget (1 GiB).
+    let mut extra = sources.to_vec();
+    extra.extend([
+        ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
+        ("DELPHI_SHADOW_LIVE_RESERVE_MB", "1020"),
+    ]);
+    let cfg = f.config(&extra);
+    assert_eq!(cfg.storage_live_reserve_bytes, 1020 * MIB);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(803));
+    assert!(s.state.storage.bytes > 4 * MIB);
+    assert_eq!(next_admitted(&f, &mut s), Some(804));
+    // Nothing live is left to run: the first two still wait, on the reserve.
+    assert_eq!(next_admitted(&f, &mut s), None);
+    assert_eq!(s.paused, Some(plan::Pause::StorageReserve));
+    assert_eq!(s.state.totals.important_admitted, 0);
+    assert_eq!(s.state.totals.large_admitted, 0);
+    let shadow_zids = || -> Vec<i32> {
+        f.jobs()
+            .iter()
+            .filter(|(env, ..)| env == ENV)
+            .map(|(_, zid, ..)| *zid)
+            .collect()
+    };
+    assert_eq!(shadow_zids(), [803, 804]);
+
+    // Live runs stop at the total: with the stored bytes past the whole
+    // budget (8 MiB, 4 of it kept for live), nothing runs, and the pause
+    // names the budget, not the reserve.
+    f.superuser()
+        .execute(
+            "INSERT INTO comments(zid,pid,uid,txt,mod,active) VALUES(803,0,803000,'one more generated comment',0,true)",
+            &[],
+        )
+        .unwrap();
+    let mut extra = sources.to_vec();
+    extra.extend([
+        ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "8"),
+        ("DELPHI_SHADOW_LIVE_RESERVE_MB", "4"),
+        ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
+    ]);
+    let cfg = f.config(&extra);
+    s.state.save(&cfg.state_path).unwrap();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), None);
+    assert_eq!(s.paused, Some(plan::Pause::StorageBudget));
+    assert_eq!(shadow_zids(), [803, 804]);
+
+    // And with room in the budget less the reserve (512 MiB of 1 GiB), the
+    // important list goes first again, then the large ones.
+    let mut extra = sources.to_vec();
+    extra.extend([
+        ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
+        ("DELPHI_SHADOW_LIVE_RESERVE_MB", "512"),
+        ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
+    ]);
+    let cfg = f.config(&extra);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(801));
+    assert_eq!(next_admitted(&f, &mut s), Some(802));
 }

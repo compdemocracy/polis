@@ -1,7 +1,7 @@
 //! The scheduler's decisions, as pure functions: whether to pause, which
 //! conversation is next, and what its admission says.
 use super::{
-    config::Config,
+    config::{Config, Share},
     db::{Admission, Live, Signals},
     state::State,
     storage::Ledger,
@@ -21,7 +21,12 @@ pub enum Pause {
     StorageUnmeasured,
     /// The shadow's bytes reached the budget, or the next run would pass it.
     StorageBudget,
-    /// Today's bytes reached the daily cap, or the next run would pass it.
+    /// The shadow's bytes reached the budget less the live reserve, or the
+    /// next run would pass it: the important list, the large conversations
+    /// and twins wait; live runs go on.
+    StorageReserve,
+    /// Today's bytes reached the daily limit, or the next run would pass it
+    /// (only when `DELPHI_SHADOW_STORAGE_DAILY_MB` sets one).
     StorageDaily,
 }
 
@@ -35,6 +40,7 @@ impl Pause {
             Self::DailyCap => "daily_cap",
             Self::StorageUnmeasured => "storage_unmeasured",
             Self::StorageBudget => "storage_budget",
+            Self::StorageReserve => "storage_reserve",
             Self::StorageDaily => "storage_daily",
         }
     }
@@ -109,23 +115,29 @@ pub fn pause(
     if !state.storage.pending.is_empty() {
         return Some(Pause::StorageUnmeasured);
     }
-    // The smallest run there can be: when even it does not fit, nothing is
-    // read to find out which would.
-    storage_room(cfg, &state.storage, cfg.min_comments)
+    // The smallest run there can be, of a live conversation (the one share
+    // that may spend the whole budget): when even it does not fit, nothing
+    // is read to find out which would.
+    storage_room(cfg, &state.storage, cfg.min_comments, Share::Whole)
 }
 
-/// Whether a run of `comments` comments may be admitted under the storage
-/// budget: not once the shadow's bytes have reached the budget or today's
-/// the daily cap, and not when the run's estimate would pass either.
-pub fn storage_room(cfg: &Config, ledger: &Ledger, comments: i64) -> Option<Pause> {
+/// Whether a run of `comments` comments, spending `share`, may be admitted
+/// under the storage budget: not once the shadow's bytes have reached the
+/// budget, or for a run that is not live the budget less the live reserve,
+/// or, when there is a daily limit, today's have reached it; and not when the
+/// run's estimate would pass any of them. With no daily limit (the default)
+/// only the totals hold.
+pub fn storage_room(cfg: &Config, ledger: &Ledger, comments: i64, share: Share) -> Option<Pause> {
     let next = ledger.estimate(comments);
-    if ledger.bytes >= cfg.storage_budget_bytes
-        || ledger.bytes.saturating_add(next) > cfg.storage_budget_bytes
-    {
+    let over = |limit: u64| ledger.bytes >= limit || ledger.bytes.saturating_add(next) > limit;
+    if over(cfg.storage_limit_bytes(Share::Whole)) {
         return Some(Pause::StorageBudget);
     }
-    if ledger.day_bytes >= cfg.storage_daily_bytes
-        || ledger.day_bytes.saturating_add(next) > cfg.storage_daily_bytes
+    if share == Share::Shared && over(cfg.storage_limit_bytes(Share::Shared)) {
+        return Some(Pause::StorageReserve);
+    }
+    if let Some(daily) = cfg.storage_daily_bytes
+        && (ledger.day_bytes >= daily || ledger.day_bytes.saturating_add(next) > daily)
     {
         return Some(Pause::StorageDaily);
     }
@@ -141,22 +153,24 @@ pub enum Look {
     Unchanged,
     TooSmall,
     TooLarge,
-    /// Its estimate alone passes a whole day's storage cap: it could never be
-    /// admitted, and in the list's priority order it would hold back every
-    /// conversation after it.
+    /// Its estimate alone passes what one run of its share may add (the
+    /// budget, less the live reserve unless it is live, or the daily limit
+    /// when there is one and it is smaller): it could never be admitted, and
+    /// in the list's priority order it would hold back every conversation
+    /// after it.
     TooCostly,
     /// Run within the rerun window.
     Recent,
 }
 
-pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64) -> Look {
+pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64, share: Share) -> Look {
     if live.comments < cfg.min_comments {
         return Look::TooSmall;
     }
     if live.comments > cfg.max_comments {
         return Look::TooLarge;
     }
-    if state.storage.estimate(live.comments) > cfg.storage_daily_bytes {
+    if state.storage.estimate(live.comments) > cfg.storage_run_max_bytes(share) {
         return Look::TooCostly;
     }
     let Some(seen) = state.conversations.get(&live.zid) else {
@@ -180,7 +194,7 @@ pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64) -> Look {
 pub fn order(cfg: &Config, state: &State, live: &[Live], now_ms: i64) -> Vec<Live> {
     let mut out: Vec<Live> = live
         .iter()
-        .filter(|l| look(cfg, state, l, now_ms) == Look::Read)
+        .filter(|l| look(cfg, state, l, now_ms, Share::Whole) == Look::Read)
         .cloned()
         .collect();
     out.sort_by_key(|l| (l.comments, l.zid));
@@ -200,6 +214,15 @@ pub enum Source {
 }
 
 impl Source {
+    /// The part of the storage budget its runs may spend: the live
+    /// conversations the whole of it, the others all but the live reserve.
+    pub fn share(self) -> Share {
+        match self {
+            Self::Important | Self::Large => Share::Shared,
+            Self::Live => Share::Whole,
+        }
+    }
+
     pub fn word(self) -> &'static str {
         match self {
             Self::Important => "important",
@@ -244,7 +267,7 @@ pub fn candidates(
     let mut tried = std::collections::BTreeSet::new();
     for (list, source) in [(important, Source::Important), (large, Source::Large)] {
         for l in list {
-            if tried.insert(l.zid) && look(cfg, state, l, now_ms) == Look::Read {
+            if tried.insert(l.zid) && look(cfg, state, l, now_ms, source.share()) == Look::Read {
                 out.push((l.clone(), source));
             }
         }
@@ -441,11 +464,105 @@ mod tests {
     }
 
     #[test]
-    fn the_storage_budget_and_its_daily_cap_hold_admission() {
+    fn with_no_daily_limit_by_default_only_the_total_holds() {
+        use crate::shadow::storage::{JOB_BYTES, MIB};
+        let mut c = cfg();
+        assert_eq!(c.storage_daily_bytes, None, "the default");
+        c.storage_budget_bytes = 10 * MIB;
+        let mut s = State::new("shadow-delphi-1");
+        let fine = signals(5.0, 0);
+        let p = |s: &State| pause(&c, s, false, ok_disk(), Some(&fine), None);
+        // Nine tenths of the budget added today alone: nothing holds but the
+        // total.
+        s.storage.bytes = 9 * MIB;
+        s.storage.day_bytes = 9 * MIB;
+        assert_eq!(p(&s), None);
+        assert_eq!(storage_room(&c, &s.storage, 100, Share::Whole), None);
+        assert_eq!(
+            storage_room(&c, &s.storage, 200, Share::Whole),
+            Some(Pause::StorageBudget),
+            "the total, never storage_daily"
+        );
+        s.storage.bytes = 10 * MIB;
+        assert_eq!(p(&s), Some(Pause::StorageBudget));
+        // A run fits as long as the total has room for it, whatever today holds.
+        s.storage.bytes = 10 * MIB - 100 * 8192 - JOB_BYTES;
+        s.storage.day_bytes = s.storage.bytes;
+        assert_eq!(storage_room(&c, &s.storage, 100, Share::Whole), None);
+        // One run is too costly only when it alone would pass the whole budget.
+        let now = 10 * 86_400_000;
+        let one = |comments| Live {
+            zid: 7,
+            comments,
+            last_modified: 9,
+        };
+        c.storage_budget_bytes = s.storage.estimate(800);
+        assert_eq!(look(&c, &s, &one(800), now, Share::Whole), Look::Read);
+        assert_eq!(look(&c, &s, &one(801), now, Share::Whole), Look::TooCostly);
+    }
+
+    #[test]
+    fn the_live_reserve_stops_the_other_sources_and_live_runs_spend_the_whole_total() {
+        use crate::shadow::storage::{JOB_BYTES, MIB};
+        let mut c = cfg();
+        // 1 GiB of the 3 GiB is kept for live conversations by default.
+        assert_eq!(Source::Important.share(), Share::Shared);
+        assert_eq!(Source::Large.share(), Share::Shared);
+        assert_eq!(Source::Live.share(), Share::Whole);
+        c.storage_budget_bytes = 10 * MIB;
+        c.storage_live_reserve_bytes = 4 * MIB;
+        let mut s = State::new("shadow-delphi-1");
+        let fine = signals(5.0, 0);
+        let p = |s: &State| pause(&c, s, false, ok_disk(), Some(&fine), None);
+        let room = |s: &State, comments, share| storage_room(&c, &s.storage, comments, share);
+        // Under the total less the reserve: every source fits.
+        s.storage.bytes = 6 * MIB - 100 * 8192 - JOB_BYTES;
+        assert_eq!(room(&s, 100, Share::Shared), None);
+        assert_eq!(room(&s, 101, Share::Shared), Some(Pause::StorageReserve));
+        assert_eq!(room(&s, 101, Share::Whole), None);
+        // At the total less the reserve: the important list and the large
+        // conversations stop; live runs continue, and nothing pauses.
+        s.storage.bytes = 6 * MIB;
+        assert_eq!(room(&s, 20, Share::Shared), Some(Pause::StorageReserve));
+        assert_eq!(room(&s, 20, Share::Whole), None);
+        assert_eq!(p(&s), None);
+        // Live runs stop at the total, and so does everything.
+        s.storage.bytes = 10 * MIB - 100 * 8192 - JOB_BYTES;
+        assert_eq!(room(&s, 100, Share::Whole), None);
+        assert_eq!(room(&s, 101, Share::Whole), Some(Pause::StorageBudget));
+        s.storage.bytes = 10 * MIB;
+        assert_eq!(room(&s, 20, Share::Whole), Some(Pause::StorageBudget));
+        assert_eq!(room(&s, 20, Share::Shared), Some(Pause::StorageBudget));
+        assert_eq!(p(&s), Some(Pause::StorageBudget));
+        // One run alone past the total less the reserve can never run from
+        // the first two sources, so it is not tried there; live, it can.
+        s.storage.bytes = 0;
+        let now = 10 * 86_400_000;
+        let one = |comments| Live {
+            zid: 7,
+            comments,
+            last_modified: 9,
+        };
+        let shared_max = (6 * MIB - JOB_BYTES) / 8192;
+        assert_eq!(
+            look(&c, &s, &one(shared_max as i64), now, Share::Shared),
+            Look::Read
+        );
+        let over = one(shared_max as i64 + 1);
+        assert_eq!(look(&c, &s, &over, now, Share::Shared), Look::TooCostly);
+        assert_eq!(look(&c, &s, &over, now, Share::Whole), Look::Read);
+        // With no reserve every source spends the whole total.
+        c.storage_live_reserve_bytes = 0;
+        s.storage.bytes = 6 * MIB;
+        assert_eq!(storage_room(&c, &s.storage, 20, Share::Shared), None);
+    }
+
+    #[test]
+    fn the_storage_budget_and_a_set_daily_limit_hold_admission() {
         use crate::shadow::storage::{JOB_BYTES, MIB, Pending};
         let mut c = cfg();
         c.storage_budget_bytes = 10 * MIB;
-        c.storage_daily_bytes = 4 * MIB;
+        c.storage_daily_bytes = Some(4 * MIB);
         let mut s = State::new("shadow-delphi-1");
         let fine = signals(5.0, 0);
         let p = |s: &State| pause(&c, s, false, ok_disk(), Some(&fine), None);
@@ -454,9 +571,12 @@ mod tests {
         s.storage.bytes = 3 * MIB;
         s.storage.day_bytes = 3 * MIB;
         assert_eq!(p(&s), None);
-        assert_eq!(storage_room(&c, &s.storage, 10), None);
+        assert_eq!(storage_room(&c, &s.storage, 10, Share::Whole), None);
         // 200 comments at the default 8 KiB a comment would pass the day's cap.
-        assert_eq!(storage_room(&c, &s.storage, 200), Some(Pause::StorageDaily));
+        assert_eq!(
+            storage_room(&c, &s.storage, 200, Share::Whole),
+            Some(Pause::StorageDaily)
+        );
         // The day's cap reached.
         s.storage.day_bytes = 4 * MIB;
         assert_eq!(p(&s), Some(Pause::StorageDaily));
@@ -466,9 +586,9 @@ mod tests {
         assert_eq!(p(&s), Some(Pause::StorageBudget));
         // A run that would pass the budget is not admitted, a smaller one is.
         s.storage.bytes = 10 * MIB - 100 * 8192 - JOB_BYTES;
-        assert_eq!(storage_room(&c, &s.storage, 100), None);
+        assert_eq!(storage_room(&c, &s.storage, 100, Share::Whole), None);
         assert_eq!(
-            storage_room(&c, &s.storage, 101),
+            storage_room(&c, &s.storage, 101, Share::Whole),
             Some(Pause::StorageBudget)
         );
         // A terminal run not yet measured holds admission.
@@ -511,8 +631,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![2, 5, 6, 1]
         );
-        assert_eq!(look(&c, &s, &live[2], now), Look::TooSmall);
-        assert_eq!(look(&c, &s, &live[3], now), Look::TooLarge);
+        assert_eq!(look(&c, &s, &live[2], now, Share::Whole), Look::TooSmall);
+        assert_eq!(look(&c, &s, &live[3], now, Share::Whole), Look::TooLarge);
         // Admitted a day ago on the same set and nothing changed: unchanged.
         s.conversations.insert(
             2,
@@ -525,21 +645,21 @@ mod tests {
                 ..Seen::default()
             },
         );
-        assert_eq!(look(&c, &s, &live[1], now), Look::Unchanged);
+        assert_eq!(look(&c, &s, &live[1], now, Share::Whole), Look::Unchanged);
         // Admitted an hour ago: inside the rerun window, whatever changed.
         if let Some(seen) = s.conversations.get_mut(&2) {
             seen.admitted_at_ms = Some(now - 3_600_000);
             seen.last_modified = 1;
         }
-        assert_eq!(look(&c, &s, &live[1], now), Look::Recent);
+        assert_eq!(look(&c, &s, &live[1], now, Share::Whole), Look::Recent);
         // A newer comment after the window: read again.
         if let Some(seen) = s.conversations.get_mut(&2) {
             seen.admitted_at_ms = Some(now - 2 * 86_400_000);
         }
-        assert_eq!(look(&c, &s, &live[1], now), Look::Read);
+        assert_eq!(look(&c, &s, &live[1], now, Share::Whole), Look::Read);
         let mut c2 = cfg();
         c2.rerun_after = Duration::ZERO;
-        assert_eq!(look(&c2, &s, &live[1], now), Look::Read);
+        assert_eq!(look(&c2, &s, &live[1], now, Share::Whole), Look::Read);
     }
 
     #[test]
@@ -604,12 +724,16 @@ mod tests {
             x.admitted_at_ms = Some(now - 3_600_000);
         }
         assert_eq!(got(&s, &c)[0], (9, "important"));
-        // One whose run alone would pass a whole day's cap is never tried (it
-        // would hold back everything after it, every day); the next goes.
+        // With a daily limit set, one whose run alone would pass it is never
+        // tried (it would hold back everything after it, every day); the next
+        // goes.
         let mut tight = cfg();
-        tight.storage_daily_bytes = s.storage.estimate(800);
-        assert_eq!(look(&tight, &s, &l(7, 800), now), Look::Read);
-        assert_eq!(look(&tight, &s, &l(7, 801), now), Look::TooCostly);
+        tight.storage_daily_bytes = Some(s.storage.estimate(800));
+        assert_eq!(look(&tight, &s, &l(7, 800), now, Share::Shared), Look::Read);
+        assert_eq!(
+            look(&tight, &s, &l(7, 801), now, Share::Shared),
+            Look::TooCostly
+        );
         assert_eq!(got(&s, &tight)[0], (9, "important"));
         assert!(
             got(&s, &tight).contains(&(12, "large")),
