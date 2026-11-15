@@ -683,8 +683,11 @@ fi
 # make a shadow that fails to start fail the deploy (and its rollback). The
 # Delphi role has already removed any container of them a previous deploy
 # started, as it removes every service it does not name. Optional work: its
-# start failing never fails the deploy.
-if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
+# start failing never fails the deploy. The condition names the role as well
+# (DELPHI_SHADOW_SELECTED is already 0 on every other box) so that the checks
+# that read this file by role (file-server/nginx/production_upstreams.py
+# among them) see a Delphi-only block, not a start on the web boxes.
+if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
   "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
     || echo "The Delphi shadow did not start; the deploy continues without it" >&2
