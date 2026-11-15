@@ -63,12 +63,16 @@ class ConversationReads:
 class ExportReads:
     """Per-comment counts, overall and for two opinion groups, agree as agree."""
 
+    # Group columns are named as get_export_data names them: group, then the
+    # group id, then the count.
+    GROUPS = {"0": (6, 4, 1, 1), "1": (4, 1, 1, 2)}
+
     def get_export_data(self, zid, include_moderation):
+        groups = {f"group-{g}-{name}": n for g, counts in self.GROUPS.items()
+                  for name, n in zip(("votes", "agrees", "disagrees", "passes"), counts)}
         return {"comments": [{"comment_id": tid, "comment-id": tid, "comment": f"generated comment {tid}",
                               "votes": 10, "passes": 3, "total-votes": 10, "total-agrees": 5,
-                              "total-disagrees": 2, "total-passes": 3,
-                              "group-0-votes": 6, "group-0-agrees": 4, "group-0-disagrees": 1, "group-0-passes": 1,
-                              "group-1-votes": 4, "group-1-agrees": 1, "group-1-disagrees": 1, "group-1-passes": 2}
+                              "total-disagrees": 2, "total-passes": 3, **groups}
                              for tid in range(1, 5)]}
 
 
@@ -149,7 +153,9 @@ def test_the_comments_are_read_back_from_the_request_the_model_gets(requests_and
                      "groups": {"0": {"votes": 6, "agrees": 4, "disagrees": 1, "passes": 1},
                                 "1": {"votes": 4, "agrees": 1, "disagrees": 1, "passes": 2}}}
     lines = section["comments_csv"].splitlines()
-    assert lines[0].startswith("comment_id,comment_text,votes,agrees,disagrees,passes,group-0-votes")
+    counts = ("votes", "agrees", "disagrees", "passes")
+    group_columns = [f"group-{g}-{name}" for g in ("0", "1") for name in counts]
+    assert lines[0] == ",".join(["comment_id", "comment_text", *counts, *group_columns])
     assert lines[1].startswith("1,generated comment 1,10,5,2,3,6,4,1,1,4,1,1,2")
 
 
