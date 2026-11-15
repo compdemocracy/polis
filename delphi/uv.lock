@@ -797,7 +797,7 @@ requires-dist = [
     { name = "types-psycopg2", marker = "extra == 'dev'" },
     { name = "types-requests", marker = "extra == 'dev'" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
-    { name = "umap-learn", specifier = ">=0.5.7" },
+    { name = "umap-learn", specifier = ">=0.5.7,<0.6" },
     { name = "uvicorn", specifier = ">=0.20.0" },
     { name = "xmltodict", specifier = ">=0.13.0" },
 ]

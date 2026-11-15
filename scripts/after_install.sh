@@ -561,27 +561,59 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # publication fence. Delphi's report role on every box is unaffected. An
   # ASG max of 1 for the Delphi small group is a later belt-and-braces CDK
   # change, not needed for correctness.
-  # Durable stop: remove `math-python` from this line and redeploy (the hook
-  # removes this Compose project's containers before starting the named ones).
+  # Durable stop: remove `math-python` from DELPHI_SERVICES below and redeploy
+  # (the hook removes this Compose project's containers before starting the
+  # named ones). ValidateService (scripts/validate_service.sh) requires
+  # exactly the services that line names, read from this file, so keep it one
+  # line of plain names. The tests that pin the Delphi box's services
+  # (delphi/tests/test_compose_math_env.py, test_after_install_hook.py) change
+  # with it.
   # Removing only the holder's container is a FAILOVER, not a stop: a waiting
   # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
   #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
   #      both Delphi ASGs (AsgDelphiSmall, AsgDelphiLarge) so no new box starts
   #      a poller; list every InService instance in both groups.
-  #   2. On every box, via SSM Run Command targeted at both groups, find the
-  #      math-python container; its log says `holding single-writer lock` on
-  #      the holder, `waiting for single-writer lock` on standbys.
+  #   2. On every box, via SSM, list the math-python containers by label
+  #      (docker ps -a --filter label=com.docker.compose.service=math-python).
+  #      The holder is the session holding the advisory lock
+  #      hashtext('polis-math-python:python') in pg_locks; its
+  #      application_name is math-python:python@<short container id>. Every
+  #      other math-python container is a standby. Run the SQL on a Delphi box
+  #      (inside its delphi container), never from outside the VPC.
   #   3. `sudo docker rm -f` the standbys' math-python containers first, then
   #      the holder's, so nothing is admitted during the stop.
-  #   4. Verify: no math-python container on any box (SSM across both groups);
-  #      zero rows from `SELECT application_name FROM pg_stat_activity WHERE
-  #      application_name LIKE 'math-python:%'`; max(math_tick) under
-  #      math_env='python' no longer advances.
-  #   5. Make it durable (remove `math-python` here and redeploy) before
-  #      resuming deploys or ASG launches.
+  #   4. Verify: no math-python container on any box; no holder of that lock
+  #      and no session with application_name LIKE 'math-python:python@%'
+  #      (not 'math-python:%', which also matches the large class's
+  #      math-python:python-large@ queue child); max(modified) from math_ticks
+  #      under math_env='python' unchanged between two readings.
+  #   5. Make it durable (remove `math-python` from DELPHI_SERVICES and
+  #      redeploy), check that deployment succeeded and was not rolled back
+  #      (a rollback runs the previous revision, which starts math-python),
+  #      repeat step 4, and only then resume deploys or ASG launches.
   poller_identity
+  DELPHI_SERVICES=(delphi math-python)
   "${COMPOSE[@]}" down
-  "${COMPOSE[@]}" up -d delphi math-python --no-build --force-recreate
+  # With the -f files named, Compose v2.40.0's `down` leaves the containers of
+  # a profile-gated service running (math-python is one), so a service taken
+  # off DELPHI_SERVICES would keep running on the previous image. Remove, by
+  # name, every service of this project that still has a container and is not
+  # in DELPHI_SERVICES; the services in it are left to `up` exactly as before.
+  # `ps -a --services` lists those containers; `rm -s -f` with no service
+  # named would remove every service's, so it runs only with a name.
+  DELPHI_LEFT_RUNNING=$("${COMPOSE[@]}" ps -a --services)
+  DELPHI_UNNAMED=()
+  for service in $DELPHI_LEFT_RUNNING; do
+    case " ${DELPHI_SERVICES[*]} " in
+      *" $service "*) ;;
+      *) DELPHI_UNNAMED+=("$service") ;;
+    esac
+  done
+  if [ "${#DELPHI_UNNAMED[@]}" -gt 0 ]; then
+    echo "Removing containers of services this box no longer runs: ${DELPHI_UNNAMED[*]}"
+    "${COMPOSE[@]}" rm -s -f "${DELPHI_UNNAMED[@]}"
+  fi
+  "${COMPOSE[@]}" up -d "${DELPHI_SERVICES[@]}" --no-build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`

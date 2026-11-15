@@ -21,11 +21,14 @@ def _validate_service_path():
 
 VALIDATE_SERVICE_PATH = _validate_service_path()
 
-def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0, start='0', routes='', rust_http=0, rust_state='running false none', config_status=0, shadow_http=0, shadow_state='running false none', reads_http=0, reads_state='running false none'):
+def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0, start='0', routes='', rust_http=0, rust_state='running false none', config_status=0, shadow_http=0, shadow_state='running false none', reads_http=0, reads_state='running false none', hook=None, absent=''):
     bin_dir=tmp_path/'bin';bin_dir.mkdir()
     (tmp_path/'service_type.txt').write_text(role)
     (tmp_path/'VERSION').write_text('2.0.0\n')
     (tmp_path/'deployed-images.txt').write_text('revision=' + 'a'*40 + '\n')
+    # The deploy hook beside the script: the real one unless a test gives its text.
+    (tmp_path/'after_install.sh').write_text(
+        (VALIDATE_SERVICE_PATH.parent/'after_install.sh').read_text() if hook is None else hook)
     source=VALIDATE_SERVICE_PATH.read_text()
     source=source.replace('/opt/polis/deployed-images.txt',str(tmp_path/'deployed-images.txt'))
     source=source.replace('/opt/polis/polis',str(tmp_path)).replace('/etc/app-info/service_type.txt',str(tmp_path/'service_type.txt')).replace('/usr/local/bin/docker-compose','docker-compose')
@@ -36,7 +39,9 @@ def probe(tmp_path, role='server', state='running false none', http=0, missing=F
         'docker-compose':'''shift 4
 case "$*" in *"config --format json"*) exit "$CONFIG_STATUS";; esac
 case "$1" in
- ps) [ "$MISSING" = 1 ] || case "${@: -1}" in polis-api) echo rust;; polis-api-shadow) echo shadow;; polis-api-shadow-reads) echo reads;; *) echo owned;; esac ;;
+ ps) echo "${@: -1}" >> "$CALLS.ps"
+     [ "$MISSING" = 1 ] || case " $ABSENT " in *" ${@: -1} "*) ;; *)
+       case "${@: -1}" in polis-api) echo rust;; polis-api-shadow) echo shadow;; polis-api-shadow-reads) echo reads;; *) echo owned;; esac ;; esac ;;
  exec) case "$*" in *polis-api:5100*) echo rust >> "$CALLS"; exit "$RUST_HTTP";;
        *polis-api-shadow-reads:5102*) echo reads >> "$CALLS"; echo "${@: -3}" >> "$CALLS.reads"; exit "$READS_HTTP";;
        *polis-api-shadow:5101*) echo shadow >> "$CALLS"; echo "${@: -1}" >> "$CALLS.comments"; exit "$SHADOW_HTTP";;
@@ -49,7 +54,7 @@ case "$*" in *POLIS_API_START*) echo "$START";; *) echo "$ROUTES";; esac''',
     }
     for name,body in fakes.items():
         f=bin_dir/name;f.write_text('#!/bin/bash\n'+body+'\n');f.chmod(0o755)
-    env=dict(os.environ,PATH=str(bin_dir)+':/usr/bin:/bin',STATE=state,HTTP_STATUS=str(http),START=start,ROUTES=routes,RUST_HTTP=str(rust_http),RUST_STATE=rust_state,CONFIG_STATUS=str(config_status),SHADOW_HTTP=str(shadow_http),SHADOW_STATE=shadow_state,READS_HTTP=str(reads_http),READS_STATE=reads_state,MISSING=str(int(missing)),DRAIN=str(drain),COUNT=str(tmp_path/'count'),CALLS=str(tmp_path/'calls'))
+    env=dict(os.environ,PATH=str(bin_dir)+':/usr/bin:/bin',STATE=state,HTTP_STATUS=str(http),START=start,ROUTES=routes,RUST_HTTP=str(rust_http),RUST_STATE=rust_state,CONFIG_STATUS=str(config_status),SHADOW_HTTP=str(shadow_http),SHADOW_STATE=shadow_state,READS_HTTP=str(reads_http),READS_STATE=reads_state,MISSING=str(int(missing)),ABSENT=absent,DRAIN=str(drain),COUNT=str(tmp_path/'count'),CALLS=str(tmp_path/'calls'))
     return subprocess.run(['bash',str(script)],env=env,text=True,capture_output=True,timeout=30)
 
 def test_healthy_server_requires_three_http_successes(tmp_path):
@@ -71,6 +76,41 @@ def test_unknown_role_fails(tmp_path):
 
 def test_retired_math_role_needs_no_containers(tmp_path):
     assert probe(tmp_path,role='math',missing=True).returncode==0
+
+
+# The Delphi box requires exactly the services the deploy hook beside this
+# script names in DELPHI_SERVICES: taking math-python off that line (its
+# durable stop) must not fail the deployment, which CodeDeploy would roll back
+# to the previous revision, starting math-python again.
+def _hook_naming(services):
+    return f'#!/bin/bash\n  # DELPHI_SERVICES=(not this comment)\n  DELPHI_SERVICES=({services})\n'
+
+
+def test_the_delphi_box_requires_the_services_the_real_hook_names(tmp_path):
+    p = probe(tmp_path, role='delphi')
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3
+
+
+def test_the_delphi_box_fails_when_a_named_service_has_no_container(tmp_path):
+    p = probe(tmp_path, role='delphi', absent='math-python')
+    assert p.returncode != 0
+    assert 'ValidateService failed' in p.stderr
+
+
+def test_a_service_taken_off_the_list_is_not_required(tmp_path):
+    p = probe(tmp_path, role='delphi', hook=_hook_naming('delphi'), absent='math-python')
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi'] * 3
+
+
+@pytest.mark.parametrize('hook', ['#!/bin/bash\n', _hook_naming(''), _hook_naming('delphi') * 2,
+                                  '  DELPHI_SERVICES=("$X")\n'])
+def test_the_delphi_box_fails_without_exactly_one_plain_service_line(tmp_path, hook):
+    p = probe(tmp_path, role='delphi', hook=hook)
+    assert p.returncode != 0
+    assert 'exactly one DELPHI_SERVICES=(...) line' in p.stderr
+    assert not (tmp_path/'calls.ps').exists()
 
 
 @pytest.mark.parametrize("start,routes", [("1", ""), ("0", "pca2")])
