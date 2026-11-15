@@ -60,7 +60,7 @@
 -- sha256 1c85ef8a67bb0add2bcf6dd7e38fabb977c26fe004994cf78e06fed8eda9b906 000043_add_conversation_activity_indexes.sql
 -- sha256 8eaffb393aca2b89ffe41264a1a9676f83a74685866a095befd3bb648784903f 000044_pid_auto_transaction_lock.sql
 -- sha256 eab730473dda1fdd7b0e3b6fbbae5eb6201fbb579670ebcf43557aeb23f8c4a2 000045_page_ids_width.sql
--- sha256 4a00275f200c91551e27f938e0b5b8e4e5804fc8f40fc6d00cf6e3133f4eb8ee 000046_create_delphi_narrative_jobs.sql
+-- sha256 c202dac54379bef527892ac2e7b8e74312707f2df4973c10de29061af7abc619 000046_create_delphi_narrative_jobs.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';
