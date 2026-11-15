@@ -133,15 +133,24 @@ def test_the_scheduler_names_the_daemons_shadow_env():
     set_env = dict(PRODUCTION_LIKE, DELPHI_SHADOW_STORAGE_DAILY_MB="300", DELPHI_SHADOW_LIVE_RESERVE_MB="512")
     daily = _environment(services["delphi-shadow-scheduler"], set_env)
     assert (daily["DELPHI_SHADOW_STORAGE_DAILY_MB"], daily["DELPHI_SHADOW_LIVE_RESERVE_MB"]) == ("300", "512")
-    # No conversation is listed as important unless the document lists it;
-    # every conversation of 200 participants or more is a source by default.
-    assert scheduler["DELPHI_SHADOW_IMPORTANT"] == ""
-    assert scheduler["DELPHI_SHADOW_LARGE_PARTICIPANTS"] == "200"
-    listed = dict(PRODUCTION_LIKE, DELPHI_SHADOW_IMPORTANT="2abc,3def", DELPHI_SHADOW_LARGE_PARTICIPANTS="0")
+    # No conversation is a benchmark unless the document lists it; the
+    # featured (open-data) and current (live) sets need no setting. The
+    # participant-count source and the list's old name are gone: a document
+    # line of either reaches neither service.
+    assert scheduler["DELPHI_SHADOW_BENCHMARK"] == ""
+    listed = dict(
+        PRODUCTION_LIKE,
+        DELPHI_SHADOW_BENCHMARK="2abc,3def",
+        DELPHI_SHADOW_IMPORTANT="4ghi",
+        DELPHI_SHADOW_LARGE_PARTICIPANTS="200",
+    )
     listed_env = _environment(services["delphi-shadow-scheduler"], listed)
-    assert (listed_env["DELPHI_SHADOW_IMPORTANT"], listed_env["DELPHI_SHADOW_LARGE_PARTICIPANTS"]) == ("2abc,3def", "0")
+    assert listed_env["DELPHI_SHADOW_BENCHMARK"] == "2abc,3def"
+    daemon_env = _environment(services["delphi-shadow"], listed)
+    for retired in ("DELPHI_SHADOW_IMPORTANT", "DELPHI_SHADOW_LARGE_PARTICIPANTS"):
+        assert retired not in listed_env and retired not in daemon_env
     # The daemon, which runs the pipeline, is never given the list.
-    assert "DELPHI_SHADOW_IMPORTANT" not in _environment(services["delphi-shadow"], listed)
+    assert "DELPHI_SHADOW_BENCHMARK" not in daemon_env
     other = dict(PRODUCTION_LIKE, DELPHI_SHADOW_ENV="shadow-twin-1")
     assert _environment(services["delphi-shadow"], other)["QUEUE_ENV"] == "shadow-twin-1"
     assert _environment(services["delphi-shadow-scheduler"], other)["QUEUE_ENV"] == "shadow-twin-1"

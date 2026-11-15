@@ -183,6 +183,27 @@ impl Fixture {
         .unwrap();
     }
 
+    /// The owner's "anyone can export a data dump" setting on: the
+    /// conversation is open data, of the featured set.
+    fn open_data(&self, zid: i32) {
+        self.superuser()
+            .execute(
+                "UPDATE conversations SET is_data_open = true WHERE zid = $1",
+                &[&zid],
+            )
+            .unwrap();
+    }
+
+    /// The named set each job's run record says it was selected from, by
+    /// conversation id, in admission order.
+    fn sets(&self) -> Vec<(i32, Value)> {
+        self.jobs()
+            .into_iter()
+            .filter(|(env, ..)| env == ENV)
+            .map(|(_, zid, _, config)| (zid, config["shadow"]["set"].clone()))
+            .collect()
+    }
+
     fn jobs(&self) -> Vec<(String, i32, String, Value)> {
         self.superuser()
             .query(
@@ -244,6 +265,7 @@ fn changed_sets_are_admitted_one_at_a_time_under_the_shadow_env_only() {
     );
     assert_eq!(config["shadow"]["comments"], 25);
     assert_eq!(config["shadow"]["twin_of"], Value::Null);
+    assert_eq!(config["shadow"]["set"], "current", "live: the current set");
     assert_eq!(config["result_backend"], "postgres");
     assert_eq!(s.state.in_flight.as_ref().unwrap().job_id, *job);
 
@@ -336,18 +358,22 @@ fn next_admitted(f: &Fixture, s: &mut Scheduler<'_>) -> Option<i32> {
 }
 
 #[test]
-fn the_important_list_then_large_conversations_then_live_ones_whatever_their_activity() {
+fn the_benchmark_set_then_the_featured_set_then_the_current_set_whatever_their_activity() {
+    use polis_queue_adapter::shadow::plan::Set;
     let f = Fixture::new();
-    f.conversation(301, 30); // live, one participant
-    f.quiet(302, 25, 3); // important, listed second
-    f.quiet(303, 40, 3); // important, listed first
-    f.quiet(304, 35, 500); // large
-    f.quiet(305, 50, 250); // large, fewer participants
-    f.quiet(306, 22, 199); // neither: never run
-    f.quiet(307, 3, 900); // large but below the comment floor
+    f.conversation(301, 30); // current (live), one participant
+    f.quiet(302, 25, 3); // benchmark, listed second
+    f.quiet(303, 40, 3); // benchmark, listed first, and open data
+    f.open_data(303);
+    f.quiet(304, 35, 500); // featured (open data)
+    f.open_data(304);
+    f.quiet(305, 50, 250); // featured, fewer participants
+    f.open_data(305);
+    f.quiet(306, 22, 900); // many participants, not open data: never run
+    f.quiet(307, 3, 900); // featured but below the comment floor
+    f.open_data(307);
     let cfg = f.config(&[
-        ("DELPHI_SHADOW_IMPORTANT", "c303,c999unknown,c302,c303"),
-        ("DELPHI_SHADOW_LARGE_PARTICIPANTS", "200"),
+        ("DELPHI_SHADOW_BENCHMARK", "c303,c999unknown,c302,c303"),
         ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
     ]);
     let mut s = Scheduler::new(&cfg).unwrap();
@@ -359,16 +385,35 @@ fn the_important_list_then_large_conversations_then_live_ones_whatever_their_act
     assert_eq!(order, [303, 302, 304, 305, 301]);
     assert_eq!(f.jobs().len(), 5);
     assert!(f.jobs().iter().all(|(env, ..)| env == ENV));
-    assert_eq!(s.state.totals.important_admitted, 2);
-    assert_eq!(s.state.totals.large_admitted, 2);
-    // Read once: the codes that exist in the list's order, the large ones
-    // most participants first (307 is listed, and too small to run).
+    // Each run record names its set: 303, open data too, is a benchmark.
+    assert_eq!(
+        f.sets(),
+        [
+            (303, "benchmark".into()),
+            (302, "benchmark".into()),
+            (304, "featured".into()),
+            (305, "featured".into()),
+            (301, "current".into()),
+        ]
+    );
+    let t = &s.state.totals;
+    assert_eq!(
+        (
+            t.benchmark_admitted,
+            t.featured_admitted,
+            t.current_admitted
+        ),
+        (2, 2, 1)
+    );
+    // Read once: the codes that exist in the list's order, the open-data
+    // conversations most participants first (307 is listed, and too small to
+    // run; 303 is listed, and runs as a benchmark).
     let roster = s.roster.clone().unwrap();
     let zids = |l: &[db::Live]| l.iter().map(|x| x.zid).collect::<Vec<_>>();
-    assert_eq!(zids(&roster.important), [303, 302]);
-    assert_eq!(zids(&roster.large), [307, 304, 305]);
+    assert_eq!(zids(&roster.benchmark), [303, 302]);
+    assert_eq!(zids(&roster.featured), [307, 304, 305, 303]);
 
-    // An important conversation that changes after the roster was read is
+    // A benchmark conversation that changes after the roster was read is
     // seen at the next poll (through the live read) and goes first again.
     f.superuser()
         .execute(
@@ -377,24 +422,33 @@ fn the_important_list_then_large_conversations_then_live_ones_whatever_their_act
         )
         .unwrap();
     assert_eq!(next_admitted(&f, &mut s), Some(302));
+    assert_eq!(f.sets().last().unwrap().1, "benchmark");
     assert_eq!(next_admitted(&f, &mut s), None);
 
-    // The roster is not read again the same day: a conversation that grows
-    // past the threshold now waits for the next day's read.
-    f.superuser()
-        .execute(
-            "UPDATE conversations SET participant_count = 900 WHERE zid = 306",
-            &[],
-        )
-        .unwrap();
+    // The open-data read is made once a UTC day: a conversation whose owner
+    // opens its data now waits for the next day's read.
+    f.open_data(306);
     assert_eq!(next_admitted(&f, &mut s), None);
     if let Some(r) = s.roster.as_mut() {
         r.day -= 1;
     }
     assert_eq!(next_admitted(&f, &mut s), Some(306));
+    assert_eq!(f.sets().last().unwrap().1, "featured");
     assert_eq!(
-        zids(&s.roster.as_ref().unwrap().large),
-        [306, 307, 304, 305]
+        zids(&s.roster.as_ref().unwrap().featured),
+        [306, 307, 304, 305, 303]
+    );
+    assert_eq!(s.state.totals.featured_admitted, 3);
+    // Terminal and still to be measured: its bytes will be logged under its
+    // set.
+    assert_eq!(
+        s.state
+            .storage
+            .pending
+            .iter()
+            .map(|p| p.set)
+            .collect::<Vec<_>>(),
+        [Some(Set::Featured)]
     );
 }
 
@@ -490,11 +544,9 @@ fn participation(c: &mut Client, zid: i32, i: usize) -> Duration {
 fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait() {
     let f = Fixture::new();
     f.conversation(201, 30);
-    // Both roster sources on, so every cycle's reads include them.
-    let cfg = f.config(&[
-        ("DELPHI_SHADOW_IMPORTANT", "c201"),
-        ("DELPHI_SHADOW_LARGE_PARTICIPANTS", "1"),
-    ]);
+    // A benchmark and open data, so every cycle's roster reads find it.
+    f.open_data(201);
+    let cfg = f.config(&[("DELPHI_SHADOW_BENCHMARK", "c201")]);
     let mut part = f.superuser();
 
     // 1. The read session, held open across the participation statements: its
@@ -502,8 +554,8 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     let mut read = Client::connect(&cfg.read_dsn, NoTls).unwrap();
     let slow_read = db::read_only(&mut read, 30_000, |tx| {
         db::live(tx, 0)?;
-        assert_eq!(db::important(tx, &["c201".to_owned()])?.len(), 1);
-        assert_eq!(db::large(tx, 1)?.len(), 1);
+        assert_eq!(db::benchmark(tx, &["c201".to_owned()])?.len(), 1);
+        assert_eq!(db::featured(tx)?.len(), 1);
         db::comment_set(tx, 201)?;
         db::math_lag(tx, "python")?;
         let mut slowest = Duration::ZERO;
@@ -531,7 +583,7 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     // conversation.
     let mut queue = Client::connect(&cfg.queue_dsn, NoTls).unwrap();
     let mut tx = queue.transaction().unwrap();
-    let a = plan::admission(201, &"ab".repeat(32), 30, None);
+    let a = plan::admission(201, &"ab".repeat(32), 30, Some(plan::Set::Current), None);
     let reply: Value = tx
         .query_one(
             "SELECT pd_writer_admit($1,$2,'delphi','delphi-shadow',$3,$4,$5::text::uuid,$6::text::uuid,\
@@ -628,6 +680,7 @@ fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
     s.cycle().unwrap();
     let first = s.state.in_flight.clone().unwrap();
     assert_eq!(first.zid, 401);
+    assert_eq!(first.set, Some(plan::Set::Current));
     f.cancel(&first.job_id);
     s.cycle().unwrap();
     // As if the first run had succeeded and kept its clustering.
@@ -638,6 +691,7 @@ fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
         comments: first.comments,
         assignments: [(0, vec![0])].into_iter().collect(),
         twin_job_id: None,
+        set: first.set,
     });
     s.rest_until_ms = 0;
     s.cycle().unwrap();
@@ -661,6 +715,9 @@ fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
         record["config_effective"]["shadow"]["comment_set_sha256"],
         first.digest.as_str()
     );
+    // A twin carries its first run's set, in its record and its flight.
+    assert_eq!(record["config_effective"]["shadow"]["set"], "current");
+    assert_eq!(twin.set, first.set);
     assert_eq!(
         s.state
             .pending_twin
@@ -684,6 +741,7 @@ fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
         comments: first.comments,
         assignments: Default::default(),
         twin_job_id: None,
+        set: first.set,
     });
     s.rest_until_ms = 0;
     s.cycle().unwrap();
@@ -712,6 +770,7 @@ fn a_twin_pending_across_a_deploy_is_dropped() {
         comments: first.comments,
         assignments: [(0, vec![0])].into_iter().collect(),
         twin_job_id: None,
+        set: first.set,
     });
     s.rest_until_ms = 0;
     s.state.save(&cfg.state_path).unwrap();
@@ -990,6 +1049,7 @@ fn the_storage_budget_and_a_set_daily_limit_hold_admission_from_the_databases_ow
     s.cycle().unwrap();
     // Listed from the database and measured: every shadow env counts.
     assert!(s.state.storage.reconciled);
+    assert_eq!(s.state.storage.jobs, 1);
     assert!(s.state.storage.pending.is_empty());
     assert_eq!(s.state.storage.jobs, 1);
     assert_eq!(s.state.storage.comment_runs, 1000);
@@ -1045,28 +1105,40 @@ fn the_storage_budget_and_a_set_daily_limit_hold_admission_from_the_databases_ow
     f.cancel(&flight.job_id);
     s.cycle().unwrap();
     assert_eq!(s.state.storage.pending.len(), 1, "terminal, to be measured");
+    assert_eq!(s.state.storage.pending[0].set, Some(plan::Set::Current));
+    // Listed again from the database (a lost state file), it keeps its set,
+    // read from its run record; the run admitted before runs named one has
+    // none.
+    let listed = db::read_only(
+        &mut f.superuser(),
+        30_000,
+        polis_queue_adapter::shadow::storage::shadow_jobs,
+    )
+    .unwrap();
+    assert_eq!(
+        listed.iter().map(|p| p.set).collect::<Vec<_>>(),
+        [None, Some(plan::Set::Current)]
+    );
     s.cycle().unwrap();
     assert!(s.state.storage.pending.is_empty());
     assert_eq!(s.state.storage.jobs, 2);
 }
 
 #[test]
-fn the_live_reserve_stops_the_important_and_large_ones_while_live_runs_go_on_to_the_total() {
+fn the_live_reserve_stops_the_benchmark_and_featured_sets_while_current_runs_go_on_to_the_total() {
     use polis_queue_adapter::shadow::storage::MIB;
     let f = Fixture::new();
-    f.quiet(801, 25, 3); // important
-    f.quiet(802, 30, 500); // large
-    f.conversation(803, 30); // live
-    f.conversation(804, 35); // live
+    f.quiet(801, 25, 3); // benchmark
+    f.quiet(802, 30, 3); // featured (open data)
+    f.open_data(802);
+    f.conversation(803, 30); // current
+    f.conversation(804, 35); // current
     // A shadow run already stored, about 20 MB (more than 8 MiB).
     let mut c = f.superuser();
     stored_run(&mut c, "shadow-twin-1", 804, 1000, 6000);
-    let sources = [
-        ("DELPHI_SHADOW_IMPORTANT", "c801"),
-        ("DELPHI_SHADOW_LARGE_PARTICIPANTS", "200"),
-    ];
-    // With the budget less the reserve (4 MiB) already passed, the important
-    // and the large conversations wait and the live ones run, smallest first,
+    let sources = [("DELPHI_SHADOW_BENCHMARK", "c801")];
+    // With the budget less the reserve (4 MiB) already passed, the benchmark
+    // and featured sets wait and the current set runs, smallest first,
     // against the whole budget (1 GiB).
     let mut extra = sources.to_vec();
     extra.extend([
@@ -1079,11 +1151,19 @@ fn the_live_reserve_stops_the_important_and_large_ones_while_live_runs_go_on_to_
     assert_eq!(next_admitted(&f, &mut s), Some(803));
     assert!(s.state.storage.bytes > 4 * MIB);
     assert_eq!(next_admitted(&f, &mut s), Some(804));
-    // Nothing live is left to run: the first two still wait, on the reserve.
+    // Nothing current is left to run: the benchmark and featured sets still
+    // wait, on the reserve.
     assert_eq!(next_admitted(&f, &mut s), None);
     assert_eq!(s.paused, Some(plan::Pause::StorageReserve));
-    assert_eq!(s.state.totals.important_admitted, 0);
-    assert_eq!(s.state.totals.large_admitted, 0);
+    let t = &s.state.totals;
+    assert_eq!(
+        (
+            t.benchmark_admitted,
+            t.featured_admitted,
+            t.current_admitted
+        ),
+        (0, 0, 2)
+    );
     let shadow_zids = || -> Vec<i32> {
         f.jobs()
             .iter()
@@ -1093,7 +1173,7 @@ fn the_live_reserve_stops_the_important_and_large_ones_while_live_runs_go_on_to_
     };
     assert_eq!(shadow_zids(), [803, 804]);
 
-    // Live runs stop at the total: with the stored bytes past the whole
+    // Current runs stop at the total: with the stored bytes past the whole
     // budget (8 MiB, 4 of it kept for live), nothing runs, and the pause
     // names the budget, not the reserve.
     f.superuser()
@@ -1116,7 +1196,7 @@ fn the_live_reserve_stops_the_important_and_large_ones_while_live_runs_go_on_to_
     assert_eq!(shadow_zids(), [803, 804]);
 
     // And with room in the budget less the reserve (512 MiB of 1 GiB), the
-    // important list goes first again, then the large ones.
+    // benchmark set goes first again, then the featured one.
     let mut extra = sources.to_vec();
     extra.extend([
         ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1024"),
@@ -1127,4 +1207,13 @@ fn the_live_reserve_stops_the_important_and_large_ones_while_live_runs_go_on_to_
     let mut s = Scheduler::new(&cfg).unwrap();
     assert_eq!(next_admitted(&f, &mut s), Some(801));
     assert_eq!(next_admitted(&f, &mut s), Some(802));
+    assert_eq!(
+        f.sets(),
+        [
+            (803, "current".into()),
+            (804, "current".into()),
+            (801, "benchmark".into()),
+            (802, "featured".into()),
+        ]
+    );
 }

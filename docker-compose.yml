@@ -536,12 +536,12 @@ services:
       - DELPHI_SHADOW_JOB_POLL_SECONDS=${DELPHI_SHADOW_JOB_POLL_SECONDS:-5}
       - DELPHI_SHADOW_JOB_DEADLINE_SECONDS=${DELPHI_SHADOW_JOB_DEADLINE_SECONDS:-14400}
       - DELPHI_SHADOW_TWIN_EVERY=${DELPHI_SHADOW_TWIN_EVERY:-0}
-      # What it runs, in priority order: the conversation codes listed here
-      # (commas, in priority order; empty by default, and set only in the
-      # environment document), then every conversation of at least this many
-      # participants, then the live ones. Each within the bounds and budget.
-      - DELPHI_SHADOW_IMPORTANT=${DELPHI_SHADOW_IMPORTANT:-}
-      - DELPHI_SHADOW_LARGE_PARTICIPANTS=${DELPHI_SHADOW_LARGE_PARTICIPANTS:-200}
+      # What it runs, in priority order: the benchmark set, the conversation
+      # codes listed here (commas, in priority order; empty by default, and
+      # set only in the environment document); then the featured set, the
+      # open-data conversations; then the current set, the live ones. Each
+      # within the bounds and budget.
+      - DELPHI_SHADOW_BENCHMARK=${DELPHI_SHADOW_BENCHMARK:-}
       - DELPHI_SHADOW_DUTY_CYCLE=${DELPHI_SHADOW_DUTY_CYCLE:-0.5}
       - DELPHI_SHADOW_PROBE_MAX_MS=${DELPHI_SHADOW_PROBE_MAX_MS:-250}
       - DELPHI_SHADOW_MATH_LAG_MAX_SECONDS=${DELPHI_SHADOW_MATH_LAG_MAX_SECONDS:-180}
@@ -551,9 +551,9 @@ services:
       # The bytes the shadow may add to the database (its rows cannot be
       # deleted): in all, and per UTC day only when the daily setting is
       # above 0 (0, the default, is no daily limit). Of the total, the live
-      # reserve is kept for the live conversations: the important list, the
-      # large conversations and twins stop at the total less it. Read per
-      # run, after it ends.
+      # reserve is kept for the current set: the benchmark and featured sets
+      # together, and twins, stop at the total less it. Read per run, after
+      # it ends.
       - DELPHI_SHADOW_STORAGE_BUDGET_MB=${DELPHI_SHADOW_STORAGE_BUDGET_MB:-3072}
       - DELPHI_SHADOW_STORAGE_DAILY_MB=${DELPHI_SHADOW_STORAGE_DAILY_MB:-0}
       - DELPHI_SHADOW_LIVE_RESERVE_MB=${DELPHI_SHADOW_LIVE_RESERVE_MB:-1024}

@@ -14,14 +14,14 @@
 //! result rows. `tests/delphi_shadow.rs` holds both sessions open against
 //! participation statements under a 50 ms lock timeout. After each run the
 //! read login also reads that run's bytes (`storage`), by index ranges on the
-//! run's own keys. With an important-conversations list, the read login also
-//! resolves its codes on `zinvites` (the unique index on the code), the same
-//! read the participation path makes to find a conversation; and it lists the
-//! conversations with many participants from `conversations.participant_count`
-//! (one pass over `conversations`, no index on that column). Both are read
-//! once a UTC day (the scheduler's roster), never per poll, and both take
-//! `ACCESS SHARE` only, which the `conversations` updates votes and comments
-//! cause (`ROW EXCLUSIVE`) do not wait on.
+//! run's own keys. For the benchmark set the read login also resolves the
+//! listed codes on `zinvites` (the unique index on the code), the same read
+//! the participation path makes to find a conversation; and for the featured
+//! set it lists the open-data conversations (`conversations.is_data_open`,
+//! one pass over `conversations`, which has no index on that column). Both
+//! are read once a UTC day (the scheduler's roster), never per poll, and both
+//! take `ACCESS SHARE` only, which the `conversations` updates votes and
+//! comments cause (`ROW EXCLUSIVE`) do not wait on.
 use super::{
     config::{ACTOR, Config, SCOPE},
     storage::{self, Measured, Pending},
@@ -104,10 +104,11 @@ impl<'a> Db<'a> {
     }
 
     /// The roster's two reads, in one read-only transaction on one
-    /// connection: the listed conversations that exist, in the list's order,
-    /// and those of at least `min` participants, most first.
-    pub fn roster(&self, codes: &[String], min: i32) -> Result<(Vec<Live>, Vec<Live>)> {
-        self.read(|tx| Ok((important(tx, codes)?, large(tx, min)?)))
+    /// connection: the benchmark set (the listed conversations that exist, in
+    /// the list's order) and the featured set (the open-data conversations,
+    /// most participants first).
+    pub fn roster(&self, codes: &[String]) -> Result<(Vec<Live>, Vec<Live>)> {
+        self.read(|tx| Ok((benchmark(tx, codes)?, featured(tx)?)))
     }
 
     pub fn comment_set(&self, zid: i32) -> Result<CommentSet> {
@@ -204,12 +205,11 @@ pub fn live(tx: &mut Transaction<'_>, since_ms: i64) -> Result<Vec<Live>> {
         .collect()
 }
 
-/// The conversations an important-conversations list names, highest priority
-/// first: each code resolved through `zinvites_zinvite_key`, then its counts by
+/// The conversations the benchmark list names, highest priority first: each code resolved through `zinvites_zinvite_key`, then its counts by
 /// the primary key, as `live` counts them. A code no conversation has is left
 /// out (the caller counts it); a conversation with no comment reads as 0, and
 /// one two codes name is kept at its first place.
-pub fn important(tx: &mut Transaction<'_>, codes: &[String]) -> Result<Vec<Live>> {
+pub fn benchmark(tx: &mut Transaction<'_>, codes: &[String]) -> Result<Vec<Live>> {
     if codes.is_empty() {
         return Ok(Vec::new());
     }
@@ -228,23 +228,24 @@ pub fn important(tx: &mut Transaction<'_>, codes: &[String]) -> Result<Vec<Live>
         .collect()
 }
 
-/// Every conversation with at least `min` participants
-/// (`conversations.participant_count`, which the participant trigger keeps at
-/// the highest participant number plus one), most participants first, with
+/// The featured set: every open-data conversation
+/// (`conversations.is_data_open` true, the owner's "anyone can export a data
+/// dump" setting, which the server writes on conversation create and update
+/// and reads to permit the participants-of-interest data read), most
+/// participants first (`participant_count`, then the conversation id), with
 /// its counts as `live` counts them (by the comments' `zid` index). One pass
-/// over `conversations`: read once a day, not per poll. `min` 0 reads nothing.
-pub fn large(tx: &mut Transaction<'_>, min: i32) -> Result<Vec<Live>> {
-    if min <= 0 {
-        return Ok(Vec::new());
-    }
+/// over `conversations` (no index on the column), read once a UTC day by the
+/// roster, never per poll.
+pub fn featured(tx: &mut Transaction<'_>) -> Result<Vec<Live>> {
     let rows = tx.query(
-        "WITH big AS (SELECT zid, participant_count FROM conversations WHERE participant_count >= $1) \
-         SELECT b.zid, \
+        "WITH open AS (SELECT zid, coalesce(participant_count, 0) AS n FROM conversations \
+                       WHERE is_data_open IS TRUE) \
+         SELECT o.zid, \
                 (count(c.tid) FILTER (WHERE c.txt IS NOT NULL AND btrim(c.txt) <> ''))::bigint, \
                 max(c.modified)::bigint \
-         FROM big b LEFT JOIN comments c ON c.zid = b.zid \
-         GROUP BY b.zid, b.participant_count ORDER BY b.participant_count DESC, b.zid",
-        &[&min],
+         FROM open o LEFT JOIN comments c ON c.zid = o.zid \
+         GROUP BY o.zid, o.n ORDER BY o.n DESC, o.zid",
+        &[],
     )?;
     rows.iter()
         .map(|r| {

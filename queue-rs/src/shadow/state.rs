@@ -36,6 +36,9 @@ pub struct InFlight {
     pub admitted_at_ms: i64,
     /// Set on a twin run: the job it repeats.
     pub twin_of: Option<String>,
+    /// The named set it was selected from (a twin, its first run's).
+    #[serde(default)]
+    pub set: Option<crate::shadow::plan::Set>,
 }
 
 /// A twin waiting to be admitted, with what the first run's clustering was.
@@ -50,6 +53,9 @@ pub struct PendingTwin {
     /// The twin's job, once admitted.
     #[serde(default)]
     pub twin_job_id: Option<String>,
+    /// The named set the first run was selected from.
+    #[serde(default)]
+    pub set: Option<crate::shadow::plan::Set>,
 }
 
 /// How many twin comparisons the state file keeps (the newest).
@@ -71,13 +77,14 @@ pub struct Totals {
     /// And how many a run of which would pass a whole day's storage cap.
     #[serde(default)]
     pub too_costly: u64,
-    /// First runs admitted from the important-conversations list (of
-    /// `admitted`).
+    /// First runs admitted from each named set (of `admitted`). (A state file
+    /// an earlier build wrote may hold other counts; they are dropped.)
     #[serde(default)]
-    pub important_admitted: u64,
-    /// And from the conversations with many participants.
+    pub benchmark_admitted: u64,
     #[serde(default)]
-    pub large_admitted: u64,
+    pub featured_admitted: u64,
+    #[serde(default)]
+    pub current_admitted: u64,
     pub twins_admitted: u64,
     pub twins_compared: u64,
     pub twins_identical: u64,
@@ -188,12 +195,39 @@ mod tests {
             comments: 30,
             assignments: [(1, vec![0, 1]), (2, vec![-1, 1])].into_iter().collect(),
             twin_job_id: None,
+            set: Some(crate::shadow::plan::Set::Featured),
         });
         s.save(&path)?;
         assert_eq!(State::load(&path, "shadow-delphi-1")?, s);
         assert!(State::load(&path, "shadow-other-1").is_err());
         std::fs::write(&path, b"{")?;
         assert!(State::load(&path, "shadow-delphi-1").is_err());
+        std::fs::remove_dir_all(&dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn a_state_file_an_earlier_build_wrote_still_loads() -> anyhow::Result<()> {
+        // Its counts of the retired sources, and no set on its run in flight,
+        // its twin or its pending measures.
+        let dir =
+            std::env::temp_dir().join(format!("delphi-shadow-state-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("state.json");
+        let mut v = serde_json::to_value(State::new("shadow-delphi-1"))?;
+        v["totals"]["important_admitted"] = 2.into();
+        v["totals"]["large_admitted"] = 3.into();
+        if let Some(totals) = v["totals"].as_object_mut() {
+            totals.remove("benchmark_admitted");
+        }
+        v["in_flight"] = serde_json::json!({"zid": 7, "job_id": "j", "digest": "d",
+            "comments": 30, "admitted_at_ms": 1, "twin_of": null});
+        v["storage"]["pending"] = serde_json::json!([{"env": "shadow-delphi-1", "job_id": "k", "zid": 7, "comments": 30}]);
+        std::fs::create_dir_all(&dir)?;
+        std::fs::write(&path, serde_json::to_vec(&v)?)?;
+        let s = State::load(&path, "shadow-delphi-1")?;
+        assert_eq!(s.totals.benchmark_admitted, 0);
+        assert_eq!(s.in_flight.as_ref().map(|f| f.set), Some(None));
+        assert_eq!(s.storage.pending[0].set, None);
         std::fs::remove_dir_all(&dir)?;
         Ok(())
     }

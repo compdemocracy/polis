@@ -6,6 +6,7 @@ use super::{
     state::State,
     storage::Ledger,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -22,8 +23,8 @@ pub enum Pause {
     /// The shadow's bytes reached the budget, or the next run would pass it.
     StorageBudget,
     /// The shadow's bytes reached the budget less the live reserve, or the
-    /// next run would pass it: the important list, the large conversations
-    /// and twins wait; live runs go on.
+    /// next run would pass it: the benchmark and featured sets and twins
+    /// wait; the current set's runs go on.
     StorageReserve,
     /// Today's bytes reached the daily limit, or the next run would pass it
     /// (only when `DELPHI_SHADOW_STORAGE_DAILY_MB` sets one).
@@ -115,15 +116,16 @@ pub fn pause(
     if !state.storage.pending.is_empty() {
         return Some(Pause::StorageUnmeasured);
     }
-    // The smallest run there can be, of a live conversation (the one share
-    // that may spend the whole budget): when even it does not fit, nothing
+    // The smallest run there can be, of the current set (the one share that
+    // may spend the whole budget): when even it does not fit, nothing
     // is read to find out which would.
     storage_room(cfg, &state.storage, cfg.min_comments, Share::Whole)
 }
 
 /// Whether a run of `comments` comments, spending `share`, may be admitted
 /// under the storage budget: not once the shadow's bytes have reached the
-/// budget, or for a run that is not live the budget less the live reserve,
+/// budget, or for a run not of the current set the budget less the live
+/// reserve,
 /// or, when there is a daily limit, today's have reached it; and not when the
 /// run's estimate would pass any of them. With no daily limit (the default)
 /// only the totals hold.
@@ -154,7 +156,7 @@ pub enum Look {
     TooSmall,
     TooLarge,
     /// Its estimate alone passes what one run of its share may add (the
-    /// budget, less the live reserve unless it is live, or the daily limit
+    /// budget, less the live reserve unless it is current, or the daily limit
     /// when there is one and it is smaller): it could never be admitted, and
     /// in the list's priority order it would hold back every conversation
     /// after it.
@@ -201,34 +203,48 @@ pub fn order(cfg: &Config, state: &State, live: &[Live], now_ms: i64) -> Vec<Liv
     out
 }
 
-/// Why a candidate is read. Closed set, in priority order; these words are
-/// the log's.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Source {
-    /// On the important-conversations list (`DELPHI_SHADOW_IMPORTANT`).
-    Important,
-    /// At least `DELPHI_SHADOW_LARGE_PARTICIPANTS` participants.
-    Large,
-    /// A comment created or moderated within `DELPHI_SHADOW_LIVE_DAYS`.
-    Live,
+/// The named set a run is selected from. Closed, in priority order; these
+/// words are the log's (`"set"`) and the run record's
+/// (`config_effective.shadow.set`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Set {
+    /// The benchmark list (`DELPHI_SHADOW_BENCHMARK`), in its order: large
+    /// conversations kept to measure Polis 2 on, open data or not.
+    Benchmark,
+    /// The open-data conversations (`conversations.is_data_open`), most
+    /// participants first.
+    Featured,
+    /// The live conversations (a comment created or moderated within
+    /// `DELPHI_SHADOW_LIVE_DAYS`), for feedback on them now.
+    Current,
 }
 
-impl Source {
-    /// The part of the storage budget its runs may spend: the live
-    /// conversations the whole of it, the others all but the live reserve.
+impl Set {
+    pub const ALL: [Set; 3] = [Self::Benchmark, Self::Featured, Self::Current];
+
+    /// The part of the storage budget its runs may spend: the current set
+    /// the whole of it, the benchmark and featured sets together all but the
+    /// live reserve.
     pub fn share(self) -> Share {
         match self {
-            Self::Important | Self::Large => Share::Shared,
-            Self::Live => Share::Whole,
+            Self::Benchmark | Self::Featured => Share::Shared,
+            Self::Current => Share::Whole,
         }
     }
 
     pub fn word(self) -> &'static str {
         match self {
-            Self::Important => "important",
-            Self::Large => "large",
-            Self::Live => "live",
+            Self::Benchmark => "benchmark",
+            Self::Featured => "featured",
+            Self::Current => "current",
         }
+    }
+
+    /// The set a word names (a run record's), or `None`: a run admitted
+    /// before runs named their set.
+    pub fn from_word(word: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|s| s.word() == word)
     }
 }
 
@@ -248,31 +264,32 @@ pub fn overlay(roster: &[Live], live: &[Live]) -> Vec<Live> {
         .collect()
 }
 
-/// Every candidate to read, in the order they are tried: the important ones,
-/// in the list's order (highest priority first); then the large ones, most
-/// participants first; both whatever their recent activity; then the live
-/// ones on neither, smallest first (`order`). A conversation in two sources
-/// is tried once, at its first. All are held to the same `look`: the comment
-/// bounds, the storage a run would take, the rerun window and an unchanged
-/// set.
+/// Every candidate to read, in the order they are tried: the benchmark set,
+/// in the list's order (highest priority first); then the featured set, the
+/// open-data conversations, most participants first (as the roster reads
+/// them); both whatever their recent activity; then the current set, the
+/// live conversations in neither, smallest first (`order`). A conversation
+/// in two sets is tried once, in the first, and is of that set. All are held
+/// to the same `look`: the comment bounds, the storage a run would take, the
+/// rerun window and an unchanged comment set.
 pub fn candidates(
     cfg: &Config,
     state: &State,
-    important: &[Live],
-    large: &[Live],
-    live: &[Live],
+    benchmark: &[Live],
+    featured: &[Live],
+    current: &[Live],
     now_ms: i64,
-) -> Vec<(Live, Source)> {
-    let mut out: Vec<(Live, Source)> = Vec::new();
+) -> Vec<(Live, Set)> {
+    let mut out: Vec<(Live, Set)> = Vec::new();
     let mut tried = std::collections::BTreeSet::new();
-    for (list, source) in [(important, Source::Important), (large, Source::Large)] {
+    for (list, set) in [(benchmark, Set::Benchmark), (featured, Set::Featured)] {
         for l in list {
-            if tried.insert(l.zid) && look(cfg, state, l, now_ms, source.share()) == Look::Read {
-                out.push((l.clone(), source));
+            if tried.insert(l.zid) && look(cfg, state, l, now_ms, set.share()) == Look::Read {
+                out.push((l.clone(), set));
             }
         }
     }
-    let rest: Vec<Live> = live
+    let rest: Vec<Live> = current
         .iter()
         .filter(|l| !tried.contains(&l.zid))
         .cloned()
@@ -280,7 +297,7 @@ pub fn candidates(
     out.extend(
         order(cfg, state, &rest, now_ms)
             .into_iter()
-            .map(|l| (l, Source::Live)),
+            .map(|l| (l, Set::Current)),
     );
     out
 }
@@ -306,9 +323,20 @@ fn sha256_hex(bytes: &[u8]) -> String {
 /// The admission of one run. The idempotency key is the comment set itself
 /// (with `twin` for its repeat), so a crash and restart within the queue's
 /// binding window admits nothing twice; the configuration names the comment
-/// set and, on a twin, the run it repeats, and is stored in the job's run
-/// record (`config_effective.shadow`).
-pub fn admission(zid: i32, digest: &str, comments: i64, twin_of: Option<&str>) -> Admission {
+/// set, the named set the run was selected from (a twin, its first run's;
+/// `None` only for a twin of a run admitted before runs named it) and, on a
+/// twin, the run it repeats, and is stored in the job's run record
+/// (`config_effective.shadow`). The named set is not in the key: one comment
+/// set is run once whichever set selects it, and the same key asked again
+/// under another set within the binding window is the queue's `conflict`,
+/// refused, not run twice.
+pub fn admission(
+    zid: i32,
+    digest: &str,
+    comments: i64,
+    set: Option<Set>,
+    twin_of: Option<&str>,
+) -> Admission {
     let config = json!({
         "include_moderation": false,
         "exclude_comment_selections": true,
@@ -318,6 +346,7 @@ pub fn admission(zid: i32, digest: &str, comments: i64, twin_of: Option<&str>) -
             "comment_set_sha256": digest,
             "comments": comments,
             "size_class": size_class(comments),
+            "set": set.map(Set::word),
             "twin_of": twin_of,
             "scheduler": concat!("polis-delphi-shadow ", env!("CARGO_PKG_VERSION")),
         }
@@ -502,31 +531,32 @@ mod tests {
     }
 
     #[test]
-    fn the_live_reserve_stops_the_other_sources_and_live_runs_spend_the_whole_total() {
+    fn the_live_reserve_stops_benchmark_and_featured_and_current_runs_spend_the_whole_total() {
         use crate::shadow::storage::{JOB_BYTES, MIB};
         let mut c = cfg();
-        // 1 GiB of the 3 GiB is kept for live conversations by default.
-        assert_eq!(Source::Important.share(), Share::Shared);
-        assert_eq!(Source::Large.share(), Share::Shared);
-        assert_eq!(Source::Live.share(), Share::Whole);
+        // 1 GiB of the 3 GiB is kept for the current set by default; the
+        // benchmark and featured sets share the rest between them.
+        assert_eq!(Set::Benchmark.share(), Share::Shared);
+        assert_eq!(Set::Featured.share(), Share::Shared);
+        assert_eq!(Set::Current.share(), Share::Whole);
         c.storage_budget_bytes = 10 * MIB;
         c.storage_live_reserve_bytes = 4 * MIB;
         let mut s = State::new("shadow-delphi-1");
         let fine = signals(5.0, 0);
         let p = |s: &State| pause(&c, s, false, ok_disk(), Some(&fine), None);
         let room = |s: &State, comments, share| storage_room(&c, &s.storage, comments, share);
-        // Under the total less the reserve: every source fits.
+        // Under the total less the reserve: every set fits.
         s.storage.bytes = 6 * MIB - 100 * 8192 - JOB_BYTES;
         assert_eq!(room(&s, 100, Share::Shared), None);
         assert_eq!(room(&s, 101, Share::Shared), Some(Pause::StorageReserve));
         assert_eq!(room(&s, 101, Share::Whole), None);
-        // At the total less the reserve: the important list and the large
-        // conversations stop; live runs continue, and nothing pauses.
+        // At the total less the reserve: the benchmark and featured sets stop;
+        // current runs continue, and nothing pauses.
         s.storage.bytes = 6 * MIB;
         assert_eq!(room(&s, 20, Share::Shared), Some(Pause::StorageReserve));
         assert_eq!(room(&s, 20, Share::Whole), None);
         assert_eq!(p(&s), None);
-        // Live runs stop at the total, and so does everything.
+        // Current runs stop at the total, and so does everything.
         s.storage.bytes = 10 * MIB - 100 * 8192 - JOB_BYTES;
         assert_eq!(room(&s, 100, Share::Whole), None);
         assert_eq!(room(&s, 101, Share::Whole), Some(Pause::StorageBudget));
@@ -535,7 +565,8 @@ mod tests {
         assert_eq!(room(&s, 20, Share::Shared), Some(Pause::StorageBudget));
         assert_eq!(p(&s), Some(Pause::StorageBudget));
         // One run alone past the total less the reserve can never run from
-        // the first two sources, so it is not tried there; live, it can.
+        // the benchmark or featured set, so it is not tried there; current,
+        // it can.
         s.storage.bytes = 0;
         let now = 10 * 86_400_000;
         let one = |comments| Live {
@@ -551,7 +582,7 @@ mod tests {
         let over = one(shared_max as i64 + 1);
         assert_eq!(look(&c, &s, &over, now, Share::Shared), Look::TooCostly);
         assert_eq!(look(&c, &s, &over, now, Share::Whole), Look::Read);
-        // With no reserve every source spends the whole total.
+        // With no reserve every set spends the whole total.
         c.storage_live_reserve_bytes = 0;
         s.storage.bytes = 6 * MIB;
         assert_eq!(storage_room(&c, &s.storage, 20, Share::Shared), None);
@@ -598,6 +629,7 @@ mod tests {
             job_id: "j".into(),
             zid: 1,
             comments: 25,
+            set: None,
         });
         assert_eq!(p(&s), Some(Pause::StorageUnmeasured));
         // The earlier reasons still come first.
@@ -663,7 +695,7 @@ mod tests {
     }
 
     #[test]
-    fn important_then_large_then_live_each_once_in_its_own_order() {
+    fn benchmark_then_featured_then_current_each_once_in_its_own_order() {
         let c = cfg();
         let mut s = State::new("shadow-delphi-1");
         let now = 10 * 86_400_000;
@@ -672,10 +704,10 @@ mod tests {
             comments,
             last_modified: 9,
         };
-        let live = vec![l(1, 300), l(2, 25), l(3, 40), l(9, 30), l(11, 60)];
-        // 7 and 8 are not live (no recent comment); 9 is both; 5 is too small,
-        // 6 too large: the bounds hold for every source.
-        let important = vec![
+        let current = vec![l(1, 300), l(2, 25), l(3, 40), l(9, 30), l(11, 60)];
+        // 7 and 8 are not current (no recent comment); 9 is both; 5 is too
+        // small, 6 too large: the bounds hold for every set.
+        let benchmark = vec![
             l(8, 900),
             l(9, 30),
             l(5, 3),
@@ -683,29 +715,30 @@ mod tests {
             l(6, 6000),
             l(8, 900),
         ];
-        // Most participants first, as the roster reads them; 9 and 7 are
-        // already important, 11 and 12 are large, 12 not live.
-        let large = vec![l(9, 30), l(12, 700), l(7, 50), l(11, 60), l(13, 2)];
+        // Open data, most participants first, as the roster reads them; 9
+        // and 7 are already benchmarks, 11 and 12 are featured, 12 not
+        // current, 13 too small.
+        let featured = vec![l(9, 30), l(12, 700), l(7, 50), l(11, 60), l(13, 2)];
         let got = |s: &State, c: &Config| {
-            candidates(c, s, &important, &large, &live, now)
+            candidates(c, s, &benchmark, &featured, &current, now)
                 .into_iter()
-                .map(|(x, src)| (x.zid, src.word()))
+                .map(|(x, set)| (x.zid, set.word()))
                 .collect::<Vec<_>>()
         };
         assert_eq!(
             got(&s, &c),
             vec![
-                (8, "important"),
-                (9, "important"),
-                (7, "important"),
-                (12, "large"),
-                (11, "large"),
-                (2, "live"),
-                (3, "live"),
-                (1, "live")
+                (8, "benchmark"),
+                (9, "benchmark"),
+                (7, "benchmark"),
+                (12, "featured"),
+                (11, "featured"),
+                (2, "current"),
+                (3, "current"),
+                (1, "current")
             ]
         );
-        // Run on its current set and unchanged since: an important
+        // Run on its comment set and unchanged since: a benchmark
         // conversation is not run again; with a newer comment it is, first.
         let seen = |last_modified| Seen {
             last_modified,
@@ -716,14 +749,14 @@ mod tests {
             ..Seen::default()
         };
         s.conversations.insert(8, seen(9));
-        assert_eq!(got(&s, &c)[0], (9, "important"));
+        assert_eq!(got(&s, &c)[0], (9, "benchmark"));
         s.conversations.insert(8, seen(1));
-        assert_eq!(got(&s, &c)[0], (8, "important"));
+        assert_eq!(got(&s, &c)[0], (8, "benchmark"));
         // Inside the rerun window it waits like any other.
         if let Some(x) = s.conversations.get_mut(&8) {
             x.admitted_at_ms = Some(now - 3_600_000);
         }
-        assert_eq!(got(&s, &c)[0], (9, "important"));
+        assert_eq!(got(&s, &c)[0], (9, "benchmark"));
         // With a daily limit set, one whose run alone would pass it is never
         // tried (it would hold back everything after it, every day); the next
         // goes.
@@ -734,22 +767,52 @@ mod tests {
             look(&tight, &s, &l(7, 801), now, Share::Shared),
             Look::TooCostly
         );
-        assert_eq!(got(&s, &tight)[0], (9, "important"));
+        assert_eq!(got(&s, &tight)[0], (9, "benchmark"));
         assert!(
-            got(&s, &tight).contains(&(12, "large")),
+            got(&s, &tight).contains(&(12, "featured")),
             "700 comments still fit"
         );
-        // No list and no large source: exactly the live order.
+        // No benchmark list and no open-data conversation: exactly the
+        // current order.
         assert_eq!(
-            candidates(&c, &s, &[], &[], &live, now)
+            candidates(&c, &s, &[], &[], &current, now)
                 .into_iter()
                 .map(|(x, _)| x.zid)
                 .collect::<Vec<_>>(),
-            order(&c, &s, &live, now)
+            order(&c, &s, &current, now)
                 .into_iter()
                 .map(|x| x.zid)
                 .collect::<Vec<_>>()
         );
+        // The featured set waits behind the benchmark set: a benchmark
+        // conversation that is also open data is of the benchmark set, and
+        // the featured ones follow the benchmark list whatever their sizes.
+        let got_sets: Vec<_> = got(&s, &c).into_iter().map(|(_, w)| w).collect();
+        let Some(first_featured) = got_sets.iter().position(|w| *w == "featured") else {
+            panic!("no featured candidate: {got_sets:?}");
+        };
+        assert!(got_sets[..first_featured].iter().all(|w| *w == "benchmark"));
+        assert!(got_sets[first_featured..].iter().all(|w| *w != "benchmark"));
+    }
+
+    #[test]
+    fn the_set_words_are_closed_and_read_back() {
+        assert_eq!(
+            Set::ALL.map(Set::word),
+            ["benchmark", "featured", "current"]
+        );
+        for set in Set::ALL {
+            assert_eq!(Set::from_word(set.word()), Some(set));
+            assert_eq!(
+                serde_json::to_value(set).ok(),
+                Some(Value::String(set.word().into()))
+            );
+        }
+        for old in ["important", "large", "live", "twin", ""] {
+            assert_eq!(Set::from_word(old), None, "{old}");
+        }
+        // The priority order is the declaration order.
+        assert!(Set::Benchmark < Set::Featured && Set::Featured < Set::Current);
     }
 
     #[test]
@@ -772,8 +835,8 @@ mod tests {
     #[test]
     fn admissions_are_keyed_by_the_comment_set_and_name_it() {
         let digest = "ab".repeat(32);
-        let a = admission(7, &digest, 42, None);
-        let b = admission(7, &digest, 42, None);
+        let a = admission(7, &digest, 42, Some(Set::Featured), None);
+        let b = admission(7, &digest, 42, Some(Set::Featured), None);
         assert_eq!(a.key, b.key);
         assert_eq!(
             a.request_sha, b.request_sha,
@@ -785,15 +848,41 @@ mod tests {
         assert_eq!(a.config["shadow"]["size_class"], "b 20-99");
         assert_eq!(a.config["shadow"]["twin_of"], Value::Null);
         assert_eq!(a.config["include_moderation"], false);
-        let t = admission(7, &digest, 42, Some("00000000-0000-4000-8000-000000000001"));
+        // The run record names the set it was selected from; the key does not.
+        assert_eq!(a.config["shadow"]["set"], "featured");
+        let c = admission(7, &digest, 42, Some(Set::Current), None);
+        assert_eq!(c.config["shadow"]["set"], "current");
+        assert_eq!(c.key, a.key, "one comment set, one key, whichever set");
+        assert_ne!(c.request_sha, a.request_sha);
+        let t = admission(
+            7,
+            &digest,
+            42,
+            Some(Set::Featured),
+            Some("00000000-0000-4000-8000-000000000001"),
+        );
+        assert_eq!(
+            t.config["shadow"]["set"], "featured",
+            "a twin, its first run's"
+        );
+        assert_eq!(
+            admission(7, &digest, 42, None, Some("j")).config["shadow"]["set"],
+            Value::Null
+        );
         assert_ne!(t.key, a.key);
         assert_ne!(t.request_sha, a.request_sha);
         assert_eq!(
             t.config["shadow"]["twin_of"],
             "00000000-0000-4000-8000-000000000001"
         );
-        assert_ne!(admission(8, &digest, 42, None).key, a.key);
-        assert_ne!(admission(7, &"cd".repeat(32), 42, None).key, a.key);
+        assert_ne!(
+            admission(8, &digest, 42, Some(Set::Featured), None).key,
+            a.key
+        );
+        assert_ne!(
+            admission(7, &"cd".repeat(32), 42, Some(Set::Featured), None).key,
+            a.key
+        );
     }
 
     #[test]

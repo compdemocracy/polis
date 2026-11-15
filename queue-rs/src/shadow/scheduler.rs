@@ -7,19 +7,22 @@
 //! shadow has added to the database, in all and, when a daily limit is set,
 //! today, read once per run:
 //! `storage`); after each run it rests for the duty cycle. It picks from three
-//! sources in priority order: the important-conversations list
-//! (`DELPHI_SHADOW_IMPORTANT`, in its order), the conversations with at least
-//! `DELPHI_SHADOW_LARGE_PARTICIPANTS` participants (most first), both whatever
-//! their recent activity and read once a day (`Roster`), then the live
-//! conversations whose comment set changed. The first two (and twins) spend
-//! the budget less the live reserve (`DELPHI_SHADOW_LIVE_RESERVE_MB`); the
-//! live ones may spend all of it. It writes one `delphi_shadow/1` line per event on standard output:
-//! job ids, counts, seconds, digests and closed words, never a comment or a
-//! conversation id (the run record has those).
+//! named sets in priority order (`plan::Set`): the benchmark set
+//! (`DELPHI_SHADOW_BENCHMARK`, in its order), the featured set (the open-data
+//! conversations, most participants first), both whatever their recent
+//! activity and read once a day (`Roster`), then the current set, the live
+//! conversations whose comment set changed. The benchmark and featured sets
+//! together (and twins) spend the budget less the live reserve
+//! (`DELPHI_SHADOW_LIVE_RESERVE_MB`); the current set may spend all of it. It
+//! writes one `delphi_shadow/1` line per event on standard output: job ids,
+//! counts, seconds, digests and closed words, never a comment, a conversation
+//! code or a conversation id (the run record has the id). Every line about a
+//! run names its set (`"set"`: `benchmark`, `featured` or `current`; a twin,
+//! its first run's), as its run record does (`config_effective.shadow.set`).
 use super::{
     config::{Config, Share},
     db::{Db, Live, Signals},
-    plan::{self, Look, Pause, Source},
+    plan::{self, Look, Pause, Set},
     state::{InFlight, PendingTwin, State, TWIN_RESULTS_KEPT},
     storage::{MEASURE_PER_CYCLE, Pending},
     twin,
@@ -76,9 +79,9 @@ fn sleep(total: Duration) {
     }
 }
 
-/// The two sources read whatever their recent activity, read at the start and
-/// once each UTC day: the important conversations in the list's order, and
-/// the conversations with many participants, most first. Between reads each
+/// The two sets read whatever their recent activity, read at the start and
+/// once each UTC day: the benchmark set in the list's order, and the featured
+/// set (the open-data conversations), most participants first. Between reads each
 /// entry takes this cycle's live read when it has one (`plan::overlay`), so a
 /// change to one of them is seen at the next poll without reading the roster
 /// again.
@@ -86,8 +89,8 @@ fn sleep(total: Duration) {
 pub struct Roster {
     /// The UTC day (days since the epoch) it was read on.
     pub day: i64,
-    pub important: Vec<Live>,
-    pub large: Vec<Live>,
+    pub benchmark: Vec<Live>,
+    pub featured: Vec<Live>,
 }
 
 /// What a waiting twin came to.
@@ -103,7 +106,7 @@ pub struct Scheduler<'a> {
     pub state: State,
     pub paused: Option<Pause>,
     pub rest_until_ms: i64,
-    /// The important and large conversations, once read (`Roster`).
+    /// The benchmark and featured sets, once read (`Roster`).
     pub roster: Option<Roster>,
     /// When a roster read last failed: the next is tried after
     /// `roster_retry`, so a failing read is not repeated every poll.
@@ -138,7 +141,7 @@ impl<'a> Scheduler<'a> {
             json!({"env": self.cfg.env, "min_comments": self.cfg.min_comments,
                    "max_comments": self.cfg.max_comments, "daily_runs": self.cfg.daily_runs,
                    "twin_every": self.cfg.twin_every, "duty_cycle": self.cfg.duty_cycle,
-                   "important": self.cfg.important.len(),
+                   "benchmark": self.cfg.benchmark.len(),
                    "storage_budget_bytes": self.cfg.storage_budget_bytes,
                    "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
                    "storage_daily_bytes": self.cfg.storage_daily_log()}),
@@ -232,7 +235,8 @@ impl<'a> Scheduler<'a> {
                     let l = &self.state.storage;
                     log(
                         "storage",
-                        json!({"job_id": p.job_id, "comments": p.comments, "bytes": m.total(),
+                        json!({"job_id": p.job_id, "comments": p.comments, "set": p.set,
+                               "bytes": m.total(),
                                "measured": m, "storage_bytes": l.bytes,
                                "storage_day_bytes": l.day_bytes,
                                "storage_budget_bytes": self.cfg.storage_budget_bytes,
@@ -244,7 +248,7 @@ impl<'a> Scheduler<'a> {
                 Err(e) => {
                     log(
                         "storage_unread",
-                        json!({"job_id": p.job_id, "error": e.to_string()}),
+                        json!({"job_id": p.job_id, "set": p.set, "error": e.to_string()}),
                     );
                     return;
                 }
@@ -277,8 +281,8 @@ impl<'a> Scheduler<'a> {
     }
 
     /// Read the roster at the start and on a new UTC day. A read that fails
-    /// keeps the roster there is (none at the start: the live conversations
-    /// still run) and is tried again after `roster_retry`.
+    /// keeps the roster there is (none at the start: the current set still
+    /// runs) and is tried again after `roster_retry`.
     fn refresh_roster(&mut self, now: i64) {
         let day = now.div_euclid(86_400_000);
         if self.roster.as_ref().is_some_and(|r| r.day == day) {
@@ -291,21 +295,20 @@ impl<'a> Scheduler<'a> {
         }
         let read = self
             .db
-            .roster(&self.cfg.important, self.cfg.large_participants)
-            .map(|(important, large)| Roster {
+            .roster(&self.cfg.benchmark)
+            .map(|(benchmark, featured)| Roster {
                 day,
-                important,
-                large,
+                benchmark,
+                featured,
             });
         match read {
             Ok(roster) => {
                 // Counts only: never a code or a conversation id.
                 log(
                     "roster",
-                    json!({"important": self.cfg.important.len(),
-                           "important_found": roster.important.len(),
-                           "large_participants": self.cfg.large_participants,
-                           "large": roster.large.len()}),
+                    json!({"benchmark": self.cfg.benchmark.len(),
+                           "benchmark_found": roster.benchmark.len(),
+                           "featured": roster.featured.len()}),
                 );
                 self.roster = Some(roster);
                 self.roster_failed_at_ms = None;
@@ -318,14 +321,15 @@ impl<'a> Scheduler<'a> {
     }
 
     /// Admit the next run, or say why not: `Some` when the storage budget
-    /// holds the next run back. The important conversations are tried first,
-    /// in the list's order, then the large ones, most participants first,
-    /// then the live ones, smallest first. The first candidate whose run does
-    /// not fit the budget holds admission: in the first two that keeps their
-    /// priority (nothing after it goes first); among the live ones, none
-    /// after it is smaller. The first two may spend the budget less the live
-    /// reserve: one that does not fit that alone holds the rest of the first
-    /// two, and the live ones are still tried, against the whole budget.
+    /// holds the next run back. The benchmark set is tried first, in the
+    /// list's order, then the featured set, most participants first, then the
+    /// current set, smallest first. The first candidate whose run does not
+    /// fit the budget holds admission: in the benchmark and featured sets that
+    /// keeps their priority (nothing after it goes first); in the current
+    /// set, none after it is smaller. The benchmark and featured sets may
+    /// spend the budget less the live reserve: one that does not fit that
+    /// alone holds the rest of those two, and the current set is still
+    /// tried, against the whole budget.
     fn pick_and_admit(&mut self, now: i64) -> Result<Option<Pause>> {
         match self.admit_twin(now)? {
             TwinStep::Admitted => return Ok(None),
@@ -336,41 +340,41 @@ impl<'a> Scheduler<'a> {
         let since = now - self.cfg.live_days as i64 * 86_400_000;
         let live = self.db.live(since)?;
         let roster = self.roster.clone().unwrap_or_default();
-        let important = plan::overlay(&roster.important, &live);
-        let large = plan::overlay(&roster.large, &live);
+        let benchmark = plan::overlay(&roster.benchmark, &live);
+        let featured = plan::overlay(&roster.featured, &live);
         let (mut small, mut too_large, mut costly) = (0u64, 0u64, 0u64);
         let mut counted = std::collections::BTreeSet::new();
-        let sourced = important
+        let named = benchmark
             .iter()
-            .map(|l| (l, Source::Important))
-            .chain(large.iter().map(|l| (l, Source::Large)))
-            .chain(live.iter().map(|l| (l, Source::Live)));
-        for (l, source) in sourced {
+            .map(|l| (l, Set::Benchmark))
+            .chain(featured.iter().map(|l| (l, Set::Featured)))
+            .chain(live.iter().map(|l| (l, Set::Current)));
+        for (l, set) in named {
             if !counted.insert(l.zid) {
                 continue;
             }
-            match plan::look(self.cfg, &self.state, l, now, source.share()) {
+            match plan::look(self.cfg, &self.state, l, now, set.share()) {
                 Look::TooSmall => small += 1,
                 Look::TooLarge => too_large += 1,
                 Look::TooCostly => costly += 1,
                 _ => {}
             }
         }
-        let candidates = plan::candidates(self.cfg, &self.state, &important, &large, &live, now);
-        // Set once a run of the first two would pass the budget less the
-        // live reserve: the rest of the first two wait, the live ones go on.
-        // When even the smallest run there can be would, none of their
-        // comment sets is read.
+        let candidates = plan::candidates(self.cfg, &self.state, &benchmark, &featured, &live, now);
+        // Set once a run of the benchmark or featured set would pass the
+        // budget less the live reserve: the rest of those two wait, the
+        // current set goes on. When even the smallest run there can be would,
+        // none of their comment sets is read.
         let mut reserve_held = plan::storage_room(
             self.cfg,
             &self.state.storage,
             self.cfg.min_comments,
             Share::Shared,
         ) == Some(Pause::StorageReserve);
-        // A candidate of the first two was passed over for the reserve.
+        // A benchmark or featured candidate was passed over for the reserve.
         let mut reserve_waiting = false;
-        for (candidate, source) in candidates {
-            let share = source.share();
+        for (candidate, set_name) in candidates {
+            let share = set_name.share();
             if reserve_held && share == Share::Shared {
                 reserve_waiting = true;
                 continue;
@@ -387,7 +391,7 @@ impl<'a> Scheduler<'a> {
                 self.state.totals.unchanged += 1;
                 log(
                     "unchanged",
-                    json!({"comments": set.comments, "selected": source.word(),
+                    json!({"comments": set.comments, "set": set_name.word(),
                     "size_class": plan::size_class(set.comments), "digest": set.digest}),
                 );
                 continue;
@@ -403,22 +407,29 @@ impl<'a> Scheduler<'a> {
                 Some(reason) => return Ok(Some(reason)),
                 None => {}
             }
-            let request = plan::admission(candidate.zid, &set.digest, set.comments, None);
-            self.admit(request, set.comments, None, Some(source), now)?;
+            let request = plan::admission(
+                candidate.zid,
+                &set.digest,
+                set.comments,
+                Some(set_name),
+                None,
+            );
+            self.admit(request, set.comments, None, Some(set_name), now)?;
             return Ok(None);
         }
         self.state.totals.too_small = small;
         self.state.totals.too_large = too_large;
         self.state.totals.too_costly = costly;
         if reserve_waiting {
-            // Nothing live to run: the first two wait on the live reserve.
+            // Nothing current to run: the benchmark and featured sets wait on
+            // the live reserve.
             return Ok(Some(Pause::StorageReserve));
         }
         // Counts only: never a code or a conversation id.
         log(
             "idle",
-            json!({"live": live.len(), "important": self.cfg.important.len(),
-                   "important_found": important.len(), "large": large.len(),
+            json!({"benchmark": self.cfg.benchmark.len(), "benchmark_found": benchmark.len(),
+                   "featured": featured.len(), "current": live.len(),
                    "too_small": small, "too_large": too_large, "too_costly": costly}),
         );
         Ok(None)
@@ -429,7 +440,7 @@ impl<'a> Scheduler<'a> {
         request: super::db::Admission,
         comments: i64,
         twin_of: Option<String>,
-        source: Option<plan::Source>,
+        set: Option<Set>,
         now: i64,
     ) -> Result<()> {
         self.resume();
@@ -441,7 +452,8 @@ impl<'a> Scheduler<'a> {
         let Some((outcome, job_id)) = plan::admitted_job(&reply) else {
             log(
                 "refused",
-                json!({"outcome": reply.get("outcome"), "comments": comments}),
+                json!({"outcome": reply.get("outcome"), "comments": comments,
+                       "set": set, "twin_of": twin_of}),
             );
             // Do not try the same set again until its comments change.
             let seen = self.state.conversations.entry(request.zid).or_default();
@@ -462,10 +474,11 @@ impl<'a> Scheduler<'a> {
             self.state.totals.twins_admitted += 1;
         } else {
             self.state.totals.admitted += 1;
-            match source {
-                Some(plan::Source::Important) => self.state.totals.important_admitted += 1,
-                Some(plan::Source::Large) => self.state.totals.large_admitted += 1,
-                _ => {}
+            match set {
+                Some(Set::Benchmark) => self.state.totals.benchmark_admitted += 1,
+                Some(Set::Featured) => self.state.totals.featured_admitted += 1,
+                Some(Set::Current) => self.state.totals.current_admitted += 1,
+                None => {}
             }
         }
         self.state.day_runs += 1;
@@ -473,7 +486,7 @@ impl<'a> Scheduler<'a> {
             "admitted",
             json!({"job_id": job_id, "outcome": outcome, "comments": comments,
                    "size_class": plan::size_class(comments), "digest": digest, "twin_of": twin_of,
-                   "selected": source.map_or("twin", plan::Source::word)}),
+                   "set": set}),
         );
         self.state.in_flight = Some(InFlight {
             zid: request.zid,
@@ -482,6 +495,7 @@ impl<'a> Scheduler<'a> {
             comments,
             admitted_at_ms: now,
             twin_of,
+            set,
         });
         Ok(())
     }
@@ -516,7 +530,7 @@ impl<'a> Scheduler<'a> {
                    "seconds_since_admission": run_ms as f64 / 1000.0,
                    "attempt": attempt, "families": families,
                    "census_digest_matches": census.map(|c| c == flight.digest),
-                   "twin_of": flight.twin_of}),
+                   "twin_of": flight.twin_of, "set": flight.set}),
         );
         if let Some(seen) = self.state.conversations.get_mut(&flight.zid) {
             seen.outcome = Some(outcome.clone());
@@ -534,6 +548,7 @@ impl<'a> Scheduler<'a> {
             job_id: flight.job_id.clone(),
             zid: flight.zid,
             comments: flight.comments,
+            set: flight.set,
         });
         self.state.in_flight = None;
         self.after_run(&flight, &outcome, record.as_ref())?;
@@ -558,7 +573,8 @@ impl<'a> Scheduler<'a> {
         if set.digest != pending.digest {
             log(
                 "twin_dropped",
-                json!({"first_job_id": pending.first_job_id, "reason": "comment_set_changed"}),
+                json!({"first_job_id": pending.first_job_id, "reason": "comment_set_changed",
+                       "set": pending.set}),
             );
             self.state.pending_twin = None;
             return Ok(TwinStep::Nothing);
@@ -569,15 +585,16 @@ impl<'a> Scheduler<'a> {
         if !same_build(self.cfg, first.as_ref()) {
             log(
                 "twin_dropped",
-                json!({"first_job_id": pending.first_job_id, "reason": "code_version_changed"}),
+                json!({"first_job_id": pending.first_job_id, "reason": "code_version_changed",
+                       "set": pending.set}),
             );
             self.state.pending_twin = None;
             return Ok(TwinStep::Nothing);
         }
         // The twin waits, kept, while the budget holds it back. A twin repeats
         // a run to measure it, so it spends what the first two do, never the
-        // live reserve: held by the reserve alone, it waits while the live
-        // conversations go on.
+        // live reserve: held by the reserve alone, it waits while the current
+        // set goes on.
         match plan::storage_room(self.cfg, &self.state.storage, set.comments, Share::Shared) {
             Some(Pause::StorageReserve) => return Ok(TwinStep::Nothing),
             Some(reason) => return Ok(TwinStep::Held(reason)),
@@ -587,13 +604,14 @@ impl<'a> Scheduler<'a> {
             pending.zid,
             &set.digest,
             set.comments,
+            pending.set,
             Some(&pending.first_job_id),
         );
         self.admit(
             request,
             set.comments,
             Some(pending.first_job_id.clone()),
-            None,
+            pending.set,
             now,
         )?;
         match self.state.in_flight.as_ref() {
@@ -628,6 +646,7 @@ impl<'a> Scheduler<'a> {
                         comments: flight.comments,
                         assignments,
                         twin_job_id: None,
+                        set: flight.set,
                     });
                 }
             }
@@ -640,7 +659,8 @@ impl<'a> Scheduler<'a> {
                 if outcome != "succeeded" {
                     log(
                         "twin_failed",
-                        json!({"first_job_id": first, "twin_job_id": flight.job_id, "state": outcome}),
+                        json!({"first_job_id": first, "twin_job_id": flight.job_id, "state": outcome,
+                               "set": flight.set}),
                     );
                     return Ok(());
                 }
@@ -654,7 +674,7 @@ impl<'a> Scheduler<'a> {
                     log(
                         "twin_dropped",
                         json!({"first_job_id": first, "twin_job_id": flight.job_id,
-                               "reason": "code_version_changed"}),
+                               "reason": "code_version_changed", "set": flight.set}),
                     );
                     return Ok(());
                 }
@@ -671,7 +691,7 @@ impl<'a> Scheduler<'a> {
                 }
                 let line = json!({"first_job_id": first, "twin_job_id": flight.job_id,
                     "comments": flight.comments, "size_class": plan::size_class(flight.comments),
-                    "digest": flight.digest, "comparison": comparison});
+                    "digest": flight.digest, "set": flight.set, "comparison": comparison});
                 log("twin", line.clone());
                 self.state.twin_results.push(line);
                 let excess = self

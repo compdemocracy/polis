@@ -6,9 +6,9 @@
 //! `DELPHI_SHADOW_STORAGE_BUDGET_MB` in all (3 GiB by default), or, when
 //! `DELPHI_SHADOW_STORAGE_DAILY_MB` is set above 0, that many in one UTC day
 //! (by default there is no daily limit). Of the budget,
-//! `DELPHI_SHADOW_LIVE_RESERVE_MB` (1 GiB by default) is kept for the live
-//! conversations: the important list, the large conversations and twins stop
-//! at the budget less it, live runs at the whole budget.
+//! `DELPHI_SHADOW_LIVE_RESERVE_MB` (1 GiB by default) is kept for the current
+//! set (the live conversations): the benchmark and featured sets together, and
+//! twins, stop at the budget less it; current runs at the whole budget.
 //!
 //! How the bytes are read, cheaply: never by scanning a table. Each run's
 //! bytes are read from the database once, after the run is terminal, by one
@@ -234,6 +234,10 @@ pub struct Pending {
     pub zid: i32,
     /// The comments its admission named (`config_effective.shadow.comments`).
     pub comments: i64,
+    /// The named set its admission named (`config_effective.shadow.set`;
+    /// `None` for a run admitted before runs named it), for the log.
+    #[serde(default)]
+    pub set: Option<crate::shadow::plan::Set>,
 }
 
 /// Every job of every shadow env, oldest first: read once, by a scheduler that
@@ -243,7 +247,8 @@ pub struct Pending {
 pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
     tx.query(
         "SELECT env, job_id::text, zid, \
-                coalesce((config_effective #>> '{shadow,comments}')::bigint, 0) \
+                coalesce((config_effective #>> '{shadow,comments}')::bigint, 0), \
+                config_effective #>> '{shadow,set}' \
          FROM public.delphi_jobs WHERE left(env, 7) = 'shadow-' ORDER BY created_at, job_id",
         &[],
     )?
@@ -254,6 +259,10 @@ pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
             job_id: r.try_get(1)?,
             zid: r.try_get(2)?,
             comments: r.try_get(3)?,
+            set: r
+                .try_get::<_, Option<String>>(4)?
+                .as_deref()
+                .and_then(crate::shadow::plan::Set::from_word),
         })
     })
     .collect()

@@ -1,7 +1,10 @@
 //! `polis-delphi-shadow`: the scheduler of the free-only Delphi shadow.
 //!
-//! It admits, one at a time, full-pipeline runs of live conversations whose
-//! comment set changed since their last shadow run, under a result env no
+//! It admits, one at a time, full-pipeline runs of conversations whose comment
+//! set changed since their last shadow run, from three named sets in priority
+//! order (`plan::Set`): the benchmark set (a configured list), the featured set
+//! (the open-data conversations) and the current set (the live ones), under a
+//! result env no
 //! reader serves (`shadow-delphi-1` by default; any env not starting with
 //! `shadow-` is refused). A `polis-jobs` daemon claiming that env runs them.
 //! It is paced like the math backfill: it pauses while the database is slow,

@@ -15,8 +15,21 @@ pub const ENV_PREFIX: &str = "shadow-";
 pub const SCOPE: &str = "delphi";
 /// The admission's actor.
 pub const ACTOR: &str = "delphi-shadow";
-/// The most conversation codes `DELPHI_SHADOW_IMPORTANT` may list.
-pub const IMPORTANT_MAX: usize = 10_000;
+/// The most conversation codes `DELPHI_SHADOW_BENCHMARK` may list.
+pub const BENCHMARK_MAX: usize = 10_000;
+/// Settings an earlier build of this scheduler read, refused when set so a
+/// stale line is never silently ignored: the benchmark list's old name, and
+/// the participant-count source, which is removed.
+pub const RETIRED: [(&str, &str); 2] = [
+    (
+        "DELPHI_SHADOW_IMPORTANT",
+        "DELPHI_SHADOW_IMPORTANT is retired: the list is DELPHI_SHADOW_BENCHMARK",
+    ),
+    (
+        "DELPHI_SHADOW_LARGE_PARTICIPANTS",
+        "DELPHI_SHADOW_LARGE_PARTICIPANTS is retired: no conversation is selected by its participant count",
+    ),
+];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -45,20 +58,16 @@ pub struct Config {
     /// Every Nth first run on a comment set is repeated once on the same set;
     /// 0 is off.
     pub twin_every: u32,
-    /// Conversation codes (`zinvites.zinvite`, the code in a conversation's
-    /// URL) read whatever their recent activity, before the live ones, highest
-    /// priority first (`DELPHI_SHADOW_IMPORTANT`, in the order it lists them;
-    /// empty by default). Each is still held to the comment bounds, the rerun
-    /// window, the pacing and the storage budget.
-    pub important: Vec<String>,
-    /// Every conversation with at least this many participants
-    /// (`conversations.participant_count`) is read too, after the important
-    /// ones and before the live ones, most participants first, whatever its
-    /// recent activity (`DELPHI_SHADOW_LARGE_PARTICIPANTS`, 200 by default; 0
-    /// turns this source off).
-    pub large_participants: i32,
-    /// How often the roster of those two sources is read again at most after
-    /// a read that failed.
+    /// The benchmark set: conversation codes (`zinvites.zinvite`, the code in
+    /// a conversation's URL) read whatever their recent activity, before the
+    /// featured and current sets, highest priority first
+    /// (`DELPHI_SHADOW_BENCHMARK`, in the order it lists them; empty by
+    /// default). Each is still held to the comment bounds, the rerun window,
+    /// the pacing and the storage budget. (The featured set, the open-data
+    /// conversations, and the current set, the live ones, need no setting.)
+    pub benchmark: Vec<String>,
+    /// How often the roster (the benchmark and featured sets, read once a UTC
+    /// day) is read again at most after a read that failed.
     pub roster_retry: Duration,
     /// The share of wall time spent running: after a run of length d the
     /// scheduler rests d·(1−duty)/duty before the next admission.
@@ -81,11 +90,11 @@ pub struct Config {
     /// (`DELPHI_SHADOW_STORAGE_DAILY_MB`). `None`, the default (the setting
     /// unset, empty or 0), is no daily limit: only the total holds.
     pub storage_daily_bytes: Option<u64>,
-    /// Of the budget, this many bytes are kept for the live conversations
-    /// (`DELPHI_SHADOW_LIVE_RESERVE_MB`, 1 GiB by default; 0 keeps none): the
-    /// important list, the large conversations and twin runs stop once the
-    /// shadow's bytes would pass the budget less this; live runs may spend
-    /// the whole budget.
+    /// Of the budget, this many bytes are kept for the current set, the live
+    /// conversations (`DELPHI_SHADOW_LIVE_RESERVE_MB`, 1 GiB by default; 0
+    /// keeps none): the benchmark and featured sets together, and twin runs,
+    /// stop once the shadow's bytes would pass the budget less this; current
+    /// runs may spend the whole budget.
     pub storage_live_reserve_bytes: u64,
     /// While this file exists, nothing is admitted (the operator's pause).
     pub pause_file: PathBuf,
@@ -96,10 +105,10 @@ pub struct Config {
 /// The part of the storage budget a run may spend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Share {
-    /// The whole budget: a live conversation's run.
+    /// The whole budget: a run of the current set (a live conversation).
     Whole,
-    /// The budget less the live reserve: a run of the important list, of the
-    /// large conversations, or a twin.
+    /// The budget less the live reserve: a run of the benchmark or the
+    /// featured set, or a twin.
     Shared,
 }
 
@@ -189,11 +198,11 @@ pub fn valid_code(code: &str) -> bool {
     (1..=64).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_alphanumeric())
 }
 
-/// `DELPHI_SHADOW_IMPORTANT`: codes separated by commas or white space, highest
+/// `DELPHI_SHADOW_BENCHMARK`: codes separated by commas or white space, highest
 /// priority first. A repeated code keeps its first place. An entry that is not
 /// a code is refused by its position, never its text: the list is the
 /// operator's, and the log carries no conversation's name.
-pub fn important_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
+pub fn benchmark_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
     let mut out: Vec<String> = Vec::new();
     let entries = raw
         .split(|c: char| c == ',' || c.is_whitespace())
@@ -201,7 +210,7 @@ pub fn important_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
     for (i, entry) in entries.enumerate() {
         if !valid_code(entry) {
             return err(format!(
-                "DELPHI_SHADOW_IMPORTANT entry {} is not a conversation code (1-64 letters and digits)",
+                "DELPHI_SHADOW_BENCHMARK entry {} is not a conversation code (1-64 letters and digits)",
                 i + 1
             ));
         }
@@ -209,9 +218,9 @@ pub fn important_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
             out.push(entry.to_owned());
         }
     }
-    if out.len() > IMPORTANT_MAX {
+    if out.len() > BENCHMARK_MAX {
         return err(format!(
-            "DELPHI_SHADOW_IMPORTANT lists more than {IMPORTANT_MAX} conversations"
+            "DELPHI_SHADOW_BENCHMARK lists more than {BENCHMARK_MAX} conversations"
         ));
     }
     Ok(out)
@@ -311,7 +320,12 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             "DELPHI_SHADOW_LIVE_RESERVE_MB must not exceed DELPHI_SHADOW_STORAGE_BUDGET_MB",
         );
     }
-    let important = important_codes(&get("DELPHI_SHADOW_IMPORTANT").unwrap_or_default())?;
+    for (key, why) in RETIRED {
+        if get(key).is_some_and(|v| !v.trim().is_empty()) {
+            return err(why);
+        }
+    }
+    let benchmark = benchmark_codes(&get("DELPHI_SHADOW_BENCHMARK").unwrap_or_default())?;
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
     Ok(Load::Ready(Box::new(Config {
         queue_dsn,
@@ -344,9 +358,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             7 * 86400,
         )?),
         twin_every: number(&get, "DELPHI_SHADOW_TWIN_EVERY", 0, 0, 1_000_000)? as u32,
-        important,
-        large_participants: number(&get, "DELPHI_SHADOW_LARGE_PARTICIPANTS", 200, 0, 1 << 30)?
-            as i32,
+        benchmark,
         roster_retry: Duration::from_secs(number(
             &get,
             "DELPHI_SHADOW_ROSTER_RETRY_SECONDS",
@@ -468,32 +480,23 @@ mod tests {
         assert_eq!(c.storage_limit_bytes(Share::Whole), 3072 << 20);
         assert_eq!(c.storage_limit_bytes(Share::Shared), 2048 << 20);
         assert!(
-            c.important.is_empty(),
-            "no conversation is important unless listed"
-        );
-        assert_eq!(
-            c.large_participants, 200,
-            "every conversation of 200 participants or more"
+            c.benchmark.is_empty(),
+            "no conversation is a benchmark unless listed"
         );
         assert_eq!(c.roster_retry, Duration::from_secs(3600));
-        assert_eq!(
-            ready(&[("DELPHI_SHADOW_LARGE_PARTICIPANTS", Some("0"))]).large_participants,
-            0
-        );
-        assert!(with(&[("DELPHI_SHADOW_LARGE_PARTICIPANTS", Some("-1"))]).is_err());
         assert_eq!(c.pause_file, PathBuf::from("/var/lib/delphi-shadow/pause"));
     }
 
     #[test]
-    fn the_important_list_keeps_its_order_and_refuses_what_is_not_a_code() {
+    fn the_benchmark_list_keeps_its_order_and_refuses_what_is_not_a_code() {
         let c = ready(&[(
-            "DELPHI_SHADOW_IMPORTANT",
+            "DELPHI_SHADOW_BENCHMARK",
             Some(" 3abcd2efgh, 2xyz\n9Mixed7 ,,2xyz 3abcd2efgh\t4last "),
         )]);
-        assert_eq!(c.important, ["3abcd2efgh", "2xyz", "9Mixed7", "4last"]);
+        assert_eq!(c.benchmark, ["3abcd2efgh", "2xyz", "9Mixed7", "4last"]);
         assert!(
-            ready(&[("DELPHI_SHADOW_IMPORTANT", Some(" , "))])
-                .important
+            ready(&[("DELPHI_SHADOW_BENCHMARK", Some(" , "))])
+                .benchmark
                 .is_empty()
         );
         for bad in [
@@ -502,29 +505,55 @@ mod tests {
             "2ab-c",
             &"a".repeat(65),
         ] {
-            let Err(e) = with(&[("DELPHI_SHADOW_IMPORTANT", Some(bad))]) else {
+            let Err(e) = with(&[("DELPHI_SHADOW_BENCHMARK", Some(bad))]) else {
                 panic!("{bad} was accepted");
             };
-            assert!(e.0.contains("DELPHI_SHADOW_IMPORTANT entry"), "{bad}: {e}");
+            assert!(e.0.contains("DELPHI_SHADOW_BENCHMARK entry"), "{bad}: {e}");
             assert!(
                 !e.0.contains("pol.is") && !e.0.contains("2ab"),
                 "never the entry's text: {e}"
             );
         }
-        let Err(e) = with(&[("DELPHI_SHADOW_IMPORTANT", Some("2abc,3def;"))]) else {
+        let Err(e) = with(&[("DELPHI_SHADOW_BENCHMARK", Some("2abc,3def;"))]) else {
             panic!("a list with a bad second entry was accepted");
         };
         assert!(e.0.contains("entry 2"), "{e}");
-        let many: Vec<String> = (0..=IMPORTANT_MAX).map(|i| format!("c{i}")).collect();
-        assert!(with(&[("DELPHI_SHADOW_IMPORTANT", Some(&many.join(",")))]).is_err());
+        let many: Vec<String> = (0..=BENCHMARK_MAX).map(|i| format!("c{i}")).collect();
+        assert!(with(&[("DELPHI_SHADOW_BENCHMARK", Some(&many.join(",")))]).is_err());
         assert_eq!(
             ready(&[(
-                "DELPHI_SHADOW_IMPORTANT",
-                Some(&many[..IMPORTANT_MAX].join(","))
+                "DELPHI_SHADOW_BENCHMARK",
+                Some(&many[..BENCHMARK_MAX].join(","))
             )])
-            .important
+            .benchmark
             .len(),
-            IMPORTANT_MAX
+            BENCHMARK_MAX
+        );
+    }
+
+    #[test]
+    fn the_retired_settings_refuse_to_start_when_set_naming_no_value() {
+        // Unset or empty, they are as if absent.
+        for key in [
+            "DELPHI_SHADOW_IMPORTANT",
+            "DELPHI_SHADOW_LARGE_PARTICIPANTS",
+        ] {
+            assert!(matches!(with(&[(key, Some(""))]), Ok(Load::Ready(_))));
+            assert!(matches!(with(&[(key, Some("  "))]), Ok(Load::Ready(_))));
+        }
+        let Err(e) = with(&[("DELPHI_SHADOW_IMPORTANT", Some("2abc"))]) else {
+            panic!("the old name of the benchmark list was accepted");
+        };
+        assert!(e.0.contains("DELPHI_SHADOW_BENCHMARK"), "{e}");
+        assert!(!e.0.contains("2abc"), "never the value: {e}");
+        let Err(e) = with(&[("DELPHI_SHADOW_LARGE_PARTICIPANTS", Some("200"))]) else {
+            panic!("the participant-count source's setting was accepted");
+        };
+        assert!(e.0.contains("retired"), "{e}");
+        // The new name alone is the list.
+        assert_eq!(
+            ready(&[("DELPHI_SHADOW_BENCHMARK", Some("2abc"))]).benchmark,
+            ["2abc"]
         );
     }
 
