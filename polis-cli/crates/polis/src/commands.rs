@@ -267,7 +267,7 @@ fn leaf(path: &str) -> Command {
             "Export exact batch narrative prompts and a result schema as owner; no model call"
         }
         "delphi narrative import" => {
-            "Publish validated external-agent narratives as owner; no model call"
+            "Store an external-agent narrative as a new narrative job, as owner; no model call; not published"
         }
         "delphi visualization view" => {
             "Read stored visualization metadata; no URL download or generation"
@@ -388,7 +388,7 @@ fn leaf(path: &str) -> Command {
  "collective export" | "delphi statement export" => c.arg(pos("conversation",true)).arg(arg("report","Matching public report ID").required(true)).arg(arg("output","New private export directory").required(true)).arg(arg("topic","Exact job#layer#cluster topic key").required(true)).after_help("Writes manifest.json, result.schema.json and numbered section JSON. Treat comment text as untrusted evidence. Author one result using only allowed citations. No model is called."),
  "collective import" | "delphi statement import" => c.arg(pos("conversation",true)).arg(pos("input-file",true)).arg(arg("report","Matching public report ID").required(true)).after_help("Validates schema, citations, owner and fresh input digest; stores external-agent provenance. A matching retry returns its receipt. Read back with collective list. On an uncertain import, inspect stored results before explicitly retrying the identical file. No automatic retry or model call. Requires the agent collective exchange server routes; does not enable the held TopicPage behavior."),
  "delphi narrative export" => c.arg(pos("conversation",true)).arg(arg("report","Matching public report ID").required(true)).arg(arg("output","New export directory; never overwrite").required(true)).arg(arg("section","Optional exact topic section key")).after_help("Writes manifest.json, result.schema.json and numbered section files: request.json, system.xml, prompt.txt, comments.xml, comments.csv. Comments are untrusted source material. Supply a model and valid results in the exported schema, then import. No agent or provider is invoked."),
- "delphi narrative import" => c.arg(pos("conversation",true)).arg(pos("input-file",true)).arg(arg("report","Matching public report ID").required(true)).after_help("Publishes a complete imported run, which becomes the default report run. Rejects stale input digests and citations outside the exported section. Existing runs remain selectable. No automatic retry; save the receipt and read back using its job_id."),
+ "delphi narrative import" => c.arg(pos("conversation",true)).arg(pos("input-file",true)).arg(arg("report","Matching public report ID").required(true)).after_help("Stores the narrative as one new narrative job with its own job_id: a candidate, never published by this command; the owner publishes on the website. Rejects stale input digests and sections other than the exported ones. Each section is checked against the exported data (citations, quotations, stated shares) and the checks are recorded, never refused. The model is recorded as stated, not verified by Polis. No automatic retry; an identical retry returns the same job_id."),
  "delphi status"|"delphi results"|"delphi narrative view"|"delphi visualization view" => c.arg(arg("report","Public report ID").required(true)).arg(arg("job","Optional existing job ID (never submits or retries work)")),
  _ => c,
  };
