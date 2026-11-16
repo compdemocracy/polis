@@ -956,6 +956,7 @@ dependencies = [
  "openssl",
  "polis-auth",
  "polis-queue-adapter",
+ "polis-topic-map",
  "postgres",
  "rand",
  "ryu-js",

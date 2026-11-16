@@ -1305,6 +1305,53 @@ A stored `{"NULL":true}` layer slot is absent from that comment's assignments;
 it is never converted to a cluster id. The explicit unassigned-cluster value
 still uses the contract's `Cluster::Unassigned` encoding.
 
+### Report topic map (off by default)
+
+`GET` and `HEAD /api/v3/delphi/topicMap?report_id=…[&job_id=…]` answer the
+document `polis-topic-map/1` that the generator crate
+[`polis-topic-map`](../polis-topic-map/README.md) writes, for the run the
+report's conversation serves (`delphi_result_publications` at
+`DELPHI_RESULT_SCOPE`) or for the named run when it is that conversation's.
+A Rust-only route: Node has no handler for this path, so a hand-back becomes
+its 404. Its contract is `polis-contracts/src/delphi_topic_map.rs`.
+
+It is as public as the report's other Delphi reads (`/api/v3/delphi`,
+`/delphi/reports`, `/delphi/visualizations`, which Node registers without
+sign-in) and refuses as they do: no `report_id` is 400; a report that does not
+exist or has no conversation is 404 `Could not find conversation for
+report_id`; a `job_id` that is not a canonical job id, names no run, or names
+another conversation's run is 404 `Job not found`. A report with nothing to
+draw is 200 `{"status":"success",…,"reason":…}` with one of `no_run`,
+`run_not_ready`, `no_positions`, `no_topics` or `too_few_comments` (the first
+view has no area: always so for one or two comments). A run over the bounds is
+422 `polis_err_topic_map_too_large`, never a truncated map.
+
+The map is computed when first asked, from three families the run already
+stores (`Delphi_UMAPGraph` node rows, `Delphi_CommentHierarchicalClusterAssignments`,
+`Delphi_CommentClustersLLMTopicNames`), each read where its batch lives with
+`pd_run_record` and `pd_result_artifact_wire`, never through the publication
+pointer, and kept in memory by job id (32 MiB and 256 runs at most): a run's
+families never change. The document carries no comment text (`points.text` is
+empty; the page fills it from the comments it holds) and an empty `title` and
+`attribution`, so it depends only on the run. The same run answers the same
+bytes, with the weak ETag every Express answer has. Bounds: 20,000 comments,
+200,000 position rows, 20,000 topic rows, 16 layers, 32 MiB per stored family
+(checked in the statement), an 8 MiB run record and an 8 MiB document.
+
+Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
+(with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
+`RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
+`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and is
+a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout and
+a 2 s statement timeout; the whole request is bounded at 4 s. Every read
+returns its connection before the map is computed; the computation runs on a
+blocking thread, one at a time in the process, and waiting for it holds neither
+a thread nor a connection. Nothing is shared with votes, comments or the next
+comment; the isolation test is
+`connection_bounds_topic_map_flood_leaves_participation_clear`.
+`delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap`
+(computations, the most at once, cache entries and bytes) are on `/health`.
+
 ### Statement importance (off by default)
 
 `GET /api/v3/statements/importance?conversation_id=…` returns

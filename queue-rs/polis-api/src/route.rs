@@ -221,6 +221,12 @@ pub struct App {
     pub delphi_result_env: String,
     pub delphi_result_served: AtomicU64,
     pub delphi_result_fallback: AtomicU64,
+    pub delphi_topic_map_db: Option<Arc<Pool>>,
+    pub delphi_topic_map_env: String,
+    pub delphi_topic_map_scope: Option<String>,
+    pub delphi_topic_map_served: AtomicU64,
+    pub delphi_topic_map_fallback: AtomicU64,
+    pub delphi_topic_map: crate::delphi_topic_map::State,
     pub collective_statement_db: Option<Arc<Pool>>,
     pub collective_statement_served: AtomicU64,
     pub collective_statement_fallback: AtomicU64,
@@ -484,6 +490,12 @@ impl App {
             delphi_result_env: String::new(),
             delphi_result_served: AtomicU64::new(0),
             delphi_result_fallback: AtomicU64::new(0),
+            delphi_topic_map_db: None,
+            delphi_topic_map_env: String::new(),
+            delphi_topic_map_scope: None,
+            delphi_topic_map_served: AtomicU64::new(0),
+            delphi_topic_map_fallback: AtomicU64::new(0),
+            delphi_topic_map: crate::delphi_topic_map::State::default(),
             collective_statement_db: None,
             collective_statement_served: AtomicU64::new(0),
             collective_statement_fallback: AtomicU64::new(0),
@@ -1555,6 +1567,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.delphi_result_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::delphi_topic_map::PATH {
+        if out.status == 502 {
+            app.delphi_topic_map_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_topic_map_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::collective_statement::PATH {
         if out.status == 502 {
             app.collective_statement_fallback
@@ -1974,6 +1994,11 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::delphi_topic_map::PATH
+        && crate::delphi_topic_map::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::collective_statement::PATH
         && crate::collective_statement::parse(app, req).is_none()
     {
@@ -2166,6 +2191,9 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::delphi_result_read::matches(req.path()) {
         return crate::delphi_result_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::delphi_topic_map::PATH {
+        return crate::delphi_topic_map::handle(app, req, res).await;
     }
     if req.path() == crate::collective_statement::PATH {
         return crate::collective_statement::handle(app, req, res).await;

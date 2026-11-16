@@ -312,10 +312,23 @@ fn envelope(run: DelphiRun, assignments: Option<Assignments>) -> Option<DelphiJo
 // cross the wire. Reject non-integral numbers, wrong tags, conflicting ids,
 // duplicate comments and noncanonical layer keys instead of coercing them.
 fn decode_assignments(text: &str, zid: i32, count: u64) -> Result<Assignments, Invalid> {
-    let fail = || Invalid("invalid stored assignments".into());
     let rows: Vec<BTreeMap<String, serde_json::Value>> =
-        serde_json::from_str(text).map_err(|_| fail())?;
-    if rows.len() as u64 != count || count > MAX_ROWS {
+        serde_json::from_str(text).map_err(|_| Invalid("invalid stored assignments".into()))?;
+    if count > MAX_ROWS {
+        return Err(Invalid("invalid stored assignments".into()));
+    }
+    assignment_rows(rows, zid, count)
+}
+
+/// The stored assignment rows of one batch, decoded by the rules above. The
+/// report topic map reads the same family through this function.
+pub(crate) fn assignment_rows(
+    rows: Vec<BTreeMap<String, serde_json::Value>>,
+    zid: i32,
+    count: u64,
+) -> Result<Assignments, Invalid> {
+    let fail = || Invalid("invalid stored assignments".into());
+    if rows.len() as u64 != count {
         return Err(fail());
     }
     let tagged = |value: &serde_json::Value, tag: &str| -> Result<String, Invalid> {

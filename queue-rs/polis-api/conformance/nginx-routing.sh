@@ -1161,6 +1161,45 @@ docker rm -f "$p-node" >/dev/null
 stub "$p-node" server 5000 200 node
 echo "ok 60 Typed result off/on/deduplicated; method/body guards; 502 hands back to Node, whose 404 answers (no Node handler)"
 
+# The report topic map has its own default-off selector. Unselected, nothing
+# of it is rendered beside the other Delphi reads; selected, its location is
+# its template, to the byte, and its neighbours are not touched.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 200 rust
+start ""
+expect /api/v3/delphi/topicMap node "Topic map off"
+start delphiRead,delphiReports,delphiVisualizations,delphiResult
+expect /api/v3/delphi/topicMap node "Topic map unselected beside the other Delphi reads"
+! included | grep -q 'delphi/topicMap' || fail "topic map: rendered without its selector"
+start delphiTopicMap,delphiTopicMap
+expect '/api/v3/delphi/topicMap?report_id=r1' rust "Topic map on"
+[[ $(included | grep -c 'location = /api/v3/delphi/topicMap {') == 1 ]] || fail "Topic map duplicated"
+topicmap=$(docker exec "$p-proxy" sed -n '/^location = \/api\/v3\/delphi\/topicMap {$/,/^}$/p' /etc/nginx/rust-api-templates/delphiTopicMap.location.conf.template)
+[[ -n $topicmap && $(included | sed -n '/^location = \/api\/v3\/delphi\/topicMap {$/,/^}$/p') == "$topicmap" ]] || fail "topic map: rendered location differs from its template"
+expect /api/v3/delphi node "Topic map leaves the Delphi topics route alone"
+expect /api/v3/delphi/reports node "Topic map leaves narrative reports alone"
+expect /api/v3/delphi/visualizations node "Topic map leaves visualizations alone"
+expect /api/v3/delphi/topicMapx node "Topic map path is exact"
+expect /api/v3/comments node "Topic map leaves comments alone"
+expect /api/v3/votes node "Topic map leaves voting alone"
+expect /api/v3/nextComment node "Topic map leaves the next comment alone"
+expect_upstream polis-api GET '/api/v3/delphi/topicMap?report_id=r1'
+expect_upstream polis-api HEAD /api/v3/delphi/topicMap
+expect_upstream server OPTIONS /api/v3/delphi/topicMap
+expect_upstream server POST /api/v3/delphi/topicMap $'Content-Length: 2\r\n' '{}'
+expect_upstream server GET /api/v3/delphi/topicMap $'Content-Length: 2\r\n' '{}'
+# Node has no handler for this path, so a hand-back reaches Node's 404.
+docker rm -f "$p-rust" "$p-node" >/dev/null
+stub "$p-node" server 5000 404 "Cannot GET /api/v3/delphi/topicMap"
+stub "$p-rust" polis-api 5100 502 "handoff"
+sleep 6
+expect_upstream server GET '/api/v3/delphi/topicMap?report_id=r1'
+handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/topicMap?report_id=r1' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
+[[ $handback == "HTTP/1.1 404" ]] || fail "Topic map handoff answered '$handback', expected Node's 404"
+docker rm -f "$p-node" >/dev/null
+stub "$p-node" server 5000 200 node
+echo "ok report topic map: off, unselected beside the Delphi reads, on/deduplicated, its template to the byte, methods/body, 502 hands back to Node's 404"
+
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust
 start ""

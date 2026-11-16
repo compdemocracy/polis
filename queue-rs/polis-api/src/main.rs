@@ -41,6 +41,7 @@ mod delphi_read;
 mod delphi_reports;
 mod delphi_result_read;
 mod delphi_run_read;
+mod delphi_topic_map;
 mod delphi_topics;
 mod delphi_visualizations;
 mod domain_whitelist;
@@ -339,6 +340,15 @@ fn health_response(
         "delphiResultFallback",
         js::Js::Num(app.delphi_result_fallback.load(Ordering::Relaxed) as f64),
     );
+    body.set(
+        "delphiTopicMapServed",
+        js::Js::Num(app.delphi_topic_map_served.load(Ordering::Relaxed) as f64),
+    );
+    body.set(
+        "delphiTopicMapFallback",
+        js::Js::Num(app.delphi_topic_map_fallback.load(Ordering::Relaxed) as f64),
+    );
+    body.set("delphiTopicMap", app.delphi_topic_map.health());
     body.set(
         "collectiveStatementServed",
         js::Js::Num(app.collective_statement_served.load(Ordering::Relaxed) as f64),
@@ -771,6 +781,7 @@ async fn dispatch_at_clock(
         | votes_read::PATH
         | votes_read::ME_PATH
         | votes_famous::PATH
+        | delphi_topic_map::PATH
         | metadata_answers::PATH => route::handle(app, req).await,
         path if treevite_write::matches(path) => route::handle(app, req).await,
         path if conversation_pages::matches(path) => route::handle(app, req).await,
@@ -1141,6 +1152,33 @@ async fn startup() -> Result<Startup> {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "[]".into());
         state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
+    }
+    if std::env::var("POLIS_API_DELPHI_TOPIC_MAP_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        // The report topic map reads the PostgreSQL result store and nothing else.
+        anyhow::ensure!(
+            std::env::var("DELPHI_RESULT_BACKEND").ok().as_deref() == Some("postgres"),
+            "the report topic map requires the Postgres result backend"
+        );
+        // A login that reads `reports` and is a member of polis_queue_executor,
+        // as the narrative reads' login is.
+        let dsn = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL").context(
+            "POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL is required for report topic map reads",
+        )?;
+        state.delphi_topic_map_env = std::env::var("DELPHI_RESULT_ENV")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .context("DELPHI_RESULT_ENV is required for report topic map reads")?;
+        state.delphi_topic_map_scope = std::env::var("DELPHI_RESULT_SCOPE")
+            .ok()
+            .filter(|s| !s.is_empty());
+        state.delphi_topic_map_db = Some(db::Pool::new(
+            config::connector_for_dsn(&dsn, "polis-api-delphi-topic-map/1")?,
+            delphi_topic_map::pool_limits(),
+        ));
     }
     if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
         .ok()
@@ -2046,7 +2084,14 @@ mod health_tests {
                 ),
                 if reachable { 200 } else { 503 },
             );
-            assert_eq!(body.as_object().unwrap().len(), 133);
+            assert_eq!(body.as_object().unwrap().len(), 136);
+            // The report topic map: its two counters and its computations, at zero.
+            assert_eq!(body["delphiTopicMapServed"], 0);
+            assert_eq!(body["delphiTopicMapFallback"], 0);
+            assert_eq!(
+                body["delphiTopicMap"],
+                json!({"computed":0,"maxInFlight":0,"cacheEntries":0,"cacheBytes":0})
+            );
             // The featured-participants route: its two counters, and every
             // hand-back reason by name, at zero.
             assert_eq!(body["votesFamousServed"], 0);

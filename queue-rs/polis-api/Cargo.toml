@@ -35,6 +35,8 @@ uuid = "1"
 rand = "0.10"
 polis-auth = { path = "../polis-auth" }
 polis-queue-adapter = { path = ".." }
+# The report topic map's document (delphi_topic_map.rs).
+polis-topic-map = { path = "../polis-topic-map" }
 postgres = "0.19"
 ryu-js = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }

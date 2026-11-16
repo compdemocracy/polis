@@ -225,6 +225,225 @@ fn connection_bounds_blackhole_pools_leave_participation_clear() {
     });
 }
 
+/// A flood of report topic map requests, with the route's own pool stuck
+/// mid-connect and its one computation slot taken, then with the largest
+/// public map computing: a vote is written and the next comment, the comments
+/// and the votes are read, each on its own pool with no wait for a slot, and
+/// the route never computes more than one map at a time.
+#[test]
+fn connection_bounds_topic_map_flood_leaves_participation_clear() {
+    let database = Database::new("topic_map_isolation");
+    let (mut app, vote) = setup(&database);
+    // The largest public map, built before the clock starts: parsing it on
+    // this single-threaded runtime would hold back every timer.
+    let (wires, job, _) = crate::delphi_topic_map::tests::fixture("bg2050");
+    runtime().block_on(async {
+        let peer = Peer::new(None).await;
+        let dsn = format!(
+            "postgres://postgres@127.0.0.1:{}/{}",
+            database.config.get_ports()[0],
+            database.config.get_dbname().unwrap()
+        );
+        let topic_map = db::Pool::new(peer.connector(&dsn), crate::delphi_topic_map::pool_limits());
+        let healthy =
+            |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
+        {
+            let app = Arc::get_mut(&mut app).unwrap();
+            app.delphi_topic_map_db = Some(topic_map.clone());
+            app.delphi_topic_map_env = "test".into();
+            app.next_comment_db = Some(healthy(next_comment::pool_limits()));
+            app.next_comment_plain = true;
+            app.comments_db = Some(healthy(db::Limits {
+                size: 2,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(1000),
+                max_lifetime: Duration::from_secs(300),
+            }));
+            app.comments_count_db = Some(healthy(db::Limits {
+                size: 1,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(1000),
+                max_lifetime: Duration::from_secs(300),
+            }));
+            app.votes_read_db = Some(healthy(crate::votes_read::pool_limits()));
+            app.votes_read_auth_db = Some(healthy(crate::votes_read::pool_limits()));
+        }
+        warm_pool(app.next_comment_db.as_ref().unwrap(), 2).await;
+        warm_pool(app.comments_db.as_ref().unwrap(), 2).await;
+        warm_pool(app.comments_count_db.as_ref().unwrap(), 1).await;
+        warm_pool(app.votes_read_db.as_ref().unwrap(), 1).await;
+        warm_pool(app.votes_read_auth_db.as_ref().unwrap(), 1).await;
+        let reads = [
+            (
+                "/api/v3/nextComment?conversation_id=2fixture",
+                app.next_comment_db.clone().unwrap(),
+            ),
+            (
+                "/api/v3/comments?conversation_id=2fixture",
+                app.comments_db.clone().unwrap(),
+            ),
+            (
+                "/api/v3/votes?conversation_id=2fixture",
+                app.votes_read_db.clone().unwrap(),
+            ),
+        ];
+        // As nginx forwards them: this app redirects a request without them.
+        let get = |target: String| Request {
+            method: "GET".into(),
+            target,
+            headers: Headers::from_raw([("host", "localhost"), ("x-forwarded-proto", "https")]),
+            body: vec![],
+        };
+        // Each participation read: no wait for a slot of its own pool, every
+        // acquired operation finished, and a 502 only with its own failure.
+        async fn read(app: Arc<App>, path: &str, pool: &Arc<db::Pool>) -> (u16, [usize; 6]) {
+            let before = pool.evidence.snapshot();
+            let response = crate::dispatch(
+                app,
+                None,
+                Request {
+                    method: "GET".into(),
+                    target: path.into(),
+                    headers: Headers::from_raw([
+                        ("host", "localhost"),
+                        ("x-forwarded-proto", "https"),
+                    ]),
+                    body: vec![],
+                },
+            )
+            .await;
+            wait_for("participation database operation completed", || {
+                let now = pool.evidence.snapshot();
+                now[2] > before[2]
+                    || (now[0] > before[0] && now[3] - before[3] == now[0] - before[0])
+            })
+            .await;
+            let after = pool.evidence.snapshot();
+            (
+                response.status,
+                std::array::from_fn(|i| after[i] - before[i]),
+            )
+        }
+        fn isolated(path: &str, status: u16, delta: [usize; 6]) {
+            let [acquired, waits, timeouts, completed, errors, deadlines] = delta;
+            assert_eq!(
+                (waits, timeouts),
+                (0, 0),
+                "participation must not wait on a pool slot: {path} {delta:?}"
+            );
+            assert!(
+                acquired >= 1,
+                "the participation request must acquire its own pool: {path} {delta:?}"
+            );
+            assert_eq!(
+                completed, acquired,
+                "all acquired participation work must finish: {path}"
+            );
+            if status != 200 {
+                assert_eq!(status, 502, "{path}");
+                assert!(
+                    errors == 1 || deadlines == 1 || path.starts_with("/api/v3/votes?"),
+                    "502 without own-route failure evidence: {path} {delta:?}"
+                );
+            }
+        }
+        // The flood: every request waits on the route's own pool, whose two
+        // slots are stuck connecting to a peer that never answers.
+        let mut flood = Vec::new();
+        for n in 0..64 {
+            flood.push(tokio::spawn(crate::dispatch(
+                app.clone(),
+                None,
+                get(format!("/api/v3/delphi/topicMap?report_id=r{n}")),
+            )));
+        }
+        wait_for("both topic map slots mid-connect", || {
+            peer.accepted.load(Ordering::SeqCst) == 2
+        })
+        .await;
+        // A computation of the largest public map is in flight, held inside
+        // its blocking thread; fifteen more wait for the route's one slot,
+        // holding no thread. On this single-threaded runtime the participation
+        // requests below can finish only because the computation is not on it.
+        let state = app.delphi_topic_map.clone();
+        let release = state.hold_next_computation();
+        let mut computing = Vec::new();
+        for _ in 0..16 {
+            let (wires, job) = (wires.clone(), job.clone());
+            let state = state.clone();
+            computing.push(tokio::spawn(async move { state.compute(job, wires).await }));
+        }
+        wait_for("a topic map computation in flight", || {
+            state.in_flight() == 1
+        })
+        .await;
+        let writer = app.post_votes.as_ref().unwrap();
+        let writer_before = [
+            writer.pool.evidence.snapshot(),
+            writer.reads.evidence.snapshot(),
+        ];
+        let voted = handle_after_admission(app.clone(), vote).await;
+        assert_eq!(
+            voted.status, 200,
+            "the vote is written while the topic map is flooded and computing"
+        );
+        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+        for (path, pool) in &reads {
+            let (status, delta) = read(app.clone(), path, pool).await;
+            eprintln!(
+                "topic map flood {path} status={status} pool_delta={delta:?} in_flight={}",
+                state.in_flight()
+            );
+            isolated(path, status, delta);
+        }
+        assert_eq!(
+            state.in_flight(),
+            1,
+            "the computation was in flight throughout"
+        );
+        // The rest compute, one at a time, beside the same reads.
+        release.send(()).unwrap();
+        for (path, pool) in &reads {
+            let (status, delta) = read(app.clone(), path, pool).await;
+            eprintln!("topic map computing {path} status={status} pool_delta={delta:?}");
+            isolated(path, status, delta);
+        }
+        for task in computing {
+            assert!(task.await.unwrap().unwrap().is_map());
+        }
+        assert_eq!(state.max_in_flight(), 1, "one map at a time");
+        let writer_after = [
+            writer.pool.evidence.snapshot(),
+            writer.reads.evidence.snapshot(),
+        ];
+        for (before, after) in writer_before.iter().zip(&writer_after) {
+            assert_eq!(
+                (after[1] - before[1], after[2] - before[2]),
+                (0, 0),
+                "the vote writer waited for a slot"
+            );
+        }
+        let mut handed_back = 0;
+        for task in flood {
+            let out = task.await.unwrap();
+            assert_eq!(
+                out.status, 502,
+                "a topic map request that cannot read goes back to Node"
+            );
+            handed_back += 1;
+        }
+        assert_eq!(handed_back, 64);
+        let stuck = topic_map.evidence.snapshot();
+        eprintln!("topic map pool {stuck:?}");
+        assert_eq!(stuck[0], 2, "only the route's own two slots were taken");
+        assert!(
+            stuck[2] >= 62,
+            "the rest of the flood timed out on the route's own pool: {stuck:?}"
+        );
+        peer.stop().await;
+    });
+}
+
 #[test]
 fn connection_bounds_warm_next_comment_hands_back_and_reclaims() {
     let database = Database::new("silent_next_comment");
