@@ -495,7 +495,9 @@ services:
     networks:
       - "polis-net"
     # The daemon's own stop drains the running job within
-    # POLIS_JOBS_SHUTDOWN_GRACE_SEC    # CPU: the lowest weight, and a fence. Under contention the kernel
+    # POLIS_JOBS_SHUTDOWN_GRACE_SECONDS (30 s), then kills it.
+    stop_grace_period: 60s
+    # CPU: the lowest weight, and a fence. Under contention the kernel
     # shares a CPU in proportion to weight, and this is the lowest Docker
     # accepts (cpu_shares 2, which is cgroup v2's cpu.weight 1, against the
     # 100 that every other service here has because none of them sets one),
@@ -511,7 +513,6 @@ services:
     # it sets). DELPHI_SHADOW_CONTAINER_CPUS=0 removes the fence: Compose
     # then sets no CPU limit, the daemon sees no quota and sets no thread
     # count, and the shadow may use every idle core behind its weight.
-ts none, and torch, Numba and BLAS each count the box.
     cpu_shares: 2
     # Memory: a ceiling, not a reservation (nothing is set aside for it),
     # and the shadow is the first process the kernel kills when the box runs
