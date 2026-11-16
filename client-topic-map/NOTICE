@@ -87,6 +87,14 @@ SOFTWARE.
 
 4. Python's textwrap module (https://github.com/python/cpython, Lib/textwrap.py)
 
+The port was made from Lib/textwrap.py of Python 3.12, the Python that runs
+datamapplot in the Delphi image; that file is the same in every 3.12 release
+from v3.12.0. Its copyright notices:
+
+  Copyright (C) 1999-2001 Gregory P. Ward.
+  Copyright (C) 2002, 2003 Python Software Foundation.
+  Written by Greg Ward <gward@python.net>
+
 datamapplot wraps a label with Python's textwrap.fill(text, width,
 break_long_words=False). wrapLabel in topic-map.js ports it: WORDSEP is
 TextWrapper.wordsep_re written as a JavaScript regular expression, and the
@@ -95,9 +103,16 @@ of the changes: translated from Python to JavaScript; only the path for
 break_long_words=False, with TextWrapper's other defaults and no indent,
 placeholder or line limit, is kept; Python's word and letter classes are
 written as Unicode property classes; a tab becomes one space rather than
-spaces to the next tab stop.
+spaces to the next tab stop; in the second look-behind for a hyphenated word
+(letter, hyphen, letter, hyphen in Python), the character after the first
+hyphen is matched by the class of word characters and punctuation.
 
-Copyright (c) 2001 Python Software Foundation; All Rights Reserved
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved
+
+The licence of the Python Software Foundation, as in the LICENSE file of
+Python 3.12's source release:
 
 PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
 --------------------------------------------
@@ -112,8 +127,10 @@ grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
 analyze, test, perform and/or display publicly, prepare derivative works,
 distribute, and otherwise use Python alone or in any derivative version,
 provided, however, that PSF's License Agreement and PSF's notice of copyright,
-i.e., "Copyright (c) 2001 Python Software Foundation; All Rights Reserved"
-are retained in Python alone or in any derivative version prepared by Licensee.
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved" are retained in Python alone or in any derivative version
+prepared by Licensee.
 
 3. In the event Licensee prepares a derivative work that is based on
 or incorporates Python or any part thereof, and wants to make
