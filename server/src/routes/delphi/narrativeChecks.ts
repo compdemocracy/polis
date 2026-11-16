@@ -10,6 +10,18 @@
 
 export const CHECKS_VERSION = "narrative-checks/1";
 
+// The checks run on the request's own event loop, the one that also answers
+// votes, comments and the next comment. The import's bounds (1 MiB, 250 KB a
+// section, 4,000 characters a clause) admit about 100,000 quotations in one
+// body, each compared with every comment it can lean on: unbounded, one import
+// held the event loop for seconds. So each section checks at most this many
+// quotations and stated shares; the rest are counted as unchecked and the
+// section is not grounded. A narrative a model writes has a handful of each.
+export const MAX_QUOTES_PER_SECTION = 200;
+export const MAX_SHARES_PER_SECTION = 400;
+// At most this many examples of each kind are kept with a section's checks.
+export const MAX_EXAMPLES = 20;
+
 export type PackComment = {
   id: number;
   text: string;
@@ -26,8 +38,8 @@ export type SectionChecks = {
   clauses_cited: Ratio;
   citations_exist: Ratio & { unknown: number[] };
   citations_in_section: Ratio & { outside: number[] };
-  quoted_text_found: Ratio & { not_found: string[] };
-  quoted_shares_match: Ratio & { unmatched: string[] };
+  quoted_text_found: Ratio & { not_found: string[]; unchecked: number };
+  quoted_shares_match: Ratio & { unmatched: string[]; unchecked: number };
   rules: { percentages: number; comment_numbers: number; links_or_contacts: number };
   grounded: boolean;
 };
@@ -62,8 +74,11 @@ const PERCENT = /(\d{1,3}(?:\.\d+)?)\s*(?:%|percent\b|per cent\b)/gi;
 // "12 of 20" or "12 out of 20".
 const FRACTION = /\b(\d{1,6})\s+(?:out\s+)?of\s+(?:the\s+)?(\d{1,6})\b/gi;
 const COMMENT_NUMBER = /(?:#\s?\d+|\b(?:comment|statement)s?\s+(?:no\.?\s*|number\s+)?\d+)/gi;
+// An e-mail address is found by the character before its "@" and its bounded
+// domain, one match per address: matching the whole local part made a clause
+// such as "a.a.a.…" a quadratic search.
 const LINK_OR_CONTACT =
-  /(?:https?:\/\/|www\.)\S+|\b[\w.+-]+@[\w-]+\.[\w.]+\b|\+?\d[\d ()-]{8,}\d/gi;
+  /(?:https?:\/\/|www\.)\S+|[\w.+-]@[\w-]{1,253}\.[\w.]{1,253}\b|\+?\d[\d ()-]{8,}\d/gi;
 
 function shares(c: PackComment): number[] {
   const out: number[] = [];
@@ -83,11 +98,14 @@ const ratio = (passed: number, total: number): Ratio => ({ passed, total });
 const all = (r: Ratio) => r.passed === r.total;
 
 /** The checks of one section's document. `known` is every comment id the pack
- * shows the model in any section. */
+ * shows the model in any section; `normalized` holds each comment's text as
+ * the quotation check compares it, filled on first use (pass one map for a
+ * whole import so no comment is normalized twice). */
 export function checkSection(
   reportData: any,
   section: PackSection,
-  known: Map<number, PackComment>
+  known: Map<number, PackComment>,
+  normalized: Map<number, string> = new Map()
 ): SectionChecks {
   const allowed = new Set(section.citation_ids);
   let clauses = 0;
@@ -95,7 +113,21 @@ export function checkSection(
   const citedIds = new Set<number>();
   const quotes: { text: string; found: boolean }[] = [];
   const stated: { text: string; matched: boolean }[] = [];
+  let quotesUnchecked = 0;
+  let sharesUnchecked = 0;
   const rules = { percentages: 0, comment_numbers: 0, links_or_contacts: 0 };
+  const textOf = (c: PackComment) => {
+    let text = normalized.get(c.id);
+    if (text === undefined) {
+      text = normalize(c.text);
+      normalized.set(c.id, text);
+    }
+    return text;
+  };
+  const share = (text: string, matched: () => boolean) => {
+    if (stated.length >= MAX_SHARES_PER_SECTION) sharesUnchecked++;
+    else stated.push({ text, matched: matched() });
+  };
   for (const paragraph of reportData?.paragraphs || []) {
     for (const sentence of paragraph?.sentences || []) {
       for (const clause of sentence?.clauses || []) {
@@ -112,21 +144,26 @@ export function checkSection(
         for (const m of text.matchAll(QUOTE)) {
           const quoted = normalize(m[1]);
           if (quoted.split(" ").length < 3) continue;
+          if (quotes.length >= MAX_QUOTES_PER_SECTION) {
+            quotesUnchecked++;
+            continue;
+          }
           quotes.push({
             text: m[1],
-            found: basis.some((c) => normalize(c.text).includes(quoted)),
+            found: basis.some((c) => textOf(c).includes(quoted)),
           });
         }
-        const candidates = basis.flatMap(shares);
-        const near = (value: number) => candidates.some((s) => Math.abs(s - value) <= 1);
+        let candidates: number[] | undefined;
+        const near = (value: number) =>
+          (candidates ??= basis.flatMap(shares)).some((s) => Math.abs(s - value) <= 1);
         for (const m of text.matchAll(PERCENT)) {
           rules.percentages++;
-          stated.push({ text: m[0], matched: near(Number(m[1])) });
+          share(m[0], () => near(Number(m[1])));
         }
         for (const m of text.matchAll(FRACTION)) {
           const of = Number(m[2]);
           if (of > 0 && Number(m[1]) <= of)
-            stated.push({ text: m[0], matched: near((100 * Number(m[1])) / of) });
+            share(m[0], () => near((100 * Number(m[1])) / of));
         }
         rules.comment_numbers += count(text, COMMENT_NUMBER);
         rules.links_or_contacts += count(text, LINK_OR_CONTACT);
@@ -143,11 +180,19 @@ export function checkSection(
     citations_in_section: { ...ratio(ids.length - outside.length, ids.length), outside },
     quoted_text_found: {
       ...ratio(quotes.filter((q) => q.found).length, quotes.length),
-      not_found: quotes.filter((q) => !q.found).map((q) => q.text.slice(0, 200)),
+      not_found: quotes
+        .filter((q) => !q.found)
+        .slice(0, MAX_EXAMPLES)
+        .map((q) => q.text.slice(0, 200)),
+      unchecked: quotesUnchecked,
     },
     quoted_shares_match: {
       ...ratio(stated.filter((s) => s.matched).length, stated.length),
-      unmatched: stated.filter((s) => !s.matched).map((s) => s.text),
+      unmatched: stated
+        .filter((s) => !s.matched)
+        .slice(0, MAX_EXAMPLES)
+        .map((s) => s.text),
+      unchecked: sharesUnchecked,
     },
     rules,
     grounded: false,
@@ -158,6 +203,8 @@ export function checkSection(
     all(result.citations_in_section) &&
     all(result.quoted_text_found) &&
     all(result.quoted_shares_match) &&
+    quotesUnchecked === 0 &&
+    sharesUnchecked === 0 &&
     rules.percentages === 0 &&
     rules.comment_numbers === 0 &&
     rules.links_or_contacts === 0;
@@ -173,10 +220,11 @@ export function checkNarrative(
   const known = new Map<number, PackComment>();
   for (const s of everySection) for (const c of s.comments || []) known.set(c.id, c);
   const bySection = new Map(sections.map((s) => [s.section, s]));
+  const normalized = new Map<number, string>();
   const out: Record<string, SectionChecks> = {};
   for (const r of results) {
     const section = bySection.get(r.section);
-    if (section) out[r.section] = checkSection(r.report_data, section, known);
+    if (section) out[r.section] = checkSection(r.report_data, section, known, normalized);
   }
   const sum = (pick: (c: SectionChecks) => Ratio): Ratio =>
     Object.values(out).reduce(

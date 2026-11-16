@@ -481,6 +481,68 @@ describe("the routes", () => {
   }, 60000);
 });
 
+test("the checks of a body at the import's bounds are bounded work on the event loop", async () => {
+  const { checkNarrative, MAX_QUOTES_PER_SECTION, MAX_SHARES_PER_SECTION, MAX_EXAMPLES } = await import(
+    "../../src/routes/delphi/narrativeChecks"
+  );
+  // Four sections of a hundred comments; each about 240 KB of uncited clauses
+  // of 4,000 characters, so every quotation leans on every comment shown.
+  const text = "Generated comment text about library opening hours and the bus route, ".repeat(5);
+  const sections = Array.from({ length: 4 }, (_, s) => ({
+    section: `s${s}`,
+    citation_ids: Array.from({ length: 100 }, (_, i) => s * 1000 + i),
+    comments: Array.from({ length: 100 }, (_, i) => ({ ...comment(s * 1000 + i, text, 10), text: `${text}${i}` })),
+  }));
+  const body = (unit: string) =>
+    sections.map((s) => ({
+      section: s.section,
+      report_data: {
+        paragraphs: Array.from({ length: 2 }, () => ({
+          sentences: [{ clauses: Array.from({ length: 30 }, () => ({ text: unit.repeat(Math.floor(3900 / unit.length)), citations: [] })) }],
+        })),
+      },
+    }));
+  const { checkSection } = await import("../../src/routes/delphi/narrativeChecks");
+  const contacts = checkSection(
+    { paragraphs: [{ sentences: [{ clauses: [{ text: "Write to jane.doe@example.org, see https://example.org/x or call +1 555 123 4567.", citations: [] }] }] }] },
+    { section: "s", citation_ids: [], comments: [] },
+    new Map()
+  );
+  expect(contacts.rules.links_or_contacts).toBe(3);
+  for (const unit of ['"a b c"', "1% ", "a.a."]) {
+    const started = Date.now();
+    const checks = checkNarrative(body(unit), sections as any, sections as any);
+    // Unbounded, the quotations took about 17 s on a 14-core work box.
+    expect(Date.now() - started).toBeLessThan(2000);
+    for (const c of Object.values(checks.sections)) {
+      expect(c.quoted_text_found.total).toBeLessThanOrEqual(MAX_QUOTES_PER_SECTION);
+      expect(c.quoted_shares_match.total).toBeLessThanOrEqual(MAX_SHARES_PER_SECTION);
+      expect(c.quoted_text_found.not_found.length).toBeLessThanOrEqual(MAX_EXAMPLES);
+      expect(c.quoted_shares_match.unmatched.length).toBeLessThanOrEqual(MAX_EXAMPLES);
+      if (unit !== "a.a.") {
+        expect(c.quoted_text_found.unchecked + c.quoted_shares_match.unchecked).toBeGreaterThan(0);
+        expect(c.grounded).toBe(false);
+      }
+    }
+  }
+});
+
+test("two imports at once at the conversation limit: one is stored, one refused", async () => {
+  const ids = await seed(7312);
+  for (let i = 0; i < 9; i++) {
+    const manifest = (await exportFor(ids)).body;
+    expect((await importFor(ids, authored(manifest, `generated-model-${i}`))).status).toBe(200);
+  }
+  const [a, b] = [(await exportFor(ids)).body, (await exportFor(ids)).body];
+  const replies = await Promise.all([
+    importFor(ids, authored(a, "generated-model-a")),
+    importFor(ids, authored(b, "generated-model-b")),
+  ]);
+  expect(replies.map((r) => r.status).sort()).toEqual([200, 429]);
+  const stored = (await pg.query("SELECT count(*) FROM delphi_narrative_jobs WHERE env=$1 AND zid=$2", [ENV, 7312])).rows[0].count;
+  expect(stored).toBe("10");
+}, 120000);
+
 test("rate limits: ten jobs a conversation a day through the routes", async () => {
   const ids = await seed(7311);
   for (let i = 0; i < 10; i++) {
@@ -499,7 +561,15 @@ describe("the SQL functions", () => {
   const zid = 7321;
   let report: string;
   let pack: any;
-  const submit = async (opts: { kind?: string; model: string; uid?: number; limits?: any; export_id?: string; items?: any[] }) => {
+  const submit = async (opts: {
+    kind?: string;
+    model: string;
+    uid?: number;
+    limits?: any;
+    export_id?: string;
+    items?: any[];
+    client?: Client;
+  }) => {
     const job = (await pg.query("SELECT gen_random_uuid() AS v")).rows[0].v;
     const run = (await pg.query("SELECT gen_random_uuid() AS v")).rows[0].v;
     const kind = opts.kind ?? "narrative";
@@ -543,7 +613,7 @@ describe("the SQL functions", () => {
       submitted_by: opts.uid ?? zid,
     };
     const reply = (
-      await pg.query("SELECT public.pd_narrative_job_submit($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8) AS v", [
+      await (opts.client ?? pg).query("SELECT public.pd_narrative_job_submit($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8) AS v", [
         ENV,
         report,
         job,
@@ -648,6 +718,38 @@ describe("the SQL functions", () => {
     // A refused or deduplicated submission leaves no job behind.
     for (const j of [limited.job, capped.job, dup.job, other.job])
       expect((await pg.query("SELECT count(*) FROM delphi_jobs WHERE env=$1 AND job_id=$2", [ENV, j])).rows[0].count).toBe("0");
+  });
+
+  test("submissions from two accounts wait on the conversation's lock, so its limit holds under concurrency", async () => {
+    const today = Number(
+      (
+        await pg.query(
+          "SELECT count(*) FROM delphi_narrative_jobs WHERE env=$1 AND zid=$2 AND submitted_by IS NOT NULL AND created_at>clock_timestamp()-interval '24 hours'",
+          [ENV, zid]
+        )
+      ).rows[0].count
+    );
+    const limits = { ...UNLIMITED, conversation_per_day: today + 1 };
+    const [holder, a, b] = [await postgres(), await postgres(), await postgres()];
+    try {
+      await holder.query("BEGIN");
+      await holder.query("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array('pd:narrative-jobs',$1::text,$2::integer)::text,0))", [
+        ENV,
+        zid,
+      ]);
+      let settled = 0;
+      const pending = [
+        submit({ model: "generated-race-a", uid: 9101, limits, client: a }),
+        submit({ model: "generated-race-b", uid: 9102, limits, client: b }),
+      ].map((p) => p.finally(() => settled++));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(settled).toBe(0);
+      await holder.query("COMMIT");
+      const outcomes = (await Promise.all(pending)).map((r) => r.reply.outcome).sort();
+      expect(outcomes).toEqual(["created", "rate_limited"]);
+    } finally {
+      for (const c of [holder, a, b]) await c.end();
+    }
   });
 
   test("rows bound to another report or job are refused, and nothing is stored", async () => {
