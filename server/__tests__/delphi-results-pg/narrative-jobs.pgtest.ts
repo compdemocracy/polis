@@ -406,6 +406,28 @@ describe("the routes", () => {
     expect(read.rows).toHaveLength(2);
   }, 60000);
 
+  test("a quotation kept as an example is stored even when it holds text jsonb refuses", async () => {
+    const manifest = (await exportFor(ids)).body;
+    const body = authored(manifest, "generated-model-unicode");
+    const topic = body.results.find((r: any) => r.section === TOPIC_SECTION);
+    // Not found in any comment: cut at 200 code units through an emoji, and a NUL.
+    const long = `${"ab ".repeat(66)}a\u{1F600} and more words`;
+    topic.report_data.paragraphs[0].sentences[0].clauses = [
+      { text: `Some wrote "${long}".`, citations: [0] },
+      { text: 'Others wrote "one two \u0000 three".', citations: [0] },
+    ];
+    const imported = await importFor(ids, body);
+    expect([imported.status, imported.body.code]).toEqual([200, undefined]);
+    const read = (await pg.query("SELECT public.pd_narrative_job_read($1,$2) AS v", [ENV, imported.body.job_id])).rows[0].v;
+    const notFound: string[] = read.checks.sections[TOPIC_SECTION].quoted_text_found.not_found;
+    expect(notFound).toHaveLength(2);
+    expect(notFound[0].startsWith("ab ab")).toBe(true);
+    expect(notFound[1]).toBe("one two � three");
+    // The narrative itself is stored byte for byte.
+    const row = read.rows.find((r: any) => r.section.S === TOPIC_SECTION);
+    expect(JSON.parse(row.report_data.S).paragraphs[0].sentences[0].clauses[1].text).toBe('Others wrote "one two \u0000 three".');
+  }, 60000);
+
   test("refusals: who may import, what is bounded, freshness, and never a 404", async () => {
     const anonymous = await request(app)
       .get("/api/v3/delphi/narrative/inputs")
@@ -512,7 +534,7 @@ test("the checks of a body at the import's bounds are bounded work on the event 
   for (const unit of ['"a b c"', "1% ", "a.a."]) {
     const started = Date.now();
     const checks = checkNarrative(body(unit), sections as any, sections as any);
-    // Unbounded, the quotations took about 17 s on a 14-core work box.
+    // Unbounded, the quotations took about 17 s on a 14-core machine.
     expect(Date.now() - started).toBeLessThan(2000);
     for (const c of Object.values(checks.sections)) {
       expect(c.quoted_text_found.total).toBeLessThanOrEqual(MAX_QUOTES_PER_SECTION);
@@ -526,6 +548,33 @@ test("the checks of a body at the import's bounds are bounded work on the event 
     }
   }
 });
+
+test("a topic renamed after the pack was built makes the export and the import stale", async () => {
+  const ids = await seed(7313);
+  const manifest = (await exportFor(ids)).body;
+  const topicNames = (name: string) => ({
+    zid: 7313,
+    families: {
+      Delphi_CommentClustersLLMTopicNames: [
+        {
+          conversation_id: S("7313"),
+          topic_key: S(`${LABEL}#0#1`),
+          layer_id: N(0),
+          cluster_id: N(1),
+          topic_name: S(name),
+          job_id: S(LABEL),
+        },
+      ],
+    },
+  });
+  await publish(pg, topicNames("Generated renamed hours"));
+  const staleExport = await exportFor(ids);
+  expect([staleExport.status, staleExport.body.code, staleExport.body.moved]).toEqual([409, "NARRATIVE_PACK_STALE", ["topics"]]);
+  const staleImport = await importFor(ids, authored(manifest, "generated-model-renamed"));
+  expect([staleImport.status, staleImport.body.code]).toEqual([409, "STALE_NARRATIVE_INPUTS"]);
+  await publish(pg, topicNames("Generated library hours"));
+  expect((await exportFor(ids)).status).toBe(200);
+}, 60000);
 
 test("two imports at once at the conversation limit: one is stored, one refused", async () => {
   const ids = await seed(7312);
@@ -749,6 +798,32 @@ describe("the SQL functions", () => {
       expect(outcomes).toEqual(["created", "rate_limited"]);
     } finally {
       for (const c of [holder, a, b]) await c.end();
+    }
+  });
+
+  test("the queue binding refuses a topic-name job that no narrative-job row describes", async () => {
+    // Admitted as every narrative job is, then turned into a topic-name job
+    // with no narrative-job row: the deferred binding refuses it at commit.
+    const client = await postgres();
+    try {
+      const job = (await client.query("SELECT gen_random_uuid() AS v")).rows[0].v;
+      const run = (await client.query("SELECT gen_random_uuid() AS v")).rows[0].v;
+      const frame = JSON.stringify({ schema: "polis-jobs.admission/1", zid, report_id: report, config: {}, inputs: {} });
+      const uri = `frame://inline/${Buffer.from(frame).toString("base64url")}`;
+      await client.query("BEGIN");
+      const admitted = (
+        await client.query(
+          `SELECT public.pd_enqueue($1,$2,$3,'narrative-exchange',$4,$5,$6,$7,$8,$9,public.pd_graph_hash('{}'::jsonb),$10,1::smallint,1,
+            'delphi_narrative',$11,$3,'{}'::jsonb) AS v`,
+          [ENV, zid, `narrative-binding:${report}`, `external_${job}`, sha256(job), run, job, uri, sha256(frame), CODE, report]
+        )
+      ).rows[0].v;
+      expect(admitted.outcome).toBe("enqueued");
+      await client.query("UPDATE delphi_jobs SET kind='topic_name' WHERE env=$1 AND job_id=$2", [ENV, job]);
+      await expect(client.query("COMMIT")).rejects.toThrow(/invalid logical execution binding/);
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      await client.end();
     }
   });
 

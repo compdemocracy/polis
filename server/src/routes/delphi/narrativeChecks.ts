@@ -94,6 +94,10 @@ function shares(c: PackComment): number[] {
 }
 
 const count = (text: string, re: RegExp) => (text.match(re) || []).length;
+// An example is stored as jsonb, which refuses NUL and an unpaired surrogate
+// (cutting at 200 code units can split an emoji): each becomes U+FFFD.
+const storable = (s: string) =>
+  s.replace(/\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "�");
 const ratio = (passed: number, total: number): Ratio => ({ passed, total });
 const all = (r: Ratio) => r.passed === r.total;
 
@@ -183,7 +187,7 @@ export function checkSection(
       not_found: quotes
         .filter((q) => !q.found)
         .slice(0, MAX_EXAMPLES)
-        .map((q) => q.text.slice(0, 200)),
+        .map((q) => storable(q.text.slice(0, 200))),
       unchecked: quotesUnchecked,
     },
     quoted_shares_match: {
@@ -191,7 +195,7 @@ export function checkSection(
       unmatched: stated
         .filter((s) => !s.matched)
         .slice(0, MAX_EXAMPLES)
-        .map((s) => s.text),
+        .map((s) => storable(s.text)),
       unchecked: sharesUnchecked,
     },
     rules,
