@@ -32,8 +32,9 @@
 # runner. Knobs: SHADOW_CPU_BLOCKS (6), SHADOW_CPU_RUNS (6),
 # SHADOW_CPU_WINDOW_SECONDS (60), SHADOW_CPU_TOLERANCE (0.05),
 # SHADOW_CPU_MIN_SCALE (1.5); SHADOW_CPU_SETTINGS, KEY=value lines added to
-# the environment Compose reads (DELPHI_SHADOW_CONTAINER_CPUS=2, an
-# operator's fence); SHADOW_CPU_EXTRA_OVERRIDE, one more Compose file (a
+# the environment Compose reads (DELPHI_SHADOW_CONTAINER_CPUS=0 removes the
+# shadow's default 2-CPU fence: behind the fence the throughput half cannot
+# pass, by design); SHADOW_CPU_EXTRA_OVERRIDE, one more Compose file (a
 # control run, such as the shadow without its CPU weight). Results:
 # summary.json (and every line it was computed from) in the output directory.
 set -euo pipefail

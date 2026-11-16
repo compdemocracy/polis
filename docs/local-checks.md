@@ -242,7 +242,9 @@ command changed. With the shadow's embedding step running flat out, the math
 engine's cold recompute of the public biodiversity conversation must take no
 longer than with the shadow frozen, within `SHADOW_CPU_TOLERANCE`; with the math
 engine idle, the shadow's embedding throughput must be at least
-`SHADOW_CPU_MIN_SCALE` times that of the same work on two CPUs. Set an owned
+`SHADOW_CPU_MIN_SCALE` times that of the same work on two CPUs. The shadow's
+default 2-CPU fence fails that second half by design; set
+`SHADOW_CPU_SETTINGS=DELPHI_SHADOW_CONTAINER_CPUS=0` to test it unfenced. Set an owned
 `COMPOSE_PROJECT_NAME`; it builds the Delphi image unless `SHADOW_CPU_IMAGE`
 names one, publishes no port and needs no network. Its verdict depends on
 timing, so it is a work-box check with no hosted job: run it on a quiet host,

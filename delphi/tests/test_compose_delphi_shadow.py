@@ -10,8 +10,8 @@ test_compose_math_env.py. What this pins:
   * the daemon claims only the shadow env, the full pipeline, one job at a
     time, with the visualization pages skipped, the embedding model read from
     the image offline, and its scratch on tmpfs;
-  * the daemon yields instead of being fenced: the lowest CPU weight of any
-    service and no CPU cap unless the document sets one, a 16 GiB memory
+  * the daemon yields: the lowest CPU weight of any service, a 2-CPU fence
+    unless the document sets another (0 removes it), a 16 GiB memory
     ceiling, and the first process the kernel kills when memory runs out;
   * the scheduler and the daemon name the same env, and that env is a shadow env;
   * the deploy hook's read-back of the two services passes this file as it
@@ -110,10 +110,10 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     for key in ("POLIS_JOBS_WORK_DIR", "HF_HOME", "NUMBA_CACHE_DIR", "TMPDIR"):
         assert env[key].startswith("/tmp"), key
     assert env["POLIS_JOBS_JOURNAL_DIR"].startswith("/var/lib/delphi-shadow/")
-    # No CPU cap by default (0 is none), a low CPU weight instead, a memory
-    # ceiling, and the first to go when the box runs out of memory.
+    # A 2-CPU fence by default and the lowest CPU weight, a memory ceiling,
+    # and the first to go when the box runs out of memory.
     limits = service["deploy"]["resources"]["limits"]
-    assert _interpolate(str(limits["cpus"]), {}) == "0"
+    assert _interpolate(str(limits["cpus"]), {}) == "2"
     assert _interpolate(str(limits["memory"]), {}) == "16g"
     assert service["cpu_shares"] == 2
     assert service["oom_score_adj"] == 1000
@@ -231,11 +231,13 @@ def test_the_shadow_yields_cpu_and_memory_to_every_other_service():
 
 
 @requires_checkout
-def test_an_operator_may_fence_the_shadow_and_size_its_ceiling():
+def test_an_operator_may_resize_or_remove_the_fence_and_size_the_ceiling():
     services, _ = _services()
     limits = services["delphi-shadow"]["deploy"]["resources"]["limits"]
-    fenced = {"DELPHI_SHADOW_CONTAINER_CPUS": "2", "DELPHI_SHADOW_CONTAINER_MEMORY": "6g"}
-    assert _interpolate(str(limits["cpus"]), fenced) == "2"
-    assert _interpolate(str(limits["memory"]), fenced) == "6g"
-    # An empty line in the document is no fence, as unset is.
-    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": ""}) == "0"
+    sized = {"DELPHI_SHADOW_CONTAINER_CPUS": "4", "DELPHI_SHADOW_CONTAINER_MEMORY": "6g"}
+    assert _interpolate(str(limits["cpus"]), sized) == "4"
+    assert _interpolate(str(limits["memory"]), sized) == "6g"
+    # 0 removes the fence (Compose sets no CPU limit); an empty line in the
+    # document is the default fence, as unset is.
+    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": "0"}) == "0"
+    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": ""}) == "2"
