@@ -7,9 +7,12 @@ What this pins:
     revision are the lock's;
   * a directory is accepted only when it holds exactly the lock's files, each
     with the lock's SHA-256 (a missing, extra or altered file refuses);
-  * DELPHI_EMBED_MODEL_PATH unset: the stage loads the model by name (the
-    default pinned to the lock's revision); set, it names the directory,
-    checked first when DELPHI_EMBED_MODEL_LOCK is set;
+  * DELPHI_EMBED_MODEL_PATH unset: the default model is fetched by name once,
+    at the shipped lock's revision, and every load checks those files against
+    the lock before a model is built (a changed byte or another revision's
+    files refuse); any other name is loaded as given, unchecked; set, it names
+    the directory, checked first when DELPHI_EMBED_MODEL_LOCK is set;
+  * the shipped lock is found in a checkout and where the image installs it;
   * a run's model is named repo@revision:384 from the lock, or from the pinned
     default; a directory without its lock, or a SENTENCE_TRANSFORMER_MODEL that
     names another model than the directory's, refuses;
@@ -156,7 +159,7 @@ def test_by_name_the_default_is_pinned_and_named_with_its_revision(monkeypatch):
             monkeypatch.setenv("SENTENCE_TRANSFORMER_MODEL", configured)
         r = em.resolve()
         assert (r.arg, r.local, r.revision, r.lock, r.model) == (
-            em.DEFAULT_MODEL, False, em.DEFAULT_REVISION, None, GRANITE)
+            em.DEFAULT_MODEL, False, em.DEFAULT_REVISION, str(em.DEFAULT_LOCK), GRANITE)
     # Any other name is loaded as given, unpinned, and recorded as given.
     monkeypatch.setenv("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
     r = em.resolve()
@@ -198,6 +201,109 @@ def test_the_switch_set_names_the_directory_and_checks_it(tmp_path, monkeypatch)
     (root / "model.safetensors").write_bytes(b"tampered")
     with pytest.raises(em.ModelMismatch):
         em.load_check()
+
+
+# --- the default model by name, with no directory set (a worker box, a developer
+# outside the image): the files are fetched at the lock's revision, checked
+# against the lock, and loaded from that checked directory; anything else is
+# refused before a model is built. Only the hub download and the
+# SentenceTransformer constructor are replaced.
+
+_LOCKED = {"model.safetensors": b"locked weights", "config.json": b'{"hidden_size": 768}',
+           "1_Pooling/config.json": b'{"pooling_mode_cls_token": true}'}
+
+
+@pytest.fixture
+def by_name(tmp_path, monkeypatch):
+    import sys
+    import types
+
+    lock = {"schema": em.LOCK_SCHEMA, "name": "granite-embedding-311m-multilingual-r2",
+            "repo": em.DEFAULT_MODEL, "revision": em.DEFAULT_REVISION,
+            "files": {n: hashlib.sha256(d).hexdigest() for n, d in _LOCKED.items()}}
+    lock_path = tmp_path / "shipped.lock.json"
+    lock_path.write_text(json.dumps(lock))
+    for key in ("DELPHI_EMBED_MODEL_PATH", "DELPHI_EMBED_MODEL_LOCK", "SENTENCE_TRANSFORMER_MODEL"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.setattr(em, "DEFAULT_LOCK", lock_path)
+    hub = types.SimpleNamespace(served=dict(_LOCKED), requests=[], built=[])
+
+    def snapshot_download(repo, revision=None, allow_patterns=None, local_dir=None, **kwargs):
+        hub.requests.append((repo, revision, local_dir is not None))
+        for name, data in hub.served.items():
+            path = Path(local_dir) / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        return local_dir
+
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(snapshot_download=snapshot_download))
+    monkeypatch.setitem(sys.modules, "sentence_transformers", types.SimpleNamespace(
+        SentenceTransformer=lambda arg, **kwargs: hub.built.append((arg, kwargs)) or object()))
+    return hub
+
+
+def test_by_name_the_default_is_fetched_at_the_lock_revision_checked_and_loaded_from_that_directory(by_name):
+    _, resolved = em.load()
+    assert by_name.requests == [(em.DEFAULT_MODEL, em.DEFAULT_REVISION, True)]
+    ((arg, kwargs),) = by_name.built
+    # Built from the checked local directory, never from the hub name.
+    assert arg != em.DEFAULT_MODEL and Path(arg).is_dir()
+    assert kwargs["local_files_only"] is True and kwargs["truncate_dim"] == 384 and "revision" not in kwargs
+    em.verify(arg, em.read_lock(em.DEFAULT_LOCK))
+    assert resolved.model == GRANITE and resolved.lock == str(em.DEFAULT_LOCK)
+    # A later load reads the same checked directory again, with no download.
+    em.load()
+    assert len(by_name.requests) == 1 and by_name.built[1][0] == arg
+
+
+def test_by_name_a_one_byte_change_is_refused_before_any_model_is_built(by_name):
+    # As served: a parseable config one byte off the lock.
+    by_name.served["config.json"] = b'{"hidden_size": 769}'
+    with pytest.raises(em.ModelMismatch):
+        em.load()
+    assert by_name.built == []
+
+
+def test_by_name_a_stored_copy_changed_by_one_byte_is_refused_before_any_model_is_built(by_name):
+    em.load()
+    ((arg, _),) = by_name.built
+    (Path(arg) / "config.json").write_bytes(b'{"hidden_size": 769}')
+    with pytest.raises(em.ModelMismatch):
+        em.load()
+    assert len(by_name.built) == 1
+
+
+def test_by_name_files_of_another_revision_are_refused(by_name):
+    # The hub hands back another revision's files: other weights, a module the
+    # lock does not name, and one it does missing.
+    by_name.served = {"model.safetensors": b"other revision weights", "config.json": _LOCKED["config.json"],
+                      "2_Normalize/config.json": b"{}"}
+    with pytest.raises(em.ModelMismatch):
+        em.load()
+    assert by_name.built == []
+
+
+def test_by_name_another_model_is_loaded_as_given_and_not_checked(by_name, monkeypatch):
+    # An explicitly chosen model other than the default has no lock here: it is
+    # loaded by name from the hub at whatever revision the hub serves, and is
+    # recorded under the name as given.
+    monkeypatch.setenv("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+    _, resolved = em.load()
+    assert by_name.requests == []
+    assert by_name.built == [("all-MiniLM-L6-v2", {"truncate_dim": 384, "local_files_only": False})]
+    assert (resolved.model, resolved.lock) == ("all-MiniLM-L6-v2", None)
+
+
+def test_the_shipped_lock_is_found_in_a_checkout_and_where_the_image_installs_it():
+    # The checkout's lock beside this package, then the image's installed copy
+    # (delphi/Dockerfile, the embedding-model stage); the module may be imported
+    # from /app or from site-packages, so neither alone is enough.
+    assert em.IMAGE_LOCK == IMAGE_LOCK
+    assert em.DEFAULT_LOCK.is_file()
+    assert em.DEFAULT_LOCK in (Path(em.__file__).resolve().parents[1] / "embedding-model.lock.json", IMAGE_LOCK)
+    if LOCK.is_file():
+        assert em.DEFAULT_LOCK.read_bytes() == LOCK.read_bytes()
 
 
 def _stages(text):

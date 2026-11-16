@@ -27,9 +27,10 @@ RUN apt-get update \
 # The files and the revision are pinned in embedding-model.lock.json; the fetch
 # refuses any file whose SHA-256 differs from the lock, so every image built
 # from this file carries the same bytes. The UMAP stage reads this directory
-# only when DELPHI_EMBED_MODEL_PATH names it, and checks the files against
-# DELPHI_EMBED_MODEL_LOCK first; unset, it downloads the model by name from the
-# Hugging Face hub at run time, pinned to the lock's revision. About 627 MB.
+# when DELPHI_EMBED_MODEL_PATH names it (docker-compose.yml's delphi and
+# delphi-shadow services do), and checks the files against
+# DELPHI_EMBED_MODEL_LOCK first; unset, the default model is fetched by name
+# once, at the lock's revision, and checked against the same lock. About 627 MB.
 FROM trust AS embedding-model
 RUN pip install --no-cache-dir huggingface-hub==0.36.0
 COPY embedding-model.lock.json /opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
@@ -132,8 +133,9 @@ RUN mkdir -p /etc/polis \
 
 WORKDIR /app
 
-# The embedding model's pinned files and their lock (read only when
-# DELPHI_EMBED_MODEL_PATH is set; see the embedding-model stage).
+# The embedding model's pinned files and their lock (read when
+# DELPHI_EMBED_MODEL_PATH names them; the lock is also the one a by-name load of
+# the default model is checked against; see the embedding-model stage).
 COPY --from=embedding-model /opt/polis/embedding /opt/polis/embedding
 
 # Copy installed packages from builder stage

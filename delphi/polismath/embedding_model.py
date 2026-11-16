@@ -3,11 +3,13 @@
 The image's build fetches the model's files once, at the revision named in
 ``embedding-model.lock.json`` (beside this package's directory), and checks
 every file's SHA-256 against the lock (``fetch``). At run time the UMAP stage
-reads that directory instead of the Hugging Face hub when
-``DELPHI_EMBED_MODEL_PATH`` names it, and checks it against
+reads that directory when ``DELPHI_EMBED_MODEL_PATH`` names it (the Delphi
+services in docker-compose.yml do), and checks it against
 ``DELPHI_EMBED_MODEL_LOCK`` before the model is loaded; a directory that
-differs refuses the run. Unset, the stage loads the model by name from the
-hub; the default model is pinned to the lock's revision.
+differs refuses the run. Unset, the default model is fetched by name once, at
+the shipped lock's revision, into a directory under the Hugging Face cache, and
+that directory is checked against the lock before every load the same way. Any
+other model name is loaded from the hub as given, unchecked.
 
 Every load keeps the first 384 dimensions (``truncate_dim``) and every encode
 returns unit vectors (``normalize_embeddings``): granite is 768 wide and
@@ -21,7 +23,8 @@ texts with the model loaded by name and loaded from the directory, and
 reports both digests; they must be equal.
 
 Nothing in this module talks to the network except ``fetch``, a by-name
-``load`` and the by-name half of ``compare``.
+``load`` (the default model's first, or a model other than the default) and the
+by-name half of ``compare``.
 """
 
 from __future__ import annotations
@@ -36,13 +39,19 @@ from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
 
 LOCK_SCHEMA = "delphi-embedding-model/1"
-DEFAULT_LOCK = Path(__file__).resolve().parents[1] / "embedding-model.lock.json"
 # The default model and the revision a by-name load is pinned to. The lock
 # names the same repository and revision (tests/test_embedding_model.py).
 DEFAULT_MODEL = "ibm-granite/granite-embedding-311m-multilingual-r2"
 DEFAULT_REVISION = "44399559930365213510b1ee2eb15ded83374f0e"
 # The stored width: every load truncates to it, every encode normalizes after.
 DIMS = 384
+# The shipped lock: beside this package in a source checkout, and where the
+# image installs it (delphi/Dockerfile, the embedding-model stage). In the image
+# this module may be imported from /app or from site-packages, so the copy next
+# to the package is not always there.
+IMAGE_LOCK = Path("/opt/polis/embedding") / f"{DEFAULT_MODEL.rsplit('/', 1)[-1]}.lock.json"
+_CHECKOUT_LOCK = Path(__file__).resolve().parents[1] / "embedding-model.lock.json"
+DEFAULT_LOCK = next((p for p in (_CHECKOUT_LOCK, IMAGE_LOCK) if p.is_file()), _CHECKOUT_LOCK)
 
 
 class ModelMismatch(Exception):
@@ -135,24 +144,25 @@ def _revision_for(model: str) -> Optional[str]:
 
 
 class Resolved(NamedTuple):
-    arg: str                 # what SentenceTransformer loads: a directory or a hub name
-    local: bool              # a directory, read with no network
-    revision: Optional[str]  # the hub revision a by-name load is pinned to
-    lock: Optional[str]      # the lock the directory is checked against
+    arg: str                 # a directory, or the hub name SentenceTransformer is given
+    local: bool              # a directory named by DELPHI_EMBED_MODEL_PATH
+    revision: Optional[str]  # the revision the default model is fetched at by name
+    lock: Optional[str]      # the lock the loaded files are checked against
     model: str               # the run's model, as the run record and the stores name it
 
 
 def resolve() -> Resolved:
     """Which model this run embeds with, and its name. Reads the environment and
-    the lock's JSON only (no hashing, no model load), so the run record can name
-    the model the pipeline loads.
+    the lock's JSON only (no hashing, no download, no model load), so the run
+    record can name the model the pipeline loads.
 
     DELPHI_EMBED_MODEL_PATH set: the directory, which must have its lock
     (DELPHI_EMBED_MODEL_LOCK); the name is ``repo@revision:384`` from the lock,
     and a SENTENCE_TRANSFORMER_MODEL that names another model refuses, so a
-    directory's vectors are never stored under another model's name. Unset:
-    SENTENCE_TRANSFORMER_MODEL by name (default granite, pinned to the lock's
-    revision and named like the directory); any other name is recorded as given.
+    directory's vectors are never stored under another model's name. Unset, and
+    SENTENCE_TRANSFORMER_MODEL unset or the default: the default model under the
+    shipped lock (DEFAULT_LOCK), named ``repo@revision:384`` from it. Any other
+    name: that model by name, unchecked, recorded as given.
     """
     path = os.environ.get("DELPHI_EMBED_MODEL_PATH", "").strip()
     configured = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "").strip()
@@ -169,25 +179,72 @@ def resolve() -> Resolved:
                 f"SENTENCE_TRANSFORMER_MODEL={configured} but {path} holds {model}")
         return Resolved(path, True, None, lock_path, model)
     configured = configured or DEFAULT_MODEL
-    revision = _revision_for(configured)
-    model = model_name(configured, revision) if revision else configured
-    return Resolved(configured, False, revision, None, model)
+    if configured != DEFAULT_MODEL:
+        return Resolved(configured, False, None, None, configured)
+    lock_path = Path(DEFAULT_LOCK)
+    if not lock_path.is_file():
+        raise ModelMismatch(f"no shipped lock for {DEFAULT_MODEL} (looked for {_CHECKOUT_LOCK} and {IMAGE_LOCK})")
+    lock = read_lock(lock_path)
+    if (lock["repo"], lock["revision"]) != (DEFAULT_MODEL, DEFAULT_REVISION):
+        raise ModelMismatch(
+            f"{lock_path} pins {lock['repo']}@{lock['revision']}, not {DEFAULT_MODEL}@{DEFAULT_REVISION}")
+    return Resolved(configured, False, lock["revision"], str(lock_path),
+                    model_name(lock["repo"], lock["revision"]))
+
+
+def hub_directory(lock) -> Path:
+    """Where the default model's files are kept once fetched by name: one
+    directory per locked revision under the Hugging Face cache (HF_HOME, else
+    XDG_CACHE_HOME/huggingface, else ~/.cache/huggingface)."""
+    base = os.environ.get("HF_HOME", "").strip()
+    if not base:
+        xdg = os.environ.get("XDG_CACHE_HOME", "").strip()
+        base = str(Path(xdg) / "huggingface") if xdg else str(Path.home() / ".cache" / "huggingface")
+    return Path(base) / "polis-embedding" / f"{lock['name']}@{lock['revision']}"
+
+
+def _fetched(lock_path, lock) -> Path:
+    """The default model's files, fetched by name once at the lock's revision.
+    A first fetch goes to a private directory and takes the shared name only
+    after it verifies, so an interrupted or mismatched download never stands in
+    for the model; ``load`` checks the shared directory again before every load."""
+    dest = hub_directory(lock)
+    if not dest.exists():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        partial = dest.parent / f".{dest.name}.{os.getpid()}.partial"
+        shutil.rmtree(partial, ignore_errors=True)
+        try:
+            fetch(lock_path, partial)
+            try:
+                os.replace(partial, dest)
+            except OSError:
+                if not dest.exists():  # not a concurrent fetch that won the name
+                    raise
+        finally:
+            shutil.rmtree(partial, ignore_errors=True)
+    return dest
 
 
 def load(device: Optional[str] = None):
-    """(SentenceTransformer truncated to DIMS, Resolved). A directory is checked
-    against its lock first and read with no network."""
+    """(SentenceTransformer truncated to DIMS, Resolved). Files under a lock are
+    checked against it before any model is built, and read with no network: the
+    directory DELPHI_EMBED_MODEL_PATH names, or the default model's files fetched
+    by name (``_fetched``). A file that differs refuses the run. Another model
+    name is loaded from the hub as given, unchecked."""
     from sentence_transformers import SentenceTransformer
 
     resolved = resolve()
+    arg, local = resolved.arg, resolved.local
     if resolved.lock:
-        verify(resolved.arg, read_lock(resolved.lock))
-    kwargs = {"truncate_dim": DIMS, "local_files_only": resolved.local}
-    if resolved.revision:
-        kwargs["revision"] = resolved.revision
+        lock = read_lock(resolved.lock)
+        if not resolved.local:
+            arg = str(_fetched(resolved.lock, lock))
+        verify(arg, lock)
+        local = True
+    kwargs = {"truncate_dim": DIMS, "local_files_only": local}
     if device:
         kwargs["device"] = device
-    return SentenceTransformer(resolved.arg, **kwargs), resolved
+    return SentenceTransformer(arg, **kwargs), resolved
 
 
 def encode(model, texts: List[str], **kwargs):

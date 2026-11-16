@@ -186,11 +186,13 @@ def process_comments(comments, conversation_id):
         ),
     )
 
-    # Generate embeddings with SentenceTransformer. DELPHI_EMBED_MODEL_PATH set:
-    # the model's files carried in the image, checked against
-    # DELPHI_EMBED_MODEL_LOCK and read with no network. Unset: the model by name
-    # from the Hugging Face hub. Either way the vectors are the first 384
-    # dimensions, normalized (polismath/embedding_model.py).
+    # Generate embeddings with SentenceTransformer. DELPHI_EMBED_MODEL_PATH set
+    # (the Delphi services): the model's files carried in the image, checked
+    # against DELPHI_EMBED_MODEL_LOCK and read with no network. Unset: the
+    # default model fetched by name once at the shipped lock's revision and
+    # checked against that lock the same way; another name, from the hub as
+    # given. Either way the vectors are the first 384 dimensions, normalized
+    # (polismath/embedding_model.py).
     from polismath import embedding_model as em
 
     logger.info("Generating embeddings with SentenceTransformer...")
