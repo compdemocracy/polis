@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # The Delphi shadow's CPU priority load test (delphi/tests/shadow/cpu_priority.sh):
 # with the shadow's embedding work running flat out, the math engine's
-# recompute of a public conversation is no slower than with the shadow
-# stopped; with the math engine idle, the shadow's embedding throughput grows
-# with the host's CPUs instead of stopping at two.
+# recompute of a public conversation is within its slowdown budget of the
+# shadow stopped; behind the shadow's fence its threads follow the fence and
+# its throughput matches the same work on the same CPUs (the old
+# oversubscribed configuration is the control); unfenced, it grows with the
+# host's CPUs.
 #
 # Builds the Delphi image from this checkout (target final) unless
 # SHADOW_CPU_IMAGE names one, runs the test into .ci-out/<project>, and

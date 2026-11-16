@@ -238,13 +238,20 @@ The Delphi shadow CPU priority target runs `delphi/tests/shadow/cpu_priority.sh`
 against this checkout's `docker-compose.yml`: the `math-python` and
 `delphi-shadow` services as the file defines them (CPU weight, CPU cap, memory
 ceiling, OOM adjustment, thread settings), with only their image, network and
-command changed. With the shadow's embedding step running flat out, the math
-engine's cold recompute of the public biodiversity conversation must take no
-longer than with the shadow frozen, within `SHADOW_CPU_TOLERANCE`; with the math
-engine idle, the shadow's embedding throughput must be at least
-`SHADOW_CPU_MIN_SCALE` times that of the same work on two CPUs. The shadow's
-default 2-CPU fence fails that second half by design; set
-`SHADOW_CPU_SETTINGS=DELPHI_SHADOW_CONTAINER_CPUS=0` to test it unfenced. Set an owned
+command changed. In both modes the math engine's cold recompute of the public
+biodiversity conversation, with the shadow's embedding step running flat out,
+must take at most `1 + SHADOW_CPU_TOLERANCE` (0.05) times its time with the
+shadow frozen, and the measured slowdown is printed whatever the verdict; the
+shadow's cgroup must report CPU weight 1. Behind the default 2-CPU fence, every
+thread library in the shadow must run one thread per CPU of the fence, its
+embedding throughput must be within `SHADOW_CPU_BAND` (0.10) of the same work
+in a plain container on the same CPUs with one thread per CPU (measured 0.998
+and 1.000 of it), and the old configuration, the libraries counting every CPU
+of the host inside that fence, must fall outside the band (measured 0.22 and
+0.33 of it), so a lost thread rule fails. With
+`SHADOW_CPU_SETTINGS=DELPHI_SHADOW_CONTAINER_CPUS=0` (unfenced) no thread
+count may be set and the throughput must reach `SHADOW_CPU_MIN_SCALE` (1.5)
+times two threads on two CPUs. Set an owned
 `COMPOSE_PROJECT_NAME`; it builds the Delphi image unless `SHADOW_CPU_IMAGE`
 names one, publishes no port and needs no network. Its verdict depends on
 timing, so it is a work-box check with no hosted job: run it on a quiet host,

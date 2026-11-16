@@ -8,21 +8,29 @@
 #   SHADOW_CPU_IMAGE=<an image built from delphi/Dockerfile, target final> \
 #   delphi/tests/shadow/cpu_priority.sh <output directory>
 #
-# It shows two things and fails (exit 1) unless both hold:
+# It fails (exit 1) unless all of these hold, in the mode the service's own
+# CPU limit sets (Compose's DELPHI_SHADOW_CONTAINER_CPUS; 2 by default, 0 is
+# unfenced):
 #   1. With the shadow's embedding work running flat out, the math engine's
 #      cold recompute of a public conversation (biodiversity: 29,802 votes,
 #      316 comments, through the math engine's own code and thread settings)
 #      takes no longer than with the shadow stopped, within the tolerance:
-#      median(running) <= (1 + SHADOW_CPU_TOLERANCE) x median(stopped).
-#      "Stopped" is the shadow's container frozen (docker pause: it holds its
-#      memory and runs nothing); the two alternate in SHADOW_CPU_BLOCKS
-#      blocks (ABBA order), each a fresh math container doing SHADOW_CPU_RUNS
-#      recomputes, the first of which is a warm-up and not counted.
-#   2. With the math engine idle, the shadow's embedding throughput (comments
-#      a second, its own service as configured) is at least
-#      SHADOW_CPU_MIN_SCALE times that of the same work on two CPUs with two
-#      threads (a plain container, --cpus 2), so it grows with the cores the
-#      host has instead of stopping at two. Needs a host of at least 4 CPUs.
+#      median(running) <= (1 + SHADOW_CPU_TOLERANCE) x median(stopped). The
+#      slowdown is printed whatever the verdict. "Stopped" is the shadow's
+#      container frozen (docker pause: it holds its memory and runs nothing);
+#      the two alternate in SHADOW_CPU_BLOCKS blocks (ABBA order), each a
+#      fresh math container doing SHADOW_CPU_RUNS recomputes, the first of
+#      which is a warm-up and not counted.
+#   2. The shadow's container has CPU weight 1, as its cgroup reports it.
+#   3. Fenced: every thread library in it runs one thread per CPU of the
+#      fence; its embedding throughput, math idle, is at least
+#      (1 - SHADOW_CPU_BAND) times the same work in a plain container with
+#      the same CPUs and one thread per CPU; and the old configuration (the
+#      libraries counting every CPU of the host inside the same fence) is
+#      below that band, so a lost thread rule is caught. Unfenced: no thread
+#      count is set, and the throughput is at least SHADOW_CPU_MIN_SCALE times
+#      two threads on two CPUs (it grows with the host's CPUs). Needs a host
+#      of at least 4 CPUs.
 # The shadow's work is its embedding step: the model its service names, over
 # every public comment, pass after pass, with the thread settings its entry
 # point gives its children. Nothing it runs reads a credential.
@@ -31,10 +39,9 @@
 # CPUs not shared with other work), never as a hosted check on a shared
 # runner. Knobs: SHADOW_CPU_BLOCKS (6), SHADOW_CPU_RUNS (6),
 # SHADOW_CPU_WINDOW_SECONDS (60), SHADOW_CPU_TOLERANCE (0.05),
-# SHADOW_CPU_MIN_SCALE (1.5); SHADOW_CPU_SETTINGS, KEY=value lines added to
-# the environment Compose reads (DELPHI_SHADOW_CONTAINER_CPUS=0 removes the
-# shadow's default 2-CPU fence: behind the fence the throughput half cannot
-# pass, by design); SHADOW_CPU_EXTRA_OVERRIDE, one more Compose file (a
+# SHADOW_CPU_BAND (0.10), SHADOW_CPU_MIN_SCALE (1.5); SHADOW_CPU_SETTINGS, KEY=value lines added to
+# the environment Compose reads (DELPHI_SHADOW_CONTAINER_CPUS=0, the shadow
+# unfenced); SHADOW_CPU_EXTRA_OVERRIDE, one more Compose file (a
 # control run, such as the shadow without its CPU weight). Results:
 # summary.json (and every line it was computed from) in the output directory.
 set -euo pipefail
@@ -48,6 +55,7 @@ export SHADOW_CPU_RUNS=${SHADOW_CPU_RUNS:-6}
 WINDOW=${SHADOW_CPU_WINDOW_SECONDS:-60}
 TOLERANCE=${SHADOW_CPU_TOLERANCE:-0.05}
 MIN_SCALE=${SHADOW_CPU_MIN_SCALE:-1.5}
+BAND=${SHADOW_CPU_BAND:-0.10}
 export SHADOW_CPU_DELPHI="$root/delphi"
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
@@ -112,7 +120,18 @@ cpu_usage() { docker exec "$(shadow_id)" sh -c 'cat /sys/fs/cgroup/cpu.stat' | a
 echo "== 1. the math engine alone (no shadow container)"
 math absent 0
 
-echo "== 2. the two-CPU reference: the same embedding work, two CPUs, two threads"
+# The fence the service has (Compose's CPU limit), and the reference and
+# control runs it calls for: the reference is the same work on the same
+# number of CPUs with one thread per CPU (two CPUs when unfenced); fenced,
+# the control is the old configuration, the libraries counting every CPU of
+# the host inside the fence.
+fence=$(python3 -c 'import json, math, sys
+c = json.load(open(sys.argv[1]))["services"]["delphi-shadow"]
+cpus = ((c.get("deploy") or {}).get("resources") or {}).get("limits", {}).get("cpus")
+print(math.ceil(float(cpus)) if cpus and float(cpus) > 0 else "")' "$scratch/config.json")
+ref_cpus=${fence:-2}
+echo "fence=${fence:-none}" >>"$out/run.txt"
+echo "== 2. the reference: the same embedding work, $ref_cpus CPUs, $ref_cpus threads"
 model_env=$(python3 - "$scratch/config.json" <<'PY'
 import json, sys
 env = json.load(open(sys.argv[1]))["services"]["delphi-shadow"]["environment"]
@@ -123,10 +142,18 @@ for k in ("SENTENCE_TRANSFORMER_MODEL", "DELPHI_EMBED_MODEL_PATH", "DELPHI_EMBED
 PY
 )
 # shellcheck disable=SC2086
-docker run --name "$reference" --network none --cpus 2 --tmpfs /tmp:size=2g $model_env \
-  -v "$here:/loadtest:ro" -v "$root/delphi/real_data:/app/real_data:ro" --entrypoint python \
-  "$SHADOW_CPU_IMAGE" /loadtest/cpu_priority.py embed --threads 2 --seconds "$WINDOW" | grep '^{' >"$out/reference.jsonl"
-docker rm -f "$reference" >/dev/null
+embed_alone() { # cpus threads output
+  # shellcheck disable=SC2086
+  docker run --name "$reference" --network none --cpus "$1" --tmpfs /tmp:size=2g $model_env \
+    -v "$here:/loadtest:ro" -v "$root/delphi/real_data:/app/real_data:ro" --entrypoint python \
+    "$SHADOW_CPU_IMAGE" /loadtest/cpu_priority.py embed --threads "$2" --seconds "$WINDOW" | grep '^{' >"$3"
+  docker rm -f "$reference" >/dev/null
+}
+embed_alone "$ref_cpus" "$ref_cpus" "$out/reference.jsonl"
+if [[ -n $fence ]]; then
+  echo "== 2b. the control: the old configuration, $ncpu threads inside $fence CPUs"
+  embed_alone "$fence" "$ncpu" "$out/control.jsonl"
+fi
 
 echo "== 3. the shadow, as its service is configured, math idle"
 "${compose[@]}" --profile delphi-shadow up -d --no-deps --no-build --pull never delphi-shadow
@@ -161,4 +188,4 @@ for b in $(seq 1 "$BLOCKS"); do
 done
 
 echo "== 5. verdict"
-python3 "$here/cpu_priority.py" report "$out" --tolerance "$TOLERANCE" --min-scale "$MIN_SCALE" --host-cpus "$ncpu"
+python3 "$here/cpu_priority.py" report "$out" --tolerance "$TOLERANCE" --band "$BAND" --min-scale "$MIN_SCALE" --host-cpus "$ncpu"

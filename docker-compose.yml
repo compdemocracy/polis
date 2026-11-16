@@ -430,9 +430,8 @@ services:
   # root disk) and removed per run; only the daemon's journal and the
   # scheduler's state file are on a volume. Resources: the daemon has the
   # lowest CPU weight, a 2-CPU fence by default with one library thread per
-  # CPU of it, a memory ceiling, and is the first process the kernel kills
-  # when the box runs out of memory (its block below); the scheduler has a
-  # quarter CPU and 256 MiB.
+  # CPU of it, a memory ceiling, and the highest OOM score (its block
+  # below); the scheduler has a quarter CPU and 256 MiB.
   delphi-shadow:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -497,34 +496,32 @@ services:
     # The daemon's own stop drains the running job within
     # POLIS_JOBS_SHUTDOWN_GRACE_SECONDS (30 s), then kills it.
     stop_grace_period: 60s
-    # CPU: the lowest weight, and a fence. Under contention the kernel
-    # shares a CPU in proportion to weight, and this is the lowest Docker
-    # accepts (cpu_shares 2, which is cgroup v2's cpu.weight 1, against the
-    # 100 that every other service here has because none of them sets one),
-    # so the math engine, the report service or anything serving people gets
-    # a contended core at once. A weight shares CPU time, not the chip: work
-    # that gets its core at once still runs slower per instruction while the
-    # shadow keeps the other cores busy (shared caches, memory bandwidth, the
-    # clock of a busy chip, a hyperthread's sibling), which
-    # delphi/tests/shadow/cpu_priority.sh measures. So the shadow is also
-    # fenced, at 2 CPUs by default (DELPHI_SHADOW_CONTAINER_CPUS), and the
-    # daemon runs one library thread per CPU of the fence (torch, Numba and
-    # BLAS do not read a CPU quota; `polis-delphi-shadow threads` prints what
-    # it sets). DELPHI_SHADOW_CONTAINER_CPUS=0 removes the fence: Compose
-    # then sets no CPU limit, the daemon sees no quota and sets no thread
-    # count, and the shadow may use every idle core behind its weight.
+    # CPU: the lowest weight, and a fence. When CPUs are contended the kernel
+    # divides CPU time in proportion to weight; this is the lowest Docker
+    # accepts (cpu_shares 2, cgroup v2's cpu.weight 1, against the 100 that
+    # every other service here has because none of them sets one). A weight
+    # divides runnable time only: it reserves no core and promises no wakeup
+    # deadline, and it does nothing about shared caches, memory bandwidth, a
+    # busy chip's clock or a hyperthread's sibling. Measured with
+    # delphi/tests/shadow/cpu_priority.sh on a 12-vCPU host: the math
+    # engine's recompute waited at most 0.5 ms for a CPU, and ran about 5 %
+    # slower behind this 2-CPU fence and 11-16 % slower unfenced while the
+    # shadow embedded. The fence is 2 CPUs by default
+    # (DELPHI_SHADOW_CONTAINER_CPUS), and the daemon runs one library thread
+    # per CPU of it (torch, Numba and BLAS do not read a CPU quota;
+    # `polis-delphi-shadow threads` prints what it sets).
+    # DELPHI_SHADOW_CONTAINER_CPUS=0 removes the fence: Compose then sets no
+    # CPU limit, the daemon sees no quota and sets no thread count.
     cpu_shares: 2
-    # Memory: a ceiling, not a reservation (nothing is set aside for it),
-    # and the shadow is the first process the kernel kills when the box runs
-    # out (oom_score_adj 1000, the most; every other service keeps Docker's
-    # 0). So a ceiling well above its use takes nothing from the math
-    # engine: on the 64 GiB Delphi box math-python's 48 GiB, delphi's 8 GiB
-    # and this 16 GiB are 72 GiB of ceilings, the measured peaks together
-    # are far below the box, and in the one case the sum passes it, this
-    # container goes first. The tmpfs mounts above count inside it. A run
-    # killed for memory fails its attempt, and the queue tries it again,
-    # three attempts in all; the math engine and the report service are
-    # separate containers and lose nothing.
+    # Memory: a ceiling, not a reservation (nothing is set aside for it).
+    # oom_score_adj 1000 (the most; every other service keeps Docker's 0)
+    # makes a shadow process the kernel's first choice when the whole box
+    # runs out of memory. It changes only that choice: it reserves no memory
+    # for anyone and does not prevent the reclaim that comes before a kill,
+    # and a service that fills its own ceiling is killed inside its own
+    # cgroup, whatever the shadow's score. The tmpfs mounts above count
+    # inside this ceiling. A shadow run that is killed fails its attempt; the
+    # queue gives a job three attempts in all and then marks it dead.
     oom_score_adj: 1000
     deploy:
       resources:

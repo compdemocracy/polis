@@ -41,6 +41,7 @@ import re
 import subprocess
 import sys
 import time
+from math import ceil as math_ceil
 
 REAL_DATA = "/app/real_data"
 MATH_CONVERSATION = "r4tykwac8thvzv35jrn53-biodiversity"
@@ -225,7 +226,7 @@ def _throughput(passes):
     return (sum(p["comments"] for p in timed) / seconds if seconds else None), len(timed)
 
 
-def report(out, tolerance, min_scale, host_cpus):
+def report(out, tolerance, band, min_scale, host_cpus):
     """summary.json from the lines the harness kept; exit 1 unless both hold."""
     recomputes = [r for r in _lines(os.path.join(out, "math.jsonl")) if r.get("event") == "recompute"]
     timed = [r for r in recomputes if r["run"] > 0]  # each container's first run is its warm-up
@@ -254,32 +255,64 @@ def report(out, tolerance, min_scale, host_cpus):
     window = [p for p in _lines(os.path.join(out, "window.jsonl")) if p.get("event") == "pass"]
     shadow, shadow_n = _throughput([{"seconds": 0, "comments": 0}] + window)  # every window pass counts
     scale = shadow / reference if shadow and reference else None
+    control, control_n = _throughput([p for p in _lines(os.path.join(out, "control.jsonl")) if p.get("event") == "pass"])
+    facts_lines = _lines(os.path.join(out, "shadow-facts.json"))
+    facts = facts_lines[-1] if facts_lines else {}
+    # The mode is the fence the service really has, read in its own cgroup.
+    quota = (facts.get("cpu_max") or "max").split()
+    fence = math_ceil(int(quota[0]) / int(quota[1])) if quota[0] != "max" else None
+    env = facts.get("thread_env") or {}
+    if fence:
+        # Fenced (the default): one library thread per CPU of the fence, and
+        # the throughput of the same work on the same fence with that many
+        # threads (the reference), within the band; the old configuration
+        # (the libraries counting the whole box inside the fence) is the
+        # control and must fall outside it, or the check could not tell.
+        threads_ok = (facts.get("torch_threads") == fence and
+                      all(env.get(k) == str(fence) for k in THREAD_VARS))
+        embed_ok = bool(scale and scale >= 1 - band)
+        control_ok = bool(control and reference and control / reference < 1 - band)
+    else:
+        # Unfenced (DELPHI_SHADOW_CONTAINER_CPUS=0): no thread count set, and
+        # throughput at least min_scale times two threads on two CPUs.
+        threads_ok = all(env.get(k) in (None, "") for k in THREAD_VARS)
+        embed_ok = bool(scale and scale >= min_scale)
+        control_ok = True
     summary = {
         "host_cpus": host_cpus,
+        "mode": f"fenced at {fence} CPUs" if fence else "unfenced",
         "math_recompute": math,
         "math_ratio_running_to_stopped": round(ratio, 4) if ratio else None,
+        "math_slowdown_pct": round((ratio - 1) * 100, 1) if ratio else None,
         "math_paired_block_ratios": paired,
         "math_tolerance": tolerance,
         "math_holds": bool(ratio and ratio <= 1 + tolerance),
-        "embed_reference_two_cpus_comments_per_s": round(reference, 2) if reference else None,
+        "cpu_weight": facts.get("cpu_weight"),
+        "weight_holds": facts.get("cpu_weight") == "1",
+        "threads": {"torch": facts.get("torch_threads"), **env},
+        "threads_hold": threads_ok,
+        "embed_reference_comments_per_s": round(reference, 2) if reference else None,
+        "embed_reference_cpus": fence or 2,
         "embed_reference_passes": ref_n,
+        "embed_control_oversubscribed_comments_per_s": round(control, 2) if control else None,
+        "embed_control_passes": control_n,
         "embed_shadow_comments_per_s": round(shadow, 2) if shadow else None,
         "embed_shadow_passes": shadow_n,
-        "embed_scale_over_two_cpus": round(scale, 3) if scale else None,
+        "embed_ratio_to_reference": round(scale, 3) if scale else None,
+        "embed_band": band,
         "embed_min_scale": min_scale,
-        "embed_scales": bool(scale and scale >= min_scale),
+        "embed_holds": embed_ok,
+        "control_detected": control_ok,
+        "shadow_facts": facts,
     }
-    for name in ("shadow-facts.json",):
-        facts_lines = _lines(os.path.join(out, name))
-        if facts_lines:
-            summary["shadow_facts"] = facts_lines[-1]
-    summary["passed"] = summary["math_holds"] and summary["embed_scales"]
+    summary["passed"] = all(summary[k] for k in ("math_holds", "weight_holds", "threads_hold", "embed_holds", "control_detected"))
     with open(os.path.join(out, "summary.json"), "w") as f:
         json.dump(summary, f, indent=1, sort_keys=True)
     print(json.dumps({k: summary[k] for k in (
-        "passed", "math_holds", "math_ratio_running_to_stopped", "embed_scales",
-        "embed_scale_over_two_cpus", "embed_shadow_comments_per_s",
-        "embed_reference_two_cpus_comments_per_s")}, sort_keys=True))
+        "passed", "mode", "math_holds", "math_slowdown_pct", "math_tolerance", "weight_holds", "threads_hold",
+        "embed_holds", "embed_ratio_to_reference", "embed_shadow_comments_per_s",
+        "embed_reference_comments_per_s", "control_detected",
+        "embed_control_oversubscribed_comments_per_s")}, sort_keys=True))
     for state in ("absent", "stopped", "running"):
         m = math[state]
         print(f"math {state}: {m['count']} recomputes in {m['blocks']} blocks, median {m['median_wall_s']} s, "
@@ -298,6 +331,7 @@ def main(argv=None):
     r = sub.add_parser("report")
     r.add_argument("out")
     r.add_argument("--tolerance", type=float, required=True)
+    r.add_argument("--band", type=float, required=True)
     r.add_argument("--min-scale", type=float, required=True)
     r.add_argument("--host-cpus", type=int, required=True)
     args = parser.parse_args(argv)
@@ -306,7 +340,7 @@ def main(argv=None):
     elif args.mode == "embed":
         run_embed(args.seconds, args.threads)
     else:
-        sys.exit(report(args.out, args.tolerance, args.min_scale, args.host_cpus))
+        sys.exit(report(args.out, args.tolerance, args.band, args.min_scale, args.host_cpus))
 
 
 if __name__ == "__main__":

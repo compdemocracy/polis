@@ -11,13 +11,12 @@
 //! and drain are unchanged). The production `delphi` service never runs it.
 //!
 //! Before it replaces itself it also decides the thread counts of the
-//! pipeline's libraries (`thread_settings`): the shadow's container has no CPU
-//! cap by default (a low CPU weight lets it use every idle core and yield the
-//! moment anything else wants one), and then nothing is set: torch, Numba and
-//! the BLAS libraries each count the box's CPUs themselves. Only when an
-//! operator fences the container (a CPU quota, Compose's `cpus:`, or a CPU
-//! set narrower than the box) does it set one thread per CPU the container
-//! may use, because none of those libraries reads a CPU quota.
+//! pipeline's libraries (`thread_settings`). None of torch, Numba or the BLAS
+//! libraries reads a CPU quota, so when the container is fenced (a CPU quota,
+//! Compose's `cpus:`, 2 by default for the shadow, or a CPU set narrower than
+//! the box) it sets one thread per CPU the container may use. Unfenced
+//! (`DELPHI_SHADOW_CONTAINER_CPUS=0`) it sets nothing, and each library
+//! counts the box's CPUs itself.
 use super::config::{ConfigError, ENV_PREFIX, valid_env};
 use std::path::Path;
 
