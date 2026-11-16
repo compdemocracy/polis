@@ -67,9 +67,11 @@ const LINK_OR_CONTACT =
 
 function shares(c: PackComment): number[] {
   const out: number[] = [];
+  // A share needs at least one voter; `total` is a count of voters, never a vote.
   const add = (n: { votes: number; agrees: number; disagrees: number; passes: number }) => {
-    if (n.votes > 0)
-      for (const k of [n.agrees, n.disagrees, n.passes]) out.push((100 * k) / n.votes);
+    const total = n.votes;
+    if (total >= 1)
+      for (const k of [n.agrees, n.disagrees, n.passes]) out.push((100 * k) / total);
   };
   add(c);
   for (const g of Object.values(c.groups || {})) add(g);
