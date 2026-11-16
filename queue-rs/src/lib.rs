@@ -11,6 +11,7 @@ use std::{collections::BTreeSet, time::Duration};
 use uuid::Uuid;
 
 pub mod jobs;
+pub mod shadow;
 
 pub const QUEUE_SQL_SHA256: &str =
     "2d8e205f1d36e0e2e6a4fc63d1d03cbf8837ca57ccaac503c88238fa2a14a055";

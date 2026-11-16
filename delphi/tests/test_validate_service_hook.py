@@ -92,6 +92,15 @@ def test_the_delphi_box_requires_the_services_the_real_hook_names(tmp_path):
     assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3
 
 
+# The free-only Delphi shadow is optional work and never named in
+# DELPHI_SERVICES: a shadow that failed to start (or is switched off) leaves
+# the Delphi box's validation as it was.
+def test_the_delphi_box_never_requires_the_delphi_shadow(tmp_path):
+    p = probe(tmp_path, role='delphi', absent='delphi-shadow delphi-shadow-scheduler')
+    assert p.returncode == 0, p.stderr
+    assert not {'delphi-shadow', 'delphi-shadow-scheduler'} & set((tmp_path/'calls.ps').read_text().split())
+
+
 def test_the_delphi_box_fails_when_a_named_service_has_no_container(tmp_path):
     p = probe(tmp_path, role='delphi', absent='math-python')
     assert p.returncode != 0

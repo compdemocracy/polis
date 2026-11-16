@@ -328,6 +328,10 @@ check-client-admin: ## Run the client-admin verification commands
 check-client-report: ## Run the client-report verification commands
 	@bash ci/local/client-report.sh
 
+.PHONY: check-client-topic-map
+check-client-topic-map: ## Run the topic map package's tests
+	@bash ci/local/client-topic-map.sh
+
 .PHONY: check-lint
 check-lint: ## Run the lint verification commands
 	@bash ci/local/lint.sh
@@ -363,6 +367,10 @@ check-queue-rs: ## Run queue-rs checks
 .PHONY: check-polis-migrate
 check-polis-migrate: ## Run polis-migrate checks
 	@bash ci/local/polis-migrate.sh
+
+.PHONY: check-polis-topic-map
+check-polis-topic-map: ## Run the topic map generator's checks
+	@bash ci/local/polis-topic-map.sh
 
 .PHONY: check-job-graphs
 check-job-graphs: ## Run job-graphs checks

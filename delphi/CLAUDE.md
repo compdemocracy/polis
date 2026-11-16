@@ -107,9 +107,9 @@ Always use the commands above to determine the most substantial conversation whe
   - The Ollama provider defaults to `llama3`; the [setup script](scripts/setup_ollama.sh#L11) defaults to `llama3.1:8b`. `OLLAMA_MODEL` selects the model, and the provider reads `OLLAMA_HOST` before `OLLAMA_ENDPOINT`; caller-specific fallbacks are listed in the [reference](../docs/configuration-env-reference.md).
 
 - **Sentence Transformer Configuration**:
-  - Default embedding model: `all-MiniLM-L6-v2` (configurable via `SENTENCE_TRANSFORMER_MODEL`)
-  - For multilingual support, set `SENTENCE_TRANSFORMER_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
-  - Both models produce 384-dimensional embeddings
+  - Default embedding model: `ibm-granite/granite-embedding-311m-multilingual-r2`, multilingual, pinned to the revision in `embedding-model.lock.json`. The image carries it; the `delphi` and `delphi-shadow` services read that copy (`DELPHI_EMBED_MODEL_PATH`, `DELPHI_EMBED_MODEL_LOCK`), checked against the lock, with no download. Outside the image the default is fetched by name once at the lock's revision and checked the same way; another `SENTENCE_TRANSFORMER_MODEL` is loaded as given, unchecked (and, with the directory set, refuses unless the directory is that model's)
+  - Every model is kept to its first 384 dimensions and normalized (`polismath/embedding_model.py`); granite's native width is 768
+  - A run records its model as `repo@revision:384` (the run record, the DynamoDB rows and the per-row embeddings table); vectors from different models are not comparable, so a conversation re-run under a new model gets a new map and new topics
 
 ## IMPORTANT: Finding All Logs
 

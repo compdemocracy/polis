@@ -1,0 +1,18 @@
+{
+  "schema": "delphi-embedding-model/1",
+  "name": "granite-embedding-311m-multilingual-r2",
+  "repo": "ibm-granite/granite-embedding-311m-multilingual-r2",
+  "revision": "44399559930365213510b1ee2eb15ded83374f0e",
+  "files": {
+    "1_Pooling/config.json": "781299da695e58439d70d491840da22ea0935d1d57d9646eb9725f1f19754e89",
+    "README.md": "3c47e61d962601a89027f406fe78f32f9bcdd9c73576c5204b3e70defb3e796b",
+    "config.json": "e1e3fc842a8e0537e25d6e4c93879698b92ae96722e8c162bef334b57978a3b0",
+    "config_sentence_transformers.json": "f09adf93fcf868bb2fc3976a435d810b2ecdffa953d1da091d2a91168abab44b",
+    "model.safetensors": "dcb6431bfa6e817fe100a2b0521360cec3383963b03fa966b685de18ca310d31",
+    "modules.json": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+    "sentence_bert_config.json": "967ef958285e4a7a37d8ff1832473d967edd913b4e48572f31c3d3ea361d5327",
+    "special_tokens_map.json": "cb9e60dcf4d8d314315cb3e761fe4c2e664fda8dbf66d7815372b2639e381182",
+    "tokenizer.json": "0087c868b33bad550a78a08d19798cfd7f713cde4f020803b8f51f405503e15f",
+    "tokenizer_config.json": "7947bdf0378520e69ca412b8c4dacd1cffa8aef099f851fdd5c65aa27c6b36a0"
+  }
+}

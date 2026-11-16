@@ -10,6 +10,7 @@ check. No command reduces the test selection or changes an assertion.
 | Participation alpha | `make check-client-alpha` | Node 24.22.1 |
 | Admin | `make check-client-admin` | Node 24.22.1 |
 | Report | `make check-client-report` | Node 24.22.1 |
+| Topic map package | `make check-client-topic-map` | Node 24.22.1 |
 | ESLint | `make check-lint` | Node 24.22.1 |
 | Provenance | `make check-job-provenance` | Node 22.23.4 |
 | Job views | `make check-job-views` | Node 22.23.4, UTC |
@@ -20,6 +21,7 @@ check. No command reduces the test selection or changes an assertion.
 | Authority | `bash scripts/test-polis-auth.sh` | pinned Rust, PostgreSQL 17 |
 | API | `make check-polis-api` | pinned Rust, Python 3, PostgreSQL 17, Docker |
 | Migration runner | `make check-polis-migrate` | Node 22.23.4, pinned Rust, Docker |
+| Topic map generator | `make check-polis-topic-map` | pinned Rust |
 | Job graphs | `make check-job-graphs` | Node 22.23.4, pinned Rust, Python 3, Docker |
 | CLI | `make check-polis-cli` | Python 3.12, pinned Rust |
 | CLI differential | `make check-polis-cli-differential` | pinned Rust, Python 3, Docker |
