@@ -34,7 +34,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # The names this change adds. A selection that names none of them must render
 # what it rendered before.
-NEW_NAMES = ('votesReadShadow', 'commentsReadShadow', 'nextCommentShadow')
+NEW_NAMES = ('delphiTopicMap',)
 # Names that share a path or a location with each other or with the
 # participation routes: every subset of them is rendered.
 CROSSED = ('pca2', 'votesRead', 'postVotes', 'votesShadow', 'comments', 'commentsShadow', 'nextComment',
