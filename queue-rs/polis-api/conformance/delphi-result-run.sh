@@ -19,8 +19,10 @@
 # mounted over its /app, so the Python run is this checkout's. polis-api:
 #   docker build -t x54pca2-polis-api:conformance -f queue-rs/polis-api/Dockerfile .
 # Also needs cargo (polis-migrate) and node on the host. The worker
-# downloads all-MiniLM-L6-v2 from the Hugging Face hub into DELPHI_RUN_HF_HOME
-# unless it is already cached there. DELPHI_RUN_SCRATCH (default: a new
+# fetches the default embedding model (granite-embedding-311m-multilingual-r2,
+# at the revision in delphi/embedding-model.lock.json, checked against that
+# lock) from the Hugging Face hub into DELPHI_RUN_HF_HOME unless it is already
+# there. DELPHI_RUN_SCRATCH (default: a new
 # temporary directory) must be a directory Docker can mount. The stack is
 # always removed on exit, volumes included.
 set -euo pipefail

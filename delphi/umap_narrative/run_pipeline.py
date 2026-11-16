@@ -186,25 +186,24 @@ def process_comments(comments, conversation_id):
         ),
     )
 
-    # Generate embeddings with SentenceTransformer
-    logger.info("Generating embeddings with SentenceTransformer...")
-    model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
-    logger.info(f"Using model: {model_name}")
-    # DELPHI_EMBED_MODEL_PATH set: the model's files carried in the image, read
-    # with no network (and checked against DELPHI_EMBED_MODEL_LOCK when that is
-    # set). Unset: the model by name from the Hugging Face hub, as before.
-    from polismath.embedding_model import load_check
+    # Generate embeddings with SentenceTransformer. DELPHI_EMBED_MODEL_PATH set
+    # (the Delphi services): the model's files carried in the image, checked
+    # against DELPHI_EMBED_MODEL_LOCK and read with no network. Unset: the
+    # default model fetched by name once at the shipped lock's revision and
+    # checked against that lock the same way; another name, from the hub as
+    # given. Either way the vectors are the first 384 dimensions, normalized
+    # (polismath/embedding_model.py).
+    from polismath import embedding_model as em
 
+    logger.info("Generating embeddings with SentenceTransformer...")
     with step_log.step("embed_load") as facts:
-        model_arg = load_check()
-        facts["model_source"] = "image" if model_arg != model_name else "hub"
-        if model_arg != model_name:
-            logger.info(f"Reading the embedding model from {model_arg} (no download)")
-            embedding_model = SentenceTransformer(model_arg, local_files_only=True)
-        else:
-            embedding_model = SentenceTransformer(model_name)
+        embedding_model, resolved = em.load()
+        facts["model_source"] = "image" if resolved.local else "hub"
+        facts["model"] = resolved.model
+        logger.info(f"Using model: {resolved.model}"
+                    + (f" from {resolved.arg} (no download)" if resolved.local else ""))
     with step_log.step("embed_encode", n_comments=len(comment_texts)) as facts:
-        document_vectors = embedding_model.encode(comment_texts, show_progress_bar=True)
+        document_vectors = em.encode(embedding_model, comment_texts, show_progress_bar=True)
         facts["dims"] = int(document_vectors.shape[1]) if getattr(document_vectors, "ndim", 0) == 2 else None
 
     from umap_narrative.numerical_stages import project_and_cluster
@@ -1144,10 +1143,16 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
             f"Storing basic data in DynamoDB for conversation {conversation_id}..."
         )
 
+        # The model the vectors came from, named as the run record names it
+        # (repo@revision:384 for the image's or the default model).
+        from polismath.embedding_model import resolve
+        model_name = resolve().model
+
         # Store conversation metadata
         logger.info("Storing conversation metadata...")
         conversation_meta = DataConverter.create_conversation_meta(
-            conversation_id, document_vectors, cluster_layers, metadata
+            conversation_id, document_vectors, cluster_layers, metadata,
+            embedding_model=model_name,
         )
         dynamo_storage.create_conversation_meta(conversation_meta)
 
@@ -1157,14 +1162,13 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
         logger.info("Storing comment embeddings...")
         if dynamo_storage.embeddings_table_enabled():
             import hashlib
-            model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
             text_shas = [hashlib.sha256(text.encode("utf-8")).digest() for text in comment_texts]
             result = dynamo_storage.put_comment_embeddings_table(
                 conversation_id, comment_ids, text_shas, document_vectors, model_name
             )
         else:
             embedding_models = DataConverter.batch_convert_embeddings(
-                conversation_id, document_vectors, comment_ids
+                conversation_id, document_vectors, comment_ids, model=model_name
             )
             result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(
