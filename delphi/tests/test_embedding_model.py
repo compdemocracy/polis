@@ -265,13 +265,24 @@ def test_by_name_a_one_byte_change_is_refused_before_any_model_is_built(by_name)
     assert by_name.built == []
 
 
+def _seed_stored_copy():
+    """The locked files where a by-name fetch keeps them, written directly (not by
+    the code under test): <HF_HOME>/polis-embedding/<lock name>@<revision>."""
+    stored = (Path(os.environ["HF_HOME"]) / "polis-embedding"
+              / f"granite-embedding-311m-multilingual-r2@{em.DEFAULT_REVISION}")
+    for name, data in _LOCKED.items():
+        (stored / name).parent.mkdir(parents=True, exist_ok=True)
+        (stored / name).write_bytes(data)
+    return stored
+
+
 def test_by_name_a_stored_copy_changed_by_one_byte_is_refused_before_any_model_is_built(by_name):
-    em.load()
-    ((arg, _),) = by_name.built
-    (Path(arg) / "config.json").write_bytes(b'{"hidden_size": 769}')
+    stored = _seed_stored_copy()
+    (stored / "config.json").write_bytes(b'{"hidden_size": 769}')
     with pytest.raises(em.ModelMismatch):
         em.load()
-    assert len(by_name.built) == 1
+    # Refused from the stored copy itself: nothing fetched, no model built.
+    assert by_name.built == [] and by_name.requests == []
 
 
 def test_by_name_files_of_another_revision_are_refused(by_name):
