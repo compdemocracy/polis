@@ -284,7 +284,7 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`ANTHROPIC_MODEL`** Narrative-report model, and the topic-naming fallback when `ANTHROPIC_TOPIC_MODEL` is empty.
 - **`ANTHROPIC_TOPIC_MODEL`** Topic-naming model. Resolution order is `ANTHROPIC_TOPIC_MODEL`, then `ANTHROPIC_MODEL`, then `claude-haiku-4-5-20251001` ([topic_naming:76](../delphi/umap_narrative/topic_naming.py#L76)). Compose fallback empty.
 - **`TOPIC_BATCH_MAX_WAIT_SECONDS`** Longest wait, in seconds, for one layer's Anthropic topic-naming batch. Compose fallback `1800`.
-- **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
+- **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline, kept to its first 384 dimensions and normalized. Compose fallback `ibm-granite/granite-embedding-311m-multilingual-r2`, loaded by that name at the revision in `delphi/embedding-model.lock.json`. With `DELPHI_EMBED_MODEL_PATH` set it must name the directory's model or be empty.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
 
 ### Comment Embeddings Table

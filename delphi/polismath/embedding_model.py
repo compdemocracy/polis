@@ -1,20 +1,27 @@
-"""The embedding model (all-MiniLM-L6-v2) carried in the Delphi image.
+"""The embedding model (granite-embedding-311m-multilingual-r2) carried in the Delphi image.
 
 The image's build fetches the model's files once, at the revision named in
 ``embedding-model.lock.json`` (beside this package's directory), and checks
 every file's SHA-256 against the lock (``fetch``). At run time the UMAP stage
 reads that directory instead of the Hugging Face hub when
-``DELPHI_EMBED_MODEL_PATH`` names it; with ``DELPHI_EMBED_MODEL_LOCK`` also
-set, the directory is checked against the lock before the model is loaded, and
-a directory that differs refuses the run (``load_check``). Unset, the stage
-loads the model by name from the hub, as it always has.
+``DELPHI_EMBED_MODEL_PATH`` names it, and checks it against
+``DELPHI_EMBED_MODEL_LOCK`` before the model is loaded; a directory that
+differs refuses the run. Unset, the stage loads the model by name from the
+hub; the default model is pinned to the lock's revision.
+
+Every load keeps the first 384 dimensions (``truncate_dim``) and every encode
+returns unit vectors (``normalize_embeddings``): granite is 768 wide and
+Matryoshka-trained, and 384 is the width Delphi has always stored. A run's
+model is named once (``resolve``), as ``repo@revision:384`` when the revision
+is known, and that name goes to the run record, the DynamoDB rows and the
+per-row embeddings table alike.
 
 ``compare`` is the byte-for-byte check between the two: it encodes the same
-texts with the model loaded by name (today's run) and loaded from the
-directory, and reports both digests; they must be equal.
+texts with the model loaded by name and loaded from the directory, and
+reports both digests; they must be equal.
 
-Nothing in this module talks to the network except ``fetch`` and the by-name
-half of ``compare``.
+Nothing in this module talks to the network except ``fetch``, a by-name
+``load`` and the by-name half of ``compare``.
 """
 
 from __future__ import annotations
@@ -26,10 +33,16 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, NamedTuple, Optional
 
 LOCK_SCHEMA = "delphi-embedding-model/1"
 DEFAULT_LOCK = Path(__file__).resolve().parents[1] / "embedding-model.lock.json"
+# The default model and the revision a by-name load is pinned to. The lock
+# names the same repository and revision (tests/test_embedding_model.py).
+DEFAULT_MODEL = "ibm-granite/granite-embedding-311m-multilingual-r2"
+DEFAULT_REVISION = "44399559930365213510b1ee2eb15ded83374f0e"
+# The stored width: every load truncates to it, every encode normalizes after.
+DIMS = 384
 
 
 class ModelMismatch(Exception):
@@ -101,23 +114,97 @@ def load_check() -> str:
     """The model argument the UMAP stage passes to SentenceTransformer, and the check.
 
     With DELPHI_EMBED_MODEL_PATH set: that directory (checked against
-    DELPHI_EMBED_MODEL_LOCK when that is set). Unset: the model name, as before.
+    DELPHI_EMBED_MODEL_LOCK when that is set). Unset: the model name.
     """
     path = os.environ.get("DELPHI_EMBED_MODEL_PATH", "").strip()
     if not path:
-        return os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+        return os.environ.get("SENTENCE_TRANSFORMER_MODEL", "").strip() or DEFAULT_MODEL
     lock_path = os.environ.get("DELPHI_EMBED_MODEL_LOCK", "").strip()
     if lock_path:
         verify(path, read_lock(lock_path))
     return path
 
 
-def encode_digest(model_arg: str, texts: List[str], local_files_only: bool) -> Dict:
+def model_name(repo: str, revision: str, dims: int = DIMS) -> str:
+    """A model's name as Delphi records it: ``repo@revision:dims``."""
+    return f"{repo}@{revision}:{dims}"
+
+
+def _revision_for(model: str) -> Optional[str]:
+    return DEFAULT_REVISION if model == DEFAULT_MODEL else None
+
+
+class Resolved(NamedTuple):
+    arg: str                 # what SentenceTransformer loads: a directory or a hub name
+    local: bool              # a directory, read with no network
+    revision: Optional[str]  # the hub revision a by-name load is pinned to
+    lock: Optional[str]      # the lock the directory is checked against
+    model: str               # the run's model, as the run record and the stores name it
+
+
+def resolve() -> Resolved:
+    """Which model this run embeds with, and its name. Reads the environment and
+    the lock's JSON only (no hashing, no model load), so the run record can name
+    the model the pipeline loads.
+
+    DELPHI_EMBED_MODEL_PATH set: the directory, which must have its lock
+    (DELPHI_EMBED_MODEL_LOCK); the name is ``repo@revision:384`` from the lock,
+    and a SENTENCE_TRANSFORMER_MODEL that names another model refuses, so a
+    directory's vectors are never stored under another model's name. Unset:
+    SENTENCE_TRANSFORMER_MODEL by name (default granite, pinned to the lock's
+    revision and named like the directory); any other name is recorded as given.
+    """
+    path = os.environ.get("DELPHI_EMBED_MODEL_PATH", "").strip()
+    configured = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "").strip()
+    if path:
+        lock_path = os.environ.get("DELPHI_EMBED_MODEL_LOCK", "").strip()
+        if not lock_path:
+            raise ModelMismatch(
+                f"DELPHI_EMBED_MODEL_PATH={path} has no DELPHI_EMBED_MODEL_LOCK: "
+                "the directory's model cannot be named")
+        lock = read_lock(lock_path)
+        model = model_name(lock["repo"], lock["revision"])
+        if configured and configured not in {lock["repo"], lock.get("name"), model}:
+            raise ModelMismatch(
+                f"SENTENCE_TRANSFORMER_MODEL={configured} but {path} holds {model}")
+        return Resolved(path, True, None, lock_path, model)
+    configured = configured or DEFAULT_MODEL
+    revision = _revision_for(configured)
+    model = model_name(configured, revision) if revision else configured
+    return Resolved(configured, False, revision, None, model)
+
+
+def load(device: Optional[str] = None):
+    """(SentenceTransformer truncated to DIMS, Resolved). A directory is checked
+    against its lock first and read with no network."""
+    from sentence_transformers import SentenceTransformer
+
+    resolved = resolve()
+    if resolved.lock:
+        verify(resolved.arg, read_lock(resolved.lock))
+    kwargs = {"truncate_dim": DIMS, "local_files_only": resolved.local}
+    if resolved.revision:
+        kwargs["revision"] = resolved.revision
+    if device:
+        kwargs["device"] = device
+    return SentenceTransformer(resolved.arg, **kwargs), resolved
+
+
+def encode(model, texts: List[str], **kwargs):
+    """Unit vectors, DIMS wide: sentence-transformers truncates, then normalizes."""
+    return model.encode(texts, normalize_embeddings=True, **kwargs)
+
+
+def encode_digest(model_arg: str, texts: List[str], local_files_only: bool,
+                  revision: Optional[str] = None) -> Dict:
     import numpy as np
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(model_arg, local_files_only=local_files_only)
-    vectors = model.encode(texts, show_progress_bar=False)
+    kwargs = {"local_files_only": local_files_only, "truncate_dim": DIMS}
+    if revision:
+        kwargs["revision"] = revision
+    model = SentenceTransformer(model_arg, **kwargs)
+    vectors = encode(model, texts, show_progress_bar=False)
     vectors = np.ascontiguousarray(vectors)
     return {
         "shape": list(vectors.shape),
@@ -128,7 +215,7 @@ def encode_digest(model_arg: str, texts: List[str], local_files_only: bool) -> D
 
 
 def compare(name: str, directory: str, texts: List[str]) -> Dict:
-    by_name = encode_digest(name, texts, local_files_only=False)
+    by_name = encode_digest(name, texts, local_files_only=False, revision=_revision_for(name))
     from_dir = encode_digest(directory, texts, local_files_only=True)
     import numpy as np
 
@@ -151,7 +238,7 @@ def main(argv=None) -> int:
     v.add_argument("--lock", default=str(DEFAULT_LOCK))
     v.add_argument("--dir", required=True)
     c = sub.add_parser("compare", help="encode texts by name and from a directory; print both digests")
-    c.add_argument("--name", default="all-MiniLM-L6-v2")
+    c.add_argument("--name", default=DEFAULT_MODEL)
     c.add_argument("--dir", required=True)
     c.add_argument("--texts", required=True, help="a JSON list of strings")
     args = parser.parse_args(argv)

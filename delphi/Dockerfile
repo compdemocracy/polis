@@ -23,20 +23,20 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- The embedding model (all-MiniLM-L6-v2), fetched once, at build time ----
+# ---- The embedding model (granite-embedding-311m-multilingual-r2), fetched once, at build time ----
 # The files and the revision are pinned in embedding-model.lock.json; the fetch
 # refuses any file whose SHA-256 differs from the lock, so every image built
 # from this file carries the same bytes. The UMAP stage reads this directory
-# only when DELPHI_EMBED_MODEL_PATH names it (with DELPHI_EMBED_MODEL_LOCK set,
-# it checks the files again first); unset, it downloads the model by name from
-# the Hugging Face hub at run time, as before. About 92 MB.
+# only when DELPHI_EMBED_MODEL_PATH names it, and checks the files against
+# DELPHI_EMBED_MODEL_LOCK first; unset, it downloads the model by name from the
+# Hugging Face hub at run time, pinned to the lock's revision. About 627 MB.
 FROM trust AS embedding-model
 RUN pip install --no-cache-dir huggingface-hub==0.36.0
-COPY embedding-model.lock.json /opt/polis/embedding/all-MiniLM-L6-v2.lock.json
+COPY embedding-model.lock.json /opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
 COPY polismath/embedding_model.py /tmp/embedding_model.py
 RUN python /tmp/embedding_model.py fetch \
-      --lock /opt/polis/embedding/all-MiniLM-L6-v2.lock.json \
-      --dest /opt/polis/embedding/all-MiniLM-L6-v2 \
+      --lock /opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json \
+      --dest /opt/polis/embedding/granite-embedding-311m-multilingual-r2 \
  && rm /tmp/embedding_model.py
 
   FROM trust AS builder

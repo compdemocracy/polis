@@ -97,8 +97,9 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     assert env["DELPHI_SKIP_DATAMAPPLOT"] == "1"
     assert env["DELPHI_LOCAL_OUTPUT_CLEANUP"] == "1"
     assert env["DELPHI_STEP_LOG"] == "1"
-    assert env["DELPHI_EMBED_MODEL_PATH"] == "/opt/polis/embedding/all-MiniLM-L6-v2"
-    assert env["DELPHI_EMBED_MODEL_LOCK"] == "/opt/polis/embedding/all-MiniLM-L6-v2.lock.json"
+    assert env["SENTENCE_TRANSFORMER_MODEL"] == "ibm-granite/granite-embedding-311m-multilingual-r2"
+    assert env["DELPHI_EMBED_MODEL_PATH"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2"
+    assert env["DELPHI_EMBED_MODEL_LOCK"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json"
     assert env["HF_HUB_OFFLINE"] == env["TRANSFORMERS_OFFLINE"] == "1"
     # Scratch, caches and local outputs are tmpfs, not the box's disk.
     tmpfs = service["tmpfs"]

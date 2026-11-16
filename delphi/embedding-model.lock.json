@@ -1,19 +1,18 @@
 {
   "schema": "delphi-embedding-model/1",
-  "name": "all-MiniLM-L6-v2",
-  "repo": "sentence-transformers/all-MiniLM-L6-v2",
-  "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "name": "granite-embedding-311m-multilingual-r2",
+  "repo": "ibm-granite/granite-embedding-311m-multilingual-r2",
+  "revision": "44399559930365213510b1ee2eb15ded83374f0e",
   "files": {
-    "1_Pooling/config.json": "4be450dde3b0273bb9787637cfbd28fe04a7ba6ab9d36ac48e92b11e350ffc23",
-    "README.md": "dcd602d2fd35c203a247304a06fec6654a12f7941b739f9221a064fe8dc3b7f0",
-    "config.json": "953f9c0d463486b10a6871cc2fd59f223b2c70184f49815e7efbcab5d8908b41",
-    "config_sentence_transformers.json": "061ca9d39661d6c6d6de5ba27f79a1cd5770ea247f8d46412a68a498dc5ac9f3",
-    "model.safetensors": "53aa51172d142c89d9012cce15ae4d6cc0ca6895895114379cacb4fab128d9db",
+    "1_Pooling/config.json": "781299da695e58439d70d491840da22ea0935d1d57d9646eb9725f1f19754e89",
+    "README.md": "3c47e61d962601a89027f406fe78f32f9bcdd9c73576c5204b3e70defb3e796b",
+    "config.json": "e1e3fc842a8e0537e25d6e4c93879698b92ae96722e8c162bef334b57978a3b0",
+    "config_sentence_transformers.json": "f09adf93fcf868bb2fc3976a435d810b2ecdffa953d1da091d2a91168abab44b",
+    "model.safetensors": "dcb6431bfa6e817fe100a2b0521360cec3383963b03fa966b685de18ca310d31",
     "modules.json": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
-    "sentence_bert_config.json": "fc1993fde0a95c24ec6c022539d41cf6e2f7c9721e5415d6fb6897472a9cd4b7",
-    "special_tokens_map.json": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3",
-    "tokenizer.json": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
-    "tokenizer_config.json": "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b",
-    "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+    "sentence_bert_config.json": "967ef958285e4a7a37d8ff1832473d967edd913b4e48572f31c3d3ea361d5327",
+    "special_tokens_map.json": "cb9e60dcf4d8d314315cb3e761fe4c2e664fda8dbf66d7815372b2639e381182",
+    "tokenizer.json": "0087c868b33bad550a78a08d19798cfd7f713cde4f020803b8f51f405503e15f",
+    "tokenizer_config.json": "7947bdf0378520e69ca412b8c4dacd1cffa8aef099f851fdd5c65aa27c6b36a0"
   }
 }
