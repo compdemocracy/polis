@@ -180,12 +180,37 @@ def _batch_module():
     return importlib.import_module("umap_narrative.801_narrative_report_batch")
 
 
-async def prepare(zid: int, pack_id: str, include_moderation: bool, exclude_comment_selections: bool):
-    """Delphi's own narrative requests for the conversation. No provider is called."""
-    generator = _batch_module().BatchReportGenerator(
+def generator_for(zid: int, pack_id: str, include_moderation: bool, exclude_comment_selections: bool):
+    """Delphi's own narrative request builder for the conversation, with no model."""
+    return _batch_module().BatchReportGenerator(
         conversation_id=zid, model=NO_MODEL, job_id=pack_id,
         include_moderation=include_moderation, exclude_comment_selections=exclude_comment_selections,
     )
+
+
+def source_state(client, zid: int, math_env: Optional[str]) -> Dict[str, Any]:
+    """The inputs the server judges a pack's freshness by, read now."""
+    from sqlalchemy import text
+
+    client.initialize()
+    with client.engine.begin() as conn:
+        return conn.execute(text("SELECT public.pd_narrative_source_state(:zid, :math_env) AS v"),
+                            {"zid": zid, "math_env": math_env}).scalar_one()
+
+
+def prepare_after_inputs(generator, zid: int, math_env: Optional[str]):
+    """The inputs, then the requests. Read in this order, a conversation that
+    changes while the requests are prepared leaves a pack whose inputs are
+    older than the conversation, which the server refuses as stale; read the
+    other way round, the pack would carry the newer inputs over the older
+    prompts and be served as fresh. No provider is called."""
+    inputs = source_state(generator.postgres_client, zid, math_env)
+    return inputs, asyncio.run(generator.prepare_batch_requests())
+
+
+async def prepare(zid: int, pack_id: str, include_moderation: bool, exclude_comment_selections: bool):
+    """Delphi's own narrative requests for the conversation. No provider is called."""
+    generator = generator_for(zid, pack_id, include_moderation, exclude_comment_selections)
     return await generator.prepare_batch_requests(), generator
 
 
@@ -207,15 +232,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     pack_id = str(uuid.uuid4())
     include_moderation = args.include_moderation == "true"
     exclude = args.exclude_comment_selections == "true"
-    requests, generator = asyncio.run(prepare(args.zid, pack_id, include_moderation, exclude))
+    generator = generator_for(args.zid, pack_id, include_moderation, exclude)
+    math_env = ConfigManager.get_config().get("math-env")
+    inputs, requests = prepare_after_inputs(generator, args.zid, math_env)
     client = generator.postgres_client
     client.initialize()
     from sqlalchemy import text
 
-    math_env = ConfigManager.get_config().get("math-env")
-    with client.engine.begin() as conn:
-        inputs = conn.execute(text("SELECT public.pd_narrative_source_state(:zid, :math_env) AS v"),
-                              {"zid": args.zid, "math_env": math_env}).scalar_one()
     pack = build_pack(requests, zid=args.zid, report_id=args.report_id, pack_id=pack_id, inputs=inputs,
                       settings={"include_moderation": include_moderation, "exclude_comment_selections": exclude})
     with client.engine.begin() as conn:

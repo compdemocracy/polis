@@ -172,6 +172,47 @@ def test_no_requests_is_refused(requests_and_module):
         pack_module.build_pack([], zid=ZID, report_id="r", pack_id=PACK_ID, inputs=INPUTS, settings={})
 
 
+def test_the_inputs_are_read_before_the_requests_are_prepared(requests_and_module):
+    # Read after, a pack prepared from older rows would carry newer inputs and
+    # the server would serve it as fresh; read before, a change in between
+    # leaves the pack stale, which the server refuses.
+    _, pack_module = requests_and_module
+    order = []
+
+    class Result:
+        def scalar_one(self):
+            return INPUTS
+
+    class Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def execute(self, statement, params):
+            assert "pd_narrative_source_state" in str(statement)
+            order.append("inputs")
+            return Result()
+
+    class Client:
+        engine = type("Engine", (), {"begin": lambda self: Conn()})()
+
+        def initialize(self):
+            pass
+
+    class Generator:
+        postgres_client = Client()
+
+        async def prepare_batch_requests(self):
+            order.append("requests")
+            return []
+
+    inputs, requests = pack_module.prepare_after_inputs(Generator(), ZID, "prod")
+    assert (inputs, requests) == (INPUTS, [])
+    assert order == ["inputs", "requests"]
+
+
 def test_the_comment_set_digest_the_server_compares_is_the_census_digest():
     # The same three comments are inserted by the server's narrative-jobs
     # test, which asserts pd_narrative_source_state gives this same digest.
