@@ -17,6 +17,11 @@ def writer(tmp_path,monkeypatch):
     path=tmp_path/'frame.json';path.write_text(json.dumps(frame))
     for key,value in dict(DELPHI_RESULT_BACKEND='postgres',DELPHI_OUTPUT_MANIFEST=str(tmp_path/'manifest.json'),
             DELPHI_FRAME=str(path),DELPHI_JOB_ID=jid,DELPHI_RUN_ID=run,DELPHI_ATTEMPT_ID=attempt).items():monkeypatch.setenv(key,value)
+    # A run_delphi.py run names its embedding model from these settings and
+    # refuses DELPHI_EMBED_MODEL_PATH without its lock. These runs mean the
+    # default model by name, whatever the image sets for its own stages (the
+    # job graph's test image points DELPHI_EMBED_MODEL_PATH at MiniLM).
+    for key in ('SENTENCE_TRANSFORMER_MODEL','DELPHI_EMBED_MODEL_PATH','DELPHI_EMBED_MODEL_LOCK'):monkeypatch.delenv(key,raising=False)
     import boto3
     monkeypatch.setattr(boto3,'resource',lambda *a,**k:pytest.fail('Dynamo resource created'))
     return result_resource()

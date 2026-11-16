@@ -166,7 +166,8 @@ migrations: `state` is `polis_queue_jobs.state` (`queued`, `running`,
 `delphi_provider_requests.state`.
 
 **The families.** A run produces these (`RunFamily`), in this order:
-`Delphi_CommentEmbeddings` (all-MiniLM-L6-v2); the EVoC and UMAP output,
+`Delphi_CommentEmbeddings` (the run's embedding model, granite-embedding-311m-multilingual-r2 at 384
+dimensions since it replaced all-MiniLM-L6-v2); the EVoC and UMAP output,
 `Delphi_CommentHierarchicalClusterAssignments`, `Delphi_UMAPGraph`,
 `Delphi_UMAPConversationConfig`; keywords and features,
 `Delphi_CommentClustersStructureKeywords`, `Delphi_CommentClustersFeatures`;
