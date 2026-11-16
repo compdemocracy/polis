@@ -280,10 +280,14 @@ if (enableOllama) {
     securityGroup: delphiSecurityGroup,
     keyPair: delphiSmallKeyPair,
     role: instanceRole,
+    // 200 GiB: the root volume holds every image this box pulls (two sets of
+    // them during a deploy) and the Delphi shadow's scheduler stops admitting
+    // under 10 GiB free. Only boxes launched from this template get it; a
+    // running box keeps its volume (cdk/README.md).
     blockDevices: [
       {
         deviceName: '/dev/xvda',
-        volume: ec2.BlockDeviceVolume.ebs(50, {
+        volume: ec2.BlockDeviceVolume.ebs(200, {
           volumeType: ec2.EbsDeviceVolumeType.GP3,
           deleteOnTermination: true,
         }),
