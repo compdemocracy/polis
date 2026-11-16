@@ -2295,7 +2295,7 @@ rm -fr $TMP_DIR",
               "DeviceName": "/dev/xvda",
               "Ebs": {
                 "DeleteOnTermination": true,
-                "VolumeSize": 50,
+                "VolumeSize": 200,
                 "VolumeType": "gp3",
               },
             },
@@ -3776,7 +3776,7 @@ rm -fr $TMP_DIR",
     "LogGroupF5B46931": {
       "DeletionPolicy": "Delete",
       "Properties": {
-        "RetentionInDays": 30,
+        "RetentionInDays": 365,
       },
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
