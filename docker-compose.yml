@@ -428,9 +428,10 @@ services:
   # Hugging Face and Numba caches and the pipeline's local outputs are tmpfs
   # (memory, inside the memory limit; nothing large is written to the box's
   # root disk) and removed per run; only the daemon's journal and the
-  # scheduler's state file are on a volume. Limits: 2 CPUs and 6 GiB for the
-  # daemon (math-python's 48 GiB and delphi's 8 GiB make 62 of the box's 64),
-  # a quarter CPU for the scheduler.
+  # scheduler's state file are on a volume. Resources: the daemon has a CPU
+  # weight in place of a CPU cap, a memory ceiling, and is the first process
+  # the kernel kills when the box runs out of memory (its block below); the
+  # scheduler has a quarter CPU and 256 MiB.
   delphi-shadow:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -495,11 +496,42 @@ services:
     # The daemon's own stop drains the running job within
     # POLIS_JOBS_SHUTDOWN_GRACE_SECONDS (30 s), then kills it.
     stop_grace_period: 60s
+    # CPU: a weight, not a cap. The shadow may use every idle core, and when
+    # the math engine, the report service or anything serving people wants a
+    # core, that work gets nearly all of it: the kernel shares a contended
+    # CPU in proportion to weight, and this is the lowest Docker accepts
+    # (cpu_shares 2, which is cgroup v2's cpu.weight 1, against the 100 that
+    # every other service here has because none of them sets one). A weight
+    # is relative, so it behaves the same on any box, a small machine that
+    # runs everything included. It shares CPU time, not the chip: work that
+    # gets its core at once can still run slower per instruction while the
+    # shadow keeps the other cores busy (shared caches, memory bandwidth, the
+    # clock of a busy chip, a hyperthread's sibling), which
+    # delphi/tests/shadow/cpu_priority.sh measures. DELPHI_SHADOW_CONTAINER_CPUS
+    # (unset or 0: no cap) fences it by hand: for a box where idle cycles are
+    # not free (a burstable instance spends CPU credits on them), to bound
+    # what it takes from the chip, or during an investigation. Fenced, the
+    # daemon runs one library thread per CPU
+    # of the fence (`polis-delphi-shadow threads` prints what it sets);
+    # unfenced it sets none, and torch, Numba and BLAS each count the box.
+    cpu_shares: 2
+    # Memory: a ceiling, not a reservation (nothing is set aside for it),
+    # and the shadow is the first process the kernel kills when the box runs
+    # out (oom_score_adj 1000, the most; every other service keeps Docker's
+    # 0). So a ceiling well above its use takes nothing from the math
+    # engine: on the 64 GiB Delphi box math-python's 48 GiB, delphi's 8 GiB
+    # and this 16 GiB are 72 GiB of ceilings, the measured peaks together
+    # are far below the box, and in the one case the sum passes it, this
+    # container goes first. The tmpfs mounts above count inside it. A run
+    # killed for memory fails its attempt, and the queue tries it again,
+    # three attempts in all; the math engine and the report service are
+    # separate containers and lose nothing.
+    oom_score_adj: 1000
     deploy:
       resources:
         limits:
-          memory: ${DELPHI_SHADOW_CONTAINER_MEMORY:-6g}
-          cpus: ${DELPHI_SHADOW_CONTAINER_CPUS:-2}
+          memory: ${DELPHI_SHADOW_CONTAINER_MEMORY:-16g}
+          cpus: ${DELPHI_SHADOW_CONTAINER_CPUS:-0}
     restart: unless-stopped
     profiles:
       - delphi-shadow

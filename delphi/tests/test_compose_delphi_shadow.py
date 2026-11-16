@@ -9,7 +9,10 @@ test_compose_math_env.py. What this pins:
     either container (a key not listed never reaches it: no env_file);
   * the daemon claims only the shadow env, the full pipeline, one job at a
     time, with the visualization pages skipped, the embedding model read from
-    the image offline, and its scratch on tmpfs; its limits are 2 CPUs and 6 GiB;
+    the image offline, and its scratch on tmpfs;
+  * the daemon yields instead of being fenced: the lowest CPU weight of any
+    service and no CPU cap unless the document sets one, a 16 GiB memory
+    ceiling, and the first process the kernel kills when memory runs out;
   * the scheduler and the daemon name the same env, and that env is a shadow env;
   * the deploy hook's read-back of the two services passes this file as it
     is, and names the settings when one line of the environment document
@@ -107,9 +110,14 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     for key in ("POLIS_JOBS_WORK_DIR", "HF_HOME", "NUMBA_CACHE_DIR", "TMPDIR"):
         assert env[key].startswith("/tmp"), key
     assert env["POLIS_JOBS_JOURNAL_DIR"].startswith("/var/lib/delphi-shadow/")
+    # No CPU cap by default (0 is none), a low CPU weight instead, a memory
+    # ceiling, and the first to go when the box runs out of memory.
     limits = service["deploy"]["resources"]["limits"]
-    assert _interpolate(str(limits["cpus"]), {}) == "2"
-    assert _interpolate(str(limits["memory"]), {}) == "6g"
+    assert _interpolate(str(limits["cpus"]), {}) == "0"
+    assert _interpolate(str(limits["memory"]), {}) == "16g"
+    assert service["cpu_shares"] == 2
+    assert service["oom_score_adj"] == 1000
+    assert "reservations" not in service["deploy"]["resources"]
 
 
 @requires_checkout
@@ -194,3 +202,40 @@ def test_the_deploy_hooks_read_back_passes_this_file_and_refuses_a_served_env(ex
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout == named + "\n"
     assert "import-example-1" not in proc.stdout
+
+
+# Docker's defaults for a service that sets neither: cgroup v2 cpu.weight 100
+# (cpu_shares 1024 on cgroup v1) and oom_score_adj 0.
+DEFAULT_CPU_SHARES = 1024
+DEFAULT_OOM_SCORE_ADJ = 0
+
+
+@requires_checkout
+def test_the_shadow_yields_cpu_and_memory_to_every_other_service():
+    # Every other service, the math engine, the report service and the web
+    # services included, keeps Docker's default weight and OOM adjustment (or
+    # sets a higher weight and a lower adjustment), so under contention the
+    # shadow gets the smallest share of a CPU, and when the box runs out of
+    # memory it is killed first.
+    services, _ = _services()
+    shadow = services["delphi-shadow"]
+    for name, service in services.items():
+        if name == "delphi-shadow":
+            continue
+        assert service.get("cpu_shares", DEFAULT_CPU_SHARES) > shadow["cpu_shares"], name
+        assert service.get("oom_score_adj", DEFAULT_OOM_SCORE_ADJ) < shadow["oom_score_adj"], name
+    # Neither the math engine nor the report service is capped or weighted by
+    # this file on the shadow's account: the math engine has no CPU cap.
+    assert "cpus" not in services["math-python"]["deploy"]["resources"]["limits"]
+    assert "cpu_shares" not in services["math-python"]
+
+
+@requires_checkout
+def test_an_operator_may_fence_the_shadow_and_size_its_ceiling():
+    services, _ = _services()
+    limits = services["delphi-shadow"]["deploy"]["resources"]["limits"]
+    fenced = {"DELPHI_SHADOW_CONTAINER_CPUS": "2", "DELPHI_SHADOW_CONTAINER_MEMORY": "6g"}
+    assert _interpolate(str(limits["cpus"]), fenced) == "2"
+    assert _interpolate(str(limits["memory"]), fenced) == "6g"
+    # An empty line in the document is no fence, as unset is.
+    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": ""}) == "0"
