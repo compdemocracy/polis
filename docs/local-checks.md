@@ -10,6 +10,7 @@ check. No command reduces the test selection or changes an assertion.
 | Participation alpha | `make check-client-alpha` | Node 24.22.1 |
 | Admin | `make check-client-admin` | Node 24.22.1 |
 | Report | `make check-client-report` | Node 24.22.1 |
+| Topic map package | `make check-client-topic-map` | Node 24.22.1 |
 | ESLint | `make check-lint` | Node 24.22.1 |
 | Provenance | `make check-job-provenance` | Node 22.23.4 |
 | Job views | `make check-job-views` | Node 22.23.4, UTC |

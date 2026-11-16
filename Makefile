@@ -328,6 +328,10 @@ check-client-admin: ## Run the client-admin verification commands
 check-client-report: ## Run the client-report verification commands
 	@bash ci/local/client-report.sh
 
+.PHONY: check-client-topic-map
+check-client-topic-map: ## Run the topic map package's tests
+	@bash ci/local/client-topic-map.sh
+
 .PHONY: check-lint
 check-lint: ## Run the lint verification commands
 	@bash ci/local/lint.sh
