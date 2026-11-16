@@ -21,6 +21,22 @@ export const MAX_QUOTES_PER_SECTION = 200;
 export const MAX_SHARES_PER_SECTION = 400;
 // At most this many examples of each kind are kept with a section's checks.
 export const MAX_EXAMPLES = 20;
+// An import carries up to 99 sections, and a section may show thousands of
+// comments, so the caps above still multiply. Across one import the checks
+// therefore read at most this many characters of comment text looking for
+// quotations, and compare at most this many comment shares with stated ones
+// (each a few tens of milliseconds at most). A quotation or share past either
+// is counted as unchecked, as past the caps above. The count is of work, not
+// of time, so the same import always gets the same checks.
+export const MAX_QUOTE_SEARCH_CHARS = 8_000_000;
+export const MAX_SHARE_COMPARISONS = 8_000_000;
+
+/** What one import may still spend on the checks; shared by its sections. */
+export type CheckBudget = { quoteChars: number; shareComparisons: number };
+export const checkBudget = (): CheckBudget => ({
+  quoteChars: MAX_QUOTE_SEARCH_CHARS,
+  shareComparisons: MAX_SHARE_COMPARISONS,
+});
 
 export type PackComment = {
   id: number;
@@ -103,13 +119,17 @@ const all = (r: Ratio) => r.passed === r.total;
 
 /** The checks of one section's document. `known` is every comment id the pack
  * shows the model in any section; `normalized` holds each comment's text as
- * the quotation check compares it, filled on first use (pass one map for a
- * whole import so no comment is normalized twice). */
+ * the quotation check compares it, and `shareCache` each comment's shares,
+ * both filled on first use; `budget` is what the import may still spend (pass
+ * the same three for a whole import, so no comment is prepared twice and the
+ * budget covers every section). */
 export function checkSection(
   reportData: any,
   section: PackSection,
   known: Map<number, PackComment>,
-  normalized: Map<number, string> = new Map()
+  normalized: Map<number, string> = new Map(),
+  budget: CheckBudget = checkBudget(),
+  shareCache: Map<number, number[]> = new Map()
 ): SectionChecks {
   const allowed = new Set(section.citation_ids);
   let clauses = 0;
@@ -128,10 +148,52 @@ export function checkSection(
     }
     return text;
   };
-  const share = (text: string, matched: () => boolean) => {
-    if (stated.length >= MAX_SHARES_PER_SECTION) sharesUnchecked++;
-    else stated.push({ text, matched: matched() });
+  const sharesOf = (c: PackComment) => {
+    let out = shareCache.get(c.id);
+    if (out === undefined) {
+      out = shares(c);
+      shareCache.set(c.id, out);
+    }
+    return out;
   };
+  // Whether a comment of `basis` contains the quotation; null when the
+  // import's budget ran out first (the quotation is then unchecked).
+  const quoteFound = (quoted: string, basis: PackComment[]): boolean | null => {
+    for (const c of basis) {
+      // One more than the length, so an empty comment still costs a step.
+      const cost = c.text.length + 1;
+      if (budget.quoteChars < cost) return null;
+      budget.quoteChars -= cost;
+      if (textOf(c).includes(quoted)) return true;
+    }
+    return false;
+  };
+  // Whether a comment of `basis` has a share within one point; null as above.
+  const shareNear = (value: number, basis: PackComment[]): boolean | null => {
+    for (const c of basis) {
+      const candidates = sharesOf(c);
+      const cost = candidates.length + 1;
+      if (budget.shareComparisons < cost) return null;
+      budget.shareComparisons -= cost;
+      // |s - value| <= 1 without a global lookup in the innermost loop: in a
+      // vm context, as Jest runs the tests, each Math lookup costs far more.
+      if (candidates.some((s) => s - value <= 1 && value - s <= 1)) return true;
+    }
+    return false;
+  };
+  const share = (text: string, matched: () => boolean | null) => {
+    if (stated.length >= MAX_SHARES_PER_SECTION) {
+      sharesUnchecked++;
+      return;
+    }
+    const result = matched();
+    if (result === null) sharesUnchecked++;
+    else stated.push({ text, matched: result });
+  };
+  const resolve = (ids: number[]) =>
+    ids.map((id) => known.get(id)).filter((c): c is PackComment => !!c);
+  // Every comment the section shows, resolved once for the whole section.
+  let sectionBasis: PackComment[] | undefined;
   for (const paragraph of reportData?.paragraphs || []) {
     for (const sentence of paragraph?.sentences || []) {
       for (const clause of sentence?.clauses || []) {
@@ -141,10 +203,13 @@ export function checkSection(
         if (ids.length) cited++;
         ids.forEach((id) => citedIds.add(id));
         // The comments a claim in this clause can lean on: its own citations,
-        // else every comment the section shows.
-        const basis = (ids.length ? ids : section.citation_ids)
-          .map((id) => known.get(id))
-          .filter((c): c is PackComment => !!c);
+        // else every comment the section shows. Resolved only when a
+        // quotation or a share in the clause is checked against them.
+        let clauseBasis: PackComment[] | undefined;
+        const basis = () =>
+          ids.length
+            ? (clauseBasis ??= resolve(ids))
+            : (sectionBasis ??= resolve(section.citation_ids));
         for (const m of text.matchAll(QUOTE)) {
           const quoted = normalize(m[1]);
           if (quoted.split(" ").length < 3) continue;
@@ -152,22 +217,18 @@ export function checkSection(
             quotesUnchecked++;
             continue;
           }
-          quotes.push({
-            text: m[1],
-            found: basis.some((c) => textOf(c).includes(quoted)),
-          });
+          const found = quoteFound(quoted, basis());
+          if (found === null) quotesUnchecked++;
+          else quotes.push({ text: m[1], found });
         }
-        let candidates: number[] | undefined;
-        const near = (value: number) =>
-          (candidates ??= basis.flatMap(shares)).some((s) => Math.abs(s - value) <= 1);
         for (const m of text.matchAll(PERCENT)) {
           rules.percentages++;
-          share(m[0], () => near(Number(m[1])));
+          share(m[0], () => shareNear(Number(m[1]), basis()));
         }
         for (const m of text.matchAll(FRACTION)) {
           const of = Number(m[2]);
           if (of > 0 && Number(m[1]) <= of)
-            share(m[0], () => near((100 * Number(m[1])) / of));
+            share(m[0], () => shareNear((100 * Number(m[1])) / of, basis()));
         }
         rules.comment_numbers += count(text, COMMENT_NUMBER);
         rules.links_or_contacts += count(text, LINK_OR_CONTACT);
@@ -225,10 +286,13 @@ export function checkNarrative(
   for (const s of everySection) for (const c of s.comments || []) known.set(c.id, c);
   const bySection = new Map(sections.map((s) => [s.section, s]));
   const normalized = new Map<number, string>();
+  const shareCache = new Map<number, number[]>();
+  const budget = checkBudget();
   const out: Record<string, SectionChecks> = {};
   for (const r of results) {
     const section = bySection.get(r.section);
-    if (section) out[r.section] = checkSection(r.report_data, section, known, normalized);
+    if (section)
+      out[r.section] = checkSection(r.report_data, section, known, normalized, budget, shareCache);
   }
   const sum = (pick: (c: SectionChecks) => Ratio): Ratio =>
     Object.values(out).reduce(

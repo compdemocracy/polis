@@ -549,6 +549,91 @@ test("the checks of a body at the import's bounds are bounded work on the event 
   }
 });
 
+test("the checks of an import are bounded work however its sections are shaped", async () => {
+  const { checkNarrative } = await import("../../src/routes/delphi/narrativeChecks");
+  const clausesOf = (clauses: any[]) => {
+    const paragraphs = [];
+    for (let p = 0; p * 900 < clauses.length; p++) {
+      const sentences = [];
+      for (let s = p * 900; s < Math.min(clauses.length, (p + 1) * 900); s += 30)
+        sentences.push({ clauses: clauses.slice(s, Math.min(s + 30, (p + 1) * 900)) });
+      paragraphs.push({ id: `p${p}`, title: "t", sentences });
+    }
+    return { id: "r", title: "t", paragraphs };
+  };
+  const sectionsOf = (n: number, comments: number, text: (i: number) => string) =>
+    Array.from({ length: n }, (_, s) => ({
+      section: `s${s}`,
+      citation_ids: Array.from({ length: comments }, (_, i) => s * 100000 + i),
+      comments: Array.from({ length: comments }, (_, i) => comment(s * 100000 + i, text(i), 10)),
+    }));
+  const base = "Participants wrote about parking near the library and the new bus route ".repeat(3);
+  const shapes: Record<string, () => { sections: any[]; results: any[] }> = {
+    // The most sections an import carries, each with the most quotations and
+    // a share in every clause: the caps of each section, ninety-nine times.
+    "99 sections, a share in every clause": () => {
+      const sections = sectionsOf(99, 100, (i) => `${base}${i}`);
+      const results = sections.map((s) => ({
+        section: s.section,
+        report_data: clausesOf(Array.from({ length: 270 }, (_, k) => ({ text: k < 200 ? `"q r ${k}" 7%` : "7%", citations: [] }))),
+      }));
+      return { sections, results };
+    },
+    // Thousands of tiny uncited clauses in sections that show 8,000 comments,
+    // with no quotation and no share at all.
+    "tiny clauses, large sections": () => {
+      const [one] = sectionsOf(1, 8000, (i) => `short comment ${i}`);
+      const sections = Array.from({ length: 4 }, (_, s) => ({ ...one, section: `s${s}` }));
+      const results = sections.map((s) => ({
+        section: s.section,
+        report_data: clausesOf(Array.from({ length: 8000 }, () => ({ text: "a", citations: [] }))),
+      }));
+      return { sections, results };
+    },
+    // Comments of 1,000 characters shaped against the substring search, and
+    // quotations of 398 characters found in none of them, within 1 MiB.
+    "quotations searched against long comments": () => {
+      const sections = sectionsOf(12, 600, () => "a ".repeat(499) + "a");
+      const needle = ("a ".repeat(198) + "b").slice(0, 398);
+      const results = sections.map((s) => ({
+        section: s.section,
+        report_data: clausesOf(Array.from({ length: 200 }, () => ({ text: `"${needle}"`, citations: [] }))),
+      }));
+      return { sections, results };
+    },
+    // Text such as "a.a.a." through the link and contact pattern: before the
+    // e-mail alternative was bounded this was 1.6 s, inside the 2 s above.
+    "dotted text": () => {
+      const sections = sectionsOf(4, 100, (i) => `${base}${i}`);
+      const results = sections.map((s) => ({
+        section: s.section,
+        report_data: clausesOf(Array.from({ length: 60 }, () => ({ text: "a.a.".repeat(975), citations: [] }))),
+      }));
+      return { sections, results };
+    },
+  };
+  const unbudgeted = ["tiny clauses, large sections", "dotted text"];
+  for (const [name, shape] of Object.entries(shapes)) {
+    const { sections, results } = shape();
+    expect(Buffer.byteLength(JSON.stringify({ results }))).toBeLessThanOrEqual(1024 * 1024);
+    for (const r of results) expect(Buffer.byteLength(JSON.stringify(r))).toBeLessThanOrEqual(250000);
+    const started = Date.now();
+    const checks = checkNarrative(results, sections, sections);
+    const elapsed = Date.now() - started;
+    // Checked per section only, these took 0.6 to 1.9 s on a 14-core machine;
+    // bounded across the import they take tens of milliseconds.
+    expect([name, elapsed < 500]).toEqual([name, true]);
+    if (!unbudgeted.includes(name)) {
+      // Past the budget, a quotation or share is unchecked and its section is not grounded.
+      const unchecked = Object.values(checks.sections).reduce(
+        (n, c) => n + c.quoted_text_found.unchecked + c.quoted_shares_match.unchecked,
+        0
+      );
+      expect([name, unchecked > 0, checks.summary.grounded_sections]).toEqual([name, true, 0]);
+    }
+  }
+});
+
 test("a topic renamed after the pack was built makes the export and the import stale", async () => {
   const ids = await seed(7313);
   const manifest = (await exportFor(ids)).body;
