@@ -2295,7 +2295,7 @@ rm -fr $TMP_DIR",
               "DeviceName": "/dev/xvda",
               "Ebs": {
                 "DeleteOnTermination": true,
-                "VolumeSize": 50,
+                "VolumeSize": 200,
                 "VolumeType": "gp3",
               },
             },
