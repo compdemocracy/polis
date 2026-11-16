@@ -219,6 +219,10 @@ def run_delphi(app, *extra):
 def test_daemon_success_writes_a_valid_manifest_whose_sha_is_over_the_file_bytes(app_dir, monkeypatch):
     daemon = FakeDaemon(app_dir.root, stage="delphi_full_pipeline")
     daemon.apply(monkeypatch)
+    # The default embedding model, by name: the run record names it with its
+    # pinned revision and width.
+    for key in ("SENTENCE_TRANSFORMER_MODEL", "DELPHI_EMBED_MODEL_PATH", "DELPHI_EMBED_MODEL_LOCK"):
+        monkeypatch.delenv(key, raising=False)
     result = run_delphi(app_dir)
     assert result.returncode == 0, result.stdout + result.stderr
     assert ran_stages(app_dir) == ALL_STAGES
@@ -233,8 +237,10 @@ def test_daemon_success_writes_a_valid_manifest_whose_sha_is_over_the_file_bytes
     assert (manifest["stage"], manifest["phase"], manifest["outcome"]) == ("delphi_full_pipeline", "run", "succeeded")
     assert manifest["inputs"] == dict(FIXTURE_INPUTS, math_env="prod")
     assert manifest["outputs"] == FIXTURE_OUTPUTS
-    assert manifest["models"] == {"embed": "all-MiniLM-L6-v2", "topic": "claude-haiku-4-5-20251001", "narrative": None,
-                                  "cluster": "delphi-umap-evoc/1", "cluster_seed": 42}
+    assert manifest["models"] == {
+        "embed": "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384",
+        "topic": "claude-haiku-4-5-20251001", "narrative": None,
+        "cluster": "delphi-umap-evoc/1", "cluster_seed": 42}
     assert manifest["recheck_after"] is None
     assert daemon.leftovers() == []
 
