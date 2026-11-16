@@ -20,6 +20,7 @@ pub mod delphi_reports;
 pub mod delphi_result_read;
 pub mod delphi_run;
 pub mod delphi_run_read;
+pub mod delphi_topic_map;
 pub mod delphi_visualizations;
 pub mod domain_whitelist;
 pub mod einvites_read;
