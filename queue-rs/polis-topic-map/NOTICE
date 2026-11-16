@@ -1,0 +1,57 @@
+Notices for work the polis-topic-map crate is derived from or carries
+
+1. datamapplot 0.6.4 (https://github.com/TutteInstitute/datamapplot)
+
+The geometry and colour rules in src/layout.rs and src/palette.rs are ported
+from datamapplot's create_plots.py, interactive_rendering.py and
+palette_handling.py. The expected values in tests/fixtures/*/expected.json were
+computed by datamapplot 0.6.4 (and, for the colour space samples, by
+colorspacious 1.1.2, which datamapplot uses) for the runs in the same folders.
+
+MIT License
+
+Copyright (c) 2023 Tutte Institute for Mathematics and Computing
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+2. The CET-C2s colour map (src/cet_c2s.txt)
+
+The 256 rows of the colour map colorcet.cm.CET_C2s from colorcet 3.1.0
+(https://github.com/holoviz/colorcet), unchanged. Colour map by Peter Kovesi,
+"Good Colour Maps: How to Design Them", arXiv:1509.03700. colorcet is licensed
+under the Creative Commons Attribution 4.0 International License
+(https://creativecommons.org/licenses/by/4.0/).
+
+3. The public fixtures (tests/fixtures/bg2050 and tests/fixtures/biodiversity)
+
+Derived from two public conversations in https://github.com/compdemocracy/openData,
+bg2050-volunteers and scoop-hivemind.biodiversity, licensed under the Creative
+Commons Attribution 4.0 International License
+(https://creativecommons.org/licenses/by/4.0/). Data was gathered using the
+Polis software (see: compdemocracy.org/polis and github.com/compdemocracy/polis)
+and is sub-licensed under CC BY 4.0 with Attribution to The Computational
+Democracy Project.
+
+Changes made: the comments that were moderated in (3,948 of 7,400 and 154 of
+316) were run through the Delphi pipeline (embeddings all-MiniLM-L6-v2, UMAP,
+EVoC clustering, topic names written by the language model qwen2.5:1.5b).
+proximity.json holds each comment's id, UMAP position and cluster at each
+layer; topics.json holds the topic names; expected.json holds what datamapplot
+computed from them (notice 1) and the CET-C2s rows as colorcet gives them
+(notice 2). No comment text and no vote is in these files.

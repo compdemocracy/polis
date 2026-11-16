@@ -364,6 +364,10 @@ check-queue-rs: ## Run queue-rs checks
 check-polis-migrate: ## Run polis-migrate checks
 	@bash ci/local/polis-migrate.sh
 
+.PHONY: check-polis-topic-map
+check-polis-topic-map: ## Run the topic map generator's checks
+	@bash ci/local/polis-topic-map.sh
+
 .PHONY: check-job-graphs
 check-job-graphs: ## Run job-graphs checks
 	@bash ci/local/job-graphs.sh
