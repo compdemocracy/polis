@@ -3776,7 +3776,7 @@ rm -fr $TMP_DIR",
     "LogGroupF5B46931": {
       "DeletionPolicy": "Delete",
       "Properties": {
-        "RetentionInDays": 365,
+        "RetentionInDays": 30,
       },
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
