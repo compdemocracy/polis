@@ -1,0 +1,189 @@
+Notices for work this package is derived from or carries
+
+1. datamapplot 0.6.4 (https://github.com/TutteInstitute/datamapplot)
+
+The label rules in topic-map.js (how a name wraps, its type size, which names
+give way to which), the first view, the selection figures, and the values in
+theme-neutral.js marked "datamapplot" are ported from or reproduce
+datamapplot's create_plots.py, interactive_rendering.py and static/js/datamap.js.
+
+MIT License
+
+Copyright (c) 2023 Tutte Institute for Mathematics and Computing
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+2. deck.gl (https://github.com/visgl/deck.gl), which draws datamapplot's maps
+
+topic-map.js reproduces deck.gl's drawing of those maps: the Web Mercator world
+512 units wide, the zoom step of one wheel event (wheelScale), and the test of
+25 pixels around a label's anchor with the label faded by the share it owns,
+raised to 2.2 (resolveCollisions, _claimsRead). theme-neutral.js reproduces
+deck.gl's zoom durations and tooltip padding.
+
+Copyright Vis.gl contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+3. mjolnir.js (https://github.com/visgl/mjolnir.js), deck.gl's input layer
+
+wheelDelta in topic-map.js ports how mjolnir.js reports a wheel event: lines
+counted as 40 pixels, the 4.000244140625 step of some mouse wheels, and a
+quarter of the step with Shift held.
+
+MIT License
+
+Copyright (c) 2017 Uber Technologies, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+4. Python's textwrap module (https://github.com/python/cpython, Lib/textwrap.py)
+
+The port was made from Lib/textwrap.py of Python 3.12, the Python that runs
+datamapplot in the Delphi image; that file is the same in every 3.12 release
+from v3.12.0. Its copyright notices:
+
+  Copyright (C) 1999-2001 Gregory P. Ward.
+  Copyright (C) 2002, 2003 Python Software Foundation.
+  Written by Greg Ward <gward@python.net>
+
+datamapplot wraps a label with Python's textwrap.fill(text, width,
+break_long_words=False). wrapLabel in topic-map.js ports it: WORDSEP is
+TextWrapper.wordsep_re written as a JavaScript regular expression, and the
+loop that fills lines is TextWrapper._wrap_chunks for that one setting. Summary
+of the changes: translated from Python to JavaScript; only the path for
+break_long_words=False, with TextWrapper's other defaults and no indent,
+placeholder or line limit, is kept; Python's word and letter classes are
+written as Unicode property classes; a tab becomes one space rather than
+spaces to the next tab stop; in the second look-behind for a hyphenated word
+(letter, hyphen, letter, hyphen in Python), the character after the first
+hyphen is matched by the class of word characters and punctuation.
+
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved
+
+The licence of the Python Software Foundation, as in the LICENSE file of
+Python 3.12's source release:
+
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
+--------------------------------------------
+
+1. This LICENSE AGREEMENT is between the Python Software Foundation
+("PSF"), and the Individual or Organization ("Licensee") accessing and
+otherwise using this software ("Python") in source or binary form and
+its associated documentation.
+
+2. Subject to the terms and conditions of this License Agreement, PSF hereby
+grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
+analyze, test, perform and/or display publicly, prepare derivative works,
+distribute, and otherwise use Python alone or in any derivative version,
+provided, however, that PSF's License Agreement and PSF's notice of copyright,
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved" are retained in Python alone or in any derivative version
+prepared by Licensee.
+
+3. In the event Licensee prepares a derivative work that is based on
+or incorporates Python or any part thereof, and wants to make
+the derivative work available to others as provided herein, then
+Licensee hereby agrees to include in any such work a brief summary of
+the changes made to Python.
+
+4. PSF is making Python available to Licensee on an "AS IS"
+basis.  PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON,
+OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+6. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+7. Nothing in this License Agreement shall be deemed to create any
+relationship of agency, partnership, or joint venture between PSF and
+Licensee.  This License Agreement does not grant permission to use PSF
+trademarks or trade name in a trademark sense to endorse or promote
+products or services of Licensee, or any third party.
+
+8. By copying, installing or otherwise using Python, Licensee
+agrees to be bound by the terms and conditions of this License
+Agreement.
+
+5. Roboto (fonts/Roboto-latin-wght.woff2)
+
+Roboto, variable weight, latin subset. Copyright 2011 The Roboto Project
+Authors. SIL Open Font License, Version 1.1; the full text is fonts/OFL.txt.
+
+6. The public fixtures (test/fixtures/)
+
+Two public conversations from https://github.com/compdemocracy/openData,
+licensed CC BY 4.0: bg2050-volunteers and scoop-hivemind.biodiversity. Data was
+gathered using the Polis software (see: compdemocracy.org/polis and
+github.com/compdemocracy/polis) and is sub-licensed under CC BY 4.0 with
+Attribution to The Computational Democracy Project.
+
+- biodiversity.topic-map.json is the polis-topic-map/1 document of one Delphi
+  run of scoop-hivemind.biodiversity (154 comments moderated in, of 316): the
+  comments' positions (embeddings all-MiniLM-L6-v2, UMAP), their topics at two
+  levels (EVoC clustering) and the comments' text. Its topic names were written
+  by a small local model (qwen2.5:1.5b) and are not the names pol.is shows. Its
+  topic colours were computed from the CET-C2s colour map (colorcet 3.1.0;
+  Peter Kovesi, "Good Colour Maps: How to Design Them", arXiv:1509.03700,
+  Creative Commons Attribution 4.0 International License).
+- datamapplot-labels.json holds, for one Delphi run of each of the two
+  conversations, the topic names by level and the label strings datamapplot
+  0.6.4 made of them; nothing else.

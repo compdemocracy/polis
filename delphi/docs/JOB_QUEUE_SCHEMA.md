@@ -80,7 +80,7 @@ The `job_config` attribute will be a JSON object containing job-specific paramet
   "min_dist": 0.1,
   "n_components": 2,
   "metric": "cosine",
-  "embedding_model": "all-MiniLM-L6-v2",
+  "embedding_model": "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384",
   "skip_embedding": false
 }
 ```

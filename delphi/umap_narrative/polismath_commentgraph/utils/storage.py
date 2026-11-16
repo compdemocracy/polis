@@ -703,12 +703,18 @@ class DynamoDBStorage:
         }
 
     # --- comment embeddings: per-row table path (migration 000038, flag on) ------
-    # The one model the migration seeds (model_id 1); the legacy bare name
-    # normalizes to it, matching the importer and queue-rs embedding::MODEL_MINILM.
+    # The models delphi_embedding_models holds, by the name a run records:
+    # all-MiniLM-L6-v2 (model_id 1, migration 000038; the legacy bare name
+    # normalizes to it, matching the importer and queue-rs embedding::MODEL_MINILM)
+    # and granite at its locked revision, truncated to 384 (model_id 2, migration
+    # 000046). Any other name refuses: its vectors would have no row to go under.
     _SEEDED_EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
+    _GRANITE_EMBEDDING_MODEL = (
+        'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384')
     _EMBEDDING_MODEL_ALIASES = {
         'all-MiniLM-L6-v2': 'sentence-transformers/all-MiniLM-L6-v2',
         'sentence-transformers/all-MiniLM-L6-v2': 'sentence-transformers/all-MiniLM-L6-v2',
+        _GRANITE_EMBEDDING_MODEL: _GRANITE_EMBEDDING_MODEL,
     }
 
     def embeddings_table_enabled(self) -> bool:
@@ -728,7 +734,7 @@ class DynamoDBStorage:
 
         Each comment's text SHA-256 (``text_shas`` aligned with ``comment_ids`` and
         ``vectors``) is the row's provenance. The writer resource collects them and
-        the daemon stores them under the seeded model; the legacy model name maps to
+        the daemon stores them under the run's model; the legacy MiniLM name maps to
         the seeded one so a run that used either spelling lands on model_id 1."""
         normalized = self._EMBEDDING_MODEL_ALIASES.get(model)
         if normalized is None:
@@ -741,8 +747,14 @@ class DynamoDBStorage:
 
     def comment_embedding_ids(self, conversation_id) -> List[int]:
         """The conversation's embedded comment ids in tid order, from the served
-        embedding set in the per-row table (flag on), via the fenced read functions
-        pd_embedding_served and pd_embedding_rows. Empty when nothing is served."""
+        embedding set of this deployment's model in the per-row table (flag on),
+        via the fenced read functions pd_embedding_served and pd_embedding_rows.
+        Empty when nothing is served for that model."""
+        from polismath.embedding_model import resolve
+        configured = resolve().model
+        model = self._EMBEDDING_MODEL_ALIASES.get(configured)
+        if model is None:
+            raise ValueError('unmapped embedding model %r' % (configured,))
         env = os.environ.get('DELPHI_RESULT_ENV')
         scope = os.environ.get('DELPHI_RESULT_SCOPE', 'delphi')
         connect = getattr(self.dynamodb, '_connect', None)
@@ -750,7 +762,7 @@ class DynamoDBStorage:
             raise RuntimeError('the embeddings table read path requires the Postgres result backend')
         with connect().cursor() as cursor:
             cursor.execute('SELECT public.pd_embedding_served(%s,%s,%s,%s)',
-                           (env, int(conversation_id), scope, self._SEEDED_EMBEDDING_MODEL))
+                           (env, int(conversation_id), scope, model))
             receipt = cursor.fetchone()[0]
             if not receipt or not receipt.get('batch_id'):
                 return []

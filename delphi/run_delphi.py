@@ -65,8 +65,9 @@ def show_usage():
     print("  --help                    Show this help message")
 
 # The stages, in order: the reset, the UMAP narrative pipeline (embeddings with
-# all-MiniLM-L6-v2, UMAP, EVoC clustering, keywords, topic names), then one
-# datamapplot visualisation per layer.
+# granite-embedding-311m-multilingual-r2 at 384 dimensions, UMAP, EVoC
+# clustering, keywords, topic names), then one datamapplot visualisation per
+# layer.
 #
 # A run does not compute its own math. The PCA, k-means, representativeness,
 # participant projections and comment routing of polismath/run_math_pipeline.py,
@@ -117,7 +118,7 @@ def _topic_model_name():
 
 def _finish_daemon_job(job, zid, region):
     """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
-    from polismath import job_child
+    from polismath import embedding_model, job_child
     from polismath.job_child import census
     # The clustering run_pipeline.py ran: UMAP and EVoC from the default seed.
     from umap_narrative.numerical_stages import CLUSTER_MODEL, DEFAULT_SEED
@@ -127,7 +128,9 @@ def _finish_daemon_job(job, zid, region):
         manifest = job_child.build_manifest(
             job, outcome="succeeded", inputs=job.inputs, outputs=outputs,
             models={
-                "embed": os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
+                # The model run_pipeline.py loaded, named from the same
+                # environment and lock: repo@revision:384.
+                "embed": embedding_model.resolve().model,
                 "topic": _topic_model_name(),
                 "narrative": None,
                 "cluster": CLUSTER_MODEL,
@@ -138,7 +141,7 @@ def _finish_daemon_job(job, zid, region):
             cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None},
         )
         job_child.write_manifest(job, manifest)
-    except (census.CensusError, job_child.ManifestError, OSError) as e:
+    except (census.CensusError, job_child.ManifestError, embedding_model.ModelMismatch, OSError) as e:
         print(f"polis-jobs child: the stages succeeded but the manifest could not be written: {e}",
               file=sys.stderr, flush=True)
         sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)

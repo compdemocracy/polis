@@ -102,6 +102,7 @@ class DataConverter:
         document_vectors: np.ndarray,
         cluster_layers: List[np.ndarray],
         metadata: Dict[str, Any] = None,
+        embedding_model: Optional[str] = None,
     ) -> ConversationMeta:
         """
         Create a ConversationMeta model from raw data.
@@ -111,6 +112,8 @@ class DataConverter:
             document_vectors: Embedding vectors for all comments
             cluster_layers: List of cluster label arrays, one per layer
             metadata: Additional metadata dictionary
+            embedding_model: The model the vectors came from; when omitted,
+                SENTENCE_TRANSFORMER_MODEL (the job graph's clustering stage)
 
         Returns:
             ConversationMeta model object
@@ -146,7 +149,7 @@ class DataConverter:
             processed_date=datetime.now().isoformat(),
             num_comments=len(document_vectors),
             num_participants=metadata.get("num_participants", 0) if metadata else 0,
-            embedding_model=os.environ.get(
+            embedding_model=embedding_model or os.environ.get(
                 "SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"
             ),
             umap_parameters=umap_params,
@@ -159,7 +162,8 @@ class DataConverter:
 
     @staticmethod
     def create_comment_embedding(
-        conversation_id: str, comment_id: int, vector: np.ndarray
+        conversation_id: str, comment_id: int, vector: np.ndarray,
+        model: Optional[str] = None,
     ) -> CommentEmbedding:
         """
         Create a CommentEmbedding model from raw data.
@@ -168,6 +172,8 @@ class DataConverter:
             conversation_id: ID of the conversation
             comment_id: ID of the comment
             vector: Embedding vector
+            model: The model the vector came from; when omitted,
+                SENTENCE_TRANSFORMER_MODEL
 
         Returns:
             CommentEmbedding model object
@@ -176,7 +182,7 @@ class DataConverter:
         embedding = Embedding(
             vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
             dimensions=len(vector),
-            model=os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
+            model=model or os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
         )
 
         # Create the model with just the embedding vector
@@ -631,6 +637,7 @@ class DataConverter:
         conversation_id: str,
         document_vectors: np.ndarray,
         comment_ids: list[int] | None = None,
+        model: Optional[str] = None,
     ) -> list[CommentEmbedding]:
         """
         Convert batch of embeddings from NumPy arrays to model objects.
@@ -639,6 +646,7 @@ class DataConverter:
             conversation_id: ID of the conversation
             document_vectors: Matrix of embedding vectors
             comment_ids: List of comment IDs corresponding to the vectors
+            model: The model the vectors came from (see create_comment_embedding)
 
         Returns:
             List of CommentEmbedding model objects
@@ -654,6 +662,7 @@ class DataConverter:
                 conversation_id=conversation_id,
                 comment_id=comment_id,
                 vector=document_vectors[i],
+                model=model,
             )
 
             embeddings.append(embedding)

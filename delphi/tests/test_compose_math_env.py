@@ -456,7 +456,7 @@ LLM_SELECTION_DEFAULTS = {
     "ANTHROPIC_MODEL": "",
     "ANTHROPIC_TOPIC_MODEL": "",
     "TOPIC_BATCH_MAX_WAIT_SECONDS": "1800",
-    "SENTENCE_TRANSFORMER_MODEL": "all-MiniLM-L6-v2",
+    "SENTENCE_TRANSFORMER_MODEL": "ibm-granite/granite-embedding-311m-multilingual-r2",
     "OLLAMA_HOST": "",
     "OLLAMA_ENDPOINT": "",
     "OLLAMA_MODEL": "",

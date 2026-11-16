@@ -1,0 +1,10 @@
+{
+  "name": "polis-client-topic-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The topic map and the topic list: browser components with no dependencies, for the Polis clients",
+  "main": "topic-map.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
