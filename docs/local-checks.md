@@ -44,6 +44,7 @@ check. No command reduces the test selection or changes an assertion.
 | E2E shard | `bash ci/local/e2e.sh --shard I/6` | Docker, Node/npm, Python 3, mkcert |
 | E2E combine | `bash ci/local/e2e.sh combine DIR...` | Python 3; all six shard receipts |
 | Delphi Python tests: images, six shards, combine | `make check-delphi-python-tests` | Docker Buildx, Python 3 |
+| Delphi shadow CPU priority (load test; no hosted job) | `make check-delphi-shadow-cpu-priority` | Docker Buildx, Python 3; a quiet host with at least 4 CPUs |
 
 The unchanged golden guards remain separate jobs: invoke
 `sh ci/vote_path_golden_guard.sh BASE` and
@@ -232,6 +233,21 @@ accepts only six shard receipts of the run it is asked for, with one source
 and one image build, so receipts that a new run could not remove are refused.
 If the source identity or the image ids cannot be read, the job fails. Leave
 `DELPHI_CHECK_KEEP` unset.
+
+The Delphi shadow CPU priority target runs `delphi/tests/shadow/cpu_priority.sh`
+against this checkout's `docker-compose.yml`: the `math-python` and
+`delphi-shadow` services as the file defines them (CPU weight, CPU cap, memory
+ceiling, OOM adjustment, thread settings), with only their image, network and
+command changed. With the shadow's embedding step running flat out, the math
+engine's cold recompute of the public biodiversity conversation must take no
+longer than with the shadow frozen, within `SHADOW_CPU_TOLERANCE`; with the math
+engine idle, the shadow's embedding throughput must be at least
+`SHADOW_CPU_MIN_SCALE` times that of the same work on two CPUs. Set an owned
+`COMPOSE_PROJECT_NAME`; it builds the Delphi image unless `SHADOW_CPU_IMAGE`
+names one, publishes no port and needs no network. Its verdict depends on
+timing, so it is a work-box check with no hosted job: run it on a quiet host,
+nothing else busy, with at least 4 CPUs (8 or more to see scaling). Results,
+with every timing they were computed from, go to `.ci-out/<project>`.
 
 `python3 ci/tests/test_local_entry_points.py` tests these entry points'
 refusals, receipts and cleanup with stub executables; it needs no Docker. No
