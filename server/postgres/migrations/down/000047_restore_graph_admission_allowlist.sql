@@ -1,4 +1,17 @@
--- Admit the pinned multilingual embedding model and offline keyword labels.
+-- down/000047_restore_graph_admission_allowlist.sql  (reversal of 000047_extend_graph_embedding_and_labels.sql)
+--
+-- Restores public.pd_graph_admit exactly as 000029_extend_delphi_graph_stages.sql
+-- defines it: graph_embed admits only local-token-count/1 and
+-- sentence-transformers/all-MiniLM-L6-v2, and graph_narrative no longer admits
+-- delphi-keyword-labels/1. Same signature, owner, SECURITY DEFINER, search_path
+-- and grants; no table, row or grant changes in either direction. Graphs
+-- already admitted under the wider list keep their rows; only new admissions
+-- are narrowed. Never run automatically.
+--
+--   psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f server/postgres/migrations/down/000047_restore_graph_admission_allowlist.sql
+--
+-- Runner history is not edited here; the operator removes the 000047 history
+-- row in the same sitting, after this succeeds.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL ROLE polis_queue_owner;
