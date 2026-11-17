@@ -263,7 +263,8 @@ def report(out, tolerance, band, min_scale, host_cpus):
     fence = math_ceil(int(quota[0]) / int(quota[1])) if quota[0] != "max" else None
     env = facts.get("thread_env") or {}
     if fence:
-        # Fenced (the default): one library thread per CPU of the fence, and
+        # Fenced (an operator's DELPHI_SHADOW_CONTAINER_CPUS, such as 2):
+        # one library thread per CPU of the fence, and
         # the throughput of the same work on the same fence with that many
         # threads (the reference), within the band; the old configuration
         # (the libraries counting the whole box inside the fence) is the
@@ -273,7 +274,7 @@ def report(out, tolerance, band, min_scale, host_cpus):
         embed_ok = bool(scale and scale >= 1 - band)
         control_ok = bool(control and reference and control / reference < 1 - band)
     else:
-        # Unfenced (DELPHI_SHADOW_CONTAINER_CPUS=0): no thread count set, and
+        # Unfenced (the default: no CPU limit): no thread count set, and
         # throughput at least min_scale times two threads on two CPUs.
         threads_ok = all(env.get(k) in (None, "") for k in THREAD_VARS)
         embed_ok = bool(scale and scale >= min_scale)

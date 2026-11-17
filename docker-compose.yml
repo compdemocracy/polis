@@ -435,9 +435,10 @@ services:
   # (memory, inside the memory limit; nothing large is written to the box's
   # root disk) and removed per run; only the daemon's journal and the
   # scheduler's state file are on a volume. Resources: the daemon has the
-  # lowest CPU weight, a 2-CPU fence by default with one library thread per
-  # CPU of it, a memory ceiling, and the highest OOM score (its block
-  # below); the scheduler has a quarter CPU and 256 MiB.
+  # lowest CPU weight and no CPU limit by default (an operator's limit makes
+  # it run one library thread per CPU of the limit), a memory ceiling, and
+  # the highest OOM score (its block below); the scheduler has a quarter
+  # CPU and 256 MiB.
   delphi-shadow:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -502,22 +503,24 @@ services:
     # The daemon's own stop drains the running job within
     # POLIS_JOBS_SHUTDOWN_GRACE_SECONDS (30 s), then kills it.
     stop_grace_period: 60s
-    # CPU: the lowest weight, and a fence. When CPUs are contended the kernel
+    # CPU: the lowest weight, and by default no limit, so the shadow takes
+    # the CPU nothing else is using. When CPUs are contended the kernel
     # divides CPU time in proportion to weight; this is the lowest Docker
     # accepts (cpu_shares 2, cgroup v2's cpu.weight 1, against the 100 that
     # every other service here has because none of them sets one). A weight
     # divides runnable time only: it reserves no core and promises no wakeup
     # deadline, and it does nothing about shared caches, memory bandwidth, a
     # busy chip's clock or a hyperthread's sibling. Measured with
-    # delphi/tests/shadow/cpu_priority.sh on a 12-vCPU host: the math
-    # engine's recompute waited at most 0.5 ms for a CPU, and ran about 5 %
-    # slower behind this 2-CPU fence and 11-16 % slower unfenced while the
-    # shadow embedded. The fence is 2 CPUs by default
-    # (DELPHI_SHADOW_CONTAINER_CPUS), and the daemon runs one library thread
-    # per CPU of it (torch, Numba and BLAS do not read a CPU quota;
+    # delphi/tests/shadow/cpu_priority.sh on a 12-vCPU host with the image's
+    # embedding model: while the shadow embedded, the math engine's
+    # recompute waited at most about 1 ms for a CPU and ran about 9-10 %
+    # slower with no limit, about 5 % slower behind a 2-CPU limit. With no
+    # limit (unset, empty or DELPHI_SHADOW_CONTAINER_CPUS=0) the daemon sees
+    # no quota and sets no thread count. An operator's limit
+    # (DELPHI_SHADOW_CONTAINER_CPUS=2, or any number of CPUs) caps the
+    # shadow, and the daemon then runs one library thread per CPU of it
+    # (torch, Numba and BLAS do not read a CPU quota;
     # `polis-delphi-shadow threads` prints what it sets).
-    # DELPHI_SHADOW_CONTAINER_CPUS=0 removes the fence: Compose then sets no
-    # CPU limit, the daemon sees no quota and sets no thread count.
     cpu_shares: 2
     # Memory: a ceiling, not a reservation (nothing is set aside for it).
     # oom_score_adj 1000 (the most; every other service keeps Docker's 0)
@@ -533,7 +536,7 @@ services:
       resources:
         limits:
           memory: ${DELPHI_SHADOW_CONTAINER_MEMORY:-16g}
-          cpus: ${DELPHI_SHADOW_CONTAINER_CPUS:-2}
+          cpus: ${DELPHI_SHADOW_CONTAINER_CPUS:-0}
     restart: unless-stopped
     profiles:
       - delphi-shadow

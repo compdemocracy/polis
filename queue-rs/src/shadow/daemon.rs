@@ -13,10 +13,10 @@
 //! Before it replaces itself it also decides the thread counts of the
 //! pipeline's libraries (`thread_settings`). None of torch, Numba or the BLAS
 //! libraries reads a CPU quota, so when the container is fenced (a CPU quota,
-//! Compose's `cpus:`, 2 by default for the shadow, or a CPU set narrower than
-//! the box) it sets one thread per CPU the container may use. Unfenced
-//! (`DELPHI_SHADOW_CONTAINER_CPUS=0`) it sets nothing, and each library
-//! counts the box's CPUs itself.
+//! such as an operator's `DELPHI_SHADOW_CONTAINER_CPUS=2` for Compose's
+//! `cpus:`, or a CPU set narrower than the box) it sets one thread per CPU
+//! the container may use. Unfenced (the shadow's default: no CPU limit) it
+//! sets nothing, and each library counts the box's CPUs itself.
 use super::config::{ConfigError, ENV_PREFIX, valid_env};
 use std::path::Path;
 
