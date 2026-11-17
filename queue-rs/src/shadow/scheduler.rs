@@ -111,6 +111,10 @@ pub struct Scheduler<'a> {
     /// When a roster read last failed: the next is tried after
     /// `roster_retry`, so a failing read is not repeated every poll.
     pub roster_failed_at_ms: Option<i64>,
+    pub(super) graph_failed_at_ms: Option<i64>,
+    pub(super) graph_provenance: Option<(String, Value)>,
+    pub(super) graph_list_counts: Option<(usize, usize)>,
+    pub(super) graph_wait_bucket: Option<i64>,
 }
 
 impl<'a> Scheduler<'a> {
@@ -124,6 +128,10 @@ impl<'a> Scheduler<'a> {
             rest_until_ms: 0,
             roster: None,
             roster_failed_at_ms: None,
+            graph_failed_at_ms: None,
+            graph_provenance: None,
+            graph_list_counts: None,
+            graph_wait_bucket: None,
         };
         scheduler.recover_graph()?;
         Ok(scheduler)
@@ -348,8 +356,25 @@ impl<'a> Scheduler<'a> {
             TwinStep::Held(reason) => return Ok(Some(reason)),
             TwinStep::Nothing => {}
         }
-        if self.admit_graph(now)? {
-            return Ok(None);
+        if self
+            .graph_failed_at_ms
+            .is_none_or(|at| now - at >= self.cfg.roster_retry.as_millis() as i64)
+        {
+            match self.admit_graph(now) {
+                Ok(true) => {
+                    self.graph_failed_at_ms = None;
+                    return Ok(None);
+                }
+                Ok(false) => self.graph_failed_at_ms = None,
+                Err(_) => {
+                    // Errors can contain SQL input. Log a closed reason only.
+                    log(
+                        "graph_unavailable",
+                        json!({"reason":"admission_error","retry_seconds":self.cfg.roster_retry.as_secs()}),
+                    );
+                    self.graph_failed_at_ms = Some(now);
+                }
+            }
         }
         self.refresh_roster(now);
         let since = now - self.cfg.live_days as i64 * 86_400_000;

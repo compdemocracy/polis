@@ -2,7 +2,7 @@
 //! No connection is held while Python hashes the offline model or runs a node.
 use super::{
     config::{ConfigError, Share, benchmark_codes, valid_env},
-    db::{self, Db},
+    db::{Db, Live},
     plan,
     scheduler::{Scheduler, log},
     storage,
@@ -10,7 +10,56 @@ use super::{
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, path::PathBuf, process::Command, time::Duration};
+use std::{
+    collections::BTreeMap,
+    io::Read,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    time::{Duration, Instant},
+};
+
+const MAX_SPEC_BYTES: usize = 1_048_576;
+// Count and snapshot deliberately include invalid/blank texts: these refuse the
+// conversation instead of silently changing its scientific input.
+const INCLUDED: &str = "NOT EXISTS (SELECT 1 FROM report_comment_selections r WHERE r.zid=c.zid AND r.tid=c.tid AND r.selection=-1)";
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Observation {
+    pub comments: i64,
+    pub last_modified: i64,
+}
+impl From<&Live> for Observation {
+    fn from(c: &Live) -> Self {
+        Self {
+            comments: c.comments,
+            last_modified: c.last_modified,
+        }
+    }
+}
+#[derive(Debug)]
+struct Refusal(&'static str);
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+impl std::error::Error for Refusal {}
+fn bound(ok: bool, reason: &'static str) -> Result<()> {
+    if ok {
+        Ok(())
+    } else {
+        Err(Refusal(reason).into())
+    }
+}
+
+/// Only counts and modification times leave the primary on an ordinary poll.
+/// Report exclusions are scoped by both conversation and comment, as in snapshot.
+pub fn listed(db: &Db<'_>, codes: &[String]) -> Result<Vec<Live>> {
+    db.read(|tx| {
+        let sql = format!("WITH wanted AS (SELECT code,ord FROM unnest($1::text[]) WITH ORDINALITY w(code,ord)), listed AS (SELECT min(w.ord) ord,z.zid FROM wanted w JOIN zinvites z ON z.zinvite=w.code GROUP BY z.zid) SELECT l.zid, count(c.tid) FILTER (WHERE {INCLUDED})::bigint, greatest(max(c.modified), (SELECT max(r.modified) FROM report_comment_selections r WHERE r.zid=l.zid))::bigint FROM listed l LEFT JOIN comments c ON c.zid=l.zid GROUP BY l.ord,l.zid ORDER BY l.ord");
+        tx.query(&sql, &[&codes])?.iter().map(|r| Ok(Live { zid:r.try_get(0)?, comments:r.try_get(1)?, last_modified:r.try_get::<_,Option<i64>>(2)?.unwrap_or(0) })).collect()
+    })
+}
 
 pub const MODEL: &str = "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384";
 pub fn scope(zid: i32) -> String {
@@ -91,13 +140,12 @@ pub fn snapshot(db: &Db<'_>, zid: i32) -> Result<Snapshot> {
     db.read(|tx| {
         // include_moderation=false retains every moderation/active status,
         // exactly as run_pipeline._read_inputs does; report exclusions apply.
-        let rows = tx.query("SELECT c.tid::bigint,c.txt FROM comments c WHERE c.zid=$1 \
-            AND NOT EXISTS (SELECT 1 FROM report_comment_selections r WHERE r.zid=c.zid AND r.tid=c.tid AND r.selection=-1) \
-            ORDER BY c.tid LIMIT 2001", &[&zid])?;
-        ensure!((5..=2000).contains(&rows.len()), "graph_comment_bound");
+        let sql = format!("SELECT c.tid::bigint,c.txt FROM comments c WHERE c.zid=$1 AND {INCLUDED} ORDER BY c.tid LIMIT 2001");
+        let rows = tx.query(&sql, &[&zid])?;
+        bound((5..=2000).contains(&rows.len()), "graph_comment_bound")?;
         let mut ids=Vec::new(); let mut texts=Vec::new();
-        for r in rows { ids.push(r.try_get::<_,i64>(0)?); texts.push(r.try_get::<_,String>(1)?); }
-        ensure!(texts.iter().all(|s| !s.trim().is_empty() && s.chars().count()<=4096), "graph_text_bound");
+        for r in rows { ids.push(r.try_get::<_,i64>(0)?); texts.push(r.try_get::<_,Option<String>>(1)?.unwrap_or_default()); }
+        bound(texts.iter().all(|s| !s.trim().is_empty() && s.chars().count()<=4096), "graph_text_bound")?;
         let digest=crate::jobs::sha256_hex(serde_json::to_string(&json!({"ids":ids,"texts":texts}))?.as_bytes());
         Ok(Snapshot { ids, texts, digest })
     })
@@ -105,9 +153,105 @@ pub fn snapshot(db: &Db<'_>, zid: i32) -> Result<Snapshot> {
 
 /// The helper reads local files only. A cleared environment carries no database
 /// or provider credential. Its stderr is not a scheduler log.
+// File metadata only, never file contents. Image files are immutable in the
+// deployed container. For local mounts, inode/size/mtime/ctime changes invalidate
+// the cache; the child independently verifies the declared byte digest before use.
+fn provenance_identity(cfg: &Config) -> Result<String> {
+    use std::os::unix::fs::MetadataExt;
+    fn visit(p: &Path, out: &mut Vec<String>) -> Result<()> {
+        let m = std::fs::metadata(p)?;
+        out.push(format!(
+            "{}:{}:{}:{}:{}:{}:{}:{}",
+            p.display(),
+            m.dev(),
+            m.ino(),
+            m.len(),
+            m.mtime(),
+            m.mtime_nsec(),
+            m.ctime(),
+            m.ctime_nsec()
+        ));
+        if m.is_dir() {
+            let mut paths = std::fs::read_dir(p)?
+                .map(|e| e.map(|e| e.path()))
+                .collect::<std::io::Result<Vec<_>>>()?;
+            paths.sort();
+            for path in paths {
+                if path.file_name().is_some_and(|n| n != "__pycache__") {
+                    visit(&path, out)?;
+                }
+            }
+        }
+        Ok(())
+    }
+    let mut rows = Vec::new();
+    for path in [
+        cfg.app.join("scripts"),
+        cfg.app.join("umap_narrative"),
+        cfg.app.join("polismath/embedding_model.py"),
+    ] {
+        if path.exists() {
+            visit(&path, &mut rows)?;
+        }
+    }
+    for key in ["DELPHI_EMBED_MODEL_PATH", "DELPHI_EMBED_MODEL_LOCK"] {
+        if let Some(path) = std::env::var_os(key) {
+            visit(Path::new(&path), &mut rows)?;
+        }
+    }
+    Ok(crate::jobs::sha256_hex(rows.join("\n").as_bytes()))
+}
+
+/// Drain at most 4097 stdout bytes concurrently, discard stderr, kill and reap
+/// on timeout or excessive output. Never wait for an unbounded output buffer.
+fn bounded_output(mut c: Command, deadline: Duration) -> Result<Vec<u8>> {
+    c.stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null());
+    let mut child = c.spawn()?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("graph_provenance_pipe"))?;
+    let (send, recv) = std::sync::mpsc::sync_channel(1);
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let result = stdout.take(4097).read_to_end(&mut bytes).map(|_| bytes);
+        let _ = send.send(result);
+    });
+    let start = Instant::now();
+    let mut output = None;
+    loop {
+        if let Ok(result) = recv.try_recv() {
+            output = Some(result);
+        }
+        let oversized = matches!(&output,Some(Ok(bytes)) if bytes.len()>4096);
+        if oversized || start.elapsed() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            anyhow::bail!(if oversized {
+                "graph_provenance_output_bound"
+            } else {
+                "graph_provenance_timeout"
+            });
+        }
+        if let Some(status) = child.try_wait()? {
+            ensure!(status.success(), "graph_provenance_failed");
+            if let Some(bytes) = output {
+                return Ok(bytes?);
+            }
+            let left = deadline.saturating_sub(start.elapsed());
+            return Ok(recv
+                .recv_timeout(left)
+                .map_err(|_| anyhow::anyhow!("graph_provenance_timeout"))??);
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
 fn provenance(cfg: &Config) -> Result<Value> {
     let mut c = Command::new(&cfg.python);
     c.env_clear()
+        .env("PYTHONDONTWRITEBYTECODE", "1")
         .arg(cfg.app.join("scripts/graph_provenance.py"));
     for key in [
         "PATH",
@@ -120,12 +264,9 @@ fn provenance(cfg: &Config) -> Result<Value> {
             c.env(key, value);
         }
     }
-    let out = c.output()?;
-    ensure!(
-        out.status.success() && out.stdout.len() <= 4096,
-        "graph_provenance_failed"
-    );
-    let v: Value = serde_json::from_slice(&out.stdout)?;
+    let bytes = bounded_output(c, Duration::from_secs(120))?;
+    ensure!(bytes.len() <= 4096, "graph_provenance_output_bound");
+    let v: Value = serde_json::from_slice(&bytes)?;
     ensure!(v["model"] == MODEL, "graph_model_mismatch");
     Ok(v)
 }
@@ -148,13 +289,13 @@ pub fn spec(s: &Snapshot, sha: &str, provenance: &Value) -> Result<Value> {
               "code":provenance["code"],"runtime":provenance["runtime"],"model":model,"seed":42,
               "mode":"full","memory_bytes":4294967296_u64,"work_units":s.ids.len(),
               "config":{"comment_ids":s.ids,"adapter_sha256":provenance["adapter_sha256"],"model_sha256":provenance["model_sha256"],
-                        "shadow":{"comments":s.ids.len(),"comment_set_sha256":s.digest}}}}));
+                        "shadow":{"comments":s.ids.len(),"graph_snapshot_sha256":s.digest}}}}));
     }
     let v = json!({"schema":"polis-job-graph/1","nodes":nodes});
-    ensure!(
-        serde_json::to_vec(&v)?.len() <= 1_048_576,
-        "graph_spec_bound"
-    );
+    bound(
+        serde_json::to_vec(&v)?.len() <= MAX_SPEC_BYTES,
+        "graph_spec_bound",
+    )?;
     Ok(v)
 }
 
@@ -169,10 +310,10 @@ impl Scheduler<'_> {
             return Ok(());
         }
         let recovered=self.db.read(|tx| {
-            let rows=tx.query("SELECT DISTINCT ON (zid) zid, request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}' FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&cfg.env])?;
+            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&cfg.env])?;
             let mut seen=BTreeMap::new();
             for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
-            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, g.request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}', (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND g.scope_key='shadow-graph:'||g.zid::text AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id)))", &[&cfg.env])?;
+            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id)))", &[&cfg.env])?;
             let Some(r)=row else { return Ok((seen,None)); };
             let graph_id:String=r.try_get(0)?;
             let mut nodes=Vec::new();
@@ -180,7 +321,7 @@ impl Scheduler<'_> {
                 nodes.push(Node {job_id:n.try_get(0)?,run_id:n.try_get(1)?,stage:n.try_get(2)?});
             }
             ensure!(nodes.len()==4 && STAGES.iter().all(|s|nodes.iter().filter(|n|n.stage==*s).count()==1),"graph_recovery_shape");
-            Ok((seen,Some(Flight {env:cfg.env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get(5)?,nodes})))
+            Ok((seen,Some(Flight {env:cfg.env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes})))
         })?;
         self.state.graph_seen.extend(recovered.0);
         self.state.graph_flight = recovered.1;
@@ -193,128 +334,220 @@ impl Scheduler<'_> {
         let Some(cfg) = self.cfg.graph.as_ref() else {
             return Ok(false);
         };
-        let listed = self.db.read(|tx| db::benchmark(tx, &cfg.codes))?;
+        let cfg = cfg.clone();
+        let listed = listed(&self.db, &cfg.codes)?;
+        let counts = (cfg.codes.len(), listed.len());
+        if self.graph_list_counts != Some(counts) {
+            log("graph_roster", json!({"listed":counts.0,"found":counts.1}));
+            self.graph_list_counts = Some(counts);
+        }
         for candidate in listed {
-            if candidate.comments < self.cfg.min_comments || candidate.comments > 2000 {
+            let observed = Observation::from(&candidate);
+            if self.state.graph_observed.get(&candidate.zid) == Some(&observed) {
                 continue;
             }
-            let s = snapshot(&self.db, candidate.zid)?;
-            if self.state.graph_seen.get(&candidate.zid) == Some(&s.digest) {
+            if !(self.cfg.min_comments.max(5)..=2000).contains(&candidate.comments) {
+                self.refuse_graph(&candidate, "graph_comment_bound");
                 continue;
             }
-            // Four jobs plus all three inline copies per node. Charge the
-            // conservative request bound before admission, not after it grows.
-            let comments = s.ids.len() as i64;
-            if plan::storage_room(self.cfg, &self.state.storage, comments * 4, Share::Shared)
-                .is_some()
+            // Check capacity before fetching any comment text.
+            if plan::storage_room(
+                self.cfg,
+                &self.state.storage,
+                candidate.comments * 4,
+                Share::Shared,
+            )
+            .is_some()
             {
                 return Ok(false);
             }
-            let p = provenance(cfg)?;
-            let mut client = self.db.connect_queue()?;
-            let data = json!({"texts":s.texts}).to_string();
-            let sha: String = client
-                .query_one(
-                    "SELECT encode(sha256(convert_to(($1::text::jsonb)::text,'UTF8')),'hex')",
-                    &[&data],
-                )?
-                .try_get(0)?;
-            let graph_scope = scope(candidate.zid);
-            let generation: i64 = client
-                .query_one(
-                    "SELECT coalesce((public.pd_graph_served($1,$2,$3)->>'generation')::bigint,0)",
-                    &[&cfg.env, &candidate.zid, &graph_scope],
-                )?
-                .try_get(0)?;
-            let mut specification = spec(&s, &sha, &p)?;
-            for node in specification["nodes"]
-                .as_array_mut()
-                .ok_or_else(|| anyhow::anyhow!("graph_nodes_missing"))?
-            {
-                node["declared"]["config"]["shadow"]["expected_generation"] = json!(generation);
+            match self.admit_graph_candidate(&cfg, &candidate, now) {
+                Ok(true) => {
+                    self.state.graph_observed.insert(candidate.zid, observed);
+                    return Ok(true);
+                }
+                Ok(false) => {
+                    if self.state.graph_observed.get(&candidate.zid) == Some(&observed) {
+                        continue;
+                    }
+                    return Ok(false);
+                }
+                Err(e) => {
+                    if let Some(refusal) = e.downcast_ref::<Refusal>() {
+                        self.refuse_graph(&candidate, refusal.0);
+                    } else {
+                        return Err(e);
+                    }
+                }
             }
-            let specification = specification.to_string();
-            let sql_bytes: i32 = client
-                .query_one(
-                    "SELECT octet_length(($1::text::jsonb)::text)",
-                    &[&specification],
-                )?
-                .try_get(0)?;
-            ensure!(sql_bytes <= 1_048_576, "graph_spec_bound");
-            let estimate = self
-                .state
-                .storage
-                .estimate(comments * 4)
-                .saturating_add(sql_bytes as u64 * 3);
-            if self.state.storage.bytes.saturating_add(estimate)
-                > self.cfg.storage_limit_bytes(Share::Shared)
-                || self
-                    .cfg
-                    .storage_daily_bytes
-                    .is_some_and(|n| self.state.storage.day_bytes.saturating_add(estimate) > n)
-            {
-                return Ok(false);
-            }
-            let key =
-                crate::jobs::sha256_hex(format!("{}:{specification}", candidate.zid).as_bytes());
-            let reply: String = client
-                .query_one(
-                    "SELECT public.pd_graph_admit($1,$2,$3,$4,$5::text::jsonb)::text",
-                    &[&cfg.env, &candidate.zid, &graph_scope, &key, &specification],
-                )?
-                .try_get(0)?;
-            let reply: Value = serde_json::from_str(&reply)?;
-            let graph_id = reply["graph_id"]
-                .as_str()
-                .ok_or_else(|| anyhow::anyhow!("graph_admission_reply"))?
-                .to_owned();
-            let view: String = client
-                .query_one(
-                    "SELECT public.pd_graph_view($1,$2::text::uuid)::text",
-                    &[&cfg.env, &graph_id],
-                )?
-                .try_get(0)?;
-            let view: Value = serde_json::from_str(&view)?;
-            let mut nodes = Vec::new();
-            for n in view["nodes"]
-                .as_array()
-                .ok_or_else(|| anyhow::anyhow!("graph_nodes_missing"))?
-            {
-                nodes.push(Node {
-                    job_id: n["job_id"].as_str().unwrap_or_default().into(),
-                    run_id: n["run_id"].as_str().unwrap_or_default().into(),
-                    stage: n["key"].as_str().unwrap_or_default().into(),
-                });
-            }
-            ensure!(
-                nodes.len() == 4
-                    && STAGES
-                        .iter()
-                        .all(|s| nodes.iter().filter(|n| n.stage == *s).count() == 1),
-                "graph_nodes_mismatch"
-            );
-            log(
-                "graph_admitted",
-                json!({"graph_id":graph_id,"nodes":nodes,"comments":comments,"env":cfg.env}),
-            );
-            self.state
-                .graph_seen
-                .insert(candidate.zid, s.digest.clone());
-            self.state.graph_flight = Some(Flight {
-                env: cfg.env.clone(),
-                graph_id,
-                zid: candidate.zid,
-                digest: s.digest,
-                comments,
-                admitted_at_ms: now,
-                generation,
-                nodes,
-            });
-            self.state.day_runs += 1;
-            self.state.totals.admitted += 1;
-            return Ok(true);
         }
         Ok(false)
+    }
+
+    fn refuse_graph(&mut self, candidate: &Live, reason: &str) {
+        log(
+            "graph_refused",
+            json!({"reason":reason,"comments":candidate.comments}),
+        );
+        self.state
+            .graph_observed
+            .insert(candidate.zid, Observation::from(candidate));
+    }
+
+    fn admit_graph_candidate(&mut self, cfg: &Config, candidate: &Live, now: i64) -> Result<bool> {
+        let s = snapshot(&self.db, candidate.zid)?;
+        if self.state.graph_seen.get(&candidate.zid) == Some(&s.digest) {
+            self.state
+                .graph_observed
+                .insert(candidate.zid, Observation::from(candidate));
+            return Ok(false);
+        }
+        // Four jobs plus all three inline copies per node. Charge the
+        // conservative request bound before admission, not after it grows.
+        let comments = s.ids.len() as i64;
+        if plan::storage_room(self.cfg, &self.state.storage, comments * 4, Share::Shared).is_some()
+        {
+            return Ok(false);
+        }
+        let identity = provenance_identity(cfg)?;
+        if self
+            .graph_provenance
+            .as_ref()
+            .is_none_or(|(key, _)| key != &identity)
+        {
+            let value = provenance(cfg)?;
+            ensure!(
+                provenance_identity(cfg)? == identity,
+                "graph_provenance_changed"
+            );
+            self.graph_provenance = Some((identity, value));
+        }
+        let p = &self
+            .graph_provenance
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("graph_provenance_missing"))?
+            .1;
+        let mut client = self.db.connect_queue()?;
+        let data = json!({"texts":s.texts}).to_string();
+        let sha: String = client
+            .query_one(
+                "SELECT encode(sha256(convert_to(($1::text::jsonb)::text,'UTF8')),'hex')",
+                &[&data],
+            )?
+            .try_get(0)?;
+        let graph_scope = scope(candidate.zid);
+        let generation: i64 = client
+            .query_one(
+                "SELECT coalesce((public.pd_graph_served($1,$2,$3)->>'generation')::bigint,0)",
+                &[&cfg.env, &candidate.zid, &graph_scope],
+            )?
+            .try_get(0)?;
+        let mut specification = spec(&s, &sha, p)?;
+        for node in specification["nodes"]
+            .as_array_mut()
+            .ok_or_else(|| anyhow::anyhow!("graph_nodes_missing"))?
+        {
+            node["declared"]["config"]["shadow"]["expected_generation"] = json!(generation);
+        }
+        let specification = specification.to_string();
+        let sql_bytes: i32 = client
+            .query_one(
+                "SELECT octet_length(($1::text::jsonb)::text)",
+                &[&specification],
+            )?
+            .try_get(0)?;
+        bound(sql_bytes as usize <= MAX_SPEC_BYTES, "graph_spec_bound")?;
+        let estimate = self
+            .state
+            .storage
+            .estimate(comments * 4)
+            .saturating_add(sql_bytes as u64 * 3);
+        if self.state.storage.bytes.saturating_add(estimate)
+            > self.cfg.storage_limit_bytes(Share::Shared)
+            || self
+                .cfg
+                .storage_daily_bytes
+                .is_some_and(|n| self.state.storage.day_bytes.saturating_add(estimate) > n)
+        {
+            return Ok(false);
+        }
+        let key = crate::jobs::sha256_hex(format!("{}:{specification}", candidate.zid).as_bytes());
+        let reply: String = client
+            .query_one(
+                "SELECT public.pd_graph_admit($1,$2,$3,$4,$5::text::jsonb)::text",
+                &[&cfg.env, &candidate.zid, &graph_scope, &key, &specification],
+            )?
+            .try_get(0)?;
+        let reply: Value = serde_json::from_str(&reply)?;
+        let graph_id = reply["graph_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("graph_admission_reply"))?
+            .to_owned();
+        let view: String = client
+            .query_one(
+                "SELECT public.pd_graph_view($1,$2::text::uuid)::text",
+                &[&cfg.env, &graph_id],
+            )?
+            .try_get(0)?;
+        let view: Value = serde_json::from_str(&view)?;
+        let mut nodes = Vec::new();
+        for n in view["nodes"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("graph_nodes_missing"))?
+        {
+            nodes.push(Node {
+                job_id: n["job_id"].as_str().unwrap_or_default().into(),
+                run_id: n["run_id"].as_str().unwrap_or_default().into(),
+                stage: n["key"].as_str().unwrap_or_default().into(),
+            });
+        }
+        ensure!(
+            nodes.len() == 4
+                && STAGES
+                    .iter()
+                    .all(|s| nodes.iter().filter(|n| n.stage == *s).count() == 1),
+            "graph_nodes_mismatch"
+        );
+        log(
+            "graph_admitted",
+            json!({"graph_id":graph_id,"nodes":nodes,"comments":comments,"env":cfg.env}),
+        );
+        self.state
+            .graph_seen
+            .insert(candidate.zid, s.digest.clone());
+        self.graph_wait_bucket = None;
+        self.state.graph_flight = Some(Flight {
+            env: cfg.env.clone(),
+            graph_id,
+            zid: candidate.zid,
+            digest: s.digest,
+            comments,
+            admitted_at_ms: now,
+            generation,
+            nodes,
+        });
+        self.state.day_runs += 1;
+        self.state.totals.admitted += 1;
+        Ok(true)
+    }
+
+    fn log_graph_wait(
+        &mut self,
+        flight: &Flight,
+        now: i64,
+        states: &BTreeMap<String, (String, f64)>,
+        scope_held: bool,
+    ) {
+        let deadline = (self.cfg.job_deadline.as_millis() as i64).max(1);
+        let overdue = (now - flight.admitted_at_ms - deadline).max(0);
+        let bucket = overdue / deadline;
+        if now - flight.admitted_at_ms >= deadline && self.graph_wait_bucket != Some(bucket) {
+            log(
+                "graph_waiting",
+                json!({"graph_id":flight.graph_id,"states":states,"scope_held":scope_held,"seconds_overdue":overdue/1000,"reason":"awaiting_exit_proof"}),
+            );
+            self.graph_wait_bucket = Some(bucket);
+        }
     }
 
     pub(super) fn watch_graph(&mut self, flight: Flight, now: i64) -> Result<Duration> {
@@ -360,6 +593,7 @@ impl Scheduler<'_> {
         // Never release the scheduler while a child is still running, even
         // beyond the deadline: otherwise two computations could overlap.
         if !terminal {
+            self.log_graph_wait(&flight, now, &states, true);
             return Ok(self.cfg.job_poll);
         }
         let mut client = self.db.connect_queue()?;
@@ -372,54 +606,85 @@ impl Scheduler<'_> {
             .try_get(0)?;
         let view: Value = serde_json::from_str(&view)?;
         if view["guard_held"] != false {
+            self.log_graph_wait(&flight, now, &states, true);
             return Ok(self.cfg.job_poll);
         }
         drop(client);
         let success = states.values().all(|(s, _)| s == "succeeded");
         let mut published = false;
         if success {
-            let leaf = flight
-                .nodes
-                .iter()
-                .find(|n| n.stage == "graph_narrative")
-                .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
-            let mut client = self.db.connect_queue()?;
-            let r: String = client
-                .query_one(
-                    "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)::text",
-                    &[
-                        &flight.env,
-                        &flight.graph_id,
-                        &leaf.job_id,
-                        &flight.generation,
-                    ],
-                )?
-                .try_get(0)?;
-            let r: Value = serde_json::from_str(&r)?;
-            published = r["outcome"] == "published";
-            // On restart after a lost publish reply, accept only this exact leaf.
-            if !published {
-                let served: String = client
+            let result = (|| -> Result<bool> {
+                let leaf = flight
+                    .nodes
+                    .iter()
+                    .find(|n| n.stage == "graph_narrative")
+                    .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
+                let mut client = self.db.connect_queue()?;
+                let r: String = client
                     .query_one(
-                        "SELECT public.pd_graph_served($1,$2,$3)::text",
-                        &[&flight.env, &flight.zid, &scope(flight.zid)],
+                        "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)::text",
+                        &[
+                            &flight.env,
+                            &flight.graph_id,
+                            &leaf.job_id,
+                            &flight.generation,
+                        ],
                     )?
                     .try_get(0)?;
-                let served: Value = serde_json::from_str(&served)?;
-                published = served["generation"].as_i64() == Some(flight.generation + 1)
-                    && served["bundle"]["artifacts"]
-                        .as_array()
-                        .is_some_and(|a| a.iter().any(|x| x["job_id"] == leaf.job_id));
+                let r: Value = serde_json::from_str(&r)?;
+                published = r["outcome"] == "published";
+                // On restart after a lost publish reply, accept only this exact leaf.
+                if !published {
+                    let served: String = client
+                        .query_one(
+                            "SELECT public.pd_graph_served($1,$2,$3)::text",
+                            &[&flight.env, &flight.zid, &scope(flight.zid)],
+                        )?
+                        .try_get(0)?;
+                    let served: Value = serde_json::from_str(&served)?;
+                    published = served["generation"].as_i64() == Some(flight.generation + 1)
+                        && served["bundle"]["artifacts"]
+                            .as_array()
+                            .is_some_and(|a| a.iter().any(|x| x["job_id"] == leaf.job_id));
+                }
+                Ok(published)
+            })();
+            match result {
+                Ok(value) => published = value,
+                Err(_) => {
+                    log(
+                        "graph_publish_failed",
+                        json!({"graph_id":flight.graph_id,"reason":"publish_error"}),
+                    );
+                    published = false;
+                }
             }
         }
         let mut bytes = 0u64;
         let mut graph_bytes = 0u64;
         for n in &flight.nodes {
-            let m = self.db.read(|tx| {
+            let measured = self.db.read(|tx| {
                 let mut m = storage::measure(tx, &flight.env, &n.job_id, flight.zid)?;
                 m.graph_bytes = measure_records(tx, &flight.env, &n.job_id)?;
                 Ok(m)
-            })?;
+            });
+            let m = match measured {
+                Ok(m) => m,
+                Err(_) => {
+                    log(
+                        "graph_storage_unread",
+                        json!({"graph_id":flight.graph_id,"job_id":n.job_id}),
+                    );
+                    self.state.storage.pending.push(storage::Pending {
+                        env: flight.env.clone(),
+                        job_id: n.job_id.clone(),
+                        zid: flight.zid,
+                        comments: flight.comments,
+                        set: None,
+                    });
+                    continue;
+                }
+            };
             graph_bytes += m.graph_bytes;
             bytes = bytes.saturating_add(m.total());
             let (state, seconds) = &states[&n.job_id];
@@ -458,6 +723,22 @@ pub fn measure_records(tx: &mut postgres::Transaction<'_>, env: &str, job: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn provenance_subprocess_is_killed_on_deadline_or_output_bound() -> Result<()> {
+        let mut hangs = Command::new("sh");
+        hangs.args(["-c", "exec sleep 20"]);
+        let start = Instant::now();
+        assert!(bounded_output(hangs, Duration::from_millis(30)).is_err());
+        assert!(start.elapsed() < Duration::from_secs(2));
+        let mut floods = Command::new("sh");
+        floods.args(["-c", "exec yes x"]);
+        assert!(bounded_output(floods, Duration::from_secs(2)).is_err());
+        let mut succeeds = Command::new("sh");
+        succeeds.args(["-c", "printf '{}'"]);
+        assert_eq!(bounded_output(succeeds, Duration::from_secs(2))?, b"{}");
+        Ok(())
+    }
+
     #[test]
     fn empty_list_is_off_even_with_invalid_graph_settings() -> Result<()> {
         let get = |k: &str| match k {

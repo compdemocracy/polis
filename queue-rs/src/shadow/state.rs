@@ -100,6 +100,8 @@ pub struct State {
     pub graph_flight: Option<super::graph::Flight>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub graph_seen: BTreeMap<i32, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub graph_observed: BTreeMap<i32, super::graph::Observation>,
     pub pending_twin: Option<PendingTwin>,
     /// The UTC day (days since the epoch) the daily count is for.
     pub day: i64,
@@ -125,6 +127,7 @@ impl State {
             in_flight: None,
             graph_flight: None,
             graph_seen: BTreeMap::new(),
+            graph_observed: BTreeMap::new(),
             pending_twin: None,
             day: 0,
             day_runs: 0,
