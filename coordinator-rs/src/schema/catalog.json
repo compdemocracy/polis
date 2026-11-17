@@ -12826,6 +12826,10 @@
     {
       "path": "server/postgres/migrations/000046_add_granite_embedding_model.sql",
       "sha256": "47ce61aaa34adfa82f9c7430170afaf3144fb72b96fc85b62f7078a7fb831531"
+    },
+    {
+      "path": "server/postgres/migrations/000047_extend_graph_embedding_and_labels.sql",
+      "sha256": "18e807a6e2fcbd7eaf25101bd55de945b99899c3c5041c521dc92aed0cf5e22a"
     }
   ]
 }
