@@ -1375,6 +1375,20 @@ fn graph_catalog(f: &Fixture) {
     c.batch_execute(&sql).unwrap();
 }
 
+/// Make the disposable database's admission function refuse every graph,
+/// with the error it gives a model it does not admit, whichever models the
+/// installed function admits. Returns the function as it was, to restore it.
+fn graph_catalog_refuses(f: &Fixture) -> String {
+    let mut c = f.superuser();
+    let sql:String=c.query_one("SELECT pg_get_functiondef('pd_graph_admit(text,integer,text,text,jsonb,uuid)'::regprocedure)",&[]).unwrap().get(0);
+    let head = &sql[..sql.find("AS $function$").unwrap()];
+    c.batch_execute(&format!(
+        "{head}AS $function$BEGIN RAISE EXCEPTION 'invalid stage contract (incremental not supported)'; END$function$"
+    ))
+    .unwrap();
+    sql
+}
+
 #[test]
 fn graph_refusals_and_errors_allow_benchmark_admission_and_are_remembered() {
     let f = Fixture::new();
@@ -1396,24 +1410,42 @@ fn graph_refusals_and_errors_allow_benchmark_admission_and_are_remembered() {
     let mut s = Scheduler::new(&cfg).unwrap();
     assert_eq!(next_admitted(&f, &mut s), Some(923));
     assert_eq!(s.state.graph_observed, remembered);
-    // No catalog replacement: the ordinary invalid-stage-contract error must
-    // also fall through, with the graph retry backed off.
+    // The admission function's invalid-stage-contract error must also fall
+    // through, with the graph retry backed off.
+    let original = graph_catalog_refuses(&f);
     f.quiet(924, 25, 1);
     f.quiet(925, 25, 1);
     f.quiet(926, 25, 1);
+    f.quiet(927, 25, 1);
     let cfg = graph_config(
         &f,
         &[
             ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c924"),
-            ("DELPHI_SHADOW_BENCHMARK", "c925,c926"),
+            ("DELPHI_SHADOW_BENCHMARK", "c925"),
         ],
     );
     let mut s = Scheduler::new(&cfg).unwrap();
     assert_eq!(next_admitted(&f, &mut s), Some(925));
-    // Removing the helper makes any provenance retry fail; the next benchmark
-    // still runs during the graph backoff.
-    std::fs::remove_file(f.dir.join("scripts/graph_provenance.py")).unwrap();
+    // A failed provenance helper is an admission error too. With no backoff,
+    // the first cycle caches the helper's value and is refused by the
+    // function. The function then admits the graph and the helper is
+    // removed: the changed directory makes the retry call the helper, and its
+    // failure alone keeps the graph out while the next benchmark runs.
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c924"),
+            ("DELPHI_SHADOW_BENCHMARK", "c926,c927"),
+        ],
+    );
+    cfg.roster_retry = Duration::ZERO;
+    let mut s = Scheduler::new(&cfg).unwrap();
     assert_eq!(next_admitted(&f, &mut s), Some(926));
+    f.superuser().batch_execute(&original).unwrap();
+    graph_catalog(&f);
+    std::fs::remove_file(f.dir.join("scripts/graph_provenance.py")).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(927));
+    assert!(s.state.graph_flight.is_none());
 }
 
 #[test]
@@ -1615,6 +1647,7 @@ fn graph_provenance_is_cached_until_source_metadata_changes() {
         ],
     );
     cfg.roster_retry = Duration::ZERO;
+    graph_catalog_refuses(&f);
     let helper = f.dir.join("scripts/graph_provenance.py");
     let counter = f.dir.join("calls.txt");
     let mut script = std::fs::read_to_string(&helper).unwrap();
@@ -1624,7 +1657,7 @@ fn graph_provenance_is_cached_until_source_metadata_changes() {
     );
     std::fs::write(&helper, &script).unwrap();
     let mut s = Scheduler::new(&cfg).unwrap();
-    // Each graph admission reaches the real unextended catalog and fails.
+    // Each graph admission reaches the admission function, which refuses it.
     s.cycle().unwrap();
     let job = s.state.in_flight.clone().unwrap().job_id;
     f.cancel(&job);
