@@ -1,7 +1,7 @@
 import { Response } from "express";
 import pg from "../../db/pg-query";
 import { failJson } from "../../utils/fail";
-import { isPolisDev } from "../../utils/common";
+import Config from "../../config";
 
 /**
  * Who may start Delphi work on a conversation: a pipeline run
@@ -35,12 +35,43 @@ function positiveId(value: unknown): number | null {
 }
 
 /**
- * Site administrators may start Delphi work on any conversation: the accounts
- * the server already treats as its administrators, the uids listed in
- * ADMIN_UIDS (Config.adminUIDs, read once at start-up; isPolisDev).
+ * The uids ADMIN_UIDS names (Config.adminUIDs, the list the server's
+ * isPolisDev reads), parsed with a shape check. Only a JSON array whose
+ * entries are all positive int4 numbers names anyone, by exact numeric
+ * membership. Any other value (a JSON string, a scalar, null, an object,
+ * strings or other non-numbers in the array, invalid JSON) names nobody and
+ * never throws here. Kept to these routes: the shared helper compares with
+ * indexOf on whatever was parsed, so a JSON string would match by substring.
  */
+const NO_ADMINISTRATORS: ReadonlySet<number> = new Set();
+let administratorsFrom: unknown;
+let administrators: ReadonlySet<number> = NO_ADMINISTRATORS;
+
+function siteAdministrators(raw: unknown): ReadonlySet<number> {
+  if (raw === administratorsFrom) return administrators;
+  let parsed: unknown;
+  try {
+    parsed = typeof raw === "string" && raw !== "" ? JSON.parse(raw) : [];
+  } catch {
+    parsed = null;
+  }
+  const valid =
+    Array.isArray(parsed) &&
+    parsed.every(
+      (v) =>
+        typeof v === "number" &&
+        Number.isSafeInteger(v) &&
+        v > 0 &&
+        v <= MAX_INT4
+    );
+  administratorsFrom = raw;
+  administrators = valid ? new Set(parsed as number[]) : NO_ADMINISTRATORS;
+  return administrators;
+}
+
+/** Site administrators may start Delphi work on any conversation. */
 function isSiteAdministrator(uid: number): boolean {
-  return isPolisDev(uid);
+  return siteAdministrators(Config.adminUIDs).has(uid);
 }
 
 /**

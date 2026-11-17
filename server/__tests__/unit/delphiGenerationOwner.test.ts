@@ -11,7 +11,14 @@
  * site administrator (a uid in ADMIN_UIDS) may start work on any conversation.
  * Moderators on the owner's site get no right from this.
  */
-import { beforeEach, describe, expect, jest, test } from "@jest/globals";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  jest,
+  test,
+} from "@jest/globals";
 
 const NOT_OWNER = "polis_err_delphi_not_conversation_owner";
 const REPORT = "r1generated";
@@ -40,7 +47,12 @@ jest.mock("../../src/db/pg-query", () => ({
 }));
 jest.mock("../../src/utils/logger", () => ({
   __esModule: true,
-  default: { info: jest.fn(), debug: jest.fn(), warn: jest.fn(), error: jest.fn() },
+  default: {
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 jest.mock("../../src/config", () => ({
   __esModule: true,
@@ -91,11 +103,16 @@ import { handle_POST_delphi_jobs } from "../../src/routes/delphi/jobs";
 import { handle_POST_delphi_batch_reports } from "../../src/routes/delphi/batchReports";
 import { handle_POST_collectiveStatement } from "../../src/routes/collectiveStatement";
 import { handle_GET_reportNarrative } from "../../src/routes/reportNarrative";
+import Config from "../../src/config";
 
 type Reply = { status: number; body: any };
 
 function makeRes() {
-  const res: any = { statusCode: 200, body: undefined, streamed: [] as string[] };
+  const res: any = {
+    statusCode: 200,
+    body: undefined,
+    streamed: [] as string[],
+  };
   res.status = (code: number) => {
     res.statusCode = code;
     return res;
@@ -189,7 +206,8 @@ const routes: Route[] = [
   },
   {
     name: "POST /api/v3/collectiveStatement",
-    call: (p) => run(handle_POST_collectiveStatement, { p, body: statementBody }),
+    call: (p) =>
+      run(handle_POST_collectiveStatement, { p, body: statementBody }),
     proceeded: () => expect(mockCluster).toHaveBeenCalledTimes(1),
     noClaim: {
       status: 500,
@@ -224,7 +242,13 @@ const routes: Route[] = [
 const ownerRead = /^SELECT owner FROM conversations WHERE zid = \(\$1\);$/;
 
 function expectNothingStarted() {
-  for (const fn of [mockAdmit, mockProvider, mockDynamo, mockCluster, mockStorageInit])
+  for (const fn of [
+    mockAdmit,
+    mockProvider,
+    mockDynamo,
+    mockCluster,
+    mockStorageInit,
+  ])
     expect(fn).not.toHaveBeenCalled();
 }
 
@@ -268,7 +292,9 @@ describe.each(routes)("$name", (route) => {
   test("the owner with the claim gets past authorization, as today", async () => {
     await route.call({ uid: OWNER_UID, delphiEnabled: true });
     route.proceeded();
-    const reads = mockQuery.mock.calls.filter(([sql]) => ownerRead.test(String(sql).trim()));
+    const reads = mockQuery.mock.calls.filter(([sql]) =>
+      ownerRead.test(String(sql).trim())
+    );
     expect(reads).toEqual([[expect.any(String), [OWNED_ZID]]]);
   });
 
@@ -390,7 +416,11 @@ describe("POST /api/v3/delphi/jobs with an internal conversation number", () => 
       });
     beforeEach(() =>
       mockZidFromReport.mockImplementation(async (reportId: string) =>
-        reportId === "r1other" ? OTHER_ZID : reportId === REPORT ? OWNED_ZID : null
+        reportId === "r1other"
+          ? OTHER_ZID
+          : reportId === REPORT
+          ? OWNED_ZID
+          : null
       )
     );
 
@@ -426,4 +456,127 @@ describe("POST /api/v3/delphi/jobs with an internal conversation number", () => 
       expectNothingStarted();
     });
   });
+});
+
+// ADMIN_UIDS as these routes read it. Only a JSON array of positive int4
+// numbers names administrators, by exact numeric membership. Any other value
+// names nobody and never throws on a request; the owner's access and the
+// claim requirement do not depend on it.
+const VALID_ADMIN_LIST = "[9]";
+
+function setAdminList(raw: string): void {
+  (Config as { adminUIDs: string }).adminUIDs = raw;
+}
+
+function clearCalls(): void {
+  for (const fn of [
+    mockQuery,
+    mockQueryReadOnly,
+    mockZidFromReport,
+    mockZidForRid,
+    mockAdmit,
+    mockProvider,
+    mockDynamo,
+    mockCluster,
+    mockStorageInit,
+  ])
+    fn.mockClear();
+}
+
+const adminListShapes: Array<[string, string, number[]]> = [
+  ["a JSON string", '"93"', []],
+  ["an array of strings", '["9"]', []],
+  ["a scalar", "9", []],
+  ["null", "null", []],
+  ["an object", '{"9":true}', []],
+  ["invalid JSON", "[9", []],
+  ["an array with one bad entry", "[9, 1.5]", []],
+  ["an empty list", "[]", []],
+  ["a valid numeric list", VALID_ADMIN_LIST, [ADMIN_UID]],
+];
+
+describe.each(routes)("ADMIN_UIDS shapes on $name", (route) => {
+  afterEach(() => setAdminList(VALID_ADMIN_LIST));
+
+  describe.each(adminListShapes)("%s (%s)", (_label, raw, administrators) => {
+    beforeEach(() => setAdminList(raw));
+
+    test.each([3, 9, 93])(
+      "a claim holder with uid %p who owns nothing is an administrator only if the list names it exactly",
+      async (uid) => {
+        const reply = await route.call({ uid, delphiEnabled: true });
+        if (administrators.includes(uid)) {
+          route.proceeded();
+        } else {
+          expect(reply).toEqual({
+            status: 403,
+            body: { error: NOT_OWNER, message: NOT_OWNER, status: 403 },
+          });
+          expectNothingStarted();
+        }
+      }
+    );
+
+    test("the owner with the claim still proceeds", async () => {
+      await route.call({ uid: OWNER_UID, delphiEnabled: true });
+      route.proceeded();
+    });
+
+    test("without the claim, owner and listed uid alike get today's reply", async () => {
+      for (const uid of [OWNER_UID, ADMIN_UID]) {
+        clearCalls();
+        const reply = await route.call({ uid, delphiEnabled: false });
+        expect(reply).toEqual(route.noClaim);
+        expect(mockQuery).not.toHaveBeenCalled();
+        expectNothingStarted();
+      }
+    });
+  });
+});
+
+// The four probes an independent review ran: with ADMIN_UIDS the JSON string
+// "93" when the server starts, uid 3 matched it as a substring and reached the
+// protected operation on every route. The route modules (and anything that
+// parses ADMIN_UIDS when it loads) are loaded afresh while the configuration
+// holds that value, as at a server start.
+describe("an ADMIN_UIDS JSON string read at start-up", () => {
+  afterEach(() => setAdminList(VALID_ADMIN_LIST));
+
+  const loaded = (): Record<string, (req: any, res: any) => unknown> => {
+    setAdminList('"93"');
+    let handlers: Record<string, (req: any, res: any) => unknown> = {};
+    jest.isolateModules(() => {
+      handlers = {
+        jobs: require("../../src/routes/delphi/jobs").handle_POST_delphi_jobs,
+        batch: require("../../src/routes/delphi/batchReports")
+          .handle_POST_delphi_batch_reports,
+        statement: require("../../src/routes/collectiveStatement")
+          .handle_POST_collectiveStatement,
+        narrative: require("../../src/routes/reportNarrative")
+          .handle_GET_reportNarrative,
+      };
+    });
+    return handlers;
+  };
+  const caller = { uid: OTHER_UID, delphiEnabled: true };
+
+  test.each([
+    [
+      "jobs",
+      { p: caller, body: { report_id: REPORT, job_type: "FULL_PIPELINE" } },
+    ],
+    [
+      "batch",
+      { p: caller, body: { report_id: REPORT, model: "generated-model" } },
+    ],
+    ["statement", { p: caller, body: statementBody }],
+    ["narrative", { p: { rid: 11, ...caller }, query: { report_id: REPORT } }],
+  ] as Array<[string, Record<string, unknown>]>)(
+    "%s: JSON string is not an administrator list",
+    async (name, req) => {
+      const reply = await run(loaded()[name], req);
+      expectNothingStarted();
+      expect(reply.status).toBe(403);
+    }
+  );
 });

@@ -39,7 +39,10 @@ async function zidOf(conversationId: string): Promise<number> {
   return rows[0].zid;
 }
 
-async function reportFor(agent: Agent, conversationId: string): Promise<string> {
+async function reportFor(
+  agent: Agent,
+  conversationId: string
+): Promise<string> {
   await agent.post("/api/v3/reports").send({ conversation_id: conversationId });
   const listed = await agent
     .get(`/api/v3/reports?conversation_id=${conversationId}`)
