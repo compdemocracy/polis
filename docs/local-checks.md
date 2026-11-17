@@ -46,6 +46,7 @@ check. No command reduces the test selection or changes an assertion.
 | E2E shard | `bash ci/local/e2e.sh --shard I/6` | Docker, Node/npm, Python 3, mkcert |
 | E2E combine | `bash ci/local/e2e.sh combine DIR...` | Python 3; all six shard receipts |
 | Delphi Python tests: images, six shards, combine | `make check-delphi-python-tests` | Docker Buildx, Python 3 |
+| Delphi shadow CPU priority (load test; no hosted job) | `make check-delphi-shadow-cpu-priority` | Docker Buildx, Python 3; a quiet host with at least 4 CPUs |
 
 The unchanged golden guards remain separate jobs: invoke
 `sh ci/vote_path_golden_guard.sh BASE` and
@@ -234,6 +235,33 @@ accepts only six shard receipts of the run it is asked for, with one source
 and one image build, so receipts that a new run could not remove are refused.
 If the source identity or the image ids cannot be read, the job fails. Leave
 `DELPHI_CHECK_KEEP` unset.
+
+The Delphi shadow CPU priority target runs `delphi/tests/shadow/cpu_priority.sh`
+against this checkout's `docker-compose.yml`: the `math-python` and
+`delphi-shadow` services as the file defines them (CPU weight, CPU cap, memory
+ceiling, OOM adjustment, thread settings), with only their image, network and
+command changed. In both modes the math engine's cold recompute of the public
+biodiversity conversation, with the shadow's embedding step running flat out,
+must take at most `1 + SHADOW_CPU_TOLERANCE` (0.15) times its time with the
+shadow frozen, and the measured slowdown is printed whatever the verdict; the
+shadow's cgroup must report CPU weight 1. The bound is a chosen operating
+limit, the same in both modes: the shadow may slow a recompute by about 10 %
+while it embeds, with room for measurement noise (measured with the image's
+embedding model on a 12-vCPU host: about 1.09-1.10 unfenced, 1.05-1.06 behind
+a 2-CPU limit). By default the shadow has no CPU limit: no thread count may be
+set and the throughput must reach `SHADOW_CPU_MIN_SCALE` (1.5) times two
+threads on two CPUs. With `SHADOW_CPU_SETTINGS=DELPHI_SHADOW_CONTAINER_CPUS=2`
+(a 2-CPU limit), every thread library in the shadow must run one thread per
+CPU of the limit, its embedding throughput must be within `SHADOW_CPU_BAND`
+(0.10) of the same work in a plain container on the same CPUs with one thread
+per CPU (measured 0.98 to 1.00 of it), and the old configuration, the
+libraries counting every CPU of the host inside that limit, must fall outside
+the band (measured 0.22 to 0.33 of it), so a lost thread rule fails. Set an owned
+`COMPOSE_PROJECT_NAME`; it builds the Delphi image unless `SHADOW_CPU_IMAGE`
+names one, publishes no port and needs no network. Its verdict depends on
+timing, so it is a work-box check with no hosted job: run it on a quiet host,
+nothing else busy, with at least 4 CPUs (8 or more to see scaling). Results,
+with every timing they were computed from, go to `.ci-out/<project>`.
 
 `python3 ci/tests/test_local_entry_points.py` tests these entry points'
 refusals, receipts and cleanup with stub executables; it needs no Docker. No

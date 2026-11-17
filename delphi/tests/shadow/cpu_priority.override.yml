@@ -1,0 +1,23 @@
+# The Delphi shadow's CPU priority load test (cpu_priority.sh): the
+# repository's own math-python and delphi-shadow services, as
+# docker-compose.yml defines them (environment, tmpfs, CPU weight, CPU cap,
+# memory ceiling, OOM adjustment), with only the image, the network (none:
+# nothing here needs one) and the command changed, and the test's driver and
+# the public fixtures mounted read-only.
+services:
+  math-python:
+    image: ${SHADOW_CPU_IMAGE:?the Delphi image under test}
+    networks: !reset []
+    network_mode: none
+    command: ["python", "/loadtest/cpu_priority.py", "math", "--runs", "${SHADOW_CPU_RUNS:-6}"]
+    volumes:
+      - "${SHADOW_CPU_DELPHI:?the checkout's delphi/}/tests/shadow:/loadtest:ro"
+      - "${SHADOW_CPU_DELPHI}/real_data:/app/real_data:ro"
+  delphi-shadow:
+    image: ${SHADOW_CPU_IMAGE}
+    networks: !reset []
+    network_mode: none
+    command: ["python", "/loadtest/cpu_priority.py", "embed"]
+    volumes:
+      - "${SHADOW_CPU_DELPHI}/tests/shadow:/loadtest:ro"
+      - "${SHADOW_CPU_DELPHI}/real_data:/app/real_data:ro"
