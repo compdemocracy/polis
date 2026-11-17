@@ -56,6 +56,7 @@ function makeRes(): Response & CapturedResponse {
 
 describe("Delphi job submission deduplication", () => {
   let zid: string;
+  let ownerUid: number;
   let reportId: string;
   const guardKeys = new Set<string>();
 
@@ -70,6 +71,13 @@ describe("Delphi job submission deduplication", () => {
       [setup.conversationId]
     )) as { zid: number }[];
     zid = rows[0].zid.toString();
+    // The submissions below come from the conversation's owner: the routes
+    // admit work only for the owner of the conversation.
+    const owners = (await pgQuery.queryP(
+      "SELECT owner FROM conversations WHERE zid = $1",
+      [zid]
+    )) as { owner: number }[];
+    ownerUid = owners[0].owner;
 
     await agent
       .post("/api/v3/reports")
@@ -184,7 +192,7 @@ describe("Delphi job submission deduplication", () => {
     trackPipelineGuard(body);
     const res = makeRes();
     const req = {
-      p: { delphiEnabled: true },
+      p: { delphiEnabled: true, uid: ownerUid },
       body: { conversation_id: zid, ...body },
     } as unknown as Request;
     return handle_POST_delphi_jobs(req, res).then(() => res);
@@ -209,7 +217,7 @@ describe("Delphi job submission deduplication", () => {
     );
     const res = makeRes();
     const req = {
-      p: { delphiEnabled: true },
+      p: { delphiEnabled: true, uid: ownerUid },
       body: merged,
     } as unknown as Request;
     return Promise.resolve(
