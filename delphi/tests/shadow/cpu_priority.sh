@@ -9,8 +9,8 @@
 #   delphi/tests/shadow/cpu_priority.sh <output directory>
 #
 # It fails (exit 1) unless all of these hold, in the mode the service's own
-# CPU limit sets (Compose's DELPHI_SHADOW_CONTAINER_CPUS; unset, empty or 0
-# is the default, unfenced; a number of CPUs fences the shadow):
+# CPU limit sets (Compose's DELPHI_SHADOW_CONTAINER_CPUS; 2 by default, a
+# number of CPUs fences the shadow, 0 is unfenced):
 #   1. With the shadow's embedding work running flat out, the math engine's
 #      cold recompute of a public conversation (biodiversity: 29,802 votes,
 #      316 comments, through the math engine's own code and thread settings)
@@ -18,10 +18,13 @@
 #      median(running) <= (1 + SHADOW_CPU_TOLERANCE) x median(stopped). The
 #      bound, 1.15 in both modes, is a chosen operating limit: the shadow may
 #      slow a recompute by about 10 % while it embeds, with room for
-#      measurement noise. Measured on a 12-vCPU arm64 host with the image's
-#      embedding model: about 1.09-1.10 unfenced, 1.05-1.06 behind a 2-CPU
-#      limit; earlier runs measured up to 1.16 unfenced with the smaller
-#      all-MiniLM-L6-v2. The slowdown is printed whatever the verdict.
+#      measurement noise. Measured with the image's embedding model: on a
+#      12-vCPU arm64 host about 1.05-1.07 behind a 2-CPU limit and
+#      1.09-1.13 unfenced (earlier runs up to 1.16 unfenced with the smaller
+#      all-MiniLM-L6-v2); on a 6-core, 12-thread x86 desktop with
+#      hyperthreading 1.16-1.17 behind a 2-CPU limit and 1.41-1.43
+#      unfenced, so there the check fails in both modes. The slowdown is
+#      printed whatever the verdict.
 #      "Stopped" is the shadow's container frozen (docker pause: it holds
 #      its memory and runs nothing);
 #      the two alternate in SHADOW_CPU_BLOCKS blocks (ABBA order), each a
@@ -46,8 +49,8 @@
 # runner. Knobs: SHADOW_CPU_BLOCKS (6), SHADOW_CPU_RUNS (6),
 # SHADOW_CPU_WINDOW_SECONDS (60), SHADOW_CPU_TOLERANCE (0.15),
 # SHADOW_CPU_BAND (0.10), SHADOW_CPU_MIN_SCALE (1.5); SHADOW_CPU_SETTINGS, KEY=value lines added to
-# the environment Compose reads (DELPHI_SHADOW_CONTAINER_CPUS=2, the shadow
-# fenced at 2 CPUs); SHADOW_CPU_EXTRA_OVERRIDE, one more Compose file (a
+# the environment Compose reads (DELPHI_SHADOW_CONTAINER_CPUS=0, the shadow
+# unfenced); SHADOW_CPU_EXTRA_OVERRIDE, one more Compose file (a
 # control run, such as the shadow without its CPU weight). Results:
 # summary.json (and every line it was computed from) in the output directory.
 set -euo pipefail

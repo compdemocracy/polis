@@ -318,6 +318,12 @@ check, and logs each job id, run id, stage, elapsed execution seconds and bytes.
 Finished results are retained when a later node fails. A deadline or dead node
 cancels unfinished nodes through the queue's fenced management operation.
 
+### Delphi Shadow Resources
+
+Read only where the Delphi shadow runs (its services start on the exact line `DELPHI_SHADOW_ENABLED=1`). Compose alone reads this key, for the `delphi-shadow` container's limit; no service sees it.
+
+- **`DELPHI_SHADOW_CONTAINER_CPUS`** (`delphi-shadow`, default `2`) the shadow daemon's CPU limit ([Compose:541](../docker-compose.yml#L541)), behind the lowest CPU weight of any service. The daemon runs one library thread (torch, Numba, OpenMP, OpenBLAS) per CPU of the limit; a positive number sets that many CPUs. `0` removes the limit: the shadow then takes the CPU nothing else is using and its libraries count the box's CPUs. Measured with `make check-delphi-shadow-cpu-priority` ([local checks](local-checks.md)), the math engine's recompute ran, while the shadow embedded, about 5-7 % slower with the 2-CPU limit and 9-13 % with none on a 12-vCPU arm64 host, and 16-17 % and 41-43 % on a 6-core, 12-thread x86 desktop with hyperthreading. Keep a limit on a burstable instance, where an unlimited shadow would spend the CPU credits the whole box runs on.
+
 ### Large Memory Class
 
 Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (`math-python` has no `env_file`), so a value set in `.env` or the deployment env document reaches the container only through these lines.
