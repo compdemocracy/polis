@@ -34,7 +34,7 @@ def run(frame):
             raise ValueError('stage artifact exceeds 512 KiB')
         return dict(schema='polis-job-artifact-manifest/1',job_id=frame['job_id'],run_id=frame['run_id'],attempt_id=frame['attempt_id'],stage=stage,
                     input_sha256=frame['input_sha256'],outcome='succeeded',output=dict(role='result',schema=stage+'/1',payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest()))
-    if declared['model'] in {'sentence-transformers/all-MiniLM-L6-v2', 'delphi-umap-evoc/1', 'delphi-tfidf-keywords/1', 'local-narrative-fixture/1'}:
+    if declared['model'] in {'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384', 'delphi-keyword-labels/1', 'sentence-transformers/all-MiniLM-L6-v2', 'delphi-umap-evoc/1', 'delphi-tfidf-keywords/1', 'local-narrative-fixture/1'}:
         from delphi_graph_stages import execute, code_digest
         if declared['config'].get('adapter_sha256') != code_digest():
             raise ValueError('numerical adapter provenance mismatch')
