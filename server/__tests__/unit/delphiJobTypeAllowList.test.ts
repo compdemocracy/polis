@@ -18,7 +18,11 @@ jest.mock("../../src/routes/delphi/jobGuard", () => ({
 }));
 jest.mock("../../src/db/pg-query", () => ({
   __esModule: true,
-  default: { queryP: jest.fn(), queryP_readOnly: jest.fn() },
+  // The caller below owns conversation 1 (the routes require the owner).
+  default: {
+    queryP: jest.fn(async () => [{ owner: 1 }]),
+    queryP_readOnly: jest.fn(),
+  },
 }));
 jest.mock("../../src/utils/parameter", () => ({
   getZidFromReport: jest.fn(),
@@ -44,7 +48,7 @@ function makeRes() {
 }
 
 function makeReq(body: Record<string, unknown>): Request {
-  return { p: { delphiEnabled: true }, body } as unknown as Request;
+  return { p: { delphiEnabled: true, uid: 1 }, body } as unknown as Request;
 }
 
 describe("POST /delphi/jobs job_type allow-list", () => {
