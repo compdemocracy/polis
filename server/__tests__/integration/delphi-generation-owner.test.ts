@@ -135,6 +135,18 @@ describe("Delphi generation routes and the conversation owner", () => {
     expect(await jobsFor(zid)).toEqual([]);
   });
 
+  test("an owner who pairs its own conversation with another conversation's report is refused", async () => {
+    const reply = await claimAgent.post("/api/v3/delphi/jobs").send({
+      conversation_id: ownZid,
+      report_id: reportId,
+      job_type: "FULL_PIPELINE",
+    });
+    expect(reply.status).toBe(403);
+    expect(reply.body).toEqual(refused);
+    expect(await jobsFor(ownZid)).toEqual([]);
+    expect(await jobsFor(zid)).toEqual([]);
+  });
+
   test("the owner without the claim gets the replies it got before", async () => {
     const jobs = await ownerAgent
       .post("/api/v3/delphi/jobs")

@@ -59,3 +59,14 @@ export async function mayStartDelphiWork(
 export function refuseNotConversationOwner(res: Response): void {
   failJson(res, 403, DELPHI_NOT_CONVERSATION_OWNER);
 }
+
+/**
+ * Whether two identifiers a request gave for its conversation name the same
+ * conversation: both positive conversation numbers, and equal. A request that
+ * names its conversation twice is admitted only if they agree, whoever sends
+ * it, so ownership checked on one cannot carry work under the other.
+ */
+export function namesOneConversation(a: unknown, b: unknown): boolean {
+  const first = positiveId(a);
+  return first !== null && first === positiveId(b);
+}

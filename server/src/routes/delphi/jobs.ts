@@ -12,6 +12,7 @@ import {
 } from "./jobGuard";
 import {
   mayStartDelphiWork,
+  namesOneConversation,
   refuseNotConversationOwner,
 } from "./generationOwner";
 
@@ -82,6 +83,17 @@ export async function handle_POST_delphi_jobs(
         error: "Could not determine conversation ID",
       });
       return;
+    }
+
+    // The job runs on conversation_id but carries report_id into the paths
+    // its stages write, so when both are sent they must name one
+    // conversation, whoever sends them.
+    if (conversation_id && report_id) {
+      const reportZid = await getConversationIdFromReportId(report_id);
+      if (!namesOneConversation(conversation_id, reportZid)) {
+        refuseNotConversationOwner(res);
+        return;
+      }
     }
 
     // The claim alone does not reach someone else's conversation.

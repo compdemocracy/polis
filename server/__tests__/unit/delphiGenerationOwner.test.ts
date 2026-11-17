@@ -364,4 +364,52 @@ describe("POST /api/v3/delphi/jobs with an internal conversation number", () => 
       expect(mockQuery).not.toHaveBeenCalled();
     }
   );
+
+  // The job runs on conversation_id but carries report_id into the paths its
+  // stages write, so the two must name one conversation, whoever sends them.
+  describe("sent together with a report_id", () => {
+    const OTHER_ZID = 102;
+    const pair = (uid: number, conversation_id: unknown, report_id: string) =>
+      run(handle_POST_delphi_jobs, {
+        p: { uid, delphiEnabled: true },
+        body: { conversation_id, report_id, job_type: "FULL_PIPELINE" },
+      });
+    beforeEach(() =>
+      mockZidFromReport.mockImplementation(async (reportId: string) =>
+        reportId === "r1other" ? OTHER_ZID : reportId === REPORT ? OWNED_ZID : null
+      )
+    );
+
+    test.each([OWNED_ZID, String(OWNED_ZID)])(
+      "naming one conversation (%p), is accepted from its owner, as today",
+      async (conversationId) => {
+        const reply = await pair(OWNER_UID, conversationId, REPORT);
+        expect(reply.status).toBe(200);
+        expect(mockAdmit).toHaveBeenCalledTimes(1);
+        expect((mockAdmit.mock.calls[0][0] as any).scope.reportId).toBe(REPORT);
+      }
+    );
+
+    test.each([
+      ["the owner of the conversation", OWNER_UID],
+      ["a site administrator", ADMIN_UID],
+    ])(
+      "naming another conversation's report is refused from %s, before anything starts",
+      async (_who, uid) => {
+        const reply = await pair(uid, OWNED_ZID, "r1other");
+        expect(reply).toEqual({
+          status: 403,
+          body: { error: NOT_OWNER, message: NOT_OWNER, status: 403 },
+        });
+        expectNothingStarted();
+      }
+    );
+
+    test("naming a report that does not exist is refused", async () => {
+      const reply = await pair(OWNER_UID, OWNED_ZID, "r1absent");
+      expect(reply.status).toBe(403);
+      expect(reply.body.error).toBe(NOT_OWNER);
+      expectNothingStarted();
+    });
+  });
 });
