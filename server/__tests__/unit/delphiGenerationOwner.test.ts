@@ -7,7 +7,8 @@
  * caller without it gets the reply it always got, and no ownership read is
  * made. A caller WITH the claim must also own the conversation the request
  * names. Anyone else is refused with HTTP 403 and one code, the same on all
- * four routes, before anything is admitted, written or sent to a model.
+ * four routes, before anything is admitted, written or sent to a model. A
+ * site administrator (a uid in ADMIN_UIDS) may start work on any conversation.
  * Moderators on the owner's site get no right from this.
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
@@ -304,11 +305,24 @@ describe.each(routes)("$name", (route) => {
     }
   );
 
-  test("a site administrator who does not own the conversation is refused", async () => {
+  test("a site administrator with the claim may start work on a conversation it does not own", async () => {
+    await route.call({ uid: ADMIN_UID, delphiEnabled: true });
+    route.proceeded();
+  });
+
+  test("a site administrator cannot start work on a conversation that does not exist", async () => {
+    mockZidFromReport.mockResolvedValue(999);
+    mockZidForRid.mockResolvedValue(999);
     const reply = await route.call({ uid: ADMIN_UID, delphiEnabled: true });
     expect(reply.status).toBe(403);
     expect(reply.body.error).toBe(NOT_OWNER);
     expectNothingStarted();
+  });
+
+  test("a site administrator without the claim gets today's reply", async () => {
+    const reply = await route.call({ uid: ADMIN_UID, delphiEnabled: false });
+    expect(reply).toEqual(route.noClaim);
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   test("a conversation that does not exist is nobody's to start work on", async () => {

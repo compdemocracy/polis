@@ -1,6 +1,7 @@
 import { Response } from "express";
 import pg from "../../db/pg-query";
 import { failJson } from "../../utils/fail";
+import { isPolisDev } from "../../utils/common";
 
 /**
  * Who may start Delphi work on a conversation: a pipeline run
@@ -12,8 +13,9 @@ import { failJson } from "../../utils/fail";
  * Each of those routes first checks the caller's delphi_enabled claim, as it
  * always has, and answers a caller without it exactly as before. The claim
  * says the account may use Delphi; it does not say on whose conversation. So
- * a caller with the claim must also own the conversation the request names.
- * Moderators on the owner's site get no right from this.
+ * a caller with the claim must also own the conversation the request names,
+ * or be a site administrator (isSiteAdministrator below). Moderators on the
+ * owner's site get no right from this.
  *
  * Anyone else is refused with HTTP 403 and DELPHI_NOT_CONVERSATION_OWNER
  * before anything is admitted, written or sent to a model.
@@ -30,6 +32,15 @@ function positiveId(value: unknown): number | null {
   if (!/^[1-9][0-9]*$/.test(text)) return null;
   const id = Number(text);
   return Number.isSafeInteger(id) && id <= MAX_INT4 ? id : null;
+}
+
+/**
+ * Site administrators may start Delphi work on any conversation: the accounts
+ * the server already treats as its administrators, the uids listed in
+ * ADMIN_UIDS (Config.adminUIDs, read once at start-up; isPolisDev).
+ */
+function isSiteAdministrator(uid: number): boolean {
+  return isPolisDev(uid);
 }
 
 /**
@@ -52,7 +63,7 @@ export async function mayStartDelphiWork(
     [conversation]
   )) as { owner: number | string | null }[];
   if (!Array.isArray(rows) || rows.length !== 1) return false;
-  return positiveId(rows[0].owner) === caller;
+  return positiveId(rows[0].owner) === caller || isSiteAdministrator(caller);
 }
 
 /** The refusal, the same on all four routes. */
