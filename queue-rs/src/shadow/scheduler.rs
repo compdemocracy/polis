@@ -116,7 +116,7 @@ pub struct Scheduler<'a> {
 impl<'a> Scheduler<'a> {
     pub fn new(cfg: &'a Config) -> Result<Self> {
         let state = State::load(&cfg.state_path, &cfg.env)?;
-        Ok(Self {
+        let mut scheduler = Self {
             cfg,
             db: Db::new(cfg),
             state,
@@ -124,7 +124,9 @@ impl<'a> Scheduler<'a> {
             rest_until_ms: 0,
             roster: None,
             roster_failed_at_ms: None,
-        })
+        };
+        scheduler.recover_graph()?;
+        Ok(scheduler)
     }
 
     fn save(&self) {
@@ -167,6 +169,9 @@ impl<'a> Scheduler<'a> {
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
+        if let Some(flight) = self.state.graph_flight.clone() {
+            return self.watch_graph(flight, now);
+        }
         if let Some(flight) = self.state.in_flight.clone() {
             return self.watch(flight, now);
         }
@@ -194,11 +199,13 @@ impl<'a> Scheduler<'a> {
             return Ok(self.cfg.poll);
         }
         self.resume();
-        Ok(if self.state.in_flight.is_some() {
-            self.cfg.job_poll
-        } else {
-            self.cfg.poll
-        })
+        Ok(
+            if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
+                self.cfg.job_poll
+            } else {
+                self.cfg.poll
+            },
+        )
     }
 
     fn resume(&mut self) {
@@ -217,6 +224,11 @@ impl<'a> Scheduler<'a> {
         let jobs = self.db.shadow_jobs()?;
         log("storage_listed", json!({"jobs": jobs.len()}));
         self.state.storage.pending = jobs;
+        if let Some(flight) = &self.state.graph_flight {
+            self.state.storage.pending.retain(|p| {
+                p.env != flight.env || !flight.nodes.iter().any(|n| n.job_id == p.job_id)
+            });
+        }
         self.state.storage.reconciled = true;
         Ok(())
     }
@@ -335,6 +347,9 @@ impl<'a> Scheduler<'a> {
             TwinStep::Admitted => return Ok(None),
             TwinStep::Held(reason) => return Ok(Some(reason)),
             TwinStep::Nothing => {}
+        }
+        if self.admit_graph(now)? {
+            return Ok(None);
         }
         self.refresh_roster(now);
         let since = now - self.cfg.live_days as i64 * 86_400_000;

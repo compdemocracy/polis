@@ -381,6 +381,7 @@ const GRAPH_ENVIRONMENT: &[&str] = &[
     "XDG_CACHE_HOME",
     "NUMBA_CACHE_DIR",
     "DELPHI_EMBED_MODEL_PATH",
+    "DELPHI_EMBED_MODEL_LOCK",
     // Existing process-boundary proof fixture paths; neither carries credentials.
     "GRAPH_PROOF_ROOT",
     "GRAPH_STAGE_SOURCE",
@@ -595,6 +596,7 @@ mod tests {
             "POLIS_JOBS_PASSWORD_FILE",
             "UNRECOGNIZED_DATABASE_DSN",
             "DELPHI_EMBED_MODEL_PATH",
+            "DELPHI_EMBED_MODEL_LOCK",
             "OMP_NUM_THREADS",
             "PATH",
         ]
@@ -611,12 +613,16 @@ mod tests {
             .lines()
             .filter_map(|line| line.split_once('=').map(|(key, _)| key))
             .collect();
-        assert_eq!(keys.len(), 3);
-        assert!(
-            keys.iter().all(|key| {
-                ["DELPHI_EMBED_MODEL_PATH", "OMP_NUM_THREADS", "PATH"].contains(key)
-            })
-        );
+        assert_eq!(keys.len(), 4);
+        assert!(keys.iter().all(|key| {
+            [
+                "DELPHI_EMBED_MODEL_PATH",
+                "DELPHI_EMBED_MODEL_LOCK",
+                "OMP_NUM_THREADS",
+                "PATH",
+            ]
+            .contains(key)
+        }));
         Ok(())
     }
     #[test]

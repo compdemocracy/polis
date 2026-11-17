@@ -66,12 +66,22 @@ pub struct Measured {
     pub embedding_bytes: u64,
     pub log_lines: u64,
     pub log_bytes: u64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub graph_bytes: u64,
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 impl Measured {
     /// The bytes the four tables hold for the job.
     pub fn stored(&self) -> u64 {
-        self.result_row_bytes + self.family_bytes + self.embedding_bytes + self.log_bytes
+        self.result_row_bytes
+            + self.family_bytes
+            + self.embedding_bytes
+            + self.log_bytes
+            + self.graph_bytes
     }
 
     /// With the queue's own rows of the job.
@@ -223,6 +233,7 @@ pub fn measure(tx: &mut Transaction<'_>, env: &str, job_id: &str, zid: i32) -> R
         embedding_bytes: n(6)?,
         log_lines: n(7)?,
         log_bytes: n(8)?,
+        graph_bytes: 0,
     })
 }
 

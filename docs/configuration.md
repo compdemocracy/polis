@@ -358,3 +358,27 @@ translate strings can be found in: `client-participation/js/strings/en_us.js`
 The current sender uses AWS SES ([senders.ts:1](../server/src/email/senders.ts#L1)). `EMAIL_TRANSPORT_TYPES` and Mailgun names still have config reads, but that alone does not mean the current sender selects a Mailgun transport. Follow the sender implementation and the [service inventory](deployment-configuration.md).
 
 Source-only server entry points that skip the build use the root `VERSION` read once at startup. Without generated metadata, `/api/v3/version` reports `<VERSION>+dev.unknown.unknown`, commit `unknown`, distance `null`, channel `development`, and source `unverified-archive`. Normal build, watch, and npm test entry points still generate and embed the build identity first.
+
+### Optional shadow job graphs
+
+`DELPHI_SHADOW_GRAPH_CONVERSATIONS` is a comma- or whitespace-separated list
+of conversation codes. It is empty by default: no graph admission, graph
+polling, additional roster query, or graph log is made. Only list conversations
+whose comments are already public: the current graph copies comment text into
+immutable snapshots, and has no retention delete path. The featured set is
+independent and unchanged.
+
+`DELPHI_SHADOW_GRAPH_ENV` defaults to `shadow-graph-1` and must be a distinct
+`shadow-` namespace from `DELPHI_SHADOW_ENV`. Enabling the list requires the
+separately installed admission-function extension and a daemon claiming the
+four graph stages in that namespace. Without those prerequisites, keep the
+list empty. This code does not change the served result namespace.
+
+Graph runs have four job ids: embedding, UMAP with EVoC, TF-IDF keywords, and
+keyword topic labels. The last step writes model `none` and no narrative.
+Admission refuses more than 2,000 comments or a specification over 1 MiB.
+The existing shadow pacing, daily run and storage budgets apply. The scheduler
+waits for every node and confirmed process exits, publishes with a generation
+check, and logs each job id, run id, stage, elapsed execution seconds and bytes.
+Finished results are retained when a later node fails. A deadline or dead node
+cancels unfinished nodes through the queue's fenced management operation.

@@ -125,7 +125,7 @@ fn hydrate_cluster(
             &[
                 frame["env"].clone(),
                 artifact["artifact_id"].clone(),
-                json!(super::embedding::MODEL_MINILM),
+                payload["model"].clone(),
             ],
         )?;
         ensure!(!receipt.is_null(), "embedding_set_missing");
@@ -176,7 +176,7 @@ fn hydrate_embed_prior(
             frame["env"].clone(),
             frame["zid"].clone(),
             json!(scope),
-            json!(super::embedding::MODEL_MINILM),
+            frame["input"]["declared"]["model"].clone(),
         ],
     )?;
     if receipt.is_null() || receipt["batch_id"].is_null() {

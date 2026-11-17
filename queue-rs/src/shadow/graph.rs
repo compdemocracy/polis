@@ -1,0 +1,514 @@
+//! Optional sealed graphs. Only explicitly listed conversations enter this path.
+//! No connection is held while Python hashes the offline model or runs a node.
+use super::{
+    config::{ConfigError, Share, benchmark_codes, valid_env},
+    db::{self, Db},
+    plan,
+    scheduler::{Scheduler, log},
+    storage,
+};
+use anyhow::{Result, ensure};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::{collections::BTreeMap, path::PathBuf, process::Command, time::Duration};
+
+pub const MODEL: &str = "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384";
+pub fn scope(zid: i32) -> String {
+    format!("shadow-graph:{zid}")
+}
+
+pub const STAGES: [&str; 4] = [
+    "graph_embed",
+    "graph_cluster",
+    "graph_topics",
+    "graph_narrative",
+];
+#[derive(Debug, Clone, PartialEq)]
+pub struct Config {
+    pub codes: Vec<String>,
+    pub env: String,
+    pub app: PathBuf,
+    pub python: String,
+}
+impl Config {
+    pub fn load(
+        get: &impl Fn(&str) -> Option<String>,
+        writer_env: &str,
+    ) -> Result<Option<Self>, ConfigError> {
+        let codes = benchmark_codes(&get("DELPHI_SHADOW_GRAPH_CONVERSATIONS").unwrap_or_default())
+            .map_err(|e| {
+                ConfigError(e.0.replace(
+                    "DELPHI_SHADOW_BENCHMARK",
+                    "DELPHI_SHADOW_GRAPH_CONVERSATIONS",
+                ))
+            })?;
+        if codes.is_empty() {
+            return Ok(None);
+        }
+        let env = get("DELPHI_SHADOW_GRAPH_ENV")
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "shadow-graph-1".into());
+        if !valid_env(&env) || env == writer_env {
+            return Err(ConfigError(
+                "DELPHI_SHADOW_GRAPH_ENV must be a distinct shadow env".into(),
+            ));
+        }
+        Ok(Some(Self {
+            codes,
+            env,
+            app: get("DELPHI_APP_PATH")
+                .unwrap_or_else(|| "/app".into())
+                .into(),
+            python: get("POLIS_JOBS_PYTHON").unwrap_or_else(|| "python3".into()),
+        }))
+    }
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Node {
+    pub job_id: String,
+    pub run_id: String,
+    pub stage: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Flight {
+    pub env: String,
+    pub graph_id: String,
+    pub zid: i32,
+    pub digest: String,
+    pub comments: i64,
+    pub admitted_at_ms: i64,
+    pub generation: i64,
+    pub nodes: Vec<Node>,
+}
+#[derive(Debug)]
+pub struct Snapshot {
+    pub ids: Vec<i64>,
+    pub texts: Vec<String>,
+    pub digest: String,
+}
+
+pub fn snapshot(db: &Db<'_>, zid: i32) -> Result<Snapshot> {
+    db.read(|tx| {
+        // include_moderation=false retains every moderation/active status,
+        // exactly as run_pipeline._read_inputs does; report exclusions apply.
+        let rows = tx.query("SELECT c.tid::bigint,c.txt FROM comments c WHERE c.zid=$1 \
+            AND NOT EXISTS (SELECT 1 FROM report_comment_selections r WHERE r.zid=c.zid AND r.tid=c.tid AND r.selection=-1) \
+            ORDER BY c.tid LIMIT 2001", &[&zid])?;
+        ensure!((5..=2000).contains(&rows.len()), "graph_comment_bound");
+        let mut ids=Vec::new(); let mut texts=Vec::new();
+        for r in rows { ids.push(r.try_get::<_,i64>(0)?); texts.push(r.try_get::<_,String>(1)?); }
+        ensure!(texts.iter().all(|s| !s.trim().is_empty() && s.chars().count()<=4096), "graph_text_bound");
+        let digest=crate::jobs::sha256_hex(serde_json::to_string(&json!({"ids":ids,"texts":texts}))?.as_bytes());
+        Ok(Snapshot { ids, texts, digest })
+    })
+}
+
+/// The helper reads local files only. A cleared environment carries no database
+/// or provider credential. Its stderr is not a scheduler log.
+fn provenance(cfg: &Config) -> Result<Value> {
+    let mut c = Command::new(&cfg.python);
+    c.env_clear()
+        .arg(cfg.app.join("scripts/graph_provenance.py"));
+    for key in [
+        "PATH",
+        "HOME",
+        "PYTHONPATH",
+        "DELPHI_EMBED_MODEL_PATH",
+        "DELPHI_EMBED_MODEL_LOCK",
+    ] {
+        if let Some(value) = std::env::var_os(key) {
+            c.env(key, value);
+        }
+    }
+    let out = c.output()?;
+    ensure!(
+        out.status.success() && out.stdout.len() <= 4096,
+        "graph_provenance_failed"
+    );
+    let v: Value = serde_json::from_slice(&out.stdout)?;
+    ensure!(v["model"] == MODEL, "graph_model_mismatch");
+    Ok(v)
+}
+pub fn spec(s: &Snapshot, sha: &str, provenance: &Value) -> Result<Value> {
+    let mut nodes = Vec::new();
+    for (i, stage) in STAGES.iter().enumerate() {
+        let model = [
+            MODEL,
+            "delphi-umap-evoc/1",
+            "delphi-tfidf-keywords/1",
+            "delphi-keyword-labels/1",
+        ][i];
+        let inputs = if i == 0 {
+            json!([])
+        } else {
+            json!([{"node":STAGES[i-1],"role":(["","embeddings","clusters","topics"][i])}])
+        };
+        nodes.push(json!({"key":stage,"stage":stage,"class":"delphi","max_attempts":3,"inputs":inputs,
+            "declared":{"snapshot":{"data":{"texts":s.texts},"sha256":sha},
+              "code":provenance["code"],"runtime":provenance["runtime"],"model":model,"seed":42,
+              "mode":"full","memory_bytes":4294967296_u64,"work_units":s.ids.len(),
+              "config":{"comment_ids":s.ids,"adapter_sha256":provenance["adapter_sha256"],"model_sha256":provenance["model_sha256"],
+                        "shadow":{"comments":s.ids.len(),"comment_set_sha256":s.digest}}}}));
+    }
+    let v = json!({"schema":"polis-job-graph/1","nodes":nodes});
+    ensure!(
+        serde_json::to_vec(&v)?.len() <= 1_048_576,
+        "graph_spec_bound"
+    );
+    Ok(v)
+}
+
+impl Scheduler<'_> {
+    /// Recover the latest unpublished or live graph before another admission.
+    /// Only ids, digests and counts leave SQL; no snapshot text is returned.
+    pub(super) fn recover_graph(&mut self) -> Result<()> {
+        let Some(cfg) = self.cfg.graph.as_ref() else {
+            return Ok(());
+        };
+        if self.state.graph_flight.is_some() {
+            return Ok(());
+        }
+        let recovered=self.db.read(|tx| {
+            let rows=tx.query("SELECT DISTINCT ON (zid) zid, request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}' FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&cfg.env])?;
+            let mut seen=BTreeMap::new();
+            for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
+            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, g.request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}', (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND g.scope_key='shadow-graph:'||g.zid::text AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id)))", &[&cfg.env])?;
+            let Some(r)=row else { return Ok((seen,None)); };
+            let graph_id:String=r.try_get(0)?;
+            let mut nodes=Vec::new();
+            for n in tx.query("SELECT n.job_id::text,n.run_id::text,q.stage FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid ORDER BY n.node_key", &[&cfg.env,&graph_id])? {
+                nodes.push(Node {job_id:n.try_get(0)?,run_id:n.try_get(1)?,stage:n.try_get(2)?});
+            }
+            ensure!(nodes.len()==4 && STAGES.iter().all(|s|nodes.iter().filter(|n|n.stage==*s).count()==1),"graph_recovery_shape");
+            Ok((seen,Some(Flight {env:cfg.env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get(5)?,nodes})))
+        })?;
+        self.state.graph_seen.extend(recovered.0);
+        self.state.graph_flight = recovered.1;
+        Ok(())
+    }
+
+    /// Called only when configured, after pacing and before any admission.
+    /// The existing featured roster is neither read nor changed here.
+    pub(super) fn admit_graph(&mut self, now: i64) -> Result<bool> {
+        let Some(cfg) = self.cfg.graph.as_ref() else {
+            return Ok(false);
+        };
+        let listed = self.db.read(|tx| db::benchmark(tx, &cfg.codes))?;
+        for candidate in listed {
+            if candidate.comments < self.cfg.min_comments || candidate.comments > 2000 {
+                continue;
+            }
+            let s = snapshot(&self.db, candidate.zid)?;
+            if self.state.graph_seen.get(&candidate.zid) == Some(&s.digest) {
+                continue;
+            }
+            // Four jobs plus all three inline copies per node. Charge the
+            // conservative request bound before admission, not after it grows.
+            let comments = s.ids.len() as i64;
+            if plan::storage_room(self.cfg, &self.state.storage, comments * 4, Share::Shared)
+                .is_some()
+            {
+                return Ok(false);
+            }
+            let p = provenance(cfg)?;
+            let mut client = self.db.connect_queue()?;
+            let data = json!({"texts":s.texts}).to_string();
+            let sha: String = client
+                .query_one(
+                    "SELECT encode(sha256(convert_to(($1::text::jsonb)::text,'UTF8')),'hex')",
+                    &[&data],
+                )?
+                .try_get(0)?;
+            let graph_scope = scope(candidate.zid);
+            let generation: i64 = client
+                .query_one(
+                    "SELECT coalesce((public.pd_graph_served($1,$2,$3)->>'generation')::bigint,0)",
+                    &[&cfg.env, &candidate.zid, &graph_scope],
+                )?
+                .try_get(0)?;
+            let mut specification = spec(&s, &sha, &p)?;
+            for node in specification["nodes"]
+                .as_array_mut()
+                .ok_or_else(|| anyhow::anyhow!("graph_nodes_missing"))?
+            {
+                node["declared"]["config"]["shadow"]["expected_generation"] = json!(generation);
+            }
+            let specification = specification.to_string();
+            let sql_bytes: i32 = client
+                .query_one(
+                    "SELECT octet_length(($1::text::jsonb)::text)",
+                    &[&specification],
+                )?
+                .try_get(0)?;
+            ensure!(sql_bytes <= 1_048_576, "graph_spec_bound");
+            let estimate = self
+                .state
+                .storage
+                .estimate(comments * 4)
+                .saturating_add(sql_bytes as u64 * 3);
+            if self.state.storage.bytes.saturating_add(estimate)
+                > self.cfg.storage_limit_bytes(Share::Shared)
+                || self
+                    .cfg
+                    .storage_daily_bytes
+                    .is_some_and(|n| self.state.storage.day_bytes.saturating_add(estimate) > n)
+            {
+                return Ok(false);
+            }
+            let key =
+                crate::jobs::sha256_hex(format!("{}:{specification}", candidate.zid).as_bytes());
+            let reply: String = client
+                .query_one(
+                    "SELECT public.pd_graph_admit($1,$2,$3,$4,$5::text::jsonb)::text",
+                    &[&cfg.env, &candidate.zid, &graph_scope, &key, &specification],
+                )?
+                .try_get(0)?;
+            let reply: Value = serde_json::from_str(&reply)?;
+            let graph_id = reply["graph_id"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("graph_admission_reply"))?
+                .to_owned();
+            let view: String = client
+                .query_one(
+                    "SELECT public.pd_graph_view($1,$2::text::uuid)::text",
+                    &[&cfg.env, &graph_id],
+                )?
+                .try_get(0)?;
+            let view: Value = serde_json::from_str(&view)?;
+            let mut nodes = Vec::new();
+            for n in view["nodes"]
+                .as_array()
+                .ok_or_else(|| anyhow::anyhow!("graph_nodes_missing"))?
+            {
+                nodes.push(Node {
+                    job_id: n["job_id"].as_str().unwrap_or_default().into(),
+                    run_id: n["run_id"].as_str().unwrap_or_default().into(),
+                    stage: n["key"].as_str().unwrap_or_default().into(),
+                });
+            }
+            ensure!(
+                nodes.len() == 4
+                    && STAGES
+                        .iter()
+                        .all(|s| nodes.iter().filter(|n| n.stage == *s).count() == 1),
+                "graph_nodes_mismatch"
+            );
+            log(
+                "graph_admitted",
+                json!({"graph_id":graph_id,"nodes":nodes,"comments":comments,"env":cfg.env}),
+            );
+            self.state
+                .graph_seen
+                .insert(candidate.zid, s.digest.clone());
+            self.state.graph_flight = Some(Flight {
+                env: cfg.env.clone(),
+                graph_id,
+                zid: candidate.zid,
+                digest: s.digest,
+                comments,
+                admitted_at_ms: now,
+                generation,
+                nodes,
+            });
+            self.state.day_runs += 1;
+            self.state.totals.admitted += 1;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    pub(super) fn watch_graph(&mut self, flight: Flight, now: i64) -> Result<Duration> {
+        let states=self.db.read(|tx| {
+            let mut out=BTreeMap::new();
+            for n in &flight.nodes {
+                let r=tx.query_one("SELECT q.state, coalesce((SELECT sum(extract(epoch FROM (a.ended_at-a.started_at)))::double precision FROM polis_queue_attempts a WHERE a.env=q.env AND a.job_id=q.job_id),0)::double precision FROM polis_queue_jobs q WHERE q.env=$1 AND q.job_id=$2::text::uuid",&[&flight.env,&n.job_id])?;
+                out.insert(n.job_id.clone(),(r.try_get::<_,String>(0)?,r.try_get::<_,f64>(1)?));
+            }
+            Ok(out)
+        })?;
+        let failed = states
+            .values()
+            .any(|(s, _)| matches!(s.as_str(), "dead" | "cancelled"));
+        let overdue = now - flight.admitted_at_ms > self.cfg.job_deadline.as_millis() as i64;
+        if failed || overdue {
+            let mut client = self.db.connect_queue()?;
+            for n in &flight.nodes {
+                // The queue's fenced management call refuses terminal rewrites.
+                // A child racing this call is fenced and drained by the daemon.
+                let status: String = client
+                    .query_one(
+                        "SELECT public.pq_job_status($1,$2::text::uuid)::text",
+                        &[&flight.env, &n.job_id],
+                    )?
+                    .try_get(0)?;
+                let status: Value = serde_json::from_str(&status)?;
+                let version = status["mgmt_version"]
+                    .as_str()
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .or_else(|| status["mgmt_version"].as_i64())
+                    .ok_or_else(|| anyhow::anyhow!("graph_management_version"))?;
+                client.query_one(
+                    "SELECT public.pq_cancel($1,$2::text::uuid,$3)::text",
+                    &[&flight.env, &n.job_id, &version],
+                )?;
+            }
+        }
+        let terminal = states
+            .values()
+            .all(|(s, _)| matches!(s.as_str(), "succeeded" | "dead" | "cancelled"));
+        // A dead producer reconciles its dependent nodes through the daemon.
+        // Never release the scheduler while a child is still running, even
+        // beyond the deadline: otherwise two computations could overlap.
+        if !terminal {
+            return Ok(self.cfg.job_poll);
+        }
+        let mut client = self.db.connect_queue()?;
+        client.query_one("SELECT public.pd_graph_reconcile($1)::text", &[&flight.env])?;
+        let view: String = client
+            .query_one(
+                "SELECT public.pd_graph_view($1,$2::text::uuid)::text",
+                &[&flight.env, &flight.graph_id],
+            )?
+            .try_get(0)?;
+        let view: Value = serde_json::from_str(&view)?;
+        if view["guard_held"] != false {
+            return Ok(self.cfg.job_poll);
+        }
+        drop(client);
+        let success = states.values().all(|(s, _)| s == "succeeded");
+        let mut published = false;
+        if success {
+            let leaf = flight
+                .nodes
+                .iter()
+                .find(|n| n.stage == "graph_narrative")
+                .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
+            let mut client = self.db.connect_queue()?;
+            let r: String = client
+                .query_one(
+                    "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)::text",
+                    &[
+                        &flight.env,
+                        &flight.graph_id,
+                        &leaf.job_id,
+                        &flight.generation,
+                    ],
+                )?
+                .try_get(0)?;
+            let r: Value = serde_json::from_str(&r)?;
+            published = r["outcome"] == "published";
+            // On restart after a lost publish reply, accept only this exact leaf.
+            if !published {
+                let served: String = client
+                    .query_one(
+                        "SELECT public.pd_graph_served($1,$2,$3)::text",
+                        &[&flight.env, &flight.zid, &scope(flight.zid)],
+                    )?
+                    .try_get(0)?;
+                let served: Value = serde_json::from_str(&served)?;
+                published = served["generation"].as_i64() == Some(flight.generation + 1)
+                    && served["bundle"]["artifacts"]
+                        .as_array()
+                        .is_some_and(|a| a.iter().any(|x| x["job_id"] == leaf.job_id));
+            }
+        }
+        let mut bytes = 0u64;
+        let mut graph_bytes = 0u64;
+        for n in &flight.nodes {
+            let m = self.db.read(|tx| {
+                let mut m = storage::measure(tx, &flight.env, &n.job_id, flight.zid)?;
+                m.graph_bytes = measure_records(tx, &flight.env, &n.job_id)?;
+                Ok(m)
+            })?;
+            graph_bytes += m.graph_bytes;
+            bytes = bytes.saturating_add(m.total());
+            let (state, seconds) = &states[&n.job_id];
+            log(
+                "graph_node_finished",
+                json!({"graph_id":flight.graph_id,"job_id":n.job_id,"run_id":n.run_id,"stage":n.stage,"state":state,"seconds":seconds,"bytes":m.total()}),
+            );
+        }
+        self.state.storage.add(now, flight.comments, bytes);
+        if published {
+            self.state.totals.succeeded += 1;
+        } else {
+            self.state.totals.failed += 1;
+        }
+        log(
+            "graph_finished",
+            json!({"graph_id":flight.graph_id,"published":published,"bytes":bytes,"graph_row_bytes":graph_bytes}),
+        );
+        self.state.graph_flight = None;
+        self.rest_until_ms = now + plan::rest_ms(self.cfg.duty_cycle, now - flight.admitted_at_ms);
+        Ok(Duration::from_millis(
+            (self.rest_until_ms - now).max(1000) as u64
+        ))
+    }
+}
+
+/// Additional graph rows, indexed by this job. The root pays the graph request
+/// once; each consumer pays its edges. Logical row bytes are doubled and a
+/// per-row allowance covers indexes/page overhead. This remains an estimate,
+/// not a measurement of global table allocation or WAL.
+pub fn measure_records(tx: &mut postgres::Transaction<'_>, env: &str, job: &str) -> Result<u64> {
+    let r=tx.query_one("WITH node AS (SELECT n.* FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.job_id=$2::text::uuid AND q.stage LIKE 'graph_%'), sizes AS (SELECT pg_column_size(n)::bigint AS bytes FROM node n UNION ALL SELECT pg_column_size(g)::bigint FROM delphi_graphs g JOIN node n ON g.env=n.env AND g.graph_id=n.graph_id AND g.root_job_id=n.job_id UNION ALL SELECT pg_column_size(e)::bigint FROM delphi_graph_edges e JOIN node n ON e.env=n.env AND e.consumer=n.job_id UNION ALL SELECT pg_column_size(a)::bigint FROM delphi_artifacts a JOIN node n USING(env,job_id)) SELECT coalesce(sum(bytes*2+512),0)::bigint FROM sizes", &[&env,&job])?;
+    Ok(r.try_get::<_, i64>(0)?.max(0) as u64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn empty_list_is_off_even_with_invalid_graph_settings() -> Result<()> {
+        let get = |k: &str| match k {
+            "DELPHI_SHADOW_GRAPH_ENV" => Some("served".into()),
+            _ => None,
+        };
+        assert_eq!(
+            Config::load(&get, "shadow-delphi-1").map_err(|e| anyhow::anyhow!(e.0))?,
+            None
+        );
+        Ok(())
+    }
+    #[test]
+    fn explicit_list_requires_a_separate_shadow_env() -> Result<()> {
+        for env in ["served", "shadow-delphi-1", "shadow-"] {
+            let get = |k: &str| match k {
+                "DELPHI_SHADOW_GRAPH_CONVERSATIONS" => Some("demo1,demo1 demo2".into()),
+                "DELPHI_SHADOW_GRAPH_ENV" => Some(env.into()),
+                _ => None,
+            };
+            assert!(Config::load(&get, "shadow-delphi-1").is_err());
+        }
+        let get = |k: &str| {
+            (k == "DELPHI_SHADOW_GRAPH_CONVERSATIONS").then(|| "demo1,demo1 demo2".into())
+        };
+        let c = Config::load(&get, "shadow-delphi-1")
+            .map_err(|e| anyhow::anyhow!(e.0))?
+            .ok_or_else(|| anyhow::anyhow!("graph disabled"))?;
+        assert_eq!(c.codes, ["demo1", "demo2"]);
+        assert_eq!(c.env, "shadow-graph-1");
+        Ok(())
+    }
+    #[test]
+    fn specification_binds_four_steps_and_refuses_large_input() -> Result<()> {
+        let mut s = Snapshot {
+            ids: (0..5).collect(),
+            texts: vec!["public fixture comment".into(); 5],
+            digest: "d".repeat(64),
+        };
+        let p = json!({"code":"a".repeat(64),"runtime":"python-3.12.0","adapter_sha256":"b".repeat(64),"model_sha256":"c".repeat(64)});
+        let v = spec(&s, &"e".repeat(64), &p)?;
+        assert_eq!(v["nodes"].as_array().map(Vec::len), Some(4));
+        assert_eq!(v["nodes"][0]["declared"]["model"], MODEL);
+        assert_eq!(
+            v["nodes"][3]["declared"]["model"],
+            "delphi-keyword-labels/1"
+        );
+        assert_eq!(v["nodes"][2]["inputs"][0]["node"], "graph_cluster");
+        s.texts = vec!["x".repeat(4096); 2000];
+        s.ids = (0..2000).collect();
+        assert!(spec(&s, &"e".repeat(64), &p).is_err());
+        Ok(())
+    }
+}

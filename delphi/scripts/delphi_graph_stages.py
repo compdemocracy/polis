@@ -29,6 +29,9 @@ _espec = importlib.util.spec_from_file_location('delphi_embedding_spool', ROOT /
 _espool = importlib.util.module_from_spec(_espec)
 _espec.loader.exec_module(_espool)
 
+GRANITE = 'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384'
+KEYWORD_MODEL = 'delphi-keyword-labels/1'
+
 MODELS = {'graph_embed': 'sentence-transformers/all-MiniLM-L6-v2',
           'graph_cluster': 'delphi-umap-evoc/1', 'graph_topics': 'delphi-tfidf-keywords/1',
           'graph_narrative': 'local-narrative-fixture/1'}
@@ -38,7 +41,8 @@ def code_digest():
     paths = [Path(__file__), ROOT / 'umap_narrative/numerical_stages.py',
              ROOT / 'umap_narrative/polismath_commentgraph/utils/converter.py',
              ROOT / 'umap_narrative/polismath_commentgraph/schemas/dynamo_models.py',
-             ROOT / 'umap_narrative/narrative_data.py']
+             ROOT / 'umap_narrative/narrative_data.py',
+             ROOT / 'polismath/embedding_model.py']
     paths.extend(sorted((ROOT / 'umap_narrative/report_experimental').rglob('*.xml')))
     digest = hashlib.sha256()
     for path in paths:
@@ -152,7 +156,7 @@ def narrative_sections(topics, context, ids, texts):
 def execute(frame):
     d = frame['input']['declared']
     stage = frame['stage']
-    if MODELS.get(stage) != d['model']:
+    if MODELS.get(stage) != d['model'] and (stage, d['model']) not in {('graph_embed', GRANITE), ('graph_narrative', KEYWORD_MODEL)}:
         raise ValueError('stage model mismatch')
     texts = d['snapshot']['data']['texts']
     config = d['config']
@@ -166,32 +170,44 @@ def execute(frame):
     output = {'model': d['model'], 'statement_count': len(texts)}
     if stage == 'graph_embed':
         import numpy as np
-        from sentence_transformers import SentenceTransformer
+        from polismath import embedding_model
         model_path = os.environ['DELPHI_EMBED_MODEL_PATH']
         if model_digest(model_path) != config['model_sha256']:
             raise ValueError('embedding model bytes differ from admission')
-        model = SentenceTransformer(model_path, device='cpu', local_files_only=True)
+        if d['model'] == GRANITE:
+            resolved = embedding_model.resolve()
+            if not resolved.local or resolved.model != d['model']:
+                raise ValueError('declared embedding model differs from local lock')
+        else:
+            # The legacy graph pins MiniLM's directory bytes in its admission.
+            resolved = embedding_model.Resolved(model_path, True, None, None, d['model'])
+        model, resolved = embedding_model.load(device='cpu', resolved=resolved)
         if embeddings_table_enabled(frame):
             # Embed only the comments the current set is missing, then spool them
             # for the daemon's pd_embedding_put. A comment's text never changes,
             # so a tid already in the prior set is skipped (its row stays).
             prior = {}
             if frame.get('embedding_prior'):
-                _, _, prior_rows = _read_spool(frame['embedding_prior'])
-                prior = {int(row['tid']) for row in prior_rows}
+                prior_model, prior_dims, prior_rows = _read_spool(frame['embedding_prior'])
+                if prior_model != d['model'] or prior_dims != 384:
+                    raise ValueError('prior embedding model mismatch')
+                prior = {int(row['tid']): row['text_sha'] for row in prior_rows}
+                for i, text in zip(ids, texts):
+                    if i in prior and prior[i] != hashlib.sha256(text.encode()).digest():
+                        raise ValueError('immutable comment text differs from stored embedding')
             pending = [(i, t) for i, t in zip(ids, texts) if int(i) not in prior]
             spooled = []
             if pending:
-                vectors = model.encode([t for _, t in pending], convert_to_numpy=True, batch_size=32, show_progress_bar=False)
+                vectors = embedding_model.encode(model, [t for _, t in pending], convert_to_numpy=True, batch_size=32, show_progress_bar=False, normalize_embeddings=d['model'] == GRANITE)
                 if vectors.shape != (len(pending), 384) or not np.isfinite(vectors).all() or (np.linalg.norm(vectors, axis=1) == 0).any():
-                    raise ValueError('invalid MiniLM embedding output')
+                    raise ValueError('invalid embedding output')
                 spooled = [dict(tid=int(i), text_sha=hashlib.sha256(t.encode('utf-8')).hexdigest(), vector=v.tolist())
                            for (i, t), v in zip(pending, vectors)]
             output['_embedding_rows'] = dict(model=d['model'], dims=384, rows=spooled)
         else:
-            vectors = model.encode(texts, convert_to_numpy=True, batch_size=32, show_progress_bar=False)
+            vectors = embedding_model.encode(model, texts, convert_to_numpy=True, batch_size=32, show_progress_bar=False, normalize_embeddings=d['model'] == GRANITE)
             if vectors.shape != (len(texts), 384) or not np.isfinite(vectors).all() or (np.linalg.norm(vectors, axis=1) == 0).any():
-                raise ValueError('invalid MiniLM embedding output')
+                raise ValueError('invalid embedding output')
             families['Delphi_CommentEmbeddings'] = [dict(conversation_id=zid, comment_id=i,
                 embedding=dict(vector=v.tolist(), dimensions=384, model=d['model'])) for i,v in zip(ids,vectors)]
     elif stage == 'graph_cluster':
@@ -247,6 +263,17 @@ def execute(frame):
         families['Delphi_CommentClustersStructureKeywords'] = topics
         families['Delphi_CommentClustersFeatures'] = features
         output['topics'] = topics
+        output['cluster_job_id'] = frame['input']['artifacts']['clusters']['producer']
+    elif d['model'] == KEYWORD_MODEL:
+        source = upstream(frame, 'topics')
+        job = source['cluster_job_id']
+        completed_at = datetime.now(timezone.utc).isoformat()
+        families['Delphi_CommentClustersLLMTopicNames'] = [dict(
+            conversation_id=zid, topic_key=f"{job}#{topic['layer_id']}#{topic['cluster_id']}",
+            layer_id=topic['layer_id'], cluster_id=topic['cluster_id'],
+            topic_name=topic['topic_label'], model_name='none', job_id=job,
+            created_at=completed_at) for topic in source['topics']]
+        output.update(cluster_job_id=job, topics=len(source['topics']))
     else:
         topics = upstream(frame, 'topics')['topics']
         if config.get('narrative_context'):

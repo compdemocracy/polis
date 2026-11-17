@@ -1217,3 +1217,94 @@ fn the_live_reserve_stops_the_benchmark_and_featured_sets_while_current_runs_go_
         ]
     );
 }
+
+#[test]
+fn graph_snapshot_keeps_moderation_and_active_status_and_refuses_oversize() {
+    use polis_queue_adapter::shadow::graph;
+    let f = Fixture::new();
+    f.conversation(901, 6);
+    let mut c = f.superuser();
+    c.execute(
+        "UPDATE comments SET mod=$2,active=false WHERE zid=$1 AND tid=0",
+        &[&901_i32, &REJECTED_COMMENT_MOD],
+    )
+    .unwrap();
+    let cfg = f.config(&[]);
+    let db = db::Db::new(&cfg);
+    let s = graph::snapshot(&db, 901).unwrap();
+    assert_eq!(s.ids.len(), 6);
+    assert!(s.ids.contains(&0));
+    f.conversation(902, 2001);
+    assert!(graph::snapshot(&db, 902).is_err());
+}
+
+#[test]
+fn graph_recovery_cancels_overdue_nodes_without_rewriting_terminal_results() {
+    use polis_queue_adapter::shadow::graph;
+    let f = Fixture::new();
+    let mut cfg = f.config(&[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c911,c912")]);
+    cfg.job_deadline = Duration::ZERO;
+    let env = cfg.graph.as_ref().unwrap().env.clone();
+    for zid in [911, 912] {
+        f.conversation(zid, 20);
+        let snapshot = graph::snapshot(&db::Db::new(&cfg), zid).unwrap();
+        let mut admin = f.superuser();
+        let data = serde_json::json!({"texts": snapshot.texts}).to_string();
+        let sha: String = admin
+            .query_one("SELECT public.pd_graph_hash($1::text::jsonb)", &[&data])
+            .unwrap()
+            .get(0);
+        let mut spec = graph::spec(&snapshot, &sha, &serde_json::json!({"code": CODE,"runtime":"fixture-runtime","model_sha256":"a".repeat(64),"adapter_sha256":"b".repeat(64)})).unwrap();
+        // The code-only test uses the existing catalog, without the separately
+        // reviewed model admission migration or loading any numerical model.
+        spec["nodes"][0]["declared"]["model"] = "sentence-transformers/all-MiniLM-L6-v2".into();
+        spec["nodes"][3]["declared"]["model"] = "local-narrative-fixture/1".into();
+        for n in spec["nodes"].as_array_mut().unwrap() {
+            n["declared"]["config"]["shadow"]["expected_generation"] = 0.into();
+        }
+        let mut queue = Client::connect(&cfg.queue_dsn, NoTls).unwrap();
+        let mut tx = queue.transaction().unwrap();
+        let admitted: Value = tx
+            .query_one(
+                "SELECT pd_graph_admit($1,$2,$3,'fixture',$4::text::jsonb)",
+                &[&env, &zid, &graph::scope(zid), &spec.to_string()],
+            )
+            .unwrap()
+            .get(0);
+        assert_eq!(admitted["outcome"], "enqueued");
+        // The graph's held KEY SHARE and private scope locks do not block
+        // the same participation statements tested for the full pipeline.
+        assert!(participation(&mut admin, zid, 1) < Duration::from_secs(1));
+        tx.commit().unwrap();
+        let mut scheduler = Scheduler::new(&cfg).unwrap();
+        let flight = scheduler.state.graph_flight.clone().unwrap();
+        assert_eq!(flight.zid, zid);
+        assert_eq!(flight.nodes.len(), 4);
+        scheduler
+            .state
+            .graph_flight
+            .as_mut()
+            .unwrap()
+            .admitted_at_ms -= 1000;
+        scheduler.cycle().unwrap();
+        scheduler.cycle().unwrap();
+        assert!(scheduler.state.graph_flight.is_none());
+        assert_eq!(scheduler.state.totals.failed, 1);
+        assert!(scheduler.state.storage.bytes > 0);
+        for node in flight.nodes {
+            let before: Value = admin.query_one("SELECT to_jsonb(q) FROM polis_queue_jobs q WHERE env=$1 AND job_id=$2::text::uuid", &[&env,&node.job_id]).unwrap().get(0);
+            let version = before["mgmt_version"].as_i64().unwrap();
+            let reply: Value = queue
+                .query_one(
+                    "SELECT pq_cancel($1,$2::text::uuid,$3)",
+                    &[&env, &node.job_id, &version],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(reply["outcome"], "terminal");
+            let after: Value = admin.query_one("SELECT to_jsonb(q) FROM polis_queue_jobs q WHERE env=$1 AND job_id=$2::text::uuid", &[&env,&node.job_id]).unwrap().get(0);
+            assert_eq!(before, after);
+        }
+        assert_ne!(graph::scope(911), graph::scope(912));
+    }
+}
