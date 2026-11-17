@@ -246,17 +246,22 @@ must take at most `1 + SHADOW_CPU_TOLERANCE` (0.15) times its time with the
 shadow frozen, and the measured slowdown is printed whatever the verdict; the
 shadow's cgroup must report CPU weight 1. The bound is a chosen operating
 limit, the same in both modes: the shadow may slow a recompute by about 10 %
-while it embeds, with room for measurement noise (measured with the image's
-embedding model on a 12-vCPU host: about 1.09-1.10 unfenced, 1.05-1.06 behind
-a 2-CPU limit). By default the shadow has no CPU limit: no thread count may be
-set and the throughput must reach `SHADOW_CPU_MIN_SCALE` (1.5) times two
-threads on two CPUs. With `SHADOW_CPU_SETTINGS=DELPHI_SHADOW_CONTAINER_CPUS=2`
-(a 2-CPU limit), every thread library in the shadow must run one thread per
-CPU of the limit, its embedding throughput must be within `SHADOW_CPU_BAND`
-(0.10) of the same work in a plain container on the same CPUs with one thread
-per CPU (measured 0.98 to 1.00 of it), and the old configuration, the
-libraries counting every CPU of the host inside that limit, must fall outside
-the band (measured 0.22 to 0.33 of it), so a lost thread rule fails. Set an owned
+while it embeds, with room for measurement noise. Measured with the image's
+embedding model: on a 12-vCPU arm64 host about 1.05-1.07 behind a 2-CPU limit
+and 1.09-1.13 with none; on a 6-core, 12-thread x86 desktop with
+hyperthreading 1.16-1.17 behind a 2-CPU limit and 1.41-1.43 with none, so
+there the check fails in both modes. The 2-CPU limit is the default because
+without one, on hyperthreaded x86, the math engine paid about 2.5 times the
+slowdown for 1.7 times the shadow's speed. By default (a 2-CPU limit) every
+thread library in the shadow must run one thread per CPU of the limit, its
+embedding throughput must be within `SHADOW_CPU_BAND` (0.10) of the same work
+in a plain container on the same CPUs with one thread per CPU (measured 0.98
+to 1.00 of it), and the old configuration, the libraries counting every CPU
+of the host inside that limit, must fall outside the band (measured 0.22 to
+0.55 of it), so a lost thread rule fails. With
+`SHADOW_CPU_SETTINGS=DELPHI_SHADOW_CONTAINER_CPUS=0` (no limit) no thread
+count may be set and the throughput must reach `SHADOW_CPU_MIN_SCALE` (1.5)
+times two threads on two CPUs. Set an owned
 `COMPOSE_PROJECT_NAME`; it builds the Delphi image unless `SHADOW_CPU_IMAGE`
 names one, publishes no port and needs no network. Its verdict depends on
 timing, so it is a work-box check with no hosted job: run it on a quiet host,

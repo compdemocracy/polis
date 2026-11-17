@@ -294,6 +294,12 @@ Off by default; nothing changes until it is set, and off is today's behaviour by
 
 - **`DELPHI_EMBEDDINGS_TABLE`** (default off) When set to exactly `1`, the Delphi job daemon and the graph stages store and read comment embeddings as one row per comment in the `delphi_comment_embeddings` table (migration 000038) instead of the `Delphi_CommentEmbeddings` codec family, which a few thousand comments of 384 floats already overflow at the family's 64 MiB bound. It is read by the `polis-jobs` daemon ([config.rs](../queue-rs/src/jobs/config.rs)) and carried from the daemon into each Delphi child through the job frame, never through the child's environment (graph children run with a cleared environment). Because the Delphi service does not read it from its own environment, it is not listed in the `delphi` Compose `environment` block. Only the graph path (`graph_embed`/`graph_cluster`) routes to the table today; the legacy full pipeline keeps writing the codec family.
 
+### Delphi Shadow Resources
+
+Read only where the Delphi shadow runs (its services start on the exact line `DELPHI_SHADOW_ENABLED=1`). Compose alone reads this key, for the `delphi-shadow` container's limit; no service sees it.
+
+- **`DELPHI_SHADOW_CONTAINER_CPUS`** (`delphi-shadow`, default `2`) the shadow daemon's CPU limit ([Compose:541](../docker-compose.yml#L541)), behind the lowest CPU weight of any service. The daemon runs one library thread (torch, Numba, OpenMP, OpenBLAS) per CPU of the limit; a positive number sets that many CPUs. `0` removes the limit: the shadow then takes the CPU nothing else is using and its libraries count the box's CPUs. Measured with `make check-delphi-shadow-cpu-priority` ([local checks](local-checks.md)), the math engine's recompute ran, while the shadow embedded, about 5-7 % slower with the 2-CPU limit and 9-13 % with none on a 12-vCPU arm64 host, and 16-17 % and 41-43 % on a 6-core, 12-thread x86 desktop with hyperthreading. Keep a limit on a burstable instance, where an unlimited shadow would spend the CPU credits the whole box runs on.
+
 ### Large Memory Class
 
 Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (`math-python` has no `env_file`), so a value set in `.env` or the deployment env document reaches the container only through these lines.
