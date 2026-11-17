@@ -1,0 +1,31 @@
+[package]
+name = "polis-topic-map"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Generation-time half of the first-party topic map: turns a Delphi run's stored UMAP coordinates, cluster layers and topic names into the data the browser component draws."
+
+[lib]
+name = "polis_topic_map"
+path = "src/lib.rs"
+
+[[bin]]
+name = "polis-topic-map"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: every number is read correctly rounded, whichever other
+# crate of the workspace is built with this one (Cargo turns a feature on for
+# every crate in a build when any one asks for it, and polis-api does).
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[dev-dependencies]
+# The recorded document's digest (tests/document_recording.rs).
+sha2 = "0.10"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

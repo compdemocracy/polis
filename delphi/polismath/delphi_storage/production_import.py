@@ -30,16 +30,21 @@ BATCH_LIMIT = 256 * 1024 * 1024
 MANIFEST_LIMIT = 128 * 1024
 FOLLOW_UP = 'follow-up.json'
 
-# The one comment-embeddings family, and the single model migration 000038 seeds
-# (model_id 1, 384 dims). The legacy bare name normalizes to the seeded name, so
-# both legacy spellings land on the same model; any other string refuses, because
-# nothing has admitted it. Kept in step with queue-rs embedding::MODEL_MINILM and
-# the migration's seed row.
+# The one comment-embeddings family, and the models delphi_embedding_models
+# holds (384 dims each): all-MiniLM-L6-v2, model_id 1, seeded by migration
+# 000038, and granite at its locked revision truncated to 384, model_id 2,
+# migration 000046, under the name a granite run records. The legacy bare
+# MiniLM name normalizes to the seeded name, so both legacy spellings land on
+# the same model; any other string refuses, because nothing has admitted it.
+# Kept in step with queue-rs embedding::MODEL_MINILM and the migrations' rows.
 EMBEDDINGS_FAMILY = 'Delphi_CommentEmbeddings'
 SEEDED_EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
+GRANITE_EMBEDDING_MODEL = (
+    'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384')
 EMBEDDING_MODEL_ALIASES = {
     'all-MiniLM-L6-v2': SEEDED_EMBEDDING_MODEL,
     SEEDED_EMBEDDING_MODEL: SEEDED_EMBEDDING_MODEL,
+    GRANITE_EMBEDDING_MODEL: GRANITE_EMBEDDING_MODEL,
 }
 # The spool file written beside a conversation's family files, read by the
 # detached child and routed by the daemon into pd_embedding_put/close.

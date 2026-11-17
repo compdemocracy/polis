@@ -331,10 +331,19 @@ def test_missing_comment_text_is_skipped_and_counted(tmp_path, monkeypatch):
     assert _manifest(tmp_path/'snap', bundles[0])['embeddings']['rows'] == 1
 
 
+GRANITE = 'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384'
+
+
 @pytest.mark.parametrize('rows,match', [
     ([embedding_item(1, 1, [0.5, 0.25, 0.125], model='some-other-model')], 'unmapped embedding model'),
+    # granite by its bare repository name names no revision and no width: no row.
+    ([embedding_item(1, 1, [0.5, 0.25, 0.125], model='ibm-granite/granite-embedding-311m-multilingual-r2')],
+     'unmapped embedding model'),
     ([embedding_item(1, 1, [0.1, 0.2, 0.3])], 'float32 exact'),
     ([embedding_item(1, 1, [0.5, 0.25, 0.125]), embedding_item(1, 2, [0.5, 0.25])], 'multiple embedding models in conversation'),
+    # A conversation whose stored rows come from two models is never one set.
+    ([embedding_item(1, 1, [0.5, 0.25, 0.125]), embedding_item(1, 2, [0.5, 0.25, 0.125], model=GRANITE)],
+     'multiple embedding models in conversation'),
 ])
 def test_flag_on_refuses_bad_embeddings(tmp_path, rows, match):
     summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
@@ -342,6 +351,17 @@ def test_flag_on_refuses_bad_embeddings(tmp_path, rows, match):
     with pytest.raises(ValueError, match=match):
         imp.materialize(tmp_path/'db', tmp_path/'snap', summary,
                         embeddings_table=True, text_shas=shas, embedding_report={})
+
+
+def test_granite_rows_map_to_granites_own_model(tmp_path):
+    rows = [embedding_item(1, 1, [0.5, 0.25, 0.125], model=GRANITE),
+            embedding_item(1, 2, [1.0, -2.0, 0.5], model=GRANITE)]
+    summary = imp.census(Source({FAMILY: rows}), tmp_path/'db', {'1': 1}, {})
+    report = {}
+    imp.materialize(tmp_path/'db', tmp_path/'snap', summary, embeddings_table=True,
+                    text_shas={(1, 1): text_sha('a'), (1, 2): text_sha('b')}, embedding_report=report)
+    assert imp.GRANITE_EMBEDDING_MODEL == GRANITE
+    assert report['models'] == {GRANITE: 2}
 
 
 def test_embedding_model_counts_are_per_raw_string(tmp_path):

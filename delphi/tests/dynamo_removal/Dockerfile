@@ -7,6 +7,10 @@ COPY delphi/ /app/
 COPY --from=queue-binary polis-jobs /usr/local/bin/polis-jobs
 RUN python -m pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0
 ENV PYTHONPATH=/app:/app/scripts PYTHONDONTWRITEBYTECODE=1
+# The job graph's embedding stage, which these harnesses run, declares and loads
+# MiniLM from this directory. The base image carries granite, not MiniLM, so the
+# weights are saved here at build time. The full pipeline refuses a directory
+# without its lock: tests in this image that run run_delphi.py clear these settings.
 ENV DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/all-MiniLM-L6-v2
 RUN if [ ! -f "$DELPHI_EMBED_MODEL_PATH/config.json" ]; then \
       python -c 'from sentence_transformers import SentenceTransformer; import os; SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2").save(os.environ["DELPHI_EMBED_MODEL_PATH"])'; \

@@ -3,7 +3,8 @@
 Prints one JSON document: every job of the shadow env with its run record's
 facts (state, attempt times, comment count, size class, twin_of, the census
 digest against the admitted one, families), every delphi_step/1 line of every
-attempt, which envs hold rows in each queue and result table, the published
+attempt, which envs hold rows in each queue and result table, the shadow
+env's stored embeddings and sets per embedding model, the published
 env's served pointer (compared with the value given before the runs), and
 the result tables' sizes. Counts, seconds, digests and labels only.
 
@@ -54,6 +55,13 @@ def main():
         for table in TABLES:
             cur.execute(f"SELECT env, count(*) FROM {table} GROUP BY env ORDER BY env")
             envs[table] = dict(cur.fetchall())
+        # The shadow env's stored embeddings and closed sets, per model.
+        cur.execute("SELECT m.model_id, m.name, m.dims,"
+                    " (SELECT count(*) FROM delphi_comment_embeddings e WHERE e.env=%s AND e.model_id=m.model_id),"
+                    " (SELECT count(*) FROM delphi_embedding_sets s WHERE s.env=%s AND s.model_id=m.model_id)"
+                    " FROM delphi_embedding_models m ORDER BY m.model_id", (env, env))
+        embeddings = [{"model_id": i, "model": n, "dims": d, "rows": rows, "sets": sets}
+                      for i, n, d, rows, sets in cur.fetchall()]
         cur.execute("SELECT zid, scope_key, generation, artifact_id::text FROM delphi_graph_served "
                     "WHERE env=%s ORDER BY zid, scope_key", (published,))
         after = [list(r) for r in cur.fetchall()]
@@ -64,7 +72,7 @@ def main():
             sizes[table] = cur.fetchone()[0]
         cur.execute("SELECT pg_database_size(current_database())")
         sizes["database"] = cur.fetchone()[0]
-    print(json.dumps({"env": env, "jobs": jobs, "envs": envs,
+    print(json.dumps({"env": env, "jobs": jobs, "envs": envs, "embeddings": embeddings,
                       "published": {"env": published, "before": before, "after": after,
                                     "unchanged": before == after},
                       "bytes": sizes}, sort_keys=True))

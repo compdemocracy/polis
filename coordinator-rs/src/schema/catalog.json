@@ -12822,6 +12822,10 @@
     {
       "path": "server/postgres/migrations/000045_page_ids_width.sql",
       "sha256": "eab730473dda1fdd7b0e3b6fbbae5eb6201fbb579670ebcf43557aeb23f8c4a2"
+    },
+    {
+      "path": "server/postgres/migrations/000046_add_granite_embedding_model.sql",
+      "sha256": "47ce61aaa34adfa82f9c7430170afaf3144fb72b96fc85b62f7078a7fb831531"
     }
   ]
 }

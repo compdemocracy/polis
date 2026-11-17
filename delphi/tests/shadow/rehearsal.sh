@@ -17,8 +17,8 @@
 #      statement published under the env a reader serves (PUBLISHED_ENV), to
 #      show the shadow never moves it.
 #   2. The byte-for-byte check of the embedding model: the same public
-#      comments encoded by name from the Hugging Face hub (today's run) and
-#      from the image's pinned files (compare.json).
+#      comments encoded by name from the Hugging Face hub (at the lock's
+#      revision) and from the image's pinned files (compare.json).
 #   3. The seal: Postgres moves to an internal network with no route out.
 #      Proofs (proofs.json): no connection to the internet; the model cannot
 #      be downloaded; the image's model loads and encodes offline.
@@ -108,7 +108,7 @@ for f in sorted(glob.glob("/app/real_data/*/*comments.csv")):
     rows += [r["comment-body"] for r in csv.DictReader(open(f))]
 print(json.dumps(rows))
 PY
-  HF_HOME=/tmp/hf python -m polismath.embedding_model compare --dir /opt/polis/embedding/all-MiniLM-L6-v2 --texts /tmp/texts.json
+  HF_HOME=/tmp/hf python -m polismath.embedding_model compare --dir /opt/polis/embedding/granite-embedding-311m-multilingual-r2 --texts /tmp/texts.json
 ' </dev/null >"$out/compare.json"
 
 echo "== 3. the seal"
@@ -129,14 +129,18 @@ download=$(proof 'import os
 os.environ.pop("HF_HUB_OFFLINE", None); os.environ["HF_HOME"] = "/tmp/empty-hf"
 from sentence_transformers import SentenceTransformer
 try:
-    SentenceTransformer("all-MiniLM-L6-v2"); print("downloaded")
+    SentenceTransformer("ibm-granite/granite-embedding-311m-multilingual-r2"); print("downloaded")
 except Exception as e:
     print("refused:" + type(e).__name__)')
 offline=$(docker run --rm --network "container:$pg" -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -e HF_HOME=/tmp/empty-hf \
-  -e DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/all-MiniLM-L6-v2 -e DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/all-MiniLM-L6-v2.lock.json \
-  --entrypoint python "$SHADOW_REHEARSAL_IMAGE" -c 'from polismath import embedding_model as em
-r = em.encode_digest(em.load_check(), ["a public comment about rivers"], local_files_only=True)
-print("encoded:" + r["sha256"])' 2>&1 | tail -1)
+  -e SENTENCE_TRANSFORMER_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2 \
+  -e DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2 \
+  -e DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json \
+  --entrypoint python "$SHADOW_REHEARSAL_IMAGE" -c 'import hashlib
+from polismath import embedding_model as em
+model, resolved = em.load()
+v = em.encode(model, ["a public comment about rivers"], show_progress_bar=False)
+print("encoded:%s:%dx%d:%s" % (resolved.model, v.shape[0], v.shape[1], hashlib.sha256(v.tobytes()).hexdigest()))' 2>&1 | tail -1)
 printf '{"internet":"%s","download":"%s","image_model":"%s"}\n' "$internet" "$download" "$offline" >"$out/proofs.json"
 cat "$out/proofs.json"
 case "$internet:$download:$offline" in
@@ -200,5 +204,7 @@ states = {}
 for j in r["jobs"]:
     states[j["state"]] = states.get(j["state"], 0) + 1
 print(json.dumps({"jobs": len(r["jobs"]), "states": states, "published_unchanged": r["published"]["unchanged"],
+                  "embed_models": sorted({(j["models"] or {}).get("embed") or "" for j in r["jobs"]}),
+                  "embeddings": r["embeddings"],
                   "envs": {t: sorted(v) for t, v in r["envs"].items()}}, sort_keys=True))
 PY

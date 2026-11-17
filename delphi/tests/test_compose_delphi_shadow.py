@@ -100,8 +100,9 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     assert env["DELPHI_SKIP_DATAMAPPLOT"] == "1"
     assert env["DELPHI_LOCAL_OUTPUT_CLEANUP"] == "1"
     assert env["DELPHI_STEP_LOG"] == "1"
-    assert env["DELPHI_EMBED_MODEL_PATH"] == "/opt/polis/embedding/all-MiniLM-L6-v2"
-    assert env["DELPHI_EMBED_MODEL_LOCK"] == "/opt/polis/embedding/all-MiniLM-L6-v2.lock.json"
+    assert env["SENTENCE_TRANSFORMER_MODEL"] == "ibm-granite/granite-embedding-311m-multilingual-r2"
+    assert env["DELPHI_EMBED_MODEL_PATH"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2"
+    assert env["DELPHI_EMBED_MODEL_LOCK"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json"
     assert env["HF_HUB_OFFLINE"] == env["TRANSFORMERS_OFFLINE"] == "1"
     # Scratch, caches and local outputs are tmpfs, not the box's disk.
     tmpfs = service["tmpfs"]
@@ -166,11 +167,31 @@ def test_the_scheduler_names_the_daemons_shadow_env():
 
 @requires_checkout
 def test_the_production_report_service_is_unchanged_by_the_shadow():
+    # The shadow's run settings stay its own. (The baked model's directory and
+    # lock are shared on purpose: the next test.)
     services, _ = _services()
     delphi = _environment(services["delphi"], PRODUCTION_LIKE)
-    for key in ("DELPHI_SKIP_DATAMAPPLOT", "DELPHI_EMBED_MODEL_PATH", "DELPHI_STEP_LOG",
+    for key in ("DELPHI_SKIP_DATAMAPPLOT", "DELPHI_STEP_LOG",
                 "DELPHI_LOCAL_OUTPUT_CLEANUP", "HF_HUB_OFFLINE"):
         assert key not in delphi, key
+
+
+@requires_checkout
+def test_the_production_report_service_reads_the_model_baked_into_its_image():
+    # The same directory and lock the shadow reads, so a run checks the files
+    # against the lock and downloads nothing; a document may override both, as
+    # it may the service's other model settings.
+    services, _ = _services()
+    delphi = _environment(services["delphi"], PRODUCTION_LIKE)
+    shadow = _environment(services["delphi-shadow"], PRODUCTION_LIKE)
+    assert delphi["DELPHI_EMBED_MODEL_PATH"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2"
+    assert delphi["DELPHI_EMBED_MODEL_LOCK"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json"
+    for key in ("SENTENCE_TRANSFORMER_MODEL", "DELPHI_EMBED_MODEL_PATH", "DELPHI_EMBED_MODEL_LOCK"):
+        assert delphi[key] == shadow[key], key
+    override = dict(PRODUCTION_LIKE, DELPHI_EMBED_MODEL_PATH="/srv/model", DELPHI_EMBED_MODEL_LOCK="/srv/model.lock.json")
+    overridden = _environment(services["delphi"], override)
+    assert (overridden["DELPHI_EMBED_MODEL_PATH"], overridden["DELPHI_EMBED_MODEL_LOCK"]) == (
+        "/srv/model", "/srv/model.lock.json")
 
 
 def _hook_program():
