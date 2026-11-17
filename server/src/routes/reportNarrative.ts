@@ -1,6 +1,10 @@
 import { Response } from "express";
 import { failJson } from "../utils/fail";
 import { getZidForRid } from "../utils/zinvite";
+import {
+  mayStartDelphiWork,
+  refuseNotConversationOwner,
+} from "./delphi/generationOwner";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { countTokens } from "@anthropic-ai/tokenizer";
@@ -885,10 +889,14 @@ export async function handle_GET_topics(
 }
 
 export async function handle_GET_reportNarrative(
-  req: { p: { rid: string; delphiEnabled: boolean }; query: QueryParams },
+  req: {
+    p: { rid: string; uid?: number; delphiEnabled: boolean };
+    query: QueryParams;
+  },
   res: Response
 ) {
   let storage: DynamoStorageService;
+  let zid: number | null;
 
   // Initialize storage with improved error handling. Construction is inside the
   // try because it resolves AWS credentials and throws a named configuration
@@ -896,6 +904,13 @@ export async function handle_GET_reportNarrative(
   try {
     if (!req.p.delphiEnabled) {
       throw new Error("Unauthorized");
+    }
+    // The claim alone does not reach someone else's conversation. Checked
+    // before storage, the stream and any model call.
+    zid = await getZidForRid(req.p.rid);
+    if (!(await mayStartDelphiWork(zid, req.p.uid))) {
+      refuseNotConversationOwner(res);
+      return;
     }
     storage = new DynamoStorageService(
       "report_narrative_store",
@@ -954,7 +969,6 @@ export async function handle_GET_reportNarrative(
   // Express response has no flush method, but compression middleware adds it
   (res as any).flush();
 
-  const zid = await getZidForRid(rid);
   if (!zid) {
     failJson(res, 404, "polis_error_report_narrative_notfound");
     return;

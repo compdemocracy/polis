@@ -11,8 +11,8 @@ the shipped lock's revision, into a directory under the Hugging Face cache, and
 that directory is checked against the lock before every load the same way. Any
 other model name is loaded from the hub as given, unchecked.
 
-Every load keeps the first 384 dimensions (``truncate_dim``) and every encode
-returns unit vectors (``normalize_embeddings``): granite is 768 wide and
+Every load keeps the first 384 dimensions (``truncate_dim``) and encode defaults to
+unit vectors (``normalize_embeddings``): granite is 768 wide and
 Matryoshka-trained, and 384 is the width Delphi has always stored. A run's
 model is named once (``resolve``), as ``repo@revision:384`` when the revision
 is known, and that name goes to the run record, the DynamoDB rows and the
@@ -43,7 +43,7 @@ LOCK_SCHEMA = "delphi-embedding-model/1"
 # names the same repository and revision (tests/test_embedding_model.py).
 DEFAULT_MODEL = "ibm-granite/granite-embedding-311m-multilingual-r2"
 DEFAULT_REVISION = "44399559930365213510b1ee2eb15ded83374f0e"
-# The stored width: every load truncates to it, every encode normalizes after.
+# The stored width: every load truncates to it; encode normalizes by default.
 DIMS = 384
 # The shipped lock: beside this package in a source checkout, and where the
 # image installs it (delphi/Dockerfile, the embedding-model stage). In the image
@@ -225,7 +225,7 @@ def _fetched(lock_path, lock) -> Path:
     return dest
 
 
-def load(device: Optional[str] = None):
+def load(device: Optional[str] = None, *, resolved: Optional[Resolved] = None):
     """(SentenceTransformer truncated to DIMS, Resolved). Files under a lock are
     checked against it before any model is built, and read with no network: the
     directory DELPHI_EMBED_MODEL_PATH names, or the default model's files fetched
@@ -233,7 +233,7 @@ def load(device: Optional[str] = None):
     name is loaded from the hub as given, unchecked."""
     from sentence_transformers import SentenceTransformer
 
-    resolved = resolve()
+    resolved = resolved or resolve()
     arg, local = resolved.arg, resolved.local
     if resolved.lock:
         lock = read_lock(resolved.lock)
@@ -247,9 +247,13 @@ def load(device: Optional[str] = None):
     return SentenceTransformer(arg, **kwargs), resolved
 
 
-def encode(model, texts: List[str], **kwargs):
-    """Unit vectors, DIMS wide: sentence-transformers truncates, then normalizes."""
-    return model.encode(texts, normalize_embeddings=True, **kwargs)
+def encode(model, texts: List[str], *, normalize_embeddings: bool = True, **kwargs):
+    """Unit vectors by default; truncation happens before normalization.
+
+    The legacy MiniLM graph explicitly disables normalization to preserve its
+    existing stored bytes. Granite callers keep the default.
+    """
+    return model.encode(texts, normalize_embeddings=normalize_embeddings, **kwargs)
 
 
 def encode_digest(model_arg: str, texts: List[str], local_files_only: bool,

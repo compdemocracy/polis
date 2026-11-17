@@ -115,7 +115,7 @@ class ClusterSeed(unittest.TestCase):
         frame.update(stage='graph_topics')
         frame['input']['declared']['model'] = stages.MODELS['graph_topics']
         frame['input']['artifacts'] = dict(clusters=dict(
-            payload=payload, sha256=hashlib.sha256(payload.encode()).hexdigest()))
+            producer=frame['job_id'], payload=payload, sha256=hashlib.sha256(payload.encode()).hexdigest()))
         return frame
 
     def test_cluster_stage_refuses_a_seed_numpy_cannot_take(self):

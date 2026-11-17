@@ -1217,3 +1217,466 @@ fn the_live_reserve_stops_the_benchmark_and_featured_sets_while_current_runs_go_
         ]
     );
 }
+
+#[test]
+fn graph_snapshot_keeps_moderation_and_active_status_and_refuses_oversize() {
+    use polis_queue_adapter::shadow::graph;
+    let f = Fixture::new();
+    f.conversation(901, 6);
+    let mut c = f.superuser();
+    c.execute(
+        "UPDATE comments SET mod=$2,active=false WHERE zid=$1 AND tid=0",
+        &[&901_i32, &REJECTED_COMMENT_MOD],
+    )
+    .unwrap();
+    let cfg = f.config(&[]);
+    let db = db::Db::new(&cfg);
+    let s = graph::snapshot(&db, 901).unwrap();
+    assert_eq!(s.ids.len(), 6);
+    assert!(s.ids.contains(&0));
+    f.conversation(902, 2001);
+    assert!(graph::snapshot(&db, 902).is_err());
+    for zid in [901_i32, 902] {
+        let rid: i64 = c
+            .query_one(
+                "INSERT INTO reports(zid,report_id) VALUES($1,$1::integer::text) RETURNING rid",
+                &[&zid],
+            )
+            .unwrap()
+            .get(0);
+        // The same tid in another conversation must not remove this one's row.
+        let tid = if zid == 901 { 1_i32 } else { 2_i32 };
+        c.execute(
+            "INSERT INTO report_comment_selections(zid,rid,tid,selection) VALUES($1,$2,$3,$4)",
+            &[&zid, &rid, &tid, &(-1_i16)],
+        )
+        .unwrap();
+    }
+    let snapshot = graph::snapshot(&db, 901).unwrap();
+    assert_eq!(snapshot.ids, vec![0, 2, 3, 4, 5]);
+    let list = graph::listed(&db, &["c901".into()]).unwrap();
+    assert_eq!(list[0].comments, snapshot.ids.len() as i64);
+    assert_eq!(graph::snapshot(&db, 902).unwrap().ids.len(), 2000);
+    c.execute(
+        "UPDATE comments SET txt=E' \n\t' WHERE zid=901 AND tid=0",
+        &[],
+    )
+    .unwrap();
+    assert!(graph::snapshot(&db, 901).is_err());
+    assert_eq!(graph::listed(&db, &["c901".into()]).unwrap()[0].comments, 5);
+}
+
+#[test]
+fn graph_recovery_cancels_overdue_nodes_without_rewriting_terminal_results() {
+    use polis_queue_adapter::shadow::graph;
+    let f = Fixture::new();
+    let mut cfg = f.config(&[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c911,c912")]);
+    cfg.job_deadline = Duration::ZERO;
+    let env = cfg.graph.as_ref().unwrap().env.clone();
+    for zid in [911, 912] {
+        f.conversation(zid, 20);
+        let snapshot = graph::snapshot(&db::Db::new(&cfg), zid).unwrap();
+        let mut admin = f.superuser();
+        let data = serde_json::json!({"texts": snapshot.texts}).to_string();
+        let sha: String = admin
+            .query_one("SELECT public.pd_graph_hash($1::text::jsonb)", &[&data])
+            .unwrap()
+            .get(0);
+        let mut spec = graph::spec(&snapshot, &sha, &serde_json::json!({"code": CODE,"runtime":"fixture-runtime","model_sha256":"a".repeat(64),"adapter_sha256":"b".repeat(64)})).unwrap();
+        // The code-only test uses the existing catalog, without the separately
+        // reviewed model admission migration or loading any numerical model.
+        spec["nodes"][0]["declared"]["model"] = "sentence-transformers/all-MiniLM-L6-v2".into();
+        spec["nodes"][3]["declared"]["model"] = "local-narrative-fixture/1".into();
+        for n in spec["nodes"].as_array_mut().unwrap() {
+            n["declared"]["config"]["shadow"]["expected_generation"] = 0.into();
+        }
+        let mut queue = Client::connect(&cfg.queue_dsn, NoTls).unwrap();
+        let mut tx = queue.transaction().unwrap();
+        let admitted: Value = tx
+            .query_one(
+                "SELECT pd_graph_admit($1,$2,$3,'fixture',$4::text::jsonb)",
+                &[&env, &zid, &graph::scope(zid), &spec.to_string()],
+            )
+            .unwrap()
+            .get(0);
+        assert_eq!(admitted["outcome"], "enqueued");
+        // The graph's held KEY SHARE and private scope locks do not block
+        // the same participation statements tested for the full pipeline.
+        assert!(participation(&mut admin, zid, 1) < Duration::from_secs(1));
+        tx.commit().unwrap();
+        let mut scheduler = Scheduler::new(&cfg).unwrap();
+        let flight = scheduler.state.graph_flight.clone().unwrap();
+        assert_eq!(flight.zid, zid);
+        assert_eq!(flight.nodes.len(), 4);
+        scheduler
+            .state
+            .graph_flight
+            .as_mut()
+            .unwrap()
+            .admitted_at_ms -= 1000;
+        scheduler.cycle().unwrap();
+        scheduler.cycle().unwrap();
+        assert!(scheduler.state.graph_flight.is_none());
+        assert_eq!(scheduler.state.totals.failed, 1);
+        assert!(scheduler.state.storage.bytes > 0);
+        for node in flight.nodes {
+            let before: Value = admin.query_one("SELECT to_jsonb(q) FROM polis_queue_jobs q WHERE env=$1 AND job_id=$2::text::uuid", &[&env,&node.job_id]).unwrap().get(0);
+            let version = before["mgmt_version"].as_i64().unwrap();
+            let reply: Value = queue
+                .query_one(
+                    "SELECT pq_cancel($1,$2::text::uuid,$3)",
+                    &[&env, &node.job_id, &version],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(reply["outcome"], "terminal");
+            let after: Value = admin.query_one("SELECT to_jsonb(q) FROM polis_queue_jobs q WHERE env=$1 AND job_id=$2::text::uuid", &[&env,&node.job_id]).unwrap().get(0);
+            assert_eq!(before, after);
+        }
+        assert_ne!(graph::scope(911), graph::scope(912));
+    }
+}
+
+/// Stub local-file provenance only; scheduler SQL and queue contracts are real.
+fn graph_config(f: &Fixture, extra: &[(&str, &str)]) -> config::Config {
+    use polis_queue_adapter::shadow::graph::MODEL;
+    let mut cfg = f.config(extra);
+    let scripts = f.dir.join("scripts");
+    std::fs::create_dir_all(&scripts).unwrap();
+    let p = serde_json::json!({"model":MODEL,"code":CODE,"runtime":"fixture-runtime","adapter_sha256":"a".repeat(64),"model_sha256":"b".repeat(64)});
+    std::fs::write(
+        scripts.join("graph_provenance.py"),
+        format!("import json\nprint(json.dumps({}))\n", p),
+    )
+    .unwrap();
+    let g = cfg.graph.as_mut().unwrap();
+    g.app = f.dir.clone();
+    g.python = std::env::var("POLIS_JOBS_TEST_PYTHON").unwrap_or_else(|_| "python3".into());
+    cfg
+}
+
+fn graph_catalog(f: &Fixture) {
+    // A disposable database simulates the separately installed model catalog.
+    // No migration, table, role, or production configuration is changed here.
+    let mut c = f.superuser();
+    let sql:String=c.query_one("SELECT pg_get_functiondef('pd_graph_admit(text,integer,text,text,jsonb,uuid)'::regprocedure)",&[]).unwrap().get(0);
+    let sql = sql
+        .replace(
+            "'sentence-transformers/all-MiniLM-L6-v2'",
+            &format!(
+                "'sentence-transformers/all-MiniLM-L6-v2','{}'",
+                polis_queue_adapter::shadow::graph::MODEL
+            ),
+        )
+        .replace(
+            "'local-narrative-fixture/1'",
+            "'local-narrative-fixture/1','delphi-keyword-labels/1'",
+        );
+    c.batch_execute(&sql).unwrap();
+}
+
+/// Make the disposable database's admission function refuse every graph,
+/// with the error it gives a model it does not admit, whichever models the
+/// installed function admits. Returns the function as it was, to restore it.
+fn graph_catalog_refuses(f: &Fixture) -> String {
+    let mut c = f.superuser();
+    let sql:String=c.query_one("SELECT pg_get_functiondef('pd_graph_admit(text,integer,text,text,jsonb,uuid)'::regprocedure)",&[]).unwrap().get(0);
+    let head = &sql[..sql.find("AS $function$").unwrap()];
+    c.batch_execute(&format!(
+        "{head}AS $function$BEGIN RAISE EXCEPTION 'invalid stage contract (incremental not supported)'; END$function$"
+    ))
+    .unwrap();
+    sql
+}
+
+#[test]
+fn graph_refusals_and_errors_allow_benchmark_admission_and_are_remembered() {
+    let f = Fixture::new();
+    f.quiet(921, 2001, 1);
+    f.quiet(922, 25, 1);
+    f.quiet(923, 25, 1);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c921"),
+            ("DELPHI_SHADOW_BENCHMARK", "c922,c923"),
+        ],
+    );
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(922));
+    assert_eq!(s.state.graph_observed[&921].comments, 2001);
+    let remembered = s.state.graph_observed.clone();
+    s.state.save(&cfg.state_path).unwrap();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(923));
+    assert_eq!(s.state.graph_observed, remembered);
+    // The admission function's invalid-stage-contract error must also fall
+    // through, with the graph retry backed off.
+    let original = graph_catalog_refuses(&f);
+    f.quiet(924, 25, 1);
+    f.quiet(925, 25, 1);
+    f.quiet(926, 25, 1);
+    f.quiet(927, 25, 1);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c924"),
+            ("DELPHI_SHADOW_BENCHMARK", "c925"),
+        ],
+    );
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(925));
+    // A failed provenance helper is an admission error too. With no backoff,
+    // the first cycle caches the helper's value and is refused by the
+    // function. The function then admits the graph and the helper is
+    // removed: the changed directory makes the retry call the helper, and its
+    // failure alone keeps the graph out while the next benchmark runs.
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c924"),
+            ("DELPHI_SHADOW_BENCHMARK", "c926,c927"),
+        ],
+    );
+    cfg.roster_retry = Duration::ZERO;
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(926));
+    f.superuser().batch_execute(&original).unwrap();
+    graph_catalog(&f);
+    std::fs::remove_file(f.dir.join("scripts/graph_provenance.py")).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(927));
+    assert!(s.state.graph_flight.is_none());
+}
+
+#[test]
+fn graph_snapshot_and_serialized_bounds_are_conversation_refusals() {
+    for (count, text) in [
+        (25, " \n\t".to_owned()),
+        (1500, "x".repeat(200)),
+        (1000, "x".repeat(250)),
+    ] {
+        let f = Fixture::new();
+        f.quiet(931, count, 1);
+        f.quiet(932, 25, 1);
+        if text.trim().is_empty() {
+            f.superuser()
+                .execute(
+                    "UPDATE comments SET txt=$1 WHERE zid=931 AND tid=0",
+                    &[&text],
+                )
+                .unwrap();
+        } else {
+            f.superuser()
+                .execute(
+                    "UPDATE comments SET txt=$1 || tid::text WHERE zid=931",
+                    &[&text],
+                )
+                .unwrap();
+        }
+        let cfg = graph_config(
+            &f,
+            &[
+                ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c931"),
+                ("DELPHI_SHADOW_BENCHMARK", "c932"),
+            ],
+        );
+        if count == 1000 {
+            use polis_queue_adapter::shadow::graph;
+            let snapshot = graph::snapshot(&db::Db::new(&cfg), 931).unwrap();
+            let p = serde_json::json!({"code":CODE,"runtime":"fixture-runtime","adapter_sha256":"a".repeat(64),"model_sha256":"b".repeat(64)});
+            let spec = graph::spec(&snapshot, &"e".repeat(64), &p)
+                .unwrap()
+                .to_string();
+            assert!(spec.len() <= 1_048_576, "compact JSON fits");
+            let sql_bytes: i32 = f
+                .superuser()
+                .query_one("SELECT octet_length(($1::text::jsonb)::text)", &[&spec])
+                .unwrap()
+                .get(0);
+            assert!(
+                sql_bytes > 1_048_576,
+                "jsonb representation exceeds the bound"
+            );
+        }
+        let mut s = Scheduler::new(&cfg).unwrap();
+        assert_eq!(next_admitted(&f, &mut s), Some(932));
+        assert_eq!(s.state.graph_observed[&931].comments, count as i64);
+        assert!(s.state.graph_flight.is_none());
+    }
+}
+
+/// Complete a graph through real claim/finalize calls with small fixture
+/// artifacts. No child is spawned, so confirm_exit truthfully proves exit.
+fn finish_graph(f: &Fixture, flight: &polis_queue_adapter::shadow::graph::Flight) {
+    let mut c = f.superuser();
+    for stage in polis_queue_adapter::shadow::graph::STAGES {
+        let owner = Uuid::new_v4().to_string();
+        let attempt = Uuid::new_v4().to_string();
+        let claim:Value=c.query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi',$4)",&[&flight.env,&owner,&attempt,&stage]).unwrap().get(0);
+        assert_eq!(claim["outcome"], "owned", "{claim}");
+        let job = claim["job_id"].as_str().unwrap();
+        let epoch = claim["lease_epoch"]
+            .as_str()
+            .unwrap()
+            .parse::<i64>()
+            .unwrap();
+        c.query_one("SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'confirm_exit',NULL,true)",&[&flight.env,&job,&owner,&attempt,&epoch]).unwrap();
+        let payload = "{\"fixture\":true}";
+        let manifest=serde_json::json!({"schema":"polis-job-artifact-manifest/1","job_id":job,"run_id":claim["run_id"],"attempt_id":attempt,"stage":stage,"input_sha256":claim["graph_input_sha"],"outcome":"succeeded","output":{"role":"result","schema":format!("{stage}/1"),"payload":payload,"sha256":polis_queue_adapter::jobs::sha256_hex(payload.as_bytes())}}).to_string();
+        c.execute("INSERT INTO polis_queue_logs(env,attempt_id,seq,stream,line) VALUES($1,$2::text::uuid,0,'manifest',$3)",&[&flight.env,&attempt,&manifest]).unwrap();
+        let sha = polis_queue_adapter::jobs::sha256_hex(manifest.as_bytes());
+        let done:Value=c.query_one("SELECT pd_graph_finalize($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'unused',$6)",&[&flight.env,&job,&owner,&attempt,&epoch,&sha]).unwrap().get(0);
+        assert_eq!(done["outcome"], "succeeded", "{done}");
+    }
+}
+
+#[test]
+fn graph_scheduler_admits_publishes_and_accepts_only_its_lost_reply() {
+    for lost_reply in [false, true] {
+        let f = Fixture::new();
+        f.quiet(941, 25, 1);
+        graph_catalog(&f);
+        let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c941")]);
+        let mut s = Scheduler::new(&cfg).unwrap();
+        s.cycle().unwrap();
+        let flight = s.state.graph_flight.clone().unwrap();
+        assert_eq!(flight.nodes.len(), 4);
+        finish_graph(&f, &flight);
+        if lost_reply {
+            let leaf = flight
+                .nodes
+                .iter()
+                .find(|n| n.stage == "graph_narrative")
+                .unwrap();
+            let published: Value = f
+                .superuser()
+                .query_one(
+                    "SELECT pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)",
+                    &[
+                        &flight.env,
+                        &flight.graph_id,
+                        &leaf.job_id,
+                        &flight.generation,
+                    ],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(published["outcome"], "published");
+        }
+        s.cycle().unwrap();
+        assert!(s.state.graph_flight.is_none());
+        assert_eq!(s.state.totals.succeeded, 1);
+        assert_eq!(s.state.totals.failed, 0);
+        let served: Value = f
+            .superuser()
+            .query_one(
+                "SELECT pd_graph_served($1,$2,$3)",
+                &[
+                    &flight.env,
+                    &flight.zid,
+                    &polis_queue_adapter::shadow::graph::scope(flight.zid),
+                ],
+            )
+            .unwrap()
+            .get(0);
+        assert_eq!(served["generation"], 1);
+        s.rest_until_ms = 0;
+        s.cycle().unwrap();
+        assert!(s.state.graph_flight.is_none());
+    }
+}
+
+#[test]
+fn graph_publish_exception_counts_failure_once_and_allows_the_next_benchmark() {
+    let f = Fixture::new();
+    f.quiet(951, 25, 1);
+    f.quiet(952, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c951"),
+            ("DELPHI_SHADOW_BENCHMARK", "c952"),
+        ],
+    );
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &flight);
+    // A newer graph supersedes the completed bundle before publication.
+    let mut admin = f.superuser();
+    admin
+        .query_one("SELECT pd_graph_reconcile($1)", &[&flight.env])
+        .unwrap();
+    let newer:Value=admin.query_one("SELECT pd_graph_admit(env,zid,scope_key,'newer',request) FROM delphi_graphs WHERE env=$1 AND graph_id=$2::text::uuid",&[&flight.env,&flight.graph_id]).unwrap().get(0);
+    let newer_id = newer["graph_id"].as_str().unwrap();
+    let jobs=admin.query("SELECT q.job_id::text,q.mgmt_version FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid",&[&flight.env,&newer_id]).unwrap();
+    for job in jobs {
+        let id: String = job.get(0);
+        let version: i64 = job.get(1);
+        admin
+            .query_one(
+                "SELECT pq_cancel($1,$2::text::uuid,$3)",
+                &[&flight.env, &id, &version],
+            )
+            .unwrap();
+    }
+    admin
+        .query_one("SELECT pd_graph_reconcile($1)", &[&flight.env])
+        .unwrap();
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.failed, 1);
+    assert!(s.state.graph_flight.is_none());
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(s.state.in_flight.as_ref().unwrap().zid, 952);
+    assert_eq!(s.state.totals.failed, 1);
+}
+
+#[test]
+fn graph_provenance_is_cached_until_source_metadata_changes() {
+    let f = Fixture::new();
+    f.quiet(961, 25, 1);
+    f.quiet(962, 25, 1);
+    f.quiet(963, 25, 1);
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c961"),
+            ("DELPHI_SHADOW_BENCHMARK", "c962,c963"),
+        ],
+    );
+    cfg.roster_retry = Duration::ZERO;
+    graph_catalog_refuses(&f);
+    let helper = f.dir.join("scripts/graph_provenance.py");
+    let counter = f.dir.join("calls.txt");
+    let mut script = std::fs::read_to_string(&helper).unwrap();
+    script += &format!(
+        "\nwith open({}, 'a') as f: f.write('called\\n')\n",
+        serde_json::to_string(&counter.to_string_lossy()).unwrap()
+    );
+    std::fs::write(&helper, &script).unwrap();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    // Each graph admission reaches the admission function, which refuses it.
+    s.cycle().unwrap();
+    let job = s.state.in_flight.clone().unwrap().job_id;
+    f.cancel(&job);
+    s.cycle().unwrap();
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&counter).unwrap().lines().count(),
+        1
+    );
+    let job = s.state.in_flight.clone().unwrap().job_id;
+    f.cancel(&job);
+    s.cycle().unwrap();
+    s.rest_until_ms = 0;
+    // Metadata changes invalidate the value even within the same process.
+    std::fs::write(&helper, format!("{script}\n# changed local file\n")).unwrap();
+    s.cycle().unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&counter).unwrap().lines().count(),
+        2
+    );
+}

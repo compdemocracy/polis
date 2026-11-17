@@ -31,6 +31,15 @@
  * applied. A case nobody named must be byte-identical; an entry whose case
  * still serves the old bytes fails too (the served text no longer matches the
  * expected one), so a stale entry cannot linger.
+ *
+ * The index (recordings/index.json) is pinned whole, except for the one thing
+ * a case entry can change in it: the provider-request totals. expectedIndex
+ * moves egress.providerStubRequests and egress.providerRequestsRecorded by
+ * exactly what the ruled entries change in their cases' provider transcripts
+ * (the length of each case's "provider" array, committed against expected).
+ * No other field moves, a count no ruled entry explains still fails, and with
+ * no ruled entry that changes a transcript the committed index is the one
+ * compared, as before.
  */
 const RULING = /^(pending|rejected|ruled:\S.*)$/;
 const MAX_CONTEXT = 120;
@@ -107,6 +116,78 @@ function applyExpectedDifferences(recorded, entries) {
   return { expected, problems, rulings };
 }
 
+/** The number of provider requests a recording text holds, or null. */
+function providerCount(text) {
+  try {
+    const provider = JSON.parse(text).provider;
+    return Array.isArray(provider) ? provider.length : null;
+  } catch {
+    return null;
+  }
+}
+
+const PROVIDER_TOTALS = ["providerStubRequests", "providerRequestsRecorded"];
+
+/**
+ * The index a replay must serve: recordedIndex, with its two provider-request
+ * totals moved by the change the ruled entries make to their cases' provider
+ * transcripts. recorded: { caseId: committed text }; applied: the result of
+ * applyExpectedDifferences on it. Returns { index, problems, notes }.
+ */
+function expectedIndex(recordedIndex, recorded, applied) {
+  const problems = [];
+  const notes = [];
+  let delta = 0;
+  const moved = [];
+  for (const [id, ruling] of Object.entries(applied.rulings)) {
+    if (!String(ruling).startsWith("ruled:") || !(id in recorded)) continue;
+    const before = providerCount(recorded[id]);
+    const after = providerCount(applied.expected[id]);
+    if (before === null || after === null) {
+      problems.push(`${id}: no provider transcript to count`);
+      continue;
+    }
+    if (after !== before) {
+      delta += after - before;
+      moved.push(`${id} ${before} -> ${after}`);
+    }
+  }
+  if (delta === 0) return { index: recordedIndex, problems, notes };
+  const egress = (recordedIndex && recordedIndex.egress) || {};
+  const totals = {};
+  for (const key of PROVIDER_TOTALS) {
+    if (!Number.isInteger(egress[key])) {
+      problems.push(`index egress.${key} is not a count`);
+      return { index: recordedIndex, problems, notes };
+    }
+    totals[key] = egress[key] + delta;
+  }
+  notes.push(
+    `index.json: provider requests ${egress.providerRequestsRecorded} -> ${
+      totals.providerRequestsRecorded
+    } through ruled expected differences (${moved.join(", ")})`
+  );
+  return {
+    index: { ...recordedIndex, egress: { ...egress, ...totals } },
+    problems,
+    notes,
+  };
+}
+
+/**
+ * Whether a served index equals the expected one. The Postgres schema is
+ * compared separately (schema drift is reported field by field) and the case
+ * digests are compared through the case texts, so both are left out here.
+ */
+function sameIndex(expected, served) {
+  const strip = (x) => ({
+    ...x,
+    postgres: { ...x.postgres, schema: undefined },
+    cases: x.cases.map((c) => c.id),
+  });
+  return JSON.stringify(strip(expected)) === JSON.stringify(strip(served));
+}
+
 /** Case ids whose served text differs from the expected text. */
 function differingCases(served, expected) {
   return Object.keys(expected).filter((id) => served[id] !== expected[id]);
@@ -119,4 +200,7 @@ module.exports = {
   sharedContext,
   applyExpectedDifferences,
   differingCases,
+  expectedIndex,
+  providerCount,
+  sameIndex,
 };

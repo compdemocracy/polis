@@ -37,7 +37,7 @@ class GraphClient:
 
 
 
-def numerical_spec(texts, comment_ids, report_id, snapshot_sha256, model_sha256, *, max_attempts=3, narrative_context=None):
+def numerical_spec(texts, comment_ids, report_id, snapshot_sha256, model_sha256, *, max_attempts=3, narrative_context=None, embedding_model=None, naming_model=None):
     """Build four independent jobs; pg computes snapshot_sha256 with pd_graph_hash.
 
     Result families use the daemon spool; numerical artifacts retain a strict
@@ -58,7 +58,7 @@ def numerical_spec(texts, comment_ids, report_id, snapshot_sha256, model_sha256,
                               ('t','graph_topics',[dict(node='c',role='clusters')]),
                               ('n','graph_narrative',[dict(node='t',role='topics')])]:
         nodes.append(dict(key=key,stage=stage,**{'class':'delphi'},
-            declared=dict(snapshot=snapshot,code=code,model=MODELS[stage],runtime='python-'+sys.version.split()[0],
+            declared=dict(snapshot=snapshot,code=code,model=(embedding_model if stage == 'graph_embed' and embedding_model else naming_model if stage == 'graph_narrative' and naming_model else MODELS[stage]),runtime='python-'+sys.version.split()[0],
                           seed=42,config=({**config, 'narrative_context': narrative_context} if stage == 'graph_narrative' and narrative_context is not None else config),mode='full',memory_bytes=4294967296,work_units=len(texts)),
             inputs=inputs,max_attempts=max_attempts))
     return dict(schema='polis-job-graph/1',nodes=nodes)

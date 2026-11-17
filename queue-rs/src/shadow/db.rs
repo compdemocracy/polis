@@ -82,7 +82,7 @@ impl<'a> Db<'a> {
         .connect()
     }
 
-    fn connect_queue(&self) -> Result<Client> {
+    pub(super) fn connect_queue(&self) -> Result<Client> {
         Connector::from_parts(
             &self.cfg.queue_dsn,
             &self.cfg.transport,
@@ -93,7 +93,7 @@ impl<'a> Db<'a> {
     }
 
     /// One read-only transaction with the scheduler's bounds.
-    fn read<T>(&self, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
+    pub(super) fn read<T>(&self, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
         let mut client = self.connect_read()?;
         read_only(&mut client, self.cfg.statement_timeout.as_millis(), f)
     }
@@ -151,7 +151,13 @@ impl<'a> Db<'a> {
 
     /// One terminal job's bytes (`storage`): index ranges on its own keys only.
     pub fn measure(&self, p: &Pending) -> Result<Measured> {
-        self.read(|tx| storage::measure(tx, &p.env, &p.job_id, p.zid))
+        self.read(|tx| {
+            let mut m = storage::measure(tx, &p.env, &p.job_id, p.zid)?;
+            if self.cfg.graph.is_some() {
+                m.graph_bytes = super::graph::measure_records(tx, &p.env, &p.job_id)?;
+            }
+            Ok(m)
+        })
     }
 
     /// Every shadow env's jobs, once per state file (`storage`).

@@ -7,7 +7,10 @@ const assert = require("node:assert/strict");
 const {
   applyExpectedDifferences,
   differingCases,
+  expectedIndex,
   MAX_CONTEXT,
+  providerCount,
+  sameIndex,
 } = require("./expected.cjs");
 
 const recorded = {
@@ -121,4 +124,170 @@ test("a difference with no entry is reported, and a stale entry too", () => {
   // stale: the case still serves the old bytes
   assert.deepEqual(differingCases(recorded, expected), ["post/a"]);
   assert.deepEqual(differingCases(expected, expected), []);
+});
+
+// The index's provider-request totals (expectedIndex, sameIndex).
+const rec = (provider) =>
+  JSON.stringify(
+    { case: "x", responses: [{ status: 200 }], provider },
+    null,
+    1
+  ) + "\n";
+const withCalls = {
+  "post/calls": rec([{ path: "/v1/messages" }]),
+  "post/other": rec([{ path: "/v1/messages" }]),
+  "get/none": rec([]),
+};
+const committedIndex = {
+  format: "collective-statement-recording/1",
+  egress: {
+    selfTest: "refused",
+    providerStubRequests: 2,
+    providerRequestsRecorded: 2,
+  },
+  postgres: { schema: { t: 1 } },
+  caseCount: 3,
+  cases: [{ id: "post/calls" }, { id: "post/other" }, { id: "get/none" }],
+};
+const served = (over = {}, egress = {}) => ({
+  ...committedIndex,
+  ...over,
+  egress: { ...committedIndex.egress, ...egress },
+  cases: committedIndex.cases.map((c) => ({ ...c, sha256: "served" })),
+});
+const removeCall = (ruling) => ({
+  case: "post/calls",
+  find: withCalls["post/calls"],
+  replace: rec([]),
+  whole_response: true,
+  whole_response_reason: "the request is refused before the provider",
+  why: "no provider request",
+  ruling,
+});
+
+test("with no entries the committed index is compared, exactly as before", () => {
+  const applied = applyExpectedDifferences(withCalls, []);
+  const want = expectedIndex(committedIndex, withCalls, applied);
+  assert.equal(want.index, committedIndex);
+  assert.deepEqual(want.problems, []);
+  assert.deepEqual(want.notes, []);
+  assert.equal(sameIndex(want.index, served()), true);
+});
+
+test("a ruled entry that leaves the transcripts alone moves nothing", () => {
+  const applied = applyExpectedDifferences(withCalls, [
+    {
+      case: "get/none",
+      find: '"status": 200',
+      replace: '"status": 404',
+      why: "a status change",
+      ruling: "ruled:example",
+    },
+  ]);
+  const want = expectedIndex(committedIndex, withCalls, applied);
+  assert.equal(want.index, committedIndex);
+  assert.deepEqual(want.problems, []);
+});
+
+test("an unrelated provider count difference is still rejected", () => {
+  const applied = applyExpectedDifferences(withCalls, []);
+  const want = expectedIndex(committedIndex, withCalls, applied);
+  for (const n of [1, 3])
+    assert.equal(
+      sameIndex(
+        want.index,
+        served({}, { providerStubRequests: n, providerRequestsRecorded: n })
+      ),
+      false
+    );
+});
+
+test("a ruled entry whose case no longer calls the provider moves both totals by one", () => {
+  const applied = applyExpectedDifferences(withCalls, [
+    removeCall("ruled:example"),
+  ]);
+  assert.deepEqual(applied.problems, []);
+  const want = expectedIndex(committedIndex, withCalls, applied);
+  assert.deepEqual(want.problems, []);
+  assert.equal(want.index.egress.providerStubRequests, 1);
+  assert.equal(want.index.egress.providerRequestsRecorded, 1);
+  assert.equal(want.index.egress.selfTest, "refused");
+  assert.deepEqual(want.notes, [
+    "index.json: provider requests 2 -> 1 through ruled expected differences (post/calls 1 -> 0)",
+  ]);
+  assert.equal(committedIndex.egress.providerRequestsRecorded, 2);
+  const ok = served(
+    {},
+    { providerStubRequests: 1, providerRequestsRecorded: 1 }
+  );
+  assert.equal(sameIndex(want.index, ok), true);
+  // The unchanged total, or any other one, now fails.
+  assert.equal(sameIndex(want.index, served()), false);
+  assert.equal(
+    sameIndex(
+      want.index,
+      served({}, { providerStubRequests: 0, providerRequestsRecorded: 0 })
+    ),
+    false
+  );
+  // Live and captured must still agree with each other (and main.cjs checks
+  // the stub's live count against the captured one separately).
+  assert.equal(
+    sameIndex(
+      want.index,
+      served({}, { providerStubRequests: 2, providerRequestsRecorded: 1 })
+    ),
+    false
+  );
+});
+
+test("every other index field stays pinned when the totals move", () => {
+  const applied = applyExpectedDifferences(withCalls, [
+    removeCall("ruled:example"),
+  ]);
+  const want = expectedIndex(committedIndex, withCalls, applied);
+  const totals = { providerStubRequests: 1, providerRequestsRecorded: 1 };
+  assert.equal(sameIndex(want.index, served({ caseCount: 4 }, totals)), false);
+  assert.equal(
+    sameIndex(want.index, served({}, { ...totals, selfTest: "allowed" })),
+    false
+  );
+  assert.equal(
+    sameIndex(want.index, served({ format: "other" }, totals)),
+    false
+  );
+});
+
+test("an entry that is not ruled moves nothing", () => {
+  for (const ruling of ["pending", "rejected"]) {
+    const applied = applyExpectedDifferences(withCalls, [removeCall(ruling)]);
+    const want = expectedIndex(committedIndex, withCalls, applied);
+    assert.equal(want.index, committedIndex);
+    assert.equal(
+      sameIndex(
+        want.index,
+        served({}, { providerStubRequests: 1, providerRequestsRecorded: 1 })
+      ),
+      false
+    );
+  }
+});
+
+test("a ruled case without a provider transcript is a problem, not a guess", () => {
+  const texts = { ...withCalls, "post/odd": '{"case":"post/odd"}' };
+  const applied = applyExpectedDifferences(texts, [
+    {
+      case: "post/odd",
+      find: '"case"',
+      replace: '"name"',
+      why: "a key change",
+      ruling: "ruled:example",
+    },
+  ]);
+  const want = expectedIndex(committedIndex, texts, applied);
+  assert.deepEqual(want.problems, [
+    "post/odd: no provider transcript to count",
+  ]);
+  assert.equal(providerCount('{"provider":[1,2]}'), 2);
+  assert.equal(providerCount("not json"), null);
 });
