@@ -74,7 +74,9 @@
  * occurs exactly once, no more unchanged context than needed, whole-recording
  * entries flagged with a reason. Only a `ruled:` entry lets its case pass. A
  * re-record on edge absorbs the entries and must empty the file (the guard
- * checks).
+ * checks). A ruled entry that changes a case's provider transcript moves the
+ * index's two provider-request totals with it, by exactly that change; nothing
+ * else in the index moves (expected.cjs, expectedIndex).
  *
  * Schema pin. The index does not pin the migration count: it pins the shape
  * (columns, constraints, rules, triggers) of the relations the fixture writes
@@ -103,7 +105,11 @@ const RECORDINGS = path.join(HERE, "recordings");
 const EXPECTED = path.join(HERE, "expected-differences.json");
 const FORMAT = "collective-statement-recording/1";
 const EXCLUDED_HEADERS = new Set(["date", "connection", "keep-alive", "etag"]);
-const { applyExpectedDifferences } = require("./expected.cjs");
+const {
+  applyExpectedDifferences,
+  expectedIndex,
+  sameIndex,
+} = require("./expected.cjs");
 const safety = require("./safety.cjs");
 const { readSchema, schemaDrift } = require("./schema.cjs");
 
@@ -769,6 +775,7 @@ async function main() {
   const failures = [];
   const failedIds = new Set();
   const notes = [];
+  const indexNotes = [];
   for (const p of ed.problems) {
     failures.push(`expected differences: ${p}`);
     const id = p.split(": ")[0];
@@ -974,12 +981,12 @@ async function main() {
     const recordedIndex = JSON.parse(fs.readFileSync(indexFile, "utf8"));
     for (const d of schemaDrift(recordedIndex.postgres?.schema, pg.schema))
       failures.push(`postgres schema the recordings read changed: ${d}`);
-    const strip = (x) => ({
-      ...x,
-      postgres: { ...x.postgres, schema: undefined },
-      cases: x.cases.map((c) => c.id),
-    });
-    if (JSON.stringify(strip(recordedIndex)) !== JSON.stringify(strip(index)))
+    // The committed index, its provider totals moved only by what ruled case
+    // entries change in their provider transcripts (expected.cjs).
+    const want = expectedIndex(recordedIndex, committed, ed);
+    for (const p of want.problems) failures.push(`index.json: ${p}`);
+    indexNotes.push(...want.notes);
+    if (!sameIndex(want.index, index))
       failures.push(
         "index.json differs (case list, pins, egress or fixture counts changed)"
       );
@@ -990,6 +997,7 @@ async function main() {
     `${mode}: ${cases.length} cases; provider requests ${providerRecorded}; egress refused ${egress.refused.length}`
   );
   for (const n of notes) console.log(`  ${n}`);
+  for (const n of indexNotes) console.log(`  ${n}`);
   if (failuresOut)
     fs.writeFileSync(
       failuresOut,
