@@ -102,6 +102,35 @@ fn the_daemon_starts_polis_jobs_only_on_a_shadow_env() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// `threads` prints only thread-count lines (none when this machine's process
+/// is not fenced below its CPUs), and never one for a library whose setting is
+/// already present: the daemon adds these and nothing else to polis-jobs'
+/// environment.
+#[test]
+fn threads_prints_only_thread_counts_and_keeps_a_present_setting() {
+    let (dir, marker) = stand_in();
+    let out = run(&["threads"], &dir, &[]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    for line in stdout.lines() {
+        let (key, value) = line.split_once('=').unwrap();
+        assert!(
+            polis_queue_adapter::shadow::daemon::THREAD_VARS.contains(&key),
+            "{line}"
+        );
+        assert!(value.parse::<usize>().unwrap() >= 1, "{line}");
+    }
+    let present: Vec<(&str, &str)> = polis_queue_adapter::shadow::daemon::THREAD_VARS
+        .iter()
+        .map(|k| (*k, "3"))
+        .collect();
+    let out = run(&["threads"], &dir, &present);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert!(out.stdout.is_empty(), "{out:?}");
+    assert!(!marker.exists(), "threads never starts the daemon");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn the_scheduler_refuses_a_served_env_at_start() {
     let (dir, marker) = stand_in();
