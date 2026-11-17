@@ -10,6 +10,10 @@ import {
   JobAdmissionUnavailableError,
   JOB_QUEUE_TABLE,
 } from "./jobGuard";
+import {
+  mayStartDelphiWork,
+  refuseNotConversationOwner,
+} from "./generationOwner";
 
 // The job types delphi/scripts/job_poller.py runs (KNOWN_JOB_TYPES there).
 // Anything else is refused here; the poller used to send an unknown type to
@@ -77,6 +81,12 @@ export async function handle_POST_delphi_jobs(
         status: "error",
         error: "Could not determine conversation ID",
       });
+      return;
+    }
+
+    // The claim alone does not reach someone else's conversation.
+    if (!(await mayStartDelphiWork(zid, req.p.uid))) {
+      refuseNotConversationOwner(res);
       return;
     }
 

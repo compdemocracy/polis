@@ -7,6 +7,10 @@ import {
   JobAdmissionUnavailableError,
   JOB_QUEUE_TABLE,
 } from "./jobGuard";
+import {
+  mayStartDelphiWork,
+  refuseNotConversationOwner,
+} from "./generationOwner";
 
 /**
  * Handler for Delphi API route that generates batch narrative reports
@@ -41,6 +45,12 @@ export async function handle_POST_delphi_batch_reports(
         message: "Could not find conversation for report_id",
         report_id: report_id,
       });
+    }
+
+    // The claim alone does not reach someone else's conversation.
+    if (!(await mayStartDelphiWork(zid, req.p.uid))) {
+      refuseNotConversationOwner(res);
+      return;
     }
 
     const conversation_id = zid.toString();
