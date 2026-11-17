@@ -548,6 +548,12 @@ services:
       # open-data conversations; then the current set, the live ones. Each
       # within the bounds and budget.
       - DELPHI_SHADOW_BENCHMARK=${DELPHI_SHADOW_BENCHMARK:-}
+      # Sealed job graphs (docs/configuration.md, Delphi Shadow Job Graphs):
+      # the conversation codes listed here (commas or spaces; empty by
+      # default, and empty is off) run as four-node graphs under the granite
+      # model in DELPHI_SHADOW_GRAPH_ENV, a shadow env other than
+      # DELPHI_SHADOW_ENV. The image's model directory and lock are read
+      # offline, only for a listed graph's provenance.
       - DELPHI_SHADOW_GRAPH_CONVERSATIONS=${DELPHI_SHADOW_GRAPH_CONVERSATIONS:-}
       - DELPHI_SHADOW_GRAPH_ENV=${DELPHI_SHADOW_GRAPH_ENV:-shadow-graph-1}
       - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
