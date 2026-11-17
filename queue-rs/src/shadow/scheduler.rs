@@ -111,12 +111,16 @@ pub struct Scheduler<'a> {
     /// When a roster read last failed: the next is tried after
     /// `roster_retry`, so a failing read is not repeated every poll.
     pub roster_failed_at_ms: Option<i64>,
+    pub(super) graph_failed_at_ms: Option<i64>,
+    pub(super) graph_provenance: Option<(String, Value)>,
+    pub(super) graph_list_counts: Option<(usize, usize)>,
+    pub(super) graph_wait_bucket: Option<i64>,
 }
 
 impl<'a> Scheduler<'a> {
     pub fn new(cfg: &'a Config) -> Result<Self> {
         let state = State::load(&cfg.state_path, &cfg.env)?;
-        Ok(Self {
+        let mut scheduler = Self {
             cfg,
             db: Db::new(cfg),
             state,
@@ -124,7 +128,13 @@ impl<'a> Scheduler<'a> {
             rest_until_ms: 0,
             roster: None,
             roster_failed_at_ms: None,
-        })
+            graph_failed_at_ms: None,
+            graph_provenance: None,
+            graph_list_counts: None,
+            graph_wait_bucket: None,
+        };
+        scheduler.recover_graph()?;
+        Ok(scheduler)
     }
 
     fn save(&self) {
@@ -167,6 +177,9 @@ impl<'a> Scheduler<'a> {
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
+        if let Some(flight) = self.state.graph_flight.clone() {
+            return self.watch_graph(flight, now);
+        }
         if let Some(flight) = self.state.in_flight.clone() {
             return self.watch(flight, now);
         }
@@ -194,11 +207,13 @@ impl<'a> Scheduler<'a> {
             return Ok(self.cfg.poll);
         }
         self.resume();
-        Ok(if self.state.in_flight.is_some() {
-            self.cfg.job_poll
-        } else {
-            self.cfg.poll
-        })
+        Ok(
+            if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
+                self.cfg.job_poll
+            } else {
+                self.cfg.poll
+            },
+        )
     }
 
     fn resume(&mut self) {
@@ -217,6 +232,11 @@ impl<'a> Scheduler<'a> {
         let jobs = self.db.shadow_jobs()?;
         log("storage_listed", json!({"jobs": jobs.len()}));
         self.state.storage.pending = jobs;
+        if let Some(flight) = &self.state.graph_flight {
+            self.state.storage.pending.retain(|p| {
+                p.env != flight.env || !flight.nodes.iter().any(|n| n.job_id == p.job_id)
+            });
+        }
         self.state.storage.reconciled = true;
         Ok(())
     }
@@ -335,6 +355,26 @@ impl<'a> Scheduler<'a> {
             TwinStep::Admitted => return Ok(None),
             TwinStep::Held(reason) => return Ok(Some(reason)),
             TwinStep::Nothing => {}
+        }
+        if self
+            .graph_failed_at_ms
+            .is_none_or(|at| now - at >= self.cfg.roster_retry.as_millis() as i64)
+        {
+            match self.admit_graph(now) {
+                Ok(true) => {
+                    self.graph_failed_at_ms = None;
+                    return Ok(None);
+                }
+                Ok(false) => self.graph_failed_at_ms = None,
+                Err(_) => {
+                    // Errors can contain SQL input. Log a closed reason only.
+                    log(
+                        "graph_unavailable",
+                        json!({"reason":"admission_error","retry_seconds":self.cfg.roster_retry.as_secs()}),
+                    );
+                    self.graph_failed_at_ms = Some(now);
+                }
+            }
         }
         self.refresh_roster(now);
         let since = now - self.cfg.live_days as i64 * 86_400_000;
