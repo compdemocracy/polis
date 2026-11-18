@@ -6,12 +6,12 @@ line to standard error that is a JSON object and nothing else, like the
 capacity line (CloudWatch Logs Insights then reads its fields without a
 ``parse``)::
 
-    {"batch_moderation":0,"batch_votes":200,"comments":125,"encode_s":0.005736,
+    {"batch_moderation":0,"batch_votes":200,"comments":125,"encode_s":0.005846,
      "label":"python","lines_dropped":0,"load":"warm","math_tick":42,
-     "participants":69,"payload_bytes":185107,"prepare_s":0.002534,
-     "published_ms":1795060089123,"queue_wait_s":3.8e-05,
-     "recompute_cpu_s":0.035159,"recompute_s":0.035161,
-     "schema":"math_poller.recompute/1","total_votes":4555,"write_s":6.2e-05,
+     "participants":69,"payload_bytes":185107,"prepare_s":0.002684,
+     "published_ms":1794977705775,"queue_wait_s":3.7e-05,
+     "recompute_cpu_s":0.03847,"recompute_s":0.038472,
+     "schema":"math_poller.recompute/1","total_votes":4555,"write_s":6.7e-05,
      "zid":9301}
 
 What each field is:
