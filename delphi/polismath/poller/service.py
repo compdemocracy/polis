@@ -27,6 +27,7 @@ from polismath.poller.admission import (
     read_conversation_sizes,
 )
 from polismath.poller.capacity import SMALL, CapacityRouter, CapacitySettings
+from polismath.poller import recompute_line
 from polismath.poller.math_writer import MathWriter, dump_error
 from polismath.poller.readiness import classify_error
 from polismath.poller.worker_pool import (
@@ -1449,10 +1450,12 @@ class MathPollerService:
                 # under the cache lock, so no eviction can slip in between.
                 self.admission.hold(zid)
                 held = True
+        load = "cold" if conv is None else "warm"
         try:
             reservation = self._reserve(zid, conv, coalesced)
             try:
-                self._compute_and_publish(zid, conv, coalesced)
+                with recompute_line.span() as timings:
+                    self._compute_and_publish(zid, conv, coalesced)
             finally:
                 # An immutable recompute caches a distinct
                 # replacement whose charge replaces this zid's retained
@@ -1472,6 +1475,10 @@ class MathPollerService:
             if held:
                 conv = None
                 self.admission.unhold(zid)
+        # Published: one recompute line, logged after the reservation and the
+        # hold are released. It never raises.
+        recompute_line.emit(timings, zid=zid, label=self.config.math_env, load=load,
+                            batch=coalesced)
         return False
 
     def _compute_and_publish(
@@ -1506,7 +1513,7 @@ class MathPollerService:
             mods = self._pg.poll_moderation(zid, None)
             conv = conv.update_moderation(mods, recompute=False)
 
-        conv = conv.recompute()
+        conv = recompute_line.timed_recompute(conv)
         # M2 (P-019): write BEFORE caching so a write failure does not leave the
         # cache holding a state that was never persisted (which a retry would then
         # apply the batch on top of, double-advancing the temporal state). On
@@ -1638,7 +1645,8 @@ class MathPollerService:
         if self._coordinator_rebuild and row and row.get("data"):
             self._bridge_stage("after_restore")
 
-        conv = conv.recompute()
+        # Timed into the live path's span; the backfill's rebuild has none.
+        conv = recompute_line.timed_recompute(conv)
         return conv
 
     # -- error handling ----------------------------------------------------- #
