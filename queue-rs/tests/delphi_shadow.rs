@@ -6,7 +6,12 @@
 #![cfg(feature = "jobs-integration")]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use polis_queue_adapter::shadow::{config, db, plan, scheduler::Scheduler};
+use polis_queue_adapter::jobs::inputs::contract;
+use polis_queue_adapter::shadow::{
+    config, db, plan,
+    scheduler::{self, Scheduler},
+    state,
+};
 use postgres::{Client, NoTls};
 use serde_json::Value;
 use std::{
@@ -347,6 +352,235 @@ fn changed_sets_are_admitted_one_at_a_time_under_the_shadow_env_only() {
     assert_eq!(f.jobs().len(), 4);
 }
 
+/// What participants are shown, by a query written here from the comment list
+/// participants are served (server/src/comment.ts, participantVisibleClause),
+/// not by the code under test: the expected tids and the selection's digest of
+/// them (`polis-jobs.selection/1`: the header, the name, `tid\tsha256(txt)`).
+fn shown(c: &mut Client, zid: i32) -> (Vec<i64>, String) {
+    let rows = c
+        .query(
+            "SELECT c.tid::bigint, c.txt FROM comments c JOIN conversations v USING (zid) \
+             WHERE c.zid = $1 AND c.active AND c.velocity > 0 \
+             AND CASE WHEN coalesce(v.strict_moderation, false) THEN c.mod = 1 ELSE c.mod <> -1 END \
+             ORDER BY c.tid",
+            &[&zid],
+        )
+        .unwrap();
+    let mut text = String::from("polis-jobs.selection/1\nparticipant_visible/1\n");
+    let mut tids = Vec::new();
+    for r in &rows {
+        let (tid, txt): (i64, String) = (r.get(0), r.get(1));
+        text.push_str(&format!(
+            "{tid}\t{}\n",
+            contract::sha256_hex(txt.as_bytes())
+        ));
+        tids.push(tid);
+    }
+    (tids, contract::sha256_hex(text.as_bytes()))
+}
+
+/// The selection is part of each run's identity. A run embeds every comment
+/// and lays out, clusters and names what participants are shown; its
+/// admission names the selection with both census digests and their counts;
+/// a moderation that changes what participants are shown is a new run, and
+/// one that does not (an unmoderated comment accepted outside strict
+/// moderation, a rejected comment added) is not. A state entry an earlier
+/// build wrote (its runs laid out every comment) is run once more, then not
+/// again.
+#[test]
+fn the_selection_keys_each_run_and_follows_moderation() {
+    let f = Fixture::new();
+    f.conversation(301, 30);
+    f.conversation(302, 30);
+    let mut c = f.superuser();
+    // 301, open: rejected, inactive, muted, accepted; the rest unmoderated.
+    // 302, strict: 22 accepted; rejected, inactive, muted among the rest.
+    c.batch_execute(&format!(
+        "UPDATE comments SET mod = {REJECTED_COMMENT_MOD} WHERE zid = 301 AND tid = 0;
+         UPDATE comments SET active = false WHERE zid = 301 AND tid = 1;
+         UPDATE comments SET velocity = 0 WHERE zid = 301 AND tid = 2;
+         UPDATE comments SET mod = 1 WHERE zid = 301 AND tid = 3;
+         UPDATE conversations SET strict_moderation = true WHERE zid = 302;
+         UPDATE comments SET mod = 1 WHERE zid = 302 AND tid < 25;
+         UPDATE comments SET mod = {REJECTED_COMMENT_MOD} WHERE zid = 302 AND tid = 22;
+         UPDATE comments SET active = false WHERE zid = 302 AND tid = 23;
+         UPDATE comments SET velocity = 0 WHERE zid = 302 AND tid = 24;"
+    ))
+    .unwrap();
+    let cfg = f.config(&[("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(301));
+    assert_eq!(next_admitted(&f, &mut s), Some(302));
+    for (job, zid, selected) in [(0, 301, 27), (1, 302, 22)] {
+        let config = &f.jobs()[job].3;
+        let census = db::read_only(&mut c, 30_000, |tx| db::comment_set(tx, zid)).unwrap();
+        let (tids, digest) = shown(&mut c, zid);
+        assert_eq!(tids.len(), selected, "{zid}: {tids:?}");
+        assert_eq!(config["selection"], "participant_visible/1");
+        assert_eq!(config["exclude_comment_selections"], false);
+        assert!(config.get("include_moderation").is_none());
+        let shadow = &config["shadow"];
+        assert_eq!(shadow["schema"], "delphi-shadow/2");
+        // The embedded set: every comment, the run's census digest.
+        assert_eq!(shadow["comment_set_sha256"], census.digest.as_str());
+        assert_eq!(shadow["comments"], 30);
+        // The selection: what participants are shown.
+        assert_eq!(shadow["selection"], "participant_visible/1");
+        assert_eq!(shadow["selection_sha256"], digest.as_str());
+        assert_eq!(shadow["selected"], selected as i64);
+    }
+    assert_eq!(next_admitted(&f, &mut s), None, "nothing changed");
+
+    // The same comments shown: no run. 301 accepts an unmoderated comment
+    // (shown before, shown now), and a rejected comment arrives.
+    let before = s.state.totals.unchanged;
+    c.batch_execute(&format!(
+        "UPDATE comments SET mod = 1, modified = now_as_millis() WHERE zid = 301 AND tid = 4;
+         INSERT INTO comments(zid,pid,uid,txt,mod,active) VALUES(301,0,301000,'a generated rejected comment',{REJECTED_COMMENT_MOD},true);"
+    ))
+    .unwrap();
+    assert_eq!(next_admitted(&f, &mut s), None);
+    assert!(
+        s.state.totals.unchanged > before,
+        "read, and found unchanged"
+    );
+    assert_eq!(f.jobs().len(), 2);
+
+    // What participants are shown changes: a new run, keyed by the new
+    // selection, which is what participants are shown at its admission.
+    let admitted = |s: &mut Scheduler<'_>, c: &mut Client, zid: i32, why: &str| {
+        assert_eq!(next_admitted(&f, s), Some(zid), "{why}");
+        let (tids, digest) = shown(c, zid);
+        let jobs = f.jobs();
+        let (_, job_zid, _, config) = jobs.last().unwrap();
+        assert_eq!(*job_zid, zid);
+        assert_eq!(
+            config["shadow"]["selection_sha256"],
+            digest.as_str(),
+            "{why}"
+        );
+        assert_eq!(config["shadow"]["selected"], tids.len() as i64, "{why}");
+        config["shadow"]["selection_sha256"].clone()
+    };
+    c.batch_execute(
+        "UPDATE comments SET mod = 1, modified = now_as_millis() WHERE zid = 302 AND tid = 25",
+    )
+    .unwrap();
+    let strict_more = admitted(&mut s, &mut c, 302, "strict: one more accepted");
+    assert_ne!(strict_more, f.jobs()[1].3["shadow"]["selection_sha256"]);
+    c.batch_execute(&format!(
+        "UPDATE comments SET mod = {REJECTED_COMMENT_MOD}, modified = now_as_millis() WHERE zid = 301 AND tid = 3"
+    ))
+    .unwrap();
+    admitted(&mut s, &mut c, 301, "an accepted comment rejected");
+    // Strict moderation turned off, seen at the next comment change.
+    c.batch_execute(
+        "UPDATE conversations SET strict_moderation = false WHERE zid = 302;
+         UPDATE comments SET modified = now_as_millis() WHERE zid = 302 AND tid = 0",
+    )
+    .unwrap();
+    admitted(&mut s, &mut c, 302, "strict off: the unmoderated shown");
+    assert_eq!(f.jobs().len(), 5);
+    assert_eq!(f.jobs()[4].3["shadow"]["selected"], 27);
+    assert_eq!(next_admitted(&f, &mut s), None);
+
+    // A conversation an earlier build ran: its admission named no selection
+    // (every comment laid out, keyed by every comment's digest) and its state
+    // entry names none. Every comment of it is shown, and still it is run once
+    // more, because its stored run cannot be told from a run of every comment
+    // by anything but its record; then not again.
+    f.conversation(303, 30);
+    let census = db::read_only(&mut c, 30_000, |tx| db::comment_set(tx, 303)).unwrap();
+    assert_eq!(census.selected, census.comments, "nothing hidden");
+    let earlier = serde_json::json!({"include_moderation": false, "exclude_comment_selections": true,
+        "embeddings_table": true, "shadow": {"schema": "delphi-shadow/1",
+        "comment_set_sha256": census.digest, "comments": 30, "size_class": "b 20-99",
+        "set": "current", "twin_of": null, "scheduler": "polis-delphi-shadow (an earlier build)"}});
+    let job = Uuid::new_v4().to_string();
+    let reply: Value = Client::connect(&cfg.queue_dsn, NoTls)
+        .unwrap()
+        .query_one(
+            "SELECT pd_writer_admit($1,303,$2,$3,$4,repeat('a',64),$5::text::uuid,gen_random_uuid(),\
+             'delphi_full_pipeline',NULL,$6::text::jsonb,$7)",
+            &[&ENV, &config::SCOPE, &config::ACTOR,
+              &format!("shadow:first:303:{}", &census.digest[..48]), &job, &earlier.to_string(), &CODE],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(reply["outcome"], "enqueued");
+    f.cancel(&job);
+    let last_modified: i64 = c
+        .query_one("SELECT max(modified) FROM comments WHERE zid = 303", &[])
+        .unwrap()
+        .get(0);
+    s.state.conversations.insert(
+        303,
+        state::Seen {
+            last_modified,
+            digest: census.digest.clone(),
+            comments: 30,
+            admitted_digest: Some(census.digest.clone()),
+            admitted_at_ms: Some(scheduler::now_ms() - 2 * 86_400_000),
+            job_id: Some(job.clone()),
+            outcome: Some("cancelled".into()),
+            ..state::Seen::default()
+        },
+    );
+    s.state.save(&cfg.state_path).unwrap();
+    let mut again = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_admitted(&f, &mut again), Some(303));
+    let jobs = f.jobs();
+    assert_eq!(jobs.len(), 7);
+    // Told apart by their records: the earlier run names no selection.
+    let old = jobs.iter().find(|j| j.2 == job).unwrap();
+    assert!(old.3.get("selection").is_none());
+    assert_eq!(old.3["shadow"]["schema"], "delphi-shadow/1");
+    let new = &jobs[6].3;
+    assert_eq!(
+        (jobs[6].1, &new["selection"]),
+        (303, &Value::from("participant_visible/1"))
+    );
+    assert_eq!(
+        new["shadow"]["comment_set_sha256"],
+        old.3["shadow"]["comment_set_sha256"]
+    );
+    assert_eq!(new["shadow"]["selected"], 30);
+    for _ in 0..3 {
+        assert_eq!(next_admitted(&f, &mut again), None);
+    }
+    assert_eq!(f.jobs().len(), 7, "nothing else runs again");
+}
+
+/// A conversation with enough comments in all but too few shown is below the
+/// floor, and is not read again until a comment changes.
+#[test]
+fn the_floor_counts_what_participants_are_shown() {
+    let f = Fixture::new();
+    f.conversation(311, 25);
+    let mut c = f.superuser();
+    c.batch_execute(&format!(
+        "UPDATE comments SET mod = {REJECTED_COMMENT_MOD} WHERE zid = 311 AND tid < 10"
+    ))
+    .unwrap();
+    let cfg = f.config(&[("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(
+        next_admitted(&f, &mut s),
+        None,
+        "15 shown: below the floor of 20"
+    );
+    let seen = s.state.conversations.get(&311).unwrap();
+    assert_eq!((seen.comments, seen.selected), (25, 15));
+    assert_eq!(seen.selection.as_deref(), Some("participant_visible/1"));
+    assert_eq!(f.jobs().len(), 0);
+    c.batch_execute(
+        "UPDATE comments SET mod = 0, modified = now_as_millis() WHERE zid = 311 AND tid < 6",
+    )
+    .unwrap();
+    assert_eq!(next_admitted(&f, &mut s), Some(311), "21 shown");
+    assert_eq!(f.jobs()[0].3["shadow"]["selected"], 21);
+}
+
 /// Admit, record and cancel the next run; the zid admitted (None: nothing).
 fn next_admitted(f: &Fixture, s: &mut Scheduler<'_>) -> Option<i32> {
     s.cycle().unwrap();
@@ -583,7 +817,14 @@ fn the_schedulers_sessions_never_make_a_vote_a_comment_or_the_next_comment_wait(
     // conversation.
     let mut queue = Client::connect(&cfg.queue_dsn, NoTls).unwrap();
     let mut tx = queue.transaction().unwrap();
-    let a = plan::admission(201, &"ab".repeat(32), 30, Some(plan::Set::Current), None);
+    let census = db::CommentSet {
+        digest: "ab".repeat(32),
+        comments: 30,
+        selection: plan::SELECTION,
+        selection_digest: "ef".repeat(32),
+        selected: 30,
+    };
+    let a = plan::admission(201, &census, Some(plan::Set::Current), None);
     let reply: Value = tx
         .query_one(
             "SELECT pd_writer_admit($1,$2,'delphi','delphi-shadow',$3,$4,$5::text::uuid,$6::text::uuid,\
@@ -711,9 +952,15 @@ fn a_twin_is_admitted_on_the_same_set_and_named_in_its_record_or_dropped() {
         record["config_effective"]["shadow"]["twin_of"],
         first.job_id.as_str()
     );
+    // The flight's digest is the selection's, which keys it; the census
+    // digest of every comment is beside it.
+    assert_eq!(
+        record["config_effective"]["shadow"]["selection_sha256"],
+        first.digest.as_str()
+    );
     assert_eq!(
         record["config_effective"]["shadow"]["comment_set_sha256"],
-        first.digest.as_str()
+        first.comment_set_sha256.as_deref().unwrap()
     );
     // A twin carries its first run's set, in its record and its flight.
     assert_eq!(record["config_effective"]["shadow"]["set"], "current");

@@ -23,11 +23,17 @@
 #      Proofs (proofs.json): no connection to the internet; the model cannot
 #      be downloaded; the image's model loads and encodes offline.
 #   4. Both shadow services start. The scheduler admits, the daemon runs, one
-#      at a time, each first run twinned. When every set has run, one comment
-#      is added to one conversation and one comment moderated out in another,
-#      and those two sets run again (and are twinned).
-#   5. report.json (report.py), the services' logs, the scheduler's state
-#      file. The stack is removed on exit, volumes included.
+#      at a time, each first run twinned. Each run embeds every comment and
+#      lays out, clusters and names what participants are shown (the
+#      participant_visible/1 selection); a conversation with fewer than 20
+#      shown is not run. When every set has run, one comment is added to one
+#      conversation and one comment moderated out in another, and those two
+#      run again (and are twinned); two moderations that change nothing
+#      participants are shown run nothing.
+#   5. report.json (report.py), selection.json (selection_check.py: every
+#      comment embedded, exactly the shown ones placed, clustered and named),
+#      the services' logs, the scheduler's state file. The stack is removed on
+#      exit, volumes included.
 # Public fixtures only; nothing here reads or needs a credential.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -93,6 +99,16 @@ done
 psql -c "CREATE ROLE shadow_worker LOGIN; GRANT polis_queue_executor TO shadow_worker"
 tools tests/dynamo_removal/seed.py --source-agree=+1 >"$out/seed-1424.json"
 tools /rehearsal/seed_public.py >"$out/seed-public.json"
+# Moderation states on the public fixtures, so the runs have every kind of
+# comment participants are not shown: 2005 under strict moderation with ten
+# accepted comments put back to unmoderated; in 2006 five accepted comments
+# inactive, five muted (velocity 0) and five put back to unmoderated (shown,
+# outside strict moderation). The exports' own rejected comments stay.
+psql -c "UPDATE conversations SET strict_moderation = true WHERE zid = 2005;
+  UPDATE comments SET mod = 0 WHERE zid = 2005 AND tid IN (SELECT tid FROM comments WHERE zid = 2005 AND mod = 1 ORDER BY tid LIMIT 10);
+  UPDATE comments SET active = false WHERE zid = 2006 AND tid IN (SELECT tid FROM comments WHERE zid = 2006 AND mod = 1 ORDER BY tid LIMIT 5);
+  UPDATE comments SET velocity = 0 WHERE zid = 2006 AND tid IN (SELECT tid FROM comments WHERE zid = 2006 AND mod = 1 AND active ORDER BY tid LIMIT 5);
+  UPDATE comments SET mod = 0 WHERE zid = 2006 AND tid IN (SELECT tid FROM comments WHERE zid = 2006 AND mod = 1 AND active AND velocity > 0 ORDER BY tid LIMIT 5)"
 # A publication under the env readers serve: a collective statement saved as
 # the server saves one. The shadow must never move this pointer.
 psql -c "SELECT pd_result_mutate('$PUBLISHED_ENV','delphi','server-delphi',gen_random_uuid(),'Delphi_CollectiveStatement','put',jsonb_build_object('zid_topic_jobid',jsonb_build_object('S','1424#x#0#0#'||gen_random_uuid()),'zid',jsonb_build_object('S','1424'),'topic_key',jsonb_build_object('S','x#0#0'),'statement_data',jsonb_build_object('S','{\"statement\":\"Written for the rehearsal; no model.\"}'),'comments_data',jsonb_build_object('S','[]'),'model',jsonb_build_object('S','none')))->>'outcome'" >"$out/published.txt"
@@ -178,15 +194,30 @@ wait_terminal() {
     sleep 10
   done
 }
-first_wave=$(psql -c "SELECT count(*) FROM (SELECT zid FROM comments GROUP BY zid HAVING count(*) FILTER (WHERE btrim(txt)<>'') BETWEEN 20 AND 5000) s")
+# What participants are shown (server/src/comment.ts, participantVisibleClause),
+# stated here for the count: the scheduler's floor of 20 is of these, its cap
+# of 5,000 of every comment with text.
+shown="c.active AND c.velocity > 0 AND CASE WHEN coalesce(v.strict_moderation, false) THEN c.mod = 1 ELSE c.mod <> -1 END"
+first_wave=$(psql -c "SELECT count(*) FROM (SELECT c.zid FROM comments c JOIN conversations v USING (zid) GROUP BY c.zid HAVING count(*) FILTER (WHERE btrim(c.txt)<>'' AND $shown) >= 20 AND count(*) FILTER (WHERE btrim(c.txt)<>'') <= 5000) s")
 wait_terminal $(( first_wave * 2 ))
 sleep 15
 psql -c "INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified,active) VALUES (2002,1000,0,302002,'Electric buses would make the town quieter',0,false,now_as_millis(),now_as_millis(),true)"
-# A comment the export had accepted, moderated out (a comment already at -1
-# would leave the set unchanged, which the scheduler counts and skips).
-psql -c "UPDATE comments SET mod=-1, modified=now_as_millis() WHERE zid=2003 AND tid=(SELECT min(tid) FROM comments WHERE zid=2003 AND mod<>-1)"
+# A comment participants are shown, moderated out (one they are not shown
+# would leave the selection unchanged, which the scheduler counts and skips).
+psql -c "UPDATE comments SET mod=-1, modified=now_as_millis() WHERE zid=2003 AND tid=(SELECT min(c.tid) FROM comments c JOIN conversations v USING (zid) WHERE c.zid=2003 AND $shown) RETURNING tid" >"$out/moderated-out.txt"
+# Two moderations that change nothing participants are shown, so no run: an
+# accepted comment of 2004 put back to unmoderated (still shown), and an
+# unmoderated comment added to 2005 (strict: not shown).
+psql -c "UPDATE comments SET mod=0, modified=now_as_millis() WHERE zid=2004 AND tid=(SELECT min(tid) FROM comments WHERE zid=2004 AND mod=1)"
+psql -c "INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified,active) VALUES (2005,1000,0,302005,'Plant the riverbank before the next flood season',0,false,now_as_millis(),now_as_millis(),true)"
 wait_terminal $(( first_wave * 2 + 4 ))
-sleep 15
+sleep 30
+jobs_after=$(psql -c "SELECT count(*) FROM polis_queue_jobs WHERE env='$ENV'")
+echo "first wave $first_wave; jobs $jobs_after, expected $(( first_wave * 2 + 4 ))" >"$out/waves.txt"
+if (( jobs_after != first_wave * 2 + 4 )); then
+  echo "a moderation that changed nothing participants are shown was run" >&2
+  exit 4
+fi
 echo "daemon at the end: $(inside)" >>"$out/seal-inside.txt"
 docker system df >"$out/docker-df-after.txt" 2>&1 || true
 "${compose[@]}" --profile rehearsal --profile delphi-shadow exec -T delphi-shadow df -k /tmp /app/polis_data /app/visualizations >"$out/tmpfs.txt" 2>&1 || true
@@ -197,6 +228,17 @@ docker system df >"$out/docker-df-after.txt" 2>&1 || true
 echo "== 5. report"
 docker run --rm --network "container:$pg" -e DATABASE_URL=postgresql://postgres@127.0.0.1:5432/shadow \
   -v "$here:/rehearsal:ro" --entrypoint python "$SHADOW_REHEARSAL_IMAGE" /rehearsal/report.py "$ENV" "$PUBLISHED_ENV" "$served_before" >"$out/report.json"
+docker run --rm --network "container:$pg" -e DATABASE_URL=postgresql://postgres@127.0.0.1:5432/shadow \
+  -v "$here:/rehearsal:ro" --entrypoint python "$SHADOW_REHEARSAL_IMAGE" /rehearsal/selection_check.py "$ENV" >"$out/selection.json"
+python3 - "$out/selection.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+print(json.dumps({"selection_ok": s["ok"], "conversations": [{k: c[k] for k in (
+    "zid", "embedded", "shown", "hidden", "placed", "clustered", "hidden_placed", "hidden_quoted")}
+    for c in s["conversations"]]}, sort_keys=True))
+if not s["ok"]:
+    sys.exit("the stored runs are not exactly what participants are shown")
+PY
 python3 - "$out/report.json" <<'PY'
 import json, sys
 r = json.load(open(sys.argv[1]))
