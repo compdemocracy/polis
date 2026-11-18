@@ -24,6 +24,7 @@ import {
   updateLastInteractionTimeForConversation,
 } from "../server-helpers";
 import Config from "../config";
+import { mayStartDelphiWork } from "./delphi/generationOwner";
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
 import { sqsClient } from "../utils/sqs";
 import {
@@ -442,6 +443,26 @@ async function handle_POST_votes_bulk(
     return;
   }
   const { zid, uid } = req.p;
+
+  // The claim says the account may use Delphi, not on whose conversation. A
+  // caller with it must also own the conversation it names (the zid every
+  // read, upload, job row and queued message below uses) or be a site
+  // administrator: the rule the Delphi generation routes apply, by the same
+  // function (one owner read by primary key, on the ordinary pool). Anyone
+  // else is refused here, before the CSV is read and before anything is read
+  // or written for the conversation. A failed read answers as the route
+  // always has, inside a try for the reason above.
+  try {
+    if (!(await mayStartDelphiWork(zid, uid))) {
+      failJson(res, 403, "polis_err_votes_bulk_not_conversation_owner");
+      return;
+    }
+  } catch (err) {
+    logger.error("polis_err_post_votes_bulk", err);
+    failJson(res, 500, "polis_err_post_votes_bulk", err);
+    return;
+  }
+
   const csv = req.body.csv;
 
   if (!csv) {
