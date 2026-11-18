@@ -341,28 +341,38 @@ and `test_capacity_queue_postgres.py` cover the queue side.
 
 After every live recompute it publishes (a cold load or rebuild from the whole history,
 or a warm update of the cached conversation; the large worker's rebuild included, the
-backfill's not), the poller logs one bare JSON event at info level, on its own logger
-(`math_poller.recompute_line`), as the demand line is logged:
+backfill's not), the poller writes one bare JSON line to standard error, as the demand
+line is:
 
 ```json
 {"batch_moderation":0,"batch_votes":200,"comments":125,"encode_s":0.005736,"label":"python",
- "load":"warm","math_tick":42,"participants":69,"payload_bytes":185107,"prepare_s":0.002534,
- "queue_wait_s":3.8e-05,"recompute_cpu_s":0.035159,"recompute_s":0.035161,
- "schema":"math_poller.recompute/1","total_votes":4555,"write_s":6.2e-05,"zid":9301}
+ "lines_dropped":0,"load":"warm","math_tick":42,"participants":69,"payload_bytes":185107,
+ "prepare_s":0.002534,"published_ms":1795060089123,"queue_wait_s":3.8e-05,
+ "recompute_cpu_s":0.035159,"recompute_s":0.035161,"schema":"math_poller.recompute/1",
+ "total_votes":4555,"write_s":6.2e-05,"zid":9301}
 ```
 
 `recompute_s` is the wall time of `Conversation.recompute()`; `recompute_cpu_s` the worker
 thread's CPU time over the same span (`time.thread_time()`: the pool runs other
 conversations and the poll loops on other threads, which the process clock would count;
-CPU of helper threads a numerical library starts is not counted). `prepare_s` is the time
-before it (cold: the reads and the matrix build; warm: applying the batch), `encode_s` the
-time to build and encode the three blobs, `write_s` the publication (tick, three writes,
-commit), `queue_wait_s` the time the batch's oldest message waited in the conversation's
-queue (null outside the pool). The counts are the vote matrix's (`participants`,
-`comments`, `total_votes`: cells holding a vote) and the batch's rows. `polismath/poller/recompute_line.py`
-defines every field. Counts, seconds, a tick and the conversation id: no comment text and
-no participant identifier. A line is logged only when the publication completed; a
-failure to build or log it is swallowed and never reaches the recompute. One line per
-publication, as many as the `Wrote math results` lines of the live path, so there is no
-setting. CloudWatch Logs Insights:
-`filter schema = "math_poller.recompute/1" | stats count(*), pct(recompute_s, 50), pct(recompute_s, 95) by bin(10m)`.
+Compose runs the engine with its BLAS and OpenMP pools at one thread, so there it is the
+recompute's whole CPU). `prepare_s` is the time before it (cold: the reads and the matrix
+build; warm: applying the batch), `encode_s` the time to build and encode the three blobs,
+`write_s` the publication (tick, three writes, commit), `queue_wait_s` the time the batch's
+oldest message waited in the conversation's queue (null outside the pool). The counts are
+the vote matrix's (`participants`, `comments`, `total_votes`: cells holding a vote) and the
+batch's rows. `published_ms` is when the publication finished; `lines_dropped` counts the
+lines this process has dropped (below). `polismath/poller/recompute_line.py` defines every
+field. Counts, seconds, times, a tick and the conversation id: no comment text and no
+participant identifier.
+
+The pool thread never writes the line. It hands a small record of scalars to a queue
+bounded at 1,024 lines without waiting (`put_nowait`), and one background daemon thread
+formats and writes it with `os.write` on file descriptor 2, not through `logging`. A
+standard error that blocks, fails or loses that thread therefore never holds a pool
+thread; when the queue is full a line is dropped and counted in `lines_dropped`, which
+every written line carries. At exit the queue is flushed for at most one second. One line
+per publication, as many as the `Wrote math results` lines of the small poller's live
+path (the large worker's child writes to its job log instead), so there is no setting.
+CloudWatch Logs Insights:
+`filter schema = "math_poller.recompute/1" | stats count(*), pct(recompute_s, 50), pct(recompute_s, 95), max(lines_dropped) by bin(10m)`.
