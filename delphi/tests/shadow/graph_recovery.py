@@ -3,6 +3,8 @@
 
 GRAPH_RECOVERY_IMAGE, GRAPH_RECOVERY_PG_CONTAINER, GRAPH_RECOVERY_DATABASE and
 GRAPH_RECOVERY_OUT name caller-owned resources. No votes or external services.
+The image must be a test build (delphi/Dockerfile target test): the node it
+admits uses a test-only model, which a production daemon refuses to run.
 """
 import json
 import os

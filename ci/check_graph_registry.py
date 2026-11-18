@@ -19,6 +19,9 @@ ALLOWED = {
     'ci/test_graph_registry.py',
     'delphi/tests/job_graph/adversarial.py',
     'delphi/tests/job_graph/prove.py',
+    # Daemon recovery proof: admits one test-model node straight through SQL
+    # so a test-build daemon has an attempt to lose and recover.
+    'delphi/tests/shadow/graph_recovery.py',
     'queue-rs/tests/delphi_shadow.rs',
     'queue-rs/tests/jobs_integration.rs',
     'queue-rs/polis-contracts/src/delphi_run.rs',
