@@ -234,7 +234,8 @@ python3 - "$out/selection.json" <<'PY'
 import json, sys
 s = json.load(open(sys.argv[1]))
 print(json.dumps({"selection_ok": s["ok"], "conversations": [{k: c[k] for k in (
-    "zid", "embedded", "shown", "hidden", "placed", "clustered", "hidden_placed", "hidden_quoted")}
+    "zid", "embedded", "added_after_run", "shown", "hidden", "placed", "clustered", "hidden_placed",
+    "hidden_quoted")}
     for c in s["conversations"]]}, sort_keys=True))
 if not s["ok"]:
     sys.exit("the stored runs are not exactly what participants are shown")
