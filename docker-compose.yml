@@ -545,6 +545,86 @@ services:
     profiles:
       - delphi-shadow
 
+  # Optional graph execution on this host. Its separate local journal survives
+  # container replacement. Never copy that volume to a different host.
+  # Total default ceilings: 16 GiB full pipeline + 6 GiB graph + 256 MiB
+  # scheduler, before math, Postgres, the web services and the operating system.
+  delphi-shadow-graph:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["polis-delphi-shadow", "daemon"]
+    init: false
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      - DELPHI_SHADOW_GRAPH_DAEMON=1
+      - POLIS_JOBS_JOURNAL_HOST_FILE=/run/polis-host-id
+      - POLIS_JOBS_ENABLED=${DELPHI_SHADOW_GRAPH_ENABLED:-0}
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
+      - QUEUE_DATABASE_URL=${QUEUE_DATABASE_URL:-}
+      - QUEUE_ENV=${DELPHI_SHADOW_GRAPH_ENV:-shadow-graph-1}
+      - DELPHI_RESULT_BACKEND=postgres
+      - DELPHI_RESULT_ENV=${DELPHI_SHADOW_GRAPH_ENV:-shadow-graph-1}
+      - POLIS_JOBS_TRANSPORT=${POLIS_JOBS_TRANSPORT:-tls}
+      - POLIS_JOBS_CA_FILE=${POLIS_JOBS_CA_FILE:-}
+      - POLIS_JOBS_HOST_ALLOWLIST=${POLIS_JOBS_HOST_ALLOWLIST:-}
+      - POLIS_JOBS_WORKER_CLASS=delphi
+      - POLIS_JOBS_STAGES=graph_embed,graph_cluster,graph_topics,graph_narrative
+      - POLIS_JOBS_CONCURRENCY=1
+      - POLIS_JOBS_CHILD_TIMEOUT_SECONDS=${DELPHI_SHADOW_CHILD_TIMEOUT_SECONDS:-7200}
+      - POLIS_JOBS_JOURNAL_DIR=/var/lib/delphi-shadow-graph/journal
+      - POLIS_JOBS_WORK_DIR=/tmp/delphi-shadow-graph/work
+      - DELPHI_EMBEDDINGS_TABLE=1
+      - MATH_ENV=${MATH_ENV:-prod}
+      - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
+      - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - LLM_PROVIDER=anthropic
+      - ANTHROPIC_TOPIC_MODEL=none
+      - SENTENCE_TRANSFORMER_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
+      - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
+      - DELPHI_EMBED_MODEL_BY_ENV
+      - DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      - HF_HOME=/tmp/delphi-shadow-graph/hf
+      - NUMBA_CACHE_DIR=/tmp/delphi-shadow-graph/numba
+      - TMPDIR=/tmp
+      - DELPHI_SKIP_DATAMAPPLOT=1
+      - DELPHI_LOCAL_OUTPUT_CLEANUP=1
+      - DELPHI_STEP_LOG=1
+    volumes:
+      - delphi-shadow-graph-state:/var/lib/delphi-shadow-graph
+      - type: bind
+        source: ${DELPHI_SHADOW_GRAPH_HOST_ID_FILE:-/etc/machine-id}
+        target: /run/polis-host-id
+        read_only: true
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+      - /app/polis_data:size=512m
+      - /app/visualizations:size=64m
+    networks:
+      - "polis-net"
+    stop_grace_period: 60s
+    cpu_shares: 2
+    oom_score_adj: 1000
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_SHADOW_GRAPH_CONTAINER_MEMORY:-6g}
+          cpus: ${DELPHI_SHADOW_GRAPH_CONTAINER_CPUS:-2}
+    restart: unless-stopped
+    profiles:
+      - delphi-shadow-graph
+
   delphi-shadow-scheduler:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -1019,6 +1099,7 @@ volumes:
     labels:
       polis_tag: ${TAG:-dev}
   # The Delphi shadow's daemon journal and scheduler state (small files).
+  delphi-shadow-graph-state:
   delphi-shadow-state:
     labels:
       polis_tag: ${TAG:-dev}
