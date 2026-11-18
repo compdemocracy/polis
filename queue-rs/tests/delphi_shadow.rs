@@ -1562,6 +1562,9 @@ fn graph_scheduler_admits_publishes_and_accepts_only_its_lost_reply() {
                 .unwrap()
                 .get(0);
             assert_eq!(published["outcome"], "published");
+            // The original commit is durable but its reply was lost. A later
+            // publish call may itself fail; the separate root read still wins.
+            f.superuser().batch_execute("ALTER FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RENAME TO publish_before_lost_reply; CREATE FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN RAISE EXCEPTION 'publication reply unavailable' USING ERRCODE='40001'; END $$; GRANT EXECUTE ON FUNCTION pd_graph_publish(text,uuid,uuid,bigint) TO polis_queue_executor;").unwrap();
         }
         s.cycle().unwrap();
         assert!(s.state.graph_flight.is_none());
@@ -1760,4 +1763,31 @@ fn committed_graph_admission_with_unread_reply_is_recovered_before_full_pipeline
         graph_id
     );
     assert!(scheduler.state.in_flight.is_none());
+}
+
+#[test]
+fn transient_publish_before_commit_retries_and_keeps_one_generation() {
+    let f = Fixture::new();
+    f.quiet(991, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c991")]);
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let flight = scheduler.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &flight);
+    let mut c = f.superuser();
+    // Sequences survive rollback, so the first call refuses before its commit
+    // and the second exercises the original publication function.
+    c.batch_execute("CREATE SEQUENCE publish_calls; ALTER FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RENAME TO publish_original;
+        CREATE FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+        BEGIN IF nextval('publish_calls')=1 THEN RAISE EXCEPTION 'retry' USING ERRCODE='40001'; END IF;
+        RETURN publish_original($1,$2,$3,$4); END $$;
+        GRANT EXECUTE ON FUNCTION pd_graph_publish(text,uuid,uuid,bigint) TO polis_queue_executor;").unwrap();
+    scheduler.cycle().unwrap();
+    assert_eq!(scheduler.state.totals.succeeded, 1);
+    let calls: i64 = c
+        .query_one("SELECT last_value FROM publish_calls", &[])
+        .unwrap()
+        .get(0);
+    assert_eq!(calls, 2);
 }

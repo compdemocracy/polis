@@ -25,12 +25,15 @@ const INCLUDED: &str = "NOT EXISTS (SELECT 1 FROM report_comment_selections r WH
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Observation {
+    #[serde(default)]
+    pub rule: String,
     pub comments: i64,
     pub last_modified: i64,
 }
-impl From<&Live> for Observation {
-    fn from(c: &Live) -> Self {
+impl Observation {
+    fn new(c: &Live, build: &str) -> Self {
         Self {
+            rule: format!("graph-admission/2:{build}"),
             comments: c.comments,
             last_modified: c.last_modified,
         }
@@ -365,7 +368,7 @@ impl Scheduler<'_> {
             self.graph_list_counts = Some(counts);
         }
         for candidate in listed {
-            let observed = Observation::from(&candidate);
+            let observed = Observation::new(&candidate, &self.cfg.code_version);
             if self.state.graph_observed.get(&candidate.zid) == Some(&observed) {
                 continue;
             }
@@ -412,17 +415,19 @@ impl Scheduler<'_> {
             "graph_refused",
             json!({"reason":reason,"comments":candidate.comments}),
         );
-        self.state
-            .graph_observed
-            .insert(candidate.zid, Observation::from(candidate));
+        self.state.graph_observed.insert(
+            candidate.zid,
+            Observation::new(candidate, &self.cfg.code_version),
+        );
     }
 
     fn admit_graph_candidate(&mut self, cfg: &Config, candidate: &Live, now: i64) -> Result<bool> {
         let s = snapshot(&self.db, candidate.zid)?;
         if self.state.graph_seen.get(&candidate.zid) == Some(&s.digest) {
-            self.state
-                .graph_observed
-                .insert(candidate.zid, Observation::from(candidate));
+            self.state.graph_observed.insert(
+                candidate.zid,
+                Observation::new(candidate, &self.cfg.code_version),
+            );
             return Ok(false);
         }
         // Four jobs plus all three inline copies per node. Charge the
@@ -658,8 +663,8 @@ impl Scheduler<'_> {
             .values()
             .all(|(s, _)| matches!(s.as_str(), "succeeded" | "dead" | "cancelled"));
         // A dead producer reconciles its dependent nodes through the daemon.
-        // Never release the scheduler while a child is still running, even
-        // beyond the deadline: otherwise two computations could overlap.
+        // Keep this conversation excluded while execution remains unresolved.
+        // After the deadline, deferred tracking allows other conversations.
         if !terminal {
             self.log_graph_wait(&flight, now, &states, true);
             self.defer_graph(&flight, now);
@@ -683,51 +688,60 @@ impl Scheduler<'_> {
         let success = states.values().all(|(s, _)| s == "succeeded");
         let mut published = false;
         if success {
-            let result = (|| -> Result<bool> {
-                let leaf = flight
-                    .nodes
-                    .iter()
-                    .find(|n| n.stage == "graph_narrative")
-                    .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
-                let mut client = self.db.connect_queue()?;
-                let r: String = client
-                    .query_one(
-                        "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)::text",
+            let leaf = flight
+                .nodes
+                .iter()
+                .find(|n| n.stage == "graph_narrative")
+                .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
+            // Each retry and every read use a fresh connection, including after
+            // a commit whose reply was lost. No retry follows a definite refusal.
+            for attempt in 0..3 {
+                let result = (|| -> Result<Value> {
+                    let mut client = self.db.connect_queue()?;
+                    let row = client.query_one(
+                        "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)",
                         &[
                             &flight.env,
                             &flight.graph_id,
                             &leaf.job_id,
                             &flight.generation,
                         ],
-                    )?
-                    .try_get(0)?;
-                let r: Value = serde_json::from_str(&r)?;
-                published = r["outcome"] == "published";
-                // On restart after a lost publish reply, accept only this exact leaf.
-                if !published {
-                    let served: String = client
-                        .query_one(
-                            "SELECT public.pd_graph_served($1,$2,$3)::text",
-                            &[&flight.env, &flight.zid, &scope(flight.zid)],
-                        )?
-                        .try_get(0)?;
-                    let served: Value = serde_json::from_str(&served)?;
-                    published = served["generation"].as_i64() == Some(flight.generation + 1)
-                        && served["bundle"]["artifacts"]
-                            .as_array()
-                            .is_some_and(|a| a.iter().any(|x| x["job_id"] == leaf.job_id));
+                    )?;
+                    Ok(row.try_get(0)?)
+                })();
+                // A publish reply alone does not establish which root is served.
+                let served = (|| -> Result<Value> {
+                    let mut client = self.db.connect_queue()?;
+                    let row = client.query_one(
+                        "SELECT public.pd_graph_served($1,$2,$3)",
+                        &[&flight.env, &flight.zid, &scope(flight.zid)],
+                    )?;
+                    Ok(row.try_get::<_, Option<Value>>(0)?.unwrap_or(Value::Null))
+                })();
+                match served {
+                    Ok(ref value) if exact_leaf(value, &leaf.job_id, flight.generation) => {
+                        published = true;
+                        break;
+                    }
+                    // The outcome is still unknown. Keep the flight and resolve
+                    // it on a later poll; never count an uncertain commit failed.
+                    Err(error) => return Err(error),
+                    _ => {}
                 }
-                Ok(published)
-            })();
-            match result {
-                Ok(value) => published = value,
-                Err(_) => {
-                    log(
-                        "graph_publish_failed",
-                        json!({"graph_id":flight.graph_id,"reason":"publish_error"}),
-                    );
-                    published = false;
+                let retry = result.as_ref().err().is_some_and(publish_transient);
+                if !retry || attempt == 2 {
+                    break;
                 }
+                log(
+                    "graph_publish_retry",
+                    json!({"graph_id":flight.graph_id,"attempt":attempt+1}),
+                );
+            }
+            if !published {
+                log(
+                    "graph_publish_failed",
+                    json!({"graph_id":flight.graph_id,"reason":"publication_not_served"}),
+                );
             }
         }
         let mut bytes = 0u64;
@@ -797,6 +811,35 @@ impl Scheduler<'_> {
             (self.rest_until_ms - now).max(1000) as u64
         ))
     }
+}
+
+fn publish_transient(error: &anyhow::Error) -> bool {
+    let Some(db) = error.downcast_ref::<postgres::Error>() else {
+        return true;
+    };
+    match db.code().map(|c| c.code()) {
+        None => true,
+        Some(c) => {
+            c.starts_with("08")
+                || matches!(
+                    c,
+                    "40001" | "40P01" | "53300" | "55P03" | "57014" | "57P01" | "57P03"
+                )
+        }
+    }
+}
+
+fn exact_leaf(served: &Value, job: &str, generation: i64) -> bool {
+    served["generation"].as_i64() == generation.checked_add(1)
+        && served["bundle"]["root"].as_str().is_some_and(|root| {
+            served["bundle"]["artifacts"]
+                .as_array()
+                .is_some_and(|artifacts| {
+                    artifacts
+                        .iter()
+                        .any(|a| a["artifact_id"] == root && a["job_id"] == job)
+                })
+        })
 }
 
 /// Additional graph rows, indexed by this job. The root pays the graph request
@@ -878,6 +921,37 @@ mod tests {
         s.texts = vec!["x".repeat(4096); 2000];
         s.ids = (0..2000).collect();
         assert!(spec(&s, &"e".repeat(64), &p).is_err());
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    #[test]
+    fn publication_requires_exact_root_and_generation() {
+        let mut served = json!({"generation": 7,"bundle":{"root":"root","artifacts":[
+            {"artifact_id":"ancestor","job_id":"requested"},
+            {"artifact_id":"root","job_id":"other"}]}});
+        assert!(!exact_leaf(&served, "requested", 6));
+        served["bundle"]["root"] = json!("ancestor");
+        assert!(exact_leaf(&served, "requested", 6));
+        assert!(!exact_leaf(&served, "requested", 5));
+        assert!(!exact_leaf(&Value::Null, "requested", 6));
+    }
+    #[test]
+    fn old_refusal_and_new_code_are_reconsidered() -> Result<()> {
+        let live = Live {
+            zid: 1,
+            comments: 2001,
+            last_modified: 2,
+        };
+        let old: Observation = serde_json::from_value(json!({"comments":2001,"last_modified":2}))?;
+        assert_ne!(old, Observation::new(&live, "build-a"));
+        assert_ne!(
+            Observation::new(&live, "build-a"),
+            Observation::new(&live, "build-b")
+        );
         Ok(())
     }
 }

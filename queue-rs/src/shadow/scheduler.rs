@@ -379,6 +379,12 @@ impl<'a> Scheduler<'a> {
                         json!({"reason":"admission_error","retry_seconds":self.cfg.roster_retry.as_secs()}),
                     );
                     self.graph_failed_at_ms = Some(now);
+                    // Admission may have committed before its reply was lost.
+                    // Recovery failure stops this cycle, including full runs.
+                    self.recover_graph()?;
+                    if self.state.graph_flight.is_some() {
+                        return Ok(None);
+                    }
                 }
             }
         }
