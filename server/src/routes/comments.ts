@@ -3,7 +3,7 @@ import _ from "underscore";
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
-import { parseSeedCsv } from "../utils/seedCsv";
+import { parseSeedCsv, SeedCsvRecord, SeedCsvRowError } from "../utils/seedCsv";
 import { getConversationInfo } from "../conversation";
 import { getNextComment, checkInitialComment } from "../nextComment";
 import { getPidPromise } from "../user";
@@ -829,7 +829,20 @@ async function handle_POST_comments_bulk(
 
     // Validate before creating a participant or storing any comments. Otherwise
     // a headerless upload consumes its first comment as column names.
-    const records = parseSeedCsv(String(csv));
+    let records: SeedCsvRecord[] | null;
+    try {
+      records = parseSeedCsv(String(csv));
+    } catch (err) {
+      // A row the parser cannot read (a column count other than the header's,
+      // a misplaced double quote) is the uploader's to fix: 400 with the row
+      // and the cause, before anything is stored. Any other error is still
+      // the server's (the catch below).
+      if (err instanceof SeedCsvRowError) {
+        failJson(res, 400, "polis_err_csv_row", err, { message: err.message });
+        return;
+      }
+      throw err;
+    }
     if (!records) {
       failJson(res, 400, "polis_err_csv_header", undefined, {
         message:
