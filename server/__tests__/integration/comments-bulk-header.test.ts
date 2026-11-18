@@ -212,7 +212,7 @@ describe("bulk seed CSV header", () => {
     ],
     [
       "a byte-order mark before a double quote",
-      'comment_text\nFirst seed\n﻿"Second seed"',
+      'comment_text\nFirst seed\n\uFEFF"Second seed"',
       "Row 3 (the header is row 1) has a byte-order mark, an invisible character that belongs only at the start of a file, before a double quote. This usually means two files were joined: remove that character and upload again.",
     ],
     [
@@ -248,7 +248,7 @@ describe("bulk seed CSV header", () => {
   test.each([
     ["text only", ""],
     ["text then ID", ""],
-    ["text only", "﻿"],
+    ["text only", "\uFEFF"],
   ])("keeps a quoted comma unchanged: %s (BOM: %j)", async (format, bom) => {
     const { id, zid } = await conversation();
     const ids = [randomUUID(), randomUUID()];

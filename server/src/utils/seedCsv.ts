@@ -7,7 +7,7 @@ export type SeedCsvRecord = { comment_text: string; original_id?: string };
 // as one more column whose name is empty.
 const UNNAMED = "";
 
-const BYTE_ORDER_MARK = "﻿";
+const BYTE_ORDER_MARK = "\uFEFF";
 
 const HEADER_RULE =
   "CSV header must be comment_text, optionally with original_id.";
@@ -17,11 +17,12 @@ const HEADER_RULE =
 export class SeedCsvRowError extends Error {
   // The row as a person counts the rows of the file: the header is row 1, a
   // blank line is a row, and a comment wrapped in double quotes over several
-  // lines is one row. Blank lines above the header are not counted.
-  readonly row: number;
+  // lines is one row. Blank lines above the header are not counted. Null when
+  // the row could not be worked out (the message then says so in general).
+  readonly row: number | null;
   // The parser's code for what is wrong (csv-parse's CsvError code).
   readonly parserCode: string;
-  constructor(row: number, parserCode: string, message: string) {
+  constructor(row: number | null, parserCode: string, message: string) {
     super(message);
     this.name = "SeedCsvRowError";
     this.row = row;
@@ -42,21 +43,50 @@ function isSeedCsvHeader(header: string[]): boolean {
   );
 }
 
+// The parser's codes for a file whose shape it cannot read. Every other code
+// this route can meet is about options or input it never sends.
+const SHAPE_CODES = new Set([
+  "CSV_RECORD_INCONSISTENT_COLUMNS",
+  "CSV_QUOTE_NOT_CLOSED",
+  "INVALID_OPENING_QUOTE",
+  "CSV_INVALID_CLOSING_QUOTE",
+]);
+
+// The message for a shape refusal whose row and cause cannot be worked out.
+const SHAPE_MESSAGE =
+  "This file has a row that cannot be read as CSV. A comment that contains a comma or a double quote must be wrapped in double quotes, and a double quote inside it must be written as two double quotes.";
+
+const LF = 0x0a;
+const CR = 0x0d;
+
 // The empty lines above the header, which the parser skips and counts with
-// every other empty line.
+// every other empty line: the line endings (CRLF, LF or a lone CR) at the
+// start of the file, after its byte-order mark if it has one. One pass in
+// constant space, for a body as large as the route accepts.
 function emptyLinesAboveHeader(csv: string): number {
-  const text = csv.startsWith(BYTE_ORDER_MARK) ? csv.slice(1) : csv;
-  const leading = /^(?:\r\n|\n|\r)*/.exec(text)[0];
-  return (leading.match(/\r\n|\n|\r/g) || []).length;
+  let i = csv.startsWith(BYTE_ORDER_MARK) ? 1 : 0;
+  let lines = 0;
+  for (;;) {
+    const c = csv.charCodeAt(i);
+    if (c === LF) {
+      i += 1;
+    } else if (c === CR) {
+      i += csv.charCodeAt(i + 1) === LF ? 2 : 1;
+    } else {
+      return lines;
+    }
+    lines += 1;
+  }
 }
 
 function columns(n: number): string {
   return n === 1 ? "1 column" : `${n} columns`;
 }
 
-// The SeedCsvRowError for a parser refusal of the file's shape, or null for
-// any other parser error. The message is built from counts and the row number
-// only; a field's text is compared with the byte-order mark, never copied.
+// The SeedCsvRowError naming the row and the cause of a shape refusal, or null
+// when the parser's error does not carry what that needs. The message is built
+// from counts and the row number only; a field's text is compared with the
+// byte-order mark, never copied.
 function rowError(err: CsvError, csv: string): SeedCsvRowError | null {
   const inHeader = err.header === true;
   const row = inHeader
@@ -117,11 +147,24 @@ function rowError(err: CsvError, csv: string): SeedCsvRowError | null {
   }
 }
 
+// The SeedCsvRowError for one of the parser's shape refusals. If its row and
+// cause cannot be worked out, for any reason, the refusal still stands, with
+// the general message and no row.
+function shapeError(err: CsvError, code: string, csv: string): SeedCsvRowError {
+  try {
+    const named = rowError(err, csv);
+    if (named) return named;
+  } catch {
+    // The general message below.
+  }
+  return new SeedCsvRowError(null, code, SHAPE_MESSAGE);
+}
+
 // Returns the rows of a seed CSV, or null when its first row is not an
 // accepted header or a row has a value in the unnamed column. The unnamed
 // column is dropped, so its rows read as those of a file without it. A row the
-// parser cannot read for its shape throws SeedCsvRowError; any other parser
-// error is thrown as it is.
+// parser cannot read for its shape throws SeedCsvRowError; any other error is
+// thrown as it is.
 export function parseSeedCsv(csv: string): SeedCsvRecord[] | null {
   const refused = new Error("Invalid seed CSV header");
   let hasHeader = false;
@@ -145,6 +188,9 @@ export function parseSeedCsv(csv: string): SeedCsvRecord[] | null {
     return hasHeader ? records : null;
   } catch (err) {
     if (err === refused) return null;
-    throw (err instanceof CsvError && rowError(err, csv)) || err;
+    if (err instanceof CsvError && SHAPE_CODES.has(err.code)) {
+      throw shapeError(err, err.code, csv);
+    }
+    throw err;
   }
 }

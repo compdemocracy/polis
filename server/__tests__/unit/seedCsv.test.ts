@@ -171,7 +171,7 @@ describe("parseSeedCsv refuses a row it cannot read", () => {
     ],
     [
       "CRLF line endings and a byte-order mark",
-      "﻿comment_text\r\nOne\r\nTwo, three\r\n",
+      "\uFEFFcomment_text\r\nOne\r\nTwo, three\r\n",
       "CSV_RECORD_INCONSISTENT_COLUMNS",
       3,
       `Row 3 (the header is row 1) has 2 columns; the header has 1. ${commaRemedy}`,
@@ -199,7 +199,7 @@ describe("parseSeedCsv refuses a row it cannot read", () => {
     ],
     [
       "a byte-order mark before a double quote",
-      'comment_text\nOne\n﻿"Two"',
+      'comment_text\nOne\n\uFEFF"Two"',
       "INVALID_OPENING_QUOTE",
       3,
       "Row 3 (the header is row 1) has a byte-order mark, an invisible character that belongs only at the start of a file, before a double quote. This usually means two files were joined: remove that character and upload again.",
@@ -279,7 +279,7 @@ describe("parseSeedCsv counts rows the same way for every line ending", () => {
     ["CRLF", "\r\n"],
     ["CR", "\r"],
   ]) {
-    for (const bom of ["", "﻿"]) {
+    for (const bom of ["", "\uFEFF"]) {
       for (const above of [0, 2]) {
         for (const blank of [false, true]) {
           for (const twoLines of [false, true]) {
