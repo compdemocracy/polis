@@ -121,6 +121,7 @@ pub struct Config {
     pub readiness: Duration,
     pub identity: String,
     pub journal_dir: PathBuf,
+    pub journal_host_file: Option<PathBuf>,
     pub work_dir: PathBuf,
     pub shutdown_grace: Duration,
     pub kill_grace: Duration,
@@ -322,6 +323,9 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         reap_interval: Duration::from_secs(reap),
         boot_id,
         container_id,
+        journal_host_file: get("POLIS_JOBS_JOURNAL_HOST_FILE")
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from),
     })))
 }
 

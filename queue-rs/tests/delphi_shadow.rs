@@ -1680,3 +1680,84 @@ fn graph_provenance_is_cached_until_source_metadata_changes() {
         2
     );
 }
+
+#[test]
+fn lost_graph_attempt_does_not_hold_other_conversations_after_restart_and_list_clear() {
+    let f = Fixture::new();
+    f.quiet(971, 25, 1);
+    f.quiet(972, 25, 1);
+    graph_catalog(&f);
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c971"),
+            ("DELPHI_SHADOW_BENCHMARK", "c971,c972"),
+        ],
+    );
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let flight = scheduler.state.graph_flight.clone().unwrap();
+    let mut c = f.superuser();
+    // A claimed attempt with no exit attestation models a lost journal. No
+    // child is spawned in this database test; it must still remain unproven.
+    let owner = Uuid::new_v4().to_string();
+    let attempt = Uuid::new_v4().to_string();
+    let claim:Value=c.query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi','graph_embed')",&[&flight.env,&owner,&attempt]).unwrap().get(0);
+    assert_eq!(claim["outcome"], "owned");
+    scheduler.state.save(&cfg.state_path).unwrap();
+    drop(scheduler);
+    cfg.graph = None;
+    cfg.job_deadline = Duration::ZERO;
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    assert!(scheduler.state.graph_flight.is_none());
+    assert_eq!(scheduler.state.graph_deferred.len(), 1);
+    scheduler.state.save(&cfg.state_path).unwrap();
+    drop(scheduler);
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    assert_eq!(scheduler.state.in_flight.as_ref().unwrap().zid, 972);
+    let view: Value = c
+        .query_one(
+            "SELECT pd_graph_view($1,$2::text::uuid)",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(view["guard_held"], true);
+    let unconfirmed:i64=c.query_one("SELECT count(*) FROM polis_queue_attempts WHERE env=$1 AND attempt_id=$2::text::uuid AND process_exit_confirmed_at IS NULL",&[&flight.env,&attempt]).unwrap().get(0);
+    assert_eq!(unconfirmed, 1);
+}
+
+#[test]
+fn committed_graph_admission_with_unread_reply_is_recovered_before_full_pipeline() {
+    let f = Fixture::new();
+    f.quiet(981, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c981"),
+            ("DELPHI_SHADOW_BENCHMARK", "c981"),
+        ],
+    );
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let graph_id = scheduler
+        .state
+        .graph_flight
+        .as_ref()
+        .unwrap()
+        .graph_id
+        .clone();
+    // Discard the successful reply as a lost transport reply would do. The
+    // persisted recovery domain precedes admission, even without flight state.
+    scheduler.state.graph_flight = None;
+    scheduler.state.graph_seen.clear();
+    scheduler.cycle().unwrap();
+    assert_eq!(
+        scheduler.state.graph_flight.as_ref().unwrap().graph_id,
+        graph_id
+    );
+    assert!(scheduler.state.in_flight.is_none());
+}

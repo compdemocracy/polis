@@ -177,6 +177,8 @@ impl<'a> Scheduler<'a> {
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
+        self.poll_deferred_graph(now)?;
+        self.recover_graph()?;
         if let Some(flight) = self.state.graph_flight.clone() {
             return self.watch_graph(flight, now);
         }
@@ -351,6 +353,10 @@ impl<'a> Scheduler<'a> {
     /// alone holds the rest of those two, and the current set is still
     /// tried, against the whole budget.
     fn pick_and_admit(&mut self, now: i64) -> Result<Option<Pause>> {
+        self.recover_graph()?;
+        if self.state.graph_flight.is_some() {
+            return Ok(None);
+        }
         match self.admit_twin(now)? {
             TwinStep::Admitted => return Ok(None),
             TwinStep::Held(reason) => return Ok(Some(reason)),
@@ -414,6 +420,9 @@ impl<'a> Scheduler<'a> {
         // A benchmark or featured candidate was passed over for the reserve.
         let mut reserve_waiting = false;
         for (candidate, set_name) in candidates {
+            if self.graph_scope_held(candidate.zid)? {
+                continue;
+            }
             let share = set_name.share();
             if reserve_held && share == Share::Shared {
                 reserve_waiting = true;
@@ -607,6 +616,9 @@ impl<'a> Scheduler<'a> {
             return Ok(TwinStep::Nothing);
         };
         if pending.twin_job_id.is_some() {
+            return Ok(TwinStep::Nothing);
+        }
+        if self.graph_scope_held(pending.zid)? {
             return Ok(TwinStep::Nothing);
         }
         let set = self.db.comment_set(pending.zid)?;

@@ -303,28 +303,48 @@ impl Scheduler<'_> {
     /// Recover the latest unpublished or live graph before another admission.
     /// Only ids, digests and counts leave SQL; no snapshot text is returned.
     pub(super) fn recover_graph(&mut self) -> Result<()> {
-        let Some(cfg) = self.cfg.graph.as_ref() else {
-            return Ok(());
-        };
+        if let Some(cfg) = self.cfg.graph.as_ref()
+            && !self.state.graph_recovery_envs.contains(&cfg.env)
+        {
+            self.state.graph_recovery_envs.push(cfg.env.clone());
+            // Persist the recovery domain before any admission can commit.
+            self.state.save(&self.cfg.state_path)?;
+        }
+        if let Some(f) = &self.state.graph_flight
+            && !self.state.graph_recovery_envs.contains(&f.env)
+        {
+            self.state.graph_recovery_envs.push(f.env.clone());
+        }
         if self.state.graph_flight.is_some() {
             return Ok(());
         }
-        let recovered=self.db.read(|tx| {
-            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&cfg.env])?;
+        let deferred: Vec<String> = self
+            .state
+            .graph_deferred
+            .iter()
+            .map(|f| f.graph_id.clone())
+            .collect();
+        for env in self.state.graph_recovery_envs.clone() {
+            let recovered=self.db.read(|tx| {
+            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&env])?;
             let mut seen=BTreeMap::new();
             for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
-            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id)))", &[&cfg.env])?;
+            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND NOT (g.graph_id::text=ANY($2::text[])) AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id))) ORDER BY g.created_at,g.graph_id LIMIT 1", &[&env,&deferred])?;
             let Some(r)=row else { return Ok((seen,None)); };
             let graph_id:String=r.try_get(0)?;
             let mut nodes=Vec::new();
-            for n in tx.query("SELECT n.job_id::text,n.run_id::text,q.stage FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid ORDER BY n.node_key", &[&cfg.env,&graph_id])? {
+            for n in tx.query("SELECT n.job_id::text,n.run_id::text,q.stage FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid ORDER BY n.node_key", &[&env,&graph_id])? {
                 nodes.push(Node {job_id:n.try_get(0)?,run_id:n.try_get(1)?,stage:n.try_get(2)?});
             }
             ensure!(nodes.len()==4 && STAGES.iter().all(|s|nodes.iter().filter(|n|n.stage==*s).count()==1),"graph_recovery_shape");
-            Ok((seen,Some(Flight {env:cfg.env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes})))
+            Ok((seen,Some(Flight {env:env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes})))
         })?;
-        self.state.graph_seen.extend(recovered.0);
-        self.state.graph_flight = recovered.1;
+            self.state.graph_seen.extend(recovered.0);
+            self.state.graph_flight = recovered.1;
+            if self.state.graph_flight.is_some() {
+                break;
+            }
+        }
         Ok(())
     }
 
@@ -334,6 +354,9 @@ impl Scheduler<'_> {
         let Some(cfg) = self.cfg.graph.as_ref() else {
             return Ok(false);
         };
+        if !self.state.graph_deferred.is_empty() {
+            return Ok(false);
+        }
         let cfg = cfg.clone();
         let listed = listed(&self.db, &cfg.codes)?;
         let counts = (cfg.codes.len(), listed.len());
@@ -531,6 +554,51 @@ impl Scheduler<'_> {
         Ok(true)
     }
 
+    pub(super) fn graph_scope_held(&self, zid: i32) -> Result<bool> {
+        if self.state.graph_recovery_envs.is_empty() {
+            return Ok(false);
+        }
+        self.db.read(|tx| Ok(tx.query_one(
+            "SELECT EXISTS (SELECT 1 FROM delphi_graphs g JOIN delphi_job_guards d ON d.env=g.env AND d.root_job_id=g.root_job_id WHERE g.env=ANY($1::text[]) AND g.zid=$2 AND g.scope_key='shadow-graph:'||g.zid::text)",
+            &[&self.state.graph_recovery_envs, &zid])?.try_get(0)?))
+    }
+
+    pub(super) fn poll_deferred_graph(&mut self, now: i64) -> Result<()> {
+        // One per cycle; rotation keeps recovery polling bounded and fair.
+        if !self.state.graph_deferred.is_empty() {
+            let flight = self.state.graph_deferred[0].clone();
+            self.state.graph_deferred.rotate_left(1);
+            self.watch_graph(flight, now)?;
+        }
+        Ok(())
+    }
+
+    fn defer_graph(&mut self, flight: &Flight, now: i64) {
+        if now.saturating_sub(flight.admitted_at_ms) < self.cfg.job_deadline.as_millis() as i64 {
+            return;
+        }
+        if !self
+            .state
+            .graph_deferred
+            .iter()
+            .any(|f| f.graph_id == flight.graph_id)
+        {
+            self.state.graph_deferred.push(flight.clone());
+            log(
+                "graph_recovery_pending",
+                json!({"graph_id":flight.graph_id,"reason":"wait_bound","scope_held":true}),
+            );
+        }
+        if self
+            .state
+            .graph_flight
+            .as_ref()
+            .is_some_and(|f| f.graph_id == flight.graph_id)
+        {
+            self.state.graph_flight = None;
+        }
+    }
+
     fn log_graph_wait(
         &mut self,
         flight: &Flight,
@@ -594,6 +662,7 @@ impl Scheduler<'_> {
         // beyond the deadline: otherwise two computations could overlap.
         if !terminal {
             self.log_graph_wait(&flight, now, &states, true);
+            self.defer_graph(&flight, now);
             return Ok(self.cfg.job_poll);
         }
         let mut client = self.db.connect_queue()?;
@@ -607,6 +676,7 @@ impl Scheduler<'_> {
         let view: Value = serde_json::from_str(&view)?;
         if view["guard_held"] != false {
             self.log_graph_wait(&flight, now, &states, true);
+            self.defer_graph(&flight, now);
             return Ok(self.cfg.job_poll);
         }
         drop(client);
@@ -703,7 +773,25 @@ impl Scheduler<'_> {
             "graph_finished",
             json!({"graph_id":flight.graph_id,"published":published,"bytes":bytes,"graph_row_bytes":graph_bytes}),
         );
-        self.state.graph_flight = None;
+        let deferred = self
+            .state
+            .graph_deferred
+            .iter()
+            .any(|f| f.graph_id == flight.graph_id);
+        self.state
+            .graph_deferred
+            .retain(|f| f.graph_id != flight.graph_id);
+        if self
+            .state
+            .graph_flight
+            .as_ref()
+            .is_some_and(|f| f.graph_id == flight.graph_id)
+        {
+            self.state.graph_flight = None;
+        }
+        if deferred {
+            return Ok(self.cfg.job_poll);
+        }
         self.rest_until_ms = now + plan::rest_ms(self.cfg.duty_cycle, now - flight.admitted_at_ms);
         Ok(Duration::from_millis(
             (self.rest_until_ms - now).max(1000) as u64
