@@ -610,17 +610,33 @@ impl Scheduler<'_> {
         now: i64,
         states: &BTreeMap<String, (String, f64)>,
         scope_held: bool,
-    ) {
+    ) -> Result<()> {
         let deadline = (self.cfg.job_deadline.as_millis() as i64).max(1);
         let overdue = (now - flight.admitted_at_ms - deadline).max(0);
         let bucket = overdue / deadline;
         if now - flight.admitted_at_ms >= deadline && self.graph_wait_bucket != Some(bucket) {
+            let unconfirmed: i64 = self.db.read(|tx| Ok(tx.query_one(
+                "SELECT count(*) FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid AND a.process_exit_confirmed_at IS NULL",
+                &[&flight.env, &flight.graph_id])?.try_get(0)?))?;
+            let reason = if states.values().any(|(s, _)| s == "running") {
+                "nodes_active"
+            } else if unconfirmed > 0 {
+                "exit_unconfirmed"
+            } else if states
+                .values()
+                .any(|(s, _)| !matches!(s.as_str(), "succeeded" | "dead" | "cancelled"))
+            {
+                "nodes_active"
+            } else {
+                "reconciliation_pending"
+            };
             log(
                 "graph_waiting",
-                json!({"graph_id":flight.graph_id,"states":states,"scope_held":scope_held,"seconds_overdue":overdue/1000,"reason":"awaiting_exit_proof"}),
+                json!({"graph_id":flight.graph_id,"states":states,"scope_held":scope_held,"seconds_overdue":overdue/1000,"reason":reason,"unconfirmed_attempts":unconfirmed}),
             );
             self.graph_wait_bucket = Some(bucket);
         }
+        Ok(())
     }
 
     pub(super) fn watch_graph(&mut self, flight: Flight, now: i64) -> Result<Duration> {
@@ -666,7 +682,7 @@ impl Scheduler<'_> {
         // Keep this conversation excluded while execution remains unresolved.
         // After the deadline, deferred tracking allows other conversations.
         if !terminal {
-            self.log_graph_wait(&flight, now, &states, true);
+            self.log_graph_wait(&flight, now, &states, true)?;
             self.defer_graph(&flight, now);
             return Ok(self.cfg.job_poll);
         }
@@ -680,7 +696,7 @@ impl Scheduler<'_> {
             .try_get(0)?;
         let view: Value = serde_json::from_str(&view)?;
         if view["guard_held"] != false {
-            self.log_graph_wait(&flight, now, &states, true);
+            self.log_graph_wait(&flight, now, &states, true)?;
             self.defer_graph(&flight, now);
             return Ok(self.cfg.job_poll);
         }

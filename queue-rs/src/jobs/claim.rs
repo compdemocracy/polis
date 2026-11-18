@@ -225,6 +225,12 @@ fn recover(ctx: &Ctx, rpc: &mut Rpc) {
         }
         let gone =
             journal::provably_gone(&entry, &ctx.cfg.boot_id, &ctx.cfg.container_id, &ctx.owner);
+        if ctx.cfg.journal_host_file.is_some() {
+            line(&format!(
+                "graph_recovery {}",
+                json!({"job_id":entry.job_id,"attempt_id":entry.attempt_id,"owner_id":entry.owner_id,"exit_proven":gone,"reason":if gone { "retained_host_journal" } else { "process_exit_unconfirmed" }})
+            ));
+        }
         if !gone {
             line(&format!(
                 "journal entry {} not provably gone; left in place",
