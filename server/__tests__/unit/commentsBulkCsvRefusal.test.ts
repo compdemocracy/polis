@@ -2,11 +2,25 @@
 // the parser cannot read, and when something other than the CSV fails. A row
 // that cannot be read is the uploader's to fix: 400 polis_err_csv_row, before
 // a participant is resolved or a comment is written. A failure that is not
-// about the CSV (the database not answering) is still the server's: 500
+// about the CSV and happens before the rows are stored (the database not
+// answering the moderator check, say) is still the server's: 500
 // polis_err_post_comments_bulk, as before. Drives the real handler; the
 // database, the identity provider and the translation provider are stubbed,
-// because an integration database cannot be made to fail on cue.
+// because an integration database cannot be made to fail on cue. The CSV
+// parser is the real one unless a test sets mockParserError.
 const mockQuery = jest.fn();
+let mockParserError: (() => unknown) | null = null;
+
+jest.mock("csv-parse/sync", () => {
+  const actual = jest.requireActual("csv-parse/sync");
+  return {
+    ...actual,
+    parse: (...args: unknown[]) => {
+      if (mockParserError) throw mockParserError();
+      return actual.parse(...args);
+    },
+  };
+});
 
 jest.mock("@google-cloud/translate", () => ({
   v2: { Translate: jest.fn().mockImplementation(() => ({})) },
@@ -103,6 +117,7 @@ async function postBulk(csv: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParserError = null;
   mockQuery.mockImplementation(async (sql: string) => {
     if (/INSERT INTO COMMENTS/.test(sql)) {
       return [{ tid: 0, created: 10000000000000 }];
@@ -147,6 +162,24 @@ describe("POST /comments-bulk: a row the CSV parser cannot read", () => {
     expect(logged).not.toMatch(/main street|school|market/);
   });
 
+  // Ten million blank lines above the header: a JSON body of about 20 MB,
+  // under the route's 50 MB limit.
+  test("ten million blank lines above the header answer 400 naming row 2", async () => {
+    const res = await postBulk(
+      "\n".repeat(10_000_000) + "comment_text\nbad,extra"
+    );
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "polis_err_csv_row",
+      message:
+        "Row 2 (the header is row 1) has 2 columns; the header has 1. This usually means a comment contains a comma: wrap that comment in double quotes.",
+      status: 400,
+    });
+    expect(getPidPromise).not.toHaveBeenCalled();
+    expect(addParticipant).not.toHaveBeenCalled();
+    expect(mockQuery).not.toHaveBeenCalled();
+  }, 120_000);
+
   test("a non-moderator is refused 403 before the CSV is read", async () => {
     isModerator.mockResolvedValue(false);
     const res = await postBulk(malformed);
@@ -154,6 +187,85 @@ describe("POST /comments-bulk: a row the CSV parser cannot read", () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: "polis_err_post_comment_auth" })
     );
+  });
+});
+
+// If the message for one of the parser's shape refusals cannot be built, for
+// any reason, the upload is still refused 400 with a message about the file's
+// shape, never 500. Parser errors that are not about the file's shape keep
+// their 500.
+describe("POST /comments-bulk: a shape refusal whose message cannot be built", () => {
+  const { CsvError } = jest.requireActual("csv-parse/sync");
+  const shapeMessage =
+    "This file has a row that cannot be read as CSV. A comment that contains a comma or a double quote must be wrapped in double quotes, and a double quote inside it must be written as two double quotes.";
+
+  function unreadable(code: string, property: string) {
+    const err = new CsvError(code, "refused");
+    Object.defineProperty(err, property, {
+      get() {
+        throw new RangeError("Maximum call stack size exceeded");
+      },
+    });
+    return err;
+  }
+
+  test.each([
+    ["CSV_RECORD_INCONSISTENT_COLUMNS", "records"],
+    ["CSV_RECORD_INCONSISTENT_COLUMNS", "empty_lines"],
+    ["CSV_RECORD_INCONSISTENT_COLUMNS", "columns"],
+    ["CSV_RECORD_INCONSISTENT_COLUMNS", "record"],
+    ["CSV_QUOTE_NOT_CLOSED", "header"],
+    ["INVALID_OPENING_QUOTE", "field"],
+    ["CSV_INVALID_CLOSING_QUOTE", "records"],
+  ])(
+    "%s with an unreadable %s answers 400 with the shape message",
+    async (code, property) => {
+      mockParserError = () => unreadable(code, property);
+      const res = await postBulk(malformed);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "polis_err_csv_row",
+        message: shapeMessage,
+        status: 400,
+      });
+      expect(getPidPromise).not.toHaveBeenCalled();
+      expect(mockQuery).not.toHaveBeenCalled();
+      const [event, detail] = logger.error.mock.calls[0];
+      expect(event).toBe("polis_err_csv_row");
+      expect(detail).toMatchObject({ row: null, parserCode: code });
+    }
+  );
+
+  test("a column-count refusal without its column list answers 400 with the shape message", async () => {
+    mockParserError = () =>
+      new CsvError("CSV_RECORD_INCONSISTENT_COLUMNS", "refused");
+    const res = await postBulk(malformed);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "polis_err_csv_row",
+      message: shapeMessage,
+      status: 400,
+    });
+  });
+
+  test.each([
+    [
+      "a parser code this route cannot produce",
+      () => new CsvError("CSV_MAX_RECORD_SIZE", "too big"),
+    ],
+    [
+      "an error that is not the parser's",
+      () => new RangeError("Maximum call stack size exceeded"),
+    ],
+  ])("%s still answers 500", async (_label, error) => {
+    mockParserError = error;
+    const res = await postBulk(malformed);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "polis_err_post_comments_bulk",
+      message: "polis_err_post_comments_bulk",
+      status: 500,
+    });
   });
 });
 

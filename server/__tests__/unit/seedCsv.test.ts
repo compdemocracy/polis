@@ -255,3 +255,97 @@ describe("parseSeedCsv refuses a row it cannot read", () => {
     expect(thrown?.stack).not.toMatch(/private|remark/);
   });
 });
+
+function rowErrorOf(csv: string): SeedCsvRowError | undefined {
+  try {
+    parseSeedCsv(csv);
+  } catch (err) {
+    return err as SeedCsvRowError;
+  }
+  return undefined;
+}
+
+const twoColumnsRow = (row: number) =>
+  `Row ${row} (the header is row 1) has 2 columns; the header has 1. This usually means a comment contains a comma: wrap that comment in double quotes.`;
+
+// The same counting for every line ending a file can have: LF, CRLF and a lone
+// CR, with and without a byte-order mark. Blank lines above the header are not
+// counted, a blank line after it is a row, and a comment wrapped in double
+// quotes over two lines is one row.
+describe("parseSeedCsv counts rows the same way for every line ending", () => {
+  const cases: Array<[string, string, number]> = [];
+  for (const [ending, eol] of [
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+    ["CR", "\r"],
+  ]) {
+    for (const bom of ["", "﻿"]) {
+      for (const above of [0, 2]) {
+        for (const blank of [false, true]) {
+          for (const twoLines of [false, true]) {
+            const lines = ["comment_text", "One"];
+            if (blank) lines.push("");
+            if (twoLines) lines.push(`"Two${eol}still two"`);
+            lines.push("Three, four");
+            cases.push([
+              `${ending}, ${
+                bom ? "a" : "no"
+              } byte-order mark, ${above} blank lines above the header, ${
+                blank ? "a" : "no"
+              } blank line after it, ${twoLines ? "a" : "no"} two-line comment`,
+              bom + eol.repeat(above) + lines.join(eol),
+              3 + (blank ? 1 : 0) + (twoLines ? 1 : 0),
+            ]);
+          }
+        }
+      }
+    }
+  }
+
+  test.each(cases)("%s", (_label, csv, row) => {
+    const thrown = rowErrorOf(csv);
+    expect(thrown).toBeInstanceOf(SeedCsvRowError);
+    expect({ row: thrown?.row, message: thrown?.message }).toStrictEqual({
+      row,
+      message: twoColumnsRow(row),
+    });
+  });
+});
+
+// Input as large as the route accepts (its JSON body limit is 50 MB) still
+// gives the short message, never an error of its own.
+describe("parseSeedCsv on very large input", () => {
+  test.each([
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+    ["CR", "\r"],
+  ])(
+    "ten million blank %s lines above the header",
+    (_label, eol) => {
+      const thrown = rowErrorOf(
+        eol.repeat(10_000_000) + `comment_text${eol}bad,extra`
+      );
+      expect(thrown).toBeInstanceOf(SeedCsvRowError);
+      expect({ row: thrown?.row, message: thrown?.message }).toStrictEqual({
+        row: 2,
+        message: twoColumnsRow(2),
+      });
+    },
+    120_000
+  );
+
+  test("a row of ten million characters", () => {
+    const thrown = rowErrorOf(
+      `comment_text\nOne\n${"x".repeat(10_000_000)},extra`
+    );
+    expect(thrown).toBeInstanceOf(SeedCsvRowError);
+    expect({ row: thrown?.row, message: thrown?.message }).toStrictEqual({
+      row: 3,
+      message: twoColumnsRow(3),
+    });
+  }, 120_000);
+
+  test("a file of only carriage returns is refused as having no header, as before", () => {
+    expect(parseSeedCsv("\r".repeat(10_000_000))).toBeNull();
+  }, 120_000);
+});
