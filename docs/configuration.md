@@ -389,6 +389,24 @@ The current sender uses AWS SES ([senders.ts:1](../server/src/email/senders.ts#L
 
 Source-only server entry points that skip the build use the root `VERSION` read once at startup. Without generated metadata, `/api/v3/version` reports `<VERSION>+dev.unknown.unknown`, commit `unknown`, distance `null`, channel `development`, and source `unverified-archive`. Normal build, watch, and npm test entry points still generate and embed the build identity first.
 
+### Embedding model selection by result environment
+
+`DELPHI_EMBED_MODEL_BY_ENV` is an optional JSON object mapping each result
+namespace to an exact model identity from `polis-jobs graph-registry`. Unset
+preserves the full pipeline's existing selection and the shadow graph's granite
+default. A setting for one namespace does not change another. In the full
+pipeline an explicit mapping takes precedence over `SENTENCE_TRANSFORMER_MODEL`;
+it must still match the offline directory's verified lock. A graph's model must
+also be reported by its actual image before admission. Unknown names and absent
+models refuse; there is no fallback to a different model. Installing another
+model in an image never selects it. The current image carries one offline
+embedding model; multiple models require a future image and corresponding
+registry implementations before any setting can select them.
+
+The deployment check validates the mapping's shape. The typed admission and
+worker check the implementation and producing artifact schemas. Model selection
+changes no historical result and enables no graph conversation list.
+
 ### Same-host graph executor and recovery
 
 `DELPHI_SHADOW_GRAPH_ENABLED=1` selects the `delphi-shadow-graph` service on

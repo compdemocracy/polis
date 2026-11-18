@@ -7,6 +7,7 @@ use super::{
     scheduler::{Scheduler, log},
     storage,
 };
+use crate::job_graph_contract::{Image, Model};
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -64,7 +65,12 @@ pub fn listed(db: &Db<'_>, codes: &[String]) -> Result<Vec<Live>> {
     })
 }
 
-pub const MODEL: &str = "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384";
+pub fn default_model() -> Result<&'static str> {
+    Ok(&Model::Granite
+        .definition()
+        .map_err(anyhow::Error::msg)?
+        .model)
+}
 pub fn scope(zid: i32) -> String {
     format!("shadow-graph:{zid}")
 }
@@ -81,6 +87,7 @@ pub struct Config {
     pub env: String,
     pub app: PathBuf,
     pub python: String,
+    pub embedding_model: String,
 }
 impl Config {
     pub fn load(
@@ -105,7 +112,29 @@ impl Config {
                 "DELPHI_SHADOW_GRAPH_ENV must be a distinct shadow env".into(),
             ));
         }
+        let names: BTreeMap<String, String> = serde_json::from_str(
+            &get("DELPHI_EMBED_MODEL_BY_ENV")
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "{}".into()),
+        )
+        .map_err(|_| {
+            ConfigError("DELPHI_EMBED_MODEL_BY_ENV must map environments to model names".into())
+        })?;
+        let embedding_model = names.get(&env).cloned().unwrap_or(
+            default_model()
+                .map_err(|_| ConfigError("embedding registry invalid".into()))?
+                .into(),
+        );
+        let definition = Model::named(&embedding_model)
+            .and_then(|m| m.definition())
+            .map_err(ConfigError)?;
+        if definition.step != crate::job_graph_contract::Step::Embeddings {
+            return Err(ConfigError(
+                "selected model does not produce embeddings".into(),
+            ));
+        }
         Ok(Some(Self {
+            embedding_model,
             codes,
             env,
             app: get("DELPHI_APP_PATH")
@@ -192,6 +221,7 @@ fn provenance_identity(cfg: &Config) -> Result<String> {
         cfg.app.join("scripts"),
         cfg.app.join("umap_narrative"),
         cfg.app.join("polismath/embedding_model.py"),
+        cfg.app.join("polismath/job-models.json"),
     ] {
         if path.exists() {
             visit(&path, &mut rows)?;
@@ -255,6 +285,7 @@ fn provenance(cfg: &Config) -> Result<Value> {
     let mut c = Command::new(&cfg.python);
     c.env_clear()
         .env("PYTHONDONTWRITEBYTECODE", "1")
+        .env("DELPHI_RESULT_ENV", &cfg.env)
         .arg(cfg.app.join("scripts/graph_provenance.py"));
     for key in [
         "PATH",
@@ -262,6 +293,7 @@ fn provenance(cfg: &Config) -> Result<Value> {
         "PYTHONPATH",
         "DELPHI_EMBED_MODEL_PATH",
         "DELPHI_EMBED_MODEL_LOCK",
+        "DELPHI_EMBED_MODEL_BY_ENV",
     ] {
         if let Some(value) = std::env::var_os(key) {
             c.env(key, value);
@@ -270,29 +302,29 @@ fn provenance(cfg: &Config) -> Result<Value> {
     let bytes = bounded_output(c, Duration::from_secs(120))?;
     ensure!(bytes.len() <= 4096, "graph_provenance_output_bound");
     let v: Value = serde_json::from_slice(&bytes)?;
-    ensure!(v["model"] == MODEL, "graph_model_mismatch");
+    ensure!(v["model"] == cfg.embedding_model, "graph_model_mismatch");
     Ok(v)
 }
 pub fn spec(s: &Snapshot, sha: &str, provenance: &Value) -> Result<Value> {
     let mut nodes = Vec::new();
     for (i, stage) in STAGES.iter().enumerate() {
         let model = [
-            MODEL,
-            "delphi-umap-evoc/1",
-            "delphi-tfidf-keywords/1",
-            "delphi-keyword-labels/1",
+            Model::named(provenance["model"].as_str().unwrap_or(default_model()?))
+                .map_err(anyhow::Error::msg)?,
+            Model::UmapEvoc,
+            Model::TfidfKeywords,
+            Model::KeywordLabels,
         ][i];
         let inputs = if i == 0 {
             json!([])
         } else {
             json!([{"node":STAGES[i-1],"role":(["","embeddings","clusters","topics"][i])}])
         };
-        nodes.push(json!({"key":stage,"stage":stage,"class":"delphi","max_attempts":3,"inputs":inputs,
-            "declared":{"snapshot":{"data":{"texts":s.texts},"sha256":sha},
-              "code":provenance["code"],"runtime":provenance["runtime"],"model":model,"seed":42,
+        nodes.push(crate::job_graph_contract::node(stage, model, json!({"snapshot":{"data":{"texts":s.texts},"sha256":sha},
+              "code":provenance["code"],"runtime":provenance["runtime"],"seed":42,
               "mode":"full","memory_bytes":4294967296_u64,"work_units":s.ids.len(),
               "config":{"comment_ids":s.ids,"adapter_sha256":provenance["adapter_sha256"],"model_sha256":provenance["model_sha256"],
-                        "shadow":{"comments":s.ids.len(),"graph_snapshot_sha256":s.digest}}}}));
+                        "shadow":{"comments":s.ids.len(),"graph_snapshot_sha256":s.digest}}}), inputs, 3).map_err(anyhow::Error::msg)?);
     }
     let v = json!({"schema":"polis-job-graph/1","nodes":nodes});
     bound(
@@ -500,13 +532,17 @@ impl Scheduler<'_> {
             return Ok(false);
         }
         let key = crate::jobs::sha256_hex(format!("{}:{specification}", candidate.zid).as_bytes());
-        let reply: String = client
-            .query_one(
-                "SELECT public.pd_graph_admit($1,$2,$3,$4,$5::text::jsonb)::text",
-                &[&cfg.env, &candidate.zid, &graph_scope, &key, &specification],
-            )?
-            .try_get(0)?;
-        let reply: Value = serde_json::from_str(&reply)?;
+        let image: Image = serde_json::from_value(p.clone())?;
+        let reply = crate::jobs::admission::admit(
+            &mut client,
+            &cfg.env,
+            candidate.zid,
+            &graph_scope,
+            &key,
+            serde_json::from_str(&specification)?,
+            &image,
+            None,
+        )?;
         let graph_id = reply["graph_id"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("graph_admission_reply"))?
@@ -919,6 +955,21 @@ mod tests {
         Ok(())
     }
     #[test]
+    fn embedding_selection_is_per_environment_and_explicit() -> Result<()> {
+        for (selection, expected) in [("{}".to_owned(), default_model()?.to_owned()),
+            (json!({"other":Model::MiniLm.definition().map_err(anyhow::Error::msg)?.model}).to_string(), default_model()?.to_owned()),
+            (json!({"shadow-graph-1":Model::MiniLm.definition().map_err(anyhow::Error::msg)?.model}).to_string(), Model::MiniLm.definition().map_err(anyhow::Error::msg)?.model.clone())] {
+            let get = |key: &str| match key {
+                "DELPHI_SHADOW_GRAPH_CONVERSATIONS" => Some("demo1".into()),
+                "DELPHI_EMBED_MODEL_BY_ENV" => Some(selection.clone()),
+                _ => None,
+            };
+            let cfg=Config::load(&get,"shadow-delphi-1").map_err(|e|anyhow::anyhow!(e.0))?.ok_or_else(||anyhow::anyhow!("disabled"))?;
+            assert_eq!(cfg.embedding_model,expected);
+        }
+        Ok(())
+    }
+    #[test]
     fn specification_binds_four_steps_and_refuses_large_input() -> Result<()> {
         let mut s = Snapshot {
             ids: (0..5).collect(),
@@ -928,7 +979,7 @@ mod tests {
         let p = json!({"code":"a".repeat(64),"runtime":"python-3.12.0","adapter_sha256":"b".repeat(64),"model_sha256":"c".repeat(64)});
         let v = spec(&s, &"e".repeat(64), &p)?;
         assert_eq!(v["nodes"].as_array().map(Vec::len), Some(4));
-        assert_eq!(v["nodes"][0]["declared"]["model"], MODEL);
+        assert_eq!(v["nodes"][0]["declared"]["model"], default_model()?);
         assert_eq!(
             v["nodes"][3]["declared"]["model"],
             "delphi-keyword-labels/1"

@@ -177,6 +177,7 @@ services:
       # the run unless the directory and lock are overridden to that model too.
       - SENTENCE_TRANSFORMER_MODEL=${SENTENCE_TRANSFORMER_MODEL:-ibm-granite/granite-embedding-311m-multilingual-r2}
       - DELPHI_EMBED_MODEL_PATH=${DELPHI_EMBED_MODEL_PATH:-/opt/polis/embedding/granite-embedding-311m-multilingual-r2}
+      - DELPHI_EMBED_MODEL_BY_ENV
       - DELPHI_EMBED_MODEL_LOCK=${DELPHI_EMBED_MODEL_LOCK:-/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json}
       # Ollama connection (used only when LLM_PROVIDER=ollama)
       - OLLAMA_HOST=${OLLAMA_HOST:-}
@@ -483,6 +484,7 @@ services:
       - ANTHROPIC_TOPIC_MODEL=none
       - SENTENCE_TRANSFORMER_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
       - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
+      - DELPHI_EMBED_MODEL_BY_ENV
       - DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
@@ -669,6 +671,7 @@ services:
       - DELPHI_SHADOW_GRAPH_CONVERSATIONS=${DELPHI_SHADOW_GRAPH_CONVERSATIONS:-}
       - DELPHI_SHADOW_GRAPH_ENV=${DELPHI_SHADOW_GRAPH_ENV:-shadow-graph-1}
       - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
+      - DELPHI_EMBED_MODEL_BY_ENV
       - DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
       - DELPHI_SHADOW_DUTY_CYCLE=${DELPHI_SHADOW_DUTY_CYCLE:-0.5}
       - DELPHI_SHADOW_PROBE_MAX_MS=${DELPHI_SHADOW_PROBE_MAX_MS:-250}
