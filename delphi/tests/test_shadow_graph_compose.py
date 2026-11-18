@@ -1,11 +1,23 @@
 """The optional executor must retain its local journal and shadow boundary."""
 import importlib.util
-from pathlib import Path
 
-MODULE = Path(__file__).resolve().parents[2] / "scripts/check-shadow-graph.py"
-spec = importlib.util.spec_from_file_location("shadow_graph_compose", MODULE)
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+import pytest
+
+from tests.test_compose_math_env import CHECKOUT, requires_checkout
+
+# The deploy hook's validator, read from the checkout the Compose tests read
+# ($POLIS_CHECKOUT_DIR in the Delphi test container, where the deploy-hook
+# runner copies it). A missing file fails these tests; it is never a skip.
+pytestmark = requires_checkout
+
+
+@pytest.fixture(scope="module")
+def module():
+    spec = importlib.util.spec_from_file_location(
+        "shadow_graph_compose", CHECKOUT / "scripts/check-shadow-graph.py")
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
 
 
 def valid():
@@ -25,25 +37,25 @@ def valid():
     return dict(services={"delphi-shadow-graph": graph, "delphi-shadow-scheduler": scheduler})
 
 
-def test_accepts_the_isolated_executor():
+def test_accepts_the_isolated_executor(module):
     assert module.errors(valid()) == []
 
 
-def test_refuses_a_served_or_shared_env():
+def test_refuses_a_served_or_shared_env(module):
     for env in ["prod", "shadow-delphi-1"]:
         config = valid()
         config["services"]["delphi-shadow-graph"]["environment"]["QUEUE_ENV"] = env
         assert module.errors(config)
 
 
-def test_refuses_a_missing_journal_or_host_identity():
+def test_refuses_a_missing_journal_or_host_identity(module):
     for index in [0, 1]:
         config = valid()
         config["services"]["delphi-shadow-graph"]["volumes"].pop(index)
         assert module.errors(config)
 
 
-def test_refuses_a_different_process_namespace_or_stage():
+def test_refuses_a_different_process_namespace_or_stage(module):
     for key, value in [("init", True), ("pid", "host"), ("privileged", True)]:
         config = valid()
         config["services"]["delphi-shadow-graph"][key] = value
