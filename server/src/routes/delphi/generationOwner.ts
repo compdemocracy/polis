@@ -19,6 +19,10 @@ import Config from "../../config";
  *
  * Anyone else is refused with HTTP 403 and DELPHI_NOT_CONVERSATION_OWNER
  * before anything is admitted, written or sent to a model.
+ *
+ * The vote CSV import (POST /api/v3/votes-bulk), which needs the same claim,
+ * applies the same rule through mayStartDelphiWork and answers its refusal
+ * with a code of its own (routes/votes.ts).
  */
 export const DELPHI_NOT_CONVERSATION_OWNER =
   "polis_err_delphi_not_conversation_owner";

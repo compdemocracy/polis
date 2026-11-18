@@ -58,32 +58,32 @@
     {
       "case": "I/votes-bulk-declared/line-storage-convention",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "status": 400,
-      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
-      "why": "POST /votes-bulk refuses a file whose `# vote-convention:` first line declares a sign other than the export convention (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it (and the worker then failed it).",
-      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 400 refusal of a declared sign other than the export convention (ruled:colin-2026-10-04-exports-imports-declare-sign), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-declared/line-unknown-format",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "status": 400,
-      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
-      "why": "POST /votes-bulk refuses a declared format other than polis-export/1 (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it.",
-      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 400 refusal of a declared format other than polis-export/1 (ruled:colin-2026-10-04-exports-imports-declare-sign), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-declared/line-malformed",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_vote_convention_declaration_malformed\",\"message\":\"polis_err_vote_convention_declaration_malformed\",\"status\":400}",
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "status": 400,
-      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
-      "why": "POST /votes-bulk refuses a malformed `# vote-convention:` first line (400 polis_err_vote_convention_declaration_malformed); nothing stored or queued. Edge accepted and queued it.",
-      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 400 refusal of a malformed declaration (ruled:colin-2026-10-04-exports-imports-declare-sign), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-declared/queued",
@@ -498,12 +498,12 @@
     {
       "case": "I/votes-bulk-route-admin",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
-      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
-      "ruling": "ruled:imports-refuse-existing-data-no-merge",
-      "status": 409,
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 409 refusal for a conversation that already has data (ruled:imports-refuse-existing-data-no-merge), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-route-admin/queued-message",
@@ -526,42 +526,42 @@
     {
       "case": "I/votes-bulk-declared/line-export-convention",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
-      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
-      "ruling": "ruled:imports-refuse-existing-data-no-merge",
-      "status": 409,
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 409 refusal for a conversation that already has data (ruled:imports-refuse-existing-data-no-merge), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-declared/format-object-export-convention",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
-      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
-      "ruling": "ruled:imports-refuse-existing-data-no-merge",
-      "status": 409,
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 409 refusal for a conversation that already has data (ruled:imports-refuse-existing-data-no-merge), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-declared/format-field-string",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
-      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
-      "ruling": "ruled:imports-refuse-existing-data-no-merge",
-      "status": 409,
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 409 refusal for a conversation that already has data (ruled:imports-refuse-existing-data-no-merge), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "I/votes-bulk-declared/format-object-wire-convention",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_import_target_not_empty\",\"message\":\"This conversation already has data; importing would overwrite it. Polis does not merge. Import into a new conversation instead.\",\"status\":409,\"code\":\"polis_err_import_target_not_empty\"}",
-      "why": "Imports refuse a target with existing votes or non-owner participants. Only the first successful vote job writes rows; later jobs and uploads are refused, so their votes are absent from current-state reads and exports. No live vote or export conversion behavior changes.",
-      "ruling": "ruled:imports-refuse-existing-data-no-merge",
-      "status": 409,
+      "replace": "{\"error\":\"polis_err_votes_bulk_not_conversation_owner\",\"message\":\"polis_err_votes_bulk_not_conversation_owner\",\"status\":403}",
       "whole_response": true,
-      "whole_response_reason": "The import is refused instead of writing or queueing; the full result or its derived row set changes."
+      "status": 403,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 403 refusal body",
+      "why": "POST /votes-bulk now requires a caller with the delphi_enabled claim to own the conversation or be a site administrator (ADMIN_UIDS), checked right after the claim and before the CSV is read. This case's caller, admin@polis.test, holds the claim but does not own conversation I, and the test stack lists no site administrators, so it is refused with 403 polis_err_votes_bulk_not_conversation_owner; nothing is read, stored or queued. It replaces the 409 refusal for a conversation that already has data (ruled:imports-refuse-existing-data-no-merge), which comes after the owner check and is not reached by this caller. The authorized paths are covered by the unit and integration tests of the owner check.",
+      "ruling": "ruled:vote-import-owner-or-site-administrator, 2026-11-18 (this pull request)"
     },
     {
       "case": "V/A/participationInit-after-votes",
