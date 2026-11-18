@@ -4,6 +4,7 @@ Storage utilities for the Polis comment graph microservice.
 
 import boto3
 from polismath.delphi_storage.resource import result_resource
+from polismath.embedding_model import DEFAULT_IDENTITY
 import os
 import json
 import logging
@@ -709,8 +710,7 @@ class DynamoDBStorage:
     # and granite at its locked revision, truncated to 384 (model_id 2, migration
     # 000046). Any other name refuses: its vectors would have no row to go under.
     _SEEDED_EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
-    _GRANITE_EMBEDDING_MODEL = (
-        'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384')
+    _GRANITE_EMBEDDING_MODEL = DEFAULT_IDENTITY
     _EMBEDDING_MODEL_ALIASES = {
         'all-MiniLM-L6-v2': 'sentence-transformers/all-MiniLM-L6-v2',
         'sentence-transformers/all-MiniLM-L6-v2': 'sentence-transformers/all-MiniLM-L6-v2',

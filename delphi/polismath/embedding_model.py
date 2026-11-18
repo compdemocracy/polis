@@ -41,10 +41,11 @@ from typing import Dict, List, NamedTuple, Optional
 LOCK_SCHEMA = "delphi-embedding-model/1"
 # The default model and the revision a by-name load is pinned to. The lock
 # names the same repository and revision (tests/test_embedding_model.py).
-DEFAULT_MODEL = "ibm-granite/granite-embedding-311m-multilingual-r2"
-DEFAULT_REVISION = "44399559930365213510b1ee2eb15ded83374f0e"
-# The stored width: every load truncates to it; encode normalizes by default.
-DIMS = 384
+_CATALOG = json.loads(Path(__file__).with_name("job-models.json").read_text())
+DEFAULT_IDENTITY = next(row["model"] for row in _CATALOG if row["id"] == "Granite")
+DEFAULT_MODEL, _REVISION_WIDTH = DEFAULT_IDENTITY.split("@", 1)
+DEFAULT_REVISION, _WIDTH = _REVISION_WIDTH.rsplit(":", 1)
+DIMS = int(_WIDTH)
 # The shipped lock: beside this package in a source checkout, and where the
 # image installs it (delphi/Dockerfile, the embedding-model stage). In the image
 # this module may be imported from /app or from site-packages, so the copy next
@@ -166,6 +167,18 @@ def resolve() -> Resolved:
     """
     path = os.environ.get("DELPHI_EMBED_MODEL_PATH", "").strip()
     configured = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "").strip()
+    selection = os.environ.get("DELPHI_EMBED_MODEL_BY_ENV", "")
+    if selection:
+        mapping = json.loads(selection)
+        if not isinstance(mapping, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in mapping.items()):
+            raise ModelMismatch("invalid per-environment embedding model setting")
+        environment = os.environ.get("DELPHI_RESULT_ENV", os.environ.get("QUEUE_ENV", ""))
+        chosen = mapping.get(environment)
+        if chosen is not None:
+            if not any(row["step"] == "embeddings" and row["model"] == chosen for row in _CATALOG):
+                raise ModelMismatch("unknown embedding model for environment")
+            configured = chosen
+
     if path:
         lock_path = os.environ.get("DELPHI_EMBED_MODEL_LOCK", "").strip()
         if not lock_path:
@@ -179,6 +192,8 @@ def resolve() -> Resolved:
                 f"SENTENCE_TRANSFORMER_MODEL={configured} but {path} holds {model}")
         return Resolved(path, True, None, lock_path, model)
     configured = configured or DEFAULT_MODEL
+    if configured == DEFAULT_IDENTITY:
+        configured = DEFAULT_MODEL
     if configured != DEFAULT_MODEL:
         return Resolved(configured, False, None, None, configured)
     lock_path = Path(DEFAULT_LOCK)

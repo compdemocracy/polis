@@ -16,3 +16,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value", "float_roundtrip"] }
 # The run record's inputs digest (delphi_run.rs).
 sha2 = "0.10"
+
+[features]
+graph-test-models = []

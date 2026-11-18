@@ -13,6 +13,7 @@ _spec = importlib.util.spec_from_file_location("shadow_embedding_model", ROOT / 
 embedding_model = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(embedding_model)
 from delphi_graph_stages import code_digest
+from graph_registry import implementations
 
 
 def verified_digest(directory, lock):
@@ -34,11 +35,25 @@ def verified_digest(directory, lock):
     return combined.hexdigest()
 
 
-if __name__ == "__main__":
+def report(require_embedding=True):
+    if not require_embedding:
+        return implementations()
+    from graph_registry import _test_models
+    import os
+    if _test_models and not os.environ.get('DELPHI_EMBED_MODEL_LOCK') and os.environ.get('DELPHI_EMBED_MODEL_PATH'):
+        from delphi_graph_stages import model_digest
+        model = _test_models.embedding_name()
+        result = implementations(model)
+        result.update(model=model, adapter_sha256=code_digest(), model_sha256=model_digest(os.environ['DELPHI_EMBED_MODEL_PATH']))
+        return result
     resolved = embedding_model.resolve()
     if not resolved.local:
         raise ValueError("graph admission requires the offline image model")
     model_sha = verified_digest(resolved.arg, embedding_model.read_lock(resolved.lock))
-    print(json.dumps(dict(model=resolved.model, runtime="python-" + sys.version.split()[0],
-        code=hashlib.sha256(Path(__file__).with_name("job_graph_stage.py").read_bytes()).hexdigest(),
-        adapter_sha256=code_digest(), model_sha256=model_sha)))
+    result = implementations(resolved.model)
+    result.update(model=resolved.model, adapter_sha256=code_digest(), model_sha256=model_sha)
+    return result
+
+
+if __name__ == "__main__":
+    print(json.dumps(report(require_embedding="--without-embedding" not in sys.argv)))

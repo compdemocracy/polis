@@ -92,3 +92,11 @@ notebooks/
 # Build artifacts
 requirements-dev.txt
 requirements-prod.txt
+
+# Only the explicit test target copies these reference adapters.
+!tests/
+tests/*
+!tests/job_graph/
+tests/job_graph/*
+!tests/job_graph/graph_test_models.py
+!tests/job_graph/job-test-models.json

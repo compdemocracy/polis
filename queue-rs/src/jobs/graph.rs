@@ -25,6 +25,16 @@ pub fn admission(reply: &Value) -> Result<Admission> {
             && serde_json::from_str::<Value>(wire)? == reply["graph_input"],
         "graph_input_digest"
     );
+    let model = crate::job_graph_contract::Model::named(
+        reply["graph_input"]["declared"]["model"]
+            .as_str()
+            .unwrap_or_default(),
+    )
+    .map_err(anyhow::Error::msg)?;
+    ensure!(
+        reply["stage"] == model.definition().map_err(anyhow::Error::msg)?.stage,
+        "graph_step_model"
+    );
     Ok(Admission {
         zid: reply["zid"]
             .as_i64()
@@ -538,8 +548,8 @@ mod tests {
     }
     #[test]
     fn resolved_bytes_are_checked_before_dispatch() {
-        let wire = r#"{"schema":"polis-job-input/1","declared":{},"artifacts":{}}"#;
-        let mut r = json!({"schema_version":"polis-queue/5","graph_input":serde_json::from_str::<Value>(wire).unwrap_or_else(|e| panic!("{e}")),
+        let wire = r#"{"schema":"polis-job-input/1","declared":{"model":"delphi-keyword-labels/1"},"artifacts":{}}"#;
+        let mut r = json!({"stage":"graph_narrative","schema_version":"polis-queue/5","graph_input":serde_json::from_str::<Value>(wire).unwrap_or_else(|e| panic!("{e}")),
             "graph_input_wire":wire,"graph_input_sha":sha256_hex(wire.as_bytes()),"zid":1});
         assert!(admission(&r).is_ok());
         r["graph_input"]["declared"] = json!({"tampered":true});

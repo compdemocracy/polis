@@ -23,6 +23,8 @@ if frame['stage']=='graph_cluster' and control.get('fail_clusters',0)>=count:
     Path(os.environ['DELPHI_OUTPUT_MANIFEST']).with_name('uncommitted-staging.json').write_text('{"unpublished":true}')
     sys.exit(1)
 source = Path(os.environ['GRAPH_STAGE_SOURCE'])
+sys.path.insert(0, str(source.parent))
+sys.path.insert(0, str(source.parents[1] / 'tests/job_graph'))
 spec = importlib.util.spec_from_file_location('graph_stage',source)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
