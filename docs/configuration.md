@@ -416,7 +416,9 @@ clearing it stops new graphs but leaves recovery active for retained state.
 The default is disabled. No other service changes when this profile is off.
 
 The graph executor runs as PID 1 in a private namespace, one graph step at a
-time, offline with the same pinned model directory and lock. Its named local
+time, offline with the same pinned model directory and lock. It receives
+`DELPHI_EMBED_MODEL_BY_ENV` exactly as the scheduler does, which decides each
+graph's model at admission; the deploy check refuses the two differing. Its named local
 volume contains the attempt journal and a binding to `/etc/machine-id` from
 that host. On a host without that file, create a persistent, unique host identity
 file once, and name its absolute path in `DELPHI_SHADOW_GRAPH_HOST_ID_FILE`.

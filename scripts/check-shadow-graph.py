@@ -29,6 +29,11 @@ def errors(config):
             or queue != scheduler.get("DELPHI_SHADOW_GRAPH_ENV")
             or queue == scheduler.get("DELPHI_SHADOW_ENV")):
         bad.append("QUEUE_ENV/DELPHI_RESULT_ENV")
+    # The per-environment embedding model setting reaches the executor exactly
+    # as it reaches the scheduler that seals each graph's model (both unset by
+    # default), so the two can never disagree.
+    if env.get("DELPHI_EMBED_MODEL_BY_ENV") != scheduler.get("DELPHI_EMBED_MODEL_BY_ENV"):
+        bad.append("DELPHI_EMBED_MODEL_BY_ENV")
     if graph.get("command") != ["polis-delphi-shadow", "daemon"]:
         bad.append("command")
     if graph.get("init") or graph.get("pid") or graph.get("privileged"):

@@ -590,6 +590,7 @@ services:
       - ANTHROPIC_TOPIC_MODEL=none
       - SENTENCE_TRANSFORMER_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
       - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
+      - DELPHI_EMBED_MODEL_BY_ENV
       - DELPHI_EMBED_MODEL_LOCK=/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1

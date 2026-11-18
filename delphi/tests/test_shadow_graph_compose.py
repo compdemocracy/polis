@@ -2,6 +2,7 @@
 import importlib.util
 
 import pytest
+import yaml
 
 from tests.test_compose_math_env import CHECKOUT, requires_checkout
 
@@ -63,3 +64,20 @@ def test_refuses_a_different_process_namespace_or_stage(module):
     config = valid()
     config["services"]["delphi-shadow-graph"]["environment"]["POLIS_JOBS_STAGES"] = "delphi_full_pipeline"
     assert module.errors(config)
+
+
+def test_refuses_an_embedding_model_setting_the_scheduler_does_not_share(module):
+    config = valid()
+    config["services"]["delphi-shadow-graph"]["environment"]["DELPHI_EMBED_MODEL_BY_ENV"] = '{"shadow-graph-1": "x"}'
+    assert module.errors(config) == ["DELPHI_EMBED_MODEL_BY_ENV"]
+    config["services"]["delphi-shadow-scheduler"]["environment"]["DELPHI_EMBED_MODEL_BY_ENV"] = '{"shadow-graph-1": "x"}'
+    assert module.errors(config) == []
+
+
+def test_the_executor_receives_the_embedding_model_setting_as_the_shadow_daemon_does():
+    # Passed through unchanged, with no default of its own: unset (today), it
+    # is absent from both containers.
+    services = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())["services"]
+    for name in ("delphi-shadow", "delphi-shadow-graph"):
+        assert services[name]["environment"].count("DELPHI_EMBED_MODEL_BY_ENV") == 1, name
+        assert not any(e.startswith("DELPHI_EMBED_MODEL_BY_ENV=") for e in services[name]["environment"]), name
