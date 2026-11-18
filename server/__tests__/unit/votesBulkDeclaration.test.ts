@@ -1,7 +1,9 @@
 /**
  * POST /api/v3/votes-bulk refuses a malformed or mismatched declared vote sign
  * before anything is stored or enqueued (P-078 PR-E; docs/export-format.md).
- * Absent a declaration the request goes through exactly as before.
+ * Absent a declaration the request goes through exactly as before. The caller
+ * (uid 3, with the delphi_enabled claim) owns the conversation (zid 7), so the
+ * route's owner check lets every request through to the declaration check.
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { readFileSync } from "node:fs";
@@ -58,6 +60,7 @@ const declarations = JSON.parse(fixture("declarations.json")) as {
   documents: { doc: unknown; outcome: string }[];
 };
 const undeclared = (text: string) => text.slice(text.indexOf("\n") + 1);
+const OWNER_READ = "SELECT owner FROM conversations";
 
 function post(body: Record<string, unknown>) {
   const res = { json: jest.fn() };
@@ -74,7 +77,9 @@ beforeEach(() => {
     { "?column?": 1 },
   ] as never);
   (pg.queryP as jest.Mock).mockImplementation((async (sql: string) =>
-    String(sql).includes("RETURNING id")
+    String(sql).includes(OWNER_READ)
+      ? [{ owner: 3 }]
+      : String(sql).includes("RETURNING id")
       ? [{ id: 11 }]
       : [{ email: "" }]) as never);
   s3Send.mockResolvedValue({} as never);
@@ -138,7 +143,12 @@ describe("votes-bulk declared sign", () => {
       expect(failJson).toHaveBeenCalledWith(res, 400, code, expect.anything());
       expect(s3Send).not.toHaveBeenCalled();
       expect(sqsSend).not.toHaveBeenCalled();
-      expect(pg.queryP).not.toHaveBeenCalled();
+      // No query but the owner read: no job row.
+      expect(
+        (pg.queryP as jest.Mock).mock.calls.filter(
+          ([sql]) => !String(sql).includes(OWNER_READ)
+        )
+      ).toEqual([]);
       expect(res.json).not.toHaveBeenCalled();
     }
   );
