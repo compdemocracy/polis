@@ -13,7 +13,9 @@
  * the server's ADMIN_UIDS value in this process and put it back.
  */
 import { randomUUID } from "crypto";
+import { readFileSync } from "fs";
 import http from "http";
+import { join } from "path";
 import { Pool } from "pg";
 import request from "supertest";
 import { S3Client } from "@aws-sdk/client-s3";
@@ -28,7 +30,10 @@ import {
 } from "@jest/globals";
 import Config from "../../src/config";
 import { sqsClient } from "../../src/utils/sqs";
-import { EXPORT_AGREE } from "../../src/votes/convention";
+import {
+  EXPORT_AGREE,
+  VOTE_DECLARATION_ERRORS,
+} from "../../src/votes/convention";
 import { createAppInstance, getOidcToken } from "../setup/api-test-helpers";
 import { pool } from "../setup/db-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
@@ -46,6 +51,12 @@ const PROCESSING = {
   status: "processing",
   message: "Vote import started. This may take a few minutes.",
 };
+
+const declarationFixture = (name: string) =>
+  readFileSync(
+    join(__dirname, "..", "fixtures", "vote-declaration", name),
+    "utf8"
+  );
 
 async function post(agent: Agent, route: string, body: object) {
   const response = await agent.post(route).send(body).timeout(15000);
@@ -265,6 +276,35 @@ describe("the vote CSV import and the conversation owner", () => {
     expect(messages).toEqual([]);
     expect(await snapshot(target.zid)).toEqual(before);
   });
+
+  // The vote-path recordings send their declared-sign requests from a caller
+  // who does not own the conversation, so they now record the owner refusal.
+  // Through HTTP, the owner's declared sign is still checked as before.
+  test.each([
+    ["import-malformed.csv", VOTE_DECLARATION_ERRORS.malformed],
+    ["import-mismatch-sign.csv", VOTE_DECLARATION_ERRORS.mismatch],
+    ["import-mismatch-format.csv", VOTE_DECLARATION_ERRORS.mismatch],
+  ])(
+    "the owner with the claim sending %s is refused as before with %s, and nothing is stored",
+    async (file, code) => {
+      const before = await snapshot(own.zid);
+      const stored = jest.spyOn(S3Client.prototype, "send");
+      const messages = queued();
+      const response = await claimAgent.post("/api/v3/votes-bulk").send({
+        conversation_id: own.conversationId,
+        csv: declarationFixture(file),
+      });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: code,
+        message: code,
+        status: 400,
+      });
+      expect(stored).not.toHaveBeenCalled();
+      expect(messages).toEqual([]);
+      expect(await snapshot(own.zid)).toEqual(before);
+    }
+  );
 
   test("the owner with the claim imports as before", async () => {
     const messages = queued();
