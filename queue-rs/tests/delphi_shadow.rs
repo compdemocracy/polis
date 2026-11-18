@@ -1586,11 +1586,13 @@ fn graph_recovery_cancels_overdue_nodes_without_rewriting_terminal_results() {
 
 /// Stub local-file provenance only; scheduler SQL and queue contracts are real.
 fn graph_config(f: &Fixture, extra: &[(&str, &str)]) -> config::Config {
-    use polis_queue_adapter::shadow::graph::MODEL;
+    let model = polis_queue_adapter::shadow::graph::default_model().unwrap();
     let mut cfg = f.config(extra);
     let scripts = f.dir.join("scripts");
     std::fs::create_dir_all(&scripts).unwrap();
-    let p = serde_json::json!({"model":MODEL,"code":CODE,"runtime":"fixture-runtime","adapter_sha256":"a".repeat(64),"model_sha256":"b".repeat(64)});
+    let mut p = serde_json::json!({"model":model,"code":CODE,"runtime":"fixture-runtime","adapter_sha256":"a".repeat(64),"model_sha256":"b".repeat(64)});
+    p["implementations"] = serde_json::json!(polis_queue_adapter::job_graph_contract::registry().unwrap().iter().map(|row|
+        serde_json::json!({"step":row.step,"model":row.model,"adapter_sha256":"a".repeat(64)})).collect::<Vec<_>>());
     std::fs::write(
         scripts.join("graph_provenance.py"),
         format!("import json\nprint(json.dumps({}))\n", p),
@@ -1612,7 +1614,7 @@ fn graph_catalog(f: &Fixture) {
             "'sentence-transformers/all-MiniLM-L6-v2'",
             &format!(
                 "'sentence-transformers/all-MiniLM-L6-v2','{}'",
-                polis_queue_adapter::shadow::graph::MODEL
+                polis_queue_adapter::shadow::graph::default_model().unwrap()
             ),
         )
         .replace(
@@ -1926,4 +1928,80 @@ fn graph_provenance_is_cached_until_source_metadata_changes() {
         std::fs::read_to_string(&counter).unwrap().lines().count(),
         2
     );
+}
+
+#[test]
+fn typed_admission_resolves_external_producers_with_executor_privileges() {
+    use polis_queue_adapter::{job_graph_contract::Image, jobs::admission};
+    let f = Fixture::new();
+    f.quiet(961, 25, 1);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c961")]);
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let flight = scheduler.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &flight);
+    let mut admin = f.superuser();
+    let original: Value = admin
+        .query_one(
+            "SELECT request FROM delphi_graphs WHERE env=$1 AND graph_id=$2::text::uuid",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0);
+    let view: Value = admin
+        .query_one(
+            "SELECT pd_graph_view($1,$2::text::uuid)",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0);
+    let producer = view["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["key"] == "graph_cluster")
+        .unwrap();
+    let mut topic = original["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["stage"] == "graph_topics")
+        .unwrap()
+        .clone();
+    topic["inputs"] = serde_json::json!([{"role":"clusters","artifact_id":producer["artifact"]["artifact_id"],"sha256":producer["artifact"]["content_sha"],"contract_sha256":producer["declared_sha"]}]);
+    let spec = serde_json::json!({"schema":"polis-job-graph/1","nodes":[topic]});
+    let image: Image = serde_json::from_value(serde_json::json!({"code":CODE,"runtime":"fixture-runtime","implementations":[{"step":"keywords","model":"delphi-tfidf-keywords/1","adapter_sha256":"a".repeat(64)}]})).unwrap();
+    let mut executor = Client::connect(&url_for(&f.name, &f.login), NoTls).unwrap();
+    let reply = admission::admit(
+        &mut executor,
+        &flight.env,
+        961,
+        "external-topics",
+        "one",
+        spec.clone(),
+        &image,
+        None,
+    )
+    .unwrap();
+    assert!(reply["graph_id"].is_string());
+    let mut wrong = spec;
+    let producer = view["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["key"] == "graph_embed")
+        .unwrap();
+    wrong["nodes"][0]["inputs"][0] = serde_json::json!({"role":"clusters","artifact_id":producer["artifact"]["artifact_id"],"sha256":producer["artifact"]["content_sha"],"contract_sha256":producer["declared_sha"]});
+    let error = admission::admit(
+        &mut executor,
+        &flight.env,
+        961,
+        "wrong-producer",
+        "two",
+        wrong,
+        &image,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(error.to_string(), "graph_producer_type");
 }

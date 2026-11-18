@@ -1,6 +1,6 @@
 """Bounded numerical Delphi graph adapters; all durable writes are fenced by SQL.
 
-Narratives and topic names use explicitly labelled fixed stand-ins for plumbing proof.
+Test builds may install reference narratives for plumbing proofs.
 Demo snapshots with 5–2000 texts are admitted by this initial adapter.
 Raw votes never enter these adapters; narrative inputs contain signed aggregate
 counts from the math snapshot. Comment ids are supplied explicitly.
@@ -29,16 +29,17 @@ _espec = importlib.util.spec_from_file_location('delphi_embedding_spool', ROOT /
 _espool = importlib.util.module_from_spec(_espec)
 _espec.loader.exec_module(_espool)
 
-GRANITE = 'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384'
-KEYWORD_MODEL = 'delphi-keyword-labels/1'
+from graph_registry import named, definition, _test_models
 
-MODELS = {'graph_embed': 'sentence-transformers/all-MiniLM-L6-v2',
-          'graph_cluster': 'delphi-umap-evoc/1', 'graph_topics': 'delphi-tfidf-keywords/1',
-          'graph_narrative': 'local-narrative-fixture/1'}
+GRANITE = named('Granite')
+KEYWORD_MODEL = named('KeywordLabels')
+MODELS = {'graph_embed': named('MiniLm'), 'graph_cluster': named('UmapEvoc'),
+          'graph_topics': named('TfidfKeywords'),
+          'graph_narrative': named('NarrativeFixture') if _test_models else KEYWORD_MODEL}
 
 
 def code_digest():
-    paths = [Path(__file__), ROOT / 'umap_narrative/numerical_stages.py',
+    paths = [Path(__file__), Path(__file__).with_name('graph_registry.py'), ROOT / 'polismath/job-models.json', ROOT / 'umap_narrative/numerical_stages.py',
              ROOT / 'umap_narrative/polismath_commentgraph/utils/converter.py',
              ROOT / 'umap_narrative/polismath_commentgraph/schemas/dynamo_models.py',
              ROOT / 'umap_narrative/narrative_data.py',
@@ -156,7 +157,7 @@ def narrative_sections(topics, context, ids, texts):
 def execute(frame):
     d = frame['input']['declared']
     stage = frame['stage']
-    if MODELS.get(stage) != d['model'] and (stage, d['model']) not in {('graph_embed', GRANITE), ('graph_narrative', KEYWORD_MODEL)}:
+    if definition(stage, d['model'])['adapter'] != 'numerical':
         raise ValueError('stage model mismatch')
     texts = d['snapshot']['data']['texts']
     config = d['config']
@@ -275,40 +276,8 @@ def execute(frame):
             created_at=completed_at) for topic in source['topics']]
         output.update(cluster_job_id=job, topics=len(source['topics']))
     else:
-        topics = upstream(frame, 'topics')['topics']
-        if config.get('narrative_context'):
-            topics = narrative_sections(topics, config['narrative_context'], ids, texts)
-        report_id = config['report_id']
-        job = frame['job_id']
-        # A visible fixture exercises the complete queue/read/render contract only.
-        names, reports = [], []
-        completed_at = datetime.now(timezone.utc).isoformat()
-        for topic in topics:
-            label = topic.get('cluster_id',0)
-            layer = topic.get('layer_id',0)
-            title = 'Fixed proof topic'
-            if not topic.get('_global'):
-                names.append(dict(conversation_id=zid,topic_key=f'{job}#{layer}#{label}',layer_id=layer,cluster_id=label,
-                    topic_name=title,model_name=d['model'],job_id=job,created_at=completed_at))
-            section = f"{job}_global_{topic['_global']}" if topic.get('_global') else f'{job}_{layer}_{label}'
-            report = {'title':title,'paragraphs':[{'title':'Local provider fixture',
-                'sentences':[{'clauses':[{'text':"Fixed narrative stand-in for queue, Postgres storage and report rendering proof. No LLM provider was called.",'citations':[]}]}]}],
-                'provider_fixture':True}
-            reports.append(dict(report_id=report_id,section=section,model=d['model'],
-                rid_section_model=f'{report_id}#{section}#{d["model"]}',timestamp=completed_at,
-                job_id=job,report_data=json.dumps(report,sort_keys=True),metadata={'provider_fixture':True}))
-        completed_at = datetime.now(timezone.utc).isoformat()
-        for row in names:
-            row['created_at'] = completed_at
-        for row in reports:
-            row['timestamp'] = completed_at
-        families['Delphi_CommentClustersLLMTopicNames'] = names
-        families['Delphi_NarrativeReports'] = reports
-        if config.get('narrative_context'):
-            families['Delphi_CommentExtremity'] = [dict(conversation_id=zid,comment_id=str(row['comment_id']),
-                extremity_value=row['comment_extremity'],calculation_method='pca_based',
-                calculation_timestamp=completed_at,component_values={}) for row in config['narrative_context']['comments']]
-        output.update(provider_fixture=True,topics=len(topics),
-            text='Fixed stand-in; no LLM provider was called.')
+        if _test_models is None:
+            raise ValueError('reference adapter absent from this build')
+        output.update(_test_models.narrative(frame, families))
     output['family_files'] = family_files(families)
     return output

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "Granite",
+    "step": "embeddings",
+    "stage": "graph_embed",
+    "model": "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384",
+    "adapter": "numerical",
+    "inputs": [],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "MiniLm",
+    "step": "embeddings",
+    "stage": "graph_embed",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "adapter": "numerical",
+    "inputs": [],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "UmapEvoc",
+    "step": "clusters",
+    "stage": "graph_cluster",
+    "model": "delphi-umap-evoc/1",
+    "adapter": "numerical",
+    "inputs": [
+      {
+        "role": "embeddings",
+        "producer": "embeddings"
+      }
+    ],
+    "classes": [
+      "delphi",
+      "large"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "TfidfKeywords",
+    "step": "keywords",
+    "stage": "graph_topics",
+    "model": "delphi-tfidf-keywords/1",
+    "adapter": "numerical",
+    "inputs": [
+      {
+        "role": "clusters",
+        "producer": "clusters"
+      }
+    ],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "KeywordLabels",
+    "step": "labels",
+    "stage": "graph_narrative",
+    "model": "delphi-keyword-labels/1",
+    "adapter": "numerical",
+    "inputs": [
+      {
+        "role": "topics",
+        "producer": "keywords"
+      }
+    ],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "LegacyImport",
+    "step": "labels",
+    "stage": "graph_narrative",
+    "model": "legacy-dynamo-export/1",
+    "adapter": "import",
+    "inputs": [],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  }
+]

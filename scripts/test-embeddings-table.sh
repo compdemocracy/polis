@@ -56,7 +56,7 @@ docker run --rm --name "${COMPOSE_PROJECT_NAME}-build" \
  -v "${EMB_PROOF_CARGO_REGISTRY:-${COMPOSE_PROJECT_NAME}-cargo}:/usr/local/cargo/registry" -w /source \
  -e CARGO_TARGET_DIR=/target \
  "${EMB_PROOF_RUST_IMAGE:-rust:1.98.1-slim-bookworm}" \
- bash -c 'unset RUSTUP_TOOLCHAIN; export RUSTUP_TOOLCHAIN=$(basename /usr/local/rustup/toolchains/*); apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev && cargo build --locked --bin polis-jobs' > "$proof/linux-build.log" 2>&1
+ bash -c 'unset RUSTUP_TOOLCHAIN; export RUSTUP_TOOLCHAIN=$(basename /usr/local/rustup/toolchains/*); apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev && cargo build --locked --features graph-test-models --bin polis-jobs' > "$proof/linux-build.log" 2>&1
 cp "$proof/target-linux/debug/polis-jobs" "$proof/binary/"
 # Reuse the dynamo-removal worker image recipe: it copies all of delphi/ (so the
 # embeddings_table scripts are present) and bakes the MiniLM weights.
@@ -75,7 +75,7 @@ docker exec "$pg" psql -U postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE ${db}_work
 
 common=(--network "container:$pg" -e "DATABASE_URL=postgresql://postgres@127.0.0.1/$db" \
  -e "QUEUE_DATABASE_URL=postgresql://${db}_worker@127.0.0.1/$db?sslmode=disable" \
- -e DATABASE_SSL_MODE=disable -v "$proof:/proof")
+ -e DATABASE_SSL_MODE=disable -e POLIS_JOBS_TRANSPORT=loopback -v "$proof:/proof")
 worker_common=(--network "container:$pg" \
  -e "DATABASE_URL=postgresql://postgres@127.0.0.1/$db" \
  -e "QUEUE_DATABASE_URL=postgresql://${db}_worker@127.0.0.1/$db?sslmode=disable" \

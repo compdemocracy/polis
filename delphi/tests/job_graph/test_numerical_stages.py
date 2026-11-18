@@ -55,7 +55,7 @@ class NumericalBoundary(unittest.TestCase):
             snapshot=dict(data=dict(texts=['constructed text']*5)),
             config=dict(comment_ids=list(range(5)),report_id='constructed-report',adapter_sha256=stages.code_digest()))
         inp = dict(schema='polis-job-input/1',declared=declared,
-            artifacts=dict(topics=dict(payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest())))
+            artifacts=dict(topics=dict(schema='graph_topics/1',payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest())))
         frame = dict(schema='polis-job-stage-frame/1',stage='graph_narrative',zid=9001,
             job_id='00000000-0000-4000-8000-000000009001',run_id='run',attempt_id='attempt',input=inp)
         return self.digest(frame)

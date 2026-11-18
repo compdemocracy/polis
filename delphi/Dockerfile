@@ -17,6 +17,13 @@ RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
  && cp target/release/polis-delphi-shadow /polis-delphi-shadow \
  && /polis-jobs --version && /polis-delphi-shadow --version
 
+# Explicit reference binary; never copied into the final image.
+FROM polis-jobs AS polis-jobs-test
+RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
+    cargo build --release --locked --features graph-test-models --bin polis-jobs --bin polis-delphi-shadow \
+ && cp target/release/polis-jobs /polis-jobs-test \
+ && cp target/release/polis-delphi-shadow /polis-delphi-shadow-test
+
 # ---- Stage 1: Builder ----
   FROM python:3.12-slim-trixie AS trust
 RUN apt-get update \
@@ -34,7 +41,7 @@ RUN apt-get update \
 FROM trust AS embedding-model
 RUN pip install --no-cache-dir huggingface-hub==0.36.0
 COPY embedding-model.lock.json /opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json
-COPY polismath/embedding_model.py /tmp/embedding_model.py
+COPY polismath/embedding_model.py polismath/job-models.json /tmp/
 RUN python /tmp/embedding_model.py fetch \
       --lock /opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json \
       --dest /opt/polis/embedding/granite-embedding-311m-multilingual-r2 \
@@ -201,6 +208,9 @@ CMD ["bash", "-c", "\
 # ---- Stage 3: Test ----
 # Extends final stage with dev dependencies for CI/testing
 FROM final AS test
+COPY --from=polis-jobs-test /polis-jobs-test /usr/local/bin/polis-jobs
+COPY --from=polis-jobs-test /polis-delphi-shadow-test /usr/local/bin/polis-delphi-shadow
+COPY tests/job_graph/graph_test_models.py tests/job_graph/job-test-models.json /app/scripts/
 
 # Install build tools needed for dev dependencies (e.g., line-profiler)
 RUN apt-get update && \
