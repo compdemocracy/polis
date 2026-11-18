@@ -38,7 +38,7 @@ docker run --rm --name "${COMPOSE_PROJECT_NAME}-build" \
  -v "${DYNAMO_PROOF_CARGO_REGISTRY:-${COMPOSE_PROJECT_NAME}-cargo}:/usr/local/cargo/registry" -w /source \
  -e CARGO_TARGET_DIR=/target \
  "${DYNAMO_PROOF_RUST_IMAGE:-rust:1.98.1-slim-bookworm}" \
- bash -c 'unset RUSTUP_TOOLCHAIN; export RUSTUP_TOOLCHAIN=$(basename /usr/local/rustup/toolchains/*); apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev && cargo build --locked --bin polis-jobs' > "$proof/linux-build.log" 2>&1
+ bash -c 'unset RUSTUP_TOOLCHAIN; export RUSTUP_TOOLCHAIN=$(basename /usr/local/rustup/toolchains/*); apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev && cargo build --locked --features graph-test-models --bin polis-jobs' > "$proof/linux-build.log" 2>&1
 cp "$proof/target-linux/debug/polis-jobs" "$proof/binary/"
 docker build -f delphi/tests/dynamo_removal/Dockerfile --build-arg "DELPHI_BASE=$base" \
  --build-context "queue-binary=$proof/binary" -t "$image" . > "$proof/worker-build.log" 2>&1
@@ -61,7 +61,7 @@ docker exec "$pg" psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE ROLE dynamo1424
 common=(--network "container:$pg" -e DATABASE_URL=postgresql://postgres@127.0.0.1/dynamo1424 \
  -e 'QUEUE_DATABASE_URL=postgresql://dynamo1424_worker@127.0.0.1/dynamo1424?sslmode=disable' \
  -e 'MATH_CAPACITY_QUEUE_DSN=postgresql://dynamo1424_worker@127.0.0.1/dynamo1424?sslmode=disable' \
- -e MATH_CAPACITY_QUEUE_ENV=demo1424 -e DATABASE_SSL_MODE=disable -v "$proof:/proof")
+ -e MATH_CAPACITY_QUEUE_ENV=demo1424 -e DATABASE_SSL_MODE=disable -e POLIS_JOBS_TRANSPORT=loopback -v "$proof:/proof")
 docker run --rm "${common[@]}" "$image" python tests/dynamo_removal/seed.py --source-agree=+1 | tee "$proof/seed.log"
 docker run --rm --network none "$image" python -m pytest --noconftest -o addopts= -q \
  tests/poller/test_enqueue_math_rebuild.py tests/test_delphi_legacy_import.py tests/test_delphi_storage_codec.py \

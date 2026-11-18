@@ -21,10 +21,11 @@ fi
 trap '"${compose[@]}" down -v > "$proof_output/cleanup.log" 2>&1' EXIT
 (cd queue-rs
  cargo fmt --all --check
- cargo build --locked --bins
+ cargo build --locked --bins --features graph-test-models
  cargo test --locked
  cargo clippy --locked --all-targets -- -D warnings
- cargo clippy --locked --all-targets --features jobs-integration -- -D warnings
+ cargo clippy --locked --all-targets --features jobs-integration,graph-test-models -- -D warnings
+ cargo build --locked --bins --features graph-test-models
 ) 2>&1 | tee "$proof_output/rust.log"
 "${compose[@]}" up -d --wait
 python3 delphi/tests/job_graph/installs.py --bootstrap 2>&1 | tee "$proof_output/install.log"
@@ -36,7 +37,7 @@ GRAPH_PROOF_ROOT="$proof_output/installs" python3 delphi/tests/job_graph/install
 "${compose[@]}" exec -T postgres psql -U postgres -c 'CREATE DATABASE queue_acceptance'
 export POLIS_JOBS_TEST_DATABASE_URL="postgresql://postgres@127.0.0.1:$POLIS_RECOVERY_PG_PORT/queue_acceptance"
 export POLIS_JOBS_TEST_PYTHON=python3
-(cd queue-rs && cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4) 2>&1 | tee "$proof_output/legacy.log"
+(cd queue-rs && cargo test --locked --features jobs-integration,graph-test-models --test jobs_integration -- --test-threads 4) 2>&1 | tee "$proof_output/legacy.log"
 
 # Existing Node adapter gets an independent fresh /5 database: graph fixtures
 # deliberately use fixed identifiers and must not perturb its serial sequences.

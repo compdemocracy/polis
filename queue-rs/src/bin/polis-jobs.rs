@@ -8,6 +8,20 @@
 use polis_queue_adapter::jobs::{claim, config};
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("graph-admit") {
+        if polis_queue_adapter::jobs::admission::command().is_err() {
+            eprintln!("graph admission refused or outcome unknown");
+            std::process::exit(2);
+        }
+        return;
+    }
+    if std::env::args().nth(1).as_deref() == Some("graph-registry") {
+        match polis_queue_adapter::job_graph_contract::registry() {
+            Ok(rows) => println!("{}", serde_json::json!(rows)),
+            Err(_) => std::process::exit(2),
+        }
+        return;
+    }
     if std::env::args().nth(1).as_deref() == Some("--version") {
         println!("polis-jobs {}", env!("CARGO_PKG_VERSION"));
         return;

@@ -396,3 +396,6 @@ impl Database {
         })
     }
 }
+
+#[path = "../polis-contracts/src/job_graph.rs"]
+pub mod job_graph_contract;

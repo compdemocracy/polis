@@ -11,6 +11,8 @@ import time
 import uuid
 from prove import *
 
+sys.path.insert(0, str(ROOT / "delphi/scripts"))
+
 
 def claim(cls='delphi',stage='graph_embed'):
     return rpc('pd_graph_claim',"'proof'","1::smallint",lit(uuid.uuid4()),lit(uuid.uuid4()),'10',lit(cls),lit(stage))
