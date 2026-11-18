@@ -302,13 +302,20 @@ if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'DELPHI_SHADOW_ENABLED=1' .e
   DELPHI_SHADOW_SELECTED=1
 fi
 
+DELPHI_SHADOW_GRAPH_SELECTED=0
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && grep -qx 'DELPHI_SHADOW_GRAPH_ENABLED=1' .env 2>/dev/null; then
+  DELPHI_SHADOW_GRAPH_SELECTED=1
+fi
+
 # Compose runs the pulled digests: this override sets each service's image, and
 # every `up` below passes --no-build, so nothing is built on this box.
 if [ -n "$ROLE_IMAGES" ]; then
   { echo "services:"
     for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
     if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
-      for image in delphi-shadow delphi-shadow-scheduler; do
+      SHADOW_IMAGES="delphi-shadow delphi-shadow-scheduler"
+      if [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then SHADOW_IMAGES="$SHADOW_IMAGES delphi-shadow-graph"; fi
+      for image in $SHADOW_IMAGES; do
         printf '  %s:\n    image: %s\n' "$image" "$(image_ref delphi)"
       done
     fi
@@ -416,6 +423,16 @@ if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   if [ -n "$DELPHI_SHADOW_SETTINGS_WRONG" ]; then
     echo "The Delphi shadow's composed settings are not a shadow's ($DELPHI_SHADOW_SETTINGS_WRONG); not starting it" >&2
     DELPHI_SHADOW_SELECTED=0
+  fi
+fi
+
+# A graph executor has its own profile, local journal and resource ceiling.
+# Validate only composed settings; never print the environment document.
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
+  if ! sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow --profile delphi-shadow-graph config --format json | python3 scripts/check-shadow-graph.py; then
+    echo "The graph shadow's composed settings are invalid; not starting either shadow" >&2
+    DELPHI_SHADOW_SELECTED=0
+    DELPHI_SHADOW_GRAPH_SELECTED=0
   fi
 fi
 
@@ -689,6 +706,10 @@ fi
 # among them) see a Delphi-only block, not a start on the web boxes.
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
+  if [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
+    "${COMPOSE[@]}" up -d delphi-shadow-graph --no-build --force-recreate \
+      || echo "The graph shadow did not start; recovery remains pending" >&2
+  fi
   "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
     || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi
