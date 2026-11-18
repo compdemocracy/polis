@@ -1,6 +1,6 @@
 //! Typed graph admission policy. SQL retains the atomic seal and stored lineage.
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::{collections::BTreeMap, sync::OnceLock};
 
 type Result<T> = std::result::Result<T, String>;
@@ -238,9 +238,9 @@ pub fn node(
     attempts: u32,
 ) -> Result<Value> {
     let def = model.definition()?;
-    declared["model"] = json!(def.model);
+    declared["model"] = serde_json::json!(def.model);
     Ok(
-        json!({"key":key,"stage":def.stage,"class":"delphi","declared":declared,"inputs":inputs,"max_attempts":attempts}),
+        serde_json::json!({"key":key,"stage":def.stage,"class":"delphi","declared":declared,"inputs":inputs,"max_attempts":attempts}),
     )
 }
 
@@ -259,8 +259,11 @@ mod tests {
                 adapter_sha256: "b".repeat(64),
             }],
         };
-        let n=node("e",Model::Granite,json!({"snapshot":{"data":{"texts":["one"]}},"code":image.code,"runtime":image.runtime,"config":{"adapter_sha256":"b".repeat(64)},"mode":"full","memory_bytes":4294967296_u64,"work_units":5}),json!([]),3).unwrap();
-        (json!({"schema":"polis-job-graph/1","nodes":[n]}), image)
+        let n=node("e",Model::Granite,serde_json::json!({"snapshot":{"data":{"texts":["one"]}},"code":image.code,"runtime":image.runtime,"config":{"adapter_sha256":"b".repeat(64)},"mode":"full","memory_bytes":4294967296_u64,"work_units":5}),serde_json::json!([]),3).unwrap();
+        (
+            serde_json::json!({"schema":"polis-job-graph/1","nodes":[n]}),
+            image,
+        )
     }
     #[test]
     fn image_and_registry_agree_before_admission() {
@@ -270,7 +273,7 @@ mod tests {
     #[test]
     fn model_typo_and_absent_image_model_refuse() {
         let (mut v, mut i) = fixture();
-        v["nodes"][0]["declared"]["model"] = json!("unknown");
+        v["nodes"][0]["declared"]["model"] = serde_json::json!("unknown");
         assert!(ValidatedGraph::parse(v, &i).is_err());
         let (v, _) = fixture();
         i.implementations.clear();
@@ -289,7 +292,7 @@ mod tests {
             "t",
             Model::TfidfKeywords,
             v["nodes"][0]["declared"].clone(),
-            json!([{"node":"e","role":"clusters"}]),
+            serde_json::json!([{"node":"e","role":"clusters"}]),
             3,
         )
         .unwrap();
