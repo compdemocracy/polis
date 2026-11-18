@@ -381,3 +381,65 @@ def test_interpreter_exit_never_waits_on_the_sink(mode):
         assert elapsed < recompute_line.EXIT_FLUSH_S + 20
     else:
         assert [b["zid"] for b in lines] == [1, 2, 3]
+
+
+_PIPE_SCRIPT = """
+import sys, threading
+from types import SimpleNamespace
+from polismath.poller import recompute_line
+from polismath.poller.service import MathPollerService
+from polismath.poller.worker_pool import REBUILD, ConversationWorkerPool
+
+class Conv:
+    participant_count, comment_count, vote_stats = 3, 2, {"n_votes": 4}
+    def recompute(self):
+        return self
+
+class Admission:
+    def release(self, reservation):
+        pass
+
+published, lock = [], threading.Lock()
+svc = object.__new__(MathPollerService)
+svc.capacity = SimpleNamespace(routing=False)
+svc._convs_lock, svc._convs = threading.Lock(), {}
+svc.admission, svc.config = Admission(), SimpleNamespace(math_env="python")
+svc._reserve = lambda zid, conv, batch: zid
+
+def compute(zid, conv, batch):
+    recompute_line.timed_recompute(Conv())
+    recompute_line.note(math_tick=zid, encode_s=0.0, write_s=0.0, payload_bytes=1)
+    with lock:
+        published.append(zid)
+
+svc._compute_and_publish = compute
+pool = ConversationWorkerPool(lambda z, b: svc._run_engine(z, b), max_workers=4)
+for zid in range(1, 3001):
+    pool.submit(zid, REBUILD, [])
+drained = pool.join(timeout=60)
+print("done", drained, len(published), recompute_line.dropped_total(), flush=True)
+"""
+
+
+def test_a_real_standard_error_nobody_reads_never_holds_the_pool():
+    """Standard error is a pipe the parent never reads, so it fills after a
+    hundred-odd lines: 3,000 conversations still publish through four pool
+    threads, the lines beyond the queue are dropped and counted, and the
+    process exits."""
+    env = dict(os.environ, PYTHONPATH=str(DELPHI))
+    child = subprocess.Popen([sys.executable, "-c", _PIPE_SCRIPT], cwd=DELPHI, env=env,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    got = []
+    reader = threading.Thread(target=lambda: got.append(child.stdout.readline()), daemon=True)
+    reader.start()
+    reader.join(60)
+    try:
+        assert got, "the pool never finished while standard error was full"
+        word, drained, published, dropped = got[0].split()
+        assert (word, drained, published) == ("done", "True", "3000")
+        assert int(dropped) > 0
+        assert child.wait(timeout=30) == 0  # exit does not wait on the full pipe
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.communicate(timeout=30)
