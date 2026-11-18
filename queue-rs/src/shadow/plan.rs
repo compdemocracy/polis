@@ -2,10 +2,18 @@
 //! conversation is next, and what its admission says.
 use super::{
     config::{Config, Share},
-    db::{Admission, Live, Signals},
+    db::{Admission, CommentSet, Live, Signals},
     state::State,
     storage::Ledger,
 };
+
+/// The selection every run the scheduler admits names: the comments
+/// participants are shown (`contract::participant_visible`). Each run embeds
+/// every comment of its conversation and lays out, clusters and names these
+/// only. It is part of the run's identity: its admission names it, its
+/// digest keys the admission, and its run record carries both
+/// (`config_effective.selection`, `config_effective.shadow`).
+pub const SELECTION: &str = crate::jobs::inputs::contract::PARTICIPANT_VISIBLE;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -165,6 +173,14 @@ pub enum Look {
     Recent,
 }
 
+/// What a candidate is before its comment set is read. `live.comments` is
+/// every comment with text (what a run embeds): the cap and the storage
+/// estimate are of that set. The floor is of the selection (what a run lays
+/// out), which only the census reads: a conversation with fewer comments in
+/// all is below it too, and one whose last census found too few selected is
+/// below it until a comment changes. A state entry written before runs named
+/// a selection is read again whatever its time: its digests are of every
+/// comment, not of the selection.
 pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64, share: Share) -> Look {
     if live.comments < cfg.min_comments {
         return Look::TooSmall;
@@ -183,10 +199,13 @@ pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64, share: Share)
     {
         return Look::Recent;
     }
-    if seen.last_modified == live.last_modified
-        && seen.admitted_digest.as_deref() == Some(&seen.digest)
-    {
-        return Look::Unchanged;
+    if seen.selection.as_deref() == Some(SELECTION) && seen.last_modified == live.last_modified {
+        if seen.admitted_digest.as_deref() == Some(&seen.digest) {
+            return Look::Unchanged;
+        }
+        if seen.selected < cfg.min_comments {
+            return Look::TooSmall;
+        }
     }
     Look::Read
 }
@@ -320,38 +339,47 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-/// The admission of one run. The idempotency key is the comment set itself
+/// The admission of one run. The idempotency key is the selection's digest
 /// (with `twin` for its repeat), so a crash and restart within the queue's
-/// binding window admits nothing twice; the configuration names the comment
-/// set, the named set the run was selected from (a twin, its first run's;
-/// `None` only for a twin of a run admitted before runs named it) and, on a
-/// twin, the run it repeats, and is stored in the job's run record
-/// (`config_effective.shadow`). The named set is not in the key: one comment
-/// set is run once whichever set selects it, and the same key asked again
-/// under another set within the binding window is the queue's `conflict`,
-/// refused, not run twice.
+/// binding window admits nothing twice, a moderation that changes what the
+/// selection keeps is a new run, and one that keeps the same comments (or a
+/// comment added that it does not keep) is not. The configuration names the
+/// selection (`selection`, which the job's dispatch passes to the pipeline),
+/// both digests of the census (every comment, which the run embeds; the
+/// selection, which it lays out, clusters and names) with their counts, the
+/// named set the run was selected from (a twin, its first run's; `None` only
+/// for a twin of a run admitted before runs named it) and, on a twin, the run
+/// it repeats, and is stored in the job's run record (`config_effective`). The
+/// report filter (`exclude_comment_selections`) is off: the selection is what
+/// participants are shown, which a report's own choices do not narrow. The
+/// named set is not in the key: one selection is run once whichever set
+/// selects it, and the same key asked again under another set within the
+/// binding window is the queue's `conflict`, refused, not run twice.
 pub fn admission(
     zid: i32,
-    digest: &str,
-    comments: i64,
+    census: &CommentSet,
     set: Option<Set>,
     twin_of: Option<&str>,
 ) -> Admission {
     let config = json!({
-        "include_moderation": false,
-        "exclude_comment_selections": true,
+        "selection": census.selection,
+        "exclude_comment_selections": false,
         "embeddings_table": true,
         "shadow": {
-            "schema": "delphi-shadow/1",
-            "comment_set_sha256": digest,
-            "comments": comments,
-            "size_class": size_class(comments),
+            "schema": "delphi-shadow/2",
+            "comment_set_sha256": census.digest,
+            "comments": census.comments,
+            "selection": census.selection,
+            "selection_sha256": census.selection_digest,
+            "selected": census.selected,
+            "size_class": size_class(census.comments),
             "set": set.map(Set::word),
             "twin_of": twin_of,
             "scheduler": concat!("polis-delphi-shadow ", env!("CARGO_PKG_VERSION")),
         }
     });
     let kind = if twin_of.is_some() { "twin" } else { "first" };
+    let digest = &census.selection_digest;
     let key = format!("shadow:{kind}:{zid}:{}", &digest[..digest.len().min(48)]);
     let request = json!({"zid": zid, "kind": kind, "config": config});
     Admission {
@@ -665,19 +693,37 @@ mod tests {
         );
         assert_eq!(look(&c, &s, &live[2], now, Share::Whole), Look::TooSmall);
         assert_eq!(look(&c, &s, &live[3], now, Share::Whole), Look::TooLarge);
-        // Admitted a day ago on the same set and nothing changed: unchanged.
+        // Admitted a day ago on the same selection and nothing changed:
+        // unchanged.
         s.conversations.insert(
             2,
             Seen {
                 last_modified: 9,
                 digest: "d".into(),
                 comments: 25,
+                selection: Some(SELECTION.into()),
+                selected: 25,
                 admitted_digest: Some("d".into()),
                 admitted_at_ms: Some(now - 86_400_000),
                 ..Seen::default()
             },
         );
         assert_eq!(look(&c, &s, &live[1], now, Share::Whole), Look::Unchanged);
+        // The same entry as an earlier build wrote it (no selection: its run
+        // laid out every comment) is read again, whatever its time.
+        let mut earlier = s.clone();
+        if let Some(seen) = earlier.conversations.get_mut(&2) {
+            seen.selection = None;
+        }
+        assert_eq!(look(&c, &earlier, &live[1], now, Share::Whole), Look::Read);
+        // Its last census kept fewer than the floor and nothing changed
+        // since: below the floor, without reading it again.
+        let mut few = s.clone();
+        if let Some(seen) = few.conversations.get_mut(&2) {
+            seen.admitted_digest = None;
+            seen.selected = 19;
+        }
+        assert_eq!(look(&c, &few, &live[1], now, Share::Whole), Look::TooSmall);
         // Admitted an hour ago: inside the rerun window, whatever changed.
         if let Some(seen) = s.conversations.get_mut(&2) {
             seen.admitted_at_ms = Some(now - 3_600_000);
@@ -744,6 +790,8 @@ mod tests {
             last_modified,
             digest: "d".into(),
             comments: 900,
+            selection: Some(SELECTION.into()),
+            selected: 900,
             admitted_digest: Some("d".into()),
             admitted_at_ms: Some(now - 2 * 86_400_000),
             ..Seen::default()
@@ -832,11 +880,22 @@ mod tests {
         assert_eq!(overlay(&roster, &[]), roster);
     }
 
+    fn census(digest: &str, selection_digest: &str, comments: i64, selected: i64) -> CommentSet {
+        CommentSet {
+            digest: digest.into(),
+            comments,
+            selection: SELECTION,
+            selection_digest: selection_digest.into(),
+            selected,
+        }
+    }
+
     #[test]
-    fn admissions_are_keyed_by_the_comment_set_and_name_it() {
-        let digest = "ab".repeat(32);
-        let a = admission(7, &digest, 42, Some(Set::Featured), None);
-        let b = admission(7, &digest, 42, Some(Set::Featured), None);
+    fn admissions_are_keyed_by_the_selection_and_name_it() {
+        let (digest, picked) = ("ab".repeat(32), "ef".repeat(32));
+        let set = census(&digest, &picked, 42, 30);
+        let a = admission(7, &set, Some(Set::Featured), None);
+        let b = admission(7, &set, Some(Set::Featured), None);
         assert_eq!(a.key, b.key);
         assert_eq!(
             a.request_sha, b.request_sha,
@@ -844,20 +903,40 @@ mod tests {
         );
         assert_ne!(a.job_id, b.job_id);
         assert!(a.key.len() <= 128);
-        assert_eq!(a.config["shadow"]["comment_set_sha256"], digest);
-        assert_eq!(a.config["shadow"]["size_class"], "b 20-99");
-        assert_eq!(a.config["shadow"]["twin_of"], Value::Null);
-        assert_eq!(a.config["include_moderation"], false);
+        assert_eq!(a.key, format!("shadow:first:7:{}", &picked[..48]));
+        // The run is told what it lays out, and that no report narrows it.
+        assert_eq!(a.config["selection"], "participant_visible/1");
+        assert_eq!(a.config["exclude_comment_selections"], false);
+        assert!(a.config.get("include_moderation").is_none());
+        let shadow = &a.config["shadow"];
+        assert_eq!(shadow["schema"], "delphi-shadow/2");
+        assert_eq!(shadow["comment_set_sha256"], digest);
+        assert_eq!(shadow["comments"], 42);
+        assert_eq!(shadow["selection"], "participant_visible/1");
+        assert_eq!(shadow["selection_sha256"], picked);
+        assert_eq!(shadow["selected"], 30);
+        // The size class and the storage estimate are of what it embeds.
+        assert_eq!(shadow["size_class"], "b 20-99");
+        assert_eq!(shadow["twin_of"], Value::Null);
         // The run record names the set it was selected from; the key does not.
-        assert_eq!(a.config["shadow"]["set"], "featured");
-        let c = admission(7, &digest, 42, Some(Set::Current), None);
+        assert_eq!(shadow["set"], "featured");
+        let c = admission(7, &set, Some(Set::Current), None);
         assert_eq!(c.config["shadow"]["set"], "current");
-        assert_eq!(c.key, a.key, "one comment set, one key, whichever set");
+        assert_eq!(c.key, a.key, "one selection, one key, whichever set");
         assert_ne!(c.request_sha, a.request_sha);
+        // Every comment's set changed (a rejected comment added) and the
+        // selection did not: the same key, so the queue runs nothing new.
+        let more = census(&"cd".repeat(32), &picked, 43, 30);
+        assert_eq!(admission(7, &more, Some(Set::Featured), None).key, a.key);
+        // The selection changed: a new key.
+        let moderated = census(&digest, &"01".repeat(32), 42, 29);
+        assert_ne!(
+            admission(7, &moderated, Some(Set::Featured), None).key,
+            a.key
+        );
         let t = admission(
             7,
-            &digest,
-            42,
+            &set,
             Some(Set::Featured),
             Some("00000000-0000-4000-8000-000000000001"),
         );
@@ -866,7 +945,7 @@ mod tests {
             "a twin, its first run's"
         );
         assert_eq!(
-            admission(7, &digest, 42, None, Some("j")).config["shadow"]["set"],
+            admission(7, &set, None, Some("j")).config["shadow"]["set"],
             Value::Null
         );
         assert_ne!(t.key, a.key);
@@ -875,14 +954,7 @@ mod tests {
             t.config["shadow"]["twin_of"],
             "00000000-0000-4000-8000-000000000001"
         );
-        assert_ne!(
-            admission(8, &digest, 42, Some(Set::Featured), None).key,
-            a.key
-        );
-        assert_ne!(
-            admission(7, &"cd".repeat(32), 42, Some(Set::Featured), None).key,
-            a.key
-        );
+        assert_ne!(admission(8, &set, Some(Set::Featured), None).key, a.key);
     }
 
     #[test]

@@ -158,6 +158,93 @@ def fetch_conversation_data(zid):
             postgres_client.shutdown()
 
 
+def fetch_selection_columns(zid):
+    """What a named selection reads besides the comment rows: the conversation's
+    strict_moderation, and every comment's velocity by tid. From the input bundle
+    when the frame names one (written for the selection: its comment rows carry
+    their velocity, so the second value is None), else from PostgreSQL."""
+    from polismath.job_child import input_bundle
+
+    bundle = input_bundle.load(zid)
+    if bundle is not None:
+        return bundle.strict_moderation(), None
+    postgres_client = PostgresClient()
+    postgres_client.initialize()
+    try:
+        conversation = postgres_client.get_conversation_by_id(zid) or {}
+        rows = postgres_client.query("SELECT tid, velocity FROM comments WHERE zid = :zid", {"zid": zid})
+    finally:
+        postgres_client.shutdown()
+    return bool(conversation.get("strict_moderation")), {int(r["tid"]): float(r["velocity"]) for r in rows}
+
+
+def _texts_and_ids(comments):
+    """The comments that have text, as two lists: their texts and their ids."""
+    return map(
+        list,
+        zip(
+            *[(c["txt"], c["tid"]) for c in comments if c["txt"] and c["txt"].strip()],
+            strict=True,
+        ),
+    )
+
+
+def _embed(comment_texts):
+    """The comments' vectors, from the run's embedding model."""
+    # Generate embeddings with SentenceTransformer. DELPHI_EMBED_MODEL_PATH set
+    # (the Delphi services): the model's files carried in the image, checked
+    # against DELPHI_EMBED_MODEL_LOCK and read with no network. Unset: the
+    # default model fetched by name once at the shipped lock's revision and
+    # checked against that lock the same way; another name, from the hub as
+    # given. Either way the vectors are the first 384 dimensions, normalized
+    # (polismath/embedding_model.py).
+    from polismath import embedding_model as em
+
+    logger.info("Generating embeddings with SentenceTransformer...")
+    with step_log.step("embed_load") as facts:
+        embedding_model, resolved = em.load()
+        facts["model_source"] = "image" if resolved.local else "hub"
+        facts["model"] = resolved.model
+        logger.info(f"Using model: {resolved.model}"
+                    + (f" from {resolved.arg} (no download)" if resolved.local else ""))
+    with step_log.step("embed_encode", n_comments=len(comment_texts)) as facts:
+        document_vectors = em.encode(embedding_model, comment_texts, show_progress_bar=True)
+        facts["dims"] = int(document_vectors.shape[1]) if getattr(document_vectors, "ndim", 0) == 2 else None
+    return document_vectors
+
+
+def process_selected_comments(comments, conversation_id, selected):
+    """
+    Embed every comment that has text; lay out and cluster only the selected ones.
+
+    Args:
+        comments: Every comment of the conversation (the run embeds them all)
+        conversation_id: Conversation ID string
+        selected: The ids of the comments the run's selection keeps
+
+    Returns:
+        embedded: (texts, ids, vectors) of every comment embedded, for the
+            embeddings store
+        then process_comments' five values, of the selected comments only
+    """
+    logger.info(
+        f"Processing {len(comments)} comments for conversation {conversation_id}, "
+        f"laying out the {len(selected)} its selection keeps..."
+    )
+    all_texts, all_ids = _texts_and_ids(comments)
+    all_vectors = _embed(all_texts)
+    keep = [i for i, tid in enumerate(all_ids) if int(tid) in selected]
+    comment_texts = [all_texts[i] for i in keep]
+    comment_ids = [all_ids[i] for i in keep]
+    document_vectors = all_vectors[keep]
+
+    from umap_narrative.numerical_stages import project_and_cluster
+    document_map, cluster_layers = project_and_cluster(document_vectors)
+
+    embedded = (all_texts, all_ids, all_vectors)
+    return embedded, document_map, document_vectors, cluster_layers, comment_texts, comment_ids
+
+
 def process_comments(comments, conversation_id):
     """
     Process comments with embedding and clustering.
@@ -178,33 +265,9 @@ def process_comments(comments, conversation_id):
     )
 
     # Extract comment texts and IDs
-    comment_texts, comment_ids = map(
-        list,
-        zip(
-            *[(c["txt"], c["tid"]) for c in comments if c["txt"] and c["txt"].strip()],
-            strict=True,
-        ),
-    )
+    comment_texts, comment_ids = _texts_and_ids(comments)
 
-    # Generate embeddings with SentenceTransformer. DELPHI_EMBED_MODEL_PATH set
-    # (the Delphi services): the model's files carried in the image, checked
-    # against DELPHI_EMBED_MODEL_LOCK and read with no network. Unset: the
-    # default model fetched by name once at the shipped lock's revision and
-    # checked against that lock the same way; another name, from the hub as
-    # given. Either way the vectors are the first 384 dimensions, normalized
-    # (polismath/embedding_model.py).
-    from polismath import embedding_model as em
-
-    logger.info("Generating embeddings with SentenceTransformer...")
-    with step_log.step("embed_load") as facts:
-        embedding_model, resolved = em.load()
-        facts["model_source"] = "image" if resolved.local else "hub"
-        facts["model"] = resolved.model
-        logger.info(f"Using model: {resolved.model}"
-                    + (f" from {resolved.arg} (no download)" if resolved.local else ""))
-    with step_log.step("embed_encode", n_comments=len(comment_texts)) as facts:
-        document_vectors = em.encode(embedding_model, comment_texts, show_progress_bar=True)
-        facts["dims"] = int(document_vectors.shape[1]) if getattr(document_vectors, "ndim", 0) == 2 else None
+    document_vectors = _embed(comment_texts)
 
     from umap_narrative.numerical_stages import project_and_cluster
     document_map, cluster_layers = project_and_cluster(document_vectors)
@@ -1052,7 +1115,8 @@ def create_enhanced_multilayer_index(
 
 
 def process_conversation(
-    zid, export_dynamo=True, name_topics=False, include_moderation=False, exclude_comment_selections=True
+    zid, export_dynamo=True, name_topics=False, include_moderation=False, exclude_comment_selections=True,
+    selection=None,
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1064,6 +1128,11 @@ def process_conversation(
         include_moderation: Whether to filter out moderated comments (mod == -1)
         exclude_comment_selections: Whether to exclude comments that have selection == -1
             in report_comment_selections table (for any report in this conversation)
+        selection: A selection's name (polismath/selection.py): every comment is
+            embedded, and only the comments it keeps are laid out, clustered,
+            named and stored. It is the whole rule, so the two filters above
+            must be off. None (the default, and every run but the shadow's):
+            the run is what it was.
     """
     # Create conversation directory
     output_dir = os.path.join(
@@ -1073,7 +1142,8 @@ def process_conversation(
 
     with step_log.step("total") as total:
         ok = _process_conversation(zid, output_dir, export_dynamo, name_topics,
-                                   include_moderation, exclude_comment_selections, total)
+                                   include_moderation, exclude_comment_selections, total,
+                                   selection=selection)
         total["ok"] = bool(ok)
     return ok
 
@@ -1123,10 +1193,50 @@ def _read_inputs(zid, include_moderation, exclude_comment_selections, facts):
     return comments, metadata
 
 
+def _read_selected_inputs(zid, selection_name, facts):
+    """Every comment of the conversation (the run embeds them all) and the ids of
+    the comments the selection keeps (the run lays out, clusters and names only
+    those), with the counts in the step's facts: read, embedded, selected, and
+    left out by reason."""
+    from polismath import selection as selections
+
+    comments, metadata = fetch_conversation_data(zid)
+    if not comments:
+        logger.error("Failed to fetch conversation data.")
+        facts["comments_read"] = 0
+        return None, None, None
+    facts["comments_read"] = len(comments)
+    strict, velocities = fetch_selection_columns(zid)
+    if velocities is not None:
+        comments = [dict(c, velocity=velocities.get(int(c["tid"]))) for c in comments]
+    chosen = selections.select(selection_name, comments, strict)
+    kept = set(chosen.tids)
+    with_text = [c for c in comments if c["txt"] and c["txt"].strip()]
+    facts["selection"] = selection_name
+    facts["strict_moderation"] = bool(strict)
+    facts["comments_embedded"] = len(with_text)
+    facts["comments_selected"] = sum(1 for c in with_text if int(c["tid"]) in kept)
+    for reason, count in chosen.left_out.items():
+        facts[f"left_out_{reason}"] = count
+    facts["comments_used"] = facts["comments_selected"]
+    logger.info(
+        f"Selection {selection_name}: {facts['comments_selected']} of {facts['comments_embedded']} "
+        f"comments laid out (left out: {chosen.left_out})"
+    )
+    return comments, metadata, kept
+
 
 def _store_base(export_dynamo, conversation_id, document_vectors, document_map, cluster_layers,
-                comment_texts, comment_ids, metadata):
-    """The run's first writes: metadata, embeddings, UMAP edges, assignments, topics."""
+                comment_texts, comment_ids, metadata, embedded=None):
+    """The run's first writes: metadata, embeddings, UMAP edges, assignments, topics.
+
+    With ``embedded`` (a run that names a selection: the texts, ids and vectors of
+    every comment it embedded), the embeddings stored are those; everything else
+    is of the selected comments the other arguments hold. Without it, both are
+    the same comments, as they always were."""
+    embed_texts, embed_ids, embed_vectors = (
+        embedded if embedded is not None else (comment_texts, comment_ids, document_vectors)
+    )
     # Initialize DynamoDB storage if requested
     dynamo_storage = None
     if export_dynamo:
@@ -1162,13 +1272,13 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
         logger.info("Storing comment embeddings...")
         if dynamo_storage.embeddings_table_enabled():
             import hashlib
-            text_shas = [hashlib.sha256(text.encode("utf-8")).digest() for text in comment_texts]
+            text_shas = [hashlib.sha256(text.encode("utf-8")).digest() for text in embed_texts]
             result = dynamo_storage.put_comment_embeddings_table(
-                conversation_id, comment_ids, text_shas, document_vectors, model_name
+                conversation_id, embed_ids, text_shas, embed_vectors, model_name
             )
         else:
             embedding_models = DataConverter.batch_convert_embeddings(
-                conversation_id, document_vectors, comment_ids, model=model_name
+                conversation_id, embed_vectors, embed_ids, model=model_name
             )
             result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(
@@ -1213,10 +1323,20 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
 
 
 def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_moderation,
-                          exclude_comment_selections, total):
+                          exclude_comment_selections, total, selection=None):
     with step_log.step("inputs") as facts:
-        comments, metadata = _read_inputs(zid, include_moderation, exclude_comment_selections, facts)
+        if selection is None:
+            comments, metadata = _read_inputs(zid, include_moderation, exclude_comment_selections, facts)
+            selected = None
+        else:
+            if include_moderation or exclude_comment_selections:
+                raise ValueError("a named selection is the whole rule: include_moderation and "
+                                 "exclude_comment_selections must be off")
+            comments, metadata, selected = _read_selected_inputs(zid, selection, facts)
     if not comments:
+        return False
+    if selected is not None and not facts["comments_selected"]:
+        logger.error(f"Selection {selection} keeps no comment with text: nothing to lay out.")
         return False
     total["n_comments"] = len(comments)
 
@@ -1229,13 +1349,20 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
     conversation_name = metadata.get("conversation_name", f"Conversation {zid}")
 
     # Process comments
-    document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
-        process_comments(comments, conversation_id)
-    )
+    if selected is None:
+        document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
+            process_comments(comments, conversation_id)
+        )
+        embedded = None
+    else:
+        embedded, document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
+            process_selected_comments(comments, conversation_id, selected)
+        )
 
     with step_log.step("store_base", n_comments=len(comment_ids)):
         dynamo_storage = _store_base(export_dynamo, conversation_id, document_vectors, document_map,
-                                     cluster_layers, comment_texts, comment_ids, metadata)
+                                     cluster_layers, comment_texts, comment_ids, metadata,
+                                     embedded=embedded)
 
     # Process layers, store characteristics, and create visualizations
     process_layers_and_create_visualizations(
@@ -1313,8 +1440,19 @@ def main():
         default=True,
         help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
     )
+    from polismath.selection import SELECTIONS
+    parser.add_argument(
+        "--selection",
+        choices=SELECTIONS,
+        default=None,
+        help="Embed every comment, and lay out, cluster and name only those this selection keeps "
+             "(the whole rule: both filters above must be False). Absent, the run is what it was.",
+    )
 
     args = parser.parse_args()
+    if args.selection is not None and (args.include_moderation or args.exclude_comment_selections):
+        parser.error("--selection is the whole rule: it takes --include_moderation=False "
+                     "and --exclude_comment_selections=False")
 
     # Set up environment
     setup_environment(
@@ -1399,6 +1537,7 @@ def main():
             name_topics=name_topics,
             include_moderation=args.include_moderation,
             exclude_comment_selections=args.exclude_comment_selections,
+            selection=args.selection,
         )
         if not ok:
             logger.error(f"Processing conversation {args.zid} failed.")

@@ -3,7 +3,7 @@
   "$id": "delphi-input-bundle.comments/1",
   "$comment": "Generated from queue-rs/polis-contracts/src/delphi_input_bundle_schema.rs. Do not edit; edit the Rust source and regenerate (POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --test delphi_input_bundle).",
   "title": "DelphiInputBundleComments",
-  "description": "Every comment of the conversation, ordered by tid.",
+  "description": "Every comment of the conversation, ordered by tid. velocity is present only in a bundle written for a run that names a selection.",
   "type": "array",
   "items": {
     "type": "object",
@@ -37,6 +37,9 @@
       },
       "active": {
         "type": "boolean"
+      },
+      "velocity": {
+        "type": "number"
       }
     },
     "required": [
