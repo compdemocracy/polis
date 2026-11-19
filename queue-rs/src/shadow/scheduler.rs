@@ -115,6 +115,8 @@ pub struct Scheduler<'a> {
     pub(super) graph_provenance: Option<(String, Value)>,
     pub(super) graph_list_counts: Option<(usize, usize)>,
     pub(super) graph_wait_bucket: Option<i64>,
+    /// The deferred graphs the last `graph_admission_held` line named.
+    pub(super) graph_held: Option<String>,
 }
 
 impl<'a> Scheduler<'a> {
@@ -132,6 +134,7 @@ impl<'a> Scheduler<'a> {
             graph_provenance: None,
             graph_list_counts: None,
             graph_wait_bucket: None,
+            graph_held: None,
         };
         scheduler.recover_graph()?;
         Ok(scheduler)
