@@ -47,6 +47,7 @@ check. No command reduces the test selection or changes an assertion.
 | E2E combine | `bash ci/local/e2e.sh combine DIR...` | Python 3; all six shard receipts |
 | Delphi Python tests: images, six shards, combine | `make check-delphi-python-tests` | Docker Buildx, Python 3 |
 | Delphi shadow CPU priority (load test; no hosted job) | `make check-delphi-shadow-cpu-priority` | Docker Buildx, Python 3; a quiet host with at least 4 CPUs |
+| Delphi shadow job graph recovery (Docker proofs; no hosted job) | `make check-shadow-graph-recovery` | Docker Buildx, pinned Rust, Python 3; an owned project and `POLIS_RECOVERY_PG_PORT` |
 
 The unchanged golden guards remain separate jobs: invoke
 `sh ci/vote_path_golden_guard.sh BASE` and
@@ -267,6 +268,22 @@ names one, publishes no port and needs no network. Its verdict depends on
 timing, so it is a work-box check with no hosted job: run it on a quiet host,
 nothing else busy, with at least 4 CPUs (8 or more to see scaling). Results,
 with every timing they were computed from, go to `.ci-out/<project>`.
+
+The Delphi shadow job graph recovery target runs the two Docker proofs of the
+graph executor and the scheduler, `delphi/tests/shadow/graph_recovery.py` (the
+executor killed mid-node, then its container replaced, the same container
+restarted, or its journal lost; a second daemon on one journal refused; no exit
+proof invented for a lost journal) and
+`delphi/tests/shadow/graph_scheduler_limits.py` (the scheduler stopped with a
+graph in flight and restarted with the graph list cleared, under its deployed
+256 MiB and quarter-CPU limits). Each runs against its own database on one
+owned PostgreSQL 17 container (`<project>-graph-recovery-pg`, published on
+`POLIS_RECOVERY_PG_PORT`), with every migration applied and checked by
+`polis-migrate`. It builds the Delphi test image unless
+`SHADOW_GRAPH_RECOVERY_IMAGE` names one (for example the image the Delphi
+target built), and removes the container and the image it built. Results go to
+a new `run-<time>` directory inside `.ci-out/<project>`, so it may be run again
+with the same project. No hosted job runs it yet.
 
 `python3 ci/tests/test_local_entry_points.py` tests these entry points'
 refusals, receipts and cleanup with stub executables; it needs no Docker. No

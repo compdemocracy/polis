@@ -19,6 +19,11 @@
 //! code or a conversation id (the run record has the id). Every line about a
 //! run names its set (`"set"`: `benchmark`, `featured` or `current`; a twin,
 //! its first run's), as its run record does (`config_effective.shadow.set`).
+//! One kind of line goes to standard error instead, beginning `Error:`
+//! (`error`): a graph cancelled after an executor claimed it (`graph`). It
+//! keeps the same rule: it names the graph and the conversation's position in
+//! `DELPHI_SHADOW_GRAPH_CONVERSATIONS` ("entry 2"), never its code, which is
+//! the conversation's address. Both output streams go to the same log.
 use super::{
     config::{Config, Share},
     db::{Db, Live, Signals},
@@ -55,7 +60,52 @@ pub fn log(event: &str, mut fields: Value) {
     if let Some(o) = fields.as_object_mut() {
         o.insert("event".into(), Value::String(event.into()));
     }
-    println!("{PREFIX} {fields}");
+    let line = format!("{PREFIX} {fields}");
+    keep(&line);
+    println!("{line}");
+}
+
+/// One line on standard error beginning `Error:`, for what an operator must
+/// see though nothing stops on it. The module's rule holds for it too: no
+/// comment, no conversation code, no conversation id.
+pub fn error(text: &str) {
+    let line = format!("Error: {text}");
+    keep(&line);
+    eprintln!("{line}");
+}
+
+thread_local! {
+    /// The lines `log` and `error` wrote on this thread, kept only once a
+    /// test has asked for them (`keep_lines`); `None`, and never filled,
+    /// otherwise.
+    static KEPT: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn keep(line: &str) {
+    KEPT.with(|k| {
+        if let Some(lines) = k.borrow_mut().as_mut() {
+            lines.push(line.to_owned());
+        }
+    });
+}
+
+/// For tests: from now on keep every line this thread's scheduler writes,
+/// as well as writing it, so that a test can read them back (`kept_lines`).
+#[doc(hidden)]
+pub fn keep_lines() {
+    KEPT.with(|k| *k.borrow_mut() = Some(Vec::new()));
+}
+
+/// For tests: the lines kept on this thread since `keep_lines` or the last
+/// call, oldest first.
+#[doc(hidden)]
+pub fn kept_lines() -> Vec<String> {
+    KEPT.with(|k| {
+        k.borrow_mut()
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
+    })
 }
 
 /// Whether a run record was admitted under this scheduler's code version (the

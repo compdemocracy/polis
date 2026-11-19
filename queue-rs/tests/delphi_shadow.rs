@@ -50,11 +50,37 @@ struct Fixture {
     name: String,
     login: String,
     dir: PathBuf,
+    /// Every conversation code this fixture created (`c<zid>`).
+    codes: std::cell::RefCell<Vec<String>>,
+    /// Every line a scheduler process this fixture started wrote, on
+    /// standard output and standard error (`scheduler_output`).
+    lines: std::cell::RefCell<Vec<String>>,
+}
+
+/// No line the scheduler writes names a conversation by its code: a code is
+/// the conversation's address. Checked at the end of every test, over every
+/// line the test's own thread's scheduler wrote (`scheduler::kept_lines`) and
+/// every line of every scheduler process the test started. A code counts
+/// only as a whole word (letters and digits on neither side), so a digest or
+/// an id that happens to contain the same characters does not.
+fn assert_no_code(codes: &[String], lines: &[String]) {
+    for line in lines {
+        for code in codes {
+            let whole = line.match_indices(code.as_str()).any(|(i, _)| {
+                let before = line[..i].chars().next_back();
+                let after = line[i + code.len()..].chars().next();
+                !before.is_some_and(|c| c.is_ascii_alphanumeric())
+                    && !after.is_some_and(|c| c.is_ascii_alphanumeric())
+            });
+            assert!(!whole, "a scheduler line names conversation {code}: {line}");
+        }
+    }
 }
 
 impl Fixture {
     /// A fresh database with the release chain and a queue login.
     fn new() -> Self {
+        scheduler::keep_lines();
         let id = Uuid::new_v4().simple().to_string();
         let name = format!("shadow_{}", &id[..16]);
         let login = format!("shadow_exec_{}", &id[..12]);
@@ -74,7 +100,13 @@ impl Fixture {
         .unwrap();
         let dir = std::env::temp_dir().join(format!("delphi-shadow-test-{id}"));
         std::fs::create_dir_all(&dir).unwrap();
-        Self { name, login, dir }
+        Self {
+            name,
+            login,
+            dir,
+            codes: Default::default(),
+            lines: Default::default(),
+        }
     }
 
     fn superuser(&self) -> Client {
@@ -146,6 +178,7 @@ impl Fixture {
             &[&zid, &format!("c{zid}")],
         )
         .unwrap();
+        self.codes.borrow_mut().push(format!("c{zid}"));
         let pid: i32 = c
             .query_one(
                 "INSERT INTO participants(zid,uid) VALUES($1,$2) RETURNING pid",
@@ -251,6 +284,11 @@ impl Drop for Fixture {
                 "DROP DATABASE IF EXISTS {} WITH (FORCE); DROP ROLE IF EXISTS {}",
                 self.name, self.login
             ));
+        }
+        if !std::thread::panicking() {
+            let mut lines = scheduler::kept_lines();
+            lines.extend(self.lines.borrow().iter().cloned());
+            assert_no_code(&self.codes.borrow(), &lines);
         }
     }
 }
@@ -2610,6 +2648,8 @@ fn a_claim_racing_the_let_go_does_not_make_it_permanent() {
     // The executor's claim can land between the read that finds no attempt
     // and the cancel (the cancel then wins): the graph was let go as
     // unclaimed, and is admitted again later, though an attempt now exists.
+    // The cancel was the scheduler's own, and the claim proves an executor:
+    // admitted again at once, as a new graph, with no hold; one line says so.
     let f = Fixture::new();
     f.quiet(1076, 25, 1);
     graph_catalog(&f);
@@ -2637,16 +2677,25 @@ fn a_claim_racing_the_let_go_does_not_make_it_permanent() {
         .unwrap();
     s.cycle().unwrap();
     assert!(s.state.graph_flight.is_none());
+    assert_raced_let_go_line(&f, &flight.graph_id, 1);
+    let record = unclaimed(&s, &flight.env);
+    assert_eq!(record["count"], 0, "the claim resets the count: {record}");
     assert_eq!(
-        unclaimed(&s, &flight.env)["graphs"]["1076"]["graph_id"],
+        record["graphs"]["1076"]["graph_id"],
         flight.graph_id.as_str()
     );
     assert_forgotten(&s, 1076);
-    age_hold(&mut s, &flight.env, 3_601_000);
+    // No hold to wait out: the next cycle admits it again.
     s.rest_until_ms = 0;
     s.cycle().unwrap();
-    let again = s.state.graph_flight.clone().expect("admitted again");
+    let again = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted again, at once");
     assert_ne!(again.graph_id, flight.graph_id);
+    assert_eq!(again.digest, flight.digest, "the same snapshot");
+    assert_eq!(graph_states(&f, &again), ["queued"; 4]);
 }
 
 #[test]
@@ -2882,28 +2931,48 @@ fn scheduler_lines(
     done: impl Fn(&[Value]) -> bool,
     ceiling: Duration,
 ) -> Vec<Value> {
+    scheduler_output(f, extra, done, ceiling).0
+}
+
+/// `scheduler_lines`, and every line the scheduler wrote on standard error.
+fn scheduler_output(
+    f: &Fixture,
+    extra: &[(&str, &str)],
+    done: impl Fn(&[Value]) -> bool,
+    ceiling: Duration,
+) -> (Vec<Value>, Vec<String>) {
     use std::io::BufRead;
     let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_polis-delphi-shadow"));
     c.env_clear()
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .envs(f.environment(extra))
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null());
+        .stderr(std::process::Stdio::piped());
     let mut child = c.spawn().unwrap();
     let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    let errors = std::thread::spawn(move || {
+        std::io::BufReader::new(stderr)
+            .lines()
+            .map_while(Result::ok)
+            .collect::<Vec<String>>()
+    });
     let (send, recv) = std::sync::mpsc::channel();
     let reader = std::thread::spawn(move || {
+        let mut raw = Vec::new();
         for line in std::io::BufReader::new(stdout).lines() {
             let Ok(line) = line else { break };
             let parsed = line
                 .strip_prefix("delphi_shadow/1 ")
                 .and_then(|l| serde_json::from_str::<Value>(l).ok());
+            raw.push(line);
             if let Some(v) = parsed
                 && send.send(v).is_err()
             {
                 break;
             }
         }
+        raw
     });
     let start = Instant::now();
     let mut lines = Vec::new();
@@ -2917,9 +2986,13 @@ fn scheduler_lines(
         libc::kill(child.id() as i32, libc::SIGTERM);
     }
     child.wait().unwrap();
-    reader.join().unwrap();
+    let raw = reader.join().unwrap();
     lines.extend(recv.try_iter());
-    lines
+    let errors = errors.join().unwrap();
+    f.lines
+        .borrow_mut()
+        .extend(raw.into_iter().chain(errors.iter().cloned()));
+    (lines, errors)
 }
 
 fn polls(lines: &[Value]) -> usize {
@@ -2974,4 +3047,1051 @@ fn a_held_graph_admission_says_so_once_with_its_reason() {
     assert_eq!(held[0]["graph_ids"], serde_json::json!([flight.graph_id]));
     assert_eq!(held[0]["deferred"], 1);
     assert!(!lines.iter().any(|l| l["event"] == "graph_admitted"));
+}
+
+// ---------------------------------------------------------------------------
+// Before the graph list is ever set: a record of the let-gos that is lost, a
+// let-go whose cancel raced an executor's claim, and the conditions no test
+// pinned.
+
+/// Where an executor's claim of a graph's `graph_embed` node lands against
+/// the scheduler's cancel of the graph it lets go as unclaimed.
+#[derive(Clone, Copy)]
+enum Race {
+    /// After the read that found no attempt and before the cancel, which
+    /// then wins: the node is cancelled with the claim's attempt on record.
+    CancelWins,
+    /// Between the cancel's read of the node's management version and the
+    /// cancel, which then loses (`conflict`): the node runs.
+    ClaimWins,
+}
+
+/// Replace one queue function of the disposable database so that its first
+/// call claims the `graph_embed` node as an executor would (the claim is
+/// kept in `raced_claim`), then runs the original. With `CancelWins` it is
+/// the cancel's read of a node's management version (`pq_job_status`); with
+/// `ClaimWins`, the cancel of the `graph_embed` node itself (`pq_cancel`),
+/// which then holds a version the claim has moved on.
+fn claim_races_the_let_go(f: &Fixture, race: Race) {
+    let claim = |condition: &str| {
+        format!(
+            "IF NOT EXISTS (SELECT 1 FROM raced_claim){condition} THEN c := pd_graph_claim(p_env,1::smallint,o,a,60,'delphi','graph_embed'); INSERT INTO raced_claim VALUES((c->>'job_id')::uuid,o,a,(c->>'lease_epoch')::bigint,c); END IF;"
+        )
+    };
+    let sql = match race {
+        Race::CancelWins => format!(
+            "ALTER FUNCTION pq_job_status(text,uuid) RENAME TO status_before_race;
+             CREATE FUNCTION pq_job_status(p_env text,p_job uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+             DECLARE c jsonb; o uuid := gen_random_uuid(); a uuid := gen_random_uuid();
+             BEGIN {} RETURN status_before_race(p_env,p_job); END $$;
+             GRANT EXECUTE ON FUNCTION pq_job_status(text,uuid) TO polis_queue_executor;",
+            claim("")
+        ),
+        Race::ClaimWins => format!(
+            "ALTER FUNCTION pq_cancel(text,uuid,bigint) RENAME TO cancel_before_race;
+             CREATE FUNCTION pq_cancel(p_env text,p_job uuid,p_version bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+             DECLARE c jsonb; o uuid := gen_random_uuid(); a uuid := gen_random_uuid();
+             BEGIN {} RETURN cancel_before_race(p_env,p_job,p_version); END $$;
+             GRANT EXECUTE ON FUNCTION pq_cancel(text,uuid,bigint) TO polis_queue_executor;",
+            claim(" AND EXISTS (SELECT 1 FROM polis_queue_jobs WHERE env=p_env AND job_id=p_job AND stage='graph_embed')")
+        ),
+    };
+    f.superuser()
+        .batch_execute(&format!(
+            "CREATE TABLE raced_claim(job uuid, owner uuid, attempt uuid, epoch bigint, claim jsonb); {sql}"
+        ))
+        .unwrap();
+}
+
+/// The racing claim's executor confirms its process's exit, as a daemon
+/// does once a cancelled node's child has drained.
+fn confirm_raced_exit(f: &Fixture) {
+    let mut c = f.superuser();
+    let r = c
+        .query_one(
+            "SELECT r.job::text, r.owner::text, r.attempt::text, r.epoch, q.env FROM raced_claim r JOIN polis_queue_jobs q ON q.job_id=r.job",
+            &[],
+        )
+        .unwrap();
+    let (job, owner, attempt, epoch, env): (String, String, String, i64, String) =
+        (r.get(0), r.get(1), r.get(2), r.get(3), r.get(4));
+    let done: Value = c
+        .query_one(
+            "SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'confirm_exit',NULL,true)",
+            &[&env, &job, &owner, &attempt, &epoch],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(done["outcome"], "exit_confirmed", "{done}");
+}
+
+/// Attempts on record for a graph's nodes.
+fn attempts_of(f: &Fixture, flight: &polis_queue_adapter::shadow::graph::Flight) -> i64 {
+    f.superuser()
+        .query_one(
+            "SELECT count(*) FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0)
+}
+
+/// The `Error:` lines this test's scheduler wrote on its own thread since
+/// the last call. The lines stay with the fixture for its check that no
+/// line names a conversation code.
+fn error_lines(f: &Fixture) -> Vec<String> {
+    new_lines(f)
+        .into_iter()
+        .filter(|l| l.starts_with("Error:"))
+        .collect()
+}
+
+/// Every line this test's scheduler wrote on its own thread since the last
+/// call, kept with the fixture for its check that no line names a code.
+fn new_lines(f: &Fixture) -> Vec<String> {
+    let lines = scheduler::kept_lines();
+    f.lines.borrow_mut().extend(lines.iter().cloned());
+    lines
+}
+
+/// The `delphi_shadow/1` lines of one event among `lines`.
+fn events(lines: &[String], event: &str) -> Vec<Value> {
+    lines
+        .iter()
+        .filter_map(|l| l.strip_prefix("delphi_shadow/1 "))
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|v| v["event"] == event)
+        .collect()
+}
+
+/// The scheduler's own let-go raced an executor's claim: one line names the
+/// graph and the conversation's entry in the list, and no `Error:` line is
+/// written (the conversation is admitted again at once).
+fn assert_raced_let_go_line(f: &Fixture, graph_id: &str, entry: i64) {
+    let lines = new_lines(f);
+    assert!(!lines.iter().any(|l| l.starts_with("Error:")), "{lines:?}");
+    let raced = events(&lines, "graph_let_go_raced");
+    assert_eq!(raced.len(), 1, "{lines:?}");
+    assert_eq!(raced[0]["graph_id"], graph_id);
+    assert_eq!(raced[0]["list_entry"], entry);
+    assert_eq!(raced[0]["admitted_again"], "at_once");
+}
+
+/// The one `Error:` line of a graph cancelled after a claim: it names the
+/// graph, the conversation's entry in the graph list and the reason.
+fn assert_cancelled_after_claim_line(lines: &[String], graph_id: &str, entry: usize) {
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    for part in [
+        graph_id.to_owned(),
+        format!("entry {entry} of DELPHI_SHADOW_GRAPH_CONVERSATIONS"),
+        "reason cancelled_after_claim".to_owned(),
+    ] {
+        assert!(lines[0].contains(&part), "{part}: {}", lines[0]);
+    }
+}
+
+/// A person cancels the graph while an executor runs its first node: the
+/// node is claimed, every node is cancelled, and the executor confirms its
+/// process's exit.
+fn person_cancels_running_graph(f: &Fixture, flight: &polis_queue_adapter::shadow::graph::Flight) {
+    let mut c = f.superuser();
+    let (owner, attempt) = (Uuid::new_v4().to_string(), Uuid::new_v4().to_string());
+    let claim: Value = c.query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi','graph_embed')", &[&flight.env, &owner, &attempt]).unwrap().get(0);
+    assert_eq!(claim["outcome"], "owned");
+    let job = claim["job_id"].as_str().unwrap().to_owned();
+    let epoch: i64 = claim["lease_epoch"].as_str().unwrap().parse().unwrap();
+    for n in &flight.nodes {
+        let status: Value = c
+            .query_one(
+                "SELECT pq_job_status($1,$2::text::uuid)",
+                &[&flight.env, &n.job_id],
+            )
+            .unwrap()
+            .get(0);
+        let version: i64 = status["mgmt_version"].as_str().unwrap().parse().unwrap();
+        c.query_one(
+            "SELECT pq_cancel($1,$2::text::uuid,$3)",
+            &[&flight.env, &n.job_id, &version],
+        )
+        .unwrap();
+    }
+    let done: Value = c.query_one("SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'confirm_exit',NULL,true)", &[&flight.env, &job, &owner, &attempt, &epoch]).unwrap().get(0);
+    assert_eq!(done["outcome"], "exit_confirmed", "{done}");
+}
+
+/// The racing claim's executor ends its attempt for good (a child that
+/// refuses at once), before the scheduler's next poll: the node is dead.
+fn raced_node_dies(f: &Fixture) {
+    let mut c = f.superuser();
+    let r = c
+        .query_one(
+            "SELECT r.job::text, r.owner::text, r.attempt::text, r.epoch, q.env FROM raced_claim r JOIN polis_queue_jobs q ON q.job_id=r.job",
+            &[],
+        )
+        .unwrap();
+    let (job, owner, attempt, epoch, env): (String, String, String, i64, String) =
+        (r.get(0), r.get(1), r.get(2), r.get(3), r.get(4));
+    let done: Value = c
+        .query_one(
+            "SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'permanent','refused',true)",
+            &[&env, &job, &owner, &attempt, &epoch],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(done["outcome"], "dead", "{done}");
+}
+
+/// The racing claim's executor finishes its node, as a daemon does: the
+/// exit confirmed, the artifact manifest logged, the node finalized as
+/// succeeded, before the scheduler's next poll.
+fn raced_node_succeeds(f: &Fixture) {
+    let mut c = f.superuser();
+    let r = c
+        .query_one(
+            "SELECT r.job::text, r.owner::text, r.attempt::text, r.epoch, q.env, r.claim FROM raced_claim r JOIN polis_queue_jobs q ON q.job_id=r.job",
+            &[],
+        )
+        .unwrap();
+    let (job, owner, attempt, epoch, env, claim): (String, String, String, i64, String, Value) =
+        (r.get(0), r.get(1), r.get(2), r.get(3), r.get(4), r.get(5));
+    c.query_one("SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'confirm_exit',NULL,true)", &[&env, &job, &owner, &attempt, &epoch]).unwrap();
+    let payload = "{\"fixture\":true}";
+    let manifest = serde_json::json!({"schema":"polis-job-artifact-manifest/1","job_id":job,"run_id":claim["run_id"],"attempt_id":attempt,"stage":"graph_embed","input_sha256":claim["graph_input_sha"],"outcome":"succeeded","output":{"role":"result","schema":"graph_embed/1","payload":payload,"sha256":polis_queue_adapter::jobs::sha256_hex(payload.as_bytes())}}).to_string();
+    c.execute("INSERT INTO polis_queue_logs(env,attempt_id,seq,stream,line) VALUES($1,$2::text::uuid,0,'manifest',$3)", &[&env, &attempt, &manifest]).unwrap();
+    let sha = polis_queue_adapter::jobs::sha256_hex(manifest.as_bytes());
+    let done: Value = c.query_one("SELECT pd_graph_finalize($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'unused',$6)", &[&env, &job, &owner, &attempt, &epoch, &sha]).unwrap().get(0);
+    assert_eq!(done["outcome"], "succeeded", "{done}");
+}
+
+/// The state file is lost (the Delphi box replaced, its volume removed).
+fn lose_state_file(cfg: &config::Config) {
+    std::fs::remove_file(&cfg.state_path).unwrap();
+}
+
+/// Change the text of a conversation's first comment, and so its snapshot.
+fn edit_first_comment(f: &Fixture, zid: i32, txt: &str) {
+    f.superuser()
+        .execute(
+            "UPDATE comments SET txt=$2, modified=modified+1 WHERE zid=$1 AND tid=0",
+            &[&zid, &txt],
+        )
+        .unwrap();
+}
+
+/// The binary's environment for a graph run, as `graph_config` sets it up.
+fn graph_binary_env<'a>(f: &Fixture, list: (&'a str, &'a str)) -> Vec<(String, String)> {
+    vec![
+        (list.0.to_owned(), list.1.to_owned()),
+        ("DELPHI_SHADOW_POLL_SECONDS".into(), "1".into()),
+        ("DELPHI_SHADOW_JOB_POLL_SECONDS".into(), "1".into()),
+        ("DELPHI_APP_PATH".into(), f.dir.display().to_string()),
+        (
+            "POLIS_JOBS_PYTHON".into(),
+            std::env::var("POLIS_JOBS_TEST_PYTHON").unwrap_or_else(|_| "python3".into()),
+        ),
+    ]
+}
+
+#[test]
+fn a_let_go_whose_cancel_raced_a_claim_then_a_lost_state_file_is_one_error_line_and_not_retried() {
+    // A graph nothing claimed for ten minutes is let go; an executor's claim
+    // lands after the read that found no attempt and before the cancel,
+    // which wins. The scheduler watching it knows the cancel was its own
+    // (its record names the graph), so the conversation would be admitted
+    // again at once. Then the state file is lost before that admission. The
+    // next scheduler finds a fully cancelled graph with a claim on record and
+    // no record of a let-go: that cannot be told from a person's cancel of a
+    // running graph, so the one rule applies: one `Error:` line, counted
+    // failed, not admitted again until its snapshot changes, and no hold.
+    let f = Fixture::new();
+    f.quiet(1101, 25, 1);
+    f.quiet(1102, 25, 1);
+    graph_catalog(&f);
+    let list = ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1101,c1102");
+    let cfg = graph_config(&f, &[list]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    assert_eq!(flight.zid, 1101);
+    claim_races_the_let_go(&f, Race::CancelWins);
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert_eq!(graph_states(&f, &flight), ["cancelled"; 4]);
+    assert_eq!(attempts_of(&f, &flight), 1, "the racing claim's attempt");
+    assert_eq!(unclaimed(&s, &flight.env)["count"], 1, "let go, then");
+    confirm_raced_exit(&f);
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_raced_let_go_line(&f, &flight.graph_id, 1);
+    let record = unclaimed(&s, &flight.env);
+    assert_eq!(record["count"], 0, "the claim resets the count: {record}");
+    assert_eq!(
+        record["graphs"]["1101"]["graph_id"],
+        flight.graph_id.as_str()
+    );
+    assert_forgotten(&s, 1101);
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    lose_state_file(&cfg);
+    // The scheduler as its container runs it, from no state file.
+    let env = graph_binary_env(&f, list);
+    let env: Vec<(&str, &str)> = env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let (lines, errors) = scheduler_output(
+        &f,
+        &env,
+        |lines| lines.iter().any(|l| l["event"] == "graph_admitted"),
+        Duration::from_secs(60),
+    );
+    for event in [
+        "graph_unclaimed",
+        "graph_admission_held",
+        "graph_let_go_raced",
+    ] {
+        assert!(
+            !lines.iter().any(|l| l["event"] == event),
+            "{event}: {lines:?}"
+        );
+    }
+    let found: Vec<String> = errors
+        .iter()
+        .filter(|l| l.starts_with("Error:"))
+        .cloned()
+        .collect();
+    assert_cancelled_after_claim_line(&found, &flight.graph_id, 1);
+    // No hold: the other listed conversation is admitted in that cycle; this
+    // one is not admitted again.
+    let admitted: Vec<&Value> = lines
+        .iter()
+        .filter(|l| l["event"] == "graph_admitted")
+        .collect();
+    assert_eq!(admitted.len(), 1, "{lines:?}");
+    assert_eq!(graphs_of(&f, &flight.env, 1102), 1);
+    assert_eq!(graphs_of(&f, &flight.env, 1101), 1);
+    // The state file that scheduler wrote: counted failed, seen, no hold.
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(s.state.totals.failed, 1);
+    assert_eq!(s.state.graph_seen.get(&1101), Some(&flight.digest));
+    assert!(
+        unclaimed(&s, &flight.env).is_null(),
+        "{}",
+        unclaimed(&s, &flight.env)
+    );
+    let other = s.state.graph_flight.clone().expect("the other's graph");
+    assert_eq!(other.zid, 1102);
+    finish_graph(&f, &other);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none(), "not retried");
+    assert!(error_lines(&f).is_empty(), "said once");
+    // Until its snapshot changes.
+    edit_first_comment(&f, 1101, "generated comment 0 of conversation 1101, edited");
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let again = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("a changed snapshot is admitted");
+    assert_eq!(again.zid, 1101);
+    assert_ne!(again.digest, flight.digest);
+    assert_eq!(graphs_of(&f, &flight.env, 1101), 2);
+}
+
+#[test]
+fn a_let_go_chain_is_learned_from_the_database_when_the_state_file_is_lost() {
+    // Two let-gos in a row of one unchanged snapshot, then the state file is
+    // lost. The first admission after it must be a new graph at once, named
+    // after the chain's last link, not each cancelled graph of the chain
+    // answered again and let go again with one hold per link; and the hold
+    // after the next let-go must follow the true count of let-gos in a row:
+    // since the last claim in the env, not counting a let-go before it.
+    let f = Fixture::new();
+    f.quiet(1111, 25, 1);
+    f.quiet(1112, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1111,c1112")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    // The first conversation is let go once, then claimed and published.
+    s.cycle().unwrap();
+    let before = let_go_unclaimed(&f, &mut s);
+    assert_eq!(before.zid, 1111);
+    age_hold(&mut s, &before.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let claimed = s.state.graph_flight.clone().unwrap();
+    assert_eq!(claimed.zid, 1111);
+    finish_graph(&f, &claimed);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(unclaimed(&s, &before.env)["count"], 0);
+    // Then the second is let go twice in a row.
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    assert_eq!(first.zid, 1112);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let second = let_go_unclaimed(&f, &mut s);
+    assert_eq!(second.zid, 1112);
+    assert_ne!(second.graph_id, first.graph_id);
+    assert_eq!(unclaimed(&s, &first.env)["count"], 2);
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    lose_state_file(&cfg);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let third = s.state.graph_flight.clone().expect("admitted at once");
+    assert_eq!(
+        third.zid, 1112,
+        "the published conversation is seen, not admitted"
+    );
+    assert!(
+        third.graph_id != first.graph_id && third.graph_id != second.graph_id,
+        "a new graph, not a cancelled one of the chain"
+    );
+    assert_eq!(third.digest, first.digest, "of the same snapshot");
+    assert_eq!(graph_states(&f, &third), ["queued"; 4]);
+    let learned = unclaimed(&s, &first.env);
+    assert_eq!(
+        learned["count"], 2,
+        "the chain's count, from the database: {learned}"
+    );
+    assert_eq!(
+        learned["graphs"]["1112"]["graph_id"],
+        second.graph_id.as_str()
+    );
+    let keys = [&first, &second, &third].map(|g| graph_request(&f, g).0);
+    assert!(keys[2] != keys[0] && keys[2] != keys[1]);
+    // Nothing claims it either: the third let-go in a row holds four hours.
+    let third = let_go_unclaimed(&f, &mut s);
+    assert_eq!(unclaimed(&s, &first.env)["count"], 3);
+    age_hold(&mut s, &first.env, 4 * 3_600_000 - 60_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none(), "four hours, not one");
+    age_hold(&mut s, &first.env, 61_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let fourth = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted after the hold");
+    assert_eq!(fourth.zid, 1112);
+    assert_ne!(fourth.graph_id, third.graph_id);
+    assert_eq!(graphs_of(&f, &first.env, 1112), 4);
+}
+
+#[test]
+fn a_claim_on_record_ends_the_run_of_let_gos_the_database_counts_after_a_lost_state_file() {
+    // One conversation's graph is cancelled by a person while it runs (a
+    // claim); then the other's graph is let go as unclaimed: one let-go in a
+    // row since the claim, in the state. When the state file is lost, the
+    // count read from the database must stop at the claimed graph, as the
+    // state's count did, and the hold after the next let-go follow it.
+    let f = Fixture::new();
+    f.quiet(1221, 25, 1);
+    f.quiet(1222, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1221,c1222")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let claimed = s.state.graph_flight.clone().unwrap();
+    assert_eq!(claimed.zid, 1221);
+    person_cancels_running_graph(&f, &claimed);
+    for _ in 0..5 {
+        if s.state.graph_flight.as_ref().map(|g| g.zid) == Some(1222) {
+            break;
+        }
+        s.rest_until_ms = 0;
+        s.cycle().unwrap();
+    }
+    let first = let_go_unclaimed(&f, &mut s);
+    assert_eq!(first.zid, 1222);
+    assert_eq!(unclaimed(&s, &first.env)["count"], 1);
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    lose_state_file(&cfg);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let second = s.state.graph_flight.clone().expect("a new graph at once");
+    assert_eq!(second.zid, 1222);
+    assert_ne!(second.graph_id, first.graph_id);
+    let learned = unclaimed(&s, &first.env);
+    assert_eq!(
+        learned["count"], 1,
+        "one let-go since the claim, from the database: {learned}"
+    );
+    // Nothing claims it either: the second let-go in a row holds two hours.
+    let_go_unclaimed(&f, &mut s);
+    assert_eq!(unclaimed(&s, &first.env)["count"], 2);
+    age_hold(&mut s, &first.env, 2 * 3_600_000 - 60_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none(), "two hours, not one");
+    age_hold(&mut s, &first.env, 61_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let third = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted after the hold");
+    assert_eq!(third.zid, 1222);
+}
+
+#[test]
+fn a_let_go_dropped_from_the_bounded_record_is_learned_from_the_database() {
+    // The record keeps at most 256 conversations per env; one dropped from
+    // it (here: its entry removed from the state file, as the bound removes
+    // it) must not walk its chain again when its hold ends.
+    let f = Fixture::new();
+    f.quiet(1121, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1121")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let second = let_go_unclaimed(&f, &mut s);
+    let mut v = serde_json::to_value(&s.state).unwrap();
+    v["graph_unclaimed"][&first.env]["graphs"]
+        .as_object_mut()
+        .unwrap()
+        .remove("1121");
+    s.state = serde_json::from_value(v).unwrap();
+    // The env's hold stands (the record itself is kept): two hours.
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(
+        s.state.graph_flight.is_none(),
+        "two hours after a second in a row"
+    );
+    age_hold(&mut s, &first.env, 3_600_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let third = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted when the hold ends");
+    assert!(
+        third.graph_id != first.graph_id && third.graph_id != second.graph_id,
+        "a new graph, not a cancelled one of the chain"
+    );
+    let learned = unclaimed(&s, &first.env);
+    assert_eq!(learned["count"], 2, "the record's count stands: {learned}");
+    assert_eq!(
+        learned["graphs"]["1121"]["graph_id"],
+        second.graph_id.as_str()
+    );
+    finish_graph(&f, &third);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(served(&f, &third)["generation"], 1);
+    assert_eq!(graphs_of(&f, &first.env, 1121), 3);
+}
+
+#[test]
+fn a_snapshot_let_go_that_changes_is_let_go_again_and_comes_back_is_a_new_graph_at_once() {
+    // The record holds one let-go graph per conversation, so the later
+    // snapshot's let-go replaces the earlier one's. When the earlier
+    // snapshot comes back, its chain's end is read from the database.
+    let f = Fixture::new();
+    f.quiet(1131, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1131")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    edit_first_comment(&f, 1131, "generated comment 0 of conversation 1131, edited");
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let changed = let_go_unclaimed(&f, &mut s);
+    assert_ne!(changed.digest, first.digest, "another snapshot");
+    let held = unclaimed(&s, &first.env);
+    assert_eq!(
+        held["graphs"]["1131"]["graph_id"],
+        changed.graph_id.as_str()
+    );
+    // The earlier snapshot comes back.
+    edit_first_comment(&f, 1131, "generated comment 0 of conversation 1131");
+    age_hold(&mut s, &first.env, 7_201_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let back = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted when the hold ends");
+    assert_eq!(back.digest, first.digest, "the earlier snapshot");
+    assert!(
+        back.graph_id != first.graph_id && back.graph_id != changed.graph_id,
+        "a new graph, not the earlier snapshot's cancelled one"
+    );
+    assert_eq!(graph_states(&f, &back), ["queued"; 4]);
+    assert_eq!(
+        unclaimed(&s, &first.env)["graphs"]["1131"]["graph_id"],
+        first.graph_id.as_str()
+    );
+    assert_eq!(graphs_of(&f, &first.env, 1131), 3);
+}
+
+#[test]
+fn a_claim_that_beats_the_cancel_of_the_let_go_graph_resets_the_count_and_holds_nothing() {
+    // The executor's claim lands between the cancel's read of the node's
+    // version and the cancel, which loses: the let-go graph's node runs.
+    // That is a claim seen in the env: the count goes to zero at once, and a
+    // count of zero holds nothing, though the let-go was a moment ago. The
+    // cancel was the scheduler's own, so the conversation is admitted again
+    // at once as a new graph; one line says so.
+    let f = Fixture::new();
+    f.quiet(1141, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1141")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    claim_races_the_let_go(&f, Race::ClaimWins);
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert_eq!(unclaimed(&s, &flight.env)["count"], 1, "let go");
+    let states = graph_states(&f, &flight);
+    assert_eq!(
+        states.iter().filter(|st| *st == "running").count(),
+        1,
+        "{states:?}"
+    );
+    assert_eq!(
+        states.iter().filter(|st| *st == "cancelled").count(),
+        3,
+        "{states:?}"
+    );
+    s.cycle().unwrap();
+    assert_eq!(
+        unclaimed(&s, &flight.env)["count"],
+        0,
+        "the claim resets the count"
+    );
+    assert_eq!(graph_states(&f, &flight), ["cancelled"; 4]);
+    confirm_raced_exit(&f);
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_raced_let_go_line(&f, &flight.graph_id, 1);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let next = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("no hold at a count of zero");
+    assert_ne!(next.graph_id, flight.graph_id);
+    assert_eq!(next.digest, flight.digest);
+}
+
+#[test]
+fn a_let_go_whose_claim_beat_its_cancel_and_whose_node_then_died_is_an_ordinary_failure_and_holds_nothing()
+ {
+    // The review's forced case: G0 is let go as unclaimed; G1, admitted
+    // after it, is let go too, but an executor's claim beats G1's cancel and
+    // the node it claimed dies before the next poll. G1 does not end fully
+    // cancelled, so it is not the snapshot's chain end. The executor ran it
+    // and it died: an ordinary failure, counted failed, its snapshot not
+    // admitted again until it changes, no hold, no record naming it, and no
+    // `Error:` line (the node's own line says it died).
+    let f = Fixture::new();
+    f.quiet(1191, 25, 1);
+    f.quiet(1192, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1191,c1192")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let g0 = let_go_unclaimed(&f, &mut s);
+    assert_eq!(g0.zid, 1191);
+    age_hold(&mut s, &g0.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let g1 = s.state.graph_flight.clone().expect("G1 admitted after G0");
+    assert_eq!((g1.zid, g1.digest.as_str()), (1191, g0.digest.as_str()));
+    assert_ne!(g1.graph_id, g0.graph_id);
+    claim_races_the_let_go(&f, Race::ClaimWins);
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert_eq!(unclaimed(&s, &g1.env)["count"], 2, "let go, then");
+    raced_node_dies(&f);
+    for _ in 0..5 {
+        if s.state.graph_flight.is_none() {
+            break;
+        }
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    let mut states = graph_states(&f, &g1);
+    states.sort();
+    assert_eq!(states, ["cancelled", "cancelled", "cancelled", "dead"]);
+    let lines = new_lines(&f);
+    assert!(!lines.iter().any(|l| l.starts_with("Error:")), "{lines:?}");
+    assert!(events(&lines, "graph_let_go_raced").is_empty(), "{lines:?}");
+    assert_eq!(s.state.totals.failed, 2, "G0 and G1");
+    assert_eq!(s.state.graph_seen.get(&1191), Some(&g1.digest));
+    let record = unclaimed(&s, &g1.env);
+    assert_eq!(record["count"], 0, "{record}");
+    assert!(record["graphs"]["1191"].is_null(), "{record}");
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let next = s.state.graph_flight.clone().expect("no hold");
+    assert_eq!(next.zid, 1192, "the other conversation, at once");
+    finish_graph(&f, &next);
+    s.cycle().unwrap();
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(
+        s.state.graph_flight.is_none(),
+        "G1's snapshot is not retried"
+    );
+    assert_eq!(graphs_of(&f, &g1.env, 1191), 2);
+    assert!(error_lines(&f).is_empty());
+}
+
+#[test]
+fn a_let_go_whose_claim_beat_its_cancel_and_whose_node_then_succeeded_is_admitted_again_at_once() {
+    // As above, but the node the executor claimed succeeds before the next
+    // poll. The cancel was the scheduler's own and the executor exists: the
+    // conversation is admitted again at once as a new graph, with no hold.
+    // G1 is not fully cancelled, so the snapshot's newest fully cancelled
+    // graph is the older G0; the key must still name G1, the record's, or
+    // the admission would be answered with G1 itself. And G1 has a node that
+    // ran, so recovery's read of the snapshots that ran must not remember
+    // the snapshot as seen while the record names it as let go.
+    let f = Fixture::new();
+    f.quiet(1231, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1231")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let g0 = let_go_unclaimed(&f, &mut s);
+    age_hold(&mut s, &g0.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let g1 = s.state.graph_flight.clone().expect("G1 admitted after G0");
+    assert_eq!(g1.digest, g0.digest);
+    claim_races_the_let_go(&f, Race::ClaimWins);
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert_eq!(unclaimed(&s, &g1.env)["count"], 2, "let go, then");
+    raced_node_succeeds(&f);
+    for _ in 0..5 {
+        if s.state.graph_flight.is_none() {
+            break;
+        }
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    let mut states = graph_states(&f, &g1);
+    states.sort();
+    assert_eq!(states, ["cancelled", "cancelled", "cancelled", "succeeded"]);
+    assert_raced_let_go_line(&f, &g1.graph_id, 1);
+    let record = unclaimed(&s, &g1.env);
+    assert_eq!(record["count"], 0, "{record}");
+    assert_eq!(record["graphs"]["1231"]["graph_id"], g1.graph_id.as_str());
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let g2 = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted again, at once");
+    assert!(
+        g2.graph_id != g0.graph_id && g2.graph_id != g1.graph_id,
+        "a new graph, not G1 answered again"
+    );
+    assert_eq!(g2.digest, g1.digest);
+    assert_eq!(graph_states(&f, &g2), ["queued"; 4]);
+    assert_eq!(graphs_of(&f, &g1.env, 1231), 3);
+}
+
+#[test]
+fn a_returning_snapshot_names_only_its_own_let_go_graph_in_its_key() {
+    // Snapshot one is let go; snapshot two runs and its publication is given
+    // up; snapshot three is let go, so the record names snapshot three's
+    // graph. When snapshot two comes back, its admission key must be its
+    // own (it is answered with its finished graph, and nothing is computed
+    // again), whatever graph the record names for another snapshot of the
+    // conversation. (That graph cannot be published now: snapshot three's
+    // newer graph supersedes it, as `pd_graph_publish` requires.)
+    let f = Fixture::new();
+    f.quiet(1151, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1151")]);
+    let two = "generated comment 0 of conversation 1151, two";
+    let three = "generated comment 0 of conversation 1151, three";
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    edit_first_comment(&f, 1151, two);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let ran = s.state.graph_flight.clone().unwrap();
+    assert_ne!(ran.digest, first.digest);
+    finish_graph(&f, &ran);
+    publication_fails_first(&f, 1_000_000);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(publish_calls(&f), 3, "given up");
+    edit_first_comment(&f, 1151, three);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let third = let_go_unclaimed(&f, &mut s);
+    assert!(third.digest != ran.digest && third.digest != first.digest);
+    assert_eq!(
+        unclaimed(&s, &first.env)["graphs"]["1151"]["graph_id"],
+        third.graph_id.as_str()
+    );
+    publication_restored(&f);
+    edit_first_comment(&f, 1151, two);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(ran.graph_id.clone()),
+        "its own finished graph, not a new one"
+    );
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(attempts_of(&f, &ran), 4, "nothing computed twice");
+    assert_eq!(graphs_of(&f, &first.env, 1151), 3);
+}
+
+#[test]
+fn a_graph_cancelled_after_a_claim_while_watched_is_counted_failed_and_not_let_go() {
+    // Claimed, then cancelled by a person while its first node runs: the
+    // scheduler watching it has the whole story. It is a failure, not a
+    // graph nothing claimed: not let go, its snapshot remembered as seen.
+    let f = Fixture::new();
+    f.quiet(1161, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1161")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    person_cancels_running_graph(&f, &flight);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(s.state.totals.failed, 1);
+    assert!(unclaimed(&s, &flight.env).is_null(), "not let go");
+    assert_eq!(s.state.graph_seen.get(&1161), Some(&flight.digest), "seen");
+    assert_cancelled_after_claim_line(&error_lines(&f), &flight.graph_id, 1);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(graphs_of(&f, &flight.env, 1161), 1);
+    assert!(error_lines(&f).is_empty(), "said once");
+}
+
+#[test]
+fn a_person_cancelling_a_running_graph_then_a_lost_state_file_holds_up_no_other_conversation() {
+    // The review's scenario: a person cancels a running graph, the state
+    // file is lost, and the next scheduler finds the graph in the database.
+    // It must say so, count it failed and leave it (the person's cancel
+    // stands), and must not hold the graph env: the unrelated conversation,
+    // listed by then, is admitted in that same cycle. The first entry of the
+    // list names no conversation, so the cancelled one is entry 2.
+    let f = Fixture::new();
+    f.quiet(1201, 25, 1);
+    f.quiet(1202, 25, 1);
+    graph_catalog(&f);
+    let before = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1200,c1201")]);
+    let cfg = graph_config(
+        &f,
+        &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1200,c1201,c1202")],
+    );
+    assert_eq!(before.state_path, cfg.state_path);
+    let mut s = Scheduler::new(&before).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    assert_eq!(flight.zid, 1201);
+    person_cancels_running_graph(&f, &flight);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    assert_cancelled_after_claim_line(&error_lines(&f), &flight.graph_id, 2);
+    s.state.save(&before.state_path).unwrap();
+    drop(s);
+    lose_state_file(&cfg);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    assert_cancelled_after_claim_line(&error_lines(&f), &flight.graph_id, 2);
+    assert_eq!(s.state.totals.failed, 1, "counted failed");
+    assert_eq!(s.state.graph_seen.get(&1201), Some(&flight.digest));
+    assert!(unclaimed(&s, &flight.env).is_null(), "no hold");
+    let other = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("the unrelated conversation, in the same cycle");
+    assert_eq!(other.zid, 1202);
+    finish_graph(&f, &other);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    // Nor later: no clock is waiting to admit it again; the cancel stands.
+    for _ in 0..2 {
+        s.rest_until_ms = 0;
+        s.cycle().unwrap();
+        assert!(s.state.graph_flight.is_none(), "not retried");
+    }
+    assert!(error_lines(&f).is_empty(), "said once per finding");
+    assert_eq!(graphs_of(&f, &flight.env, 1201), 1);
+}
+
+#[test]
+fn a_graph_cancelled_after_a_claim_is_said_once_though_an_older_snapshot_of_it_ran() {
+    // The conversation's older snapshot ran and was published; its newer
+    // snapshot's graph is cancelled by a person while it runs. Recovery's
+    // read of the snapshots that ran finds only the older one, so the state's
+    // record that the newer one was seen must stand: a new code version
+    // reconsiders the conversation and must neither retry the cancelled
+    // snapshot nor say it again.
+    let f = Fixture::new();
+    f.quiet(1211, 25, 1);
+    graph_catalog(&f);
+    let mut cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1211")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let older = s.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &older);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    edit_first_comment(&f, 1211, "generated comment 0 of conversation 1211, edited");
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    assert_ne!(flight.digest, older.digest);
+    person_cancels_running_graph(&f, &flight);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    assert_cancelled_after_claim_line(&error_lines(&f), &flight.graph_id, 1);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    cfg.code_version = "fedcba9876543210fedcba9876543210fedcba98".into();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none(), "not retried");
+    assert!(error_lines(&f).is_empty(), "said once");
+    assert_eq!(s.state.totals.failed, 1);
+    assert_eq!(graphs_of(&f, &flight.env, 1211), 2);
+}
+
+#[test]
+fn an_admission_error_after_the_admission_committed_admits_no_full_pipeline_run_and_recovers_the_graph()
+ {
+    // The graph admission commits and the scheduler's next read of it fails:
+    // the cycle's admission is an error, but the graph exists. The full
+    // pipeline must not be admitted in that cycle (one run at a time), and
+    // the graph must be taken up as the flight.
+    let f = Fixture::new();
+    f.quiet(1171, 25, 1);
+    f.quiet(1172, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1171"),
+            ("DELPHI_SHADOW_BENCHMARK", "c1172"),
+        ],
+    );
+    f.superuser().batch_execute("CREATE SEQUENCE view_calls; ALTER FUNCTION pd_graph_view(text,uuid) RENAME TO view_before_failure;
+        CREATE FUNCTION pd_graph_view(text,uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+        BEGIN IF nextval('view_calls')=1 THEN RAISE EXCEPTION 'view unavailable' USING ERRCODE='40001'; END IF;
+        RETURN view_before_failure($1,$2); END $$;
+        GRANT EXECUTE ON FUNCTION pd_graph_view(text,uuid) TO polis_queue_executor;").unwrap();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let env = cfg.graph.as_ref().unwrap().env.clone();
+    assert_eq!(graphs_of(&f, &env, 1171), 1, "the admission committed");
+    let views: i64 = f
+        .superuser()
+        .query_one("SELECT last_value FROM view_calls", &[])
+        .unwrap()
+        .get(0);
+    assert_eq!(views, 1, "the read after it failed");
+    assert!(
+        s.state.in_flight.is_none(),
+        "no full-pipeline run that cycle"
+    );
+    let flight = s.state.graph_flight.clone().expect("the graph recovered");
+    assert_eq!(flight.zid, 1171);
+    assert_eq!(flight.nodes.len(), 4);
+    // It is watched to its end like any graph.
+    finish_graph(&f, &flight);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(served(&f, &flight)["generation"], 1);
+}
+
+#[test]
+fn a_restart_from_a_state_file_with_only_the_recovery_env_and_the_list_empty_finds_the_graph() {
+    // The scheduler writes the graph env to its state file before its first
+    // admission; then the admission commits and the process stops before
+    // the cycle's state is written. Restarted with the list emptied (as a
+    // deploy that refused the executor composes it), it must still find the
+    // graph, and keep the full pipeline off its conversation.
+    let f = Fixture::new();
+    f.quiet(1181, 25, 1);
+    f.quiet(1182, 25, 1);
+    graph_catalog(&f);
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1181"),
+            ("DELPHI_SHADOW_BENCHMARK", "c1181,c1182"),
+        ],
+    );
+    let env = cfg.graph.as_ref().unwrap().env.clone();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    drop(s);
+    let saved: Value = serde_json::from_slice(&std::fs::read(&cfg.state_path).unwrap()).unwrap();
+    assert_eq!(saved["graph_recovery_envs"], serde_json::json!([env]));
+    assert!(saved.get("graph_flight").is_none(), "{saved}");
+    cfg.graph = None;
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone()),
+        "found from the recovery env alone"
+    );
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone())
+    );
+    assert!(s.state.in_flight.is_none());
+    finish_graph(&f, &flight);
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(s.state.totals.succeeded, 1);
+    // Then the full pipeline goes on, the graph's scope released.
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_some());
 }
