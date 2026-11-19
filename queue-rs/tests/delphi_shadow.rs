@@ -3541,3 +3541,99 @@ fn a_graph_cancelled_after_a_claim_while_watched_is_counted_failed_and_not_let_g
     assert!(s.state.graph_flight.is_none());
     assert_eq!(graphs_of(&f, &flight.env, 1161), 1);
 }
+
+#[test]
+fn an_admission_error_after_the_admission_committed_admits_no_full_pipeline_run_and_recovers_the_graph()
+ {
+    // The graph admission commits and the scheduler's next read of it fails:
+    // the cycle's admission is an error, but the graph exists. The full
+    // pipeline must not be admitted in that cycle (one run at a time), and
+    // the graph must be taken up as the flight.
+    let f = Fixture::new();
+    f.quiet(1171, 25, 1);
+    f.quiet(1172, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1171"),
+            ("DELPHI_SHADOW_BENCHMARK", "c1172"),
+        ],
+    );
+    f.superuser().batch_execute("CREATE SEQUENCE view_calls; ALTER FUNCTION pd_graph_view(text,uuid) RENAME TO view_before_failure;
+        CREATE FUNCTION pd_graph_view(text,uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+        BEGIN IF nextval('view_calls')=1 THEN RAISE EXCEPTION 'view unavailable' USING ERRCODE='40001'; END IF;
+        RETURN view_before_failure($1,$2); END $$;
+        GRANT EXECUTE ON FUNCTION pd_graph_view(text,uuid) TO polis_queue_executor;").unwrap();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let env = cfg.graph.as_ref().unwrap().env.clone();
+    assert_eq!(graphs_of(&f, &env, 1171), 1, "the admission committed");
+    let views: i64 = f
+        .superuser()
+        .query_one("SELECT last_value FROM view_calls", &[])
+        .unwrap()
+        .get(0);
+    assert_eq!(views, 1, "the read after it failed");
+    assert!(
+        s.state.in_flight.is_none(),
+        "no full-pipeline run that cycle"
+    );
+    let flight = s.state.graph_flight.clone().expect("the graph recovered");
+    assert_eq!(flight.zid, 1171);
+    assert_eq!(flight.nodes.len(), 4);
+    // It is watched to its end like any graph.
+    finish_graph(&f, &flight);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(served(&f, &flight)["generation"], 1);
+}
+
+#[test]
+fn a_restart_from_a_state_file_with_only_the_recovery_env_and_the_list_empty_finds_the_graph() {
+    // The scheduler writes the graph env to its state file before its first
+    // admission; then the admission commits and the process stops before
+    // the cycle's state is written. Restarted with the list emptied (as a
+    // deploy that refused the executor composes it), it must still find the
+    // graph, and keep the full pipeline off its conversation.
+    let f = Fixture::new();
+    f.quiet(1181, 25, 1);
+    f.quiet(1182, 25, 1);
+    graph_catalog(&f);
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1181"),
+            ("DELPHI_SHADOW_BENCHMARK", "c1181,c1182"),
+        ],
+    );
+    let env = cfg.graph.as_ref().unwrap().env.clone();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    drop(s);
+    let saved: Value = serde_json::from_slice(&std::fs::read(&cfg.state_path).unwrap()).unwrap();
+    assert_eq!(saved["graph_recovery_envs"], serde_json::json!([env]));
+    assert!(saved.get("graph_flight").is_none(), "{saved}");
+    cfg.graph = None;
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone()),
+        "found from the recovery env alone"
+    );
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone())
+    );
+    assert!(s.state.in_flight.is_none());
+    finish_graph(&f, &flight);
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(s.state.totals.succeeded, 1);
+    // Then the full pipeline goes on, the graph's scope released.
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_some());
+}
