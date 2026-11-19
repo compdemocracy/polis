@@ -902,6 +902,77 @@ fn restart_journal_after_the_lease_gives_fenced_with_proof() {
     journal_restart(true);
 }
 
+/// The journal's files as a restored snapshot of its volume would hold them
+/// (the entry and the `.host` binding; never the lock, never a temp file).
+fn copy_journal(from: &Path, to: &Path) {
+    fs::create_dir_all(to).unwrap();
+    for item in fs::read_dir(from).unwrap().flatten() {
+        let name = item.file_name().to_string_lossy().into_owned();
+        if name == ".lock" || name.ends_with(".tmp") || name.starts_with(".probe-") {
+            continue;
+        }
+        fs::copy(item.path(), to.join(&name)).unwrap();
+    }
+}
+
+#[test]
+fn a_cloned_host_identity_never_confirms_a_live_attempt_and_confirms_once_its_lease_expires() {
+    // A bound journal restored on a second machine whose host identity file
+    // is a copy of the first's (a snapshot, a template-baked machine id): the
+    // binding passes and the boot differs, but the original is still alive.
+    let mut db = Db::new("jobs_v2");
+    let (job, _) = db.enqueue("delphi_full_pipeline", 1, Some("h1"), full(), 3);
+    let host = db.scratch.join("machine-id");
+    fs::write(&host, "the-same-machine-id\n").unwrap();
+    let original = db.scratch.join("journal-original");
+    let mut first = Opts::new("clone-a", "sleep")
+        .set("POLIS_JOBS_JOURNAL_HOST_FILE", host.display().to_string());
+    first.journal = Some(original.clone());
+    let a = start(&db, first);
+    db.wait("child pids", 60, |d| pids(d, "clone-a").len() == 2);
+    let leader = pids(&db, "clone-a")[0];
+    let copy = db.scratch.join("journal-copy");
+    copy_journal(&original, &copy);
+    assert_eq!(journal_entries(&copy), 1);
+    let mut second = Opts::new("clone-b", "success")
+        .set("POLIS_JOBS_JOURNAL_HOST_FILE", host.display().to_string());
+    second.journal = Some(copy.clone());
+    second.boot = "boot-on-the-copy".into();
+    let b = start(&db, second);
+    // Longer than one lease (10 s) while the original keeps heartbeating.
+    std::thread::sleep(Duration::from_secs(14));
+    assert!(
+        !db.attempts(job)[0].5,
+        "a live attempt's exit is never confirmed from a copy: {}",
+        b.log()
+    );
+    assert_eq!(db.job(job).0, "running");
+    assert!(group_alive(leader), "the original's child still runs");
+    assert_eq!(journal_entries(&copy), 1, "the copy keeps its entry");
+    assert!(
+        b.log().contains("\"reason\":\"another_boot_lease_live\""),
+        "{}",
+        b.log()
+    );
+    // The original stops; once its lease has expired by database time the
+    // copy confirms the exit, and the retry runs there.
+    a.signal(libc::SIGKILL);
+    drop(a);
+    kill_tree(leader);
+    db.wait_state(job, "succeeded", 90);
+    let att = db.attempts(job);
+    assert_eq!(att.len(), 2);
+    assert!(att[0].5, "the journaled attempt carries exit proof");
+    assert!(
+        b.log()
+            .contains("\"reason\":\"another_boot_lease_expired\""),
+        "{}",
+        b.log()
+    );
+    db.wait("journal empty", 10, |_| journal_entries(&copy) == 0);
+    let _ = b.stop();
+}
+
 #[test]
 fn poison_after_max_attempts() {
     let mut db = Db::new("jobs_v2");
