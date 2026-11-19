@@ -114,6 +114,15 @@ class InputBundle:
         """Every comment, ordered by tid, as ``get_comments_by_conversation`` returns them."""
         return [dict(c) for c in self._rows["comments"]]
 
+    def strict_moderation(self) -> bool:
+        """The conversation's ``strict_moderation``: only in a bundle written for
+        a run that names a selection (whose comments then carry ``velocity``)."""
+        value = self._rows["conversation"].get("strict_moderation")
+        if not isinstance(value, bool):
+            raise BundleError("the bundle was not written for a selection: its conversation "
+                              "carries no strict_moderation")
+        return value
+
     def report_comment_selections(self) -> List[Dict[str, Any]]:
         """Every report's selections, as ``get_report_comment_selections(zid)`` returns them."""
         return [dict(s) for s in self._rows["report_comment_selections"]]
