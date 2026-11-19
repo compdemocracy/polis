@@ -220,6 +220,17 @@ the caps above.
 - **`OIDC_CACHE_KEY_PREFIX`** Legacy participation cache-key prefix, default `oidc.user` ([webpack:88](../client-participation/webpack.config.js#L88)); Compose maps it to Alpha `PUBLIC_OIDC_CACHE_KEY_PREFIX` ([Compose:47](../docker-compose.yml#L47)).
 - **`OIDC_CACHE_KEY_ID_TOKEN_SUFFIX`** The suffix for the OIDC cache key. Defaults to `@@user@@`.
 
+### Polis 2 permission
+
+Starting Polis 2 work (a Delphi pipeline run, a narrative batch, a collective statement, the legacy narrative) needs an account that may use Polis 2, and then the conversation's owner or a site administrator ([generationOwner.ts](../server/src/routes/delphi/generationOwner.ts)). Whether the account may use Polis 2 is answered in one place, [entitlement.ts](../server/src/routes/delphi/entitlement.ts), and `GET /api/v3/delphi/me` gives the signed-in caller the same answer as `{"delphi_entitled": true}` or `{"delphi_entitled": false}`.
+
+- **`POLIS_DELPHI_ENTITLEMENT`** Where that answer comes from. Read at startup by [config](../server/src/config.ts) as `delphiEntitlement`; any value other than the three below stops the server.
+  - `claim` (the default, also when unset or blank): the access token's `${AUTH_NAMESPACE}delphi_enabled` claim, set by the identity provider. The database is never read for this.
+  - `claim_or_db`: the claim, or else a row for the account in the `delphi_entitlements` table (migration `000048`).
+  - `db`: a row in `delphi_entitlements` only; the claim is not consulted.
+
+  With `claim_or_db` or `db` each of those requests makes one read of `delphi_entitlements` by primary key on the server's ordinary read-write pool; votes, comments and the next comment never make it. The vote CSV import (`POST /api/v3/votes-bulk`) still reads the claim directly under every value.
+
 ### Operations pages
 
 The admin console can show read-only, aggregate operations pages at `/ops` (served by `/api/v3/ops/*`). They are off by default.
