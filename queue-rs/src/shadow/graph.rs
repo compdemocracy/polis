@@ -29,12 +29,17 @@ const MAX_SPEC_BYTES: usize = 1_048_576;
 /// (docs/configuration.md, Same-host graph executor and recovery).
 pub const UNCLAIMED_DEADLINE: Duration = Duration::from_secs(600);
 /// After a graph is let go as unclaimed, no graph is admitted in its env for
-/// this long, or until the next code version: the executor that did not
+/// this long, or until the next code version (`DELPHI_SHADOW_CODE_VERSION`,
+/// the deployed commit), whichever is first: the executor that did not
 /// claim it would not claim the next one either. Each let-go in a row (no
 /// claim seen between) doubles it, up to `UNCLAIMED_HOLD_MAX`. So an absent
 /// executor costs the full-pipeline shadow at most one `UNCLAIMED_DEADLINE`
 /// per hold, never a spin, and a let-go conversation is always admitted
-/// again: at the next deploy at once, otherwise within a day.
+/// again: at once by a deploy of a new commit, otherwise when the hold ends,
+/// within a day. A deploy of the same commit (a settings fix redeployed)
+/// does not end the hold. A claim seen on any graph the scheduler watches in
+/// the env resets the count (`note_claimed`), the let-go graph itself
+/// included when an executor's claim beats its cancel; nothing else does.
 pub const UNCLAIMED_HOLD: Duration = Duration::from_secs(3600);
 pub const UNCLAIMED_HOLD_MAX: Duration = Duration::from_secs(86_400);
 /// How many let-go conversations an env's record keeps (the bound of the
@@ -815,8 +820,11 @@ impl Scheduler<'_> {
     }
 
     /// A node of a graph in the env left the queue: an executor claims
-    /// there again, and the count starts over. (While the env is held no
-    /// graph is admitted there, so this is a graph admitted after the hold.)
+    /// there again, and the count starts over. Any graph watched in the env
+    /// counts: one admitted after a hold, a deferred one, or the let-go
+    /// graph itself when an executor's claim lands before its cancel (the
+    /// cancel then loses and that node runs). No other event resets it: a
+    /// new code version ends a hold but keeps the count.
     fn note_claimed(&mut self, flight: &Flight, states: &BTreeMap<String, (String, f64)>) {
         let Some(u) = self.state.graph_unclaimed.get_mut(&flight.env) else {
             return;

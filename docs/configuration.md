@@ -451,7 +451,10 @@ start only), so it admits no graph that nothing could claim; the
 full-pipeline shadow still starts. The deploy says so in one line beginning
 `Error:` that names the refused settings and that list, never a value. A
 graph already in flight from an earlier deploy is still watched, as when the
-list is cleared. The next deploy with valid settings admits graphs again.
+list is cleared, and is let go if nothing claims it (below). A later deploy
+with valid settings admits graphs again: at its first cycle when it deploys a
+new commit; a deploy of the same commit (the usual way a setting is corrected)
+first waits out any hold that a let-go started meanwhile.
 
 A graph none of whose nodes is claimed within ten minutes (no executor
 running, unstartable, crash-looping before its first claim) is cancelled and
@@ -473,15 +476,44 @@ After a let-go no graph is admitted in that env for an hour, doubling with
 each let-go in a row up to a day (`UNCLAIMED_HOLD`, `UNCLAIMED_HOLD_MAX`),
 or until the next code version, whichever is first; the scheduler says so
 once per hold (`graph_admission_held`, reason `graph_unclaimed`, with the
-count, the seconds until it resumes and the let-go graphs' ids). The
-full-pipeline shadow goes on throughout. When the hold ends, the conversation
-let go is admitted again, though nothing about it changed, as a new graph:
-its admission key names the let-go graph (`graph_admitted` with
-`after_let_go`). A claim on a graph admitted after the let-go resets the
-count (`graph_unclaimed_cleared`). The hold, the count and the let-go graphs
-are kept in the scheduler state (`graph_unclaimed`), so a restart keeps them.
-Each graph admitted again adds its rows to the database, as any graph does,
-and counts against the shadow's storage budget.
+count, the seconds until it resumes and the let-go graphs' ids). The code
+version is `DELPHI_SHADOW_CODE_VERSION`, which the deploy hook sets to the
+deployed commit: a deploy of a new commit ends a hold at once, and a restart
+or a deploy of the same commit does not. The full-pipeline shadow goes on
+throughout. When the hold ends, the conversation let go is admitted again,
+though nothing about it changed, as a new graph: its admission key names the
+let-go graph (`graph_admitted` with `after_let_go`). A claim seen on any
+graph the scheduler watches in that env resets the count
+(`graph_unclaimed_cleared`): a graph admitted after the hold, or the let-go
+graph itself when an executor's claim lands before its cancel (the cancel
+then loses and that node runs). Nothing else resets the count; a new code
+version ends the hold but keeps the count. The hold, the count and the
+let-go graphs are kept in the scheduler state (`graph_unclaimed`), so a
+restart keeps them. Each graph admitted again adds its rows to the database,
+as any graph does, and counts against the shadow's storage budget.
+
+The state keeps, per conversation, only the last graph let go, for at most
+256 conversations per env; the database keeps every graph. When the state
+does not name a snapshot's last let-go graph (the state file was lost, the
+conversation's entry was dropped from the 256, or the snapshot changed, was
+let go, and came back), the admission reads that graph from the database and
+names it in its key (`graph_let_go_recovered`, with the count): it is a new
+graph at once, not each cancelled graph of the chain answered and let go
+again with one hold per link. With no state for the env at all (a lost state
+file) the count of let-gos in a row is the database's too (the env's newest
+graphs, while each had every node cancelled and none ever claimed), and no
+hold is in force until the next let-go, as after a new code version: the
+build that let the last one go is not known. A graph found that way with
+every node cancelled after an executor had claimed one (a let-go whose cancel
+lost the race with a claim, then a lost state file; or a graph cancelled
+while it ran, whose snapshot comes up again) is let go like an unclaimed one
+(`graph_unclaimed`, reason `cancelled_after_claim`), and the scheduler writes
+one line on standard error beginning `Error:` that names the conversation by
+its code in `DELPHI_SHADOW_GRAPH_CONVERSATIONS`, the graph and the reason;
+the conversation is admitted again, as a new graph, when the hold ends. A
+graph cancelled after a claim while the scheduler watches it (past the job
+deadline, or by a person) is counted failed and not let go, and its
+unchanged snapshot is not admitted again.
 
 Publication of a finished graph is tried once per poll, up to three times,
 the count kept in the scheduler state; a transient failure keeps the graph
