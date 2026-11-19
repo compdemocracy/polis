@@ -799,20 +799,36 @@ pub(crate) fn configure() -> Result<Shadow> {
     })
 }
 
-/// Serves the shadow listener until the listener fails.
+/// Serves the shadow listener until the listener fails (the tests' server).
+#[cfg(test)]
 pub(crate) async fn serve(
     listener: tokio::net::TcpListener,
     app: Arc<App>,
     lane: Arc<Lane>,
 ) -> Result<()> {
+    serve_until(listener, app, lane, std::future::pending()).await
+}
+
+/// Serves the shadow listener until `stop` completes; then nothing new is
+/// accepted.
+async fn serve_until(
+    listener: tokio::net::TcpListener,
+    app: Arc<App>,
+    lane: Arc<Lane>,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()> {
     lane.listening(listener.local_addr()?);
     let handler = Arc::new(move |req: Request| accept(app.clone(), lane.clone(), req));
-    http::serve_as(listener, handler, http::Listener::Shadow).await
+    http::serve_until(listener, handler, http::Listener::Shadow, stop).await
 }
 
 /// The shadow role's process: configure, load the revocation snapshot the
-/// prelude checks, listen, and stop on SIGINT as the main role does.
+/// prelude checks, listen, and stop on SIGTERM or SIGINT. It writes nothing,
+/// so it waits for nothing: a copy still being observed loses only its line.
 pub(crate) async fn run() -> Result<()> {
+    // Before any startup work: as PID 1 in its container, the process would
+    // ignore a signal it has no handler for.
+    let mut signals = crate::shutdown::Signals::install()?;
     let Shadow {
         mut app,
         lane,
@@ -864,10 +880,11 @@ pub(crate) async fn run() -> Result<()> {
         reads::report_startup(&app).await;
     }
     event("shadow_listening", &listening);
-    let result = tokio::select! {
-        r = serve(listener, Arc::new(app), lane) => r,
-        _ = tokio::signal::ctrl_c() => Ok(()),
+    let stop = async move {
+        let signal = signals.recv().await;
+        event("shadow_stopping", &[("signal", Js::Str(signal.into()))]);
     };
+    let result = serve_until(listener, Arc::new(app), lane, stop).await;
     if let Some(task) = refresh {
         task.abort();
         let _ = task.await;

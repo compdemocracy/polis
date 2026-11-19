@@ -19,7 +19,14 @@
 //! response carries the headers only.
 
 use anyhow::{Result, anyhow, bail};
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{
+    future::Future,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
+    time::Duration,
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -409,39 +416,103 @@ impl HeadRefused {
     }
 }
 
-/// Accepts connections forever, answering each request with `handler`.
-pub async fn serve<H, F>(listener: TcpListener, handler: Arc<H>) -> Result<()>
-where
-    H: Fn(Request) -> F + Send + Sync + 'static,
-    F: Future<Output = Outgoing> + Send + 'static,
-{
-    serve_as(listener, handler, Listener::Main).await
+/// Connections with a request in progress: from accept until the connection
+/// waits for another request (keep-alive) or closes, and again from the first
+/// byte of that next request. The stop waits for this to reach zero.
+static IN_PROGRESS: AtomicUsize = AtomicUsize::new(0);
+
+pub(crate) fn in_progress() -> usize {
+    IN_PROGRESS.load(SeqCst)
 }
 
-/// `serve`, for the listener of `role`.
-pub async fn serve_as<H, F>(listener: TcpListener, handler: Arc<H>, role: Listener) -> Result<()>
+/// One connection's place in [`IN_PROGRESS`]. Raised before its task is
+/// spawned, so a stop that begins after the accept always counts it.
+struct Busy(bool);
+
+impl Busy {
+    fn new() -> Self {
+        IN_PROGRESS.fetch_add(1, SeqCst);
+        Self(true)
+    }
+
+    fn set(&mut self, busy: bool) {
+        if busy != self.0 {
+            if busy {
+                IN_PROGRESS.fetch_add(1, SeqCst);
+            } else {
+                IN_PROGRESS.fetch_sub(1, SeqCst);
+            }
+            self.0 = busy;
+        }
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        self.set(false);
+    }
+}
+
+/// Accepts connections until `stop` completes, answering each request with
+/// `handler`. Then it accepts nothing new: the connections the kernel had
+/// already completed are accepted and served (closing the listener would
+/// reset them, and a request sent on one would get no answer), and the
+/// listener is closed. Connections being served keep running; waiting for
+/// them is the caller's (`shutdown`).
+pub async fn serve_until<H, F>(
+    listener: TcpListener,
+    handler: Arc<H>,
+    role: Listener,
+    stop: impl Future<Output = ()>,
+) -> Result<()>
 where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
 {
+    tokio::pin!(stop);
     loop {
-        let (socket, _) = listener.accept().await?;
-        let handler = handler.clone();
-        tokio::spawn(async move {
-            if let Err(e) = connection_as(socket, handler, role).await {
-                match role {
-                    Listener::Main => eprintln!(
-                        "{{\"event\":\"http_connection_error\",\"detail\":{:?}}}",
-                        e.to_string()
-                    ),
-                    Listener::Shadow => match e.downcast_ref::<HeadRefused>() {
-                        Some(refused) => crate::shadow::head_refused(refused.class()),
-                        None => crate::shadow::connection_error(&e.to_string()),
-                    },
-                }
-            }
-        });
+        let (socket, _) = tokio::select! {
+            biased;
+            () = &mut stop => break,
+            accepted = listener.accept() => accepted?,
+        };
+        spawn_connection(socket, handler.clone(), role);
     }
+    // Without blocking: the first error (none left to accept, or any other)
+    // ends the sweep, never the stop that follows.
+    let Ok(listener) = listener.into_std() else {
+        return Ok(());
+    };
+    while let Ok((socket, _)) = listener.accept() {
+        if socket.set_nonblocking(true).is_ok()
+            && let Ok(socket) = TcpStream::from_std(socket)
+        {
+            spawn_connection(socket, handler.clone(), role);
+        }
+    }
+    Ok(())
+}
+
+fn spawn_connection<H, F>(socket: TcpStream, handler: Arc<H>, role: Listener)
+where
+    H: Fn(Request) -> F + Send + Sync + 'static,
+    F: Future<Output = Outgoing> + Send + 'static,
+{
+    let busy = Busy::new();
+    tokio::spawn(async move {
+        if let Err(e) = connection_as(socket, handler, role, busy).await {
+            match role {
+                Listener::Main => eprintln!(
+                    "{{\"event\":\"http_connection_error\",\"detail\":{:?}}}",
+                    e.to_string()
+                ),
+                Listener::Shadow => match e.downcast_ref::<HeadRefused>() {
+                    Some(refused) => crate::shadow::head_refused(refused.class()),
+                    None => crate::shadow::connection_error(&e.to_string()),
+                },
+            }
+        }
+    });
 }
 
 #[cfg(test)]
@@ -450,10 +521,15 @@ where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
 {
-    connection_as(socket, handler, Listener::Main).await
+    connection_as(socket, handler, Listener::Main, Busy::new()).await
 }
 
-async fn connection_as<H, F>(mut socket: TcpStream, handler: Arc<H>, role: Listener) -> Result<()>
+async fn connection_as<H, F>(
+    mut socket: TcpStream,
+    handler: Arc<H>,
+    role: Listener,
+    mut busy: Busy,
+) -> Result<()>
 where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
@@ -461,6 +537,7 @@ where
     socket.set_nodelay(true)?;
     let mut input: Vec<u8> = Vec::new();
     let mut buf = vec![0u8; 16 * 1024];
+    let mut first = true;
     loop {
         // Wait for the next request head within the keep-alive window; once a
         // byte of it has arrived, the whole exchange has one deadline.
@@ -469,6 +546,12 @@ where
         } else {
             Some(Instant::now())
         };
+        // Between requests a kept-alive connection is idle: a stop does not
+        // wait for it. A new connection's first request is awaited.
+        if started.is_none() && !first {
+            busy.set(false);
+        }
+        first = false;
         let head = loop {
             if let Some(head) =
                 parse_head(&input).map_err(|e| anyhow::Error::new(HeadRefused(e)))?
@@ -492,6 +575,7 @@ where
             if read == 0 {
                 return Ok(());
             }
+            busy.set(true);
             started.get_or_insert_with(Instant::now);
             input.extend_from_slice(&buf[..read]);
             if input.len() > LIMIT {

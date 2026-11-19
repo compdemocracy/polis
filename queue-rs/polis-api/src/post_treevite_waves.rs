@@ -232,9 +232,15 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let pool = writer.pool.clone();
     let caps = writer.caps;
     let admins = app.legacy_admin_uids.clone();
+    // Once the process is stopping nothing more is dispatched
+    // (`crate::shutdown`): this request goes back to Node.
+    let Some(dispatched) = crate::shutdown::Dispatched::begin() else {
+        return route::bad_gateway();
+    };
     // Once dispatched, no error can replay the request through Node. Dropping
     // the HTTP future does not drop the task or free its pool slot early.
     let task = tokio::spawn(async move {
+        let _dispatched = dispatched;
         pool.with(move |c| create(c, zid, uid.0, &admins, &fields, caps, DEADLINE))
             .await
     });

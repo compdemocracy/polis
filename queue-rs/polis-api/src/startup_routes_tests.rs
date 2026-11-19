@@ -145,7 +145,7 @@ fn dispatch_keys(source: &str) -> BTreeSet<String> {
         .split_once("async fn dispatch_at_clock(")
         .unwrap()
         .1
-        .split_once("#[tokio::main]")
+        .split_once("\nfn main() -> Result<()> {")
         .unwrap()
         .0;
     // Check the actual outer match, not a second hand-maintained path list.

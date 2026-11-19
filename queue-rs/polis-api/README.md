@@ -1534,6 +1534,17 @@ profile-enabled project `--profile rust-api down` removes it with the other
 services; a plain `down` can leave it running. The web AfterInstall hook enables
 that profile for teardown, even when the next start flag is `0`.
 
+On SIGTERM (what `docker stop`, `down` and the deploy send) or SIGINT, the main
+process stops accepting connections, serves the connections the kernel had
+already completed, and hands back (502, marked on `POST /api/v3/votes` and
+`POST /api/v3/comments`) any write it has not yet dispatched. It exits as soon
+as no request is being read or answered, no dispatched write is running and no
+notification is queued, or after 5 s, printing `polis_api_stopping` and then
+`polis_api_stopped` (whether it drained, and what it left). The shadow role
+stops at once and prints `shadow_stopping`. Blocking work still running is not
+waited for more than 0.5 s after that, so a stop ends well inside Compose's
+10 s window before SIGKILL.
+
 Before rolling back to a release at or before 2.42.2, stop the service explicitly
 on each web host, using the current Compose files and project:
 

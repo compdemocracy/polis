@@ -994,6 +994,11 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         Live::HandBack(reason) => return hand_back(reason),
         Live::Write(writable) => writable,
     };
+    // Once the process is stopping nothing more is dispatched
+    // (`crate::shutdown`): this comment is handed back.
+    let Some(active) = ActiveDispatch::begin() else {
+        return hand_back("stopping");
+    };
     // The task owns the write through completion: a caller that disconnects
     // or a reply deadline cannot cancel it. After this line a hand-back is
     // possible only when the task itself reports that nothing was sent, or
@@ -1003,7 +1008,7 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         writer.background.clone(),
         writable,
         writer.budget,
-        ActiveDispatch::new(),
+        active,
     ));
     match tokio::time::timeout(DISPATCH_DEADLINE, task).await {
         Ok(Ok(Written::Stored { tid, pid })) => {
@@ -1090,11 +1095,17 @@ impl Background {
 }
 
 static IN_FLIGHT: AtomicU64 = AtomicU64::new(0);
-struct ActiveDispatch;
+struct ActiveDispatch {
+    _dispatched: crate::shutdown::Dispatched,
+}
 impl ActiveDispatch {
-    fn new() -> Self {
+    /// None once the process is stopping: the comment is not dispatched.
+    fn begin() -> Option<Self> {
+        let dispatched = crate::shutdown::Dispatched::begin()?;
         IN_FLIGHT.fetch_add(1, Ordering::Relaxed);
-        Self
+        Some(Self {
+            _dispatched: dispatched,
+        })
     }
 }
 impl Drop for ActiveDispatch {
@@ -1116,6 +1127,14 @@ pub(crate) fn observe(out: &Outgoing) {
     if count.is_power_of_two() {
         eprintln!("{{\"event\":\"{event}\",\"count\":{count}}}");
     }
+}
+
+/// Notification work the live handler has queued and not finished: what
+/// `/health` reports and what a stop waits for.
+pub(crate) fn notifications_in_flight(app: &App) -> usize {
+    app.post_comments.as_ref().map_or(0, |w| {
+        BACKGROUND_MAX_PENDING - w.background.admitted.available_permits()
+    })
 }
 
 pub(crate) fn health(app: &App) -> Js {
@@ -1144,9 +1163,7 @@ pub(crate) fn health(app: &App) -> Js {
     let background = app.post_comments.as_ref().map(|w| &w.background);
     body.set(
         "notificationsInFlight",
-        Js::Num(background.map_or(0, |b| {
-            BACKGROUND_MAX_PENDING - b.admitted.available_permits()
-        }) as f64),
+        Js::Num(notifications_in_flight(app) as f64),
     );
     body.set(
         "notificationDropped",

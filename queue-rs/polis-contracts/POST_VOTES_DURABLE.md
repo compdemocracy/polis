@@ -112,4 +112,7 @@ The replay's existing-choice `vote-failure` and `duplicate-sqlstate` cases do
 not execute an INSERT under the retry rule, so Rust returns 200 despite Node's
 injected INSERT error. Separate fresh-key tests still prove 500/406 and complete
 rollback. Health also exposes detached `inFlight` and `notificationsInFlight`
-counts: a future rollback must drain these before stopping the process.
+counts. On SIGTERM or SIGINT the process stops accepting connections, hands
+back (502, marked) any vote not yet dispatched, and waits for dispatched writes,
+requests being answered and queued notifications, at most 5 s, before it exits;
+whatever is still running then is abandoned and counted in its last log line.
