@@ -349,6 +349,9 @@ else
   echo "services: {}" | sudo tee docker-compose.images.yml > /dev/null
 fi
 COMPOSE=(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml)
+# The Delphi shadow's start: COMPOSE's files, and one more when the graph
+# executor is refused (below).
+DELPHI_SHADOW_COMPOSE=(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml)
 
 # Validate configuration before replacing any running container. Compose replaces
 # only this Compose project below; never remove unrelated containers or prune here.
@@ -428,13 +431,27 @@ fi
 
 # A graph executor has its own profile, local journal and resource ceiling.
 # Validate only composed settings; never print the environment document.
-# Refused, only the executor is not started: the full-pipeline shadow, whose
-# own settings were read back above, still starts (a listed conversation's
-# graph that nothing claims is let go by the scheduler after a short wait).
+# Refused, the executor is not started and the scheduler does no graph work
+# for this deploy: its start is given one more Compose file, which composes
+# its conversation list blank, so it admits no graph that nothing could
+# claim. The full-pipeline shadow, whose own settings were read back above,
+# still starts. The composed list is read back first; should it not be
+# blank, the shadow is not started at all. One line says which, naming
+# settings (the validator prints names only), never a value.
 if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
-  if ! sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow --profile delphi-shadow-graph config --format json | python3 scripts/check-shadow-graph.py; then
-    echo "The graph executor's composed settings are invalid; not starting it (the full-pipeline shadow still starts)" >&2
+  if ! DELPHI_SHADOW_GRAPH_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow --profile delphi-shadow-graph config --format json | python3 scripts/check-shadow-graph.py 2>&1); then
     DELPHI_SHADOW_GRAPH_SELECTED=0
+    DELPHI_SHADOW_GRAPH_WRONG=$(printf '%s\n' "$DELPHI_SHADOW_GRAPH_WRONG" | sed -n 's#^graph shadow settings: \([A-Za-z0-9_/. -]*\)$#\1#p' | tail -n 1)
+    printf 'services:\n  delphi-shadow-scheduler:\n    environment:\n      - DELPHI_SHADOW_GRAPH_CONVERSATIONS=\n' | sudo tee docker-compose.shadow-graph-off.yml > /dev/null
+    DELPHI_SHADOW_COMPOSE+=(-f docker-compose.shadow-graph-off.yml)
+    DELPHI_SHADOW_GRAPH_LIST=$("${DELPHI_SHADOW_COMPOSE[@]}" --profile delphi-shadow config --format json | jq -r '.services["delphi-shadow-scheduler"].environment.DELPHI_SHADOW_GRAPH_CONVERSATIONS // ""') \
+      || DELPHI_SHADOW_GRAPH_LIST=unreadable
+    if [ -n "${DELPHI_SHADOW_GRAPH_LIST//[,[:space:]]/}" ]; then
+      echo "Error: the graph executor's composed settings are invalid (${DELPHI_SHADOW_GRAPH_WRONG:-unnamed}) and the scheduler's DELPHI_SHADOW_GRAPH_CONVERSATIONS is not composed blank; not starting the Delphi shadow" >&2
+      DELPHI_SHADOW_SELECTED=0
+    else
+      echo "Error: the graph executor's composed settings are invalid (${DELPHI_SHADOW_GRAPH_WRONG:-unnamed}): not starting it, and the scheduler starts with DELPHI_SHADOW_GRAPH_CONVERSATIONS blank, so no conversation's graph is admitted until a deploy whose graph settings are valid (the full-pipeline shadow still starts)" >&2
+    fi
   fi
 fi
 
@@ -712,7 +729,7 @@ if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_SHADOW_SELECTED" = 1 ]; th
     "${COMPOSE[@]}" up -d delphi-shadow-graph --no-build --force-recreate \
       || echo "The graph shadow did not start; recovery remains pending" >&2
   fi
-  "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
+  "${DELPHI_SHADOW_COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
     || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi
 
