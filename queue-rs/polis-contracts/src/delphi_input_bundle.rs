@@ -17,6 +17,11 @@
 //! - every `report_comment_selections` row of the conversation, ordered by
 //!   rid then tid (`PostgresClient.get_report_comment_selections`).
 //!
+//! A run whose admission names a selection ([`SELECTIONS`]) also reads the
+//! conversation's `strict_moderation` and every comment's `velocity`, the two
+//! columns the selection needs besides these; its bundle carries them and no
+//! other bundle does. The selection itself is [`select`].
+//!
 //! No vote row and no participant row crosses: no stage of the full pipeline
 //! reads one. The votes reach the run only as `inputs.vote_hwm`, the newest
 //! vote's `created`, as the input census has always recorded it.
@@ -87,10 +92,15 @@ pub struct Conversation {
     pub created: Option<i64>,
     pub modified: Option<i64>,
     pub owner: Option<i64>,
+    /// `conversations.strict_moderation`, NULL read as false. Only in a bundle
+    /// written for a run that names a selection, which reads it; absent from
+    /// every other bundle, which is byte for byte what it was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strict_moderation: Option<bool>,
 }
 
 /// One comment, as `get_comments_by_conversation` selects it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Comment {
     pub tid: i64,
@@ -100,6 +110,10 @@ pub struct Comment {
     pub created: Option<i64>,
     pub r#mod: i64,
     pub active: bool,
+    /// `comments.velocity` (0 for a muted comment). Only in a bundle written
+    /// for a run that names a selection, as `Conversation::strict_moderation`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub velocity: Option<f64>,
 }
 
 /// One `report_comment_selections` row.
@@ -200,6 +214,92 @@ pub fn comment_set_sha256(comments: &[Comment]) -> String {
     h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// The selection a run lays out, clusters and names when its admission names
+/// it: the comments participants are shown, by [`participant_visible`].
+pub const PARTICIPANT_VISIBLE: &str = "participant_visible/1";
+/// Every selection an admission may name.
+pub const SELECTIONS: [&str; 1] = [PARTICIPANT_VISIBLE];
+/// The header line of the selection digest (`polismath/selection.py`,
+/// `SELECTION_FORMAT`).
+pub const SELECTION_FORMAT: &str = "polis-jobs.selection/1";
+
+/// `comments.mod` of a comment a moderator accepted (`polisTypes.mod.ok`).
+const MOD_ACCEPTED: i64 = 1;
+/// `comments.mod` of a comment a moderator rejected (`polisTypes.mod.ban`).
+const MOD_REJECTED: i64 = -1;
+
+/// Whether participants are shown a comment: the rule of the comment list the
+/// server gives participants, `participantVisibleClause` in
+/// `server/src/comment.ts` (lines 74-81), which its plain list and that
+/// list's count apply as well. Active, not muted (velocity above 0), and
+/// accepted under strict moderation or not rejected otherwise. The one Rust
+/// statement of the rule; the Python one is `polismath/selection.py`.
+pub fn participant_visible(
+    active: bool,
+    velocity: f64,
+    r#mod: i64,
+    strict_moderation: bool,
+) -> bool {
+    active
+        && velocity > 0.0
+        && if strict_moderation {
+            r#mod == MOD_ACCEPTED
+        } else {
+            r#mod != MOD_REJECTED
+        }
+}
+
+/// The comments one selection keeps.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Selection {
+    /// Its name, one of [`SELECTIONS`].
+    pub name: &'static str,
+    /// The kept comments' ids, ascending.
+    pub tids: Vec<i64>,
+    /// [`select`]'s digest of them.
+    pub sha256: String,
+}
+
+/// The selection `name` makes of `comments` (every comment of one
+/// conversation, each with its `velocity`) under the conversation's
+/// `strict_moderation`. Its digest is sha256 over the header line, the
+/// selection's name line, then one line per kept comment ordered by tid,
+/// `tid\tsha256(txt)\n`: a moderation that keeps the same comments (an
+/// unmoderated comment accepted outside strict moderation, a rejected comment
+/// added) leaves it as it was, and one that keeps or drops another comment
+/// changes it. A name that is not a selection, or a comment without its
+/// velocity, is refused.
+pub fn select(
+    name: &str,
+    comments: &[Comment],
+    strict_moderation: bool,
+) -> Result<Selection, Invalid> {
+    let name = SELECTIONS
+        .into_iter()
+        .find(|n| *n == name)
+        .ok_or_else(|| Invalid(format!("selection {name:?}")))?;
+    let mut kept = Vec::new();
+    for c in comments {
+        let velocity = c
+            .velocity
+            .ok_or_else(|| Invalid("comments.velocity".to_owned()))?;
+        if participant_visible(c.active, velocity, c.r#mod, strict_moderation) {
+            kept.push(c);
+        }
+    }
+    kept.sort_by_key(|c| c.tid);
+    let mut h = Sha256::new();
+    h.update(format!("{SELECTION_FORMAT}\n{name}\n").as_bytes());
+    for c in &kept {
+        h.update(format!("{}\t{}\n", c.tid, sha256_hex(c.txt.as_bytes())).as_bytes());
+    }
+    Ok(Selection {
+        name,
+        tids: kept.iter().map(|c| c.tid).collect(),
+        sha256: h.finalize().iter().map(|b| format!("{b:02x}")).collect(),
+    })
+}
+
 /// A file's bytes: compact JSON and one trailing newline.
 pub fn encode<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>, Invalid> {
     let mut bytes = serde_json::to_vec(value).map_err(|e| Invalid(format!("encode: {e}")))?;
@@ -235,7 +335,7 @@ impl Manifest {
 }
 
 /// The rows of a bundle and the census values that are not derived from them.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Bundle {
     pub conversation: Conversation,
     /// Ordered by tid.

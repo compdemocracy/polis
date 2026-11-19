@@ -470,7 +470,17 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
         && claim.stage == "delphi_full_pipeline"
     {
         let math_env = super::inputs::math_env(&frame["inputs"], std::env::var("MATH_ENV").ok());
-        match super::inputs::prepare(dsn, &cfg.transport, &dir, admission.zid, &math_env) {
+        // A run that names a selection reads the two columns it needs in the
+        // same snapshot (an unknown one is refused below, with the arguments).
+        let selection = matches!(child::selection(&admission), Ok(Some(_)));
+        match super::inputs::prepare(
+            dsn,
+            &cfg.transport,
+            &dir,
+            admission.zid,
+            &math_env,
+            selection,
+        ) {
             Ok(bundle) => frame["inputs"]["bundle"] = bundle,
             Err(_) => {
                 refuse_without_child(&ctx, &mut rpc, &claim, false, "input_bundle_unavailable");
