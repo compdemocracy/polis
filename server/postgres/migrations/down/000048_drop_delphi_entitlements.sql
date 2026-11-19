@@ -10,16 +10,23 @@
 -- Locks. Dropping the table removes its two foreign keys to public.users,
 -- which takes ACCESS EXCLUSIVE on users until COMMIT (measured on PostgreSQL
 -- 17.11; dropping the constraints first takes the same lock). Every read and
--- write of users waits for those milliseconds, or for at most lock_timeout
--- (5 s) while an open transaction holds users, after which this fails with
--- nothing changed.
+-- write of users waits for those milliseconds.
+--
+-- Its lock_timeout is 200 ms, as in 000048 and for the same reason. While an
+-- open transaction holds users, this waits for its lock and every read and
+-- write of users queues behind it; a first sign-in gives up on a lock after
+-- 500 ms (server/src/db/pg-query.ts) and is answered HTTP 500. At 200 ms
+-- nobody waits longer than that and nothing is refused. A refused down fails
+-- with nothing changed: the table, its rows and the 000048 history row all
+-- stay, the server goes on as before, and it is run again when users is
+-- quiet.
 --
 --   psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f server/postgres/migrations/down/000048_drop_delphi_entitlements.sql
 --
 -- Runner history is not edited here; the operator removes the 000048 history
 -- row in the same sitting, after this succeeds.
 BEGIN;
-SET LOCAL lock_timeout='5s';
+SET LOCAL lock_timeout='200ms';
 LOCK TABLE public.delphi_entitlements IN ACCESS EXCLUSIVE MODE;
 DO $$
 BEGIN

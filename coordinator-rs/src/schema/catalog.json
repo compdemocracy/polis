@@ -2432,7 +2432,7 @@
     },
     {
       "table": "delphi_entitlements",
-      "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:34",
+      "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:41",
       "columns": [
         {
           "table": "delphi_entitlements",
@@ -2443,7 +2443,7 @@
           "default": null,
           "ordinal": 1,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:35"
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:42"
         },
         {
           "table": "delphi_entitlements",
@@ -2454,7 +2454,7 @@
           "default": "now_as_millis()",
           "ordinal": 2,
           "definition_type": "bigint",
-          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:36"
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:43"
         },
         {
           "table": "delphi_entitlements",
@@ -2465,7 +2465,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:37"
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:44"
         },
         {
           "table": "delphi_entitlements",
@@ -2476,7 +2476,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:38"
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:45"
         }
       ],
       "indexes": [
@@ -12912,7 +12912,7 @@
     },
     {
       "path": "server/postgres/migrations/000048_create_delphi_entitlements.sql",
-      "sha256": "ce23c6323461541aedd8e1891d906301c0025c71beb00c250f728c3162159d8e"
+      "sha256": "2242c3a850477354f818a60325d161b266a4dea850565f3434ecd05c4c848e67"
     }
   ]
 }

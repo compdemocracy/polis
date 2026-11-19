@@ -62,7 +62,7 @@
 -- sha256 eab730473dda1fdd7b0e3b6fbbae5eb6201fbb579670ebcf43557aeb23f8c4a2 000045_page_ids_width.sql
 -- sha256 47ce61aaa34adfa82f9c7430170afaf3144fb72b96fc85b62f7078a7fb831531 000046_add_granite_embedding_model.sql
 -- sha256 18e807a6e2fcbd7eaf25101bd55de945b99899c3c5041c521dc92aed0cf5e22a 000047_extend_graph_embedding_and_labels.sql
--- sha256 ce23c6323461541aedd8e1891d906301c0025c71beb00c250f728c3162159d8e 000048_create_delphi_entitlements.sql
+-- sha256 2242c3a850477354f818a60325d161b266a4dea850565f3434ecd05c4c848e67 000048_create_delphi_entitlements.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';

@@ -234,11 +234,11 @@ row! {
 }
 
 row! {
-    DelphiEntitlementsRow, "delphi_entitlements", "server/postgres/migrations/000048_create_delphi_entitlements.sql:34";
-    uid: i32 => ("uid", "int4", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:35"),
-    granted_at: i64 => ("granted_at", "int8", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:36"),
-    granted_by: Option<i32> => ("granted_by", "int4", true, "server/postgres/migrations/000048_create_delphi_entitlements.sql:37"),
-    source: String => ("source", "text", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:38"),
+    DelphiEntitlementsRow, "delphi_entitlements", "server/postgres/migrations/000048_create_delphi_entitlements.sql:41";
+    uid: i32 => ("uid", "int4", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:42"),
+    granted_at: i64 => ("granted_at", "int8", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:43"),
+    granted_by: Option<i32> => ("granted_by", "int4", true, "server/postgres/migrations/000048_create_delphi_entitlements.sql:44"),
+    source: String => ("source", "text", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:45"),
 }
 
 row! {
