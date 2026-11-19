@@ -1025,6 +1025,58 @@ mod tests {
         }
     }
 
+    /// Connections the kernel completed before the stop and that the accept
+    /// loop never took (here: all of them, because the stop is already
+    /// complete when the loop first polls) are swept: each is answered, and a
+    /// connection after the sweep is refused.
+    #[tokio::test]
+    async fn the_sweep_answers_every_connection_queued_at_the_stop() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let mut clients = Vec::new();
+        for i in 0..64 {
+            let mut c = TcpStream::connect(address).await.unwrap();
+            let request = if i % 2 == 0 {
+                format!("GET /queued/{i} HTTP/1.0\r\nHost: h\r\n\r\n")
+            } else {
+                // A body that has fully arrived before the stop.
+                format!("POST /queued/{i} HTTP/1.0\r\nHost: h\r\nContent-Length: 4\r\n\r\nbody")
+            };
+            c.write_all(request.as_bytes()).await.unwrap();
+            clients.push(c);
+        }
+        let handler = Arc::new(|req: Request| async move {
+            let body = req.target.clone().into_bytes();
+            Outgoing {
+                status: 200,
+                headers: vec![("Content-Length".into(), body.len().to_string())],
+                body: Body::Fixed(body),
+                close: false,
+            }
+        });
+        serve_until(listener, handler, Listener::Main, std::future::ready(()))
+            .await
+            .unwrap();
+        let refused = TcpStream::connect(address).await;
+        for (i, mut c) in clients.into_iter().enumerate() {
+            let mut response = Vec::new();
+            tokio::time::timeout(Duration::from_secs(5), c.read_to_end(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            let response = String::from_utf8(response).unwrap();
+            assert!(
+                response.starts_with("HTTP/1.1 200 OK\r\n"),
+                "{i}: {response:?}"
+            );
+            assert!(
+                response.ends_with(&format!("/queued/{i}")),
+                "{i}: {response:?}"
+            );
+        }
+        assert!(refused.is_err(), "the listener is closed after the sweep");
+    }
+
     #[test]
     fn dates_print_like_to_utc_string() {
         assert_eq!(http_date(0), "Thu, 01 Jan 1970 00:00:00 GMT");
