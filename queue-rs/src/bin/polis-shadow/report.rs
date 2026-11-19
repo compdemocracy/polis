@@ -174,10 +174,18 @@ pub(crate) mod bar {
     /// says how long the slowest one copy in a hundred was held; in an hour
     /// of fewer than 100 copies that is less than one copy, and the p99 is
     /// the hour's slowest copy (99 copies: the 99th of 99). From 100 it is
-    /// set by more than one copy (the 99th of 100). An hour of fewer is
-    /// reported and cannot stop; its slowest copy is still held to
-    /// `STOP_MIRROR_MAX_MS`, as every copy is.
+    /// set by more than one copy (the 99th of 100). An hour of fewer cannot
+    /// stop by its own p99; its slowest copy is still held to
+    /// `STOP_MIRROR_MAX_MS`, as every copy is, and the hours of fewer are
+    /// judged together, by the same minimum: from 100 copies between them.
     pub const STOP_MIRROR_MIN_COPIES: u64 = 100;
+    /// The percentile the hold's bound is set on. The p99 of a set of copies
+    /// is above 10 ms exactly when more than 100 - 99 = 1 % of them were held
+    /// above 10 ms (by nearest rank, the p99 of n copies is the copy of rank
+    /// ceil(0.99 n), above which lie floor(n / 100) copies). That is how the
+    /// hours of fewer than 100 copies are judged together: the share of
+    /// their copies above 10 ms, more than 1 % a stop.
+    pub const STOP_MIRROR_PERCENTILE: u64 = 99;
     pub const LB_RATIO: f64 = 1.2;
     pub const LB_FLOOR_S: f64 = 0.1;
     pub const SUSTAINED_HOURS: u32 = 3;
@@ -197,6 +205,25 @@ pub(crate) mod bar {
     /// weeks) while the p99 between bands differs by up to 60 ms. The first
     /// is `VOTE_MIN_PER_HOUR`: an hour of fewer is not judged.
     pub const VOTE_BANDS: [u64; 4] = [VOTE_MIN_PER_HOUR, 100, 300, 1_000];
+    /// The fewest hours of the week before in a band whose median p99 rule
+    /// 5 judges that band's hours by. The median of one hour is that hour,
+    /// and of two their mean: one slow hour of the week before set the bar,
+    /// and three busy hours at 500 ms, where 142 ms is usual, read as within
+    /// it against a single hour of 600 ms. The median of three is the middle
+    /// one, which no single slow or fast hour sets. With fewer, the band has
+    /// no comparable baseline.
+    pub const VOTE_BAND_MIN_HOURS: usize = 3;
+    /// Rule 5 also sets an hour beside the same hour a week earlier, when
+    /// neither had more than this many times the other's votes. Node's vote
+    /// p99 falls as an hour gets busier, by at most 23 ms each time the
+    /// votes double, between the typical volumes of the bands in the weeks
+    /// of 2026-11-05 and 2026-11-12 (from 300 to 999 votes to 1,000 or
+    /// more: 186 to 142 ms over 4.1 times the votes, and 194 to 153 ms over
+    /// 3.4 times). Within a factor of 2 the volume alone moves the p99 by
+    /// less than half the rule's 50 ms floor; at a factor of 4 it would be
+    /// about the floor itself. The false stop of the week of 2026-11-12 set
+    /// quiet hours beside surge hours of ten times their votes.
+    pub const VOTE_ALIKE_RATIO: u64 = 2;
     pub const VOTE_5XX_MIN: u64 = 10;
     pub const VOTE_5XX_RATIO: f64 = 3.0;
     /// Percentage points (the shares are in percent).
@@ -260,9 +287,14 @@ pub(crate) struct Hold {
     pub(crate) judged: usize,
     pub(crate) judged_p99: Option<f64>,
     /// The hours of fewer, and the slowest of their p99s with its copies and
-    /// its hour: reported, never judged.
+    /// its hour: reported, never judged one by one.
     pub(crate) thin: usize,
     pub(crate) thin_worst: Option<(f64, u64, String)>,
+    /// The copies of those hours, and those of them held above the stop
+    /// rule's p99 bound when every one of their rows counts them: what the
+    /// stop rule judges them by together.
+    pub(crate) thin_copies: u64,
+    pub(crate) thin_over: Option<u64>,
     /// The copies held above the stop rule's p99 bound over the window, when
     /// every hour's row counts them.
     pub(crate) over: Option<u64>,
@@ -285,6 +317,7 @@ impl Hold {
                     .unwrap_or_else(|_| "an hour not named".into());
                 (p, count(row, "n"), hour)
             });
+        let over = |row: &Row| num(row, "over").map(|n| n.max(0.0).round() as u64);
         Hold {
             p99: max(&mut hours.iter().filter_map(p99)),
             max: max(&mut hours.iter().filter_map(|row| num(row, "max_s"))) * 1000.0,
@@ -293,10 +326,9 @@ impl Hold {
                 .then(|| max(&mut judged.iter().filter_map(|row| p99(row)))),
             thin: thin.len(),
             thin_worst,
-            over: hours
-                .iter()
-                .map(|row| num(row, "over").map(|n| n.max(0.0).round() as u64))
-                .sum(),
+            thin_copies: thin.iter().map(|row| count(row, "n")).sum(),
+            thin_over: thin.iter().map(|row| over(row)).sum(),
+            over: hours.iter().map(over).sum(),
         }
     }
 
@@ -420,13 +452,15 @@ pub(crate) fn copy_section(
 /// The copies nginx logged and did not send, from a join's counts: outside
 /// the body bound (nginx's status for the copy 204), and the shadow's host
 /// absent (any other status). Each is the copies nginx logged with that
-/// status less the copied ones among them.
+/// status less the copied ones among them; the logged with another status
+/// are all the logged less those with 204.
 pub(crate) fn not_sent(all: &impl Fn(&str) -> u64) -> (u64, u64) {
-    let copied_204 = all("copied_204");
+    let (mirrored_204, copied_204) = (all("mirrored_204"), all("copied_204"));
+    let mirrored_other = all("mirrored").saturating_sub(mirrored_204);
     let copied_other = all("copied").saturating_sub(copied_204);
     (
-        all("mirrored_204").saturating_sub(copied_204),
-        all("mirrored_other").saturating_sub(copied_other),
+        mirrored_204.saturating_sub(copied_204),
+        mirrored_other.saturating_sub(copied_other),
     )
 }
 
@@ -1107,14 +1141,18 @@ fn median(values: &[f64]) -> Option<f64> {
     }
 }
 
-/// Rule 5 by volume: each hour of the window whose requests fall in a band
-/// against the hours of the week before in the same band, by the median of
-/// their p99s. A breach is the rule's own: more than 20 % and more than
-/// 50 ms above; three breached hours in a row stop. An hour in a band the
-/// week before has no hour in is not judged and is said to have no
-/// comparable baseline: neither a pass nor a stop, so the rule reads "not
-/// evaluated" for it. An hour of fewer requests than the first band is not
-/// judged either, as before.
+/// Rule 5 by volume. Each hour of the window with at least the first band's
+/// requests is judged against two figures of the week before, and is
+/// breached when it is above either by the rule's margin (more than 20 %
+/// and more than 50 ms): its band's typical hour, the median p99 of the week
+/// before's hours in the band, when the band holds at least
+/// `bar::VOTE_BAND_MIN_HOURS` of them; and the same hour a week earlier,
+/// when neither hour had more than `bar::VOTE_ALIKE_RATIO` times the
+/// other's requests. Three breached hours in a row stop. An hour with
+/// neither figure is not judged. A band with fewer baseline hours has no
+/// comparable baseline, which is neither a pass nor a stop, so the rule
+/// reads "not evaluated" for it. An hour of fewer requests than the first
+/// band is not judged, as before.
 fn latency_by_volume(
     out: &mut String,
     now: &[Hour],
@@ -1124,30 +1162,58 @@ fn latency_by_volume(
     fired: &mut Vec<String>,
     thin: &mut Vec<String>,
 ) {
+    const WEEK: i64 = 7 * 86_400;
     let band_of = |n: u64| bands.iter().rposition(|&least| n >= least);
     let label = |b: usize| match bands.get(b + 1) {
         Some(next) => format!("{} to {} {what}s", thousands(bands[b]), thousands(next - 1)),
         None => format!("{} or more {what}s", thousands(bands[b])),
     };
+    let breach =
+        |p99: f64, r: f64| p99 > r * bar::VOTE_P99_RATIO && p99 - r > bar::VOTE_P99_FLOOR_MS;
+    let alike = |n: u64, n0: u64| n.max(n0) <= bar::VOTE_ALIKE_RATIO * n.min(n0);
     let mut baseline: Vec<Vec<f64>> = vec![vec![]; bands.len()];
     for &(_, n, _, p99) in before {
         if let (Some(b), Some(p99)) = (band_of(n), p99) {
             baseline[b].push(p99);
         }
     }
-    let reference: Vec<Option<f64>> = baseline.iter().map(|p| median(p)).collect();
-    // Each band's hours in the window and, of them, the breached ones.
+    let reference: Vec<Option<f64>> = baseline
+        .iter()
+        .map(|p| {
+            if p.len() >= bar::VOTE_BAND_MIN_HOURS {
+                median(p)
+            } else {
+                None
+            }
+        })
+        .collect();
+    // Each band's hours in the window and, of them, the ones breached
+    // against the band; the hours compared with the same hour a week
+    // earlier and, of them, the breached ones.
     let mut tally = vec![(0usize, 0usize); bands.len()];
+    let (mut same, mut same_breached) = (0usize, 0usize);
     let mut quiet = 0usize;
     let mut hours: Vec<(i64, bool)> = vec![];
     for &(t, n, _, p99) in now {
         match (band_of(n), p99) {
             (Some(b), Some(p99)) => {
                 tally[b].0 += 1;
-                if let Some(r) = reference[b] {
-                    let breach = p99 > r * bar::VOTE_P99_RATIO && p99 - r > bar::VOTE_P99_FLOOR_MS;
-                    tally[b].1 += usize::from(breach);
-                    hours.push((t, breach));
+                let by_band = reference[b].map(|r| breach(p99, r));
+                let by_hour =
+                    before
+                        .iter()
+                        .find(|h| h.0 == t - WEEK)
+                        .and_then(|&(_, n0, _, p0)| {
+                            let p0 = p0?;
+                            (n0 >= bands[0] && alike(n, n0)).then(|| breach(p99, p0))
+                        });
+                tally[b].1 += usize::from(by_band == Some(true));
+                if let Some(breached) = by_hour {
+                    same += 1;
+                    same_breached += usize::from(breached);
+                }
+                if by_band.is_some() || by_hour.is_some() {
+                    hours.push((t, by_band == Some(true) || by_hour == Some(true)));
                 }
             }
             _ if n > 0 => quiet += 1,
@@ -1169,7 +1235,8 @@ fn latency_by_volume(
     let run = longest_run(&hours, 3600);
     let _ = writeln!(
         out,
-        "   5. {what} p99 (Node's duration_ms), each hour against the week before's hours of as many {what}s (the median of their p99s): {} of {} hours more than 20 % and 50 ms above, longest run {run}; stops at {} in a row",
+        "   5. {what} p99 (Node's duration_ms), each hour against the week before's hours of as many {what}s (the median of their p99s, from {} hours) and against the same hour a week earlier at alike volume: {} of {} hours more than 20 % and 50 ms above either, longest run {run}; stops at {} in a row",
+        bar::VOTE_BAND_MIN_HOURS,
         hours.iter().filter(|h| h.1).count(),
         hours.len(),
         bar::SUSTAINED_HOURS
@@ -1189,9 +1256,20 @@ fn latency_by_volume(
                 );
             }
             None => {
+                let had = match baseline[b].len() {
+                    0 => "no hour of the week before in the band".to_owned(),
+                    1 => format!(
+                        "only 1 hour of the week before in the band, fewer than {}",
+                        bar::VOTE_BAND_MIN_HOURS
+                    ),
+                    k => format!(
+                        "only {k} hours of the week before in the band, fewer than {}",
+                        bar::VOTE_BAND_MIN_HOURS
+                    ),
+                };
                 let _ = writeln!(
                     out,
-                    "      {}: {n} hours; no comparable baseline (no hour of the week before in the band): not judged",
+                    "      {}: {n} hours; no comparable baseline ({had}): not judged",
                     label(b)
                 );
                 thin.push(format!(
@@ -1201,6 +1279,11 @@ fn latency_by_volume(
             }
         }
     }
+    let _ = writeln!(
+        out,
+        "      the same hour a week earlier, where neither hour had more than {} times the other's {what}s: {same} hours compared, {same_breached} above",
+        bar::VOTE_ALIKE_RATIO
+    );
     if quiet > 0 {
         let _ = writeln!(
             out,
@@ -1306,14 +1389,30 @@ pub(crate) fn stop_rule(
         None => missing.push("database CPU".into()),
     }
     // 2. The copy's hold: the p99 of an hour of at least 100 copies above
-    // 10 ms, or any copy above 60 ms. An hour of fewer copies is reported
-    // and judged by its slowest copy alone; the copies held above 10 ms in
-    // the window are counted beside the verdict, so a slowdown in quiet
-    // hours is seen.
+    // 10 ms; the p99 of the hours of fewer, taken together, above 10 ms
+    // (more than 1 % of their copies above it), once they hold 100 copies
+    // between them; or any copy above 60 ms. The copies held above 10 ms in
+    // the window are counted beside the verdict.
     let min = bar::STOP_MIRROR_MIN_COPIES;
     match &hold {
         Some(h) => {
+            let above_share = 100 - bar::STOP_MIRROR_PERCENTILE;
+            // The quiet hours together: none; too few for a p99; their
+            // copies above the bound not counted; or that count, and whether
+            // it is more than the share a p99 leaves above it.
+            let pooled = (h.thin > 0).then(|| {
+                if h.thin_copies < min {
+                    None
+                } else {
+                    Some(
+                        h.thin_over
+                            .map(|o| (o, o * 100 > h.thin_copies * above_share)),
+                    )
+                }
+            });
+            let pooled_breach = matches!(pooled, Some(Some(Some((_, true)))));
             let breach = h.judged_p99.is_some_and(|p| p > bar::STOP_MIRROR_P99_MS)
+                || pooled_breach
                 || h.max > bar::STOP_MIRROR_MAX_MS;
             let judged = match h.judged_p99 {
                 Some(p) => format!(
@@ -1348,6 +1447,38 @@ pub(crate) fn stop_rule(
                         None => String::new(),
                     }
                 );
+            }
+            let together = format!("      together, those hours held {} copies", h.thin_copies);
+            match pooled {
+                None => {}
+                Some(None) => {
+                    let _ = writeln!(
+                        out,
+                        "{together}, too few for a p99 (it is their slowest copy): not judged"
+                    );
+                }
+                Some(Some(None)) => {
+                    let _ = writeln!(
+                        out,
+                        "{together}, copies above {} ms not counted (an hour's row without the count): not read",
+                        bar::STOP_MIRROR_P99_MS
+                    );
+                    // Read, but without what the rule needs: "not read" in
+                    // the verdict, not a metric missing.
+                    thin.push(format!(
+                        "the copy's hold in the hours of fewer than {min} copies, together"
+                    ));
+                }
+                Some(Some(Some((over, above)))) => {
+                    let _ = writeln!(
+                        out,
+                        "{together}, {over} of them above {} ms ({}); more than {above_share} % is a p99 above {} ms: {}",
+                        bar::STOP_MIRROR_P99_MS,
+                        pct(share(over, h.thin_copies)),
+                        bar::STOP_MIRROR_P99_MS,
+                        if above { "above the rule" } else { "within it" }
+                    );
+                }
             }
             if breach {
                 fired.push("the copy's hold".into());

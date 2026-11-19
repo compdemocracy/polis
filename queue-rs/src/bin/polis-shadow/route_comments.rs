@@ -491,14 +491,13 @@ impl Route {
                     with(begins_here(), vec![num_is("n_edge", 0)]),
                 ),
                 ("no_mirror", with(request(), vec![num_is("n_mirror", 0)])),
-                // The copies nginx logged, by its status for the copy, and
-                // the copied ones with status 204 (`copied` less these are
-                // the others): the report takes the copied from the logged
-                // for the copies not sent (outside the body bound, 204; the
-                // shadow's host absent, any other status). Never
-                // `n_copied = 0`: an empty upstream status is no field in
-                // Logs Insights, so `n_copied` has no value for such a copy
-                // and the test is never true.
+                // The copies nginx logged, those of them with its status 204
+                // for the copy, and the copied ones with status 204: the
+                // report takes the copied from the logged for the copies not
+                // sent (outside the body bound, 204; the shadow's host
+                // absent, any other status). Each tests that a count is 1,
+                // never that one is 0 (as for votes, `route.rs`).
+                ("mirrored", with(request(), vec![one("n_mirror")])),
                 (
                     "mirrored_204",
                     with(request(), vec![one("n_mirror"), one("n_mirror_204")]),
@@ -509,10 +508,6 @@ impl Route {
                         request(),
                         vec![one("n_mirror"), one("n_copied"), one("n_mirror_204")],
                     ),
-                ),
-                (
-                    "mirrored_other",
-                    with(request(), vec![one("n_mirror"), num_is("n_mirror_204", 0)]),
                 ),
                 (
                     "copied",

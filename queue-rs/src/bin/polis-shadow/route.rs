@@ -467,15 +467,19 @@ impl Route {
                     "no_mirror",
                     Agg::Sum(with(vote(), vec![num_is("n_mirror", 0)])),
                 ),
-                // The copies nginx logged, by its status for the copy, and
-                // the copied ones with status 204 (`copied` less these are
-                // the others): the report takes the copied from the logged
-                // for the copies not sent, outside the body bound (204) and
-                // the shadow's host absent (any other status: nginx answered
-                // the copy itself, a shadow that is down, copied as far as
-                // coverage goes). Never `n_copied = 0`: an empty upstream
-                // status is no field in Logs Insights, so `n_copied` has no
-                // value for such a copy and the test is never true.
+                // The copies nginx logged, those of them with its status 204
+                // for the copy, and the copied ones with status 204: the
+                // report takes the copied from the logged for the copies not
+                // sent, outside the body bound (status 204) and the shadow's
+                // host absent (any other status: nginx answered the copy
+                // itself, a shadow that is down, copied as far as coverage
+                // goes). Each is a test that a count is 1, never that one is
+                // 0: on the lines of a request that are not its mirror line
+                // `n_copied` and `n_mirror_204` test fields those lines do
+                // not carry, and whether such a sum with no true value is 0
+                // or no value was never measured (`eval::Reading`). A count
+                // of `message`, which every line carries, always has one.
+                ("mirrored", Agg::Sum(with(vote(), vec![one("n_mirror")]))),
                 (
                     "mirrored_204",
                     Agg::Sum(with(vote(), vec![one("n_mirror"), one("n_mirror_204")])),
@@ -485,13 +489,6 @@ impl Route {
                     Agg::Sum(with(
                         vote(),
                         vec![one("n_mirror"), one("n_copied"), one("n_mirror_204")],
-                    )),
-                ),
-                (
-                    "mirrored_other",
-                    Agg::Sum(with(
-                        vote(),
-                        vec![one("n_mirror"), num_is("n_mirror_204", 0)],
                     )),
                 ),
                 (

@@ -1106,7 +1106,7 @@ fn the_comment_join_classes_every_outcome() {
     assert_eq!(total("copied"), 36);
     assert_eq!(total("mirrored_204") - total("copied_204"), 1);
     assert_eq!(
-        total("mirrored_other") - (total("copied") - total("copied_204")),
+        total("mirrored") - total("mirrored_204") - (total("copied") - total("copied_204")),
         1
     );
     assert_eq!(total("covered"), 35);
@@ -1589,6 +1589,125 @@ fn an_admitted_hand_back_for_another_reason_withholds_the_read_back_judgement() 
     );
     assert_eq!(report.mark("author's vote"), Some(Mark::NotEvaluated));
     assert_eq!(report.verdict, Verdict::TooLittle);
+}
+
+/// The passing comments at 90 copies an hour (production has about eight),
+/// every copy held `s` seconds.
+fn comments_held(s: f64) -> Fixture {
+    let mut fx = comments_fixture();
+    for case in passing_cases() {
+        comment(&mut fx, case);
+        fx.at += 33_000;
+    }
+    for (_, json) in fx.lines.iter_mut() {
+        if json.contains(r#""message":"shadow_mirror""#) {
+            let mut v: Value = serde_json::from_str(json).unwrap();
+            v["mirror_s"] = json!(s);
+            *json = v.to_string();
+        }
+    }
+    fx
+}
+
+/// No comment hour holds the 100 copies an hour's p99 is judged from, so
+/// the comment copies are judged pooled: a comment shadow that holds every
+/// comment 50 ms stops. Held 1 ms, they pass.
+#[test]
+fn a_comment_shadow_that_holds_every_comment_50_ms_stops() {
+    let report = run(&comments(&comments_held(0.050)));
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+    assert!(report.text.contains("fired: the copy's hold"));
+    assert!(
+        report
+            .text
+            .contains("no hour of at least 100 copies to judge a p99 by, largest copy 50.0 ms"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.verdict, Verdict::Stop);
+    let report = run(&comments(&comments_held(0.001)));
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Pass),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+}
+
+/// No count of any query depends on how Logs Insights reads the three rules
+/// no probe has measured (`eval::Reading`): over fixtures holding every
+/// class of both routes, every compiled query gives the same counts under
+/// all eight readings. A count with no value is read as 0, as the report
+/// reads it.
+#[test]
+fn every_query_counts_the_same_under_every_reading() {
+    let mut fixtures: Vec<(String, Route, Vec<Line>)> = golden_fixtures()
+        .into_iter()
+        .map(|(name, fx)| (format!("votes, {name}"), VOTES, FakeAws::new(&fx).lines))
+        .collect();
+    let mut every = comments_fixture();
+    for case in every_case() {
+        comment(&mut every, case);
+    }
+    comment(&mut every, C::StrictVoteDiffers);
+    fixtures.push((
+        "comments, every case".into(),
+        COMMENTS,
+        comments(&every).lines,
+    ));
+    fixtures.push((
+        "comments, passing".into(),
+        COMMENTS,
+        comments(&passing_comments()).lines,
+    ));
+    let w = window();
+    let week = 7 * 86_400;
+    for (name, route, lines) in &fixtures {
+        for q in route.queries() {
+            let names: Vec<&str> = q
+                .stages
+                .last()
+                .unwrap()
+                .aggs
+                .iter()
+                .map(|(n, _)| *n)
+                .collect();
+            let mut spans = vec![(w.from_s, w.to_s)];
+            if q.previous_week {
+                spans.push((w.from_s - week, w.to_s - week));
+            }
+            for (from, to) in spans {
+                let counts = |r: eval::Reading| {
+                    eval::with_reading(r, || {
+                        eval::run(&q, lines, from, to)
+                            .into_iter()
+                            .map(|mut row| {
+                                for n in &names {
+                                    row.entry((*n).to_owned()).or_insert_with(|| "0".into());
+                                }
+                                row
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                };
+                let own = counts(eval::Reading::default());
+                for r in eval::READINGS {
+                    assert!(
+                        counts(r) == own,
+                        "{name}: the query {} counts otherwise under the reading {}",
+                        q.name,
+                        r.words()
+                    );
+                }
+            }
+        }
+    }
 }
 
 /// The reviewer's rule (c): the same text twice within five seconds reads as

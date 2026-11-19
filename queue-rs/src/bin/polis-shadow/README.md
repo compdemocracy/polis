@@ -218,43 +218,64 @@ criterion missed: examine before the flip).
 7. **The stop rule** (any one is a stop), read over the span it names, and
    rules 3 to 5 against the same span a week earlier, which it also names:
    1. database CPU above 60 % in two consecutive 5-minute periods;
-   2. the copy's hold above 10 ms p99 in an hour of at least 100 copies, or
-      any copy above 60 ms in any hour. A p99 says how long the slowest one
-      copy in a hundred was held. In an hour of fewer than 100 copies that is
-      less than one copy, and the hour's p99 is its slowest copy (of 99, the
-      99th; of 100, the 99th of 100 is the second slowest), so one slow copy
-      in a quiet hour would stop the week: the week of 2026-11-12 said STOP
-      for one 20 ms copy in an hour of 41, with every one of its 31,413
-      compared votes in agreement. Such an hour is printed, as too few to
-      judge, with its slowest p99, its copies and its hour, and cannot stop;
-      its slowest copy is still held to the 60 ms bound. Beside the stop
-      rule's verdict the report counts the copies held above 10 ms in the
-      window, every hour's included, so a slowdown confined to quiet hours
-      shows there (and in the copy's cost, which still reads every hour)
-      though it does not stop;
+   2. the copy's hold above 10 ms p99 in an hour of at least 100 copies; or
+      above 10 ms p99 in the hours of fewer than 100 copies taken together,
+      once they hold 100 copies between them; or any copy above 60 ms in any
+      hour. A p99 says how long the slowest one copy in a hundred was held.
+      In an hour of fewer than 100 copies that is less than one copy, and the
+      hour's p99 is its slowest copy (of 99, the 99th; of 100, the 99th of
+      100 is the second slowest), so one slow copy in a quiet hour would stop
+      the week: the week of 2026-11-12 said STOP for one 20 ms copy in an
+      hour of 41, with every one of its 31,413 compared votes in agreement.
+      Such an hour is printed, as too few to judge alone, with its slowest
+      p99, its copies and its hour; its slowest copy is still held to the
+      60 ms bound. The quiet hours are judged together instead: the p99 of a
+      set of copies is above 10 ms exactly when more than 1 % of them were
+      held above 10 ms (by nearest rank, floor(n / 100) of n copies lie above
+      the p99), so more than 1 % of the quiet hours' copies above 10 ms is a
+      stop, from the same 100 copies an hour's p99 is judged from. A shadow
+      that adds 30 ms to every copy in hours of 50 stops. That week's 63
+      quiet hours held 3,215 copies, and in all of them but the hour of 41
+      the largest copy was within 10 ms: they would stop only if 33 of that
+      hour's 41 copies had been held above 10 ms. Beside the stop rule's
+      verdict the report counts the copies held above 10 ms in the window,
+      every hour's included;
    3. the load balancer's p99 (all routes) more than 20 % **and** more than
       100 ms above the same hour a week earlier, in three hours in a row;
    4. vote errors: at least 10 of Node's 5xx on `POST /api/v3/votes` in the
       window, a share more than three times the same span's a week earlier
       **and** more than half a percentage point above it;
    5. vote latency: Node's `duration_ms` p99 for votes in an hour more than
-      20 % **and** more than 50 ms above the median p99 of the hours of the
-      week before with as many votes, in three hours in a row. "As many" is a
-      band: 20 to 99 votes an hour, 100 to 299, 300 to 999, 1,000 or more;
-      an hour of fewer than 20 is not judged. Node's vote p99 falls as an
-      hour gets busier, and at the same volume it was the same in the weeks
-      of 2026-11-05 and 2026-11-12 (medians of 216 and 206 ms under 100 votes
-      an hour, 209 and 203 from 100, 186 and 194 from 300, 142 and 153 from
-      1,000). Set beside the same hour a week earlier, quiet hours after a
+      20 % **and** more than 50 ms above either of two figures of the week
+      before, in three hours in a row: the median p99 of the week before's
+      hours with as many votes, and the same hour a week earlier where its
+      votes were alike. "As many" is a band: 20 to 99 votes an hour, 100 to
+      299, 300 to 999, 1,000 or more; an hour of fewer than 20 is not
+      judged. Node's vote p99 falls as an hour gets busier, and at the same
+      volume it was the same in the weeks of 2026-11-05 and 2026-11-12
+      (medians of 216 and 206 ms under 100 votes an hour, 209 and 203 from
+      100, 186 and 194 from 300, 142 and 153 from 1,000). Set beside the
+      same hour a week earlier whatever its volume, quiet hours after a
       surge read as a slowdown with nothing slower: that week said STOP on
-      it. The bands keep an ordinary week's hours in each, and the median
-      of a band's hours is the week before's typical hour at that volume,
-      which no single slow or fast hour sets once the band has three. An
-      hour in a band the week before has no hour in has **no comparable
-      baseline**: it is printed as such and not judged, which is neither a
-      pass nor a stop, so the rule reads "not evaluated" for that band and
-      the verdict cannot be PASS. Votes slower at the same volume still
-      stop.
+      it. The bands keep an ordinary week's hours in each, and the median of
+      a band's hours is the week before's typical hour at that volume. A
+      band is judged only when the week before has at least three hours in
+      it: the median of one hour is that hour, and of two their mean, so one
+      slow hour would set it (three busy hours at 500 ms, where 142 ms is
+      usual, read as within it against one hour of 600 ms); the median of
+      three is the middle one, which no single slow or fast hour sets. A
+      band with fewer has **no comparable baseline**: it is printed as such,
+      which is neither a pass nor a stop, so the rule reads "not evaluated"
+      for that band and the verdict cannot be PASS. The band alone would
+      hide a rise of up to about 50 ms in an hour usually faster than its
+      band's median, so each hour is also set beside the same hour a week
+      earlier, when neither hour had more than twice the other's votes:
+      between the bands' typical volumes the p99 fell by at most 23 ms each
+      time the votes doubled, so within a factor of 2 volume alone moves it
+      by under half the 50 ms floor, while the surge hours of that false
+      stop had ten times the quiet hours' votes. On the week of 2026-11-12
+      the two together breach 14 of 156 hours, in no run longer than 2.
+      Votes slower at the same volume stop.
 
    Target 5xx over all routes are printed as context and are not a stop:
    they are non-zero on nearly every day and swing from 15 to 1,999 a day
@@ -406,9 +427,10 @@ from them.
    earlier, not within bands of volume: it needs 20 requests in the span in
    both weeks, comments come at about eight an hour, and a week has too few
    days for bands. Rule 2 applies as for votes; at about eight copies an
-   hour no comment hour holds the 100 copies a p99 is judged from, so for
-   comments rule 2 is each copy's 60 ms bound, the copies held above 10 ms
-   counted beside the verdict. And the rule is
+   hour no comment hour holds the 100 copies an hour's p99 is judged from,
+   so the comment copies are judged together: more than 1 % of them above
+   10 ms, once there are 100, is a stop, as is any copy above 60 ms. A
+   comment shadow that holds every comment 50 ms stops. And the rule is
    read over the last eight days of the window at most, however long the
    window is: it is about what the copy is doing to production now, not
    about the evidence, and over months it would report any three slow hours
@@ -560,37 +582,57 @@ production account on 2026-11-19, against counts taken by hand:
   `""`; the mirror query's row for those copies came back with no
   `mirror_upstream_status` at all.
 - **In `fields` and inside a `stats` aggregate, an `and` or `or` with an
-  absent operand is absent**, whatever its other operands are.
+  absent operand and a true one is absent.**
   `outcome = "would_serve" or reason = "strict_moderation"` was absent on
   each of 275 would-serve lines (true or absent) and true on the 20 lines
-  carrying both. The join counted none of the two copies nginx answered
-  itself, whose upstream-status sum `message = "shadow_mirror" and
-  mirror_upstream_status like /[0-9]/` can have no value only if `false and
-  <absent>` is absent too.
+  carrying both; `admitted = 1 and` that `or` was absent on the same 275.
 - **A `sum()` none of whose lines has a value is no value**, left out of the
-  row, not 0; a sum of falses is 0.
+  row, not 0; a sum of falses is 0; a sum of absent and true values counts
+  the trues.
 - **In a `filter`, an `or` with a true operand keeps the line** though
   another operand tests a field it lacks: every Node access line the filters
   name is read.
 
-The tests' evaluator (`eval.rs`) reads lines the same way, so a query that
-depends on a field some lines lack fails its tests. The queries follow from
-it. A sum's condition is an `and` of tests (true only where every field it
-tests is there), or an `or` only where every operand's field is on every
-line that can make it true. A first-stage count is tested against 0 only
-where it tests fields every line of the request carries (the line counts,
-by `message`), or a field on a line the request is known to have (a
-mirror line's status beside `n_mirror = 1`). What would need an `or` across
-fields some lines lack is counted as separate terms that cannot overlap and
-added in the report. In particular:
+Three rules were not measured:
+
+- an `and` with a false operand and an absent one: absent, or false;
+- an `or` with a false operand and an absent one and no true one: absent,
+  or false;
+- a `sum()` whose lines give false and absent values and no true one: 0, or
+  no value.
+
+The production run's join printed "the shadow's host absent 0" where there
+were 2, from a count that tested each copy's upstream-status sum
+(`message = "shadow_mirror" and mirror_upstream_status like /[0-9]/`)
+against 0. That rules out only one combination, `false and <absent>` false
+together with such a sum 0; it does not say which of the other readings
+holds.
+
+The tests' evaluator (`eval.rs`) reads lines the same way, and reads each
+of the three unmeasured rules either way (`Reading`): the whole suite is
+run under all eight readings (`POLIS_SHADOW_READING`, for example
+`and-false,sum-absent`; unset is the evaluator's own), and one test runs
+every query of both routes, over fixtures holding every class, under all
+eight and requires the same counts. So no count depends on a rule nobody
+measured. The queries follow from it. A sum's condition is an `and` of
+tests (true only where every field it tests is there), or an `or` only
+where every operand's field is on every line that can make it true. A
+first-stage count is tested against 1, never against 0, unless it counts
+`message`, which every line carries: on a request's other lines a count of
+any other field gives false or absent values, and whether their sum is 0
+or no value is one of the unmeasured rules. What would need an `or` across
+fields some lines lack, or a test against 0, is counted as terms that
+cannot overlap and added or taken away in the report. In particular:
 
 - the stored comments read back (`rb`) are named by `outcome` and
   `admitted`, which every observation line carries;
 - a stored comment that differs is two counts, no row of Node's own
   (`b_gone`) and Node's own row stored otherwise (`b_ownd`, whose five
   fields every line naming Node's own row carries);
-- the copies not sent are the copies nginx logged with a status less the
-  copied ones, never `n_copied = 0`.
+- the copies not sent are the copies nginx logged (`mirrored`), less those
+  with its status 204 (`mirrored_204`) for the shadow's host absent, each
+  less the copied ones among them (`copied`, `copied_204`): never
+  `n_copied = 0` or `n_mirror_204 = 0`.
 
 ## Unproven in a given account
 

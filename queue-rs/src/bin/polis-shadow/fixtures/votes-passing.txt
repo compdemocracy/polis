@@ -61,8 +61,9 @@ window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
    2. the copy's hold: largest hourly p99 1.0 ms in the 12 hours of at least 100 copies, largest copy 1.0 ms, copies above 10 ms in the window 0: within it
    3. load balancer p99, all routes: 0 of 24 hours more than 20 % and 100 ms above the same hour a week earlier, longest run 0; stops at 3 in a row
    4. vote errors (Node's 5xx on POST /api/v3/votes): 1 of 6009 (0.02 %) against 1 of 6009 (0.02 %) a week earlier: within it
-   5. vote p99 (Node's duration_ms), each hour against the week before's hours of as many votes (the median of their p99s): 0 of 12 hours more than 20 % and 50 ms above, longest run 0; stops at 3 in a row
+   5. vote p99 (Node's duration_ms), each hour against the week before's hours of as many votes (the median of their p99s, from 3 hours) and against the same hour a week earlier at alike volume: 0 of 12 hours more than 20 % and 50 ms above either, longest run 0; stops at 3 in a row
       300 to 999 votes: 12 hours against the median 12.5 ms of 12 hours, 0 above
+      the same hour a week earlier, where neither hour had more than 2 times the other's votes: 12 hours compared, 0 above
    target 5xx, all routes (context, not a stop): 3 in the window, 5 the same span a week earlier
 
 8. Criteria for the week

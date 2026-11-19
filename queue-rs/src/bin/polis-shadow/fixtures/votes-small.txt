@@ -53,10 +53,12 @@ window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
    1. database CPU: largest 5-minute average 20.0 %; two consecutive above 60 %: no
    2. the copy's hold: no hour of at least 100 copies to judge a p99 by, largest copy 1.0 ms, copies above 10 ms in the window 0: within it
       1 hours of fewer than 100 copies, too few for a p99 (it is the hour's slowest copy): reported, not judged; the slowest of them 1.0 ms (40 copies, 2026-11-09T00:00:00Z)
+      together, those hours held 40 copies, too few for a p99 (it is their slowest copy): not judged
    3. load balancer p99, all routes: 0 of 24 hours more than 20 % and 100 ms above the same hour a week earlier, longest run 0; stops at 3 in a row
    4. vote errors (Node's 5xx on POST /api/v3/votes): 0 of 40 (0.00 %) against 0 of 40 (0.00 %) a week earlier: within it
-   5. vote p99 (Node's duration_ms), each hour against the week before's hours of as many votes (the median of their p99s): 0 of 1 hours more than 20 % and 50 ms above, longest run 0; stops at 3 in a row
-      20 to 99 votes: 1 hours against the median 12.5 ms of 1 hours, 0 above
+   5. vote p99 (Node's duration_ms), each hour against the week before's hours of as many votes (the median of their p99s, from 3 hours) and against the same hour a week earlier at alike volume: 0 of 1 hours more than 20 % and 50 ms above either, longest run 0; stops at 3 in a row
+      20 to 99 votes: 1 hours; no comparable baseline (only 1 hour of the week before in the band, fewer than 3): not judged
+      the same hour a week earlier, where neither hour had more than 2 times the other's votes: 1 hours compared, 0 above
    target 5xx, all routes (context, not a stop): 3 in the window, 5 the same span a week earlier
 
 8. Criteria for the week
@@ -73,7 +75,7 @@ window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
    exhaustion and presence    pass                 100.00 % of 40
    remaining and total        pass                 remaining 100.00 %, total 100.00 % of 40
    writer latency             pass                 admission p99 4.0 ms, total p99 20.0 ms
-   stop rule                  pass                 never fired; copies held above 10 ms in the window 0
+   stop rule                  not evaluated        not read: vote p99 for 20 to 99 votes (no comparable baseline); copies held above 10 ms in the window 0
 
 What this cannot compare:
    - The drawn statement, and how the draws are weighted: the shadow's line names no statement (a statement number beside a conversation number and a time picks out a participant's public vote), so neither the picks nor their distribution are compared. Whether a statement was served, the two counts and membership are.
