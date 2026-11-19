@@ -351,6 +351,9 @@ impl Route {
                     Agg::Sum(E::In("outcome", vec!["shed", "not_observed"])),
                 ),
                 ("o_stopped", class("outcome", STOPPED)),
+                // The observation lines that are not stopped ones, counted
+                // to 1 (never `o_stopped` to 0: as for votes, `route.rs`).
+                ("o_kept", Agg::Sum(ne(f("outcome"), s(STOPPED)))),
                 // The copies whose comment is modelled and read back: the
                 // ones the handler would store, and the ones it would hand
                 // back only because the conversation has strict moderation.
@@ -532,7 +535,7 @@ impl Route {
                             one("n_mirror"),
                             one("n_copied"),
                             one("n_obs"),
-                            num_is("o_stopped", 0),
+                            one("o_kept"),
                         ],
                     ),
                 ),

@@ -396,6 +396,11 @@ impl Route {
                 ("n_shed", Agg::Sum(is("outcome", "shed"))),
                 ("n_unobserved", Agg::Sum(is("outcome", "not_observed"))),
                 ("n_stopped", Agg::Sum(is("outcome", STOPPED))),
+                // The request's observation lines that are not stopped ones.
+                // Counted to 1, never `n_stopped` to 0: on the request's
+                // other lines `outcome` is absent, and a sum of false and
+                // absent values was never measured (`eval::Reading`).
+                ("n_unstopped", Agg::Sum(ne(f("outcome"), s(STOPPED)))),
                 ("n_cors", Agg::Sum(is("reason", "cors"))),
                 ("edge_st", Agg::Max("edge_status")),
                 ("node_st", Agg::Max("node_status")),
@@ -514,7 +519,7 @@ impl Route {
                             one("n_mirror"),
                             one("n_copied"),
                             one("n_obs"),
-                            num_is("n_stopped", 0),
+                            one("n_unstopped"),
                         ],
                     )),
                 ),

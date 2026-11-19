@@ -2883,19 +2883,26 @@ fn the_vote_report_is_byte_for_byte_what_it_was() {
 #[test]
 fn a_stopped_line_is_counted_apart_and_judged_in_no_class() {
     let join = |fx: &Fixture| {
-        let rows = eval::run(
-            &VOTES
-                .queries()
-                .into_iter()
-                .find(|q| q.name == "join")
-                .unwrap(),
-            &fx.eval_lines(),
-            window().from_s,
-            window().to_s,
-        );
+        let q = VOTES
+            .queries()
+            .into_iter()
+            .find(|q| q.name == "join")
+            .unwrap();
+        let rows = eval::run(&q, &fx.eval_lines(), window().from_s, window().to_s);
+        let names: Vec<&str> = q
+            .stages
+            .last()
+            .unwrap()
+            .aggs
+            .iter()
+            .map(|(n, _)| *n)
+            .collect();
         move |key: &str| {
+            // A count with no value is left out of its row, as Logs Insights
+            // leaves it out: none. A name the join does not have is an error.
+            assert!(names.contains(&key), "the join has no count {key}");
             rows.iter()
-                .map(|r| r[key].parse::<u64>().unwrap())
+                .map(|r| r.get(key).map_or(0, |v| v.parse::<u64>().unwrap()))
                 .sum::<u64>()
         }
     };

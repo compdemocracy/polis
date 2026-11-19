@@ -3806,19 +3806,26 @@ fn a_stopped_comment_line_is_counted_apart_and_judged_in_no_class() {
         assert!(report.text.contains(said), "{said}\n{}", report.text);
     }
     let join = |fx: &Fixture| {
-        let rows = eval::run(
-            &COMMENTS
-                .queries()
-                .into_iter()
-                .find(|q| q.name == "join")
-                .unwrap(),
-            &fx.eval_lines(),
-            window().from_s,
-            window().to_s,
-        );
+        let q = COMMENTS
+            .queries()
+            .into_iter()
+            .find(|q| q.name == "join")
+            .unwrap();
+        let rows = eval::run(&q, &fx.eval_lines(), window().from_s, window().to_s);
+        let names: Vec<&str> = q
+            .stages
+            .last()
+            .unwrap()
+            .aggs
+            .iter()
+            .map(|(n, _)| *n)
+            .collect();
         move |key: &str| {
+            // A count with no value is left out of its row, as Logs Insights
+            // leaves it out: none. A name the join does not have is an error.
+            assert!(names.contains(&key), "the join has no count {key}");
             rows.iter()
-                .map(|r| r[key].parse::<u64>().unwrap())
+                .map(|r| r.get(key).map_or(0, |v| v.parse::<u64>().unwrap()))
                 .sum::<u64>()
         }
     };
@@ -3830,15 +3837,17 @@ fn a_stopped_comment_line_is_counted_apart_and_judged_in_no_class() {
     for key in [
         "serve",
         "serve_clean",
-        "serve_diff",
+        "serve_gone",
+        "serve_ownd",
         "answer",
         "hand",
         "unknown",
         "unobserved",
         "failed",
         "read",
-        "read_diff",
-        "read_unread",
+        "read_absent",
+        "read_other",
+        "read_ownd",
         "no_node",
         "no_node_serve",
         "no_node_answer",
