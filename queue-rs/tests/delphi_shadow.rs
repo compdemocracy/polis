@@ -2882,15 +2882,32 @@ fn scheduler_lines(
     done: impl Fn(&[Value]) -> bool,
     ceiling: Duration,
 ) -> Vec<Value> {
+    scheduler_output(f, extra, done, ceiling).0
+}
+
+/// `scheduler_lines`, and every line the scheduler wrote on standard error.
+fn scheduler_output(
+    f: &Fixture,
+    extra: &[(&str, &str)],
+    done: impl Fn(&[Value]) -> bool,
+    ceiling: Duration,
+) -> (Vec<Value>, Vec<String>) {
     use std::io::BufRead;
     let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_polis-delphi-shadow"));
     c.env_clear()
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .envs(f.environment(extra))
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null());
+        .stderr(std::process::Stdio::piped());
     let mut child = c.spawn().unwrap();
     let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    let errors = std::thread::spawn(move || {
+        std::io::BufReader::new(stderr)
+            .lines()
+            .map_while(Result::ok)
+            .collect::<Vec<String>>()
+    });
     let (send, recv) = std::sync::mpsc::channel();
     let reader = std::thread::spawn(move || {
         for line in std::io::BufReader::new(stdout).lines() {
@@ -2919,7 +2936,7 @@ fn scheduler_lines(
     child.wait().unwrap();
     reader.join().unwrap();
     lines.extend(recv.try_iter());
-    lines
+    (lines, errors.join().unwrap())
 }
 
 fn polls(lines: &[Value]) -> usize {
@@ -2974,4 +2991,189 @@ fn a_held_graph_admission_says_so_once_with_its_reason() {
     assert_eq!(held[0]["graph_ids"], serde_json::json!([flight.graph_id]));
     assert_eq!(held[0]["deferred"], 1);
     assert!(!lines.iter().any(|l| l["event"] == "graph_admitted"));
+}
+
+// ---------------------------------------------------------------------------
+// Before the graph list is ever set: a record of the let-gos that is lost, a
+// let-go whose cancel raced an executor's claim, and the conditions no test
+// pinned.
+
+/// Where an executor's claim of a graph's `graph_embed` node lands against
+/// the scheduler's cancel of the graph it lets go as unclaimed.
+#[derive(Clone, Copy)]
+enum Race {
+    /// After the read that found no attempt and before the cancel, which
+    /// then wins: the node is cancelled with the claim's attempt on record.
+    CancelWins,
+}
+
+/// Replace one queue function of the disposable database so that its first
+/// call claims the `graph_embed` node as an executor would (the claim is
+/// kept in `raced_claim`), then runs the original: with `CancelWins`, the
+/// cancel's read of a node's management version (`pq_job_status`).
+fn claim_races_the_let_go(f: &Fixture, race: Race) {
+    let claim = |condition: &str| {
+        format!(
+            "IF NOT EXISTS (SELECT 1 FROM raced_claim){condition} THEN c := pd_graph_claim(p_env,1::smallint,o,a,60,'delphi','graph_embed'); INSERT INTO raced_claim VALUES((c->>'job_id')::uuid,o,a,(c->>'lease_epoch')::bigint); END IF;"
+        )
+    };
+    let sql = match race {
+        Race::CancelWins => format!(
+            "ALTER FUNCTION pq_job_status(text,uuid) RENAME TO status_before_race;
+             CREATE FUNCTION pq_job_status(p_env text,p_job uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+             DECLARE c jsonb; o uuid := gen_random_uuid(); a uuid := gen_random_uuid();
+             BEGIN {} RETURN status_before_race(p_env,p_job); END $$;
+             GRANT EXECUTE ON FUNCTION pq_job_status(text,uuid) TO polis_queue_executor;",
+            claim("")
+        ),
+    };
+    f.superuser()
+        .batch_execute(&format!(
+            "CREATE TABLE raced_claim(job uuid, owner uuid, attempt uuid, epoch bigint); {sql}"
+        ))
+        .unwrap();
+}
+
+/// The racing claim's executor confirms its process's exit, as a daemon
+/// does once a cancelled node's child has drained.
+fn confirm_raced_exit(f: &Fixture) {
+    let mut c = f.superuser();
+    let r = c
+        .query_one(
+            "SELECT r.job::text, r.owner::text, r.attempt::text, r.epoch, q.env FROM raced_claim r JOIN polis_queue_jobs q ON q.job_id=r.job",
+            &[],
+        )
+        .unwrap();
+    let (job, owner, attempt, epoch, env): (String, String, String, i64, String) =
+        (r.get(0), r.get(1), r.get(2), r.get(3), r.get(4));
+    let done: Value = c
+        .query_one(
+            "SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'confirm_exit',NULL,true)",
+            &[&env, &job, &owner, &attempt, &epoch],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(done["outcome"], "exit_confirmed", "{done}");
+}
+
+/// Attempts on record for a graph's nodes.
+fn attempts_of(f: &Fixture, flight: &polis_queue_adapter::shadow::graph::Flight) -> i64 {
+    f.superuser()
+        .query_one(
+            "SELECT count(*) FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0)
+}
+
+/// The state file is lost (the Delphi box replaced, its volume removed).
+fn lose_state_file(cfg: &config::Config) {
+    std::fs::remove_file(&cfg.state_path).unwrap();
+}
+
+/// The binary's environment for a graph run, as `graph_config` sets it up.
+fn graph_binary_env<'a>(f: &Fixture, list: (&'a str, &'a str)) -> Vec<(String, String)> {
+    vec![
+        (list.0.to_owned(), list.1.to_owned()),
+        ("DELPHI_SHADOW_POLL_SECONDS".into(), "1".into()),
+        ("DELPHI_SHADOW_JOB_POLL_SECONDS".into(), "1".into()),
+        ("DELPHI_APP_PATH".into(), f.dir.display().to_string()),
+        (
+            "POLIS_JOBS_PYTHON".into(),
+            std::env::var("POLIS_JOBS_TEST_PYTHON").unwrap_or_else(|_| "python3".into()),
+        ),
+    ]
+}
+
+#[test]
+fn a_let_go_whose_cancel_raced_a_claim_then_a_lost_state_file_is_an_error_line_and_admitted_again()
+{
+    // A graph nothing claimed for ten minutes is let go; an executor's claim
+    // lands after the read that found no attempt and before the cancel,
+    // which wins. Then the state file is lost. The conversation's snapshot
+    // is unchanged, so its admission key is the cancelled graph's own: it
+    // must not be answered with that graph, counted failed and skipped for
+    // good with no line saying so.
+    let f = Fixture::new();
+    f.quiet(1101, 25, 1);
+    graph_catalog(&f);
+    let list = ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1101");
+    let cfg = graph_config(&f, &[list]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    claim_races_the_let_go(&f, Race::CancelWins);
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert_eq!(graph_states(&f, &flight), ["cancelled"; 4]);
+    assert_eq!(attempts_of(&f, &flight), 1, "the racing claim's attempt");
+    confirm_raced_exit(&f);
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(unclaimed(&s, &flight.env)["count"], 1);
+    drop(s);
+    lose_state_file(&cfg);
+    // The scheduler as its container runs it, from no state file.
+    let env = graph_binary_env(&f, list);
+    let env: Vec<(&str, &str)> = env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let (lines, errors) = scheduler_output(
+        &f,
+        &env,
+        |lines| lines.iter().any(|l| l["event"] == "graph_admission_held"),
+        Duration::from_secs(60),
+    );
+    let found: Vec<&Value> = lines
+        .iter()
+        .filter(|l| l["event"] == "graph_unclaimed")
+        .collect();
+    assert_eq!(found.len(), 1, "{lines:?}");
+    assert_eq!(found[0]["graph_id"], flight.graph_id.as_str());
+    assert_eq!(found[0]["reason"], "cancelled_after_claim");
+    assert_eq!(found[0]["let_go"], 1);
+    assert_eq!(found[0]["hold_seconds"], 3600);
+    assert!(
+        !lines.iter().any(|l| l["event"] == "graph_admitted"),
+        "{lines:?}"
+    );
+    let held: Vec<&Value> = lines
+        .iter()
+        .filter(|l| l["event"] == "graph_admission_held")
+        .collect();
+    assert_eq!(held.len(), 1, "{lines:?}");
+    assert_eq!(held[0]["reason"], "graph_unclaimed");
+    assert_eq!(held[0]["graph_ids"], serde_json::json!([flight.graph_id]));
+    // Loud: one line beginning `Error:` names the conversation by its code
+    // in the graph list, the graph and the reason.
+    let error_lines: Vec<&String> = errors.iter().filter(|l| l.starts_with("Error:")).collect();
+    assert_eq!(error_lines.len(), 1, "{errors:?}");
+    for part in [
+        "conversation c1101",
+        flight.graph_id.as_str(),
+        "cancelled_after_claim",
+        "let_go 1",
+        "hold_seconds 3600",
+    ] {
+        assert!(error_lines[0].contains(part), "{part}: {}", error_lines[0]);
+    }
+    // Not permanent: the state file the scheduler wrote keeps the hold and
+    // the graph, and when the hold ends the conversation is admitted again
+    // as a new graph of the same snapshot.
+    let mut s = Scheduler::new(&cfg).unwrap();
+    let held = unclaimed(&s, &flight.env);
+    assert_eq!(held["count"], 1, "{held}");
+    assert_eq!(held["graphs"]["1101"]["graph_id"], flight.graph_id.as_str());
+    assert_forgotten(&s, 1101);
+    age_hold(&mut s, &flight.env, 3_540_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none(), "an hour, not less");
+    age_hold(&mut s, &flight.env, 61_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let again = s.state.graph_flight.clone().expect("admitted again");
+    assert_ne!(again.graph_id, flight.graph_id);
+    assert_eq!(again.digest, flight.digest);
+    assert_eq!(graph_states(&f, &again), ["queued"; 4]);
+    assert_eq!(graphs_of(&f, &flight.env, 1101), 2);
 }

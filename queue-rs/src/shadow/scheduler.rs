@@ -19,6 +19,11 @@
 //! code or a conversation id (the run record has the id). Every line about a
 //! run names its set (`"set"`: `benchmark`, `featured` or `current`; a twin,
 //! its first run's), as its run record does (`config_effective.shadow.set`).
+//! One kind of line goes to standard error instead, beginning `Error:`: a
+//! graph of a listed conversation found cancelled after a claim with no
+//! record of its let-go (`graph`). It names that conversation by its code in
+//! `DELPHI_SHADOW_GRAPH_CONVERSATIONS`, which may list only conversations
+//! whose comments are already public.
 use super::{
     config::{Config, Share},
     db::{Db, Live, Signals},
